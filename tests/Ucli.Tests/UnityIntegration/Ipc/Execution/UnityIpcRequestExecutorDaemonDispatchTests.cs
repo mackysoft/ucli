@@ -162,7 +162,7 @@ public sealed class UnityIpcRequestExecutorDaemonDispatchTests
             oneshotTransportClient,
             launcher,
             UnityIpcMethod.TestRun);
-        Assert.Equal(ContractLiteralCodec.ToValue(IpcResponseMode.Stream), request.ResponseMode);
+        Assert.Equal(TextVocabulary.GetText(IpcResponseMode.Stream), request.ResponseMode);
         var progressFrame = Assert.Single(progressFrames);
         Assert.Equal("test.progress", progressFrame.Event);
         Assert.Equal(JsonValueKind.Object, progressFrame.Payload.ValueKind);

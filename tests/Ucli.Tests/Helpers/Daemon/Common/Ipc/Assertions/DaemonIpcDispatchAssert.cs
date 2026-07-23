@@ -67,9 +67,9 @@ internal static class DaemonIpcDispatchAssert
     {
         var request = Assert.Single(transportClient.StreamingRequests);
         Assert.Same(request, Assert.Single(transportClient.Requests));
-        Assert.Equal(ContractLiteralCodec.ToValue(expectedMethod), request.Method);
+        Assert.Equal(TextVocabulary.GetText(expectedMethod), request.Method);
         Assert.Equal(expectedSessionToken, request.SessionToken);
-        Assert.Equal(ContractLiteralCodec.ToValue(IpcResponseMode.Stream), request.ResponseMode);
+        Assert.Equal(TextVocabulary.GetText(IpcResponseMode.Stream), request.ResponseMode);
         return request;
     }
 
@@ -78,7 +78,7 @@ internal static class DaemonIpcDispatchAssert
         UnityIpcMethod expectedMethod)
     {
         var request = Assert.Single(transportClient.Requests);
-        Assert.Equal(ContractLiteralCodec.ToValue(expectedMethod), request.Method);
+        Assert.Equal(TextVocabulary.GetText(expectedMethod), request.Method);
         return request;
     }
 
@@ -88,8 +88,8 @@ internal static class DaemonIpcDispatchAssert
     {
         var request = Assert.Single(transportClient.StreamingRequests);
         Assert.Same(request, Assert.Single(transportClient.Requests));
-        Assert.Equal(ContractLiteralCodec.ToValue(expectedMethod), request.Method);
-        Assert.Equal(ContractLiteralCodec.ToValue(IpcResponseMode.Stream), request.ResponseMode);
+        Assert.Equal(TextVocabulary.GetText(expectedMethod), request.Method);
+        Assert.Equal(TextVocabulary.GetText(IpcResponseMode.Stream), request.ResponseMode);
         return request;
     }
 
@@ -115,7 +115,7 @@ internal static class DaemonIpcDispatchAssert
         IpcRequestAssert.SessionTokens(requests, firstSessionToken, recoveredSessionToken);
         Assert.All(
             requests,
-            request => Assert.Equal(ContractLiteralCodec.ToValue(IpcResponseMode.Stream), request.ResponseMode));
+            request => Assert.Equal(TextVocabulary.GetText(IpcResponseMode.Stream), request.ResponseMode));
         return requests;
     }
 
@@ -125,7 +125,7 @@ internal static class DaemonIpcDispatchAssert
         int maximumAttempts = int.MaxValue)
     {
         var requests = IpcRequestAssert.RetriedAtLeastOnce(transportClient, maximumAttempts);
-        Assert.All(requests, request => Assert.Equal(ContractLiteralCodec.ToValue(expectedMethod), request.Method));
+        Assert.All(requests, request => Assert.Equal(TextVocabulary.GetText(expectedMethod), request.Method));
         IpcRequestAssert.SingleRequestId(requests);
         return requests;
     }

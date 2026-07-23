@@ -3,7 +3,6 @@ using System.Text.Json;
 using MackySoft.Ucli.Application.Features.Testing.Run.Artifacts;
 using MackySoft.Ucli.Application.Features.Testing.Run.Configuration;
 using MackySoft.Ucli.Contracts.Testing;
-using MackySoft.Ucli.Shared.Execution.UnityExecutionMode;
 
 namespace MackySoft.Ucli.Features.Testing.Run.Artifacts;
 
@@ -41,7 +40,7 @@ internal sealed class TestRunMetaStore : ITestRunMetaStore
             ProjectPath: configuration.UnityProject.UnityProjectRoot,
             UnityVersion: configuration.UnityVersion,
             UnityEditorPath: configuration.UnityEditorPath,
-            Mode: UnityExecutionModeCodec.ToValue(configuration.Mode),
+            Mode: TextVocabulary.GetText(configuration.Mode),
             TestPlatform: TestRunPlatformCodec.ToValue(configuration.TestPlatform),
             TestFilter: configuration.TestFilter,
             TestCategories: configuration.TestCategories,

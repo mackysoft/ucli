@@ -1,6 +1,8 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.Text.Vocabularies;
+using TextVocabulary = MackySoft.Text.Vocabularies.Vocabulary;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
@@ -95,7 +97,7 @@ namespace MackySoft.Ucli.Unity.Runtime
             this.lifecycleMonitor = lifecycleMonitor ?? throw new ArgumentNullException(nameof(lifecycleMonitor));
             this.isPlayModeMutationActiveProvider = isPlayModeMutationActiveProvider ?? throw new ArgumentNullException(nameof(isPlayModeMutationActiveProvider));
             this.mutationExecutionState = mutationExecutionState ?? throw new ArgumentNullException(nameof(mutationExecutionState));
-            _ = ContractLiteralCodec.ToValue(editorMode);
+            _ = TextVocabulary.GetText(editorMode);
             this.editorMode = editorMode;
             this.beforeAssemblyReloadSubscriber = beforeAssemblyReloadSubscriber ?? throw new ArgumentNullException(nameof(beforeAssemblyReloadSubscriber));
             this.beforeAssemblyReloadUnsubscriber = beforeAssemblyReloadUnsubscriber ?? throw new ArgumentNullException(nameof(beforeAssemblyReloadUnsubscriber));

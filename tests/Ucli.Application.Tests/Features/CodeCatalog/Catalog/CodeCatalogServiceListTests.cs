@@ -31,7 +31,7 @@ public sealed class CodeCatalogServiceListTests
         var service = CodeCatalogTestSupport.CreateService();
 
         var result = service.List(new CodeCatalogListInput(
-            Kind: ContractLiteralCodec.ToValue(CodeCatalogKind.Error),
+            Kind: TextVocabulary.GetText(CodeCatalogKind.Error),
             Command: null));
 
         Assert.True(result.IsSuccess);
@@ -75,7 +75,7 @@ public sealed class CodeCatalogServiceListTests
         var service = CodeCatalogTestSupport.CreateService();
 
         var result = service.List(new CodeCatalogListInput(
-            Kind: ContractLiteralCodec.ToValue(CodeCatalogKind.Error),
+            Kind: TextVocabulary.GetText(CodeCatalogKind.Error),
             Command: UcliCommandIds.Eval.Name));
 
         Assert.True(result.IsSuccess);
@@ -97,7 +97,7 @@ public sealed class CodeCatalogServiceListTests
         var service = CodeCatalogTestSupport.CreateService();
 
         var result = service.List(new CodeCatalogListInput(
-            Kind: ContractLiteralCodec.ToValue(CodeCatalogKind.Error),
+            Kind: TextVocabulary.GetText(CodeCatalogKind.Error),
             Command: "play"));
 
         Assert.True(result.IsSuccess);

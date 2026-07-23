@@ -29,7 +29,7 @@ public sealed class BuildRunCliOutputSemanticContractTests
         var payload = root.GetProperty("payload");
 
         Assert.Equal(
-            ContractLiteralCodec.ToValue(CommandResultStatus.Ok),
+            TextVocabulary.GetText(CommandResultStatus.Ok),
             root.GetProperty("status").GetString());
         Assert.Equal(1, root.GetProperty("exitCode").GetInt32());
         Assert.Equal("fail", payload.GetProperty("verdict").GetString());
@@ -50,7 +50,7 @@ public sealed class BuildRunCliOutputSemanticContractTests
         var dirtyItem = dirtyState.GetProperty("items")[0];
 
         Assert.Equal(
-            ContractLiteralCodec.ToValue(CommandResultStatus.Error),
+            TextVocabulary.GetText(CommandResultStatus.Error),
             root.GetProperty("status").GetString());
         Assert.Equal(BuildErrorCodes.BuildDirtyStatePresent.Value, root.GetProperty("errors")[0].GetProperty("code").GetString());
         Assert.False(dirtyState.TryGetProperty("checked", out _));

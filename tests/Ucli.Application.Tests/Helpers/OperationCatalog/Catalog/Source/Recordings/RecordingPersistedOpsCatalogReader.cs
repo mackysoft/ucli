@@ -94,8 +94,8 @@ internal sealed class RecordingPersistedOpsCatalogReader : IPersistedOpsCatalogR
         var entries = snapshot.Operations
             .Select(static (operation, index) => new IndexOpsCatalogEntryJsonContract(
                 operation.Name,
-                ContractLiteralCodec.ToValue(operation.Kind),
-                ContractLiteralCodec.ToValue(operation.Policy),
+                TextVocabulary.GetText(operation.Kind),
+                TextVocabulary.GetText(operation.Policy),
                 operation.Description,
                 CreateHash(index),
                 CreateHash(index + 8)))

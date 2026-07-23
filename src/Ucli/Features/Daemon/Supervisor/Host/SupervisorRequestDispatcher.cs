@@ -173,7 +173,7 @@ internal sealed class SupervisorRequestDispatcher
             return SupervisorIpcResponseFactory.CreateErrorResponse(
                 request,
                 UcliCoreErrorCodes.InvalidArgument,
-                $"Supervisor IPC responseMode 'stream' is only supported for {ContractLiteralCodec.ToValue(SupervisorIpcMethod.EnsureRunning)}.");
+                $"Supervisor IPC responseMode 'stream' is only supported for {TextVocabulary.GetText(SupervisorIpcMethod.EnsureRunning)}.");
         }
 
         if (requestDeadline is null
@@ -424,7 +424,7 @@ internal sealed class SupervisorRequestDispatcher
         IpcRequestEnvelope request,
         SupervisorRuntimeContext runtimeContext)
     {
-        var hasResponseMode = ContractLiteralCodec.TryParse(
+        var hasResponseMode = TextVocabulary.TryGetValue(
             request.ResponseMode,
             out IpcResponseMode responseMode);
         var errorResponseMode = hasResponseMode
@@ -472,7 +472,7 @@ internal sealed class SupervisorRequestDispatcher
                 IpcResponseMode.Single);
         }
 
-        if (!ContractLiteralCodec.TryParse(request.Method, out SupervisorIpcMethod method))
+        if (!TextVocabulary.TryGetValue(request.Method, out SupervisorIpcMethod method))
         {
             return SupervisorIpcRequestValidationResult.Failure(
                 SupervisorIpcResponseFactory.CreateErrorResponse(

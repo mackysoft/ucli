@@ -77,7 +77,7 @@ internal static class DaemonGuiEndpointNotRegisteredFailureFactory
 
         return ExecutionError.Timeout(
             $"Timed out while waiting for {endpointOwnerDescription} endpoint registration. " +
-            $"reason={ContractLiteralCodec.ToValue(DaemonDiagnosisReason.GuiEndpointNotRegistered)} " +
+            $"reason={TextVocabulary.GetText(DaemonDiagnosisReason.GuiEndpointNotRegistered)} " +
             $"processId={processId}. " +
             waitError.Message,
             ExecutionErrorCodes.IpcTimeout);

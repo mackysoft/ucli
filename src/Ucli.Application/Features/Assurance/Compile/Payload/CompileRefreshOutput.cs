@@ -1,4 +1,3 @@
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Features.Assurance.Compile.Payload;
 
@@ -12,7 +11,7 @@ internal sealed record CompileRefreshOutput
         DateTimeOffset? CompletedAtUtc,
         bool Completed)
     {
-        if (!ContractLiteralCodec.IsDefined(Origin))
+        if (!TextVocabulary.IsDefined(Origin))
         {
             throw new ArgumentOutOfRangeException(nameof(Origin), Origin, "Unsupported compile refresh origin.");
         }

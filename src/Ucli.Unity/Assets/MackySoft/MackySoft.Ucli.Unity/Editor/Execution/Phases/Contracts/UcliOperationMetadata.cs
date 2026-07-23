@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Text.Json;
+using MackySoft.Text.Vocabularies;
+using TextVocabulary = MackySoft.Text.Vocabularies.Vocabulary;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
@@ -84,7 +86,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 throw new ArgumentNullException(nameof(describeContract));
             }
 
-            if (!ContractLiteralCodec.IsDefined(playModeSupport))
+            if (!TextVocabulary.IsDefined(playModeSupport))
             {
                 throw new ArgumentOutOfRangeException(nameof(playModeSupport), playModeSupport, "Operation Play Mode support must be a defined value.");
             }
@@ -224,7 +226,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         {
             if (!UcliOperationDescribeContractValidator.TryValidateRegisteredOperationDescribeContractAndDerivePolicy(
                     describeContract,
-                    ContractLiteralCodec.ToValue(kind),
+                    TextVocabulary.GetText(kind),
                     $"Describe contract for operation '{operationName}'",
                     exposure,
                     out var policy,

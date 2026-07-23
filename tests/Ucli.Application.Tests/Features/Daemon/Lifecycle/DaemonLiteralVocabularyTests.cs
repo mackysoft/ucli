@@ -15,21 +15,21 @@ public sealed class DaemonLiteralVocabularyTests
             Enum.GetNames<DaemonStatusKind>());
         Assert.Equal(
             ["running", "notRunning", "stale"],
-            ContractLiteralCodec.GetLiterals<DaemonStatusKind>());
+            TextVocabulary.GetTexts<DaemonStatusKind>());
 
         Assert.Equal(
             [nameof(DaemonStopStatus.Stopped), nameof(DaemonStopStatus.NotRunning)],
             Enum.GetNames<DaemonStopStatus>());
         Assert.Equal(
             ["stopped", "notRunning"],
-            ContractLiteralCodec.GetLiterals<DaemonStopStatus>());
+            TextVocabulary.GetTexts<DaemonStopStatus>());
 
         Assert.Equal(
             [nameof(DaemonCleanupStatus.Completed), nameof(DaemonCleanupStatus.Skipped)],
             Enum.GetNames<DaemonCleanupStatus>());
         Assert.Equal(
             ["completed", "skipped"],
-            ContractLiteralCodec.GetLiterals<DaemonCleanupStatus>());
+            TextVocabulary.GetTexts<DaemonCleanupStatus>());
 
         Assert.Equal(
             [
@@ -40,6 +40,6 @@ public sealed class DaemonLiteralVocabularyTests
             Enum.GetNames<DaemonCleanupSkipReason>());
         Assert.Equal(
             ["running", "unsafeInvalidSession", "uncertainReachability"],
-            ContractLiteralCodec.GetLiterals<DaemonCleanupSkipReason>());
+            TextVocabulary.GetTexts<DaemonCleanupSkipReason>());
     }
 }

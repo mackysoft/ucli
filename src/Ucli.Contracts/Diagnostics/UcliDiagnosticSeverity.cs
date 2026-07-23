@@ -1,19 +1,19 @@
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts;
 
 /// <summary> Identifies the severity of a structured uCLI diagnostic. </summary>
+[VocabularyDefinition]
 public enum UcliDiagnosticSeverity
 {
     /// <summary> Indicates an informational diagnostic. </summary>
-    [UcliContractLiteral("info")]
+    [VocabularyText("info")]
     Info = 1,
 
     /// <summary> Indicates a warning diagnostic. </summary>
-    [UcliContractLiteral("warning")]
+    [VocabularyText("warning")]
     Warning = 2,
 
     /// <summary> Indicates an error diagnostic. </summary>
-    [UcliContractLiteral("error")]
+    [VocabularyText("error")]
     Error = 3,
 }

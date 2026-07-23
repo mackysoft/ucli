@@ -10,7 +10,7 @@ internal static class BuildOutputManifestJsonContractTestSupport
     {
         var targetElement = root.GetProperty("target");
         var stableNameLiteral = targetElement.GetProperty("stableName").GetString();
-        if (!ContractLiteralCodec.TryParse<BuildTargetStableName>(stableNameLiteral, out var stableName))
+        if (!TextVocabulary.TryGetValue<BuildTargetStableName>(stableNameLiteral, out var stableName))
         {
             throw new InvalidDataException($"Unsupported build target stable name: {stableNameLiteral}.");
         }

@@ -14,11 +14,11 @@ public sealed record VerifyDiagnosticEntry
         UcliDiagnosticSeverity Severity,
         VerifyStepKind? StepKind)
     {
-        if (!ContractLiteralCodec.IsDefined(Severity))
+        if (!TextVocabulary.IsDefined(Severity))
         {
             throw new ArgumentOutOfRangeException(nameof(Severity), Severity, "Diagnostic severity must be defined.");
         }
-        if (StepKind.HasValue && !ContractLiteralCodec.IsDefined(StepKind.Value))
+        if (StepKind.HasValue && !TextVocabulary.IsDefined(StepKind.Value))
         {
             throw new ArgumentOutOfRangeException(nameof(StepKind), StepKind, "Verify step kind must be defined when present.");
         }

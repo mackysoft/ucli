@@ -111,7 +111,7 @@ internal sealed class LogsDaemonReadCommand
             "logs.daemon.entry",
             new JsonLinePayload(
                 Timestamp: daemonLogEvent.Timestamp.ToString("O", CultureInfo.InvariantCulture),
-                Level: ContractLiteralCodec.ToValue(daemonLogEvent.Level),
+                Level: TextVocabulary.GetText(daemonLogEvent.Level),
                 Category: daemonLogEvent.Category,
                 Message: daemonLogEvent.Message,
                 Raw: daemonLogEvent.Raw,

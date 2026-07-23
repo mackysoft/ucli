@@ -68,7 +68,7 @@ public sealed class CallCommandResultFactoryTests
         var root = json.RootElement;
         JsonAssert.For(root)
             .HasString("command", UcliCommandNames.Call)
-            .HasString("status", ContractLiteralCodec.ToValue(CommandResultStatus.Error))
+            .HasString("status", TextVocabulary.GetText(CommandResultStatus.Error))
             .HasProperty("payload", payload => payload
                 .HasProperty("startup", startup => startup
                     .HasString("startupStatus", "blocked")
@@ -104,7 +104,7 @@ public sealed class CallCommandResultFactoryTests
             .HasProperty("readPostcondition", readPostconditionElement => readPostconditionElement
                 .HasArrayLength("requirements", 1)
                 .HasProperty("requirements", 0, requirement => requirement
-                    .HasString("surface", ContractLiteralCodec.ToValue(IpcExecuteReadPostconditionSurface.SceneTreeLite))
+                    .HasString("surface", TextVocabulary.GetText(IpcExecuteReadPostconditionSurface.SceneTreeLite))
                     .HasString("scenePath", "Assets/Scenes/Main.unity")));
         Assert.False(payload.GetProperty("plan").TryGetProperty("readPostcondition", out _));
     }

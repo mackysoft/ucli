@@ -1,16 +1,16 @@
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 
 /// <summary> Identifies one daemon-list item observation state. </summary>
+[VocabularyDefinition]
 internal enum DaemonListItemState
 {
-    [UcliContractLiteral("running")]
+    [VocabularyText("running")]
     Running,
 
-    [UcliContractLiteral("stale")]
+    [VocabularyText("stale")]
     Stale,
 
-    [UcliContractLiteral("error")]
+    [VocabularyText("error")]
     Error,
 }

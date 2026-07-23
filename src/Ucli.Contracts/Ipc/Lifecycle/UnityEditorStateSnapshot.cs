@@ -21,12 +21,12 @@ public sealed record UnityEditorStateSnapshot
         IpcUnityGenerationSnapshot generations,
         IpcPlayModeSnapshot playMode)
     {
-        if (!ContractLiteralCodec.IsDefined(editorMode))
+        if (!TextVocabulary.IsDefined(editorMode))
         {
             throw new ArgumentOutOfRangeException(nameof(editorMode), editorMode, "Unsupported Editor mode.");
         }
 
-        if (!ContractLiteralCodec.IsDefined(lifecycleState))
+        if (!TextVocabulary.IsDefined(lifecycleState))
         {
             throw new ArgumentOutOfRangeException(
                 nameof(lifecycleState),
@@ -34,7 +34,7 @@ public sealed record UnityEditorStateSnapshot
                 "Unsupported lifecycle state.");
         }
 
-        if (!ContractLiteralCodec.IsDefined(compileState))
+        if (!TextVocabulary.IsDefined(compileState))
         {
             throw new ArgumentOutOfRangeException(nameof(compileState), compileState, "Unsupported compile state.");
         }

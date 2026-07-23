@@ -20,7 +20,7 @@ internal sealed record BuildExecutionOutput
         IReadOnlyDictionary<BuildArtifactKind, AssuranceReportReference> Reports,
         IReadOnlyList<BuildResidualRiskOutput> ResidualRisks)
     {
-        if (!ContractLiteralCodec.IsDefined(Verdict))
+        if (!TextVocabulary.IsDefined(Verdict))
         {
             throw new ArgumentOutOfRangeException(nameof(Verdict), Verdict, "Verdict must be defined by the assurance contract.");
         }
@@ -39,7 +39,7 @@ internal sealed record BuildExecutionOutput
             throw new ArgumentException("Claims must not contain null.", nameof(Claims));
         }
 
-        if (Reports.Any(static item => !ContractLiteralCodec.IsDefined(item.Key) || item.Value is null))
+        if (Reports.Any(static item => !TextVocabulary.IsDefined(item.Key) || item.Value is null))
         {
             throw new ArgumentException("Reports must contain defined artifact keys and non-null references.", nameof(Reports));
         }

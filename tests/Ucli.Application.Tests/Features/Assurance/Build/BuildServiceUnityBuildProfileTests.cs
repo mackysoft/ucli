@@ -66,7 +66,7 @@ public sealed class BuildServiceUnityBuildProfileTests
         Assert.NotNull(artifactStore.WrittenMetadata);
         var metadataInput = artifactStore.WrittenMetadata!.Inputs;
         Assert.Equal(
-            ContractLiteralCodec.ToValue(BuildProfileInputsKind.UnityBuildProfile),
+            TextVocabulary.GetText(BuildProfileInputsKind.UnityBuildProfile),
             metadataInput.GetProperty("inputKind").GetString());
         var metadataUnityBuildProfile = metadataInput.GetProperty("unityBuildProfile");
         Assert.Equal(unityBuildProfilePath, metadataUnityBuildProfile.GetProperty("path").GetString());

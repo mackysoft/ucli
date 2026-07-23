@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.Text.Vocabularies;
+using TextVocabulary = MackySoft.Text.Vocabularies.Vocabulary;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
@@ -760,7 +762,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     throw new ArgumentException($"methodHandlers[{i}] must not be null.", nameof(methodHandlers));
                 }
 
-                if (!ContractLiteralCodec.IsDefined(methodHandler.Method))
+                if (!TextVocabulary.IsDefined(methodHandler.Method))
                 {
                     throw new ArgumentException($"methodHandlers[{i}] returned an undefined Unity IPC method.", nameof(methodHandlers));
                 }

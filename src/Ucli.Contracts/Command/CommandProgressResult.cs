@@ -1,15 +1,15 @@
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts;
 
 /// <summary> Defines canonical result literals used by command progress entries. </summary>
+[VocabularyDefinition]
 public enum CommandProgressResult
 {
     /// <summary> The observed progress step succeeded. </summary>
-    [UcliContractLiteral("succeeded")]
+    [VocabularyText("succeeded")]
     Succeeded = 0,
 
     /// <summary> The observed progress step failed. </summary>
-    [UcliContractLiteral("failed")]
+    [VocabularyText("failed")]
     Failed = 1,
 }

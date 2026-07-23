@@ -37,11 +37,11 @@ public sealed class CompileCliOutputContractTests
 
         Assert.True(result.IsValid);
         Assert.Equal(
-            ContractLiteralCodec.ToValue(CommandResultStatus.Ok),
+            TextVocabulary.GetText(CommandResultStatus.Ok),
             root.GetProperty("status").GetString());
         Assert.Equal(1, root.GetProperty("exitCode").GetInt32());
         Assert.Equal(
-            ContractLiteralCodec.ToValue(AssuranceVerdict.Fail),
+            TextVocabulary.GetText(AssuranceVerdict.Fail),
             payload.GetProperty("verdict").GetString());
         Assert.Equal(1, payload
             .GetProperty("compile")

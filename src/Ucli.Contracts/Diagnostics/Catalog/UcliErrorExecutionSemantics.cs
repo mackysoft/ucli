@@ -14,7 +14,7 @@ public sealed record UcliErrorExecutionSemantics
         bool MayBeIndeterminate,
         UcliErrorRetryClass SafeToRetry)
     {
-        if (!ContractLiteralCodec.IsDefined(SafeToRetry))
+        if (!TextVocabulary.IsDefined(SafeToRetry))
         {
             throw new ArgumentOutOfRangeException(nameof(SafeToRetry), SafeToRetry, "Retry classification must be defined by the error contract.");
         }

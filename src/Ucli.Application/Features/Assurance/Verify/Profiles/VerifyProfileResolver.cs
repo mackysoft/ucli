@@ -138,7 +138,7 @@ internal static class VerifyProfileResolver
         if (duplicateStepKind != null)
         {
             return InvalidProfile(
-                $"Verify profile contains duplicate step kind '{ContractLiteralCodec.ToValue(duplicateStepKind.Key)}'.");
+                $"Verify profile contains duplicate step kind '{TextVocabulary.GetText(duplicateStepKind.Key)}'.");
         }
 
         return VerifyProfileResolutionResult.Success(new VerifyProfileDefinition(
@@ -162,7 +162,7 @@ internal static class VerifyProfileResolver
             return VerifyProfileStepReadResult.Failure(InvalidProfileError($"Verify profile steps[{index}].kind is required."));
         }
 
-        if (!ContractLiteralCodec.TryParse(kindValue, out VerifyStepKind kind))
+        if (!TextVocabulary.TryGetValue(kindValue, out VerifyStepKind kind))
         {
             return VerifyProfileStepReadResult.Failure(InvalidProfileError($"Verify profile step kind is unsupported: {kindValue}."));
         }
@@ -231,7 +231,7 @@ internal static class VerifyProfileResolver
         {
             if (targetElement.ValueKind != JsonValueKind.String
                 || targetElement.GetString() is not { } targetValue
-                || !ContractLiteralInputParser.TryParseIgnoreCase(targetValue, out readyTarget))
+                || !VocabularyInputParser.TryParseIgnoreCase(targetValue, out readyTarget))
             {
                 return VerifyProfileStepReadResult.Failure(InvalidProfileError(
                     $"Verify profile steps[{index}].target is invalid."));
@@ -318,7 +318,7 @@ internal static class VerifyProfileResolver
         foreach (var effectElement in effectsElement.EnumerateArray())
         {
             if (effectElement.ValueKind != JsonValueKind.String
-                || !ContractLiteralCodec.TryParse(effectElement.GetString(), out AssuranceEffect effect)
+                || !TextVocabulary.TryGetValue(effectElement.GetString(), out AssuranceEffect effect)
                 || effect != expectedEffects[index])
             {
                 return false;

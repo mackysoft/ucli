@@ -28,7 +28,7 @@ public sealed class SupervisorRequestDispatcherEnsureRunningTests
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: Guid.NewGuid(),
                 sessionToken: runtimeContext.Manifest.SessionToken.GetEncodedValue(),
-                method: ContractLiteralCodec.ToValue(SupervisorIpcMethod.EnsureRunning),
+                method: TextVocabulary.GetText(SupervisorIpcMethod.EnsureRunning),
                 payload: IpcPayloadCodec.SerializeToElement(new
                 {
                     UnityProjectRoot = unityProjectRoot,
@@ -36,7 +36,7 @@ public sealed class SupervisorRequestDispatcherEnsureRunningTests
                     EditorMode = (string?)null,
                     OnStartupBlocked = "auto",
                 }),
-                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single),
+                responseMode: TextVocabulary.GetText(IpcResponseMode.Single),
                 requestDeadlineUtc: deadlineUtc,
                 requestDeadlineRemainingMilliseconds: 800));
 
@@ -67,14 +67,14 @@ public sealed class SupervisorRequestDispatcherEnsureRunningTests
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: Guid.NewGuid(),
                 sessionToken: runtimeContext.Manifest.SessionToken.GetEncodedValue(),
-                method: ContractLiteralCodec.ToValue(SupervisorIpcMethod.EnsureRunning),
+                method: TextVocabulary.GetText(SupervisorIpcMethod.EnsureRunning),
                 payload: IpcPayloadCodec.SerializeToElement(
                     new SupervisorIpcContracts.EnsureRunningRequest(
                         UnityProjectRoot: unityProjectRoot,
                         ProjectFingerprint: projectFingerprint,
                         EditorMode: null,
                         OnStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto)),
-                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single),
+                responseMode: TextVocabulary.GetText(IpcResponseMode.Single),
                 requestDeadlineUtc: deadlineUtc,
                 requestDeadlineRemainingMilliseconds: 700));
 
@@ -104,14 +104,14 @@ public sealed class SupervisorRequestDispatcherEnsureRunningTests
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: Guid.NewGuid(),
                 sessionToken: runtimeContext.Manifest.SessionToken.GetEncodedValue(),
-                method: ContractLiteralCodec.ToValue(SupervisorIpcMethod.EnsureRunning),
+                method: TextVocabulary.GetText(SupervisorIpcMethod.EnsureRunning),
                 payload: IpcPayloadCodec.SerializeToElement(
                     new SupervisorIpcContracts.EnsureRunningRequest(
                         UnityProjectRoot: unityProjectRoot,
                         ProjectFingerprint: projectFingerprint,
                         EditorMode: null,
                         OnStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto)),
-                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Stream),
+                responseMode: TextVocabulary.GetText(IpcResponseMode.Stream),
                 requestDeadlineUtc: timeProvider.GetUtcNow().AddSeconds(1),
                 requestDeadlineRemainingMilliseconds: 700));
 
@@ -141,14 +141,14 @@ public sealed class SupervisorRequestDispatcherEnsureRunningTests
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: Guid.NewGuid(),
                 sessionToken: runtimeContext.Manifest.SessionToken.GetEncodedValue(),
-                method: ContractLiteralCodec.ToValue(SupervisorIpcMethod.EnsureRunning),
+                method: TextVocabulary.GetText(SupervisorIpcMethod.EnsureRunning),
                 payload: IpcPayloadCodec.SerializeToElement(
                     new SupervisorIpcContracts.EnsureRunningRequest(
                         UnityProjectRoot: unityProjectRoot,
                         ProjectFingerprint: projectFingerprint,
                         EditorMode: null,
                         OnStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto)),
-                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single),
+                responseMode: TextVocabulary.GetText(IpcResponseMode.Single),
                 requestDeadlineUtc: deadlineUtc,
                 requestDeadlineRemainingMilliseconds: 700));
 
@@ -186,14 +186,14 @@ public sealed class SupervisorRequestDispatcherEnsureRunningTests
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: Guid.NewGuid(),
                 sessionToken: runtimeContext.Manifest.SessionToken.GetEncodedValue(),
-                method: ContractLiteralCodec.ToValue(SupervisorIpcMethod.EnsureRunning),
+                method: TextVocabulary.GetText(SupervisorIpcMethod.EnsureRunning),
                 payload: IpcPayloadCodec.SerializeToElement(
                     new SupervisorIpcContracts.EnsureRunningRequest(
                         UnityProjectRoot: unityProjectRoot,
                         ProjectFingerprint: projectFingerprint,
                         EditorMode: DaemonEditorMode.Gui,
                         OnStartupBlocked: DaemonStartupBlockedProcessPolicy.Terminate)),
-                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single),
+                responseMode: TextVocabulary.GetText(IpcResponseMode.Single),
                 requestDeadlineUtc: CreateEnsureRunningDeadline(1000),
                 requestDeadlineRemainingMilliseconds: 1000));
 
@@ -247,14 +247,14 @@ public sealed class SupervisorRequestDispatcherEnsureRunningTests
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: Guid.NewGuid(),
                 sessionToken: runtimeContext.Manifest.SessionToken.GetEncodedValue(),
-                method: ContractLiteralCodec.ToValue(SupervisorIpcMethod.EnsureRunning),
+                method: TextVocabulary.GetText(SupervisorIpcMethod.EnsureRunning),
                 payload: IpcPayloadCodec.SerializeToElement(
                     new SupervisorIpcContracts.EnsureRunningRequest(
                         UnityProjectRoot: unityProjectRoot,
                         ProjectFingerprint: projectFingerprint,
                         EditorMode: DaemonEditorMode.Gui,
                         OnStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto)),
-                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single),
+                responseMode: TextVocabulary.GetText(IpcResponseMode.Single),
                 requestDeadlineUtc: CreateEnsureRunningDeadline(1000),
                 requestDeadlineRemainingMilliseconds: 1000));
 

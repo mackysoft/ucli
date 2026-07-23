@@ -15,7 +15,7 @@ public sealed record CsEvalDiagnostic
         int? line,
         int? column)
     {
-        if (!ContractLiteralCodec.IsDefined(severity))
+        if (!TextVocabulary.IsDefined(severity))
         {
             throw new ArgumentOutOfRangeException(nameof(severity), severity, "C# eval diagnostic severity must be specified.");
         }

@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Text.Json;
 using System.Threading;
+using MackySoft.Text.Vocabularies;
+using TextVocabulary = MackySoft.Text.Vocabularies.Vocabulary;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.ContractReading;
@@ -280,7 +282,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
                     {
                         error = new ExecuteRequestNormalizationError(
                             PlayModeErrorCodes.PlayModePersistenceForbidden,
-                            $"Play Mode scene mutation does not allow action '{ContractLiteralCodec.ToValue(actionKind)}'.",
+                            $"Play Mode scene mutation does not allow action '{TextVocabulary.GetText(actionKind)}'.",
                             stepId);
                         return false;
                     }

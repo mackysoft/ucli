@@ -48,10 +48,10 @@ public sealed class VerifyCommandGoldenOutputTests
         CommandResultAssert.HasStandardEnvelope(
             outputJson.RootElement,
             UcliCommandNames.Verify,
-            ContractLiteralCodec.ToValue(CommandResultStatus.Ok),
+            TextVocabulary.GetText(CommandResultStatus.Ok),
             1);
         Assert.Equal(
-            ContractLiteralCodec.ToValue(verdict),
+            TextVocabulary.GetText(verdict),
             outputJson.RootElement.GetProperty("payload").GetProperty("verdict").GetString());
     }
 }

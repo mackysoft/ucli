@@ -31,12 +31,12 @@ public sealed record IpcPlayTransitionResult
         IpcUnityEditorObservation? Observed,
         IpcApplicationState? ApplicationState)
     {
-        if (!ContractLiteralCodec.IsDefined(Transition))
+        if (!TextVocabulary.IsDefined(Transition))
         {
             throw new ArgumentOutOfRangeException(nameof(Transition), Transition, "Play transition command must be specified.");
         }
 
-        if (!ContractLiteralCodec.IsDefined(Result))
+        if (!TextVocabulary.IsDefined(Result))
         {
             throw new ArgumentOutOfRangeException(nameof(Result), Result, "Play transition outcome must be specified.");
         }
@@ -89,7 +89,7 @@ public sealed record IpcPlayTransitionResult
                 throw new ArgumentException("Failed Play transition must specify an application state.", nameof(ApplicationState));
             }
 
-            if (!ContractLiteralCodec.IsDefined(ApplicationState.Value))
+            if (!TextVocabulary.IsDefined(ApplicationState.Value))
             {
                 throw new ArgumentOutOfRangeException(nameof(ApplicationState), ApplicationState, "Failed Play transition must specify an application state.");
             }

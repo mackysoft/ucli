@@ -12,8 +12,8 @@ public sealed class AssuranceVerifierContractTests
     {
         Assert.Equal(
             ["ready", "compile", "build", "postRead", "test", "logs"],
-            ContractLiteralCodec.GetLiterals<AssuranceVerifierKind>());
-        Assert.False(ContractLiteralCodec.IsDefined(default(AssuranceVerifierKind)));
+            TextVocabulary.GetTexts<AssuranceVerifierKind>());
+        Assert.False(TextVocabulary.IsDefined(default(AssuranceVerifierKind)));
     }
 
     [Fact]
@@ -36,7 +36,7 @@ public sealed class AssuranceVerifierContractTests
                 "projectMutationAudit",
                 "unityExecuteMethod",
             ],
-            ContractLiteralCodec.GetLiterals<AssuranceEffect>());
+            TextVocabulary.GetTexts<AssuranceEffect>());
     }
 
     [Fact]

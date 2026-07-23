@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using MackySoft.Text.Vocabularies;
+using TextVocabulary = MackySoft.Text.Vocabularies.Vocabulary;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -58,14 +60,14 @@ namespace MackySoft.Ucli.Unity.Execution
                     var describeContract = registration.Metadata.DescribeContract;
                     return new IndexOpEntryJsonContract(
                         Name: registration.Metadata.OperationName,
-                        Kind: ContractLiteralCodec.ToValue(registration.Metadata.Kind),
-                        Policy: ContractLiteralCodec.ToValue(registration.Metadata.Policy),
+                        Kind: TextVocabulary.GetText(registration.Metadata.Kind),
+                        Policy: TextVocabulary.GetText(registration.Metadata.Policy),
                         ArgsSchemaJson: registration.Metadata.ArgsSchemaJson,
                         ResultSchemaJson: registration.Metadata.ResultSchemaJson,
                         Exposure: registration.Metadata.Exposure == UcliOperationExposure.Public
                             ? null
-                            : ContractLiteralCodec.ToValue(registration.Metadata.Exposure),
-                        PlayModeSupport: ContractLiteralCodec.ToValue(registration.Metadata.PlayModeSupport))
+                            : TextVocabulary.GetText(registration.Metadata.Exposure),
+                        PlayModeSupport: TextVocabulary.GetText(registration.Metadata.PlayModeSupport))
                     {
                         Description = describeContract.Description,
                         Inputs = describeContract.Inputs,

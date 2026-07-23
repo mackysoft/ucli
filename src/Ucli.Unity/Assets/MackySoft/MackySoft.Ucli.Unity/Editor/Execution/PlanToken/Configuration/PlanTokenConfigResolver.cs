@@ -75,7 +75,7 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
         /// <returns> The resolved runtime mode. </returns>
         private static PlanTokenMode ResolveMode (string modeLiteral)
         {
-            if (ContractLiteralInputParser.TryParseIgnoreCase<PlanTokenMode>(modeLiteral, out var planTokenMode))
+            if (VocabularyInputParser.TryParseIgnoreCase<PlanTokenMode>(modeLiteral, out var planTokenMode))
             {
                 return planTokenMode;
             }

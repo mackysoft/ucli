@@ -383,7 +383,7 @@ internal sealed class SupervisorManifestStore
             throw new InvalidDataException($"Supervisor manifest sessionToken is invalid. {manifestPath}");
         }
 
-        if (!ContractLiteralCodec.TryParse<IpcTransportKind>(contract.EndpointTransportKind, out var transportKind))
+        if (!TextVocabulary.TryGetValue<IpcTransportKind>(contract.EndpointTransportKind, out var transportKind))
         {
             throw new InvalidDataException(
                 $"Supervisor manifest endpointTransportKind is invalid: {contract.EndpointTransportKind}. {manifestPath}");
@@ -428,7 +428,7 @@ internal sealed class SupervisorManifestStore
         var contract = new SupervisorInstanceManifestJsonContract(
             manifest.ProcessId,
             manifest.SessionToken.GetEncodedValue(),
-            ContractLiteralCodec.ToValue(manifest.Endpoint.TransportKind),
+            TextVocabulary.GetText(manifest.Endpoint.TransportKind),
             manifest.Endpoint.Address,
             manifest.IssuedAtUtc);
         var json = JsonSerializer.Serialize(contract, SerializerOptions) + Environment.NewLine;

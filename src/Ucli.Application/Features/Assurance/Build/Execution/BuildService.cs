@@ -173,7 +173,7 @@ internal sealed class BuildService : IBuildService
                 out outputLayout))
             {
                 return BuildExecutionResult.Failure(ExecutionError.InvalidArgument(
-                    $"BuildPipeline output layout could not be resolved for build target: {ContractLiteralCodec.ToValue(explicitInputs.BuildTarget)}.",
+                    $"BuildPipeline output layout could not be resolved for build target: {TextVocabulary.GetText(explicitInputs.BuildTarget)}.",
                     BuildErrorCodes.BuildInputsInvalid), project);
             }
 
@@ -532,7 +532,7 @@ internal sealed class BuildService : IBuildService
             ["ucli.build.profileDigest"] = profile.Digest.ToString(),
             ["project.path"] = projectPath,
             ["project.fingerprint"] = projectFingerprint.ToString(),
-            ["build.target"] = ContractLiteralCodec.ToValue(buildTarget),
+            ["build.target"] = TextVocabulary.GetText(buildTarget),
         };
     }
 
@@ -961,7 +961,7 @@ internal sealed class BuildService : IBuildService
         if (inputKind != expectedProfile.Inputs.Kind)
         {
             return ApplicationFailure.InternalError(
-                $"Unity build response input kind mismatch. Requested={ContractLiteralCodec.ToValue(expectedProfile.Inputs.Kind)}, Actual={response.Input.InputKind}.");
+                $"Unity build response input kind mismatch. Requested={TextVocabulary.GetText(expectedProfile.Inputs.Kind)}, Actual={response.Input.InputKind}.");
         }
 
         var buildTargetValidationFailure = ValidateResponseInputBuildTarget(response.Input);
@@ -1007,7 +1007,7 @@ internal sealed class BuildService : IBuildService
         {
             if (sceneSource != expectedExplicitInputs.Scenes.Source)
             {
-                var expectedSceneSource = ContractLiteralCodec.ToValue(expectedExplicitInputs.Scenes.Source);
+                var expectedSceneSource = TextVocabulary.GetText(expectedExplicitInputs.Scenes.Source);
                 return ApplicationFailure.InternalError(
                     $"Unity build response scene source mismatch. Requested={expectedSceneSource}, Actual={response.Input.SceneSource}.");
             }
@@ -1023,7 +1023,7 @@ internal sealed class BuildService : IBuildService
         else if (sceneSource != BuildProfileSceneSource.UnityBuildProfile)
         {
             return ApplicationFailure.InternalError(
-                $"Unity build response scene source mismatch. Requested={ContractLiteralCodec.ToValue(BuildProfileSceneSource.UnityBuildProfile)}, Actual={response.Input.SceneSource}.");
+                $"Unity build response scene source mismatch. Requested={TextVocabulary.GetText(BuildProfileSceneSource.UnityBuildProfile)}, Actual={response.Input.SceneSource}.");
         }
 
         IpcBuildReportResult? reportResult = null;
@@ -1069,7 +1069,7 @@ internal sealed class BuildService : IBuildService
         if (response.Logs.CompletionReason != expectedCompletionReason)
         {
             return ApplicationFailure.InternalError(
-                $"Unity build response log completionReason mismatch. Expected={ContractLiteralCodec.ToValue(expectedCompletionReason)}, Actual={response.Logs.CompletionReason}.");
+                $"Unity build response log completionReason mismatch. Expected={TextVocabulary.GetText(expectedCompletionReason)}, Actual={response.Logs.CompletionReason}.");
         }
 
         if (response.Input.Scenes.Count == 0)
@@ -1154,7 +1154,7 @@ internal sealed class BuildService : IBuildService
         if (response.Input.BuildTarget != expectedInputs.BuildTarget)
         {
             return ApplicationFailure.InternalError(
-                $"Unity build response buildTarget mismatch. Requested={ContractLiteralCodec.ToValue(expectedInputs.BuildTarget)}, Actual={response.Input.BuildTarget}.");
+                $"Unity build response buildTarget mismatch. Requested={TextVocabulary.GetText(expectedInputs.BuildTarget)}, Actual={response.Input.BuildTarget}.");
         }
 
         return null;
@@ -1171,7 +1171,7 @@ internal sealed class BuildService : IBuildService
         if (!string.Equals(expectedUnityBuildTarget, input.UnityBuildTarget, StringComparison.Ordinal))
         {
             return ApplicationFailure.InternalError(
-                $"Unity build response target mismatch. BuildTarget={ContractLiteralCodec.ToValue(input.BuildTarget)}, ExpectedUnityBuildTarget={expectedUnityBuildTarget}, ActualUnityBuildTarget={input.UnityBuildTarget}.");
+                $"Unity build response target mismatch. BuildTarget={TextVocabulary.GetText(input.BuildTarget)}, ExpectedUnityBuildTarget={expectedUnityBuildTarget}, ActualUnityBuildTarget={input.UnityBuildTarget}.");
         }
 
         return null;
@@ -1231,7 +1231,7 @@ internal sealed class BuildService : IBuildService
         if (runnerResult.Source != expectedSource)
         {
             return ApplicationFailure.InternalError(
-                $"Unity build response runnerResult source is invalid for {ContractLiteralCodec.ToValue(expectedRunnerKind)} runner: {runnerResult.Source}.");
+                $"Unity build response runnerResult source is invalid for {TextVocabulary.GetText(expectedRunnerKind)} runner: {runnerResult.Source}.");
         }
 
         if (expectedRunnerKind == BuildRunnerKind.BuildPipeline)
@@ -1246,7 +1246,7 @@ internal sealed class BuildService : IBuildService
             if (runnerResult.Status != reportResult.Value)
             {
                 return ApplicationFailure.InternalError(
-                    $"Unity build response runnerResult status mismatch. Report={ContractLiteralCodec.ToValue(reportResult.Value)}, RunnerResult={runnerResult.Status}.");
+                    $"Unity build response runnerResult status mismatch. Report={TextVocabulary.GetText(reportResult.Value)}, RunnerResult={runnerResult.Status}.");
             }
 
             if (runnerResult.DurationMilliseconds != report.DurationMilliseconds
@@ -1267,7 +1267,7 @@ internal sealed class BuildService : IBuildService
         if (projectMutation.Mode != expectedMode)
         {
             return ApplicationFailure.InternalError(
-                $"Unity build response projectMutation mode mismatch. Requested={ContractLiteralCodec.ToValue(expectedMode)}, Actual={ContractLiteralCodec.ToValue(projectMutation.Mode)}.");
+                $"Unity build response projectMutation mode mismatch. Requested={TextVocabulary.GetText(expectedMode)}, Actual={TextVocabulary.GetText(projectMutation.Mode)}.");
         }
 
         return null;
@@ -1621,7 +1621,7 @@ internal sealed class BuildService : IBuildService
         var knownTerminalResult = reportResult is IpcBuildReportResult.Succeeded or IpcBuildReportResult.Failed or IpcBuildReportResult.Canceled;
         var isExecuteMethod = build.Runner.Kind == BuildRunnerKind.ExecuteMethod;
         var hasBuildReport = build.Summary.ReportRef != null;
-        var terminalEvidenceKind = ContractLiteralCodec.ToValue(
+        var terminalEvidenceKind = TextVocabulary.GetText(
             isExecuteMethod ? AssuranceEffect.UnityExecuteMethod : AssuranceEffect.UnityBuildPipeline);
         var terminalEvidenceRef = isExecuteMethod ? BuildArtifactKind.Build : BuildArtifactKind.BuildReport;
 
@@ -1636,7 +1636,7 @@ internal sealed class BuildService : IBuildService
                     ["path"] = build.Profile.Path,
                     ["digest"] = build.Profile.Digest,
                 },
-                [new BuildEvidenceOutput(Kind: ContractLiteralCodec.ToValue(BuildEvidenceKind.BuildProfile), EvidenceRef: BuildArtifactKind.Build, Data: build.Profile)]),
+                [new BuildEvidenceOutput(Kind: TextVocabulary.GetText(BuildEvidenceKind.BuildProfile), EvidenceRef: BuildArtifactKind.Build, Data: build.Profile)]),
             CreateClaim(
                 BuildClaimCodes.UnityReadyForBuild,
                 IpcEditorLifecycleSemantics.CanAcceptExecutionRequests(response.LifecycleBefore.State.LifecycleState)
@@ -1647,7 +1647,7 @@ internal sealed class BuildService : IBuildService
                 {
                     ["lifecycleState"] = response.LifecycleBefore.State.LifecycleState,
                 },
-                [new BuildEvidenceOutput(Kind: ContractLiteralCodec.ToValue(AssuranceEffect.UnityLifecycleRead), EvidenceRef: null, Data: response.LifecycleBefore)]),
+                [new BuildEvidenceOutput(Kind: TextVocabulary.GetText(AssuranceEffect.UnityLifecycleRead), EvidenceRef: null, Data: response.LifecycleBefore)]),
             CreateClaim(
                 BuildClaimCodes.UnityBuildInputsResolved,
                 AssuranceClaimStatus.Passed,
@@ -1657,7 +1657,7 @@ internal sealed class BuildService : IBuildService
                     ["buildTarget"] = build.Inputs.Target.StableName,
                     ["sceneCount"] = build.Inputs.Scenes.Paths.Count,
                 },
-                [new BuildEvidenceOutput(Kind: ContractLiteralCodec.ToValue(BuildEvidenceKind.BuildInput), EvidenceRef: BuildArtifactKind.Build, Data: response.Input)]),
+                [new BuildEvidenceOutput(Kind: TextVocabulary.GetText(BuildEvidenceKind.BuildInput), EvidenceRef: BuildArtifactKind.Build, Data: response.Input)]),
             CreateClaim(
                 BuildClaimCodes.UnityBuildRunnerResolved,
                 AssuranceClaimStatus.Passed,
@@ -1706,7 +1706,7 @@ internal sealed class BuildService : IBuildService
                     ["entryCount"] = build.Output.EntryCount,
                     ["fileCount"] = build.Output.FileCount,
                 },
-                [new BuildEvidenceOutput(Kind: ContractLiteralCodec.ToValue(AssuranceEffect.OutputManifestWrite), EvidenceRef: BuildArtifactKind.Build, Data: build.Output)]),
+                [new BuildEvidenceOutput(Kind: TextVocabulary.GetText(AssuranceEffect.OutputManifestWrite), EvidenceRef: BuildArtifactKind.Build, Data: build.Output)]),
             CreateClaim(
                 BuildClaimCodes.UnityBuildOutputDigested,
                 AssuranceClaimStatus.Passed,
@@ -1715,7 +1715,7 @@ internal sealed class BuildService : IBuildService
                 {
                     ["manifestDigest"] = build.Output.ManifestDigest,
                 },
-                [new BuildEvidenceOutput(Kind: ContractLiteralCodec.ToValue(AssuranceEffect.OutputManifestWrite), EvidenceRef: BuildArtifactKind.BuildOutputManifest, Data: null)]),
+                [new BuildEvidenceOutput(Kind: TextVocabulary.GetText(AssuranceEffect.OutputManifestWrite), EvidenceRef: BuildArtifactKind.BuildOutputManifest, Data: null)]),
             CreateClaim(
                 BuildClaimCodes.UnityBuildLogsAccounted,
                 AssuranceClaimStatus.Passed,
@@ -1726,7 +1726,7 @@ internal sealed class BuildService : IBuildService
                     ["entryCount"] = build.Logs.EntryCount,
                     ["completionReason"] = build.Logs.CompletionReason,
                 },
-                [new BuildEvidenceOutput(Kind: ContractLiteralCodec.ToValue(AssuranceEffect.UnityLogWindowRead), EvidenceRef: BuildArtifactKind.BuildLog, Data: build.Logs)]),
+                [new BuildEvidenceOutput(Kind: TextVocabulary.GetText(AssuranceEffect.UnityLogWindowRead), EvidenceRef: BuildArtifactKind.BuildLog, Data: build.Logs)]),
             CreateClaim(
                 BuildClaimCodes.UnityBuildProjectMutationAccounted,
                 ResolveProjectMutationClaimStatus(response.ProjectMutation),
@@ -1734,10 +1734,10 @@ internal sealed class BuildService : IBuildService
                 new Dictionary<string, object?>(StringComparer.Ordinal)
                 {
                     ["mode"] = response.ProjectMutation.Mode,
-                    ["coverage"] = ContractLiteralCodec.ToValue(response.ProjectMutation.Coverage),
+                    ["coverage"] = TextVocabulary.GetText(response.ProjectMutation.Coverage),
                     ["mutated"] = response.ProjectMutation.Mutated,
                 },
-                [new BuildEvidenceOutput(Kind: ContractLiteralCodec.ToValue(AssuranceEffect.ProjectMutationAudit), EvidenceRef: BuildArtifactKind.Build, Data: response.ProjectMutation)]),
+                [new BuildEvidenceOutput(Kind: TextVocabulary.GetText(AssuranceEffect.ProjectMutationAudit), EvidenceRef: BuildArtifactKind.Build, Data: response.ProjectMutation)]),
             CreateClaim(
                 BuildClaimCodes.UnityBuildValidForGeneration,
                 HasCompleteGenerationSnapshot(build.Generations) ? AssuranceClaimStatus.Passed : AssuranceClaimStatus.Indeterminate,
@@ -1749,7 +1749,7 @@ internal sealed class BuildService : IBuildService
                     ["assetRefreshGeneration"] = build.Generations.ValidFor?.AssetRefreshGeneration,
                     ["playModeGeneration"] = build.Generations.ValidFor?.PlayModeGeneration,
                 },
-                [new BuildEvidenceOutput(Kind: ContractLiteralCodec.ToValue(AssuranceEffect.GenerationSnapshot), EvidenceRef: BuildArtifactKind.Build, Data: build.Generations)]),
+                [new BuildEvidenceOutput(Kind: TextVocabulary.GetText(AssuranceEffect.GenerationSnapshot), EvidenceRef: BuildArtifactKind.Build, Data: build.Generations)]),
         };
 
         if (hasBuildReport)
@@ -1764,7 +1764,7 @@ internal sealed class BuildService : IBuildService
                     {
                         ["reportRef"] = BuildArtifactKind.BuildReport,
                     },
-                    [new BuildEvidenceOutput(Kind: ContractLiteralCodec.ToValue(AssuranceEffect.UnityBuildReportRead), EvidenceRef: BuildArtifactKind.BuildReport, Data: null)],
+                    [new BuildEvidenceOutput(Kind: TextVocabulary.GetText(AssuranceEffect.UnityBuildReportRead), EvidenceRef: BuildArtifactKind.BuildReport, Data: null)],
                     required: !isExecuteMethod));
         }
 
@@ -1781,7 +1781,7 @@ internal sealed class BuildService : IBuildService
                         {
                             ["method"] = build.Runner.Method,
                         },
-                        [new BuildEvidenceOutput(Kind: ContractLiteralCodec.ToValue(AssuranceEffect.UnityExecuteMethod), EvidenceRef: BuildArtifactKind.Build, Data: null)]),
+                        [new BuildEvidenceOutput(Kind: TextVocabulary.GetText(AssuranceEffect.UnityExecuteMethod), EvidenceRef: BuildArtifactKind.Build, Data: null)]),
                     CreateClaim(
                         BuildClaimCodes.UnityBuildExecuteMethodInvoked,
                         AssuranceClaimStatus.Passed,
@@ -1790,7 +1790,7 @@ internal sealed class BuildService : IBuildService
                         {
                             ["method"] = build.Runner.Method,
                         },
-                        [new BuildEvidenceOutput(Kind: ContractLiteralCodec.ToValue(AssuranceEffect.UnityExecuteMethod), EvidenceRef: BuildArtifactKind.Build, Data: null)]),
+                        [new BuildEvidenceOutput(Kind: TextVocabulary.GetText(AssuranceEffect.UnityExecuteMethod), EvidenceRef: BuildArtifactKind.Build, Data: null)]),
                     CreateClaim(
                         BuildClaimCodes.UnityBuildExecuteMethodCompleted,
                         AssuranceClaimStatus.Passed,
@@ -1799,7 +1799,7 @@ internal sealed class BuildService : IBuildService
                         {
                             ["status"] = build.RunnerResult.Status,
                         },
-                        [new BuildEvidenceOutput(Kind: ContractLiteralCodec.ToValue(AssuranceEffect.UnityExecuteMethod), EvidenceRef: BuildArtifactKind.Build, Data: build.RunnerResult)]),
+                        [new BuildEvidenceOutput(Kind: TextVocabulary.GetText(AssuranceEffect.UnityExecuteMethod), EvidenceRef: BuildArtifactKind.Build, Data: build.RunnerResult)]),
                 ]);
         }
 
@@ -1857,8 +1857,8 @@ internal sealed class BuildService : IBuildService
     private static string ResolveRunnerEffect (BuildRunnerKind runnerKind)
     {
         return runnerKind == BuildRunnerKind.ExecuteMethod
-            ? ContractLiteralCodec.ToValue(AssuranceEffect.UnityExecuteMethod)
-            : ContractLiteralCodec.ToValue(AssuranceEffect.UnityBuildPipeline);
+            ? TextVocabulary.GetText(AssuranceEffect.UnityExecuteMethod)
+            : TextVocabulary.GetText(AssuranceEffect.UnityBuildPipeline);
     }
 
     private static bool HasCompleteGenerationSnapshot (BuildGenerationsOutput generations)
@@ -1912,7 +1912,7 @@ internal sealed class BuildService : IBuildService
         var resolvedExecutionMode = ResolveProfileRuntimeExecutionMode(executionTarget);
         if (!policy.AllowedExecutionModes.Contains(resolvedExecutionMode))
         {
-            var modeLiteral = ContractLiteralCodec.ToValue(resolvedExecutionMode);
+            var modeLiteral = TextVocabulary.GetText(resolvedExecutionMode);
             return ApplicationFailure.FromCode(
                 BuildErrorCodes.BuildRuntimePolicyViolation,
                 $"Build runtime policy does not allow resolved execution mode '{modeLiteral}'.");

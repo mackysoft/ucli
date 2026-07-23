@@ -1,5 +1,7 @@
 using System;
 using System.Text.Json;
+using MackySoft.Text.Vocabularies;
+using TextVocabulary = MackySoft.Text.Vocabularies.Vocabulary;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
@@ -103,7 +105,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: requestId,
                 sessionToken: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
-                method: ContractLiteralCodec.ToValue(UnityIpcMethod.Shutdown),
+                method: TextVocabulary.GetText(UnityIpcMethod.Shutdown),
                 payload: JsonSerializer.SerializeToElement(new IpcShutdownRequest("tests")),
                 responseMode: "single",
                 requestDeadlineUtc: DateTimeOffset.UtcNow + TimeSpan.FromSeconds(30),

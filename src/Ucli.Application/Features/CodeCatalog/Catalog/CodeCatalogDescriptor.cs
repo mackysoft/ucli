@@ -1,4 +1,3 @@
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Features.CodeCatalog.Catalog;
 
@@ -32,7 +31,7 @@ internal sealed record CodeCatalogDescriptor
         IReadOnlyList<UcliCode> RelatedCodes)
     {
         this.Code = Code ?? throw new ArgumentNullException(nameof(Code));
-        if (!ContractLiteralCodec.IsDefined(Kind))
+        if (!TextVocabulary.IsDefined(Kind))
         {
             throw new ArgumentOutOfRangeException(nameof(Kind), Kind, "Code catalog kind must be specified.");
         }

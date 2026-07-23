@@ -65,8 +65,8 @@ public sealed class DaemonStatusCommandTests
             .HasProperty("payload", payload => payload
                 .HasString("daemonStatus", "running")
                 .HasString("editorMode", "gui")
-                .HasString("lifecycleState", ContractLiteralCodec.ToValue(IpcEditorLifecycleState.PlayMode))
-                .HasString("blockingReason", ContractLiteralCodec.ToValue(IpcEditorBlockingReason.PlayMode))
+                .HasString("lifecycleState", TextVocabulary.GetText(IpcEditorLifecycleState.PlayMode))
+                .HasString("blockingReason", TextVocabulary.GetText(IpcEditorBlockingReason.PlayMode))
                 .HasProperty("generations", generations => generations
                     .HasInt32("compileGeneration", 3)
                     .HasInt32("domainReloadGeneration", 5)
@@ -160,10 +160,10 @@ public sealed class DaemonStatusCommandTests
                     .HasInt32("processId", 1234)
                     .HasString("processStartedAtUtc", "2026-03-12T04:05:00+00:00")
                     .HasProperty("diagnosis", diagnosisJson => diagnosisJson
-                        .HasString("reason", ContractLiteralCodec.ToValue(DaemonDiagnosisReason.GuiEndpointNotRegistered))
+                        .HasString("reason", TextVocabulary.GetText(DaemonDiagnosisReason.GuiEndpointNotRegistered))
                         .HasString("unityLogPath", "/repo/.ucli/local/projects/04hkaps9lf6uu0938ljojaudts0i6hb7h6lsrro14d2mf2dbpnng/unity.log")
-                        .HasString("startupPhase", ContractLiteralCodec.ToValue(DaemonDiagnosisStartupPhase.EndpointRegistration))
-                        .HasString("actionRequired", ContractLiteralCodec.ToValue(DaemonDiagnosisActionRequired.InspectUnityLog)))));
+                        .HasString("startupPhase", TextVocabulary.GetText(DaemonDiagnosisStartupPhase.EndpointRegistration))
+                        .HasString("actionRequired", TextVocabulary.GetText(DaemonDiagnosisActionRequired.InspectUnityLog)))));
 
         var payloadJson = outputJson.RootElement.GetProperty("payload");
         Assert.False(payloadJson.TryGetProperty("runtimeKind", out _));

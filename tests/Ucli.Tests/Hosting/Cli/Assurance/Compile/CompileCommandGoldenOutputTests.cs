@@ -42,10 +42,10 @@ public sealed class CompileCommandGoldenOutputTests
         CommandResultAssert.HasStandardEnvelope(
             outputJson.RootElement,
             UcliCommandNames.Compile,
-            ContractLiteralCodec.ToValue(CommandResultStatus.Ok),
+            TextVocabulary.GetText(CommandResultStatus.Ok),
             1);
         Assert.Equal(
-            ContractLiteralCodec.ToValue(AssuranceVerdict.Fail),
+            TextVocabulary.GetText(AssuranceVerdict.Fail),
             outputJson.RootElement.GetProperty("payload").GetProperty("verdict").GetString());
 
         JsonGoldenFileAssert.Matches(

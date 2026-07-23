@@ -175,7 +175,7 @@ internal sealed class DaemonStartProgressEmitter :
             BlockingReason: IpcEditorLifecycleSemantics.ResolveBlockingReason(lifecycleObservation.State.LifecycleState),
             Generations: lifecycleObservation.State.Generations,
             CanAcceptExecutionRequests: IpcEditorLifecycleSemantics.CanAcceptExecutionRequests(lifecycleObservation.State.LifecycleState));
-        return progressSink.OnEntryAsync(ContractLiteralCodec.ToValue(DaemonStartProgressEvent.LifecycleObserved), entry, cancellationToken);
+        return progressSink.OnEntryAsync(TextVocabulary.GetText(DaemonStartProgressEvent.LifecycleObserved), entry, cancellationToken);
     }
 
     private ValueTask EmitCompletedAsync (
@@ -202,10 +202,10 @@ internal sealed class DaemonStartProgressEmitter :
             EditorMode: editorMode,
             OnStartupBlocked: onStartupBlocked,
             Result: result,
-            StartStatus: startStatus.HasValue ? ContractLiteralCodec.ToValue(startStatus.Value) : null,
-            DaemonStatus: daemonStatus.HasValue ? ContractLiteralCodec.ToValue(daemonStatus.Value) : null,
+            StartStatus: startStatus.HasValue ? TextVocabulary.GetText(startStatus.Value) : null,
+            DaemonStatus: daemonStatus.HasValue ? TextVocabulary.GetText(daemonStatus.Value) : null,
             ErrorCode: error is null ? null : ExecutionErrorCodeMapper.ToCode(error).Value);
-        return progressSink.OnEntryAsync(ContractLiteralCodec.ToValue(progressEvent), entry, cancellationToken);
+        return progressSink.OnEntryAsync(TextVocabulary.GetText(progressEvent), entry, cancellationToken);
     }
 
     private ValueTask EmitStartupObservationAsync (
@@ -238,7 +238,7 @@ internal sealed class DaemonStartProgressEmitter :
             RetryDisposition: observation.RetryDisposition,
             Message: observation.Message,
             ErrorCode: observation.ErrorCode);
-        return progressSink.OnEntryAsync(ContractLiteralCodec.ToValue(progressEvent), entry, cancellationToken);
+        return progressSink.OnEntryAsync(TextVocabulary.GetText(progressEvent), entry, cancellationToken);
     }
 
     private static DaemonStartStartupProgressObservation CreateSessionObservation (

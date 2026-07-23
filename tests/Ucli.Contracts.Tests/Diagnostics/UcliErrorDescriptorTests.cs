@@ -52,7 +52,7 @@ public sealed class UcliErrorDescriptorTests
             Assert.NotNull(descriptor.AppliesTo);
             Assert.NotNull(descriptor.PossiblePhases);
             Assert.NotNull(descriptor.ExecutionSemantics);
-            Assert.True(ContractLiteralCodec.IsDefined(descriptor.ExecutionSemantics.SafeToRetry));
+            Assert.True(TextVocabulary.IsDefined(descriptor.ExecutionSemantics.SafeToRetry));
             Assert.NotNull(descriptor.Inspect);
             Assert.NotNull(descriptor.NextActions);
             Assert.NotNull(descriptor.RelatedCodes);
@@ -89,8 +89,8 @@ public sealed class UcliErrorDescriptorTests
     {
         Assert.Equal(
             ["yes", "no", "waitThenRetry", "replanRequired", "contextDependent", "unknown"],
-            ContractLiteralCodec.GetLiterals<UcliErrorRetryClass>());
-        Assert.False(ContractLiteralCodec.IsDefined(default(UcliErrorRetryClass)));
+            TextVocabulary.GetTexts<UcliErrorRetryClass>());
+        Assert.False(TextVocabulary.IsDefined(default(UcliErrorRetryClass)));
         Assert.Equal(
             "SafeToRetry",
             Assert.Throws<ArgumentOutOfRangeException>(() => new UcliErrorExecutionSemantics(

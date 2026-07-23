@@ -58,7 +58,7 @@ public sealed class QueryCommandPayloadTests
         CommandResultAssert.HasStandardEnvelope(
             outputJson.RootElement,
             UcliCommandNames.QueryAssetsFind,
-            ContractLiteralCodec.ToValue(CommandResultStatus.Error),
+            TextVocabulary.GetText(CommandResultStatus.Error),
             (int)CliExitCode.ToolError);
         JsonAssert.For(outputJson.RootElement)
             .HasString("message", "Unity execution failed.")

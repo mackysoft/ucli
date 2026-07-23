@@ -105,7 +105,7 @@ internal static class IpcEditStepActionsReader
             return false;
         }
 
-        if (!ContractLiteralCodec.TryParse(kindLiteral, out actionKind))
+        if (!TextVocabulary.TryGetValue(kindLiteral, out actionKind))
         {
             errorMessage = $"Edit step property 'step.actions[{actionIndex}].kind' is unsupported.";
             return false;

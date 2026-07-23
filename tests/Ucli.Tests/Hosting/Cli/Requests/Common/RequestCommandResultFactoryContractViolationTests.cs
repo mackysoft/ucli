@@ -108,7 +108,7 @@ public sealed class RequestCommandResultFactoryContractViolationTests
         CommandResultAssert.HasStandardEnvelope(
             json.RootElement,
             expectedCommand,
-            ContractLiteralCodec.ToValue(CommandResultStatus.Error),
+            TextVocabulary.GetText(CommandResultStatus.Error),
             (int)CliExitCode.ToolError);
         JsonAssert.For(json.RootElement)
             .HasArrayLength("errors", 1)
@@ -124,7 +124,7 @@ public sealed class RequestCommandResultFactoryContractViolationTests
                     .HasString("operation", UcliPrimitiveOperationNames.AssetsFind)
                     .HasString("expectedFact", "operation.kind=query")
                     .HasString("observedResult", "opResults[].applied=true")
-                    .HasString("applicationState", ContractLiteralCodec.ToValue(IpcApplicationState.Applied))));
+                    .HasString("applicationState", TextVocabulary.GetText(IpcApplicationState.Applied))));
     }
 
     private static ApplicationFailure CreateContractViolationFailure ()

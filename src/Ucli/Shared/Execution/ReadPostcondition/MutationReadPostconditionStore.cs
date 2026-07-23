@@ -22,7 +22,7 @@ internal sealed class MutationReadPostconditionStore : IMutationReadPostconditio
         WriteIndented = true,
         Converters =
         {
-            new ContractLiteralJsonConverterFactory(),
+            new VocabularyJsonConverterFactory(),
         },
     };
 

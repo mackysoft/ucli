@@ -1,15 +1,15 @@
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
 /// <summary> Defines the closed set of IPC streaming frame shapes. </summary>
+[VocabularyDefinition]
 public enum IpcStreamFrameKind
 {
     /// <summary> Carries one non-terminal progress event. </summary>
-    [UcliContractLiteral("progress")]
+    [VocabularyText("progress")]
     Progress = 1,
 
     /// <summary> Carries the terminal IPC response. </summary>
-    [UcliContractLiteral("terminal")]
+    [VocabularyText("terminal")]
     Terminal = 2,
 }

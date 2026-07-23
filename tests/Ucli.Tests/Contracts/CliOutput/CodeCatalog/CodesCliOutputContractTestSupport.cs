@@ -116,7 +116,7 @@ internal static class CodesCliOutputContractTestSupport
     public static async Task AssertCodesListCommandFilterCaseAsync (CodesListCommandFilterCase testCase)
     {
         var result = await RunCodesListCommandAsync(
-            kind: testCase.Kind.HasValue ? ContractLiteralCodec.ToValue(testCase.Kind.Value) : null,
+            kind: testCase.Kind.HasValue ? TextVocabulary.GetText(testCase.Kind.Value) : null,
             command: testCase.Command);
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);

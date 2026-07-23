@@ -5,6 +5,8 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
+using MackySoft.Text.Vocabularies;
+using TextVocabulary = MackySoft.Text.Vocabularies.Vocabulary;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Cryptography;
@@ -102,9 +104,9 @@ namespace EvalScripts
             Assert.That(result.Applied, Is.False);
             Assert.That(result.Changed, Is.False);
             var payload = result.Result!.Value;
-            Assert.That(payload.GetProperty("sourceKind").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(UcliCodeSourceFormKind.CompilationUnit)));
+            Assert.That(payload.GetProperty("sourceKind").GetString(), Is.EqualTo(TextVocabulary.GetText(UcliCodeSourceFormKind.CompilationUnit)));
             Assert.That(payload.GetProperty("resolvedEntryPoint").GetString(), Is.EqualTo("EvalScripts.Entry.Run"));
-            Assert.That(payload.GetProperty("compile").GetProperty("status").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(CsEvalCompileStatus.Succeeded)));
+            Assert.That(payload.GetProperty("compile").GetProperty("status").GetString(), Is.EqualTo(TextVocabulary.GetText(CsEvalCompileStatus.Succeeded)));
             Assert.That(payload.TryGetProperty("returnValue", out _), Is.False);
             Assert.That(payload.TryGetProperty("logs", out _), Is.False);
         });
@@ -134,7 +136,7 @@ namespace EvalScripts
             var result = await operation.PlanAsync(request, context, CancellationToken.None);
 
             Assert.That(result.IsSuccess, Is.True);
-            Assert.That(result.Result!.Value.GetProperty("sourceKind").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(UcliCodeSourceFormKind.CompilationUnit)));
+            Assert.That(result.Result!.Value.GetProperty("sourceKind").GetString(), Is.EqualTo(TextVocabulary.GetText(UcliCodeSourceFormKind.CompilationUnit)));
             var diagnostics = result.Result!.Value.GetProperty("compile").GetProperty("diagnostics");
             for (var i = 0; i < diagnostics.GetArrayLength(); i++)
             {
@@ -241,12 +243,12 @@ return new { count = 2 };
 
             Assert.That(result.IsSuccess, Is.True);
             var payload = result.Result!.Value;
-            Assert.That(payload.GetProperty("sourceKind").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(UcliCodeSourceFormKind.Snippet)));
+            Assert.That(payload.GetProperty("sourceKind").GetString(), Is.EqualTo(TextVocabulary.GetText(UcliCodeSourceFormKind.Snippet)));
             Assert.That(payload.GetProperty("resolvedEntryPoint").GetString(), Is.EqualTo("MackySoft.Ucli.Unity.Execution.CsEval.Generated.UcliCsEvalSnippetEntry.Run"));
             Assert.That(payload.GetProperty("logs")[0].GetProperty("message").GetString(), Is.EqualTo("snippet"));
-            Assert.That(payload.GetProperty("returnValue").GetProperty("kind").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(CsEvalReturnValueKind.Json)));
+            Assert.That(payload.GetProperty("returnValue").GetProperty("kind").GetString(), Is.EqualTo(TextVocabulary.GetText(CsEvalReturnValueKind.Json)));
             Assert.That(payload.GetProperty("returnValue").GetProperty("value").GetProperty("count").GetInt32(), Is.EqualTo(2));
-            Assert.That(payload.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(CsEvalTouchedResourceState.None)));
+            Assert.That(payload.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(TextVocabulary.GetText(CsEvalTouchedResourceState.None)));
         });
 
         [UnityTest]
@@ -265,8 +267,8 @@ context.DeclareNoTouchedResources();
 
             Assert.That(result.IsSuccess, Is.True);
             var payload = result.Result!.Value;
-            Assert.That(payload.GetProperty("sourceKind").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(UcliCodeSourceFormKind.Snippet)));
-            Assert.That(payload.GetProperty("returnValue").GetProperty("kind").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(CsEvalReturnValueKind.Null)));
+            Assert.That(payload.GetProperty("sourceKind").GetString(), Is.EqualTo(TextVocabulary.GetText(UcliCodeSourceFormKind.Snippet)));
+            Assert.That(payload.GetProperty("returnValue").GetProperty("kind").GetString(), Is.EqualTo(TextVocabulary.GetText(CsEvalReturnValueKind.Null)));
         });
 
         [UnityTest]
@@ -327,11 +329,11 @@ return new { value = await Task.FromResult(5) };
 
             Assert.That(result.IsSuccess, Is.True);
             var payload = result.Result!.Value;
-            Assert.That(payload.GetProperty("sourceKind").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(UcliCodeSourceFormKind.Snippet)));
+            Assert.That(payload.GetProperty("sourceKind").GetString(), Is.EqualTo(TextVocabulary.GetText(UcliCodeSourceFormKind.Snippet)));
             Assert.That(payload.GetProperty("logs")[0].GetProperty("message").GetString(), Is.EqualTo("before await"));
-            Assert.That(payload.GetProperty("returnValue").GetProperty("kind").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(CsEvalReturnValueKind.Json)));
+            Assert.That(payload.GetProperty("returnValue").GetProperty("kind").GetString(), Is.EqualTo(TextVocabulary.GetText(CsEvalReturnValueKind.Json)));
             Assert.That(payload.GetProperty("returnValue").GetProperty("value").GetProperty("value").GetInt32(), Is.EqualTo(5));
-            Assert.That(payload.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(CsEvalTouchedResourceState.None)));
+            Assert.That(payload.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(TextVocabulary.GetText(CsEvalTouchedResourceState.None)));
         });
 
         [UnityTest]
@@ -351,8 +353,8 @@ await Task.FromResult(9)
 
             Assert.That(result.IsSuccess, Is.True);
             var payload = result.Result!.Value;
-            Assert.That(payload.GetProperty("sourceKind").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(UcliCodeSourceFormKind.Snippet)));
-            Assert.That(payload.GetProperty("returnValue").GetProperty("kind").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(CsEvalReturnValueKind.Json)));
+            Assert.That(payload.GetProperty("sourceKind").GetString(), Is.EqualTo(TextVocabulary.GetText(UcliCodeSourceFormKind.Snippet)));
+            Assert.That(payload.GetProperty("returnValue").GetProperty("kind").GetString(), Is.EqualTo(TextVocabulary.GetText(CsEvalReturnValueKind.Json)));
             Assert.That(payload.GetProperty("returnValue").GetProperty("value").GetInt32(), Is.EqualTo(9));
         });
 
@@ -374,9 +376,9 @@ context.DeclareNoTouchedResources();
 
             Assert.That(result.IsSuccess, Is.True);
             var payload = result.Result!.Value;
-            Assert.That(payload.GetProperty("sourceKind").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(UcliCodeSourceFormKind.Snippet)));
-            Assert.That(payload.GetProperty("returnValue").GetProperty("kind").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(CsEvalReturnValueKind.Null)));
-            Assert.That(payload.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(CsEvalTouchedResourceState.None)));
+            Assert.That(payload.GetProperty("sourceKind").GetString(), Is.EqualTo(TextVocabulary.GetText(UcliCodeSourceFormKind.Snippet)));
+            Assert.That(payload.GetProperty("returnValue").GetProperty("kind").GetString(), Is.EqualTo(TextVocabulary.GetText(CsEvalReturnValueKind.Null)));
+            Assert.That(payload.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(TextVocabulary.GetText(CsEvalTouchedResourceState.None)));
         });
 
         [UnityTest]
@@ -393,7 +395,7 @@ return missingSymbol;");
 
             AssertInvalidArgument(result);
             var payload = result.Result!.Value;
-            Assert.That(payload.GetProperty("sourceKind").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(UcliCodeSourceFormKind.Snippet)));
+            Assert.That(payload.GetProperty("sourceKind").GetString(), Is.EqualTo(TextVocabulary.GetText(UcliCodeSourceFormKind.Snippet)));
             var diagnostic = payload.GetProperty("compile").GetProperty("diagnostics")[0];
             Assert.That(diagnostic.GetProperty("line").GetInt32(), Is.EqualTo(2));
         });
@@ -424,9 +426,9 @@ namespace EvalScripts
 
             AssertInvalidArgument(result);
             var payload = result.Result!.Value;
-            Assert.That(payload.GetProperty("sourceKind").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(UcliCodeSourceFormKind.CompilationUnit)));
+            Assert.That(payload.GetProperty("sourceKind").GetString(), Is.EqualTo(TextVocabulary.GetText(UcliCodeSourceFormKind.CompilationUnit)));
             Assert.That(payload.TryGetProperty("resolvedEntryPoint", out _), Is.False);
-            Assert.That(payload.GetProperty("compile").GetProperty("status").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(CsEvalCompileStatus.Failed)));
+            Assert.That(payload.GetProperty("compile").GetProperty("status").GetString(), Is.EqualTo(TextVocabulary.GetText(CsEvalCompileStatus.Failed)));
             Assert.That(payload.GetProperty("compile").GetProperty("diagnostics").GetArrayLength(), Is.GreaterThan(0));
         });
 
@@ -468,13 +470,13 @@ namespace EvalScripts
                 new OperationReadInvalidation(OperationReadInvalidationSurface.GuidPath, ScenePath: null),
                 new OperationReadInvalidation(OperationReadInvalidationSurface.SceneTreeLite, ScenePath: null));
             var payload = result.Result!.Value;
-            Assert.That(payload.GetProperty("sourceKind").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(UcliCodeSourceFormKind.CompilationUnit)));
+            Assert.That(payload.GetProperty("sourceKind").GetString(), Is.EqualTo(TextVocabulary.GetText(UcliCodeSourceFormKind.CompilationUnit)));
             Assert.That(payload.GetProperty("resolvedEntryPoint").GetString(), Is.EqualTo("EvalScripts.Entry.Run"));
             Assert.That(payload.GetProperty("durationMilliseconds").GetInt64(), Is.GreaterThanOrEqualTo(0));
             Assert.That(payload.GetProperty("logs")[0].GetProperty("message").GetString(), Is.EqualTo("hello"));
-            Assert.That(payload.GetProperty("returnValue").GetProperty("kind").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(CsEvalReturnValueKind.Json)));
+            Assert.That(payload.GetProperty("returnValue").GetProperty("kind").GetString(), Is.EqualTo(TextVocabulary.GetText(CsEvalReturnValueKind.Json)));
             Assert.That(payload.GetProperty("returnValue").GetProperty("value").GetProperty("count").GetInt32(), Is.EqualTo(3));
-            Assert.That(payload.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(CsEvalTouchedResourceState.Declared)));
+            Assert.That(payload.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(TextVocabulary.GetText(CsEvalTouchedResourceState.Declared)));
         });
 
         [UnityTest]
@@ -512,8 +514,8 @@ namespace EvalScripts
                 new OperationReadInvalidation(OperationReadInvalidationSurface.GuidPath, ScenePath: null),
                 new OperationReadInvalidation(OperationReadInvalidationSurface.SceneTreeLite, ScenePath: null));
             var payload = result.Result!.Value;
-            Assert.That(payload.GetProperty("returnValue").GetProperty("kind").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(CsEvalReturnValueKind.Null)));
-            Assert.That(payload.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(CsEvalTouchedResourceState.None)));
+            Assert.That(payload.GetProperty("returnValue").GetProperty("kind").GetString(), Is.EqualTo(TextVocabulary.GetText(CsEvalReturnValueKind.Null)));
+            Assert.That(payload.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(TextVocabulary.GetText(CsEvalTouchedResourceState.None)));
         });
 
         [UnityTest]
@@ -550,8 +552,8 @@ namespace EvalScripts
                 new OperationReadInvalidation(OperationReadInvalidationSurface.GuidPath, ScenePath: null),
                 new OperationReadInvalidation(OperationReadInvalidationSurface.SceneTreeLite, ScenePath: null));
             var payload = result.Result!.Value;
-            Assert.That(payload.GetProperty("returnValue").GetProperty("kind").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(CsEvalReturnValueKind.Null)));
-            Assert.That(payload.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(CsEvalTouchedResourceState.Unknown)));
+            Assert.That(payload.GetProperty("returnValue").GetProperty("kind").GetString(), Is.EqualTo(TextVocabulary.GetText(CsEvalReturnValueKind.Null)));
+            Assert.That(payload.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(TextVocabulary.GetText(CsEvalTouchedResourceState.Unknown)));
         });
 
         [UnityTest]
@@ -594,7 +596,7 @@ namespace EvalScripts
                 new OperationReadInvalidation(OperationReadInvalidationSurface.GuidPath, ScenePath: null),
                 new OperationReadInvalidation(OperationReadInvalidationSurface.SceneTreeLite, ScenePath: null));
             var payload = result.Result!.Value;
-            Assert.That(payload.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(CsEvalTouchedResourceState.Declared)));
+            Assert.That(payload.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(TextVocabulary.GetText(CsEvalTouchedResourceState.Declared)));
             Assert.That(payload.GetProperty("touchedResources").GetProperty("declared").GetArrayLength(), Is.EqualTo(2));
         });
 
@@ -633,9 +635,9 @@ namespace EvalScripts
                 new OperationReadInvalidation(OperationReadInvalidationSurface.GuidPath, ScenePath: null),
                 new OperationReadInvalidation(OperationReadInvalidationSurface.SceneTreeLite, ScenePath: null));
             var payload = result.Result!.Value;
-            Assert.That(payload.GetProperty("compile").GetProperty("status").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(CsEvalCompileStatus.Succeeded)));
+            Assert.That(payload.GetProperty("compile").GetProperty("status").GetString(), Is.EqualTo(TextVocabulary.GetText(CsEvalCompileStatus.Succeeded)));
             Assert.That(payload.TryGetProperty("returnValue", out _), Is.False);
-            Assert.That(payload.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(CsEvalTouchedResourceState.Declared)));
+            Assert.That(payload.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(TextVocabulary.GetText(CsEvalTouchedResourceState.Declared)));
         });
 
         [UnityTest]
@@ -672,7 +674,7 @@ return " + cases[i] + @";
                     new OperationReadInvalidation(OperationReadInvalidationSurface.SceneTreeLite, ScenePath: null));
                 var payload = result.Result!.Value;
                 Assert.That(payload.TryGetProperty("returnValue", out _), Is.False, cases[i]);
-                Assert.That(payload.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(CsEvalTouchedResourceState.Declared)), cases[i]);
+                Assert.That(payload.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(TextVocabulary.GetText(CsEvalTouchedResourceState.Declared)), cases[i]);
             }
         });
 
@@ -720,7 +722,7 @@ namespace EvalScripts
                 new OperationReadInvalidation(OperationReadInvalidationSurface.SceneTreeLite, ScenePath: null));
             var payload = result.Result!.Value;
             Assert.That(payload.TryGetProperty("returnValue", out _), Is.False);
-            Assert.That(payload.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(CsEvalTouchedResourceState.Declared)));
+            Assert.That(payload.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(TextVocabulary.GetText(CsEvalTouchedResourceState.Declared)));
         });
 
         [UnityTest]
@@ -758,7 +760,7 @@ namespace EvalScripts
             Assert.That(result.Applied, Is.False);
             Assert.That(result.Changed, Is.False);
             var payload = result.Result!.Value;
-            Assert.That(payload.GetProperty("compile").GetProperty("status").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(CsEvalCompileStatus.Failed)));
+            Assert.That(payload.GetProperty("compile").GetProperty("status").GetString(), Is.EqualTo(TextVocabulary.GetText(CsEvalCompileStatus.Failed)));
             var diagnostics = payload.GetProperty("compile").GetProperty("diagnostics");
             var diagnosticMessages = new string[diagnostics.GetArrayLength()];
             var hasShadowTaskDiagnostic = false;
@@ -817,7 +819,7 @@ namespace EvalScripts
                     Assert.That(value.GetString(), Is.EqualTo(testCase.ExpectedStringValue), testCase.Name);
                 }
 
-                Assert.That(result.Result!.Value.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(CsEvalTouchedResourceState.None)), testCase.Name);
+                Assert.That(result.Result!.Value.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(TextVocabulary.GetText(CsEvalTouchedResourceState.None)), testCase.Name);
             }
         });
 
@@ -875,9 +877,9 @@ namespace EvalScripts
 
             Assert.That(result.IsSuccess, Is.True);
             var payload = result.Result!.Value;
-            Assert.That(payload.GetProperty("returnValue").GetProperty("kind").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(CsEvalReturnValueKind.Json)));
+            Assert.That(payload.GetProperty("returnValue").GetProperty("kind").GetString(), Is.EqualTo(TextVocabulary.GetText(CsEvalReturnValueKind.Json)));
             Assert.That(payload.GetProperty("returnValue").GetProperty("value").GetProperty("value").GetString(), Is.EqualTo("ok"));
-            Assert.That(payload.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(CsEvalTouchedResourceState.None)));
+            Assert.That(payload.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(TextVocabulary.GetText(CsEvalTouchedResourceState.None)));
         });
 
         [UnityTest]
@@ -908,8 +910,8 @@ namespace EvalScripts
                 Assert.That(result.Applied, Is.True, testCase.Name);
                 Assert.That(result.Changed, Is.False, testCase.Name);
                 var payload = result.Result!.Value;
-                Assert.That(payload.GetProperty("returnValue").GetProperty("kind").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(CsEvalReturnValueKind.Null)), testCase.Name);
-                Assert.That(payload.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(CsEvalTouchedResourceState.None)), testCase.Name);
+                Assert.That(payload.GetProperty("returnValue").GetProperty("kind").GetString(), Is.EqualTo(TextVocabulary.GetText(CsEvalReturnValueKind.Null)), testCase.Name);
+                Assert.That(payload.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(TextVocabulary.GetText(CsEvalTouchedResourceState.None)), testCase.Name);
             }
         });
 
@@ -1122,7 +1124,7 @@ namespace EvalScripts
                 var payload = result.Result!.Value;
                 Assert.That(payload.GetProperty("logs")[0].GetProperty("message").GetString(), Is.EqualTo("before fault"), cases[i]);
                 Assert.That(payload.TryGetProperty("returnValue", out _), Is.False, cases[i]);
-                Assert.That(payload.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(CsEvalTouchedResourceState.Declared)), cases[i]);
+                Assert.That(payload.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(TextVocabulary.GetText(CsEvalTouchedResourceState.Declared)), cases[i]);
             }
         });
 
@@ -1170,7 +1172,7 @@ namespace EvalScripts
                 new OperationReadInvalidation(OperationReadInvalidationSurface.SceneTreeLite, ScenePath: null));
             var payload = result.Result!.Value;
             Assert.That(payload.TryGetProperty("returnValue", out _), Is.False);
-            Assert.That(payload.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(CsEvalTouchedResourceState.Declared)));
+            Assert.That(payload.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(TextVocabulary.GetText(CsEvalTouchedResourceState.Declared)));
         });
 
         [UnityTest]
@@ -1187,7 +1189,7 @@ namespace EvalScripts
             AssertInvalidArgument(result);
             Assert.That(result.Applied, Is.True);
             var payload = result.Result!.Value;
-            Assert.That(payload.GetProperty("sourceKind").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(UcliCodeSourceFormKind.Snippet)));
+            Assert.That(payload.GetProperty("sourceKind").GetString(), Is.EqualTo(TextVocabulary.GetText(UcliCodeSourceFormKind.Snippet)));
             Assert.That(payload.TryGetProperty("returnValue", out _), Is.False);
         });
 
@@ -1225,7 +1227,7 @@ context.DeclareNoTouchedResources();
             Assert.That(result.IsSuccess, Is.True);
             var logs = result.Result!.Value.GetProperty("logs");
             Assert.That(logs.GetArrayLength(), Is.EqualTo(CsEvalSafetyLimits.MaxLogEntries));
-            Assert.That(logs[logs.GetArrayLength() - 1].GetProperty("level").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(CsEvalLogLevel.Warning)));
+            Assert.That(logs[logs.GetArrayLength() - 1].GetProperty("level").GetString(), Is.EqualTo(TextVocabulary.GetText(CsEvalLogLevel.Warning)));
             Assert.That(logs[logs.GetArrayLength() - 1].GetProperty("message").GetString(), Does.Contain("truncated"));
         });
 
@@ -1247,7 +1249,7 @@ return null;
 
             Assert.That(result.IsSuccess, Is.True);
             var payload = result.Result!.Value;
-            Assert.That(payload.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(CsEvalTouchedResourceState.Unknown)));
+            Assert.That(payload.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(TextVocabulary.GetText(CsEvalTouchedResourceState.Unknown)));
             Assert.That(payload.TryGetProperty("returnValue", out _), Is.True);
         });
 
@@ -1290,7 +1292,7 @@ namespace EvalScripts
                 new OperationReadInvalidation(OperationReadInvalidationSurface.SceneTreeLite, ScenePath: null));
             var payload = result.Result!.Value;
             Assert.That(payload.GetProperty("logs")[0].GetProperty("message").GetString(), Is.EqualTo("before throw"));
-            Assert.That(payload.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(CsEvalTouchedResourceState.Declared)));
+            Assert.That(payload.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(TextVocabulary.GetText(CsEvalTouchedResourceState.Declared)));
         });
 
         [UnityTest]
@@ -1446,7 +1448,7 @@ namespace EvalScripts
                 Assert.That(result.Changed, Is.False, testCase.Name);
                 var payload = result.Result!.Value;
                 Assert.That(payload.TryGetProperty("resolvedEntryPoint", out _), Is.False, testCase.Name);
-                Assert.That(payload.GetProperty("compile").GetProperty("status").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(CsEvalCompileStatus.Failed)), testCase.Name);
+                Assert.That(payload.GetProperty("compile").GetProperty("status").GetString(), Is.EqualTo(TextVocabulary.GetText(CsEvalCompileStatus.Failed)), testCase.Name);
                 if (string.Equals(testCase.Name, "private", System.StringComparison.Ordinal))
                 {
                     Assert.That(
@@ -1558,7 +1560,7 @@ namespace EvalScripts
                     new OperationReadInvalidation(OperationReadInvalidationSurface.GuidPath, ScenePath: null),
                     new OperationReadInvalidation(OperationReadInvalidationSurface.SceneTreeLite, ScenePath: null));
                 var payload = result.Result!.Value;
-                Assert.That(payload.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(CsEvalTouchedResourceState.Unknown)), cases[i]);
+                Assert.That(payload.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(TextVocabulary.GetText(CsEvalTouchedResourceState.Unknown)), cases[i]);
             }
         });
 
@@ -1592,9 +1594,9 @@ namespace EvalScripts
             Assert.That(result.Applied, Is.True);
             Assert.That(result.Changed, Is.True);
             var payload = result.Result!.Value;
-            Assert.That(payload.GetProperty("compile").GetProperty("status").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(CsEvalCompileStatus.Succeeded)));
+            Assert.That(payload.GetProperty("compile").GetProperty("status").GetString(), Is.EqualTo(TextVocabulary.GetText(CsEvalCompileStatus.Succeeded)));
             Assert.That(payload.TryGetProperty("returnValue", out _), Is.False);
-            Assert.That(payload.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(CsEvalTouchedResourceState.Declared)));
+            Assert.That(payload.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(TextVocabulary.GetText(CsEvalTouchedResourceState.Declared)));
         });
 
         [UnityTest]
@@ -1629,7 +1631,7 @@ namespace EvalScripts
             Assert.That(result.Changed, Is.False);
             var payload = result.Result!.Value;
             Assert.That(payload.GetProperty("logs")[0].GetProperty("message").GetString(), Is.EqualTo("before conflict"));
-            Assert.That(payload.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(CsEvalTouchedResourceState.None)));
+            Assert.That(payload.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(TextVocabulary.GetText(CsEvalTouchedResourceState.None)));
         });
 
         private static CsEvalOperation CreateCsEvalOperation (IUnityMutationLaneControl? mutationLaneControl = null)

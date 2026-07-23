@@ -130,7 +130,7 @@ public sealed class IpcBuildUnityBuildProfileContractSerializationTests
                 RunnerResult: null));
 
         JsonAssert.For(request)
-            .HasString("inputKind", ContractLiteralCodec.ToValue(BuildProfileInputsKind.UnityBuildProfile))
+            .HasString("inputKind", TextVocabulary.GetText(BuildProfileInputsKind.UnityBuildProfile))
             .HasString("outputPath", "/tmp/ucli/output")
             .HasArrayLength("scenePaths", 0)
             .HasProperty("unityBuildProfile", profile => profile
@@ -142,8 +142,8 @@ public sealed class IpcBuildUnityBuildProfileContractSerializationTests
         JsonAssert.For(response)
             .HasString("projectFingerprint", TestProjectFingerprint.ToString())
             .HasProperty("input", input => input
-                .HasString("inputKind", ContractLiteralCodec.ToValue(BuildProfileInputsKind.UnityBuildProfile))
-                .HasString("sceneSource", ContractLiteralCodec.ToValue(BuildProfileSceneSource.UnityBuildProfile))
+                .HasString("inputKind", TextVocabulary.GetText(BuildProfileInputsKind.UnityBuildProfile))
+                .HasString("sceneSource", TextVocabulary.GetText(BuildProfileSceneSource.UnityBuildProfile))
                 .HasString("buildOptions", "Development"))
             .HasProperty("unityBuildProfile", profile => profile
                 .HasString("path", "Assets/BuildProfiles/Linux.asset")

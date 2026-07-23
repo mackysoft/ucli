@@ -18,7 +18,7 @@ public sealed class LogsReadServiceResultTests
     {
         var completionReason = (LogsReadCompletionReason)completionReasonValue;
 
-        Assert.Equal(expected, ContractLiteralCodec.ToValue(completionReason));
+        Assert.Equal(expected, TextVocabulary.GetText(completionReason));
     }
 
     [Fact]

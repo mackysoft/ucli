@@ -26,8 +26,8 @@ public sealed class OperationExposureEnumContractTests
     [Trait("Size", "Small")]
     public void UcliOperationPlayModeSupport_HasStableContractLiterals ()
     {
-        Assert.Equal("disallowed", ContractLiteralCodec.ToValue(UcliOperationPlayModeSupport.Disallowed));
-        Assert.Equal("allowed", ContractLiteralCodec.ToValue(UcliOperationPlayModeSupport.Allowed));
-        Assert.Equal("required", ContractLiteralCodec.ToValue(UcliOperationPlayModeSupport.Required));
+        Assert.Equal("disallowed", TextVocabulary.GetText(UcliOperationPlayModeSupport.Disallowed));
+        Assert.Equal("allowed", TextVocabulary.GetText(UcliOperationPlayModeSupport.Allowed));
+        Assert.Equal("required", TextVocabulary.GetText(UcliOperationPlayModeSupport.Required));
     }
 }

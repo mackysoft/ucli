@@ -1,16 +1,16 @@
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 
 /// <summary> Defines daemon status query outcomes. </summary>
+[VocabularyDefinition]
 internal enum DaemonStatusKind
 {
-    [UcliContractLiteral("running")]
+    [VocabularyText("running")]
     Running = 0,
 
-    [UcliContractLiteral("notRunning")]
+    [VocabularyText("notRunning")]
     NotRunning = 1,
 
-    [UcliContractLiteral("stale")]
+    [VocabularyText("stale")]
     Stale = 2,
 }

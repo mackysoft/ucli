@@ -1,15 +1,15 @@
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Cleanup;
 
 /// <summary> Defines daemon cleanup outcome states. </summary>
+[VocabularyDefinition]
 internal enum DaemonCleanupStatus
 {
     /// <summary> Indicates cleanup completed successfully. </summary>
-    [UcliContractLiteral("completed")]
+    [VocabularyText("completed")]
     Completed = 0,
 
     /// <summary> Indicates cleanup was intentionally skipped for safety. </summary>
-    [UcliContractLiteral("skipped")]
+    [VocabularyText("skipped")]
     Skipped = 1,
 }

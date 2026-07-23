@@ -12,7 +12,7 @@ public static class IpcJsonSerializerOptions
     {
         Converters =
         {
-            new ContractLiteralJsonConverterFactory(),
+            new VocabularyJsonConverterFactory(),
             new UcliStringValueJsonConverterFactory(),
         },
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,

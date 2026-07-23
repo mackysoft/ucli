@@ -72,7 +72,7 @@ public sealed record IpcCompileSummary
             DateTimeOffset? CompletedAtUtc,
             bool Completed)
         {
-            if (!ContractLiteralCodec.IsDefined(Origin))
+            if (!TextVocabulary.IsDefined(Origin))
             {
                 throw new ArgumentOutOfRangeException(nameof(Origin), Origin, "Compile refresh origin must be defined.");
             }
@@ -234,7 +234,7 @@ public sealed record IpcCompileSummary
             DaemonDiagnosisActionRequired? ActionRequired,
             IpcPrimaryDiagnostic? PrimaryDiagnostic)
         {
-            if (ActionRequired.HasValue && !ContractLiteralCodec.IsDefined(ActionRequired.Value))
+            if (ActionRequired.HasValue && !TextVocabulary.IsDefined(ActionRequired.Value))
             {
                 throw new ArgumentOutOfRangeException(nameof(ActionRequired), ActionRequired, "Unsupported daemon diagnosis action.");
             }

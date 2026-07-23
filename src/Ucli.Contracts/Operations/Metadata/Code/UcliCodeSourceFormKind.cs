@@ -1,15 +1,15 @@
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Operations;
 
 /// <summary> Identifies an accepted source form for an operation that compiles source code. </summary>
+[VocabularyDefinition]
 public enum UcliCodeSourceFormKind
 {
     /// <summary> Indicates a complete C# compilation unit. </summary>
-    [UcliContractLiteral("compilationUnit")]
+    [VocabularyText("compilationUnit")]
     CompilationUnit = 1,
 
     /// <summary> Indicates a generated entry-point method body. </summary>
-    [UcliContractLiteral("snippet")]
+    [VocabularyText("snippet")]
     Snippet = 2,
 }

@@ -11,7 +11,7 @@ internal sealed record CompileEvidenceOutput
         string? EvidenceRef,
         object? Data)
     {
-        if (!ContractLiteralCodec.IsDefined(Kind))
+        if (!TextVocabulary.IsDefined(Kind))
         {
             throw new ArgumentOutOfRangeException(nameof(Kind), Kind, "Unsupported compile evidence kind.");
         }

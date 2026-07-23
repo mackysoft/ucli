@@ -21,7 +21,7 @@ internal static class LogsRequestContractLiteralParser
             return true;
         }
 
-        if (ContractLiteralInputParser.TryParseIgnoreCase(normalizedValue, out IpcLogLevel parsedLevel))
+        if (VocabularyInputParser.TryParseIgnoreCase(normalizedValue, out IpcLogLevel parsedLevel))
         {
             level = parsedLevel;
             errorMessage = null;
@@ -30,8 +30,8 @@ internal static class LogsRequestContractLiteralParser
 
         level = null;
         errorMessage =
-            $"level must be one of: {AllFilterLiteral}, {ContractLiteralCodec.ToValue(IpcLogLevel.Error)}, "
-            + $"{ContractLiteralCodec.ToValue(IpcLogLevel.Warning)}, {ContractLiteralCodec.ToValue(IpcLogLevel.Info)}. Actual: {value}.";
+            $"level must be one of: {AllFilterLiteral}, {TextVocabulary.GetText(IpcLogLevel.Error)}, "
+            + $"{TextVocabulary.GetText(IpcLogLevel.Warning)}, {TextVocabulary.GetText(IpcLogLevel.Info)}. Actual: {value}.";
         return false;
     }
 
@@ -47,7 +47,7 @@ internal static class LogsRequestContractLiteralParser
             return true;
         }
 
-        if (ContractLiteralInputParser.TryParseIgnoreCase(normalizedValue, out IpcLogQueryTarget parsedQueryTarget))
+        if (VocabularyInputParser.TryParseIgnoreCase(normalizedValue, out IpcLogQueryTarget parsedQueryTarget))
         {
             queryTarget = parsedQueryTarget;
             errorMessage = null;
@@ -56,8 +56,8 @@ internal static class LogsRequestContractLiteralParser
 
         queryTarget = null;
         errorMessage =
-            $"queryTarget must be one of: {ContractLiteralCodec.ToValue(IpcLogQueryTarget.Message)}, "
-            + $"{ContractLiteralCodec.ToValue(IpcLogQueryTarget.Stack)}, {ContractLiteralCodec.ToValue(IpcLogQueryTarget.Both)}. Actual: {value}.";
+            $"queryTarget must be one of: {TextVocabulary.GetText(IpcLogQueryTarget.Message)}, "
+            + $"{TextVocabulary.GetText(IpcLogQueryTarget.Stack)}, {TextVocabulary.GetText(IpcLogQueryTarget.Both)}. Actual: {value}.";
         return false;
     }
 
@@ -74,7 +74,7 @@ internal static class LogsRequestContractLiteralParser
             return true;
         }
 
-        if (ContractLiteralInputParser.TryParseIgnoreCase(normalizedValue, out IpcUnityLogSource parsedSource))
+        if (VocabularyInputParser.TryParseIgnoreCase(normalizedValue, out IpcUnityLogSource parsedSource))
         {
             source = parsedSource;
             errorMessage = null;
@@ -83,8 +83,8 @@ internal static class LogsRequestContractLiteralParser
 
         source = null;
         errorMessage =
-            $"source must be one of: {ContractLiteralCodec.ToValue(IpcUnityLogSource.Compile)}, "
-            + $"{ContractLiteralCodec.ToValue(IpcUnityLogSource.Runtime)}, {AllFilterLiteral}. Actual: {value}.";
+            $"source must be one of: {TextVocabulary.GetText(IpcUnityLogSource.Compile)}, "
+            + $"{TextVocabulary.GetText(IpcUnityLogSource.Runtime)}, {AllFilterLiteral}. Actual: {value}.";
         return false;
     }
 
@@ -111,7 +111,7 @@ internal static class LogsRequestContractLiteralParser
             return true;
         }
 
-        if (ContractLiteralInputParser.TryParseIgnoreCase(normalizedValue, out IpcUnityLogStackTraceMode parsedMode))
+        if (VocabularyInputParser.TryParseIgnoreCase(normalizedValue, out IpcUnityLogStackTraceMode parsedMode))
         {
             stackTraceMode = parsedMode;
             errorMessage = null;
@@ -120,8 +120,8 @@ internal static class LogsRequestContractLiteralParser
 
         stackTraceMode = null;
         errorMessage =
-            $"stackTrace must be one of: {ContractLiteralCodec.ToValue(IpcUnityLogStackTraceMode.None)}, "
-            + $"{ContractLiteralCodec.ToValue(IpcUnityLogStackTraceMode.Error)}, {ContractLiteralCodec.ToValue(IpcUnityLogStackTraceMode.All)}. Actual: {value}.";
+            $"stackTrace must be one of: {TextVocabulary.GetText(IpcUnityLogStackTraceMode.None)}, "
+            + $"{TextVocabulary.GetText(IpcUnityLogStackTraceMode.Error)}, {TextVocabulary.GetText(IpcUnityLogStackTraceMode.All)}. Actual: {value}.";
         return false;
     }
 }

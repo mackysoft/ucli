@@ -21,7 +21,7 @@ public sealed record IpcBuildProjectMutationAuditItem
         Sha256Digest? BeforeSha256,
         Sha256Digest? AfterSha256)
     {
-        if (!ContractLiteralCodec.IsDefined(ChangeKind))
+        if (!TextVocabulary.IsDefined(ChangeKind))
         {
             throw new ArgumentOutOfRangeException(nameof(ChangeKind), ChangeKind, "Project mutation change kind must be specified.");
         }

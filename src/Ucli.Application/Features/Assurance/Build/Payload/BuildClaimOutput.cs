@@ -18,12 +18,12 @@ internal sealed record BuildClaimOutput
         IReadOnlyList<BuildResidualRiskOutput> ResidualRisks)
     {
         this.Id = Id ?? throw new ArgumentNullException(nameof(Id));
-        if (!ContractLiteralCodec.IsDefined(Status))
+        if (!TextVocabulary.IsDefined(Status))
         {
             throw new ArgumentOutOfRangeException(nameof(Status), Status, "Claim status must be defined by the assurance contract.");
         }
 
-        if (!ContractLiteralCodec.IsDefined(Coverage))
+        if (!TextVocabulary.IsDefined(Coverage))
         {
             throw new ArgumentOutOfRangeException(nameof(Coverage), Coverage, "Claim coverage must be defined by the assurance contract.");
         }

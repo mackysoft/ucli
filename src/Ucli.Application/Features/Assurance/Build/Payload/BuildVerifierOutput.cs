@@ -22,7 +22,7 @@ internal sealed record BuildVerifierOutput
         }
 
         ArgumentNullException.ThrowIfNull(Effects);
-        if (Effects.Any(static effect => !ContractLiteralCodec.IsDefined(effect)))
+        if (Effects.Any(static effect => !TextVocabulary.IsDefined(effect)))
         {
             throw new ArgumentException("Effects must contain only defined assurance effects.", nameof(Effects));
         }

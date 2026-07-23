@@ -209,7 +209,7 @@ internal static class Program
             Required("command", StringSchema()),
             Required(
                 "status",
-                EnumSchema(ContractLiteralCodec.GetLiterals<IpcResponseStatus>().ToArray())),
+                EnumSchema(TextVocabulary.GetTexts<IpcResponseStatus>().ToArray())),
             Required("exitCode", IntegerSchema()),
             Required("message", StringSchema()),
             Required("payload", ObjectSchema(additionalProperties: true)),
@@ -266,19 +266,19 @@ internal static class Program
                 Required("opId", StringSchema()),
                 Required(
                     "sourceKind",
-                    EnumSchema(ContractLiteralCodec.GetLiterals<IpcExecutePostReadSourceKind>().ToArray())),
+                    EnumSchema(TextVocabulary.GetTexts<IpcExecutePostReadSourceKind>().ToArray())),
                 Required("playModeMutation", BooleanSchema()),
                 Required(
                     "commit",
-                    EnumValueSchema(ContractLiteralCodec
-                        .GetLiterals<IpcExecutePostReadCommit>()
+                    EnumValueSchema(Vocabulary
+                        .GetTexts<IpcExecutePostReadCommit>()
                         .Cast<object?>()
                         .Append(null)
                         .ToArray())),
                 Required("persistenceExpected", BooleanSchema()),
                 Required(
                     "expectedPostState",
-                    EnumSchema(ContractLiteralCodec.GetLiterals<IpcExecuteExpectedPostState>().ToArray()))))));
+                    EnumSchema(TextVocabulary.GetTexts<IpcExecuteExpectedPostState>().ToArray()))))));
     }
 
     private static Dictionary<string, object?> CreateDiagnosticSchema ()
@@ -296,7 +296,7 @@ internal static class Program
             additionalProperties: false,
             Required(
                 "kind",
-                EnumSchema(ContractLiteralCodec.GetLiterals<UcliTouchedResourceKind>().ToArray())),
+                EnumSchema(TextVocabulary.GetTexts<UcliTouchedResourceKind>().ToArray())),
             Required(
                 "path",
                 PatternStringSchema(@"^(?!\s)(?!/)(?!.*\\)(?!.*:)(?!.*[\u0000-\u001F])(?!.*(?:^|/)\.{1,2}(?:/|$))(?!.*//)(?!.*\s$).+$")),
@@ -313,7 +313,7 @@ internal static class Program
             Required("observedResult", StringSchema()),
             Required(
                 "applicationState",
-                EnumSchema(ContractLiteralCodec.GetLiterals<IpcApplicationState>().ToArray())));
+                EnumSchema(TextVocabulary.GetTexts<IpcApplicationState>().ToArray())));
     }
 
     private static Dictionary<string, object?> CreateWindowSchema ()
@@ -334,7 +334,7 @@ internal static class Program
             Required("id", StringSchema()),
             Required(
                 "kind",
-                EnumSchema(ContractLiteralCodec.GetLiterals<AssuranceVerifierKind>().ToArray())),
+                EnumSchema(TextVocabulary.GetTexts<AssuranceVerifierKind>().ToArray())),
             Required("deterministic", BooleanSchema()),
             Required("required", BooleanSchema()),
             Required("primaryClaims", ArraySchema(StringSchema())),
@@ -1088,7 +1088,7 @@ internal static class Program
             Required("mayPersist", BooleanSchema()),
             Required(
                 "touchedKinds",
-                ArraySchema(EnumSchema(ContractLiteralCodec.GetLiterals<UcliTouchedResourceKind>().ToArray()))),
+                ArraySchema(EnumSchema(TextVocabulary.GetTexts<UcliTouchedResourceKind>().ToArray()))),
             Required("planMode", EnumSchema(
                 Literal(UcliOperationPlanMode.ValidationOnly),
                 Literal(UcliOperationPlanMode.ObservesLiveUnity))),
@@ -1391,20 +1391,20 @@ internal static class Program
     {
         return OneOfSchema(
             CreateScreenshotPayloadSchema(
-                ContractLiteralCodec.ToValue(IpcScreenshotTarget.Game),
-                ContractLiteralCodec.ToValue(IpcScreenshotSizeMode.CurrentSurface),
+                TextVocabulary.GetText(IpcScreenshotTarget.Game),
+                TextVocabulary.GetText(IpcScreenshotSizeMode.CurrentSurface),
                 hasRequestedResolution: false),
             CreateScreenshotPayloadSchema(
-                ContractLiteralCodec.ToValue(IpcScreenshotTarget.Game),
-                ContractLiteralCodec.ToValue(IpcScreenshotSizeMode.RequestedResolution),
+                TextVocabulary.GetText(IpcScreenshotTarget.Game),
+                TextVocabulary.GetText(IpcScreenshotSizeMode.RequestedResolution),
                 hasRequestedResolution: true));
     }
 
     private static Dictionary<string, object?> CreateScreenshotScenePayloadSchema ()
     {
         return CreateScreenshotPayloadSchema(
-            ContractLiteralCodec.ToValue(IpcScreenshotTarget.Scene),
-            ContractLiteralCodec.ToValue(IpcScreenshotSizeMode.CurrentSurface),
+            TextVocabulary.GetText(IpcScreenshotTarget.Scene),
+            TextVocabulary.GetText(IpcScreenshotSizeMode.CurrentSurface),
             hasRequestedResolution: false);
     }
 
@@ -1426,13 +1426,13 @@ internal static class Program
             Required("height", PositiveIntegerSchema()),
             Required(
                 "colorSpace",
-                EnumSchema(ContractLiteralCodec.GetLiterals<IpcScreenshotColorSpace>().ToArray())),
+                EnumSchema(TextVocabulary.GetTexts<IpcScreenshotColorSpace>().ToArray())),
             Required(
                 "lifecycleStateAtCapture",
                 StringSchema()),
             Required(
                 "compileStateAtCapture",
-                ConstString(ContractLiteralCodec.ToValue(IpcCompileState.Ready))),
+                ConstString(TextVocabulary.GetText(IpcCompileState.Ready))),
             Required("generations", CreateUnityGenerationSnapshotSchema()),
             Required(
                 "playModeState",
@@ -1443,18 +1443,18 @@ internal static class Program
                 additionalProperties: true,
                 Required(
                     "lifecycleStateAtCapture",
-                    ConstString(ContractLiteralCodec.ToValue(IpcEditorLifecycleState.Ready))),
+                    ConstString(TextVocabulary.GetText(IpcEditorLifecycleState.Ready))),
                 Required(
                     "playModeState",
-                    ConstString(ContractLiteralCodec.ToValue(IpcPlayModeState.Stopped)))),
+                    ConstString(TextVocabulary.GetText(IpcPlayModeState.Stopped)))),
             ObjectSchema(
                 additionalProperties: true,
                 Required(
                     "lifecycleStateAtCapture",
-                    ConstString(ContractLiteralCodec.ToValue(IpcEditorLifecycleState.PlayMode))),
+                    ConstString(TextVocabulary.GetText(IpcEditorLifecycleState.PlayMode))),
                 Required(
                     "playModeState",
-                    ConstString(ContractLiteralCodec.ToValue(IpcPlayModeState.Playing)))),
+                    ConstString(TextVocabulary.GetText(IpcPlayModeState.Playing)))),
         };
 
         return ObjectSchema(
@@ -1465,7 +1465,7 @@ internal static class Program
                 additionalProperties: false,
                 Required(
                     "kind",
-                    ConstString(ContractLiteralCodec.ToValue(ScreenshotArtifactKind.Screenshot))),
+                    ConstString(TextVocabulary.GetText(ScreenshotArtifactKind.Screenshot))),
                 Required("mediaType", ConstString(ScreenshotArtifactContract.MediaType)),
                 Required("path", StringSchema()),
                 Required("digest", Sha256LowerHexSchema()),
@@ -1620,7 +1620,7 @@ internal static class Program
             Required("observed", CreatePlayLifecycleSnapshotSchema()),
             Required(
                 "applicationState",
-                EnumSchema(ContractLiteralCodec.GetLiterals<IpcApplicationState>().ToArray())));
+                EnumSchema(TextVocabulary.GetTexts<IpcApplicationState>().ToArray())));
     }
 
     private static Dictionary<string, object?> CreatePlayExitExitedTransitionResultSchema ()
@@ -1664,7 +1664,7 @@ internal static class Program
             Required("observed", CreatePlayLifecycleSnapshotSchema()),
             Required(
                 "applicationState",
-                EnumSchema(ContractLiteralCodec.GetLiterals<IpcApplicationState>().ToArray())));
+                EnumSchema(TextVocabulary.GetTexts<IpcApplicationState>().ToArray())));
     }
 
     private static Dictionary<string, object?> CreatePlayLifecycleSnapshotSchema ()
@@ -1751,8 +1751,8 @@ internal static class Program
     {
         return payloadState switch
         {
-            PlayLifecyclePayloadState.Entered => ConstString(ContractLiteralCodec.ToValue(IpcEditorLifecycleState.PlayMode)),
-            PlayLifecyclePayloadState.ReadyStopped => ConstString(ContractLiteralCodec.ToValue(IpcEditorLifecycleState.Ready)),
+            PlayLifecyclePayloadState.Entered => ConstString(TextVocabulary.GetText(IpcEditorLifecycleState.PlayMode)),
+            PlayLifecyclePayloadState.ReadyStopped => ConstString(TextVocabulary.GetText(IpcEditorLifecycleState.Ready)),
             _ => NullableStringSchema(),
         };
     }
@@ -1761,7 +1761,7 @@ internal static class Program
     {
         return payloadState switch
         {
-            PlayLifecyclePayloadState.Entered => ConstString(ContractLiteralCodec.ToValue(IpcEditorBlockingReason.PlayMode)),
+            PlayLifecyclePayloadState.Entered => ConstString(TextVocabulary.GetText(IpcEditorBlockingReason.PlayMode)),
             PlayLifecyclePayloadState.ReadyStopped => NullSchema(),
             _ => NullableStringSchema(),
         };
@@ -2151,7 +2151,7 @@ internal static class Program
     private static string Literal<TEnum> (TEnum value)
         where TEnum : struct, Enum
     {
-        return ContractLiteralCodec.ToValue(value);
+        return TextVocabulary.GetText(value);
     }
 
     private static Dictionary<string, object?> EnumSchema (params string[] values)

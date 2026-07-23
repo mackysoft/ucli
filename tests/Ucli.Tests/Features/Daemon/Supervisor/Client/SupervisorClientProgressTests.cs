@@ -13,7 +13,7 @@ public sealed class SupervisorClientProgressTests
     {
         var transportClient = new StreamingSupervisorTransportClient((request, onProgressFrame, cancellationToken) =>
         {
-            Assert.Equal(ContractLiteralCodec.ToValue(IpcResponseMode.Stream), request.ResponseMode);
+            Assert.Equal(TextVocabulary.GetText(IpcResponseMode.Stream), request.ResponseMode);
 
             return SupervisorClientTestSupport.ForwardProgressThenReturnStartedAsync(
                 request,

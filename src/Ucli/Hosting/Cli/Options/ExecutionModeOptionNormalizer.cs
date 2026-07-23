@@ -1,5 +1,6 @@
 using MackySoft.Ucli.Application.Shared.Foundation;
-using MackySoft.Ucli.Shared.Execution.UnityExecutionMode;
+using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Hosting.Cli.Options;
 
@@ -18,7 +19,8 @@ internal static class ExecutionModeOptionNormalizer
             return ExecutionModeOptionNormalizationResult.Omitted();
         }
 
-        if (UnityExecutionModeCodec.TryParse(optionValue, out var mode))
+        if (!string.IsNullOrWhiteSpace(optionValue)
+            && VocabularyInputParser.TryParseIgnoreCase(optionValue.Trim(), out UnityExecutionMode mode))
         {
             return ExecutionModeOptionNormalizationResult.Success(mode);
         }
@@ -26,5 +28,4 @@ internal static class ExecutionModeOptionNormalizer
         return ExecutionModeOptionNormalizationResult.Failure(
             ExecutionError.InvalidArgument(InvalidModeMessage));
     }
-
 }

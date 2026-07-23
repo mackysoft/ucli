@@ -81,7 +81,7 @@ internal sealed class BuildOutputManifestJsonContractWriter : IJsonContractWrite
             writer.WriteNumber("schemaVersion", content.SchemaVersion);
             writer.WritePropertyName("target");
             writer.WriteStartObject();
-            writer.WriteString("stableName", ContractLiteralCodec.ToValue(content.Target.StableName));
+            writer.WriteString("stableName", TextVocabulary.GetText(content.Target.StableName));
             writer.WriteString("unityBuildTarget", content.Target.UnityBuildTarget);
             writer.WriteEndObject();
             writer.WritePropertyName("entries");

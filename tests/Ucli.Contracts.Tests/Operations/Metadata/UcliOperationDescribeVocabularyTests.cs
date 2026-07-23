@@ -122,10 +122,10 @@ public sealed class UcliOperationDescribeVocabularyTests
         Assert.Equal(3, (int)UcliOperationReferenceTargetKind.GameObject);
         Assert.Equal(1, (int)UcliOperationTypeKind.Component);
         Assert.Equal(1, (int)UcliOperationSerializedPropertyAccess.Write);
-        Assert.False(ContractLiteralCodec.IsDefined(default(UcliOperationAssetKind)));
-        Assert.False(ContractLiteralCodec.IsDefined(default(UcliOperationReferenceTargetKind)));
-        Assert.False(ContractLiteralCodec.IsDefined(default(UcliOperationTypeKind)));
-        Assert.False(ContractLiteralCodec.IsDefined(default(UcliOperationSerializedPropertyAccess)));
+        Assert.False(TextVocabulary.IsDefined(default(UcliOperationAssetKind)));
+        Assert.False(TextVocabulary.IsDefined(default(UcliOperationReferenceTargetKind)));
+        Assert.False(TextVocabulary.IsDefined(default(UcliOperationTypeKind)));
+        Assert.False(TextVocabulary.IsDefined(default(UcliOperationSerializedPropertyAccess)));
     }
 
     [Fact]
@@ -164,7 +164,7 @@ public sealed class UcliOperationDescribeVocabularyTests
     {
         var enumLiterals = Enum
             .GetValues<UcliOperationSideEffect>()
-            .Select(ContractLiteralCodec.ToValue)
+            .Select(TextVocabulary.GetText)
             .ToArray();
 
         Assert.Equal(enumLiterals, UcliOperationSideEffectDescriptors.SupportedValues);
@@ -178,7 +178,7 @@ public sealed class UcliOperationDescribeVocabularyTests
             .Select(descriptor => descriptor.Value)
             .ToArray();
         var descriptorCodecLiterals = UcliOperationSideEffectDescriptors.All
-            .Select(descriptor => ContractLiteralCodec.ToValue(descriptor.SideEffect))
+            .Select(descriptor => TextVocabulary.GetText(descriptor.SideEffect))
             .ToArray();
 
         Assert.Equal(UcliOperationSideEffectDescriptors.SupportedValues, descriptorLiterals);
@@ -231,7 +231,7 @@ public sealed class UcliOperationDescribeVocabularyTests
     {
         foreach (var testCase in SideEffectMinimumPolicyCases)
         {
-            var isSupported = ContractLiteralCodec.TryParse(
+            var isSupported = TextVocabulary.TryGetValue(
                 testCase.SideEffect,
                 out UcliOperationSideEffect sideEffect);
 
@@ -248,7 +248,7 @@ public sealed class UcliOperationDescribeVocabularyTests
     {
         foreach (var testCase in SideEffectMinimumPolicyCases)
         {
-            Assert.True(ContractLiteralCodec.TryParse(
+            Assert.True(TextVocabulary.TryGetValue(
                 testCase.SideEffect,
                 out UcliOperationSideEffect sideEffect));
             var isDangerousSource = UcliOperationSideEffectDescriptors.GetDescriptor(sideEffect).MinimumPolicy
@@ -275,7 +275,7 @@ public sealed class UcliOperationDescribeVocabularyTests
     {
         foreach (var testCase in SideEffectQueryAllowanceCases)
         {
-            Assert.True(ContractLiteralCodec.TryParse(
+            Assert.True(TextVocabulary.TryGetValue(
                 testCase.SideEffect,
                 out UcliOperationSideEffect sideEffect));
             var descriptor = UcliOperationSideEffectDescriptors.GetDescriptor(sideEffect);
@@ -310,7 +310,7 @@ public sealed class UcliOperationDescribeVocabularyTests
     {
         foreach (var testCase in SideEffectAssuranceProjectionCases)
         {
-            var isSupported = ContractLiteralCodec.TryParse(
+            var isSupported = TextVocabulary.TryGetValue(
                 testCase.SideEffect,
                 out UcliOperationSideEffect sideEffect);
 

@@ -36,7 +36,7 @@ internal sealed class UcliEffectiveConfigBuilder
                 $"Config schemaVersion must be {UcliConfig.CurrentSchemaVersion}. Actual: {FormatValue(document.SchemaVersion)}."));
         }
 
-        if (!ContractLiteralInputParser.TryParseIgnoreCase<OperationPolicy>(document.OperationPolicy, out var operationPolicy))
+        if (!VocabularyInputParser.TryParseIgnoreCase<OperationPolicy>(document.OperationPolicy, out var operationPolicy))
         {
             AddDiagnostic(diagnostics, CreateUnsupportedLiteralDiagnostic(
                 UcliConfigJsonPropertyNames.OperationPolicy,
@@ -44,7 +44,7 @@ internal sealed class UcliEffectiveConfigBuilder
                 sourcePath));
         }
 
-        if (!ContractLiteralInputParser.TryParseIgnoreCase<PlanTokenMode>(document.PlanTokenMode, out var planTokenMode))
+        if (!VocabularyInputParser.TryParseIgnoreCase<PlanTokenMode>(document.PlanTokenMode, out var planTokenMode))
         {
             AddDiagnostic(diagnostics, CreateUnsupportedLiteralDiagnostic(
                 UcliConfigJsonPropertyNames.PlanTokenMode,
@@ -53,8 +53,8 @@ internal sealed class UcliEffectiveConfigBuilder
         }
 
         var readIndexDefaultModeValue = document.ReadIndexDefaultMode
-            ?? ContractLiteralCodec.ToValue(ReadIndexMode.RequireFresh);
-        if (!ContractLiteralInputParser.TryParseIgnoreCase<ReadIndexMode>(readIndexDefaultModeValue, out var readIndexDefaultMode))
+            ?? TextVocabulary.GetText(ReadIndexMode.RequireFresh);
+        if (!VocabularyInputParser.TryParseIgnoreCase<ReadIndexMode>(readIndexDefaultModeValue, out var readIndexDefaultMode))
         {
             AddDiagnostic(diagnostics, CreateUnsupportedLiteralDiagnostic(
                 UcliConfigJsonPropertyNames.ReadIndexDefaultMode,

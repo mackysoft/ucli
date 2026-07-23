@@ -52,7 +52,7 @@ internal static class IpcEditStepSelectionReader
             return false;
         }
 
-        if (!ContractLiteralCodec.TryParse(cardinalityLiteral!, out cardinality))
+        if (!TextVocabulary.TryGetValue(cardinalityLiteral!, out cardinality))
         {
             errorMessage = "Edit step property 'step.select.cardinality' must be one of 'one', 'first', 'all', or 'atMostOne'.";
             return false;

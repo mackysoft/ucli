@@ -133,7 +133,7 @@ public sealed class ScreenshotCaptureServiceTests
         var response = CreateResponse(
             width: 1920,
             height: 1080,
-            playModeState: ContractLiteralCodec.ToValue(IpcPlayModeState.Playing));
+            playModeState: TextVocabulary.GetText(IpcPlayModeState.Playing));
         var unityExecutor = new RecordingUnityRequestExecutor(UnityRequestExecutionResult.Success(response));
         var artifactStore = new RecordingScreenshotArtifactStore();
         var service = CreateService(CreateGuiSessionResult(), unityExecutor, artifactStore);
@@ -482,20 +482,20 @@ public sealed class ScreenshotCaptureServiceTests
             captureId = CaptureId,
             capture = new
             {
-                target = ContractLiteralCodec.ToValue(target),
-                sizeMode = ContractLiteralCodec.ToValue(requestedWidth.HasValue
+                target = TextVocabulary.GetText(target),
+                sizeMode = TextVocabulary.GetText(requestedWidth.HasValue
                     ? IpcScreenshotSizeMode.RequestedResolution
                     : IpcScreenshotSizeMode.CurrentSurface),
                 requestedWidth,
                 requestedHeight,
                 width,
                 height,
-                colorSpace = colorSpace ?? ContractLiteralCodec.ToValue(IpcScreenshotColorSpace.Linear),
+                colorSpace = colorSpace ?? TextVocabulary.GetText(IpcScreenshotColorSpace.Linear),
                 state = new
                 {
-                    editorMode = ContractLiteralCodec.ToValue(DaemonEditorMode.Gui),
-                    lifecycleState = lifecycleState ?? ContractLiteralCodec.ToValue(IpcEditorLifecycleState.Ready),
-                    compileState = compileState ?? ContractLiteralCodec.ToValue(IpcCompileState.Ready),
+                    editorMode = TextVocabulary.GetText(DaemonEditorMode.Gui),
+                    lifecycleState = lifecycleState ?? TextVocabulary.GetText(IpcEditorLifecycleState.Ready),
+                    compileState = compileState ?? TextVocabulary.GetText(IpcCompileState.Ready),
                     generations = new
                     {
                         compileGeneration = 5,
@@ -505,8 +505,8 @@ public sealed class ScreenshotCaptureServiceTests
                     },
                     playMode = new
                     {
-                        state = playModeState ?? ContractLiteralCodec.ToValue(IpcPlayModeState.Stopped),
-                        transition = ContractLiteralCodec.ToValue(IpcPlayModeTransition.None),
+                        state = playModeState ?? TextVocabulary.GetText(IpcPlayModeState.Stopped),
+                        transition = TextVocabulary.GetText(IpcPlayModeTransition.None),
                         isPlaying = false,
                         isPlayingOrWillChangePlaymode = false,
                     },
@@ -516,8 +516,8 @@ public sealed class ScreenshotCaptureServiceTests
             {
                 width,
                 height,
-                pixelFormat = ContractLiteralCodec.ToValue(IpcScreenshotPixelFormat.Rgba8Srgb),
-                rowOrder = ContractLiteralCodec.ToValue(IpcScreenshotRowOrder.TopDown),
+                pixelFormat = TextVocabulary.GetText(IpcScreenshotPixelFormat.Rgba8Srgb),
+                rowOrder = TextVocabulary.GetText(IpcScreenshotRowOrder.TopDown),
                 rowStrideBytes = width * 4,
                 sizeBytes = stagingSizeBytes ?? ((long)width * height * 4),
             },

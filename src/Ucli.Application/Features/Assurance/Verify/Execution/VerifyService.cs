@@ -676,7 +676,7 @@ internal sealed class VerifyService : IVerifyService
             VerifierRef: claim.VerifierRef,
             Statement: claim.Statement,
             Subject: claim.Subject,
-            Evidence: claim.Evidence.Select(static evidence => new VerifyEvidenceOutput(ContractLiteralCodec.ToValue(evidence.Kind))
+            Evidence: claim.Evidence.Select(static evidence => new VerifyEvidenceOutput(TextVocabulary.GetText(evidence.Kind))
             {
                 EvidenceRef = evidence.EvidenceRef,
                 Data = evidence.Data,

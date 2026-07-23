@@ -17,7 +17,7 @@ internal sealed class CommandResultJsonContractWriter : JsonContractWriter<Comma
         writer.WriteStartObject();
         writer.WriteNumber("protocolVersion", contract.ProtocolVersion);
         writer.WriteString("command", contract.Command);
-        writer.WriteString("status", ContractLiteralCodec.ToValue(contract.Status));
+        writer.WriteString("status", TextVocabulary.GetText(contract.Status));
         writer.WriteNumber("exitCode", contract.ExitCode);
         writer.WriteString("message", contract.Message);
         writer.WritePropertyName("payload");

@@ -18,12 +18,12 @@ public sealed class AssuranceVerdictContractTests
     {
         Assert.Equal(
             ["pass", "fail", "incomplete"],
-            ContractLiteralCodec.GetLiterals<AssuranceVerdict>());
-        Assert.False(ContractLiteralCodec.IsDefined(default(AssuranceVerdict)));
+            TextVocabulary.GetTexts<AssuranceVerdict>());
+        Assert.False(TextVocabulary.IsDefined(default(AssuranceVerdict)));
         Assert.Equal(
             ["daemon", "transientProbe", "artifactOnly"],
-            ContractLiteralCodec.GetLiterals<AssuranceSessionKind>());
-        Assert.False(ContractLiteralCodec.IsDefined(default(AssuranceSessionKind)));
+            TextVocabulary.GetTexts<AssuranceSessionKind>());
+        Assert.False(TextVocabulary.IsDefined(default(AssuranceSessionKind)));
     }
 
     [Fact]

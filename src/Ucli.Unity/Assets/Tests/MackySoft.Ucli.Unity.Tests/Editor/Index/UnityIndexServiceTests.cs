@@ -46,7 +46,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(literal, Is.EqualTo("layerMask"));
             Assert.That(
-                ContractLiteralInputParser.TryParseIgnoreCase<IndexPropertyType>(literal, out var parsedType),
+                VocabularyInputParser.TryParseIgnoreCase<IndexPropertyType>(literal, out var parsedType),
                 Is.True);
             Assert.That(parsedType, Is.EqualTo(IndexPropertyType.LayerMask));
         }

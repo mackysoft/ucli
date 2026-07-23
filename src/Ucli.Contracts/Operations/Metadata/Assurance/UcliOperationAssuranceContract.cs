@@ -44,7 +44,7 @@ public sealed class UcliOperationAssuranceContract
             throw new ArgumentNullException(nameof(dangerousNotes));
         }
 
-        if (!ContractLiteralCodec.IsDefined(planMode))
+        if (!TextVocabulary.IsDefined(planMode))
         {
             throw new ArgumentOutOfRangeException(nameof(planMode), planMode, "Operation plan mode must be defined.");
         }
@@ -117,7 +117,7 @@ public sealed class UcliOperationAssuranceContract
         for (var index = 0; index < sideEffects.Count; index++)
         {
             var sideEffect = sideEffects[index];
-            if (!ContractLiteralCodec.IsDefined(sideEffect))
+            if (!TextVocabulary.IsDefined(sideEffect))
             {
                 throw new ArgumentOutOfRangeException(
                     nameof(sideEffects),
@@ -136,7 +136,7 @@ public sealed class UcliOperationAssuranceContract
                 {
                     throw new ArgumentException(
                         $"Side effect '{descriptor.Value}' requires touched-resource kind "
-                        + $"'{ContractLiteralCodec.ToValue(descriptor.RequiredTouchedKinds[requiredIndex])}'.",
+                        + $"'{TextVocabulary.GetText(descriptor.RequiredTouchedKinds[requiredIndex])}'.",
                         nameof(touchedKinds));
                 }
             }
@@ -161,7 +161,7 @@ public sealed class UcliOperationAssuranceContract
         for (var index = 0; index < touchedKinds.Count; index++)
         {
             var touchedKind = touchedKinds[index];
-            if (!ContractLiteralCodec.IsDefined(touchedKind))
+            if (!TextVocabulary.IsDefined(touchedKind))
             {
                 throw new ArgumentOutOfRangeException(
                     nameof(touchedKinds),

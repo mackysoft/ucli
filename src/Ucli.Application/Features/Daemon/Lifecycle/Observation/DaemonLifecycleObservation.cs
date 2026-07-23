@@ -30,7 +30,7 @@ internal sealed record DaemonLifecycleObservation
         var validatedObservedAtUtc = ContractArgumentGuard.RequireUtcTimestamp(observedAtUtc, nameof(observedAtUtc));
         var validatedEditorInstanceId = ContractArgumentGuard.RequireNonEmptyGuid(editorInstanceId, nameof(editorInstanceId));
 
-        if (actionRequired.HasValue && !ContractLiteralCodec.IsDefined(actionRequired.Value))
+        if (actionRequired.HasValue && !TextVocabulary.IsDefined(actionRequired.Value))
         {
             throw new ArgumentOutOfRangeException(nameof(actionRequired), actionRequired, "Unsupported daemon diagnosis action.");
         }

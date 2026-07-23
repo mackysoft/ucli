@@ -23,7 +23,7 @@ public sealed record CompileCompletedEntry
         {
             throw new ArgumentException("Run id must not be empty.", nameof(RunId));
         }
-        if (!ContractLiteralCodec.IsDefined(Verdict))
+        if (!TextVocabulary.IsDefined(Verdict))
         {
             throw new ArgumentOutOfRangeException(nameof(Verdict), Verdict, "Verdict must be defined by the assurance contract.");
         }

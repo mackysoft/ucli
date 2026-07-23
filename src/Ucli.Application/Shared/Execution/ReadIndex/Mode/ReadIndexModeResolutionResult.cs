@@ -31,7 +31,7 @@ internal sealed class ReadIndexModeResolutionResult
     /// <returns> The successful result. </returns>
     public static ReadIndexModeResolutionResult Success (ReadIndexMode mode)
     {
-        if (!ContractLiteralCodec.IsDefined(mode))
+        if (!TextVocabulary.IsDefined(mode))
         {
             throw new ArgumentOutOfRangeException(nameof(mode), mode, "Read-index mode must be a defined contract value.");
         }

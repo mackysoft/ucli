@@ -25,8 +25,8 @@ public sealed class IpcBootstrapVocabularyTests
     [Trait("Size", "Small")]
     public void IpcBootstrapTarget_HasStableLiteralsAndInvalidDefault ()
     {
-        Assert.Equal("daemon", ContractLiteralCodec.ToValue(IpcBootstrapTarget.Daemon));
-        Assert.Equal("oneshot", ContractLiteralCodec.ToValue(IpcBootstrapTarget.Oneshot));
+        Assert.Equal("daemon", TextVocabulary.GetText(IpcBootstrapTarget.Daemon));
+        Assert.Equal("oneshot", TextVocabulary.GetText(IpcBootstrapTarget.Oneshot));
         Assert.False(Enum.IsDefined(default(IpcBootstrapTarget)));
     }
 

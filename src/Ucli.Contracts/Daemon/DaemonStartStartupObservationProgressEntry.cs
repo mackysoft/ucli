@@ -35,12 +35,12 @@ public sealed record DaemonStartStartupObservationProgressEntry
             throw new ArgumentOutOfRangeException(nameof(PayloadKind), PayloadKind, "Payload kind must identify a startup observation.");
         }
 
-        if (EditorMode.HasValue && !ContractLiteralCodec.IsDefined(EditorMode.Value))
+        if (EditorMode.HasValue && !TextVocabulary.IsDefined(EditorMode.Value))
         {
             throw new ArgumentOutOfRangeException(nameof(EditorMode), EditorMode, "Editor mode must be defined when specified.");
         }
 
-        if (!ContractLiteralCodec.IsDefined(OnStartupBlocked))
+        if (!TextVocabulary.IsDefined(OnStartupBlocked))
         {
             throw new ArgumentOutOfRangeException(nameof(OnStartupBlocked), OnStartupBlocked, "Startup-blocked process policy must be defined.");
         }
@@ -50,27 +50,27 @@ public sealed record DaemonStartStartupObservationProgressEntry
             throw new ArgumentException("Launch attempt identifier must not be empty.", nameof(LaunchAttemptId));
         }
 
-        if (OwnerKind.HasValue && !ContractLiteralCodec.IsDefined(OwnerKind.Value))
+        if (OwnerKind.HasValue && !TextVocabulary.IsDefined(OwnerKind.Value))
         {
             throw new ArgumentOutOfRangeException(nameof(OwnerKind), OwnerKind, "Session owner kind must be defined when specified.");
         }
 
-        if (StartupStatus.HasValue && !ContractLiteralCodec.IsDefined(StartupStatus.Value))
+        if (StartupStatus.HasValue && !TextVocabulary.IsDefined(StartupStatus.Value))
         {
             throw new ArgumentOutOfRangeException(nameof(StartupStatus), StartupStatus, "Startup status must be defined when specified.");
         }
 
-        if (StartupBlockingReason.HasValue && !ContractLiteralCodec.IsDefined(StartupBlockingReason.Value))
+        if (StartupBlockingReason.HasValue && !TextVocabulary.IsDefined(StartupBlockingReason.Value))
         {
             throw new ArgumentOutOfRangeException(nameof(StartupBlockingReason), StartupBlockingReason, "Startup blocking reason must be defined when specified.");
         }
 
-        if (StartupPhase.HasValue && !ContractLiteralCodec.IsDefined(StartupPhase.Value))
+        if (StartupPhase.HasValue && !TextVocabulary.IsDefined(StartupPhase.Value))
         {
             throw new ArgumentOutOfRangeException(nameof(StartupPhase), StartupPhase, "Startup phase must be defined when specified.");
         }
 
-        if (RetryDisposition.HasValue && !ContractLiteralCodec.IsDefined(RetryDisposition.Value))
+        if (RetryDisposition.HasValue && !TextVocabulary.IsDefined(RetryDisposition.Value))
         {
             throw new ArgumentOutOfRangeException(nameof(RetryDisposition), RetryDisposition, "Retry disposition must be defined when specified.");
         }

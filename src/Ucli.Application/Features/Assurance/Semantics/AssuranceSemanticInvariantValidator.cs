@@ -412,7 +412,7 @@ internal sealed class AssuranceSemanticInvariantValidator
             AddViolation(
                 violations,
                 "$.verdict",
-                $"Verdict must be '{ContractLiteralCodec.ToValue(expectedVerdict)}' when recalculated from claims and residual risks.");
+                $"Verdict must be '{TextVocabulary.GetText(expectedVerdict)}' when recalculated from claims and residual risks.");
         }
     }
 
@@ -430,7 +430,7 @@ internal sealed class AssuranceSemanticInvariantValidator
 
         if (descriptor.Kind != expectedKind)
         {
-            AddViolation(violations, path, $"Code '{code}' must be registered as kind '{ContractLiteralCodec.ToValue(expectedKind)}'.");
+            AddViolation(violations, path, $"Code '{code}' must be registered as kind '{TextVocabulary.GetText(expectedKind)}'.");
         }
     }
 
@@ -552,7 +552,7 @@ internal sealed class AssuranceSemanticInvariantValidator
             return false;
         }
 
-        if (ContractLiteralCodec.TryParse(literal, out value))
+        if (TextVocabulary.TryGetValue(literal, out value))
         {
             return true;
         }

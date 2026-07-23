@@ -20,7 +20,7 @@ public sealed record IpcExecuteReadPostconditionRequirement
         DateTimeOffset MinSafeGeneratedAtUtc,
         UnityScenePath? ScenePath)
     {
-        if (!ContractLiteralCodec.IsDefined(Surface))
+        if (!TextVocabulary.IsDefined(Surface))
         {
             throw new ArgumentOutOfRangeException(nameof(Surface), Surface, "Read postcondition surface must be specified.");
         }

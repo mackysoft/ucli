@@ -16,12 +16,12 @@ internal static class UcliOperationInputConstraintContractMapper
             throw new ArgumentNullException(nameof(attribute));
         }
 
-        return new UcliOperationInputConstraintContract(ContractLiteralCodec.ToValue(attribute.Kind))
+        return new UcliOperationInputConstraintContract(TextVocabulary.GetText(attribute.Kind))
         {
-            AssetKind = attribute.HasAssetKind ? ContractLiteralCodec.ToValue(attribute.AssetKind) : null,
-            TargetKind = attribute.HasTargetKind ? ContractLiteralCodec.ToValue(attribute.TargetKind) : null,
-            TypeKind = attribute.HasTypeKind ? ContractLiteralCodec.ToValue(attribute.TypeKind) : null,
-            Access = attribute.HasAccess ? ContractLiteralCodec.ToValue(attribute.Access) : null,
+            AssetKind = attribute.HasAssetKind ? TextVocabulary.GetText(attribute.AssetKind) : null,
+            TargetKind = attribute.HasTargetKind ? TextVocabulary.GetText(attribute.TargetKind) : null,
+            TypeKind = attribute.HasTypeKind ? TextVocabulary.GetText(attribute.TypeKind) : null,
+            Access = attribute.HasAccess ? TextVocabulary.GetText(attribute.Access) : null,
             Min = attribute.HasMin ? attribute.Min : null,
             Max = attribute.HasMax ? attribute.Max : null,
         };

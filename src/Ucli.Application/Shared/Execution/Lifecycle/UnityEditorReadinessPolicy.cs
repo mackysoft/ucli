@@ -67,7 +67,7 @@ internal static class UnityEditorReadinessPolicy
                 "Unity editor lifecycle is unavailable because the daemon endpoint cannot be observed."),
             _ => UnityReadinessDecision.Failure(
                 UcliCoreErrorCodes.InternalError,
-                $"Unity editor lifecycle gate returned unsupported state '{ContractLiteralCodec.ToValue(lifecycleState)}'."),
+                $"Unity editor lifecycle gate returned unsupported state '{TextVocabulary.GetText(lifecycleState)}'."),
         };
     }
 

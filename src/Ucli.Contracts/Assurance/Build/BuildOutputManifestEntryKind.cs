@@ -1,15 +1,15 @@
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Assurance.Build;
 
 /// <summary> Defines output source entry kind literals in <c>output-manifest.json</c>. </summary>
+[VocabularyDefinition]
 internal enum BuildOutputManifestEntryKind
 {
     /// <summary> The source entry was a regular file. </summary>
-    [UcliContractLiteral("file")]
+    [VocabularyText("file")]
     File = 1,
 
     /// <summary> The source entry was a directory. </summary>
-    [UcliContractLiteral("directory")]
+    [VocabularyText("directory")]
     Directory = 2,
 }

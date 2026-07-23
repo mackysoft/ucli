@@ -17,12 +17,12 @@ internal sealed record ValidatedOpsCatalogEntry
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentException.ThrowIfNullOrWhiteSpace(description);
-        if (!ContractLiteralCodec.IsDefined(kind))
+        if (!TextVocabulary.IsDefined(kind))
         {
             throw new ArgumentOutOfRangeException(nameof(kind), kind, "Operation kind must have a canonical contract literal.");
         }
 
-        if (!ContractLiteralCodec.IsDefined(policy))
+        if (!TextVocabulary.IsDefined(policy))
         {
             throw new ArgumentOutOfRangeException(nameof(policy), policy, "Operation policy must have a canonical contract literal.");
         }

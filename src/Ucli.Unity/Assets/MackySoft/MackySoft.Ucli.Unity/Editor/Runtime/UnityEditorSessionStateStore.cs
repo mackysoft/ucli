@@ -1,4 +1,6 @@
 using System.Globalization;
+using MackySoft.Text.Vocabularies;
+using TextVocabulary = MackySoft.Text.Vocabularies.Vocabulary;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
 using UnityEditor;
@@ -122,7 +124,7 @@ namespace MackySoft.Ucli.Unity.Runtime
         public static IpcPlayModeState? RestorePlayModeStableState ()
         {
             var persistedState = SessionState.GetString(PlayModeStableStateKey, string.Empty);
-            if (!ContractLiteralInputParser.TryParseTrimmed<IpcPlayModeState>(persistedState, out var state) || !IsStableState(state))
+            if (!VocabularyInputParser.TryParseTrimmed<IpcPlayModeState>(persistedState, out var state) || !IsStableState(state))
             {
                 return null;
             }
@@ -147,7 +149,7 @@ namespace MackySoft.Ucli.Unity.Runtime
                 throw new System.ArgumentException("Stable Play Mode state must be playing or stopped.", nameof(state));
             }
 
-            SessionState.SetString(PlayModeStableStateKey, ContractLiteralCodec.ToValue(state));
+            SessionState.SetString(PlayModeStableStateKey, TextVocabulary.GetText(state));
         }
 
         /// <summary> Stores one persisted Play Mode generation value. </summary>

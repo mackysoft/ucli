@@ -1,5 +1,7 @@
 using System;
 using System.Text.Json;
+using MackySoft.Text.Vocabularies;
+using TextVocabulary = MackySoft.Text.Vocabularies.Vocabulary;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
@@ -31,12 +33,12 @@ namespace MackySoft.Ucli.Unity.Ipc
                 throw new ArgumentException("Request id must not be empty.", nameof(requestId));
             }
 
-            if (!ContractLiteralCodec.IsDefined(method))
+            if (!TextVocabulary.IsDefined(method))
             {
                 throw new ArgumentOutOfRangeException(nameof(method), method, "Unity IPC method must be defined.");
             }
 
-            if (!ContractLiteralCodec.IsDefined(responseMode))
+            if (!TextVocabulary.IsDefined(responseMode))
             {
                 throw new ArgumentOutOfRangeException(nameof(responseMode), responseMode, "IPC response mode must be defined.");
             }

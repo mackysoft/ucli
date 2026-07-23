@@ -18,17 +18,17 @@ internal sealed record ReadyReadIndexArtifactOutput
         string? Message,
         string? ActionRequired)
     {
-        if (!ContractLiteralCodec.IsDefined(Name))
+        if (!TextVocabulary.IsDefined(Name))
         {
             throw new ArgumentOutOfRangeException(nameof(Name), Name, "Artifact name must be defined by the ready contract.");
         }
 
-        if (!ContractLiteralCodec.IsDefined(Status))
+        if (!TextVocabulary.IsDefined(Status))
         {
             throw new ArgumentOutOfRangeException(nameof(Status), Status, "Artifact status must be defined by the ready contract.");
         }
 
-        if (Freshness.HasValue && !ContractLiteralCodec.IsDefined(Freshness.Value))
+        if (Freshness.HasValue && !TextVocabulary.IsDefined(Freshness.Value))
         {
             throw new ArgumentOutOfRangeException(nameof(Freshness), Freshness, "Artifact freshness must be defined by the index contract.");
         }

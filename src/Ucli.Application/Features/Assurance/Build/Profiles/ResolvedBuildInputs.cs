@@ -23,7 +23,7 @@ internal abstract class ResolvedBuildInputs
             ResolvedBuildScenes scenes,
             ResolvedBuildOptions options)
         {
-            if (!ContractLiteralCodec.IsDefined(buildTarget))
+            if (!TextVocabulary.IsDefined(buildTarget))
             {
                 throw new ArgumentOutOfRangeException(nameof(buildTarget), buildTarget, "Build target must be defined.");
             }

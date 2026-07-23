@@ -13,7 +13,7 @@ internal sealed record BuildInputsOutput
         BuildOptionsOutput Options,
         BuildUnityBuildProfileOutput? UnityBuildProfile)
     {
-        if (!ContractLiteralCodec.IsDefined(InputKind))
+        if (!TextVocabulary.IsDefined(InputKind))
         {
             throw new ArgumentOutOfRangeException(nameof(InputKind), InputKind, "Build input kind must be specified.");
         }

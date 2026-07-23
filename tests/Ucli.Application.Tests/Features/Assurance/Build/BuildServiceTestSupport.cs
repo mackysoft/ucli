@@ -87,7 +87,7 @@ internal static class BuildServiceTestSupport
     {
         Converters =
         {
-            new ContractLiteralJsonConverterFactory(),
+            new VocabularyJsonConverterFactory(),
         },
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
     };

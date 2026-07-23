@@ -76,9 +76,9 @@ internal sealed class DaemonCleanupCommand
                 message: "uCLI daemon cleanup completed.",
                 payload: new
                 {
-                    cleanupStatus = ContractLiteralCodec.ToValue(output.CleanupStatus),
+                    cleanupStatus = TextVocabulary.GetText(output.CleanupStatus),
                     skipReason = output.SkipReason.HasValue
-                        ? ContractLiteralCodec.ToValue(output.SkipReason.Value)
+                        ? TextVocabulary.GetText(output.SkipReason.Value)
                         : null,
                     deletedLaunchAttemptCount = output.DeletedLaunchAttemptCount,
                     timeoutMilliseconds = output.TimeoutMilliseconds,
