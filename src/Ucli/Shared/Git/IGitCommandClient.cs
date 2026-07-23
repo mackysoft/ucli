@@ -1,3 +1,5 @@
+using MackySoft.FileSystem;
+
 namespace MackySoft.Ucli.Shared.Git;
 
 /// <summary> Gets raw text results from Git commands anchored at one path. </summary>
@@ -9,7 +11,7 @@ internal interface IGitCommandClient
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The Git command text result. </returns>
     ValueTask<GitCommandTextResult> GetCurrentWorktreeRootAsync (
-        string path,
+        AbsolutePath path,
         TimeSpan timeout,
         CancellationToken cancellationToken = default);
 
@@ -19,7 +21,7 @@ internal interface IGitCommandClient
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The Git command text result. </returns>
     ValueTask<GitCommandTextResult> GetCurrentProjectRelativePathAsync (
-        string path,
+        AbsolutePath path,
         TimeSpan timeout,
         CancellationToken cancellationToken = default);
 
@@ -29,7 +31,7 @@ internal interface IGitCommandClient
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The Git command text result. </returns>
     ValueTask<GitCommandTextResult> GetWorktreeListPorcelainAsync (
-        string path,
+        AbsolutePath path,
         TimeSpan timeout,
         CancellationToken cancellationToken = default);
 }

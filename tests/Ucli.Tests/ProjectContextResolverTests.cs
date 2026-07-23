@@ -1,5 +1,6 @@
 namespace MackySoft.Ucli.Tests;
 
+using MackySoft.FileSystem;
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Context;
@@ -23,8 +24,8 @@ public sealed class ProjectContextResolverTests
         Assert.True(result.IsSuccess);
         Assert.Null(result.Error);
         var context = Assert.IsType<ProjectContext>(result.Context);
-        Assert.Equal(unityProjectPath, context.UnityProject.UnityProjectRoot);
-        Assert.Equal(unityProjectPath, context.UnityProject.RepositoryRoot);
+        Assert.Equal(unityProjectPath, context.UnityProject.UnityProjectRoot.Value);
+        Assert.Equal(unityProjectPath, context.UnityProject.RepositoryRoot.Value);
         Assert.Equal(ConfigSource.Default, context.ConfigSource);
         Assert.Equal(OperationPolicy.Safe, context.Config.OperationPolicy);
         Assert.Equal(PlanTokenMode.Optional, context.Config.PlanTokenMode);
@@ -39,7 +40,7 @@ public sealed class ProjectContextResolverTests
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
         var configStore = new UcliConfigStore(UcliConfigCompiler.CreateDefault());
         var saveResult = await configStore.SaveAsync(
-            unityProjectPath,
+            AbsolutePath.Parse(unityProjectPath),
             new UcliConfig(
                 SchemaVersion: 1,
                 OperationPolicy: OperationPolicy.Advanced,
@@ -90,8 +91,8 @@ public sealed class ProjectContextResolverTests
         using var scope = TestDirectories.CreateTempScope("init-status-context-resolver", "invalid-config");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
         var configStore = new UcliConfigStore(UcliConfigCompiler.CreateDefault());
-        var configPath = configStore.GetConfigPath(unityProjectPath);
-        var relativeConfigPath = Path.GetRelativePath(scope.FullPath, configPath);
+        var configPath = configStore.GetConfigPath(AbsolutePath.Parse(unityProjectPath));
+        var relativeConfigPath = Path.GetRelativePath(scope.FullPath, configPath.Value);
         scope.WriteFile(relativeConfigPath, "{");
         var resolver = CreateResolver(configStore: configStore);
 
@@ -118,7 +119,7 @@ public sealed class ProjectContextResolverTests
 
         Assert.True(result.IsSuccess);
         var context = Assert.IsType<ProjectContext>(result.Context);
-        Assert.Equal(unityProjectPath, context.UnityProject.UnityProjectRoot);
+        Assert.Equal(unityProjectPath, context.UnityProject.UnityProjectRoot.Value);
         Assert.Equal(UnityProjectPathSource.EnvironmentVariable, context.UnityProject.PathSource);
         Assert.Equal(UcliEnvironmentVariableNames.ProjectPath, context.UnityProject.PathSourceLabel);
     }

@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Contracts.Storage;
 
@@ -12,10 +13,10 @@ internal static class DaemonDiagnosisTestFactory
         bool isInferred = false,
         DateTimeOffset? updatedAtUtc = null,
         int? processId = 1234,
-        string? editorInstancePath = null,
+        AbsolutePath? editorInstancePath = null,
         DateTimeOffset? sessionIssuedAtUtc = null,
         DateTimeOffset? processStartedAtUtc = null,
-        string? unityLogPath = null,
+        AbsolutePath? unityLogPath = null,
         DaemonDiagnosisStartupPhase? startupPhase = null,
         DaemonDiagnosisActionRequired? actionRequired = null,
         DaemonPrimaryDiagnostic? primaryDiagnostic = null)
@@ -44,7 +45,10 @@ internal static class DaemonDiagnosisTestFactory
             reportedBy: DaemonDiagnosisReportedBy.Cli,
             isInferred: true,
             updatedAtUtc: new DateTimeOffset(2026, 03, 12, 0, 3, 0, TimeSpan.Zero),
-            editorInstancePath: "/repo/UnityProject/Library/EditorInstance.json",
+            editorInstancePath: AbsolutePath.Parse(Path.Combine(
+                ProjectPathTestValues.RepositoryUnityProject,
+                "Library",
+                "EditorInstance.json")),
             sessionIssuedAtUtc: new DateTimeOffset(2026, 03, 12, 0, 2, 0, TimeSpan.Zero));
     }
 }

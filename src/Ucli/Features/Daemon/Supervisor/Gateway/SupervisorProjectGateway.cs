@@ -1,4 +1,5 @@
 using System.Text.Json;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Gateway;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Contracts;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Stop;
@@ -8,7 +9,6 @@ using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc.Authorization;
-using MackySoft.Ucli.Infrastructure.Paths;
 
 namespace MackySoft.Ucli.Features.Daemon.Supervisor.Gateway;
 
@@ -237,11 +237,6 @@ internal sealed class SupervisorProjectGateway : IDaemonProjectLifecycleGateway
                 return DaemonStopResult.Failure(ExecutionError.InternalError(
                     $"Failed to identify malformed supervisor manifest generation. {exception.Message}"));
             }
-            catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
-            {
-                return DaemonStopResult.Failure(ExecutionError.InvalidArgument(
-                    $"Supervisor manifest path is invalid. {exception.Message}"));
-            }
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
             {
                 return null;
@@ -357,7 +352,7 @@ internal sealed class SupervisorProjectGateway : IDaemonProjectLifecycleGateway
     }
 
     private async ValueTask<SupervisorManifestReloadResult> ReloadSuccessorManifestAsync (
-        string repositoryRoot,
+        AbsolutePath repositoryRoot,
         IpcSessionToken rejectedSessionToken,
         TimeSpan timeout,
         CancellationToken cancellationToken)
@@ -390,13 +385,6 @@ internal sealed class SupervisorProjectGateway : IDaemonProjectLifecycleGateway
                 ExecutionError.InternalError(
                     $"Successor supervisor manifest is invalid. {exception.Message}"));
         }
-        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
-        {
-            return new SupervisorManifestReloadResult(
-                null,
-                ExecutionError.InvalidArgument(
-                    $"Successor supervisor manifest path is invalid. {exception.Message}"));
-        }
         catch (Exception exception) when (exception is JsonException or InvalidDataException or IOException or UnauthorizedAccessException)
         {
             return new SupervisorManifestReloadResult(
@@ -407,7 +395,7 @@ internal sealed class SupervisorProjectGateway : IDaemonProjectLifecycleGateway
     }
 
     private async ValueTask<SupervisorRuntimeCleanupResult> TryCleanupMalformedSupervisorRuntimeAsync (
-        string repositoryRoot,
+        AbsolutePath repositoryRoot,
         Sha256Digest expectedArtifactIdentity,
         ExecutionDeadline deadline,
         CancellationToken cancellationToken)
@@ -452,13 +440,6 @@ internal sealed class SupervisorProjectGateway : IDaemonProjectLifecycleGateway
                 null,
                 ExecutionError.Timeout(
                     $"Timed out while waiting to clean malformed supervisor runtime state. {exception.Message}"));
-        }
-        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
-        {
-            return new SupervisorRuntimeCleanupResult(
-                null,
-                ExecutionError.InvalidArgument(
-                    $"Supervisor manifest cleanup path is invalid. {exception.Message}"));
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {

@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using System.Text;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Stop;
 using MackySoft.Ucli.Infrastructure.Storage;
@@ -28,7 +29,7 @@ public sealed class SupervisorProjectGatewayStopTests
                 if (Interlocked.Increment(ref pingAttempt) == 1)
                 {
                     await scenario.ManifestStore.WriteAsync(
-                        scope.FullPath,
+                        AbsolutePath.Parse(scope.FullPath),
                         successorManifest,
                         cancellationToken);
                     return IpcResponseTestFactory.CreateError(
@@ -91,7 +92,7 @@ public sealed class SupervisorProjectGatewayStopTests
             {
                 timeProvider.Advance(TimeSpan.FromMilliseconds(200));
                 await scenario.ManifestStore.WriteAsync(
-                    scope.FullPath,
+                    AbsolutePath.Parse(scope.FullPath),
                     successorManifest,
                     cancellationToken);
                 return IpcResponseTestFactory.CreateError(
@@ -134,9 +135,9 @@ public sealed class SupervisorProjectGatewayStopTests
     {
         using var scope = TestDirectories.CreateTempScope("supervisor-project-gateway", "malformed-manifest");
         var timeProvider = new ManualTimeProvider();
-        var manifestPath = UcliStoragePathResolver.ResolveSupervisorManifestPath(scope.FullPath);
-        Directory.CreateDirectory(Path.GetDirectoryName(manifestPath)!);
-        await File.WriteAllTextAsync(manifestPath, "{ malformed json", CancellationToken.None);
+        var manifestPath = UcliStoragePathResolver.ResolveSupervisorManifestPath(AbsolutePath.Parse(scope.FullPath));
+        Directory.CreateDirectory(Path.GetDirectoryName(manifestPath.Value)!);
+        await File.WriteAllTextAsync(manifestPath.Value, "{ malformed json", CancellationToken.None);
 
         var manifestStore = SupervisorManifestStoreTestSupport.CreateFileBacked(timeProvider);
         var transportClient = new StubIpcTransportClient
@@ -156,7 +157,7 @@ public sealed class SupervisorProjectGatewayStopTests
             CancellationToken.None);
 
         Assert.Null(result);
-        Assert.False(File.Exists(manifestPath));
+        Assert.False(File.Exists(manifestPath.Value));
     }
 
     [Fact]

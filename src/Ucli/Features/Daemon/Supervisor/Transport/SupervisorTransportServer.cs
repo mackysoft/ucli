@@ -1,6 +1,7 @@
 using System.IO.Pipes;
 using System.Net.Sockets;
 using System.Runtime.ExceptionServices;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Features.Daemon.Supervisor.Transport;
@@ -38,7 +39,7 @@ internal sealed class SupervisorTransportServer
     /// <param name="cancellationToken"> The cancellation token propagated by the host. </param>
     /// <exception cref="ArgumentOutOfRangeException"> Thrown when one transport limit is not positive. </exception>
     public async Task RunAsync (
-        IpcEndpoint endpoint,
+        SupervisorTransportEndpoint endpoint,
         Func<Stream, CancellationToken, Task> connectionHandler,
         Func<CancellationToken, Task> onStarted,
         int maximumActiveConnections,
@@ -51,12 +52,12 @@ internal sealed class SupervisorTransportServer
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(maximumActiveConnections, 0);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(connectionDrainTimeout, TimeSpan.Zero);
 
-        if (endpoint.TransportKind == IpcTransportKind.NamedPipe)
+        if (endpoint.Contract.TransportKind == IpcTransportKind.NamedPipe)
         {
             try
             {
                 await RunNamedPipeAsync(
-                        endpoint.Address,
+                        endpoint.Contract.Address,
                         connectionHandler,
                         onStarted,
                         maximumActiveConnections,
@@ -72,12 +73,12 @@ internal sealed class SupervisorTransportServer
             return;
         }
 
-        if (endpoint.TransportKind == IpcTransportKind.UnixDomainSocket)
+        if (endpoint.Contract.TransportKind == IpcTransportKind.UnixDomainSocket)
         {
             try
             {
                 await RunUnixSocketAsync(
-                        endpoint.Address,
+                        endpoint.UnixSocketPath!,
                         connectionHandler,
                         onStarted,
                         maximumActiveConnections,
@@ -93,7 +94,7 @@ internal sealed class SupervisorTransportServer
             return;
         }
 
-        throw new InvalidOperationException($"Unsupported supervisor IPC transport kind: {endpoint.TransportKind}.");
+        throw new InvalidOperationException($"Unsupported supervisor IPC transport kind: {endpoint.Contract.TransportKind}.");
     }
 
     /// <summary> Releases listener handles and starts non-blocking cleanup for accepted connection handles. </summary>
@@ -191,7 +192,7 @@ internal sealed class SupervisorTransportServer
     }
 
     private async Task RunUnixSocketAsync (
-        string address,
+        AbsolutePath address,
         Func<Stream, CancellationToken, Task> connectionHandler,
         Func<CancellationToken, Task> onStarted,
         int maximumActiveConnections,
@@ -204,7 +205,7 @@ internal sealed class SupervisorTransportServer
         {
             endpointOwnership.PrepareForBind();
             listener = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);
-            listener.Bind(new UnixDomainSocketEndPoint(endpointOwnership.BoundAddress));
+            listener.Bind(new UnixDomainSocketEndPoint(endpointOwnership.BoundAddress.Value));
             endpointOwnership.HardenBoundSocket();
             listener.Listen(maximumActiveConnections);
             endpointOwnership.PublishBoundEndpoint();

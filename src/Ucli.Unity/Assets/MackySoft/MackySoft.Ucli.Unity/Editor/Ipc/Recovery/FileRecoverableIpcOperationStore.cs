@@ -6,12 +6,14 @@ using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Infrastructure.Storage;
+using MackySoft.Ucli.Unity.Project;
 
 #nullable enable annotations
 
@@ -33,8 +35,8 @@ namespace MackySoft.Ucli.Unity.Ipc
         private static readonly long MaintenanceIntervalTimestampTicks =
             checked((long)(MaintenanceInterval.TotalSeconds * Stopwatch.Frequency));
 
-        private readonly string operationsDirectoryPath;
-        private readonly string operationLockPath;
+        private readonly AbsolutePath operationsDirectoryPath;
+        private readonly AbsolutePath operationLockPath;
         private readonly ProjectFingerprint projectFingerprint;
         private readonly int hostProcessId;
         private readonly Guid hostEditorInstanceId;
@@ -47,23 +49,21 @@ namespace MackySoft.Ucli.Unity.Ipc
         private string maintenanceCursorDirectoryName;
 
         private FileRecoverableIpcOperationStore (
-            string operationsDirectoryPath,
+            AbsolutePath operationsDirectoryPath,
             ProjectFingerprint projectFingerprint,
             int hostProcessId,
             Guid hostEditorInstanceId)
         {
-            if (string.IsNullOrWhiteSpace(operationsDirectoryPath))
-            {
-                throw new ArgumentException("Operations directory path must not be empty.", nameof(operationsDirectoryPath));
-            }
-
             if (hostEditorInstanceId == Guid.Empty)
             {
                 throw new ArgumentException("Host Editor instance id must not be empty.", nameof(hostEditorInstanceId));
             }
 
-            this.operationsDirectoryPath = operationsDirectoryPath;
-            operationLockPath = Path.Combine(operationsDirectoryPath, OperationLockFileName);
+            this.operationsDirectoryPath =
+                operationsDirectoryPath ?? throw new ArgumentNullException(nameof(operationsDirectoryPath));
+            operationLockPath = ContainedPath.Create(
+                operationsDirectoryPath,
+                RootRelativePath.Parse(OperationLockFileName)).Target;
             this.projectFingerprint = projectFingerprint ?? throw new ArgumentNullException(nameof(projectFingerprint));
             this.hostProcessId = hostProcessId;
             this.hostEditorInstanceId = hostEditorInstanceId;
@@ -77,7 +77,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <exception cref="ArgumentNullException"> Thrown when <paramref name="projectIdentity" /> is <see langword="null" />. </exception>
         /// <exception cref="ArgumentException"> Thrown when <paramref name="hostEditorInstanceId" /> is empty. </exception>
         public static FileRecoverableIpcOperationStore Create (
-            IpcProjectIdentity projectIdentity,
+            UnityHostProjectIdentity projectIdentity,
             Guid hostEditorInstanceId)
         {
             if (projectIdentity == null)
@@ -89,9 +89,12 @@ namespace MackySoft.Ucli.Unity.Ipc
             var projectDirectory = UcliStoragePathResolver.ResolveProjectDirectory(
                 storageRoot,
                 projectIdentity.ProjectFingerprint);
+            var operationsDirectory = ContainedPath.Create(
+                projectDirectory,
+                RootRelativePath.Parse(UcliStoragePathNames.IpcOperationsDirectoryName)).Target;
             using var process = Process.GetCurrentProcess();
             return new FileRecoverableIpcOperationStore(
-                Path.Combine(projectDirectory, UcliStoragePathNames.IpcOperationsDirectoryName),
+                operationsDirectory,
                 projectIdentity.ProjectFingerprint,
                 process.Id,
                 hostEditorInstanceId);
@@ -247,7 +250,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 try
                 {
                     var path = ResolveRecordPath(requestId);
-                    if (!File.Exists(path))
+                    if (!File.Exists(path.Value))
                     {
                         return RecoverableIpcOperationReadResult.Missing();
                     }
@@ -303,8 +306,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                             cancellationToken)
                         .ConfigureAwait(false);
                     var path = ResolveRecordPath(record.RequestId);
-                    var directoryPath = Path.GetDirectoryName(path);
-                    if (string.IsNullOrWhiteSpace(directoryPath))
+                    if (!path.TryGetParent(out var directoryPath))
                     {
                         throw new InvalidOperationException($"Recoverable IPC operation directory path could not be resolved: {path}");
                     }
@@ -359,7 +361,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         {
             try
             {
-                if (!Directory.Exists(operationsDirectoryPath))
+                if (!Directory.Exists(operationsDirectoryPath.Value))
                 {
                     return RecoverableIpcOperationStoreResult.Success();
                 }
@@ -371,9 +373,10 @@ namespace MackySoft.Ucli.Unity.Ipc
                 }
 
                 var operationDirectoryPaths = Directory
-                    .EnumerateDirectories(operationsDirectoryPath)
+                    .EnumerateDirectories(operationsDirectoryPath.Value)
+                    .Select(AbsolutePath.Parse)
                     .Where(path => TryGetOwnedOperationRequestId(path, out _))
-                    .OrderBy(Path.GetFileName, StringComparer.Ordinal)
+                    .OrderBy(path => Path.GetFileName(path.Value), StringComparer.Ordinal)
                     .ToArray();
                 if (operationDirectoryPaths.Length == 0)
                 {
@@ -388,7 +391,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     cancellationToken.ThrowIfCancellationRequested();
                     var operationDirectoryPath = operationDirectoryPaths[
                         (startIndex + offset) % operationDirectoryPaths.Length];
-                    maintenanceCursorDirectoryName = Path.GetFileName(operationDirectoryPath);
+                    maintenanceCursorDirectoryName = Path.GetFileName(operationDirectoryPath.Value);
                     await PurgeOperationDirectoryAsync(
                             operationDirectoryPath,
                             nowUtc,
@@ -412,7 +415,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         }
 
         private async Task PurgeOperationDirectoryAsync (
-            string operationDirectoryPath,
+            AbsolutePath operationDirectoryPath,
             DateTimeOffset nowUtc,
             CancellationToken cancellationToken)
         {
@@ -429,8 +432,10 @@ namespace MackySoft.Ucli.Unity.Ipc
                     return;
                 }
 
-                var recordPath = Path.Combine(operationDirectoryPath, RecordFileName);
-                if (!File.Exists(recordPath))
+                var recordPath = ContainedPath.Create(
+                    operationDirectoryPath,
+                    RootRelativePath.Parse(RecordFileName)).Target;
+                if (!File.Exists(recordPath.Value))
                 {
                     TryDeleteEmptyOwnedDirectory(operationDirectoryPath, requestId);
                     return;
@@ -442,7 +447,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 }
 
                 FileUtilities.EnsureRegularFile(recordPath, "Recoverable IPC operation record");
-                File.Delete(recordPath);
+                File.Delete(recordPath.Value);
                 TryDeleteEmptyOwnedDirectory(operationDirectoryPath, requestId);
             }
             finally
@@ -451,7 +456,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
         }
 
-        private int ResolveMaintenanceStartIndex (string[] operationDirectoryPaths)
+        private int ResolveMaintenanceStartIndex (AbsolutePath[] operationDirectoryPaths)
         {
             if (string.IsNullOrWhiteSpace(maintenanceCursorDirectoryName))
             {
@@ -461,7 +466,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             var nextIndex = Array.FindIndex(
                 operationDirectoryPaths,
                 path => string.Compare(
-                    Path.GetFileName(path),
+                    Path.GetFileName(path.Value),
                     maintenanceCursorDirectoryName,
                     StringComparison.Ordinal) > 0);
             return nextIndex >= 0 ? nextIndex : 0;
@@ -506,12 +511,13 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
         }
 
-        private string ResolveRecordPath (Guid requestId)
+        private AbsolutePath ResolveRecordPath (Guid requestId)
         {
-            return Path.Combine(
+            var operationRelativePath = RootRelativePath.Parse(
+                $"{StoragePathSegmentCodec.EncodeGuid(requestId, nameof(requestId))}/{RecordFileName}");
+            return ContainedPath.Create(
                 operationsDirectoryPath,
-                StoragePathSegmentCodec.EncodeGuid(requestId, nameof(requestId)),
-                RecordFileName);
+                operationRelativePath).Target;
         }
 
         private bool IsValidRecord (
@@ -579,7 +585,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         }
 
         private static bool TryReadRecordFile (
-            string recordPath,
+            AbsolutePath recordPath,
             out RecoverableIpcOperationRecord record)
         {
             try
@@ -596,7 +602,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
         }
 
-        private static string ReadRecordText (string recordPath)
+        private static string ReadRecordText (AbsolutePath recordPath)
         {
             using (var stream = FileUtilities.OpenReopenSafeReadStream(recordPath))
             using (var memoryStream = new MemoryStream())
@@ -632,7 +638,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         }
 
         private static async Task<string> ReadRecordTextAsync (
-            string recordPath,
+            AbsolutePath recordPath,
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -669,28 +675,28 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
         }
 
-        private void EnsureReadableRecordPath (string path)
+        private void EnsureReadableRecordPath (AbsolutePath path)
         {
-            if (Directory.Exists(operationsDirectoryPath)
+            if (Directory.Exists(operationsDirectoryPath.Value)
                 && IsReparsePoint(operationsDirectoryPath))
             {
                 throw new IOException($"Recoverable IPC operations directory must not be a reparse point: {operationsDirectoryPath}");
             }
 
-            var operationDirectoryPath = Path.GetDirectoryName(path);
-            if (!string.IsNullOrWhiteSpace(operationDirectoryPath)
-                && Directory.Exists(operationDirectoryPath)
+            if (path.TryGetParent(out var operationDirectoryPath)
+                && Directory.Exists(operationDirectoryPath.Value)
                 && IsReparsePoint(operationDirectoryPath))
             {
-                throw new IOException($"Recoverable IPC operation directory must not be a reparse point: {operationDirectoryPath}");
+                throw new IOException(
+                    $"Recoverable IPC operation directory must not be a reparse point: {operationDirectoryPath}");
             }
         }
 
-        private static bool IsReparsePoint (string path)
+        private static bool IsReparsePoint (AbsolutePath path)
         {
             try
             {
-                return (File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0;
+                return (File.GetAttributes(path.Value) & FileAttributes.ReparsePoint) != 0;
             }
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
             {
@@ -699,7 +705,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         }
 
         private bool ShouldPurgeRecordFile (
-            string recordPath,
+            AbsolutePath recordPath,
             Guid requestId,
             DateTimeOffset nowUtc)
         {
@@ -742,26 +748,26 @@ namespace MackySoft.Ucli.Unity.Ipc
         }
 
         private static bool TryGetOwnedOperationRequestId (
-            string directoryPath,
+            AbsolutePath directoryPath,
             out Guid requestId)
         {
-            var directoryName = Path.GetFileName(directoryPath);
+            var directoryName = Path.GetFileName(directoryPath.Value);
             return StoragePathSegmentCodec.TryDecodeNonEmptyGuid(directoryName, out requestId)
-                && Directory.Exists(directoryPath)
+                && Directory.Exists(directoryPath.Value)
                 && !IsReparsePoint(directoryPath);
         }
 
         private static void TryDeleteEmptyOwnedDirectory (
-            string directoryPath,
+            AbsolutePath directoryPath,
             Guid requestId)
         {
             try
             {
                 if (TryGetOwnedOperationRequestId(directoryPath, out var currentRequestId)
                     && currentRequestId == requestId
-                    && Directory.GetFileSystemEntries(directoryPath).Length == 0)
+                    && Directory.GetFileSystemEntries(directoryPath.Value).Length == 0)
                 {
-                    Directory.Delete(directoryPath, recursive: false);
+                    Directory.Delete(directoryPath.Value, recursive: false);
                 }
             }
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)

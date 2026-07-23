@@ -1,4 +1,5 @@
 using System.Text.Json;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Compensation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Ipc;
@@ -53,13 +54,11 @@ internal static class SupervisorRequestDispatcherTestSupport
     public static SupervisorRuntimeContext CreateRuntimeContext ()
     {
         return new SupervisorRuntimeContext(
-            StorageRoot: ResolvedUnityProjectContextTestFactory.RepositoryRoot,
+            StorageRoot: AbsolutePath.Parse(ResolvedUnityProjectContextTestFactory.RepositoryRoot),
             Manifest: new SupervisorInstanceManifest(
                 processId: 1234,
                 sessionToken: IpcSessionTokenTestFactory.Create("supervisor-session-token"),
-                endpoint: new IpcEndpoint(
-                    IpcTransportKind.UnixDomainSocket,
-                    "/tmp/ucli-supervisor-test.sock"),
+                endpoint: SupervisorTransportEndpoint.FromNamedPipeAddress("ucli-supervisor-test"),
                 issuedAtUtc: new DateTimeOffset(2026, 03, 11, 0, 0, 0, TimeSpan.Zero)));
     }
 

@@ -1,14 +1,18 @@
 namespace MackySoft.Ucli.Contracts.Ipc;
 
-/// <summary> Represents an immutable IPC transport endpoint whose address satisfies the selected transport contract. </summary>
+/// <summary> Represents an immutable IPC transport endpoint at a wire boundary. </summary>
+/// <remarks>
+/// A Named Pipe address is a validated logical name. A Unix-domain-socket address retains transport-safe
+/// text only; the runtime adapter must convert it to a guarded current-platform filesystem path before use.
+/// </remarks>
 public sealed record IpcEndpoint
 {
-    /// <summary> Initializes an IPC endpoint after validating its transport-specific address. </summary>
+    /// <summary> Initializes an IPC endpoint after validating its transport wire constraints. </summary>
     /// <param name="transportKind"> The supported transport used to connect or bind the endpoint. </param>
     /// <param name="address"> The transport-specific address. </param>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="address" /> is <see langword="null" />. </exception>
     /// <exception cref="ArgumentException">
-    /// Thrown when <paramref name="address" /> is empty, contains invalid text, or violates the selected transport's address constraints.
+    /// Thrown when <paramref name="address" /> contains invalid transport text or violates the selected transport's non-filesystem constraints.
     /// </exception>
     /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="transportKind" /> is unsupported. </exception>
     public IpcEndpoint (
@@ -28,11 +32,6 @@ public sealed record IpcEndpoint
             throw new ArgumentNullException(nameof(address));
         }
 
-        if (string.IsNullOrWhiteSpace(address))
-        {
-            throw new ArgumentException("IPC endpoint address must not be empty or whitespace.", nameof(address));
-        }
-
         ValidateAddressText(address);
         switch (transportKind)
         {
@@ -41,7 +40,6 @@ public sealed record IpcEndpoint
                 break;
 
             case IpcTransportKind.UnixDomainSocket:
-                ValidateUnixDomainSocketAddress(address);
                 break;
         }
 
@@ -91,6 +89,11 @@ public sealed record IpcEndpoint
 
     private static void ValidateNamedPipeAddress (string address)
     {
+        if (string.IsNullOrWhiteSpace(address))
+        {
+            throw new ArgumentException("Named pipe address must not be empty or whitespace.", nameof(address));
+        }
+
         if (address.Length > IpcTransportConstraints.NamedPipeAddressMaxCharacters)
         {
             throw new ArgumentException(
@@ -108,66 +111,6 @@ public sealed record IpcEndpoint
             throw new ArgumentException(
                 "Named pipe address must be a pipe name without directory separators.",
                 nameof(address));
-        }
-    }
-
-    private static void ValidateUnixDomainSocketAddress (string address)
-    {
-        if (address[0] != '/')
-        {
-            throw new ArgumentException(
-                "Unix domain socket address must be an absolute path beginning with '/'.",
-                nameof(address));
-        }
-
-        if (address[address.Length - 1] == '/')
-        {
-            throw new ArgumentException(
-                "Unix domain socket address must end with a socket file name.",
-                nameof(address));
-        }
-
-        if (address.IndexOf("//", StringComparison.Ordinal) >= 0)
-        {
-            throw new ArgumentException(
-                "Unix domain socket address must not contain consecutive path separators.",
-                nameof(address));
-        }
-
-        ValidateUnixDomainSocketPathSegments(address);
-        var addressByteCount = System.Text.Encoding.UTF8.GetByteCount(address);
-        if (addressByteCount > IpcTransportConstraints.UnixDomainSocketPathMaxBytes)
-        {
-            throw new ArgumentException(
-                "Unix domain socket address exceeds the supported UTF-8 byte length. " +
-                $"AddressBytes={addressByteCount}, MaxBytes={IpcTransportConstraints.UnixDomainSocketPathMaxBytes}.",
-                nameof(address));
-        }
-    }
-
-    private static void ValidateUnixDomainSocketPathSegments (string address)
-    {
-        var segmentStart = 1;
-        while (segmentStart < address.Length)
-        {
-            var segmentEnd = address.IndexOf('/', segmentStart);
-            if (segmentEnd < 0)
-            {
-                segmentEnd = address.Length;
-            }
-
-            var segmentLength = segmentEnd - segmentStart;
-            if ((segmentLength == 1 && address[segmentStart] == '.')
-                || (segmentLength == 2
-                    && address[segmentStart] == '.'
-                    && address[segmentStart + 1] == '.'))
-            {
-                throw new ArgumentException(
-                    "Unix domain socket address must not contain '.' or '..' path segments.",
-                    nameof(address));
-            }
-
-            segmentStart = segmentEnd + 1;
         }
     }
 }

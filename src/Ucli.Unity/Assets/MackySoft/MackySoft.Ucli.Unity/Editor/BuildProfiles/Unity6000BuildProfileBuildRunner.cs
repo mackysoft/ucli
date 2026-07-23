@@ -17,7 +17,7 @@ namespace MackySoft.Ucli.Unity.Build
         public IpcBuildReportArtifact? Run (
             IpcUnityBuildProfileInput unityBuildProfile,
             UnityBuildResolvedInput resolvedInput,
-            IpcBuildOutputLayout outputLayout)
+            ResolvedBuildPipelineOutputLayout outputLayout)
         {
             if (unityBuildProfile == null)
             {
@@ -46,7 +46,7 @@ namespace MackySoft.Ucli.Unity.Build
                 report = BuildPipeline.BuildPlayer(new BuildPlayerWithProfileOptions
                 {
                     buildProfile = profile,
-                    locationPathName = outputLayout.LocationPathName,
+                    locationPathName = outputLayout.LocationPath.Value,
                     options = resolvedInput.Options,
                 });
             }

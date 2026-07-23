@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Tests.Helpers.Daemon;
@@ -21,7 +22,7 @@ internal sealed class RecordingDaemonGuiStartupObserver : IDaemonGuiStartupObser
         ResolvedUnityProjectContext unityProject,
         int processId,
         DateTimeOffset processStartedAtUtc,
-        string unityLogPath,
+        AbsolutePath unityLogPath,
         ExecutionDeadline deadline,
         CancellationToken cancellationToken = default)
     {
@@ -39,7 +40,7 @@ internal sealed class RecordingDaemonGuiStartupObserver : IDaemonGuiStartupObser
         ResolvedUnityProjectContext UnityProject,
         int ProcessId,
         DateTimeOffset ProcessStartedAtUtc,
-        string UnityLogPath,
+        AbsolutePath UnityLogPath,
         ExecutionDeadline Deadline,
         CancellationToken CancellationToken);
 }

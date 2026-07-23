@@ -1,5 +1,6 @@
 namespace MackySoft.Ucli.Tests;
 
+using MackySoft.FileSystem;
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Shared.Configuration;
 
@@ -93,20 +94,20 @@ internal static class UcliConfigStoreTestSupport
             UcliConfigStore store)
         {
             this.scope = scope ?? throw new ArgumentNullException(nameof(scope));
-            UnityProjectPath = unityProjectPath ?? throw new ArgumentNullException(nameof(unityProjectPath));
+            UnityProjectPath = AbsolutePath.Parse(unityProjectPath);
             Store = store ?? throw new ArgumentNullException(nameof(store));
             ConfigPath = Store.GetConfigPath(UnityProjectPath);
         }
 
-        internal string UnityProjectPath { get; }
+        internal AbsolutePath UnityProjectPath { get; }
 
         internal UcliConfigStore Store { get; }
 
-        internal string ConfigPath { get; }
+        internal AbsolutePath ConfigPath { get; }
 
         internal void WriteConfigJson (string json)
         {
-            var relativeConfigPath = Path.GetRelativePath(scope.FullPath, ConfigPath);
+            var relativeConfigPath = Path.GetRelativePath(scope.FullPath, ConfigPath.Value);
             scope.WriteFile(relativeConfigPath, json);
         }
 

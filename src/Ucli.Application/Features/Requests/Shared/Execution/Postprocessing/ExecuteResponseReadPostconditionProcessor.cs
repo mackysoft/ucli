@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Conversion;
 using MackySoft.Ucli.Application.Shared.Execution.ReadPostcondition;
 
@@ -9,7 +10,7 @@ internal static class ExecuteResponseReadPostconditionProcessor
     public static async ValueTask<(ExecuteResponseConversionResult Response, OperationExecutionError? PersistenceError)> PersistAsync (
         ExecuteResponseConversionResult response,
         IMutationReadPostconditionStore store,
-        string storageRoot,
+        AbsolutePath storageRoot,
         ProjectFingerprint projectFingerprint,
         CancellationToken cancellationToken = default)
     {

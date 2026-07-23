@@ -14,8 +14,8 @@ internal static class DaemonServiceOutputAssert
         Assert.Equal(expected.EditorMode, actual.EditorMode);
         Assert.Equal(expected.OwnerKind, actual.OwnerKind);
         Assert.Equal(expected.CanShutdownProcess, actual.CanShutdownProcess);
-        Assert.Equal(expected.Endpoint.TransportKind, actual.EndpointTransportKind);
-        Assert.Equal(expected.Endpoint.Address, actual.EndpointAddress);
+        Assert.Equal(expected.EndpointContract.TransportKind, actual.EndpointTransportKind);
+        Assert.Equal(expected.EndpointContract.Address, actual.EndpointAddress);
         Assert.Equal(expected.ProcessId, actual.ProcessId);
         Assert.Equal(expected.ProcessStartedAtUtc, actual.ProcessStartedAtUtc);
         Assert.Equal(expected.OwnerProcessId, actual.OwnerProcessId);
@@ -30,9 +30,9 @@ internal static class DaemonServiceOutputAssert
         Assert.Equal(expected.IsInferred, actual.IsInferred);
         Assert.Equal(expected.UpdatedAtUtc, actual.UpdatedAtUtc);
         Assert.Equal(expected.ProcessId, actual.ProcessId);
-        Assert.Equal(expected.EditorInstancePath, actual.EditorInstancePath);
+        Assert.Equal(expected.EditorInstancePath?.Value, actual.EditorInstancePath);
         Assert.Equal(expected.ProcessStartedAtUtc, actual.ProcessStartedAtUtc);
-        Assert.Equal(expected.UnityLogPath, actual.UnityLogPath);
+        Assert.Equal(expected.UnityLogPath?.Value, actual.UnityLogPath);
         Assert.Equal(expected.StartupPhase, actual.StartupPhase);
         Assert.Equal(expected.ActionRequired, actual.ActionRequired);
         if (expected.PrimaryDiagnostic == null)

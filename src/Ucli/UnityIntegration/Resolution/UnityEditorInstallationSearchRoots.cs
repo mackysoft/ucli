@@ -1,22 +1,22 @@
-using MackySoft.Ucli.Infrastructure.Paths;
+using MackySoft.FileSystem;
 
 namespace MackySoft.Ucli.UnityIntegration.Resolution;
 
 /// <summary> Provides Unity editor installation search roots for local environments. </summary>
 internal static class UnityEditorInstallationSearchRoots
 {
-    private static readonly string[] SearchRoots = CreateSearchRoots();
+    private static readonly AbsolutePath[] SearchRoots = CreateSearchRoots();
 
     /// <summary> Gets candidate root directory paths used for editor discovery. </summary>
     /// <returns> Candidate root paths in deterministic order. </returns>
-    public static IReadOnlyList<string> GetSearchRoots ()
+    public static IReadOnlyList<AbsolutePath> GetSearchRoots ()
     {
         return SearchRoots;
     }
 
-    private static string[] CreateSearchRoots ()
+    private static AbsolutePath[] CreateSearchRoots ()
     {
-        var searchRootBuilder = new UnityEditorSearchRootBuilder(PathStringNormalizer.CurrentPlatformPathComparer);
+        var searchRootBuilder = new UnityEditorSearchRootBuilder();
         if (OperatingSystem.IsWindows())
         {
             AppendWindowsSearchRoots(searchRootBuilder);
@@ -37,15 +37,15 @@ internal static class UnityEditorInstallationSearchRoots
         var programFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
         if (!string.IsNullOrWhiteSpace(programFiles))
         {
-            searchRootBuilder.Add(Path.Combine(programFiles, "Unity", "Hub", "Editor"));
-            searchRootBuilder.Add(Path.Combine(programFiles, "Unity", "Editor"));
+            AddRoot(searchRootBuilder, Path.Combine(programFiles, "Unity", "Hub", "Editor"));
+            AddRoot(searchRootBuilder, Path.Combine(programFiles, "Unity", "Editor"));
         }
 
         var programFilesX86 = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86);
         if (!string.IsNullOrWhiteSpace(programFilesX86))
         {
-            searchRootBuilder.Add(Path.Combine(programFilesX86, "Unity", "Hub", "Editor"));
-            searchRootBuilder.Add(Path.Combine(programFilesX86, "Unity", "Editor"));
+            AddRoot(searchRootBuilder, Path.Combine(programFilesX86, "Unity", "Hub", "Editor"));
+            AddRoot(searchRootBuilder, Path.Combine(programFilesX86, "Unity", "Editor"));
         }
 
         AppendUserProfileSearchRoot(searchRootBuilder);
@@ -53,15 +53,15 @@ internal static class UnityEditorInstallationSearchRoots
 
     private static void AppendMacSearchRoots (UnityEditorSearchRootBuilder searchRootBuilder)
     {
-        searchRootBuilder.Add("/Applications/Unity/Hub/Editor");
-        searchRootBuilder.Add("/Applications/Unity/Editor");
+        AddRoot(searchRootBuilder, "/Applications/Unity/Hub/Editor");
+        AddRoot(searchRootBuilder, "/Applications/Unity/Editor");
         AppendUserProfileSearchRoot(searchRootBuilder);
     }
 
     private static void AppendLinuxSearchRoots (UnityEditorSearchRootBuilder searchRootBuilder)
     {
-        searchRootBuilder.Add("/opt/Unity/Hub/Editor");
-        searchRootBuilder.Add("/opt/unity/hub/editor");
+        AddRoot(searchRootBuilder, "/opt/Unity/Hub/Editor");
+        AddRoot(searchRootBuilder, "/opt/unity/hub/editor");
         AppendUserProfileSearchRoot(searchRootBuilder);
     }
 
@@ -70,7 +70,17 @@ internal static class UnityEditorInstallationSearchRoots
         var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
         if (!string.IsNullOrWhiteSpace(userProfile))
         {
-            searchRootBuilder.Add(Path.Combine(userProfile, "Unity", "Hub", "Editor"));
+            AddRoot(searchRootBuilder, Path.Combine(userProfile, "Unity", "Hub", "Editor"));
+        }
+    }
+
+    private static void AddRoot (
+        UnityEditorSearchRootBuilder searchRootBuilder,
+        string path)
+    {
+        if (AbsolutePath.TryParse(path, out var absolutePath, out _))
+        {
+            searchRootBuilder.Add(absolutePath);
         }
     }
 }

@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 
 namespace MackySoft.Ucli.Tests.Helpers.Daemon;
@@ -10,7 +11,7 @@ internal sealed class RecordingUnityDaemonProcessLauncher : IUnityDaemonProcessL
 
     public TimeSpan LaunchDelay { get; set; }
 
-    public Func<ResolvedUnityProjectContext, DaemonSession, string, CancellationToken, ValueTask<UnityDaemonLaunchResult>>? Handler { get; set; }
+    public Func<ResolvedUnityProjectContext, DaemonSession, AbsolutePath, CancellationToken, ValueTask<UnityDaemonLaunchResult>>? Handler { get; set; }
 
     public ManualTimeProvider? TimeProvider { get; set; }
 
@@ -21,7 +22,7 @@ internal sealed class RecordingUnityDaemonProcessLauncher : IUnityDaemonProcessL
     public async ValueTask<UnityDaemonLaunchResult> LaunchAsync (
         ResolvedUnityProjectContext unityProject,
         DaemonSession session,
-        string daemonLogPath,
+        AbsolutePath daemonLogPath,
         CancellationToken cancellationToken = default)
     {
         invocations.Add(new Invocation(unityProject, session, daemonLogPath, cancellationToken));
@@ -51,6 +52,6 @@ internal sealed class RecordingUnityDaemonProcessLauncher : IUnityDaemonProcessL
     internal readonly record struct Invocation (
         ResolvedUnityProjectContext UnityProject,
         DaemonSession Session,
-        string DaemonLogPath,
+        AbsolutePath DaemonLogPath,
         CancellationToken CancellationToken);
 }

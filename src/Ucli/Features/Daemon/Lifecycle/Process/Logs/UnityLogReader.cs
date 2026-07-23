@@ -1,7 +1,7 @@
 using System.Text;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Logs;
 using MackySoft.Ucli.Application.Shared.Foundation;
-using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Infrastructure.Storage;
 
 namespace MackySoft.Ucli.Features.Daemon.Lifecycle.Process.Logs;
@@ -19,43 +19,34 @@ internal sealed class UnityLogReader : IUnityLogReader
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The Unity log read result. </returns>
     public async ValueTask<UnityLogReadResult> ReadTailAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         ProjectFingerprint projectFingerprint,
         int maxBytes = DefaultMaxBytes,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        string unityLogPath;
-        try
-        {
-            unityLogPath = UcliStoragePathResolver.ResolveUnityLogPath(storageRoot, projectFingerprint);
-        }
-        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
-        {
-            return UnityLogReadResult.Failure(string.Empty, ExecutionError.InvalidArgument(
-                $"Unity log path is invalid. {exception.Message}"));
-        }
+        var unityLogPath = UcliStoragePathResolver.ResolveUnityLogPath(storageRoot, projectFingerprint);
 
         if (maxBytes <= 0)
         {
-            return UnityLogReadResult.Failure(unityLogPath, ExecutionError.InvalidArgument(
+            return UnityLogReadResult.Failure(unityLogPath.Value, ExecutionError.InvalidArgument(
                 $"Unity log maxBytes must be greater than zero. Actual: {maxBytes}."));
         }
 
-        if (!File.Exists(unityLogPath))
+        if (!File.Exists(unityLogPath.Value))
         {
             return UnityLogReadResult.Success(
                 text: string.Empty,
                 truncated: false,
-                path: unityLogPath,
+                path: unityLogPath.Value,
                 sizeBytes: 0);
         }
 
         try
         {
             await using var stream = new FileStream(
-                unityLogPath,
+                unityLogPath.Value,
                 FileMode.Open,
                 FileAccess.Read,
                 FileShare.ReadWrite | FileShare.Delete,
@@ -68,7 +59,7 @@ internal sealed class UnityLogReader : IUnityLogReader
                 return UnityLogReadResult.Success(
                     text: string.Empty,
                     truncated: false,
-                    path: unityLogPath,
+                    path: unityLogPath.Value,
                     sizeBytes: 0);
             }
 
@@ -98,7 +89,7 @@ internal sealed class UnityLogReader : IUnityLogReader
             return UnityLogReadResult.Success(
                 text: text,
                 truncated: truncated,
-                path: unityLogPath,
+                path: unityLogPath.Value,
                 sizeBytes: sizeBytes);
         }
         catch (FileNotFoundException)
@@ -106,7 +97,7 @@ internal sealed class UnityLogReader : IUnityLogReader
             return UnityLogReadResult.Success(
                 text: string.Empty,
                 truncated: false,
-                path: unityLogPath,
+                path: unityLogPath.Value,
                 sizeBytes: 0);
         }
         catch (DirectoryNotFoundException)
@@ -114,17 +105,12 @@ internal sealed class UnityLogReader : IUnityLogReader
             return UnityLogReadResult.Success(
                 text: string.Empty,
                 truncated: false,
-                path: unityLogPath,
+                path: unityLogPath.Value,
                 sizeBytes: 0);
-        }
-        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
-        {
-            return UnityLogReadResult.Failure(unityLogPath, ExecutionError.InvalidArgument(
-                $"Unity log path is invalid: {unityLogPath}. {exception.Message}"));
         }
         catch (Exception exception) when (IsIoFailure(exception))
         {
-            return UnityLogReadResult.Failure(unityLogPath, ExecutionError.InternalError(
+            return UnityLogReadResult.Failure(unityLogPath.Value, ExecutionError.InternalError(
                 $"Failed to read Unity log file: {unityLogPath}. {exception.Message}"));
         }
     }

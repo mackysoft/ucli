@@ -20,8 +20,8 @@ internal sealed class DaemonSessionOutputMapper : IDaemonSessionOutputMapper
             EditorMode: session.EditorMode,
             OwnerKind: session.OwnerKind,
             CanShutdownProcess: session.CanShutdownProcess,
-            EndpointTransportKind: session.Endpoint.TransportKind,
-            EndpointAddress: session.Endpoint.Address,
+            EndpointTransportKind: session.EndpointContract.TransportKind,
+            EndpointAddress: session.EndpointContract.Address,
             ProcessId: session.ProcessId,
             ProcessStartedAtUtc: session.ProcessStartedAtUtc,
             OwnerProcessId: session.OwnerProcessId);

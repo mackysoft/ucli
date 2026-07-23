@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Tests.Helpers.Unity;
 using static MackySoft.Ucli.Tests.UnityUcliPluginLocatorTestSupport;
 
@@ -11,21 +12,24 @@ public sealed class UnityUcliPluginLocatorDiscoveryTests
     {
         using var scope = TestDirectories.CreateTempScope("unity-ucli-plugin-locator", "assets-found");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
-        await WriteMarkerAsync(scope, Path.Combine("UnityProject", "Assets", "MackySoft", "MackySoft.Ucli.Unity"));
+        var unityProjectRoot = AbsolutePath.Parse(unityProjectPath);
+        var markerDirectoryRelativePath = RootRelativePath.Parse(
+            Path.Combine("UnityProject", "Assets", "MackySoft", "MackySoft.Ucli.Unity"));
+        await WriteMarkerAsync(scope, markerDirectoryRelativePath);
         var observedCacheStore = new ObservedPluginMarkerCacheStore();
         var locator = CreateLocator(observedCacheStore.CacheStore);
         var cacheWriteTask = observedCacheStore.ExpectWriteAsync();
 
-        var result = await locator.LocateAsync(unityProjectPath, CancellationToken.None);
+        var result = await locator.LocateAsync(unityProjectRoot, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         await TestAwaiter.WaitAsync(cacheWriteTask, "Plugin marker cache write", SignalWaitTimeout);
         Assert.Equal(UnityUcliPluginLocateStatus.Found, result.Status);
-        Assert.NotNull(result.MarkerPath);
-        Assert.EndsWith(
-            Path.Combine("Assets", "MackySoft", "MackySoft.Ucli.Unity", UnityUcliPluginMarkerContract.MarkerFileName),
-            result.MarkerPath,
-            StringComparison.Ordinal);
+        Assert.Equal(
+            ResolveMarkerPath(
+                unityProjectRoot,
+                RootRelativePath.Parse(Path.Combine("Assets", "MackySoft", "MackySoft.Ucli.Unity"))),
+            result.MarkerPath);
     }
 
     [Fact]
@@ -34,21 +38,24 @@ public sealed class UnityUcliPluginLocatorDiscoveryTests
     {
         using var scope = TestDirectories.CreateTempScope("unity-ucli-plugin-locator", "packages-found");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
-        await WriteMarkerAsync(scope, Path.Combine("UnityProject", "Packages", "com.mackysoft.ucli.unity"));
+        var unityProjectRoot = AbsolutePath.Parse(unityProjectPath);
+        var markerDirectoryRelativePath = RootRelativePath.Parse(
+            Path.Combine("UnityProject", "Packages", "com.mackysoft.ucli.unity"));
+        await WriteMarkerAsync(scope, markerDirectoryRelativePath);
         var observedCacheStore = new ObservedPluginMarkerCacheStore();
         var locator = CreateLocator(observedCacheStore.CacheStore);
         var cacheWriteTask = observedCacheStore.ExpectWriteAsync();
 
-        var result = await locator.LocateAsync(unityProjectPath, CancellationToken.None);
+        var result = await locator.LocateAsync(unityProjectRoot, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         await TestAwaiter.WaitAsync(cacheWriteTask, "Plugin marker cache write", SignalWaitTimeout);
         Assert.Equal(UnityUcliPluginLocateStatus.Found, result.Status);
-        Assert.NotNull(result.MarkerPath);
-        Assert.EndsWith(
-            Path.Combine("Packages", "com.mackysoft.ucli.unity", UnityUcliPluginMarkerContract.MarkerFileName),
-            result.MarkerPath,
-            StringComparison.Ordinal);
+        Assert.Equal(
+            ResolveMarkerPath(
+                unityProjectRoot,
+                RootRelativePath.Parse(Path.Combine("Packages", "com.mackysoft.ucli.unity"))),
+            result.MarkerPath);
     }
 
     [Fact]
@@ -57,21 +64,24 @@ public sealed class UnityUcliPluginLocatorDiscoveryTests
     {
         using var scope = TestDirectories.CreateTempScope("unity-ucli-plugin-locator", "assets-packages-found");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
-        await WriteMarkerAsync(scope, Path.Combine("UnityProject", "Assets", "Packages", "com.mackysoft.ucli.unity.1.0.0"));
+        var unityProjectRoot = AbsolutePath.Parse(unityProjectPath);
+        var markerDirectoryRelativePath = RootRelativePath.Parse(
+            Path.Combine("UnityProject", "Assets", "Packages", "com.mackysoft.ucli.unity.1.0.0"));
+        await WriteMarkerAsync(scope, markerDirectoryRelativePath);
         var observedCacheStore = new ObservedPluginMarkerCacheStore();
         var locator = CreateLocator(observedCacheStore.CacheStore);
         var cacheWriteTask = observedCacheStore.ExpectWriteAsync();
 
-        var result = await locator.LocateAsync(unityProjectPath, CancellationToken.None);
+        var result = await locator.LocateAsync(unityProjectRoot, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         await TestAwaiter.WaitAsync(cacheWriteTask, "Plugin marker cache write", SignalWaitTimeout);
         Assert.Equal(UnityUcliPluginLocateStatus.Found, result.Status);
-        Assert.NotNull(result.MarkerPath);
-        Assert.EndsWith(
-            Path.Combine("Assets", "Packages", "com.mackysoft.ucli.unity.1.0.0", UnityUcliPluginMarkerContract.MarkerFileName),
-            result.MarkerPath,
-            StringComparison.Ordinal);
+        Assert.Equal(
+            ResolveMarkerPath(
+                unityProjectRoot,
+                RootRelativePath.Parse(Path.Combine("Assets", "Packages", "com.mackysoft.ucli.unity.1.0.0"))),
+            result.MarkerPath);
     }
 
     [Fact]
@@ -80,20 +90,23 @@ public sealed class UnityUcliPluginLocatorDiscoveryTests
     {
         using var scope = TestDirectories.CreateTempScope("unity-ucli-plugin-locator", "assets-packages-pascal-found");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
-        await WriteMarkerAsync(scope, Path.Combine("UnityProject", "Assets", "Packages", "MackySoft.Ucli.Unity.1.0.0"));
+        var unityProjectRoot = AbsolutePath.Parse(unityProjectPath);
+        var markerDirectoryRelativePath = RootRelativePath.Parse(
+            Path.Combine("UnityProject", "Assets", "Packages", "MackySoft.Ucli.Unity.1.0.0"));
+        await WriteMarkerAsync(scope, markerDirectoryRelativePath);
         var observedCacheStore = new ObservedPluginMarkerCacheStore();
         var locator = CreateLocator(observedCacheStore.CacheStore);
         var cacheWriteTask = observedCacheStore.ExpectWriteAsync();
 
-        var result = await locator.LocateAsync(unityProjectPath, CancellationToken.None);
+        var result = await locator.LocateAsync(unityProjectRoot, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         await TestAwaiter.WaitAsync(cacheWriteTask, "Plugin marker cache write", SignalWaitTimeout);
         Assert.Equal(UnityUcliPluginLocateStatus.Found, result.Status);
-        Assert.NotNull(result.MarkerPath);
-        Assert.EndsWith(
-            Path.Combine("Assets", "Packages", "MackySoft.Ucli.Unity.1.0.0", UnityUcliPluginMarkerContract.MarkerFileName),
-            result.MarkerPath,
-            StringComparison.Ordinal);
+        Assert.Equal(
+            ResolveMarkerPath(
+                unityProjectRoot,
+                RootRelativePath.Parse(Path.Combine("Assets", "Packages", "MackySoft.Ucli.Unity.1.0.0"))),
+            result.MarkerPath);
     }
 }

@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
@@ -38,7 +39,7 @@ public sealed class SupervisorProjectGatewayEnsureRunningTests
             {
                 timeProvider.Advance(TimeSpan.FromMilliseconds(200));
                 await scenario.ManifestStore.WriteAsync(
-                    scope.FullPath,
+                    AbsolutePath.Parse(scope.FullPath),
                     successorManifest,
                     cancellationToken);
                 return IpcResponseTestFactory.CreateError(
@@ -102,7 +103,7 @@ public sealed class SupervisorProjectGatewayEnsureRunningTests
             if (Interlocked.Increment(ref ensureRunningAttempt) == 1)
             {
                 await scenario.ManifestStore.WriteAsync(
-                    scope.FullPath,
+                    AbsolutePath.Parse(scope.FullPath),
                     successorManifest,
                     cancellationToken);
             }
@@ -393,7 +394,7 @@ public sealed class SupervisorProjectGatewayEnsureRunningTests
             result,
             processManager,
             progressSink,
-            expectedStorageRoot: scope.FullPath,
+            expectedStorageRoot: AbsolutePath.Parse(scope.FullPath),
             expectedErrorCode: UcliCoreErrorCodes.InternalError);
     }
 }

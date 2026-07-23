@@ -14,6 +14,12 @@ This distribution of uCLI includes the following third-party software:
    Copyright (c) 2020 Cysharp, Inc.
    Licensed under the MIT License.
 
+4. MackySoft.FileSystem 0.1.0
+   Copyright (c) 2026 Hiroya Aramaki.
+   Licensed under the MIT License.
+   The provider license is distributed at
+   third-party/MackySoft.FileSystem/0.1.0/LICENSE.
+
 MIT License
 
 Copyright (c) Microsoft Corporation.

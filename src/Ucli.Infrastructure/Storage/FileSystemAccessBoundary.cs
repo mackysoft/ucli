@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 #if !NET8_0_OR_GREATER
 using System.Runtime.InteropServices;
 #endif
@@ -6,8 +7,8 @@ using System.Runtime.Versioning;
 using System.Security.AccessControl;
 using System.Security.Principal;
 #endif
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts.Storage;
-using MackySoft.Ucli.Infrastructure.Paths;
 
 namespace MackySoft.Ucli.Infrastructure.Storage;
 
@@ -26,129 +27,103 @@ internal static class FileSystemAccessBoundary
     private const int OwnerOnlyFileMode = 0x180;
 #endif
 
-    /// <summary> Ensures the target directory exists and is limited to the current user. </summary>
-    /// <param name="directoryPath"> The directory path to secure. </param>
-    public static void EnsureSecureDirectory (string directoryPath)
+    /// <summary> Ensures the guarded target directory exists and is limited to the current user. </summary>
+    public static void EnsureSecureDirectory (AbsolutePath directoryPath)
     {
-        if (string.IsNullOrWhiteSpace(directoryPath))
+        if (TryResolveLocalDirectoryRoot(directoryPath, out var localDirectoryRoot))
         {
-            throw new ArgumentException("Directory path must not be empty.", nameof(directoryPath));
-        }
-
-        var normalizedDirectoryPath = NormalizePathArgument(directoryPath, nameof(directoryPath));
-        if (TryResolveLocalDirectoryRoot(normalizedDirectoryPath, out var localDirectoryRoot))
-        {
-            UcliLocalStorageBootstrapper.EnsureInitialized(normalizedDirectoryPath);
-            EnsureSecureDirectoryChainCore(localDirectoryRoot!, normalizedDirectoryPath);
+            UcliLocalStorageBootstrapper.EnsureInitialized(directoryPath);
+            EnsureSecureDirectoryChainCore(ContainedPath.Create(localDirectoryRoot!, directoryPath));
             return;
         }
 
-        Directory.CreateDirectory(normalizedDirectoryPath);
-        EnsureSecureDirectoryNode(normalizedDirectoryPath);
+        Directory.CreateDirectory(directoryPath.Value);
+        EnsureSecureDirectoryNode(directoryPath);
     }
 
-    /// <summary> Ensures the target directory chain exists and is limited to the current user from one owned boundary root. </summary>
-    /// <param name="boundaryRootPath"> The directory root owned by this application boundary. </param>
-    /// <param name="directoryPath"> The target directory path under <paramref name="boundaryRootPath" />. </param>
-    public static void EnsureSecureDirectoryChain (
-        string boundaryRootPath,
-        string directoryPath)
+    /// <summary> Ensures the guarded target directory chain is limited to the current user from its owned boundary root. </summary>
+    public static void EnsureSecureDirectoryChain (ContainedPath directory)
     {
-        if (string.IsNullOrWhiteSpace(boundaryRootPath))
+        if (directory is null)
         {
-            throw new ArgumentException("Boundary root path must not be empty.", nameof(boundaryRootPath));
+            throw new ArgumentNullException(nameof(directory));
         }
 
-        if (string.IsNullOrWhiteSpace(directoryPath))
-        {
-            throw new ArgumentException("Directory path must not be empty.", nameof(directoryPath));
-        }
-
-        EnsureSecureDirectoryChainCore(
-            NormalizeDirectoryPath(boundaryRootPath),
-            NormalizeDirectoryPath(directoryPath));
+        EnsureSecureDirectoryChainCore(directory);
     }
 
-    /// <summary> Ensures the target file is limited to the current user. </summary>
-    /// <param name="filePath"> The file path to secure. </param>
-    public static void EnsureSecureFile (string filePath)
+    /// <summary> Ensures the guarded target file is limited to the current user. </summary>
+    public static void EnsureSecureFile (AbsolutePath filePath)
     {
-        if (string.IsNullOrWhiteSpace(filePath))
-        {
-            throw new ArgumentException("File path must not be empty.", nameof(filePath));
-        }
-
-        var normalizedFilePath = NormalizePathArgument(filePath, nameof(filePath));
-        FileUtilities.EnsureRegularFile(normalizedFilePath, "Secure file target");
-        ApplySecureFileMode(normalizedFilePath);
+        FileUtilities.EnsureRegularFile(filePath, "Secure file target");
+        ApplySecureFileMode(filePath);
     }
 
     /// <summary> Ensures the target unix-domain-socket node is limited to the current user. </summary>
     /// <param name="socketPath"> The socket path to secure. </param>
-    public static void EnsureSecureUnixSocket (string socketPath)
+    public static void EnsureSecureUnixSocket (AbsolutePath socketPath)
     {
-        if (string.IsNullOrWhiteSpace(socketPath))
+        if (socketPath is null)
         {
-            throw new ArgumentException("Socket path must not be empty.", nameof(socketPath));
+            throw new ArgumentNullException(nameof(socketPath));
         }
 
-        var normalizedSocketPath = NormalizePathArgument(socketPath, nameof(socketPath));
-        if (!File.Exists(normalizedSocketPath))
+        if (!File.Exists(socketPath.Value))
         {
-            throw new FileNotFoundException($"Secure socket target was not found: {normalizedSocketPath}", normalizedSocketPath);
+            throw new FileNotFoundException(
+                $"Secure socket target was not found: {socketPath}",
+                socketPath.Value);
         }
 
-        ApplySecureFileMode(normalizedSocketPath);
+        ApplySecureFileMode(socketPath);
     }
 
-    private static void EnsureSecureDirectoryChainCore (
-        string boundaryRootPath,
-        string directoryPath)
+    private static void EnsureSecureDirectoryChainCore (ContainedPath directory)
     {
-        if (!RepositoryPathNormalizer.TryNormalize(boundaryRootPath, directoryPath).IsSuccess)
-        {
-            throw new InvalidOperationException(
-                $"Secure directory target must remain under the local storage root. Root={boundaryRootPath}, Target={directoryPath}");
-        }
-
-        var pendingDirectories = new Stack<string>();
-        var currentDirectoryPath = directoryPath;
+        var pendingDirectories = new Stack<AbsolutePath>();
+        var currentDirectoryPath = directory.Target;
         while (true)
         {
             pendingDirectories.Push(currentDirectoryPath);
-            if (PathIdentity.IsSamePath(currentDirectoryPath, boundaryRootPath))
+            if (currentDirectoryPath.IsSameAs(directory.BoundaryRoot))
             {
                 break;
             }
 
-            currentDirectoryPath = Path.GetDirectoryName(currentDirectoryPath)
-                ?? throw new InvalidOperationException($"Parent directory path could not be resolved: {currentDirectoryPath}");
+            var childDirectoryPath = currentDirectoryPath;
+            if (!childDirectoryPath.TryGetParent(out var parentDirectoryPath))
+            {
+                throw new InvalidOperationException(
+                    $"Parent directory path could not be resolved: {childDirectoryPath}");
+            }
+
+            currentDirectoryPath = parentDirectoryPath;
         }
 
         while (pendingDirectories.Count > 0)
         {
             var currentPath = pendingDirectories.Pop();
-            Directory.CreateDirectory(currentPath);
+            Directory.CreateDirectory(currentPath.Value);
             EnsureSecureDirectoryNode(currentPath);
         }
     }
 
-    private static void EnsureSecureDirectoryNode (string directoryPath)
+    private static void EnsureSecureDirectoryNode (AbsolutePath directoryPath)
     {
         EnsureDirectoryIsNotReparsePoint(directoryPath);
         ApplySecureDirectoryMode(directoryPath);
     }
 
-    private static void EnsureDirectoryIsNotReparsePoint (string directoryPath)
+    private static void EnsureDirectoryIsNotReparsePoint (AbsolutePath directoryPath)
     {
-        var attributes = File.GetAttributes(directoryPath);
+        var attributes = File.GetAttributes(directoryPath.Value);
         if ((attributes & FileAttributes.ReparsePoint) != 0)
         {
             throw new IOException($"Secure directory target must not be a reparse point: {directoryPath}");
         }
     }
 
-    private static void ApplySecureDirectoryMode (string directoryPath)
+    private static void ApplySecureDirectoryMode (AbsolutePath directoryPath)
     {
 #if NET8_0_OR_GREATER
         if (OperatingSystem.IsWindows())
@@ -157,7 +132,7 @@ internal static class FileSystemAccessBoundary
             return;
         }
 
-        File.SetUnixFileMode(directoryPath, OwnerOnlyDirectoryMode);
+        File.SetUnixFileMode(directoryPath.Value, OwnerOnlyDirectoryMode);
 #else
         if (IsWindows())
         {
@@ -168,7 +143,7 @@ internal static class FileSystemAccessBoundary
 #endif
     }
 
-    private static void ApplySecureFileMode (string filePath)
+    private static void ApplySecureFileMode (AbsolutePath filePath)
     {
 #if NET8_0_OR_GREATER
         if (OperatingSystem.IsWindows())
@@ -177,7 +152,7 @@ internal static class FileSystemAccessBoundary
             return;
         }
 
-        File.SetUnixFileMode(filePath, OwnerOnlyFileMode);
+        File.SetUnixFileMode(filePath.Value, OwnerOnlyFileMode);
 #else
         if (IsWindows())
         {
@@ -190,7 +165,7 @@ internal static class FileSystemAccessBoundary
 
 #if NET8_0_OR_GREATER
     [SupportedOSPlatform("windows")]
-    private static void ApplyCurrentUserDirectoryAcl (string directoryPath)
+    private static void ApplyCurrentUserDirectoryAcl (AbsolutePath directoryPath)
     {
         var directorySecurity = new DirectorySecurity();
         directorySecurity.SetAccessRuleProtection(isProtected: true, preserveInheritance: false);
@@ -200,11 +175,11 @@ internal static class FileSystemAccessBoundary
             InheritanceFlags.ContainerInherit | InheritanceFlags.ObjectInherit,
             PropagationFlags.None,
             AccessControlType.Allow));
-        new DirectoryInfo(directoryPath).SetAccessControl(directorySecurity);
+        new DirectoryInfo(directoryPath.Value).SetAccessControl(directorySecurity);
     }
 
     [SupportedOSPlatform("windows")]
-    private static void ApplyCurrentUserFileAcl (string filePath)
+    private static void ApplyCurrentUserFileAcl (AbsolutePath filePath)
     {
         var fileSecurity = new FileSecurity();
         fileSecurity.SetAccessRuleProtection(isProtected: true, preserveInheritance: false);
@@ -212,7 +187,7 @@ internal static class FileSystemAccessBoundary
             GetCurrentUserSid(),
             FileSystemRights.FullControl,
             AccessControlType.Allow));
-        new FileInfo(filePath).SetAccessControl(fileSecurity);
+        new FileInfo(filePath.Value).SetAccessControl(fileSecurity);
     }
 
     [SupportedOSPlatform("windows")]
@@ -224,11 +199,11 @@ internal static class FileSystemAccessBoundary
     }
 #else
     private static void ApplyUnixFileMode (
-        string path,
+        AbsolutePath path,
         int mode,
         string targetKind)
     {
-        if (Chmod(path, mode) != 0)
+        if (Chmod(path.Value, mode) != 0)
         {
             throw new IOException($"chmod failed for {targetKind} '{path}'. errno={Marshal.GetLastWin32Error()}");
         }
@@ -239,45 +214,33 @@ internal static class FileSystemAccessBoundary
 #endif
 
     private static bool TryResolveLocalDirectoryRoot (
-        string directoryPath,
-        out string? localDirectoryRoot)
+        AbsolutePath directoryPath,
+        [NotNullWhen(true)] out AbsolutePath? localDirectoryRoot)
     {
-        var currentDirectory = new DirectoryInfo(NormalizePathArgument(directoryPath, nameof(directoryPath)));
-        while (currentDirectory != null)
+        var currentPath = directoryPath;
+        while (currentPath.TryGetParent(out var parentPath))
         {
-            var parentDirectory = currentDirectory.Parent;
-            if (string.Equals(currentDirectory.Name, UcliStoragePathNames.LocalDirectoryName, PathStringNormalizer.CurrentPlatformPathComparison)
-                && parentDirectory != null
-                && string.Equals(parentDirectory.Name, UcliStoragePathNames.UcliDirectoryName, PathStringNormalizer.CurrentPlatformPathComparison))
+            if (parentPath.TryGetParent(out var storagePath))
             {
-                localDirectoryRoot = currentDirectory.FullName;
-                return true;
+                var expectedUcliPath = ContainedPath.Create(
+                    storagePath,
+                    RootRelativePath.Parse(UcliStoragePathNames.UcliDirectoryName)).Target;
+                var expectedLocalPath = ContainedPath.Create(
+                    parentPath,
+                    RootRelativePath.Parse(UcliStoragePathNames.LocalDirectoryName)).Target;
+                if (parentPath.IsSameAs(expectedUcliPath)
+                    && currentPath.IsSameAs(expectedLocalPath))
+                {
+                    localDirectoryRoot = currentPath;
+                    return true;
+                }
             }
 
-            currentDirectory = parentDirectory;
+            currentPath = parentPath;
         }
 
         localDirectoryRoot = null;
         return false;
-    }
-
-    private static string NormalizeDirectoryPath (string directoryPath)
-    {
-        return NormalizePathArgument(directoryPath, nameof(directoryPath))
-            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-    }
-
-    private static string NormalizePathArgument (
-        string pathValue,
-        string parameterName)
-    {
-        var pathResult = PathNormalizer.TryNormalizeFullPath(pathValue);
-        if (!pathResult.IsSuccess)
-        {
-            throw new ArgumentException(pathResult.DiagnosticMessage, parameterName);
-        }
-
-        return pathResult.FullPath!;
     }
 
     private static bool IsWindows ()

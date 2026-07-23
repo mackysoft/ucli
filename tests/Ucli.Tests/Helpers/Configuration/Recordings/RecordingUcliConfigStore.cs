@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Infrastructure.Storage;
 
@@ -8,23 +9,23 @@ internal sealed class RecordingUcliConfigStore : IUcliConfigStore
     private readonly List<LoadInvocation> loadInvocations = [];
     private readonly List<SaveInvocation> saveInvocations = [];
 
-    public Func<string, CancellationToken, ValueTask<UcliConfigLoadResult>> LoadHandler { get; set; } =
+    public Func<AbsolutePath, CancellationToken, ValueTask<UcliConfigLoadResult>> LoadHandler { get; set; } =
         static (_, _) => throw new NotSupportedException("This test config store has no load handler.");
 
-    public Func<string, UcliConfig, CancellationToken, ValueTask<UcliConfigSaveResult>> SaveHandler { get; set; } =
+    public Func<AbsolutePath, UcliConfig, CancellationToken, ValueTask<UcliConfigSaveResult>> SaveHandler { get; set; } =
         static (_, _, _) => ValueTask.FromResult(UcliConfigSaveResult.Success());
 
     public IReadOnlyList<LoadInvocation> LoadInvocations => loadInvocations;
 
     public IReadOnlyList<SaveInvocation> SaveInvocations => saveInvocations;
 
-    public string GetConfigPath (string storageRoot)
+    public AbsolutePath GetConfigPath (AbsolutePath storageRoot)
     {
         return UcliStoragePathResolver.ResolveConfigPath(storageRoot);
     }
 
     public ValueTask<UcliConfigLoadResult> LoadAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         CancellationToken cancellationToken = default)
     {
         loadInvocations.Add(new LoadInvocation(storageRoot, cancellationToken));
@@ -32,7 +33,7 @@ internal sealed class RecordingUcliConfigStore : IUcliConfigStore
     }
 
     public ValueTask<UcliConfigSaveResult> SaveAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         UcliConfig config,
         CancellationToken cancellationToken = default)
     {
@@ -41,11 +42,11 @@ internal sealed class RecordingUcliConfigStore : IUcliConfigStore
     }
 
     internal readonly record struct LoadInvocation (
-        string StorageRoot,
+        AbsolutePath StorageRoot,
         CancellationToken CancellationToken);
 
     internal readonly record struct SaveInvocation (
-        string StorageRoot,
+        AbsolutePath StorageRoot,
         UcliConfig Config,
         CancellationToken CancellationToken);
 }

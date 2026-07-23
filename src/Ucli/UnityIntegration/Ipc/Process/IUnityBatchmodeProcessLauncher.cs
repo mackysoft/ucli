@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Contracts.Ipc;
 
@@ -16,7 +17,7 @@ internal interface IUnityBatchmodeProcessLauncher
     ValueTask<UnityBatchmodeProcessLaunchResult> LaunchOneshotAsync (
         ResolvedUnityProjectContext unityProject,
         IpcOneshotBootstrapEnvelope bootstrapEnvelope,
-        string unityLogPath,
+        AbsolutePath unityLogPath,
         UnityBatchmodeLaunchOptions launchOptions,
         CancellationToken cancellationToken);
 }

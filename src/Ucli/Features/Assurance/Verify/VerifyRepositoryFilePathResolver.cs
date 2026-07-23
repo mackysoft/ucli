@@ -1,4 +1,5 @@
-using MackySoft.Ucli.Infrastructure.Paths;
+using System.Diagnostics.CodeAnalysis;
+using MackySoft.FileSystem;
 
 namespace MackySoft.Ucli.Features.Assurance.Verify;
 
@@ -7,27 +8,23 @@ internal static class VerifyRepositoryFilePathResolver
 {
     /// <summary> Resolves one repository-local file path and rejects symlink traversal. </summary>
     public static bool TryResolve (
-        string repositoryRoot,
+        AbsolutePath repositoryRoot,
         string path,
-        out string fullPath,
-        out string repositoryRelativePath,
+        [NotNullWhen(true)] out ContainedPath? resolvedPath,
         out string diagnosticMessage)
     {
-        fullPath = string.Empty;
-        repositoryRelativePath = string.Empty;
+        resolvedPath = null;
         diagnosticMessage = string.Empty;
 
-        var normalizationResult = RepositoryPathNormalizer.TryNormalize(repositoryRoot, path);
-        if (!normalizationResult.IsSuccess)
+        if (!ContainedPath.TryResolve(repositoryRoot, path, out resolvedPath, out var failure))
         {
-            diagnosticMessage = normalizationResult.DiagnosticMessage;
+            diagnosticMessage = failure.Message;
             return false;
         }
 
-        fullPath = normalizationResult.FullPath!;
-        repositoryRelativePath = normalizationResult.RepositoryRelativeSlashPath!;
-        if (ContainsReparsePoint(normalizationResult.FullPath!, normalizationResult.RepositoryRelativeSlashPath!))
+        if (ContainsReparsePoint(resolvedPath))
         {
+            resolvedPath = null;
             diagnosticMessage = "Repository-local verify input paths must not traverse symbolic links.";
             return false;
         }
@@ -36,33 +33,28 @@ internal static class VerifyRepositoryFilePathResolver
     }
 
     private static bool ContainsReparsePoint (
-        string fullPath,
-        string repositoryRelativePath)
+        ContainedPath path)
     {
         try
         {
-            if (string.Equals(repositoryRelativePath, ".", StringComparison.Ordinal))
+            if (path.RelativePath.IsRoot)
             {
                 return false;
             }
 
-            var currentPath = fullPath;
-            var remainingSegments = repositoryRelativePath.Split('/', StringSplitOptions.RemoveEmptyEntries).Length;
-            while (remainingSegments > 0)
+            var currentPath = path.Target;
+            while (!currentPath.IsSameAs(path.BoundaryRoot))
             {
-                if (Path.Exists(currentPath)
-                    && File.GetAttributes(currentPath).HasFlag(FileAttributes.ReparsePoint))
+                if (Path.Exists(currentPath.Value)
+                    && File.GetAttributes(currentPath.Value).HasFlag(FileAttributes.ReparsePoint))
                 {
                     return true;
                 }
 
-                currentPath = Path.GetDirectoryName(currentPath) ?? string.Empty;
-                if (string.IsNullOrEmpty(currentPath))
+                if (!currentPath.TryGetParent(out currentPath))
                 {
-                    return false;
+                    return true;
                 }
-
-                remainingSegments--;
             }
 
             return false;

@@ -1,7 +1,7 @@
 using System;
 using System.Diagnostics.CodeAnalysis;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Infrastructure.Paths;
+using MackySoft.Ucli.Unity.Project;
 using MackySoft.Ucli.Unity.SceneInspection;
 using UnityEditor;
 using UnityEngine;
@@ -1009,7 +1009,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             out UnityEngine.Object? unityObject,
             out string errorMessage)
         {
-            var normalizedAssetPath = PathStringNormalizer.ToSlashSeparated(assetPath);
+            var normalizedAssetPath = UnityAssetPathUtility.NormalizeProjectRelativeSeparators(assetPath);
             if (allowTemporaryState
                 && executionContext != null
                 && executionContext.TryGetPlannedAssetState(normalizedAssetPath, out var plannedAssetState)

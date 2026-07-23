@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 
 namespace MackySoft.Ucli.Tests.Ipc;
@@ -66,7 +67,7 @@ public sealed class IpcTransportClientCleanupTests
         public Task DisposeCompleted => disposeCompleted.Task;
 
         public async ValueTask<Stream> ConnectAsync (
-            IpcEndpoint endpoint,
+            IpcTransportEndpoint endpoint,
             CancellationToken cancellationToken)
         {
             var connectedStream = await innerConnector.ConnectAsync(endpoint, cancellationToken);

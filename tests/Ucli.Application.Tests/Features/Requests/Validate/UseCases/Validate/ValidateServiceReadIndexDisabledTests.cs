@@ -44,7 +44,7 @@ public sealed class ValidateServiceReadIndexDisabledTests
         RequestStaticValidationInvocationAssert.PureStaticValidationRequestedOnce(
             validator,
             expectedCatalogAvailable: false);
-        Assert.Equal(preparedRequestContext.ProjectContext.UnityProject.UnityProjectRoot, output.Project.ProjectPath);
+        Assert.Equal(preparedRequestContext.ProjectContext.UnityProject.UnityProjectRoot.Value, output.Project.ProjectPath);
         RequestPreparationInvocationAssert.ProjectPreparedOnce(
             requestPreparationService,
             expectedProjectPath: null,

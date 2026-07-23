@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Startup;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.GuiEndpoint;
@@ -14,7 +15,7 @@ internal sealed record DaemonGuiStartupBlockerObservation
         DaemonStartupFailureClassification classification,
         int processId,
         DateTimeOffset processStartedAtUtc,
-        string unityLogPath)
+        AbsolutePath unityLogPath)
     {
         if (processId <= 0)
         {
@@ -29,12 +30,10 @@ internal sealed record DaemonGuiStartupBlockerObservation
                 "Process start timestamp must be specified.");
         }
 
-        ArgumentException.ThrowIfNullOrWhiteSpace(unityLogPath);
-
         Classification = classification ?? throw new ArgumentNullException(nameof(classification));
         ProcessId = processId;
         ProcessStartedAtUtc = processStartedAtUtc;
-        UnityLogPath = unityLogPath;
+        UnityLogPath = unityLogPath ?? throw new ArgumentNullException(nameof(unityLogPath));
     }
 
     /// <summary> Gets the normalized startup-failure classification. </summary>
@@ -47,5 +46,5 @@ internal sealed record DaemonGuiStartupBlockerObservation
     public DateTimeOffset ProcessStartedAtUtc { get; }
 
     /// <summary> Gets the Unity log path observed for the startup attempt. </summary>
-    public string UnityLogPath { get; }
+    public AbsolutePath UnityLogPath { get; }
 }

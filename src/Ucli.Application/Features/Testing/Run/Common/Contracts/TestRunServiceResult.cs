@@ -1,3 +1,5 @@
+using MackySoft.FileSystem;
+
 namespace MackySoft.Ucli.Application.Features.Testing.Run.Common.Contracts;
 
 /// <summary> Represents normalized output returned from test-run core service. </summary>
@@ -9,8 +11,8 @@ internal sealed record TestRunServiceResult
         ApplicationFailure? failure,
         string message,
         Guid? runId,
-        string? artifactsDir,
-        string? summaryJsonPath,
+        AbsolutePath? artifactsDir,
+        AbsolutePath? summaryJsonPath,
         StartupFailureDetail? startupFailure = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(message);
@@ -75,10 +77,10 @@ internal sealed record TestRunServiceResult
     public Guid? RunId { get; }
 
     /// <summary> Gets the run artifacts directory path when available. </summary>
-    public string? ArtifactsDir { get; }
+    public AbsolutePath? ArtifactsDir { get; }
 
     /// <summary> Gets the summary JSON path when available. </summary>
-    public string? SummaryJsonPath { get; }
+    public AbsolutePath? SummaryJsonPath { get; }
 
     /// <summary> Gets the structured startup failure detail when Unity did not reach test execution. </summary>
     public StartupFailureDetail? StartupFailure { get; }
@@ -114,8 +116,8 @@ internal sealed record TestRunServiceResult
     public static TestRunServiceResult Pass (
         string message,
         Guid runId,
-        string artifactsDir,
-        string summaryJsonPath)
+        AbsolutePath artifactsDir,
+        AbsolutePath summaryJsonPath)
     {
         return new TestRunServiceResult(
             result: TestRunResultKind.Pass,
@@ -136,8 +138,8 @@ internal sealed record TestRunServiceResult
     public static TestRunServiceResult Fail (
         string message,
         Guid runId,
-        string artifactsDir,
-        string summaryJsonPath)
+        AbsolutePath artifactsDir,
+        AbsolutePath summaryJsonPath)
     {
         return new TestRunServiceResult(
             result: TestRunResultKind.Fail,
@@ -160,8 +162,8 @@ internal sealed record TestRunServiceResult
         string message,
         UcliCode errorCode,
         Guid? runId = null,
-        string? artifactsDir = null,
-        string? summaryJsonPath = null,
+        AbsolutePath? artifactsDir = null,
+        AbsolutePath? summaryJsonPath = null,
         StartupFailureDetail? startupFailure = null)
     {
         ArgumentNullException.ThrowIfNull(errorCode);
@@ -187,8 +189,8 @@ internal sealed record TestRunServiceResult
         string message,
         UcliCode errorCode,
         Guid? runId = null,
-        string? artifactsDir = null,
-        string? summaryJsonPath = null,
+        AbsolutePath? artifactsDir = null,
+        AbsolutePath? summaryJsonPath = null,
         StartupFailureDetail? startupFailure = null)
     {
         ArgumentNullException.ThrowIfNull(errorCode);
@@ -218,8 +220,8 @@ internal sealed record TestRunServiceResult
         string message,
         UcliCode errorCode,
         Guid? runId = null,
-        string? artifactsDir = null,
-        string? summaryJsonPath = null,
+        AbsolutePath? artifactsDir = null,
+        AbsolutePath? summaryJsonPath = null,
         StartupFailureDetail? startupFailure = null)
     {
         ArgumentNullException.ThrowIfNull(errorCode);

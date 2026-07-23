@@ -232,7 +232,7 @@ namespace MackySoft.Ucli.Unity.Tests
             return new CompileUnityIpcMethodHandler(
                 new StubUnityEditorReadinessGate(),
                 new IpcProjectIdentity(
-                    UnityProjectPathResolver.ResolveProjectRootPath(),
+                    UnityProjectPathResolver.ResolveProjectRootPath().Value,
                     ProjectFingerprint,
                     "6000.1.4f1"),
                 new StubServerVersionProvider("1.2.3"),
@@ -308,7 +308,7 @@ namespace MackySoft.Ucli.Unity.Tests
             return UcliStoragePathResolver.ResolveCompileRunArtifactsDirectory(
                 storageRoot,
                 ProjectFingerprint,
-                runId);
+                runId).Value;
         }
 
         private static void DeleteDirectoryIfExists (string path)

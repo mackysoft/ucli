@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.UnityIntegration.Ipc.Process;
 
@@ -17,7 +18,7 @@ internal sealed class UnexpectedUnityBatchmodeProcessLauncher : IUnityBatchmodeP
     public ValueTask<UnityBatchmodeProcessLaunchResult> LaunchOneshotAsync (
         ResolvedUnityProjectContext unityProject,
         IpcOneshotBootstrapEnvelope bootstrapEnvelope,
-        string unityLogPath,
+        AbsolutePath unityLogPath,
         UnityBatchmodeLaunchOptions launchOptions,
         CancellationToken cancellationToken)
     {

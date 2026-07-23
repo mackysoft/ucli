@@ -1,29 +1,25 @@
+using MackySoft.FileSystem;
+
 namespace MackySoft.Ucli.UnityIntegration.Resolution;
 
 /// <summary> Builds ordered Unity editor search roots with platform-aware de-duplication. </summary>
 internal sealed class UnityEditorSearchRootBuilder
 {
-    private readonly HashSet<string> deduplicatedRoots;
+    private readonly HashSet<AbsolutePath> deduplicatedRoots = new();
 
-    private readonly List<string> orderedRoots;
+    private readonly List<AbsolutePath> orderedRoots = new();
 
     /// <summary> Initializes a new instance of the <see cref="UnityEditorSearchRootBuilder" /> class. </summary>
-    /// <param name="comparer"> The comparer used for de-duplication. </param>
-    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="comparer" /> is <see langword="null" />. </exception>
-    public UnityEditorSearchRootBuilder (StringComparer comparer)
+    public UnityEditorSearchRootBuilder ()
     {
-        ArgumentNullException.ThrowIfNull(comparer);
-
-        deduplicatedRoots = new HashSet<string>(comparer);
-        orderedRoots = new List<string>();
     }
 
     /// <summary> Adds one candidate root path into the builder. </summary>
     /// <param name="rootPath"> The candidate root path value. </param>
-    /// <exception cref="ArgumentException"> Thrown when <paramref name="rootPath" /> is <see langword="null" />, empty, or whitespace. </exception>
-    public void Add (string? rootPath)
+    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="rootPath" /> is <see langword="null" />. </exception>
+    public void Add (AbsolutePath rootPath)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(rootPath);
+        ArgumentNullException.ThrowIfNull(rootPath);
 
         if (deduplicatedRoots.Add(rootPath))
         {
@@ -33,7 +29,7 @@ internal sealed class UnityEditorSearchRootBuilder
 
     /// <summary> Creates an ordered snapshot of current search roots. </summary>
     /// <returns> The ordered de-duplicated root path array. </returns>
-    public string[] ToArray ()
+    public AbsolutePath[] ToArray ()
     {
         return orderedRoots.ToArray();
     }

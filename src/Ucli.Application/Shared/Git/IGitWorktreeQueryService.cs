@@ -1,3 +1,5 @@
+using MackySoft.FileSystem;
+
 namespace MackySoft.Ucli.Application.Shared.Git;
 
 /// <summary> Gets Git worktree metadata for one path anchored inside a Git worktree. </summary>
@@ -9,7 +11,7 @@ internal interface IGitWorktreeQueryService
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The Git worktree query result. </returns>
     ValueTask<GitWorktreeQueryResult> GetWorktreeInfoAsync (
-        string path,
+        AbsolutePath path,
         TimeSpan timeout,
         CancellationToken cancellationToken = default);
 }

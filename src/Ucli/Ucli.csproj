@@ -25,6 +25,7 @@
     <PackageReference Include="MackySoft.AgentSkills" Version="1.0.0" />
     <PackageReference Include="MackySoft.AgentSkills.ConsoleAppFramework" Version="1.0.0" PrivateAssets="all" />
     <PackageReference Include="MackySoft.AgentSkills.Hosting" Version="1.0.0" />
+    <PackageReference Include="MackySoft.FileSystem" Version="[0.1.0]" GeneratePathProperty="true" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.3" />
   </ItemGroup>
 
@@ -53,6 +54,11 @@
     </None>
 
     <None Update="THIRD-PARTY-NOTICES">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </None>
+
+    <None Include="$(PkgMackySoft_FileSystem)/LICENSE" Link="third-party/MackySoft.FileSystem/0.1.0/LICENSE">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </None>

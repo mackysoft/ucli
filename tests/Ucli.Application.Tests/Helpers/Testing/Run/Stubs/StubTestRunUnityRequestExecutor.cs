@@ -115,9 +115,9 @@ internal sealed class StubTestRunUnityRequestExecutor : IUnityRequestExecutor, I
 
     private static void EnsureArtifactFiles (ArtifactPaths artifactPaths)
     {
-        Directory.CreateDirectory(artifactPaths.ArtifactsDir);
-        File.WriteAllText(artifactPaths.ResultsXmlPath, "<test-run />");
-        File.WriteAllText(artifactPaths.EditorLogPath, string.Empty);
+        Directory.CreateDirectory(artifactPaths.ArtifactsDir.Value);
+        File.WriteAllText(artifactPaths.ResultsXmlPath.Value, "<test-run />");
+        File.WriteAllText(artifactPaths.EditorLogPath.Value, string.Empty);
     }
 
     private static UnityRequestFailureKind ResolveFailureKind (UnityTestExecutionResult executionResult)

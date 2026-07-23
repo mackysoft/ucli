@@ -43,7 +43,7 @@ public sealed class QueryServiceUnityExecutionTests
             sceneTreeLiteAccessService);
         Assert.NotNull(result.Project);
         var project = result.Project!;
-        Assert.Equal(QueryProjectContext.UnityProject.UnityProjectRoot, project.ProjectPath);
+        Assert.Equal(QueryProjectContext.UnityProject.UnityProjectRoot.Value, project.ProjectPath);
         Assert.Equal(ProjectContextTestFactory.ProjectFingerprint, project.ProjectFingerprint);
         Assert.Equal(QueryProjectContext.UnityProject.UnityVersion, project.UnityVersion);
         Assert.Equal(RequestId, result.RequestId);
@@ -87,7 +87,7 @@ public sealed class QueryServiceUnityExecutionTests
     private static IpcProjectIdentity CreateUnityResponseProjectIdentity ()
     {
         return new IpcProjectIdentity(
-            projectPath: QueryProjectContext.UnityProject.UnityProjectRoot,
+            projectPath: QueryProjectContext.UnityProject.UnityProjectRoot.Value,
             projectFingerprint: ProjectContextTestFactory.ProjectFingerprint,
             unityVersion: QueryProjectContext.UnityProject.UnityVersion);
     }

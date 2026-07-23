@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Artifacts;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -18,6 +19,12 @@ internal sealed class StubCompileRunArtifactStore : ICompileRunArtifactStore
     public int WriteCount { get; private set; }
 
     public IpcCompileSummary? WrittenSummary { get; private set; }
+
+    public AbsolutePath SummaryPath { get; } = AbsolutePath.Parse(
+        Path.Combine(Path.GetTempPath(), "workspace", ".ucli", "local", "compile", "run-1", "summary.json"));
+
+    public AbsolutePath DiagnosticsPath { get; } = AbsolutePath.Parse(
+        Path.Combine(Path.GetTempPath(), "workspace", ".ucli", "local", "compile", "run-1", "diagnostics.json"));
 
     public ValueTask<CompileRunArtifactReadResult> ReadSummaryAsync (
         ResolvedUnityProjectContext unityProject,
@@ -43,17 +50,17 @@ internal sealed class StubCompileRunArtifactStore : ICompileRunArtifactStore
         return ValueTask.FromResult<ExecutionError?>(null);
     }
 
-    public string ResolveSummaryPath (
+    public AbsolutePath ResolveSummaryPath (
         ResolvedUnityProjectContext unityProject,
         Guid runId)
     {
-        return "/workspace/.ucli/local/compile/run-1/summary.json";
+        return SummaryPath;
     }
 
-    public string ResolveDiagnosticsPath (
+    public AbsolutePath ResolveDiagnosticsPath (
         ResolvedUnityProjectContext unityProject,
         Guid runId)
     {
-        return "/workspace/.ucli/local/compile/run-1/diagnostics.json";
+        return DiagnosticsPath;
     }
 }

@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 namespace MackySoft.Ucli.Tests.Daemon;
 
@@ -190,7 +191,7 @@ public sealed class DaemonLaunchServiceGuiRegistrationTests
         Assert.Equal(DaemonDiagnosisStartupPhase.EndpointRegistration, diagnosis.StartupPhase);
         Assert.Equal(DaemonDiagnosisActionRequired.InspectUnityLog, diagnosis.ActionRequired);
         Assert.Equal(
-            Path.Combine(context.UnityProjectRoot, "Library", "EditorInstance.json"),
+            AbsolutePath.Parse(Path.Combine(context.UnityProjectRoot.Value, "Library", "EditorInstance.json")),
             diagnosis.EditorInstancePath);
         DaemonLaunchInvocationAssert.StartupFailureKeptProcessWithoutCompensation(
             result,

@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Cleanup;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Compensation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Shutdown;
@@ -20,8 +21,9 @@ public sealed class DaemonSessionCleanupServiceConcurrencyTests
             "invalid-successor-publication");
         var projectFingerprint = ProjectFingerprintTestFactory.Create("fingerprint-invalid-successor-publication");
         var processStartedAtUtc = new DateTimeOffset(2026, 7, 13, 0, 0, 1, TimeSpan.Zero);
-        var sessionPath = UcliStoragePathResolver.ResolveSessionPath(scope.FullPath, projectFingerprint);
-        Directory.CreateDirectory(Path.GetDirectoryName(sessionPath)!);
+        var storageRoot = AbsolutePath.Parse(scope.FullPath);
+        var sessionPath = UcliStoragePathResolver.ResolveSessionPath(storageRoot, projectFingerprint);
+        Directory.CreateDirectory(Path.GetDirectoryName(sessionPath.Value)!);
         var invalidContract = new DaemonSessionJsonContract(
             SchemaVersion: DaemonSessionStorageContract.CurrentSchemaVersion,
             SessionGenerationId: Guid.Empty,
@@ -38,12 +40,12 @@ public sealed class DaemonSessionCleanupServiceConcurrencyTests
             OwnerProcessId: 4141,
             EditorInstanceId: null);
         await File.WriteAllTextAsync(
-            sessionPath,
+            sessionPath.Value,
             DaemonSessionJsonContractSerializer.Serialize(invalidContract) + Environment.NewLine,
             CancellationToken.None);
         var sessionStore = new DaemonSessionStore();
         var invalidObservation = await sessionStore.ReadAsync(
-            scope.FullPath,
+            storageRoot,
             projectFingerprint,
             CancellationToken.None);
         Assert.False(invalidObservation.IsSuccess);
@@ -56,7 +58,7 @@ public sealed class DaemonSessionCleanupServiceConcurrencyTests
             processId: 5151,
             processStartedAtUtc: processStartedAtUtc.AddMinutes(1));
         var successorWriteResult = await sessionStore.WriteAsync(
-            scope.FullPath,
+            storageRoot,
             successorSession,
             CancellationToken.None);
         Assert.True(successorWriteResult.IsSuccess);
@@ -81,7 +83,7 @@ public sealed class DaemonSessionCleanupServiceConcurrencyTests
             ExecutionDeadline.Start(TimeSpan.FromSeconds(1), new ManualTimeProvider()),
             CancellationToken.None);
         var currentSessionResult = await sessionStore.ReadAsync(
-            scope.FullPath,
+            storageRoot,
             projectFingerprint,
             CancellationToken.None);
 

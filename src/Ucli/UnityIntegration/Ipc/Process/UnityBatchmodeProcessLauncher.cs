@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Launch;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Context.Project;
@@ -5,7 +6,6 @@ using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Application.Shared.Unity.Resolution;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Ipc;
-using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Shared.Unity.ProjectLock;
 
@@ -53,7 +53,7 @@ internal sealed class UnityBatchmodeProcessLauncher : IUnityDaemonProcessLaunche
     public async ValueTask<UnityDaemonLaunchResult> LaunchAsync (
         ResolvedUnityProjectContext unityProject,
         DaemonSession session,
-        string unityLogPath,
+        AbsolutePath unityLogPath,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -66,14 +66,14 @@ internal sealed class UnityBatchmodeProcessLauncher : IUnityDaemonProcessLaunche
         var batchmodeLaunchResult = await LaunchBatchmodeAsync(
                 unityProject,
                 new IpcDaemonBootstrapArguments(
-                    RepositoryRoot: unityProject.RepositoryRoot,
+                    RepositoryRoot: unityProject.RepositoryRoot.Value,
                     ProjectFingerprint: unityProject.ProjectFingerprint,
                     SessionPath: UcliStoragePathResolver.ResolveSessionPath(
                         unityProject.RepositoryRoot,
-                        unityProject.ProjectFingerprint),
+                        unityProject.ProjectFingerprint).Value,
                     SessionGenerationId: session.SessionGenerationId,
                     SessionIssuedAtUtc: session.IssuedAtUtc,
-                    Endpoint: endpoint),
+                    Endpoint: endpoint.Contract),
                 unityLogPath,
                 UnityBatchmodeLaunchOptions.Default,
                 cancellationToken)
@@ -116,7 +116,7 @@ internal sealed class UnityBatchmodeProcessLauncher : IUnityDaemonProcessLaunche
     public async ValueTask<UnityBatchmodeProcessLaunchResult> LaunchOneshotAsync (
         ResolvedUnityProjectContext unityProject,
         IpcOneshotBootstrapEnvelope bootstrapEnvelope,
-        string unityLogPath,
+        AbsolutePath unityLogPath,
         UnityBatchmodeLaunchOptions launchOptions,
         CancellationToken cancellationToken)
     {
@@ -125,7 +125,7 @@ internal sealed class UnityBatchmodeProcessLauncher : IUnityDaemonProcessLaunche
         ArgumentNullException.ThrowIfNull(bootstrapEnvelope);
         ArgumentNullException.ThrowIfNull(launchOptions);
 
-        if (string.IsNullOrWhiteSpace(unityLogPath))
+        if (unityLogPath is null)
         {
             return UnityBatchmodeProcessLaunchResult.Failure(ExecutionError.InvalidArgument(
                 "Unity log path must not be empty."));
@@ -180,7 +180,7 @@ internal sealed class UnityBatchmodeProcessLauncher : IUnityDaemonProcessLaunche
     private async ValueTask<UnityBatchmodeProcessLaunchResult> LaunchBatchmodeAsync (
         ResolvedUnityProjectContext unityProject,
         IpcBatchmodeBootstrapArguments bootstrapArguments,
-        string unityLogPath,
+        AbsolutePath unityLogPath,
         UnityBatchmodeLaunchOptions launchOptions,
         CancellationToken cancellationToken)
     {
@@ -219,22 +219,25 @@ internal sealed class UnityBatchmodeProcessLauncher : IUnityDaemonProcessLaunche
 
         try
         {
-            var unityLogDirectoryPath = Path.GetDirectoryName(unityLogPath);
-            if (!string.IsNullOrWhiteSpace(unityLogDirectoryPath))
+            if (unityLogPath.TryGetParent(out var unityLogDirectoryPath))
             {
                 FileSystemAccessBoundary.EnsureSecureDirectory(unityLogDirectoryPath);
             }
 
             var processStartInfo = new System.Diagnostics.ProcessStartInfo
             {
-                FileName = unityEditorPathResult.UnityEditorPath!,
+                FileName = unityEditorPathResult.UnityEditorPath!.Value,
                 UseShellExecute = false,
                 CreateNoWindow = true,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
             };
 
-            var argumentTokens = BuildArgumentTokens(unityProject.UnityProjectRoot, unityLogPath, bootstrapArguments, launchOptions);
+            var argumentTokens = BuildArgumentTokens(
+                unityProject.UnityProjectRoot,
+                unityLogPath,
+                bootstrapArguments,
+                launchOptions);
             for (var i = 0; i < argumentTokens.Count; i++)
             {
                 processStartInfo.ArgumentList.Add(argumentTokens[i]);
@@ -268,11 +271,6 @@ internal sealed class UnityBatchmodeProcessLauncher : IUnityDaemonProcessLaunche
                 await UnityProcessOwnership.TerminateAndDisposeBestEffortAsync(processHandle).ConfigureAwait(false);
                 throw;
             }
-        }
-        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
-        {
-            return UnityBatchmodeProcessLaunchResult.Failure(ExecutionError.InvalidArgument(
-                $"Unity batchmode launch path is invalid. {exception.Message}"));
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -324,13 +322,13 @@ internal sealed class UnityBatchmodeProcessLauncher : IUnityDaemonProcessLaunche
     /// <param name="bootstrapArguments"> The bootstrap argument payload. </param>
     /// <returns> The ordered command-line argument token list. </returns>
     internal static IReadOnlyList<string> BuildArgumentTokens (
-        string unityProjectRoot,
-        string unityLogPath,
+        AbsolutePath unityProjectRoot,
+        AbsolutePath unityLogPath,
         IpcBatchmodeBootstrapArguments bootstrapArguments,
         UnityBatchmodeLaunchOptions? launchOptions = null)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(unityProjectRoot);
-        ArgumentException.ThrowIfNullOrWhiteSpace(unityLogPath);
+        ArgumentNullException.ThrowIfNull(unityProjectRoot);
+        ArgumentNullException.ThrowIfNull(unityLogPath);
         ArgumentNullException.ThrowIfNull(bootstrapArguments);
         launchOptions ??= UnityBatchmodeLaunchOptions.Default;
 
@@ -339,9 +337,9 @@ internal sealed class UnityBatchmodeProcessLauncher : IUnityDaemonProcessLaunche
             "-batchmode",
             "-nographics",
             "-projectPath",
-            unityProjectRoot,
+            unityProjectRoot.Value,
             "-logFile",
-            unityLogPath,
+            unityLogPath.Value,
         };
         if (launchOptions.ActiveBuildProfilePath != null)
         {

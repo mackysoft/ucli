@@ -69,7 +69,7 @@ public sealed class BuildServiceProjectMutationTests
         var service = CreateService(
             profileFileReader: new StubBuildProfileFileReader(BuildProfileFileReadResult.Success(
                 CreateProfileJson(["daemon", "oneshot"], ["batchmode", "gui"], "audit"),
-                "/workspace/build.ucli.json")),
+                DefaultBuildProfilePath)),
             requestExecutor: CreateBuildResponseExecutor(
                 IpcBuildReportResult.Succeeded,
                 IpcBuildLogCompletionReason.Completed,
@@ -97,7 +97,7 @@ public sealed class BuildServiceProjectMutationTests
         var service = CreateService(
             profileFileReader: new StubBuildProfileFileReader(BuildProfileFileReadResult.Success(
                 CreateProfileJson(["daemon", "oneshot"], ["batchmode", "gui"], "allowWithAudit"),
-                "/workspace/build.ucli.json")),
+                DefaultBuildProfilePath)),
             requestExecutor: CreateBuildResponseExecutor(
                 IpcBuildReportResult.Succeeded,
                 IpcBuildLogCompletionReason.Completed,
@@ -122,7 +122,7 @@ public sealed class BuildServiceProjectMutationTests
         var service = CreateService(
             profileFileReader: new StubBuildProfileFileReader(BuildProfileFileReadResult.Success(
                 CreateProfileJson(["daemon", "oneshot"], ["batchmode", "gui"], "allowWithAudit"),
-                "/workspace/build.ucli.json")),
+                DefaultBuildProfilePath)),
             requestExecutor: CreateBuildResponseExecutor(
                 IpcBuildReportResult.Succeeded,
                 IpcBuildLogCompletionReason.Completed,

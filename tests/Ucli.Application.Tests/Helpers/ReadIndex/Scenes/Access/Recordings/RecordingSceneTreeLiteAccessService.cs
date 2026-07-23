@@ -25,6 +25,62 @@ internal sealed class RecordingSceneTreeLiteAccessService : ISceneTreeLiteAccess
         bool failFast = false,
         CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(scenePath);
+        SceneAssetPath.TryParse(scenePath.Value, out var indexScenePath);
+        return RecordInvocation(
+            project,
+            config,
+            command,
+            mode,
+            timeout,
+            readIndexMode,
+            scenePath,
+            indexScenePath,
+            depth,
+            failFast,
+            cancellationToken);
+    }
+
+    public ValueTask<SceneTreeLiteReadResult> ReadAsync (
+        ResolvedUnityProjectContext project,
+        UcliConfig config,
+        UcliCommand command,
+        UnityExecutionMode mode,
+        TimeSpan timeout,
+        ReadIndexMode readIndexMode,
+        SceneAssetPath scenePath,
+        int? depth,
+        bool failFast = false,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(scenePath);
+        return RecordInvocation(
+            project,
+            config,
+            command,
+            mode,
+            timeout,
+            readIndexMode,
+            new UnityScenePath(scenePath.Value),
+            scenePath,
+            depth,
+            failFast,
+            cancellationToken);
+    }
+
+    private ValueTask<SceneTreeLiteReadResult> RecordInvocation (
+        ResolvedUnityProjectContext project,
+        UcliConfig config,
+        UcliCommand command,
+        UnityExecutionMode mode,
+        TimeSpan timeout,
+        ReadIndexMode readIndexMode,
+        UnityScenePath scenePath,
+        SceneAssetPath? indexScenePath,
+        int? depth,
+        bool failFast,
+        CancellationToken cancellationToken)
+    {
         cancellationToken.ThrowIfCancellationRequested();
         invocations.Add(new Invocation(
             project,
@@ -34,6 +90,7 @@ internal sealed class RecordingSceneTreeLiteAccessService : ISceneTreeLiteAccess
             timeout,
             readIndexMode,
             scenePath,
+            indexScenePath,
             depth,
             failFast,
             cancellationToken));
@@ -54,6 +111,7 @@ internal sealed class RecordingSceneTreeLiteAccessService : ISceneTreeLiteAccess
         TimeSpan Timeout,
         ReadIndexMode ReadIndexMode,
         UnityScenePath ScenePath,
+        SceneAssetPath? IndexScenePath,
         int? Depth,
         bool FailFast,
         CancellationToken CancellationToken);

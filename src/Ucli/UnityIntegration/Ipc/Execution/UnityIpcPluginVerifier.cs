@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Application.Shared.Execution.UnityRequest;
 using MackySoft.Ucli.Application.Shared.Foundation;
@@ -23,11 +24,11 @@ internal sealed class UnityIpcPluginVerifier
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The classified failure when verification fails; otherwise <see langword="null" />. </returns>
     public async ValueTask<UnityRequestFailure?> VerifyWithinBudgetAsync (
-        string unityProjectRoot,
+        AbsolutePath unityProjectRoot,
         ExecutionDeadline deadline,
         CancellationToken cancellationToken)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(unityProjectRoot);
+        ArgumentNullException.ThrowIfNull(unityProjectRoot);
         ArgumentNullException.ThrowIfNull(deadline);
         cancellationToken.ThrowIfCancellationRequested();
 

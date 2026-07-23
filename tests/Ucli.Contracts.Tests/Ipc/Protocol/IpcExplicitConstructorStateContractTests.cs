@@ -1,4 +1,5 @@
 using System.Reflection;
+using MackySoft.Ucli.Contracts.Assurance.Build;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Contracts.Tests.Ipc.Common;
@@ -31,18 +32,22 @@ public sealed class IpcExplicitConstructorStateContractTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void BuildOutputLayoutResolver_AndroidAppBundleIntentIsRequiredBeforeOutput ()
+    public void BuildOutputLayoutPolicy_UsesTypedInputsAndRequiresAndroidAppBundleIntent ()
     {
-        var method = typeof(IpcBuildOutputLayoutResolver).GetMethod(
-            nameof(IpcBuildOutputLayoutResolver.TryResolve),
-            BindingFlags.Public | BindingFlags.Static);
-
-        Assert.NotNull(method);
+        var method = Assert.Single(typeof(BuildPipelineOutputLayoutPolicy).GetMethods(
+            BindingFlags.Public | BindingFlags.Static));
         var parameters = method.GetParameters();
-        Assert.Equal(typeof(bool), parameters[2].ParameterType);
-        Assert.Equal("androidAppBundle", parameters[2].Name);
-        Assert.False(parameters[2].IsOptional);
-        Assert.False(parameters[2].HasDefaultValue);
-        Assert.True(parameters[3].IsOut);
+
+        Assert.Equal(nameof(BuildPipelineOutputLayoutPolicy.TryResolve), method.Name);
+        Assert.DoesNotContain(parameters, static parameter => parameter.ParameterType == typeof(string));
+        Assert.Equal(typeof(BuildTargetStableName), parameters[0].ParameterType);
+        Assert.Equal(typeof(bool), parameters[1].ParameterType);
+        Assert.Equal("androidAppBundle", parameters[1].Name);
+        Assert.False(parameters[1].IsOptional);
+        Assert.False(parameters[1].HasDefaultValue);
+        Assert.True(parameters[2].IsOut);
+        Assert.Equal(
+            typeof(BuildPipelineOutputLayoutDefinition).MakeByRefType(),
+            parameters[2].ParameterType);
     }
 }

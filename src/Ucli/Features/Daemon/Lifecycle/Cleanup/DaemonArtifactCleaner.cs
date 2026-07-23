@@ -6,9 +6,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Application.Shared.Foundation;
-using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Ipc;
-using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Infrastructure.Storage;
 
 namespace MackySoft.Ucli.Features.Daemon.Lifecycle.Cleanup;
@@ -295,12 +293,12 @@ internal sealed class DaemonArtifactCleaner : IDaemonArtifactCleaner
     {
         try
         {
-            var endpoint = UcliIpcEndpointResolver.ResolveDaemonEndpoint(
+            var unixSocketPath = UcliIpcEndpointResolver.ResolveDaemonUnixSocketPathOrNull(
                 unityProject.RepositoryRoot,
                 unityProject.ProjectFingerprint);
-            if (endpoint.TransportKind == IpcTransportKind.UnixDomainSocket)
+            if (unixSocketPath is not null)
             {
-                FileUtilities.DeleteIfExists(endpoint.Address);
+                FileUtilities.DeleteIfExists(unixSocketPath);
             }
 
             return DaemonArtifactCleanupResult.Success();
@@ -333,18 +331,9 @@ internal sealed class DaemonArtifactCleaner : IDaemonArtifactCleaner
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        string sessionPath;
-        try
-        {
-            sessionPath = UcliStoragePathResolver.ResolveSessionPath(
-                unityProject.RepositoryRoot,
-                unityProject.ProjectFingerprint);
-        }
-        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
-        {
-            return DaemonSessionStoreOperationResult.Failure(ExecutionError.InvalidArgument(
-                $"Daemon session path is invalid. {exception.Message}"));
-        }
+        var sessionPath = UcliStoragePathResolver.ResolveSessionPath(
+            unityProject.RepositoryRoot,
+            unityProject.ProjectFingerprint);
 
         try
         {
@@ -354,7 +343,7 @@ internal sealed class DaemonArtifactCleaner : IDaemonArtifactCleaner
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
             return DaemonSessionStoreOperationResult.Failure(ExecutionError.InternalError(
-                $"Failed to delete daemon session file: {sessionPath}. {exception.Message}"));
+                $"Failed to delete daemon session file: {sessionPath.Value}. {exception.Message}"));
         }
     }
 

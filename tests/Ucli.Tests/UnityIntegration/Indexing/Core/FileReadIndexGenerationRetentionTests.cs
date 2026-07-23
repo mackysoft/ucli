@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.UnityIntegration.Indexing.Core;
 
@@ -14,24 +15,25 @@ public sealed class FileReadIndexGenerationRetentionTests
         var pointerStore = new FileReadIndexGenerationPointerStore();
         var timeProvider = new ManualTimeProvider(DateTimeOffset.Parse("2026-07-15T00:00:00Z"));
         var writer = CreateWriter(new FileReadIndexGenerationStore(pointerStore, timeProvider));
+        var storageRoot = AbsolutePath.Parse(scope.FullPath);
         var staleGenerationId = await PrepareStaleGenerationAsync(
             writer,
             pointerStore,
-            scope.FullPath,
+            storageRoot,
             fingerprint);
         var staleGenerationPath = UcliStoragePathResolver.ResolveReadIndexGenerationDirectory(
-            scope.FullPath,
+            storageRoot,
             fingerprint,
             staleGenerationId);
         Assert.True(File.Exists(UcliStoragePathResolver.ResolveReadIndexRetentionMarkerPath(
-            scope.FullPath,
+            storageRoot,
             fingerprint,
-            staleGenerationId)));
+            staleGenerationId).Value));
 
         timeProvider.Advance(TimeSpan.FromMinutes(6));
-        await WriteGenerationAsync(writer, scope.FullPath, fingerprint, sequence: 10);
+        await WriteGenerationAsync(writer, storageRoot, fingerprint, sequence: 10);
 
-        Assert.False(Directory.Exists(staleGenerationPath));
+        Assert.False(Directory.Exists(staleGenerationPath.Value));
     }
 
     [Fact]
@@ -43,13 +45,14 @@ public sealed class FileReadIndexGenerationRetentionTests
         var pointerStore = new FileReadIndexGenerationPointerStore();
         var timeProvider = new ManualTimeProvider(DateTimeOffset.Parse("2026-07-15T00:00:00Z"));
         var initialWriter = CreateWriter(new FileReadIndexGenerationStore(pointerStore, timeProvider));
+        var storageRoot = AbsolutePath.Parse(scope.FullPath);
         var staleGenerationId = await PrepareStaleGenerationAsync(
             initialWriter,
             pointerStore,
-            scope.FullPath,
+            storageRoot,
             fingerprint);
         var staleGenerationPath = UcliStoragePathResolver.ResolveReadIndexGenerationDirectory(
-            scope.FullPath,
+            storageRoot,
             fingerprint,
             staleGenerationId);
         timeProvider.Advance(TimeSpan.FromMinutes(6));
@@ -58,18 +61,18 @@ public sealed class FileReadIndexGenerationRetentionTests
             staleGenerationId);
         var writer = CreateWriter(new FileReadIndexGenerationStore(switchingPointerStore, timeProvider));
 
-        await WriteGenerationAsync(writer, scope.FullPath, fingerprint, sequence: 10);
+        await WriteGenerationAsync(writer, storageRoot, fingerprint, sequence: 10);
 
         Assert.Equal(
             staleGenerationId,
-            await pointerStore.ReadAsync(scope.FullPath, fingerprint, CancellationToken.None));
-        Assert.True(Directory.Exists(staleGenerationPath));
+            await pointerStore.ReadAsync(storageRoot, fingerprint, CancellationToken.None));
+        Assert.True(Directory.Exists(staleGenerationPath.Value));
     }
 
     private static async Task<Guid> PrepareStaleGenerationAsync (
         FileReadIndexArtifactWriter writer,
         IReadIndexGenerationPointerStore pointerStore,
-        string storageRoot,
+        AbsolutePath storageRoot,
         ProjectFingerprint fingerprint)
     {
         await WriteGenerationAsync(writer, storageRoot, fingerprint, sequence: 0);
@@ -79,7 +82,7 @@ public sealed class FileReadIndexGenerationRetentionTests
             UcliStoragePathResolver.ResolveReadIndexGenerationDirectory(
                 storageRoot,
                 fingerprint,
-                staleGenerationId),
+                staleGenerationId).Value,
             DateTime.UnixEpoch);
         for (var sequence = 1; sequence < 10; sequence++)
         {
@@ -91,7 +94,7 @@ public sealed class FileReadIndexGenerationRetentionTests
 
     private static async Task WriteGenerationAsync (
         FileReadIndexArtifactWriter writer,
-        string storageRoot,
+        AbsolutePath storageRoot,
         ProjectFingerprint fingerprint,
         int sequence)
     {
@@ -139,7 +142,7 @@ public sealed class FileReadIndexGenerationRetentionTests
         }
 
         public async ValueTask<Guid?> ReadAsync (
-            string storageRoot,
+            AbsolutePath storageRoot,
             ProjectFingerprint projectFingerprint,
             CancellationToken cancellationToken)
         {
@@ -158,7 +161,7 @@ public sealed class FileReadIndexGenerationRetentionTests
         }
 
         public ValueTask PublishAsync (
-            string storageRoot,
+            AbsolutePath storageRoot,
             ProjectFingerprint projectFingerprint,
             Guid generationId,
             CancellationToken cancellationToken)

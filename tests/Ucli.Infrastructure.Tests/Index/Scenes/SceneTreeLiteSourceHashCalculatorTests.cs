@@ -1,13 +1,11 @@
+using MackySoft.FileSystem;
 using MackySoft.Tests;
-using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Index;
 
 namespace MackySoft.Ucli.Infrastructure.Tests.Index.Scenes;
 
 public sealed class SceneTreeLiteSourceHashCalculatorTests
 {
-    private static readonly SceneAssetPath MainScenePath = new("Assets/Scenes/Main.unity");
-
     [Fact]
     [Trait("Size", "Medium")]
     public async Task TryCompute_ReturnsStableHash_WhenSceneAndMetaAreUnchanged ()
@@ -15,9 +13,11 @@ public sealed class SceneTreeLiteSourceHashCalculatorTests
         using var scope = TestDirectories.CreateTempScope("infrastructure-scene-tree-lite-hash", "stable");
         WriteScene(scope, sceneContents: "scene-v1", metaContents: "meta-v1");
         var calculator = new SceneTreeLiteSourceHashCalculator();
+        var projectRoot = AbsolutePath.Parse(scope.FullPath);
+        var sourcePaths = CreateSourcePaths(projectRoot);
 
-        var first = await calculator.TryComputeAsync(scope.FullPath, MainScenePath, CancellationToken.None);
-        var second = await calculator.TryComputeAsync(scope.FullPath, MainScenePath, CancellationToken.None);
+        var first = await calculator.TryComputeAsync(sourcePaths.Scene, sourcePaths.Meta, CancellationToken.None);
+        var second = await calculator.TryComputeAsync(sourcePaths.Scene, sourcePaths.Meta, CancellationToken.None);
 
         Assert.NotNull(first);
         Assert.Equal(first, second);
@@ -30,10 +30,12 @@ public sealed class SceneTreeLiteSourceHashCalculatorTests
         using var scope = TestDirectories.CreateTempScope("infrastructure-scene-tree-lite-hash", "scene-change");
         WriteScene(scope, sceneContents: "scene-v1", metaContents: "meta-v1");
         var calculator = new SceneTreeLiteSourceHashCalculator();
-        var first = await calculator.TryComputeAsync(scope.FullPath, MainScenePath, CancellationToken.None);
+        var projectRoot = AbsolutePath.Parse(scope.FullPath);
+        var sourcePaths = CreateSourcePaths(projectRoot);
+        var first = await calculator.TryComputeAsync(sourcePaths.Scene, sourcePaths.Meta, CancellationToken.None);
 
         scope.WriteFile(Path.Combine("Assets", "Scenes", "Main.unity"), "scene-v2");
-        var second = await calculator.TryComputeAsync(scope.FullPath, MainScenePath, CancellationToken.None);
+        var second = await calculator.TryComputeAsync(sourcePaths.Scene, sourcePaths.Meta, CancellationToken.None);
 
         Assert.NotNull(first);
         Assert.NotNull(second);
@@ -47,10 +49,12 @@ public sealed class SceneTreeLiteSourceHashCalculatorTests
         using var scope = TestDirectories.CreateTempScope("infrastructure-scene-tree-lite-hash", "meta-change");
         WriteScene(scope, sceneContents: "scene-v1", metaContents: "meta-v1");
         var calculator = new SceneTreeLiteSourceHashCalculator();
-        var first = await calculator.TryComputeAsync(scope.FullPath, MainScenePath, CancellationToken.None);
+        var projectRoot = AbsolutePath.Parse(scope.FullPath);
+        var sourcePaths = CreateSourcePaths(projectRoot);
+        var first = await calculator.TryComputeAsync(sourcePaths.Scene, sourcePaths.Meta, CancellationToken.None);
 
         scope.WriteFile(Path.Combine("Assets", "Scenes", "Main.unity.meta"), "meta-v2");
-        var second = await calculator.TryComputeAsync(scope.FullPath, MainScenePath, CancellationToken.None);
+        var second = await calculator.TryComputeAsync(sourcePaths.Scene, sourcePaths.Meta, CancellationToken.None);
 
         Assert.NotNull(first);
         Assert.NotNull(second);
@@ -64,8 +68,10 @@ public sealed class SceneTreeLiteSourceHashCalculatorTests
         using var scope = TestDirectories.CreateTempScope("infrastructure-scene-tree-lite-hash", "missing-meta");
         scope.WriteFile(Path.Combine("Assets", "Scenes", "Main.unity"), "scene-v1");
         var calculator = new SceneTreeLiteSourceHashCalculator();
+        var projectRoot = AbsolutePath.Parse(scope.FullPath);
+        var sourcePaths = CreateSourcePaths(projectRoot);
 
-        var result = await calculator.TryComputeAsync(scope.FullPath, MainScenePath, CancellationToken.None);
+        var result = await calculator.TryComputeAsync(sourcePaths.Scene, sourcePaths.Meta, CancellationToken.None);
 
         Assert.Null(result);
     }
@@ -77,5 +83,12 @@ public sealed class SceneTreeLiteSourceHashCalculatorTests
     {
         scope.WriteFile(Path.Combine("Assets", "Scenes", "Main.unity"), sceneContents);
         scope.WriteFile(Path.Combine("Assets", "Scenes", "Main.unity.meta"), metaContents);
+    }
+
+    private static (ContainedPath Scene, ContainedPath Meta) CreateSourcePaths (AbsolutePath projectRoot)
+    {
+        return (
+            ContainedPath.Create(projectRoot, RootRelativePath.Parse("Assets/Scenes/Main.unity")),
+            ContainedPath.Create(projectRoot, RootRelativePath.Parse("Assets/Scenes/Main.unity.meta")));
     }
 }

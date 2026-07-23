@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Shared.Configuration;
+using MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Scenes;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Tests.Helpers.Indexing;
@@ -21,14 +22,18 @@ public sealed class SceneTreeLiteSourceRefreshServiceTests
         calculator.Enqueue("hash-1");
         calculator.Enqueue("hash-1");
         var service = new SceneTreeLiteSourceRefreshService(reader, store, calculator);
+        var project = ResolvedUnityProjectContextTestFactory.Create();
 
         var result = await service.RefreshAsync(
-            ResolvedUnityProjectContextTestFactory.Create(),
+            project,
             UcliConfig.CreateDefault(),
             UcliCommandIds.Query,
             UnityExecutionMode.Auto,
             TimeSpan.FromSeconds(1),
             new UnityScenePath("Assets/Scenes/Main.unity"),
+            SceneTreeLiteSourcePaths.Create(
+                project.UnityProjectRoot,
+                new SceneAssetPath("Assets/Scenes/Main.unity")),
             "readIndex stale.",
             failFast: true,
             cancellationToken: CancellationToken.None);
@@ -54,14 +59,18 @@ public sealed class SceneTreeLiteSourceRefreshServiceTests
         calculator.Enqueue("hash-2");
         calculator.Enqueue("hash-2");
         var service = new SceneTreeLiteSourceRefreshService(reader, store, calculator);
+        var project = ResolvedUnityProjectContextTestFactory.Create();
 
         var result = await service.RefreshAsync(
-            ResolvedUnityProjectContextTestFactory.Create(),
+            project,
             UcliConfig.CreateDefault(),
             UcliCommandIds.Query,
             UnityExecutionMode.Auto,
             TimeSpan.FromSeconds(1),
             new UnityScenePath("Assets/Scenes/Main.unity"),
+            SceneTreeLiteSourcePaths.Create(
+                project.UnityProjectRoot,
+                new SceneAssetPath("Assets/Scenes/Main.unity")),
             "readIndex stale.",
             cancellationToken: CancellationToken.None);
 
@@ -91,7 +100,8 @@ public sealed class SceneTreeLiteSourceRefreshServiceTests
             UnityExecutionMode.Auto,
             TimeSpan.FromSeconds(1),
             new UnityScenePath("Packages/com.example/Scenes/Main.unity"),
-            "scene-tree-lite readIndex is unavailable for non-Assets scene paths.",
+            indexSourcePaths: null,
+            fallbackReason: "scene-tree-lite readIndex is unavailable for non-Assets scene paths.",
             cancellationToken: CancellationToken.None);
 
         SceneTreeLiteSourceRefreshAssert.LiveOnlySceneReturnedWithoutPersistence(
@@ -117,14 +127,18 @@ public sealed class SceneTreeLiteSourceRefreshServiceTests
         var calculator = RecordingReadIndexSceneSourceHashProvider.ForQueuedResults();
         calculator.Enqueue("hash-1");
         var service = new SceneTreeLiteSourceRefreshService(reader, store, calculator);
+        var project = ResolvedUnityProjectContextTestFactory.Create();
 
         var result = await service.RefreshAsync(
-            ResolvedUnityProjectContextTestFactory.Create(),
+            project,
             UcliConfig.CreateDefault(),
             UcliCommandIds.Query,
             UnityExecutionMode.Auto,
             TimeSpan.FromSeconds(1),
             new UnityScenePath("Assets/Scenes/Main.unity"),
+            SceneTreeLiteSourcePaths.Create(
+                project.UnityProjectRoot,
+                new SceneAssetPath("Assets/Scenes/Main.unity")),
             "readIndex stale.",
             cancellationToken: CancellationToken.None);
 

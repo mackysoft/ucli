@@ -1,7 +1,7 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Artifacts;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Assurance.Build;
-using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Infrastructure.Storage;
 using static MackySoft.Ucli.Tests.Features.Assurance.Build.FileBuildRunArtifactStoreTestSupport;
@@ -22,17 +22,17 @@ public sealed class FileBuildRunArtifactStorePrepareTests
 
         Assert.True(result.IsSuccess);
         var paths = Assert.IsType<BuildRunArtifactPaths>(result.Paths);
-        Assert.True(Directory.Exists(paths.ArtifactsDirectory));
-        Assert.True(Directory.Exists(paths.RunnerOutputDirectory));
-        Assert.False(Directory.Exists(paths.ArtifactOutputDirectory));
+        Assert.True(Directory.Exists(paths.ArtifactsDirectory.Value));
+        Assert.True(Directory.Exists(paths.RunnerOutputDirectory.Value));
+        Assert.False(Directory.Exists(paths.ArtifactOutputDirectory.Value));
         Assert.Equal(
             UcliStoragePathResolver.ResolveBuildRunArtifactsDirectory(
-                scope.FullPath,
+                AbsolutePath.Parse(scope.FullPath),
                 RunIdTestValues.Build),
             paths.ArtifactsDirectory);
         Assert.Equal(
             UcliStoragePathResolver.ResolveBuildRunOutputDirectory(
-                scope.FullPath,
+                AbsolutePath.Parse(scope.FullPath),
                 RunIdTestValues.Build),
             paths.RunnerOutputDirectory);
     }
@@ -113,8 +113,8 @@ public sealed class FileBuildRunArtifactStorePrepareTests
         var runDirectory = UcliStoragePathResolver.ResolveBuildRunDirectory(
             project.RepositoryRoot,
             RunIdTestValues.Build);
-        Directory.CreateDirectory(runDirectory);
-        var unknownEntryPath = Path.Combine(runDirectory, "unknown-entry");
+        Directory.CreateDirectory(runDirectory.Value);
+        var unknownEntryPath = Path.Combine(runDirectory.Value, "unknown-entry");
         File.WriteAllText(unknownEntryPath, "unknown");
 
         var result = store.Prepare(project, RunIdTestValues.Build);
@@ -136,7 +136,7 @@ public sealed class FileBuildRunArtifactStorePrepareTests
         var runDirectory = UcliStoragePathResolver.ResolveBuildRunDirectory(
             project.RepositoryRoot,
             RunIdTestValues.Build);
-        Directory.CreateDirectory(runDirectory);
+        Directory.CreateDirectory(runDirectory.Value);
 
         var result = store.Prepare(project, RunIdTestValues.Build);
 
@@ -144,7 +144,7 @@ public sealed class FileBuildRunArtifactStorePrepareTests
         var error = Assert.IsType<ExecutionError>(result.Error);
         Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
         Assert.Equal(BuildErrorCodes.BuildArtifactWriteFailed, error.Code);
-        Assert.Empty(Directory.EnumerateFileSystemEntries(runDirectory));
+        Assert.Empty(Directory.EnumerateFileSystemEntries(runDirectory.Value));
     }
 
     [Fact]
@@ -153,18 +153,18 @@ public sealed class FileBuildRunArtifactStorePrepareTests
     {
         using var scope = TestDirectories.CreateTempScope("build-artifact-store", "prepare-player-layout");
         var (store, paths) = PrepareArtifacts(scope);
-        Assert.True(IpcBuildOutputLayoutResolver.TryResolve(
+        Assert.True(BuildPipelineOutputLayoutResolver.TryResolve(
             paths.RunnerOutputDirectory,
             BuildTargetStableName.StandaloneLinux64,
             androidAppBundle: false,
             out var layout));
 
-        var result = store.PrepareBuildPipelineOutputLayout(paths, BuildTargetStableName.StandaloneLinux64, layout!);
+        var result = store.PrepareBuildPipelineOutputLayout(paths, layout!);
 
         Assert.True(result.IsSuccess);
-        Assert.True(Directory.Exists(Path.GetDirectoryName(layout!.LocationPathName)));
-        Assert.False(File.Exists(layout.LocationPathName));
-        Assert.False(Directory.Exists(layout.LocationPathName));
+        Assert.True(Directory.Exists(Path.GetDirectoryName(layout!.LocationPath.Value)));
+        Assert.False(File.Exists(layout.LocationPath.Value));
+        Assert.False(Directory.Exists(layout.LocationPath.Value));
     }
 
     [Fact]
@@ -173,14 +173,14 @@ public sealed class FileBuildRunArtifactStorePrepareTests
     {
         using var scope = TestDirectories.CreateTempScope("build-artifact-store", "prepare-player-collision");
         var (store, paths) = PrepareArtifacts(scope);
-        Assert.True(IpcBuildOutputLayoutResolver.TryResolve(
+        Assert.True(BuildPipelineOutputLayoutResolver.TryResolve(
             paths.RunnerOutputDirectory,
             BuildTargetStableName.StandaloneLinux64,
             androidAppBundle: false,
             out var layout));
-        WriteUtf8(layout!.LocationPathName, "existing player");
+        WriteUtf8(layout!.LocationPath.Value, "existing player");
 
-        var result = store.PrepareBuildPipelineOutputLayout(paths, BuildTargetStableName.StandaloneLinux64, layout);
+        var result = store.PrepareBuildPipelineOutputLayout(paths, layout);
 
         Assert.False(result.IsSuccess);
         var error = Assert.IsType<ExecutionError>(result.Error);
@@ -194,14 +194,14 @@ public sealed class FileBuildRunArtifactStorePrepareTests
     {
         using var scope = TestDirectories.CreateTempScope("build-artifact-store", "prepare-player-parent-blocked");
         var (store, paths) = PrepareArtifacts(scope);
-        Assert.True(IpcBuildOutputLayoutResolver.TryResolve(
+        Assert.True(BuildPipelineOutputLayoutResolver.TryResolve(
             paths.RunnerOutputDirectory,
             BuildTargetStableName.StandaloneLinux64,
             androidAppBundle: false,
             out var layout));
-        WriteUtf8(Path.Combine(paths.RunnerOutputDirectory, "player"), "blocking file");
+        WriteUtf8(Path.Combine(paths.RunnerOutputDirectory.Value, "player"), "blocking file");
 
-        var result = store.PrepareBuildPipelineOutputLayout(paths, BuildTargetStableName.StandaloneLinux64, layout!);
+        var result = store.PrepareBuildPipelineOutputLayout(paths, layout!);
 
         Assert.False(result.IsSuccess);
         var error = Assert.IsType<ExecutionError>(result.Error);
@@ -211,15 +211,21 @@ public sealed class FileBuildRunArtifactStorePrepareTests
 
     [Fact]
     [Trait("Size", "Medium")]
-    public void PrepareBuildPipelineOutputLayout_WhenTargetLayoutIsUnsupported_ReturnsBuildInputsInvalid ()
+    public void PrepareBuildPipelineOutputLayout_WhenLocationIsOutsideRunnerOutput_ReturnsBuildInputsInvalid ()
     {
         using var scope = TestDirectories.CreateTempScope("build-artifact-store", "prepare-player-unsupported");
         var (store, paths) = PrepareArtifacts(scope);
-        var layout = new IpcBuildOutputLayout(
-            Shape: IpcBuildOutputLayoutShape.File,
-            LocationPathName: Path.Combine(paths.RunnerOutputDirectory, "player", "Player"));
+        Assert.True(BuildPipelineOutputLayoutResolver.TryResolve(
+            paths.RunnerOutputDirectory,
+            BuildTargetStableName.StandaloneLinux64,
+            androidAppBundle: false,
+            out var layout));
 
-        var result = store.PrepareBuildPipelineOutputLayout(paths, BuildTargetStableName.Switch, layout);
+        var outsideLayout = new BuildPipelineOutputLayout(
+            layout!.Shape,
+            AbsolutePath.Parse(Path.Combine(scope.FullPath, "outside-player")));
+
+        var result = store.PrepareBuildPipelineOutputLayout(paths, outsideLayout);
 
         Assert.False(result.IsSuccess);
         var error = Assert.IsType<ExecutionError>(result.Error);

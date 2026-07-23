@@ -31,8 +31,10 @@ internal static class ReadIndexFreshnessInvocationAssert
         SceneAssetPath expectedScenePath)
     {
         var invocation = Assert.Single(sceneHashProvider.Invocations);
-        Assert.Equal(expectedUnityProject, invocation.UnityProject);
-        Assert.Equal(expectedScenePath, invocation.ScenePath);
+        Assert.Same(expectedUnityProject.UnityProjectRoot, invocation.SourcePaths.SceneFilePath.BoundaryRoot);
+        Assert.Equal(expectedScenePath, invocation.SourcePaths.SceneAssetPath);
+        Assert.Equal(expectedScenePath.Value, invocation.SourcePaths.SceneFilePath.RelativePath.Value);
+        Assert.Equal(expectedScenePath.Value + ".meta", invocation.SourcePaths.MetaFilePath.RelativePath.Value);
         return invocation;
     }
 

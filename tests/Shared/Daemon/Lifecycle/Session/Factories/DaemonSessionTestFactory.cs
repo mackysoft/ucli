@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Contracts.Ipc;
 
@@ -26,6 +27,14 @@ internal static class DaemonSessionTestFactory
         Guid? editorInstanceId = null,
         Guid? sessionGenerationId = null)
     {
+        var endpoint = new IpcEndpoint(endpointTransportKind, endpointAddress);
+        AbsolutePath? unixSocketEndpointPath = null;
+        if (endpointTransportKind == IpcTransportKind.UnixDomainSocket)
+        {
+            unixSocketEndpointPath = AbsolutePath.Parse(Path.GetFullPath(endpointAddress));
+            endpoint = new IpcEndpoint(endpointTransportKind, unixSocketEndpointPath.Value);
+        }
+
         return new DaemonSession(
             sessionGenerationId ?? DefaultSessionGenerationId,
             IpcSessionTokenTestFactory.Create(sessionToken),
@@ -34,7 +43,8 @@ internal static class DaemonSessionTestFactory
             editorMode,
             ownerKind,
             canShutdownProcess,
-            new IpcEndpoint(endpointTransportKind, endpointAddress),
+            endpoint,
+            unixSocketEndpointPath,
             processId,
             processStartedAtUtc ?? (processId is null
                 ? null

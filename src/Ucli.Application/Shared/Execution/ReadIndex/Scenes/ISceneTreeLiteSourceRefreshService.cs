@@ -15,6 +15,7 @@ internal interface ISceneTreeLiteSourceRefreshService
         UnityExecutionModeValue mode,
         TimeSpan timeout,
         UnityScenePath scenePath,
+        SceneTreeLiteSourcePaths? indexSourcePaths,
         string fallbackReason,
         bool failFast = false,
         CancellationToken cancellationToken = default);

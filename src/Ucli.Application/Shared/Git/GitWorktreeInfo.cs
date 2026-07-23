@@ -1,3 +1,5 @@
+using MackySoft.FileSystem;
+
 namespace MackySoft.Ucli.Application.Shared.Git;
 
 /// <summary> Represents one normalized worktree entry discovered by a host adapter. </summary>
@@ -5,6 +7,6 @@ namespace MackySoft.Ucli.Application.Shared.Git;
 /// <param name="Head"> The HEAD commit hash. </param>
 /// <param name="BranchRef"> The attached branch ref when available; otherwise <see langword="null" />. </param>
 internal sealed record GitWorktreeInfo (
-    string WorktreePath,
+    AbsolutePath WorktreePath,
     string Head,
     string? BranchRef);

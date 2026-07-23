@@ -43,7 +43,7 @@ public sealed class DaemonListQueryServiceProbeFailureTests
         var service = CreateService(
             new RecordingGitWorktreeQueryService(GitWorktreeQueryResult.Success(new GitWorktreeQueryOutput(
                 CurrentWorktreeRoot: currentProject.RepositoryRoot,
-                ProjectRelativePath: "UnityProject",
+                ProjectRelativePath: GuardedRelativePath("UnityProject"),
                 Worktrees:
                 [
                     new GitWorktreeInfo(currentProject.RepositoryRoot, "abcdef01", "refs/heads/main"),
@@ -63,7 +63,7 @@ public sealed class DaemonListQueryServiceProbeFailureTests
         var item = Assert.Single(result.Output!.Items);
         Assert.Equal(DaemonListItemState.Running, item.State);
         Assert.Equal(refreshedSession.ProcessId, item.ProcessId);
-        Assert.Equal(refreshedSession.Endpoint.Address, item.EndpointAddress);
+        Assert.Equal(refreshedSession.EndpointContract.Address, item.EndpointAddress);
         Assert.Equal(2, sessionStore.ReadInvocations.Count);
         Assert.Collection(
             pingClient.Invocations,
@@ -109,7 +109,7 @@ public sealed class DaemonListQueryServiceProbeFailureTests
         var service = CreateService(
             new RecordingGitWorktreeQueryService(GitWorktreeQueryResult.Success(new GitWorktreeQueryOutput(
                 CurrentWorktreeRoot: currentProject.RepositoryRoot,
-                ProjectRelativePath: "UnityProject",
+                ProjectRelativePath: GuardedRelativePath("UnityProject"),
                 Worktrees:
                 [
                     new GitWorktreeInfo(currentProject.RepositoryRoot, "abcdef01", "refs/heads/main"),
@@ -134,7 +134,7 @@ public sealed class DaemonListQueryServiceProbeFailureTests
             probeTimesOut ? DaemonListItemReason.ProbeTimeout : DaemonListItemReason.StaleSession,
             item.Reason);
         Assert.Equal(replacementSession.ProcessId, item.ProcessId);
-        Assert.Equal(replacementSession.Endpoint.Address, item.EndpointAddress);
+        Assert.Equal(replacementSession.EndpointContract.Address, item.EndpointAddress);
         Assert.Collection(
             pingClient.Invocations,
             invocation => Assert.Equal(observedSession, invocation.Session),
@@ -304,7 +304,7 @@ public sealed class DaemonListQueryServiceProbeFailureTests
         Assert.Equal(diagnosis.UpdatedAtUtc, item.Diagnosis.UpdatedAtUtc);
         Assert.Equal(diagnosis.ProcessId, item.Diagnosis.ProcessId);
         Assert.Equal(diagnosis.ProcessStartedAtUtc, item.Diagnosis.ProcessStartedAtUtc);
-        Assert.Equal(diagnosis.UnityLogPath, item.Diagnosis.UnityLogPath);
+        Assert.Equal(diagnosis.UnityLogPath?.Value, item.Diagnosis.UnityLogPath);
         Assert.Equal(diagnosis.StartupPhase, item.Diagnosis.StartupPhase);
         Assert.Equal(diagnosis.ActionRequired, item.Diagnosis.ActionRequired);
         Assert.NotNull(item.Diagnosis.PrimaryDiagnostic);

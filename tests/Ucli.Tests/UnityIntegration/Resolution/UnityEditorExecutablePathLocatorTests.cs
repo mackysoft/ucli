@@ -1,5 +1,6 @@
 namespace MackySoft.Ucli.Tests;
 
+using MackySoft.FileSystem;
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.UnityIntegration.Resolution;
@@ -14,10 +15,13 @@ public sealed class UnityEditorExecutablePathLocatorTests
         var searchRootPath = scope.CreateDirectory("SearchRoot");
         var executablePath = UnityEditorInstallationTestFactory.WriteEditorExecutable(scope, "SearchRoot", "6000.1.4f1");
 
-        var result = UnityEditorExecutablePathLocator.Resolve("6000.1.4f1", null, new[] { searchRootPath });
+        var result = UnityEditorExecutablePathLocator.Resolve(
+            "6000.1.4f1",
+            null,
+            new[] { AbsolutePath.Parse(searchRootPath) });
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(Path.GetFullPath(executablePath), result.UnityEditorPath);
+        Assert.Equal(AbsolutePath.Parse(executablePath), result.UnityEditorPath);
         Assert.Null(result.Error);
     }
 
@@ -28,7 +32,10 @@ public sealed class UnityEditorExecutablePathLocatorTests
         using var scope = TestDirectories.CreateTempScope("unity-editor-executable-path-locator", "search-root-missing");
         var searchRootPath = scope.CreateDirectory("SearchRoot");
 
-        var result = UnityEditorExecutablePathLocator.Resolve("6000.1.4f1", null, new[] { searchRootPath });
+        var result = UnityEditorExecutablePathLocator.Resolve(
+            "6000.1.4f1",
+            null,
+            new[] { AbsolutePath.Parse(searchRootPath) });
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.UnityEditorPath);

@@ -1,10 +1,11 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Contracts.Testing;
 using MackySoft.Ucli.Infrastructure.Storage;
+using MackySoft.Ucli.Unity.Project;
 using UnityEditor;
 using UnityEditor.TestTools.TestRunner.Api;
 using UnityEngine;
@@ -14,12 +15,12 @@ namespace MackySoft.Ucli.Unity.Ipc
     /// <summary> Validates and normalizes daemon <c>test.run</c> request payload values. </summary>
     internal sealed class UnityTestRunRequestContextFactory : IUnityTestRunRequestContextFactory
     {
-        private readonly IpcProjectIdentity projectIdentity;
+        private readonly UnityHostProjectIdentity projectIdentity;
 
         /// <summary> Initializes a factory bound to the current Unity host project identity. </summary>
         /// <param name="projectIdentity"> The current Unity host project identity used to derive run-scoped artifact paths. </param>
         /// <exception cref="ArgumentNullException"> Thrown when <paramref name="projectIdentity" /> is <see langword="null" />. </exception>
-        public UnityTestRunRequestContextFactory (IpcProjectIdentity projectIdentity)
+        public UnityTestRunRequestContextFactory (UnityHostProjectIdentity projectIdentity)
         {
             this.projectIdentity = projectIdentity ?? throw new ArgumentNullException(nameof(projectIdentity));
         }
@@ -44,15 +45,18 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             var (testMode, targetPlatform) = ParseTestPlatform(request.TestPlatform);
             var storageRoot = UcliStoragePathResolver.ResolveStorageRoot(projectIdentity.ProjectPath);
-            var artifactsDirectoryPath = UcliStoragePathResolver.ResolveTestRunArtifactsDirectory(
+            var artifactsDirectory = UcliStoragePathResolver.ResolveTestRunArtifactsDirectory(
                 storageRoot,
                 projectIdentity.ProjectFingerprint,
                 request.RunId);
 
-            var consoleLogPath = Application.consoleLogPath;
-            if (string.IsNullOrWhiteSpace(consoleLogPath))
+            if (!AbsolutePath.TryParse(
+                    Application.consoleLogPath,
+                    out var guardedConsoleLogPath,
+                    out var consoleLogPathFailure))
             {
-                throw new InvalidOperationException("Application.consoleLogPath is empty.");
+                throw new InvalidOperationException(
+                    $"Application.consoleLogPath is invalid. {consoleLogPathFailure.Message}");
             }
 
             return new UnityTestRunRequestContext(
@@ -63,9 +67,13 @@ namespace MackySoft.Ucli.Unity.Ipc
                 testFilter: request.TestFilter,
                 testCategories: CopyToArray(request.TestCategories),
                 assemblyNames: CopyToArray(request.AssemblyNames),
-                resultsXmlPath: Path.Combine(artifactsDirectoryPath, UcliStoragePathNames.TestResultsXmlFileName),
-                editorLogPath: Path.Combine(artifactsDirectoryPath, UcliStoragePathNames.TestEditorLogFileName),
-                consoleLogPath: consoleLogPath);
+                resultsXmlPath: ContainedPath.Create(
+                    artifactsDirectory,
+                    RootRelativePath.Parse(UcliStoragePathNames.TestResultsXmlFileName)).Target,
+                editorLogPath: ContainedPath.Create(
+                    artifactsDirectory,
+                    RootRelativePath.Parse(UcliStoragePathNames.TestEditorLogFileName)).Target,
+                consoleLogPath: guardedConsoleLogPath);
         }
 
         private static string[] CopyToArray (IReadOnlyList<string> values)

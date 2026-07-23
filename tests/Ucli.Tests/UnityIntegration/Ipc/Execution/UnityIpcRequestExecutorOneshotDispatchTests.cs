@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Foundation;
@@ -123,7 +124,9 @@ public sealed class UnityIpcRequestExecutorOneshotDispatchTests
             {
                 await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken).ConfigureAwait(false);
                 return UnityUcliPluginLocateResult.Found(
-                    "/tmp/ucli-plugin.json",
+                    AbsolutePath.Resolve(
+                        AbsolutePath.Parse(Environment.CurrentDirectory),
+                        "ucli-plugin.json"),
                     UnityUcliPluginMarkerContract.ExpectedProtocolVersion);
             },
         };

@@ -35,7 +35,7 @@ internal sealed class SceneTreeLiteAccessService : ISceneTreeLiteAccessService
     }
 
     /// <inheritdoc />
-    public async ValueTask<SceneTreeLiteReadResult> ReadAsync (
+    public ValueTask<SceneTreeLiteReadResult> ReadAsync (
         ResolvedUnityProjectContext project,
         UcliConfig config,
         UcliCommand command,
@@ -47,9 +47,65 @@ internal sealed class SceneTreeLiteAccessService : ISceneTreeLiteAccessService
         bool failFast = false,
         CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(scenePath);
+        SceneAssetPath.TryParse(scenePath.Value, out var lookupScenePath);
+        return ReadCoreAsync(
+            project,
+            config,
+            command,
+            mode,
+            timeout,
+            readIndexMode,
+            scenePath,
+            lookupScenePath,
+            depth,
+            failFast,
+            cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public ValueTask<SceneTreeLiteReadResult> ReadAsync (
+        ResolvedUnityProjectContext project,
+        UcliConfig config,
+        UcliCommand command,
+        UnityExecutionModeValue mode,
+        TimeSpan timeout,
+        ReadIndexMode readIndexMode,
+        SceneAssetPath scenePath,
+        int? depth,
+        bool failFast = false,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(scenePath);
+        return ReadCoreAsync(
+            project,
+            config,
+            command,
+            mode,
+            timeout,
+            readIndexMode,
+            new UnityScenePath(scenePath.Value),
+            scenePath,
+            depth,
+            failFast,
+            cancellationToken);
+    }
+
+    private async ValueTask<SceneTreeLiteReadResult> ReadCoreAsync (
+        ResolvedUnityProjectContext project,
+        UcliConfig config,
+        UcliCommand command,
+        UnityExecutionModeValue mode,
+        TimeSpan timeout,
+        ReadIndexMode readIndexMode,
+        UnityScenePath scenePath,
+        SceneAssetPath? lookupScenePath,
+        int? depth,
+        bool failFast,
+        CancellationToken cancellationToken)
+    {
         ArgumentNullException.ThrowIfNull(project);
         ArgumentNullException.ThrowIfNull(config);
-        ArgumentNullException.ThrowIfNull(scenePath);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -58,9 +114,12 @@ internal sealed class SceneTreeLiteAccessService : ISceneTreeLiteAccessService
             return SceneTreeLiteReadResult.Failure("Property 'depth' must be greater than or equal to 0.", UcliCoreErrorCodes.InvalidArgument);
         }
 
-        if (SceneAssetPath.TryParse(scenePath.Value, out var lookupScenePath))
+        var indexSourcePaths = lookupScenePath is null
+            ? null
+            : SceneTreeLiteSourcePaths.Create(project.UnityProjectRoot, lookupScenePath);
+        if (indexSourcePaths is not null)
         {
-            var sourceProbeResult = await sourceProbe.EnsureCurrentAssetsSceneExistsAsync(project, lookupScenePath, cancellationToken).ConfigureAwait(false);
+            var sourceProbeResult = await sourceProbe.EnsureCurrentAssetsSceneExistsAsync(indexSourcePaths, cancellationToken).ConfigureAwait(false);
             if (!sourceProbeResult.IsSuccess)
             {
                 return SceneTreeLiteReadResult.Failure(sourceProbeResult.ErrorMessage!, UcliCoreErrorCodes.InvalidArgument);
@@ -76,6 +135,7 @@ internal sealed class SceneTreeLiteAccessService : ISceneTreeLiteAccessService
                     mode,
                     timeout,
                     scenePath,
+                    indexSourcePaths,
                     depth,
                     "readIndex disabled by mode.",
                     failFast,
@@ -100,7 +160,7 @@ internal sealed class SceneTreeLiteAccessService : ISceneTreeLiteAccessService
                 dirtySourceProbeResult.FallbackReason);
         }
 
-        if (lookupScenePath is null)
+        if (indexSourcePaths is null)
         {
             return await ReadFromSourceAsync(
                     project,
@@ -109,6 +169,7 @@ internal sealed class SceneTreeLiteAccessService : ISceneTreeLiteAccessService
                     mode,
                     timeout,
                     scenePath,
+                    indexSourcePaths,
                     depth,
                     "scene-tree-lite readIndex is unavailable for non-Assets scene paths.",
                     failFast,
@@ -118,7 +179,7 @@ internal sealed class SceneTreeLiteAccessService : ISceneTreeLiteAccessService
 
         var lookupResult = await artifactReader.ReadSceneTreeLiteLookupAsync(
                 project,
-                lookupScenePath,
+                indexSourcePaths.SceneAssetPath,
                 cancellationToken)
             .ConfigureAwait(false);
         if (!lookupResult.IsSuccess)
@@ -135,6 +196,7 @@ internal sealed class SceneTreeLiteAccessService : ISceneTreeLiteAccessService
                     mode,
                     timeout,
                     scenePath,
+                    indexSourcePaths,
                     depth,
                     lookupResult.Error.Message,
                     failFast,
@@ -159,6 +221,7 @@ internal sealed class SceneTreeLiteAccessService : ISceneTreeLiteAccessService
                     mode,
                     timeout,
                     scenePath,
+                    indexSourcePaths,
                     depth,
                     readPostconditionEvaluation.FallbackReason!,
                     failFast,
@@ -167,8 +230,7 @@ internal sealed class SceneTreeLiteAccessService : ISceneTreeLiteAccessService
         }
 
         var freshnessResult = await freshnessEvaluator.ObserveSceneTreeLiteAsync(
-                project,
-                lookupScenePath,
+                indexSourcePaths,
                 lookupSnapshot.SourceInputsHash,
                 cancellationToken)
             .ConfigureAwait(false);
@@ -203,6 +265,7 @@ internal sealed class SceneTreeLiteAccessService : ISceneTreeLiteAccessService
                 mode,
                 timeout,
                 scenePath,
+                indexSourcePaths,
                 depth,
                 $"Existing scene-tree-lite index freshness is '{ContractLiteralCodec.ToValue(freshnessResult.Freshness)}'.",
                 failFast,
@@ -217,6 +280,7 @@ internal sealed class SceneTreeLiteAccessService : ISceneTreeLiteAccessService
         UnityExecutionModeValue mode,
         TimeSpan timeout,
         UnityScenePath scenePath,
+        SceneTreeLiteSourcePaths? indexSourcePaths,
         int? depth,
         string fallbackReason,
         bool failFast,
@@ -229,6 +293,7 @@ internal sealed class SceneTreeLiteAccessService : ISceneTreeLiteAccessService
                 mode,
                 timeout,
                 scenePath,
+                indexSourcePaths,
                 fallbackReason,
                 failFast,
                 cancellationToken)

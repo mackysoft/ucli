@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Testing.Run.Artifacts;
 using MackySoft.Ucli.Application.Features.Testing.Run.Configuration;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
@@ -6,7 +7,6 @@ using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Application.Shared.Identifiers;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Infrastructure.Execution;
-using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Infrastructure.Storage;
 
 namespace MackySoft.Ucli.Features.Testing.Run.Artifacts;
@@ -49,21 +49,12 @@ internal sealed class TestRunArtifactsService : ITestRunArtifactsService
         var startedAtUtc = timeProvider.GetUtcNow();
         var runId = runIdGenerator.Generate();
 
-        string artifactsDir;
-        try
-        {
-            artifactsDir = UcliStoragePathResolver.ResolveTestRunArtifactsDirectory(
-                unityProject.RepositoryRoot,
-                unityProject.ProjectFingerprint,
-                runId);
-        }
-        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
-        {
-            return ArtifactsPreparationResult.Failure(ExecutionError.InvalidArgument(
-                $"Artifacts path is invalid. {exception.Message}"));
-        }
+        var artifactsDir = UcliStoragePathResolver.ResolveTestRunArtifactsDirectory(
+            unityProject.RepositoryRoot,
+            unityProject.ProjectFingerprint,
+            runId);
 
-        if (File.Exists(artifactsDir) || Directory.Exists(artifactsDir))
+        if (File.Exists(artifactsDir.Value) || Directory.Exists(artifactsDir.Value))
         {
             return ArtifactsPreparationResult.Failure(ExecutionError.InternalError(
                 $"Test-run artifact directory already exists: {artifactsDir}."));
@@ -93,11 +84,6 @@ internal sealed class TestRunArtifactsService : ITestRunArtifactsService
                 finishedAtUtc: startedAtUtc,
                 cancellationToken).ConfigureAwait(false);
         }
-        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
-        {
-            return ArtifactsPreparationResult.Failure(ExecutionError.InvalidArgument(
-                $"Failed to write meta.json due to invalid path: {session.Paths.MetaJsonPath}. {exception.Message}"));
-        }
         catch (Exception exception) when (exception is UnauthorizedAccessException or IOException)
         {
             return ArtifactsPreparationResult.Failure(ExecutionError.InternalError(
@@ -107,15 +93,28 @@ internal sealed class TestRunArtifactsService : ITestRunArtifactsService
         return ArtifactsPreparationResult.Success(session);
     }
 
-    private static ArtifactPaths CreateArtifactPaths (string artifactsDir)
+    private static ArtifactPaths CreateArtifactPaths (AbsolutePath artifactsDir)
     {
         return new ArtifactPaths(
             ArtifactsDir: artifactsDir,
-            MetaJsonPath: Path.Combine(artifactsDir, "meta.json"),
-            ResultsXmlPath: Path.Combine(artifactsDir, UcliStoragePathNames.TestResultsXmlFileName),
-            EditorLogPath: Path.Combine(artifactsDir, UcliStoragePathNames.TestEditorLogFileName),
-            ResultsJsonPath: Path.Combine(artifactsDir, "results.json"),
-            SummaryJsonPath: Path.Combine(artifactsDir, "summary.json"));
+            MetaJsonPath: ResolveArtifactPath(artifactsDir, "meta.json"),
+            ResultsXmlPath: ResolveArtifactPath(
+                artifactsDir,
+                UcliStoragePathNames.TestResultsXmlFileName),
+            EditorLogPath: ResolveArtifactPath(
+                artifactsDir,
+                UcliStoragePathNames.TestEditorLogFileName),
+            ResultsJsonPath: ResolveArtifactPath(artifactsDir, "results.json"),
+            SummaryJsonPath: ResolveArtifactPath(artifactsDir, "summary.json"));
+    }
+
+    private static AbsolutePath ResolveArtifactPath (
+        AbsolutePath artifactsDirectory,
+        string fileName)
+    {
+        return ContainedPath.Create(
+            artifactsDirectory,
+            RootRelativePath.Parse(fileName)).Target;
     }
 
     /// <summary> Completes one run-scoped artifact session by attempting to remove interrupted oneshot editor-log exports and updating completion metadata. </summary>
@@ -148,11 +147,6 @@ internal sealed class TestRunArtifactsService : ITestRunArtifactsService
                 cancellationToken).ConfigureAwait(false);
             return ArtifactsCompletionResult.Success();
         }
-        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
-        {
-            return ArtifactsCompletionResult.Failure(ExecutionError.InvalidArgument(
-                $"Failed to update meta.json due to invalid path: {session.Paths.MetaJsonPath}. {exception.Message}"));
-        }
         catch (Exception exception) when (exception is UnauthorizedAccessException or IOException)
         {
             return ArtifactsCompletionResult.Failure(ExecutionError.InternalError(
@@ -168,7 +162,7 @@ internal sealed class TestRunArtifactsService : ITestRunArtifactsService
         try
         {
             foreach (var path in Directory.EnumerateFiles(
-                artifactPaths.ArtifactsDir,
+                artifactPaths.ArtifactsDir.Value,
                 EditorLogTemporaryFilePath.FileNameSearchPattern,
                 SearchOption.TopDirectoryOnly))
             {

@@ -1,4 +1,5 @@
 using System.Text.Json;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
@@ -9,6 +10,11 @@ namespace MackySoft.Ucli.Tests;
 public sealed class TestRunCommandResultFactoryTests
 {
     private static readonly CommandResultJsonContractWriter ResultWriter = new();
+    private static readonly AbsolutePath ArtifactsDirectory = AbsolutePath.Parse(
+        Path.Combine(Path.GetTempPath(), "ucli-test-run-result-factory", "artifacts"));
+    private static readonly AbsolutePath SummaryJsonPath = AbsolutePath.Resolve(
+        ArtifactsDirectory,
+        "summary.json");
 
     [Fact]
     [Trait("Size", "Small")]
@@ -17,8 +23,8 @@ public sealed class TestRunCommandResultFactoryTests
         var serviceResult = TestRunServiceResult.Fail(
             message: "Unity test execution completed with failed tests.",
             runId: RunIdTestValues.Test,
-            artifactsDir: "/tmp/artifacts",
-            summaryJsonPath: "/tmp/artifacts/summary.json");
+            artifactsDir: ArtifactsDirectory,
+            summaryJsonPath: SummaryJsonPath);
 
         var result = TestRunCommandResultFactory.Create(serviceResult);
 
@@ -35,8 +41,8 @@ public sealed class TestRunCommandResultFactoryTests
             .HasString("result", "fail")
             .IsNull("errorKind")
             .HasString("runId", RunIdTestValues.TestText)
-            .HasString("artifactsDir", "/tmp/artifacts")
-            .HasString("summaryJsonPath", "/tmp/artifacts/summary.json");
+            .HasString("artifactsDir", ArtifactsDirectory.Value)
+            .HasString("summaryJsonPath", SummaryJsonPath.Value);
     }
 
     [Fact]
@@ -50,8 +56,8 @@ public sealed class TestRunCommandResultFactoryTests
             message: message,
             errorCode: errorCode,
             runId: RunIdTestValues.Test,
-            artifactsDir: "/tmp/artifacts",
-            summaryJsonPath: "/tmp/artifacts/summary.json");
+            artifactsDir: ArtifactsDirectory,
+            summaryJsonPath: SummaryJsonPath);
 
         var result = TestRunCommandResultFactory.Create(serviceResult);
 
@@ -69,8 +75,8 @@ public sealed class TestRunCommandResultFactoryTests
             .IsNull("result")
             .HasString("errorKind", "toolError")
             .HasString("runId", RunIdTestValues.TestText)
-            .HasString("artifactsDir", "/tmp/artifacts")
-            .HasString("summaryJsonPath", "/tmp/artifacts/summary.json");
+            .HasString("artifactsDir", ArtifactsDirectory.Value)
+            .HasString("summaryJsonPath", SummaryJsonPath.Value);
     }
 
     [Fact]
@@ -81,8 +87,8 @@ public sealed class TestRunCommandResultFactoryTests
             message: "Unity startup is blocked.",
             errorCode: DaemonErrorCodes.DaemonStartupBlocked,
             runId: RunIdTestValues.Test,
-            artifactsDir: "/tmp/artifacts",
-            summaryJsonPath: "/tmp/artifacts/summary.json",
+            artifactsDir: ArtifactsDirectory,
+            summaryJsonPath: SummaryJsonPath,
             startupFailure: CreateStartupFailureDetail());
 
         var result = TestRunCommandResultFactory.Create(serviceResult);
@@ -125,8 +131,8 @@ public sealed class TestRunCommandResultFactoryTests
             message,
             UcliCoreErrorCodes.InvalidArgument,
             runId: RunIdTestValues.Test,
-            artifactsDir: "/tmp/artifacts",
-            summaryJsonPath: "/tmp/artifacts/summary.json");
+            artifactsDir: ArtifactsDirectory,
+            summaryJsonPath: SummaryJsonPath);
 
         var result = TestRunCommandResultFactory.Create(serviceResult);
 
@@ -142,8 +148,8 @@ public sealed class TestRunCommandResultFactoryTests
             .IsNull("result")
             .HasString("errorKind", "infraError")
             .HasString("runId", RunIdTestValues.TestText)
-            .HasString("artifactsDir", "/tmp/artifacts")
-            .HasString("summaryJsonPath", "/tmp/artifacts/summary.json");
+            .HasString("artifactsDir", ArtifactsDirectory.Value)
+            .HasString("summaryJsonPath", SummaryJsonPath.Value);
     }
 
     private static StartupFailureDetail CreateStartupFailureDetail ()

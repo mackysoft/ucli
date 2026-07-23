@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Features.Daemon.UseCases.Start;
@@ -87,6 +88,15 @@ public sealed class DaemonStartCommandFailurePayloadTests
     public async Task Start_WhenServiceFailureHasStartupBlocker_EmitsStartupFailurePayload ()
     {
         var diagnosis = CreateDiagnosis(DaemonDiagnosisReason.UnityScriptCompilationFailed);
+        var artifactPath = AbsolutePath.Parse(Path.Combine(
+            ProjectPathTestValues.RepositoryRoot,
+            ".ucli",
+            "local",
+            "projects",
+            "04hkaps9lf6uu0938ljojaudts0i6hb7h6lsrro14d2mf2dbpnng",
+            "launch-attempts",
+            "04hkaps9lf6uu0938ljojaudts",
+            "startup-diagnosis.json"));
         var startup = new DaemonStartupObservation(
             StartupStatus: DaemonStartupStatus.Blocked,
             StartupBlockingReason: DaemonStartupBlockingReason.Compile,
@@ -99,7 +109,7 @@ public sealed class DaemonStartCommandFailurePayloadTests
             ProcessId: 4321,
             StartedAtUtc: new DateTimeOffset(2026, 03, 12, 4, 5, 1, TimeSpan.Zero),
             ElapsedMilliseconds: 2500,
-            ArtifactPath: "/repo/.ucli/local/projects/04hkaps9lf6uu0938ljojaudts0i6hb7h6lsrro14d2mf2dbpnng/launch-attempts/04hkaps9lf6uu0938ljojaudts/startup-diagnosis.json");
+            ArtifactPath: artifactPath);
         var service = new RecordingDaemonStartService(DaemonStartExecutionResult.Failure(
             ExecutionError.InternalError("Unity startup is blocked.", DaemonErrorCodes.DaemonStartupBlocked),
             DaemonStartFailureExecutionOutput.Create(
@@ -143,7 +153,7 @@ public sealed class DaemonStartCommandFailurePayloadTests
                 .HasInt32("elapsedMilliseconds", 2500)
                 .HasString("processAction", ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Kept))
                 .IsNull("processTermination")
-                .HasString("artifactPath", "/repo/.ucli/local/projects/04hkaps9lf6uu0938ljojaudts0i6hb7h6lsrro14d2mf2dbpnng/launch-attempts/04hkaps9lf6uu0938ljojaudts/startup-diagnosis.json")
+                .HasString("artifactPath", artifactPath.Value)
                 .HasString("retryDisposition", ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.RetryAfterFix)))
             .HasProperty("diagnosis", diagnosisJson => diagnosisJson
                 .HasString("reason", ContractLiteralCodec.ToValue(DaemonDiagnosisReason.UnityScriptCompilationFailed)));
@@ -152,7 +162,10 @@ public sealed class DaemonStartCommandFailurePayloadTests
         Assert.False(payload.TryGetProperty("canAcceptExecutionRequests", out _));
         Assert.False(payload.TryGetProperty("runtimeKind", out _));
         Assert.False(payload.GetProperty("startup").TryGetProperty("runtimeKind", out _));
-        JsonGoldenFileAssert.Matches(CliOutputGoldenFiles.GetPath("daemon", "start-startup-blocked.json"), result.StdOut);
+        if (!OperatingSystem.IsWindows())
+        {
+            JsonGoldenFileAssert.Matches(CliOutputGoldenFiles.GetPath("daemon", "start-startup-blocked.json"), result.StdOut);
+        }
     }
 
     [Fact]

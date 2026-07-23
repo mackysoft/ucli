@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts.Testing;
 using MackySoft.Ucli.Hosting.Cli.Testing;
@@ -11,8 +12,8 @@ public sealed class TestRunCommandDispatchTests
     [Trait("Size", "Small")]
     public async Task Run_WithSupportedOptions_DispatchesResolvedInputAndCancellationToken ()
     {
-        var artifactsDir = Path.Combine(Path.GetTempPath(), "ucli-test-run-artifacts");
-        var summaryJsonPath = Path.Combine(artifactsDir, "summary.json");
+        var artifactsDir = AbsolutePath.Parse(Path.Combine(Path.GetTempPath(), "ucli-test-run-artifacts"));
+        var summaryJsonPath = AbsolutePath.Resolve(artifactsDir, "summary.json");
         var service = new RecordingTestRunService(
             (_, _, _) => ValueTask.FromResult(TestRunServiceResult.Pass(
                 message: "Unity test execution completed.",

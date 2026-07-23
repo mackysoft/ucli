@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Shared.Execution.ReadPostcondition;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -34,14 +35,19 @@ internal static class SceneTreeLiteAccessServiceTestSupport
     }
 
     public static void WriteSceneFile (
-        string projectRootPath,
+        AbsolutePath projectRootPath,
         string scenePath)
     {
-        var absolutePath = Path.Combine(projectRootPath, scenePath.Replace('/', Path.DirectorySeparatorChar));
-        var directoryPath = Path.GetDirectoryName(absolutePath)
-            ?? throw new InvalidOperationException($"Directory path could not be resolved: {absolutePath}");
-        Directory.CreateDirectory(directoryPath);
-        File.WriteAllText(absolutePath, "scene");
+        var absolutePath = ContainedPath.Create(
+            projectRootPath,
+            RootRelativePath.Parse(scenePath)).Target;
+        if (!absolutePath.TryGetParent(out var directoryPath))
+        {
+            throw new InvalidOperationException($"Directory path could not be resolved: {absolutePath.Value}");
+        }
+
+        Directory.CreateDirectory(directoryPath.Value);
+        File.WriteAllText(absolutePath.Value, "scene");
     }
 
     public static ReadIndexArtifactReadResult<SceneTreeLiteLookupSnapshot> CreateSuccessfulSceneTreeLiteLookupReadResult (

@@ -72,8 +72,10 @@ internal static class SceneTreeLiteAccessInvocationAssert
         Sha256Digest expectedPersistedSourceInputsHash)
     {
         var invocation = Assert.Single(freshnessEvaluator.SceneTreeLiteObserveInvocations);
-        Assert.Same(expectedUnityProject, invocation.UnityProject);
-        Assert.Equal(new SceneAssetPath(expectedScenePath), invocation.ScenePath);
+        Assert.Same(expectedUnityProject.UnityProjectRoot, invocation.SourcePaths.SceneFilePath.BoundaryRoot);
+        Assert.Equal(new SceneAssetPath(expectedScenePath), invocation.SourcePaths.SceneAssetPath);
+        Assert.Equal(expectedScenePath, invocation.SourcePaths.SceneFilePath.RelativePath.Value);
+        Assert.Equal(expectedScenePath + ".meta", invocation.SourcePaths.MetaFilePath.RelativePath.Value);
         Assert.Equal(expectedPersistedSourceInputsHash, invocation.PersistedSourceInputsHash);
     }
 
@@ -115,6 +117,19 @@ internal static class SceneTreeLiteAccessInvocationAssert
         Assert.Equal(expectedCommand, invocation.Command);
         Assert.Equal(expectedMode, invocation.Mode);
         Assert.Equal(expectedScenePath, invocation.ScenePath.Value);
+        if (SceneAssetPath.TryParse(expectedScenePath, out var expectedIndexScenePath))
+        {
+            Assert.NotNull(invocation.IndexSourcePaths);
+            Assert.Equal(expectedIndexScenePath, invocation.IndexSourcePaths.SceneAssetPath);
+            Assert.Same(expectedProject.UnityProjectRoot, invocation.IndexSourcePaths.SceneFilePath.BoundaryRoot);
+            Assert.Equal(expectedScenePath, invocation.IndexSourcePaths.SceneFilePath.RelativePath.Value);
+            Assert.Equal(expectedScenePath + ".meta", invocation.IndexSourcePaths.MetaFilePath.RelativePath.Value);
+        }
+        else
+        {
+            Assert.Null(invocation.IndexSourcePaths);
+        }
+
         if (expectedFailFast.HasValue)
         {
             Assert.Equal(expectedFailFast.Value, invocation.FailFast);

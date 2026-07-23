@@ -10,21 +10,16 @@ internal sealed record SupervisorInstanceManifest
     public SupervisorInstanceManifest (
         int processId,
         IpcSessionToken sessionToken,
-        IpcEndpoint endpoint,
+        SupervisorTransportEndpoint endpoint,
         DateTimeOffset issuedAtUtc)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(processId);
         ArgumentNullException.ThrowIfNull(sessionToken);
         ArgumentNullException.ThrowIfNull(endpoint);
-        if (!Enum.IsDefined(endpoint.TransportKind))
-        {
-            throw new ArgumentException("Supervisor endpoint transport kind must be defined.", nameof(endpoint));
-        }
 
-        ArgumentException.ThrowIfNullOrWhiteSpace(endpoint.Address);
         ProcessId = processId;
         SessionToken = sessionToken;
-        Endpoint = endpoint;
+        TransportEndpoint = endpoint;
         IssuedAtUtc = ContractArgumentGuard.RequireUtcTimestamp(issuedAtUtc, nameof(issuedAtUtc));
     }
 
@@ -34,8 +29,11 @@ internal sealed record SupervisorInstanceManifest
     /// <summary> Gets the canonical supervisor session token. </summary>
     public IpcSessionToken SessionToken { get; }
 
-    /// <summary> Gets the validated runtime endpoint. </summary>
-    public IpcEndpoint Endpoint { get; }
+    /// <summary> Gets the validated runtime endpoint contract. </summary>
+    public IpcEndpoint Endpoint => TransportEndpoint.Contract;
+
+    /// <summary> Gets the runtime endpoint with a guarded path for Unix-domain sockets. </summary>
+    public SupervisorTransportEndpoint TransportEndpoint { get; }
 
     /// <summary> Gets the UTC timestamp when this supervisor generation was issued. </summary>
     public DateTimeOffset IssuedAtUtc { get; }

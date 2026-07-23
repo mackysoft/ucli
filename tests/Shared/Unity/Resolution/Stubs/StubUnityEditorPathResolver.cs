@@ -1,3 +1,5 @@
+using MackySoft.FileSystem;
+
 namespace MackySoft.Ucli.TestSupport;
 
 internal sealed class StubUnityEditorPathResolver : IUnityEditorPathResolver
@@ -12,7 +14,8 @@ internal sealed class StubUnityEditorPathResolver : IUnityEditorPathResolver
     }
 
     public StubUnityEditorPathResolver (string unityEditorPath)
-        : this(UnityEditorPathResolutionResult.Success(unityEditorPath))
+        : this(UnityEditorPathResolutionResult.Success(
+            AbsolutePath.Resolve(AbsolutePath.Parse(Environment.CurrentDirectory), unityEditorPath)))
     {
     }
 

@@ -7,14 +7,17 @@ namespace MackySoft.Ucli.Contracts.Ipc;
 public sealed record IpcProjectIdentity
 {
     /// <summary> Initializes a resolved Unity project identity. </summary>
-    /// <param name="projectPath"> The fully qualified Unity project root path. </param>
+    /// <param name="projectPath">
+    /// The Unity project root path text carried by the IPC response. The receiving application
+    /// validates this text against the current platform before using it as a filesystem path.
+    /// </param>
     /// <param name="projectFingerprint"> The canonical project fingerprint. </param>
     /// <param name="unityVersion"> The non-empty Unity editor version, or <c>unknown</c> when unavailable. </param>
     /// <exception cref="ArgumentNullException">
     /// Thrown when <paramref name="projectPath" />, <paramref name="projectFingerprint" />, or <paramref name="unityVersion" /> is <see langword="null" />.
     /// </exception>
     /// <exception cref="ArgumentException">
-    /// Thrown when <paramref name="projectPath" /> is not fully qualified, when a required value is empty, or when <paramref name="unityVersion" /> contains outer whitespace.
+    /// Thrown when <paramref name="unityVersion" /> is empty or contains outer whitespace.
     /// </exception>
     [JsonConstructor]
     public IpcProjectIdentity (
@@ -25,16 +28,6 @@ public sealed record IpcProjectIdentity
         if (projectPath == null)
         {
             throw new ArgumentNullException(nameof(projectPath));
-        }
-
-        if (string.IsNullOrWhiteSpace(projectPath))
-        {
-            throw new ArgumentException("Project path must not be empty or whitespace.", nameof(projectPath));
-        }
-
-        if (!Path.IsPathFullyQualified(projectPath))
-        {
-            throw new ArgumentException("Project path must be fully qualified.", nameof(projectPath));
         }
 
         ProjectFingerprint = projectFingerprint ?? throw new ArgumentNullException(nameof(projectFingerprint));
@@ -54,26 +47,14 @@ public sealed record IpcProjectIdentity
             throw new ArgumentException("Unity version must not contain leading or trailing whitespace.", nameof(unityVersion));
         }
 
-        var normalizedProjectPath = Path.GetFullPath(projectPath);
-        var rootLength = Path.GetPathRoot(normalizedProjectPath)?.Length ?? 0;
-        var normalizedLength = normalizedProjectPath.Length;
-        while (normalizedLength > rootLength
-            && (normalizedProjectPath[normalizedLength - 1] == Path.DirectorySeparatorChar
-                || normalizedProjectPath[normalizedLength - 1] == Path.AltDirectorySeparatorChar))
-        {
-            normalizedLength--;
-        }
-
-        if (normalizedLength != normalizedProjectPath.Length)
-        {
-            normalizedProjectPath = normalizedProjectPath.Substring(0, normalizedLength);
-        }
-
-        ProjectPath = normalizedProjectPath;
+        ProjectPath = projectPath;
         UnityVersion = unityVersion;
     }
 
-    /// <summary> Gets the normalized absolute Unity project root path. </summary>
+    /// <summary>
+    /// Gets the Unity project root path text carried by IPC. Consumers must validate it before
+    /// using it as a filesystem path.
+    /// </summary>
     public string ProjectPath { get; }
 
     /// <summary> Gets the canonical project fingerprint. </summary>

@@ -1,4 +1,5 @@
 using System.Text.Json;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Features.Daemon.Lifecycle.LaunchAttempts;
 
 namespace MackySoft.Ucli.Tests.Daemon;
@@ -16,13 +17,13 @@ public sealed class DaemonLaunchAttemptStoreWriteTests
         var attempt = CreateAttempt(CreateLaunchAttemptId(1), scope.FullPath, DaemonStartupStatus.Failed);
 
         var writeResult = await store.WriteFailureAsync(
-            scope.FullPath,
+            AbsolutePath.Parse(scope.FullPath),
             ProjectFingerprint,
             attempt,
             CancellationToken.None);
 
         Assert.True(writeResult.IsSuccess);
-        using var document = JsonDocument.Parse(await File.ReadAllTextAsync(attempt.ArtifactPath, CancellationToken.None));
+        using var document = JsonDocument.Parse(await File.ReadAllTextAsync(attempt.ArtifactPath.Value, CancellationToken.None));
         var root = document.RootElement;
         Assert.Equal(1, root.GetProperty("schemaVersion").GetInt32());
         Assert.Equal(attempt.LaunchAttemptId, root.GetProperty("launchAttemptId").GetGuid());

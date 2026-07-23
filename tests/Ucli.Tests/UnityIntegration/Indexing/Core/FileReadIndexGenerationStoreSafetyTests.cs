@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.UnityIntegration.Indexing.Core;
 
@@ -13,32 +14,35 @@ public sealed class FileReadIndexGenerationStoreSafetyTests
         using var scope = TestDirectories.CreateTempScope("read-index-generation", "staging-directory-safety");
         using var targetScope = TestDirectories.CreateTempScope("read-index-generation", "staging-directory-target");
         var fingerprint = ProjectFingerprintTestFactory.Create("fingerprint");
-        var stagingRoot = UcliStoragePathResolver.ResolveReadIndexStagingDirectory(scope.FullPath, fingerprint);
-        Directory.CreateDirectory(stagingRoot);
-        var foreignDirectory = Path.Combine(stagingRoot, "foreign");
-        Directory.CreateDirectory(foreignDirectory);
+        var storageRoot = AbsolutePath.Parse(scope.FullPath);
+        var stagingRoot = UcliStoragePathResolver.ResolveReadIndexStagingDirectory(storageRoot, fingerprint);
+        Directory.CreateDirectory(stagingRoot.Value);
+        var foreignDirectory = ContainedPath.Create(
+            stagingRoot,
+            RootRelativePath.Parse("foreign")).Target;
+        Directory.CreateDirectory(foreignDirectory.Value);
         var ownedDirectory = UcliStoragePathResolver.ResolveReadIndexStagingGenerationDirectory(
-            scope.FullPath,
+            storageRoot,
             fingerprint,
             Guid.NewGuid());
-        Directory.CreateDirectory(ownedDirectory);
+        Directory.CreateDirectory(ownedDirectory.Value);
         var targetFile = targetScope.WriteFile("keep.txt", "keep");
         var reparseDirectory = UcliStoragePathResolver.ResolveReadIndexStagingGenerationDirectory(
-            scope.FullPath,
+            storageRoot,
             fingerprint,
             Guid.NewGuid());
-        if (!TestSymbolicLinks.TryCreateDirectory(reparseDirectory, targetScope.FullPath))
+        if (!TestSymbolicLinks.TryCreateDirectory(reparseDirectory.Value, targetScope.FullPath))
         {
             return;
         }
 
-        using (await CreateStore().BeginWriteAsync(scope.FullPath, fingerprint, CancellationToken.None))
+        using (await CreateStore().BeginWriteAsync(storageRoot, fingerprint, CancellationToken.None))
         {
         }
 
-        Assert.False(Directory.Exists(ownedDirectory));
-        Assert.True(Directory.Exists(foreignDirectory));
-        Assert.True(Directory.Exists(reparseDirectory));
+        Assert.False(Directory.Exists(ownedDirectory.Value));
+        Assert.True(Directory.Exists(foreignDirectory.Value));
+        Assert.True(Directory.Exists(reparseDirectory.Value));
         Assert.Equal("keep", await File.ReadAllTextAsync(targetFile));
     }
 
@@ -49,24 +53,27 @@ public sealed class FileReadIndexGenerationStoreSafetyTests
         using var scope = TestDirectories.CreateTempScope("read-index-generation", "staging-entry-safety");
         using var targetScope = TestDirectories.CreateTempScope("read-index-generation", "staging-entry-target");
         var fingerprint = ProjectFingerprintTestFactory.Create("fingerprint");
+        var storageRoot = AbsolutePath.Parse(scope.FullPath);
         var stagingDirectory = UcliStoragePathResolver.ResolveReadIndexStagingGenerationDirectory(
-            scope.FullPath,
+            storageRoot,
             fingerprint,
             Guid.NewGuid());
-        Directory.CreateDirectory(stagingDirectory);
+        Directory.CreateDirectory(stagingDirectory.Value);
         var targetFile = targetScope.WriteFile("keep.txt", "keep");
-        var linkedFile = Path.Combine(stagingDirectory, "linked.json");
-        if (!TestSymbolicLinks.TryCreateFile(linkedFile, targetFile))
+        var linkedFile = ContainedPath.Create(
+            stagingDirectory,
+            RootRelativePath.Parse("linked.json")).Target;
+        if (!TestSymbolicLinks.TryCreateFile(linkedFile.Value, targetFile))
         {
             return;
         }
 
-        using (await CreateStore().BeginWriteAsync(scope.FullPath, fingerprint, CancellationToken.None))
+        using (await CreateStore().BeginWriteAsync(storageRoot, fingerprint, CancellationToken.None))
         {
         }
 
-        Assert.True(Directory.Exists(stagingDirectory));
-        Assert.True(File.Exists(linkedFile));
+        Assert.True(Directory.Exists(stagingDirectory.Value));
+        Assert.True(File.Exists(linkedFile.Value));
         Assert.Equal("keep", await File.ReadAllTextAsync(targetFile));
     }
 
@@ -81,20 +88,21 @@ public sealed class FileReadIndexGenerationStoreSafetyTests
 
         using var scope = TestDirectories.CreateTempScope("read-index-generation", "generation-special-file");
         var fingerprint = ProjectFingerprintTestFactory.Create("fingerprint");
-        var generationId = FileReadIndexArtifactReaderTestSupport.EnsureCurrentGeneration(scope.FullPath, fingerprint);
-        var fifoPath = Path.Combine(
-            UcliStoragePathResolver.ResolveReadIndexGenerationDirectory(scope.FullPath, fingerprint, generationId),
-            "artifact.fifo");
-        if (MkFifo(fifoPath, Convert.ToUInt32("600", 8)) != 0)
+        var storageRoot = AbsolutePath.Parse(scope.FullPath);
+        var generationId = FileReadIndexArtifactReaderTestSupport.EnsureCurrentGeneration(storageRoot, fingerprint);
+        var fifoPath = ContainedPath.Create(
+            UcliStoragePathResolver.ResolveReadIndexGenerationDirectory(storageRoot, fingerprint, generationId),
+            RootRelativePath.Parse("artifact.fifo")).Target;
+        if (MkFifo(fifoPath.Value, Convert.ToUInt32("600", 8)) != 0)
         {
             return;
         }
 
         await Assert.ThrowsAsync<InvalidDataException>(() => CreateStore()
-            .BeginWriteAsync(scope.FullPath, fingerprint, CancellationToken.None)
+            .BeginWriteAsync(storageRoot, fingerprint, CancellationToken.None)
             .AsTask());
 
-        _ = File.GetAttributes(fifoPath);
+        _ = File.GetAttributes(fifoPath.Value);
     }
 
     private static FileReadIndexGenerationStore CreateStore ()

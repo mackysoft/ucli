@@ -63,7 +63,7 @@ namespace MackySoft.Ucli.Unity.Tests
             try
             {
                 publicationFence = await TestAwaiter.WaitAsync(
-                    server.StartAsync(new IpcEndpoint(IpcTransportKind.NamedPipe, address)).AsUniTask(),
+                    server.StartAsync(CreateNamedPipeEndpointBinding(address)).AsUniTask(),
                     "Issue 452 resilience server start",
                     SignalWaitTimeout);
 

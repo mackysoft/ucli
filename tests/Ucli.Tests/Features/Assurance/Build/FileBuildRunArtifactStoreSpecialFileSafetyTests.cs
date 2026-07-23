@@ -16,7 +16,7 @@ public sealed class FileBuildRunArtifactStoreSpecialFileSafetyTests
 
         using var scope = TestDirectories.CreateTempScope("build-artifact-store", "build-report-source-fifo");
         var (store, paths) = PrepareArtifacts(scope);
-        var buildReportPath = Path.Combine(paths.RunnerOutputDirectory, "reports", "build-report.json");
+        var buildReportPath = Path.Combine(paths.RunnerOutputDirectory.Value, "reports", "build-report.json");
         Directory.CreateDirectory(Path.GetDirectoryName(buildReportPath)!);
         if (!TryCreateFifo(buildReportPath))
         {
@@ -45,7 +45,7 @@ public sealed class FileBuildRunArtifactStoreSpecialFileSafetyTests
 
         using var scope = TestDirectories.CreateTempScope("build-artifact-store", "output-fifo");
         var (store, paths) = PrepareArtifacts(scope);
-        var fifoPath = Path.Combine(paths.RunnerOutputDirectory, "build");
+        var fifoPath = Path.Combine(paths.RunnerOutputDirectory.Value, "build");
         if (!TryCreateFifo(fifoPath))
         {
             return;
@@ -73,7 +73,7 @@ public sealed class FileBuildRunArtifactStoreSpecialFileSafetyTests
 
         using var scope = TestDirectories.CreateTempScope("build-artifact-store", "output-unreadable-file");
         var (store, paths) = PrepareArtifacts(scope);
-        var outputPath = Path.Combine(paths.RunnerOutputDirectory, "build");
+        var outputPath = Path.Combine(paths.RunnerOutputDirectory.Value, "build");
         WriteUtf8(outputPath, "secret");
         var originalMode = File.GetUnixFileMode(outputPath);
         try
@@ -110,7 +110,7 @@ public sealed class FileBuildRunArtifactStoreSpecialFileSafetyTests
 
         using var scope = TestDirectories.CreateTempScope("build-artifact-store", "output-non-traversable-directory");
         var (store, paths) = PrepareArtifacts(scope);
-        var blockedDirectory = Path.Combine(paths.RunnerOutputDirectory, "build", "blocked");
+        var blockedDirectory = Path.Combine(paths.RunnerOutputDirectory.Value, "build", "blocked");
         var outputPath = Path.Combine(blockedDirectory, "payload.txt");
         WriteUtf8(outputPath, "secret");
         var originalMode = File.GetUnixFileMode(blockedDirectory);

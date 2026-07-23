@@ -1,3 +1,5 @@
+using MackySoft.FileSystem;
+
 namespace MackySoft.Ucli.Hosting.Supervisor;
 
 /// <summary> Parses the hidden supervisor-host process arguments. </summary>
@@ -19,11 +21,11 @@ internal static class InternalSupervisorInvocationParser
 
         if (args.Length != 3
             || !string.Equals(args[1], SupervisorConstants.RepositoryRootOption, StringComparison.Ordinal)
-            || string.IsNullOrWhiteSpace(args[2]))
+            || !AbsolutePath.TryParse(args[2], out var repositoryRoot, out _))
         {
             return InternalSupervisorInvocation.Invalid;
         }
 
-        return InternalSupervisorInvocation.Valid(args[2]);
+        return InternalSupervisorInvocation.Valid(repositoryRoot);
     }
 }

@@ -1,17 +1,17 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Shared.Foundation;
-using MackySoft.Ucli.Infrastructure.Paths;
 
 namespace MackySoft.Ucli.UnityIntegration.Project.Plugin.Marker;
 
 /// <summary> Enumerates candidate uCLI Unity plugin marker files from supported Unity project locations. </summary>
 internal sealed class UnityUcliPluginMarkerDiscovery
 {
-    private static readonly string[] StandardMarkerRelativePaths =
+    private static readonly RootRelativePath[] StandardMarkerRelativePaths =
     [
-        Path.Combine("Assets", "MackySoft", "MackySoft.Ucli.Unity", UnityUcliPluginMarkerContract.MarkerFileName),
-        Path.Combine("Packages", UnityUcliPluginMarkerContract.ExpectedPluginId, UnityUcliPluginMarkerContract.MarkerFileName),
-        Path.Combine("Assets", "Packages", UnityUcliPluginMarkerContract.ExpectedPluginId, UnityUcliPluginMarkerContract.MarkerFileName),
-        Path.Combine("Assets", "Packages", "MackySoft.Ucli.Unity", UnityUcliPluginMarkerContract.MarkerFileName),
+        RootRelativePath.Parse($"Assets/MackySoft/MackySoft.Ucli.Unity/{UnityUcliPluginMarkerContract.MarkerFileName}"),
+        RootRelativePath.Parse($"Packages/{UnityUcliPluginMarkerContract.ExpectedPluginId}/{UnityUcliPluginMarkerContract.MarkerFileName}"),
+        RootRelativePath.Parse($"Assets/Packages/{UnityUcliPluginMarkerContract.ExpectedPluginId}/{UnityUcliPluginMarkerContract.MarkerFileName}"),
+        RootRelativePath.Parse($"Assets/Packages/MackySoft.Ucli.Unity/{UnityUcliPluginMarkerContract.MarkerFileName}"),
     ];
 
     private static readonly string[] StandardNuGetPackageDirectoryPrefixes =
@@ -20,49 +20,52 @@ internal sealed class UnityUcliPluginMarkerDiscovery
         "MackySoft.Ucli.Unity.",
     ];
 
-    private static readonly string[] SearchRootDirectoryNames =
+    private static readonly RootRelativePath[] SearchRootDirectoryPaths =
     [
-        "Assets",
-        "Packages",
+        RootRelativePath.Parse("Assets"),
+        RootRelativePath.Parse("Packages"),
     ];
 
     /// <summary> Enumerates candidate marker paths from the supported Unity project roots. </summary>
     /// <param name="unityProjectRoot"> The Unity project root path. </param>
     /// <returns> The enumeration result. </returns>
-    public UnityUcliPluginMarkerDiscoveryResult TryEnumerateMarkerPaths (string unityProjectRoot)
+    public UnityUcliPluginMarkerDiscoveryResult TryEnumerateMarkerPaths (AbsolutePath unityProjectRoot)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(unityProjectRoot);
-
         try
         {
-            var markerPaths = new SortedSet<string>(PathStringNormalizer.CurrentPlatformPathComparer);
+            var markerPaths = new List<AbsolutePath>();
+            var markerPathSet = new HashSet<AbsolutePath>();
             CollectStandardMarkerPaths(unityProjectRoot, markerPaths);
-
-            foreach (var searchRootDirectoryName in SearchRootDirectoryNames)
+            foreach (var markerPath in markerPaths)
             {
-                var searchRootPath = Path.Combine(unityProjectRoot, searchRootDirectoryName);
-                if (!Directory.Exists(searchRootPath))
+                markerPathSet.Add(markerPath);
+            }
+
+            foreach (var searchRootDirectoryPath in SearchRootDirectoryPaths)
+            {
+                var searchRootPath = ContainedPath.Create(
+                    unityProjectRoot,
+                    searchRootDirectoryPath).Target;
+                if (!Directory.Exists(searchRootPath.Value))
                 {
                     continue;
                 }
 
                 foreach (var markerPath in Directory.EnumerateFiles(
-                             searchRootPath,
+                             searchRootPath.Value,
                              UnityUcliPluginMarkerContract.MarkerFileName,
-                             SearchOption.AllDirectories))
+                             SearchOption.AllDirectories)
+                         .OrderBy(static path => path, StringComparer.Ordinal))
                 {
-                    markerPaths.Add(Path.GetFullPath(markerPath));
+                    var absoluteMarkerPath = AbsolutePath.Parse(markerPath);
+                    if (markerPathSet.Add(absoluteMarkerPath))
+                    {
+                        markerPaths.Add(absoluteMarkerPath);
+                    }
                 }
             }
 
-            return UnityUcliPluginMarkerDiscoveryResult.Success(markerPaths.ToArray());
-        }
-        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
-        {
-            return UnityUcliPluginMarkerDiscoveryResult.Failure(
-                unityProjectRoot,
-                ExecutionError.InvalidArgument(
-                    $"uCLI Unity plugin marker is invalid. Path='{unityProjectRoot}'. Reason=Marker search path is invalid. {exception.Message}"));
+            return UnityUcliPluginMarkerDiscoveryResult.Success(markerPaths);
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
@@ -74,55 +77,62 @@ internal sealed class UnityUcliPluginMarkerDiscovery
     }
 
     private static void CollectStandardMarkerPaths (
-        string unityProjectRoot,
-        SortedSet<string> markerPaths)
+        AbsolutePath unityProjectRoot,
+        ICollection<AbsolutePath> markerPaths)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(unityProjectRoot);
         ArgumentNullException.ThrowIfNull(markerPaths);
 
         foreach (var relativeMarkerPath in StandardMarkerRelativePaths)
         {
-            var absoluteMarkerPath = Path.Combine(unityProjectRoot, relativeMarkerPath);
-            if (!File.Exists(absoluteMarkerPath))
+            var absoluteMarkerPath = ContainedPath.Create(unityProjectRoot, relativeMarkerPath).Target;
+            if (!File.Exists(absoluteMarkerPath.Value))
             {
                 continue;
             }
 
-            markerPaths.Add(Path.GetFullPath(absoluteMarkerPath));
+            markerPaths.Add(absoluteMarkerPath);
         }
 
         CollectVersionedNuGetMarkerPaths(
-            Path.Combine(unityProjectRoot, "Assets", "Packages"),
+            ContainedPath.Create(
+                unityProjectRoot,
+                RootRelativePath.Parse("Assets/Packages")).Target,
             markerPaths);
     }
 
     private static void CollectVersionedNuGetMarkerPaths (
-        string assetsPackagesRoot,
-        SortedSet<string> markerPaths)
+        AbsolutePath assetsPackagesRoot,
+        ICollection<AbsolutePath> markerPaths)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(assetsPackagesRoot);
         ArgumentNullException.ThrowIfNull(markerPaths);
 
-        if (!Directory.Exists(assetsPackagesRoot))
+        if (!Directory.Exists(assetsPackagesRoot.Value))
         {
             return;
         }
 
-        foreach (var packageDirectoryPath in Directory.EnumerateDirectories(assetsPackagesRoot, "*", SearchOption.TopDirectoryOnly))
+        foreach (var packageDirectoryValue in Directory.EnumerateDirectories(
+                     assetsPackagesRoot.Value,
+                     "*",
+                     SearchOption.TopDirectoryOnly)
+                 .OrderBy(static path => path, StringComparer.Ordinal))
         {
-            var packageDirectoryName = Path.GetFileName(packageDirectoryPath);
+            var packageDirectoryPath = AbsolutePath.Parse(packageDirectoryValue);
+            var packageDirectoryName = Path.GetFileName(packageDirectoryPath.Value);
             if (!IsStandardNuGetPackageDirectoryName(packageDirectoryName))
             {
                 continue;
             }
 
-            var markerPath = Path.Combine(packageDirectoryPath, UnityUcliPluginMarkerContract.MarkerFileName);
-            if (!File.Exists(markerPath))
+            var markerPath = ContainedPath.Create(
+                packageDirectoryPath,
+                RootRelativePath.Parse(UnityUcliPluginMarkerContract.MarkerFileName)).Target;
+            if (!File.Exists(markerPath.Value))
             {
                 continue;
             }
 
-            markerPaths.Add(Path.GetFullPath(markerPath));
+            markerPaths.Add(markerPath);
         }
     }
 

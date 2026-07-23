@@ -114,7 +114,7 @@ internal sealed class DaemonIpcRequestSender : IDaemonIpcRequestSender
                     deadline.UtcDeadline,
                     requestDeadlineRemainingMilliseconds);
                 var response = await transportClient.SendAsync(
-                        session.Endpoint,
+                        DaemonSessionIpcTransportEndpointAdapter.Adapt(session),
                         request,
                         remainingTimeout,
                         cancellationToken)

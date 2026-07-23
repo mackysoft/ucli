@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using System.Xml.Linq;
 
 namespace MackySoft.Ucli.Tests.Supervisor;
@@ -13,7 +14,13 @@ public sealed class LaunchAgentPlistDocumentFactoryTests
         const string logPath = "/repo/supervisor.log";
         var launchCommand = new SupervisorLaunchCommand("ucli", ["--base"]);
 
-        var plist = LaunchAgentPlistDocumentFactory.Build(label, launchCommand, storageRoot, logPath);
+        var absoluteStorageRoot = AbsolutePath.Parse(storageRoot);
+        var absoluteLogPath = AbsolutePath.Parse(logPath);
+        var plist = LaunchAgentPlistDocumentFactory.Build(
+            label,
+            launchCommand,
+            absoluteStorageRoot,
+            absoluteLogPath);
         var document = XDocument.Parse(plist);
 
         Assert.Contains("<!DOCTYPE plist PUBLIC", plist, StringComparison.Ordinal);
@@ -27,7 +34,7 @@ public sealed class LaunchAgentPlistDocumentFactoryTests
             [
                 "ucli",
                 "--base",
-                ..SupervisorInvocationArguments.Build(storageRoot),
+                ..SupervisorInvocationArguments.Build(absoluteStorageRoot),
             ],
             GetArrayStrings(document, "ProgramArguments"));
         Assert.Equal("true", GetValueElement(document, "RunAtLoad").Name.LocalName);
@@ -42,7 +49,12 @@ public sealed class LaunchAgentPlistDocumentFactoryTests
         const string logPath = "/repo/log<&>.txt";
         var launchCommand = new SupervisorLaunchCommand("ucli<&>", ["--arg<&>"]);
 
-        var plist = LaunchAgentPlistDocumentFactory.Build(label, launchCommand, storageRoot, logPath);
+        var absoluteStorageRoot = AbsolutePath.Parse(storageRoot);
+        var plist = LaunchAgentPlistDocumentFactory.Build(
+            label,
+            launchCommand,
+            absoluteStorageRoot,
+            AbsolutePath.Parse(logPath));
         var document = XDocument.Parse(plist);
 
         Assert.Equal(label, GetString(document, "Label"));
@@ -52,7 +64,7 @@ public sealed class LaunchAgentPlistDocumentFactoryTests
             [
                 "ucli<&>",
                 "--arg<&>",
-                ..SupervisorInvocationArguments.Build(storageRoot),
+                ..SupervisorInvocationArguments.Build(absoluteStorageRoot),
             ],
             GetArrayStrings(document, "ProgramArguments"));
     }

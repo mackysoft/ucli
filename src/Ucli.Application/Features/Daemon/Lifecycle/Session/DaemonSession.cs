@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.Authorization;
 
@@ -14,7 +15,10 @@ internal sealed record DaemonSession
     /// <param name="editorMode"> The Unity Editor mode. </param>
     /// <param name="ownerKind"> The session owner kind. </param>
     /// <param name="canShutdownProcess"> Whether uCLI may shut down the process. </param>
-    /// <param name="endpoint"> The resolved IPC endpoint. </param>
+    /// <param name="endpointContract"> The IPC endpoint representation retained for persistence and wire boundaries. </param>
+    /// <param name="unixSocketEndpointPath">
+    /// The guarded Unix-domain-socket path, or <see langword="null" /> for a Named Pipe endpoint.
+    /// </param>
     /// <param name="processId"> The daemon process identifier when known. </param>
     /// <param name="processStartedAtUtc"> The daemon process start timestamp when known. </param>
     /// <param name="ownerProcessId"> The process identifier that owns the session. </param>
@@ -30,7 +34,8 @@ internal sealed record DaemonSession
         DaemonEditorMode editorMode,
         DaemonSessionOwnerKind ownerKind,
         bool canShutdownProcess,
-        IpcEndpoint endpoint,
+        IpcEndpoint endpointContract,
+        AbsolutePath? unixSocketEndpointPath,
         int? processId,
         DateTimeOffset? processStartedAtUtc,
         int ownerProcessId,
@@ -43,7 +48,7 @@ internal sealed record DaemonSession
 
         ArgumentNullException.ThrowIfNull(sessionToken);
         ArgumentNullException.ThrowIfNull(projectFingerprint);
-        ArgumentNullException.ThrowIfNull(endpoint);
+        ArgumentNullException.ThrowIfNull(endpointContract);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(ownerProcessId);
 
         IssuedAtUtc = ContractArgumentGuard.RequireUtcTimestamp(issuedAtUtc, nameof(issuedAtUtc));
@@ -112,13 +117,35 @@ internal sealed record DaemonSession
                 nameof(editorInstanceId));
         }
 
+        switch (endpointContract.TransportKind)
+        {
+            case IpcTransportKind.NamedPipe when unixSocketEndpointPath is not null:
+                throw new ArgumentException(
+                    "Named Pipe daemon sessions must not specify a Unix-domain-socket path.",
+                    nameof(unixSocketEndpointPath));
+
+            case IpcTransportKind.UnixDomainSocket when unixSocketEndpointPath is null:
+                throw new ArgumentException(
+                    "Unix-domain-socket daemon sessions must specify a guarded absolute path.",
+                    nameof(unixSocketEndpointPath));
+
+            case IpcTransportKind.UnixDomainSocket when !string.Equals(
+                endpointContract.Address,
+                unixSocketEndpointPath!.Value,
+                StringComparison.Ordinal):
+                throw new ArgumentException(
+                    "Unix-domain-socket daemon session contract and guarded path must identify the same normalized path.",
+                    nameof(unixSocketEndpointPath));
+        }
+
         SessionGenerationId = sessionGenerationId;
         SessionToken = sessionToken;
         ProjectFingerprint = projectFingerprint;
         EditorMode = editorMode;
         OwnerKind = ownerKind;
         CanShutdownProcess = canShutdownProcess;
-        Endpoint = endpoint;
+        EndpointContract = endpointContract;
+        UnixSocketEndpointPath = unixSocketEndpointPath;
         ProcessId = processId;
         OwnerProcessId = ownerProcessId;
         EditorInstanceId = editorInstanceId;
@@ -145,8 +172,13 @@ internal sealed record DaemonSession
     /// <summary> Gets a value indicating whether uCLI may shut down the process. </summary>
     public bool CanShutdownProcess { get; }
 
-    /// <summary> Gets the resolved IPC endpoint. </summary>
-    public IpcEndpoint Endpoint { get; }
+    /// <summary> Gets the IPC endpoint representation used only at persistence and wire boundaries. </summary>
+    public IpcEndpoint EndpointContract { get; }
+
+    /// <summary>
+    /// Gets the guarded Unix-domain-socket path, or <see langword="null" /> for a Named Pipe endpoint.
+    /// </summary>
+    public AbsolutePath? UnixSocketEndpointPath { get; }
 
     /// <summary> Gets the daemon process identifier when known. </summary>
     public int? ProcessId { get; }

@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Infrastructure.Paths;
 
 namespace MackySoft.Ucli.Shared.Unity.ProjectLock;
@@ -10,41 +11,31 @@ internal sealed class UnityProjectLockFileProbe : IUnityProjectLockFileProbe
     private const string UnityLockFileName = "UnityLockfile";
 
     /// <inheritdoc />
-    public UnityProjectLockFileProbeResult Probe (string unityProjectRoot)
+    public UnityProjectLockFileProbeResult Probe (AbsolutePath unityProjectRoot)
     {
-        if (string.IsNullOrWhiteSpace(unityProjectRoot))
-        {
-            return UnityProjectLockFileProbeResult.Failure("Unity project root must not be empty.");
-        }
+        ArgumentNullException.ThrowIfNull(unityProjectRoot);
 
+        var lockFilePath = ContainedPath.Create(
+            unityProjectRoot,
+            RootRelativePath.Parse($"{TempDirectoryName}/{UnityLockFileName}")).Target;
         try
         {
-            var lockFilePath = Path.Combine(unityProjectRoot, TempDirectoryName, UnityLockFileName);
-            try
-            {
-                _ = File.GetAttributes(lockFilePath);
-                return UnityProjectLockFileProbeResult.Locked(lockFilePath);
-            }
-            catch (FileNotFoundException)
-            {
-                return UnityProjectLockFileProbeResult.Unlocked(lockFilePath);
-            }
-            catch (DirectoryNotFoundException)
-            {
-                return UnityProjectLockFileProbeResult.Unlocked(lockFilePath);
-            }
-            catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception)
-                                             || exception is IOException
-                                             || exception is UnauthorizedAccessException)
-            {
-                return UnityProjectLockFileProbeResult.Failure(
-                    UnityProjectLockFailureMessage.CreateInspectionFailed(lockFilePath, exception));
-            }
+            _ = File.GetAttributes(lockFilePath.Value);
+            return UnityProjectLockFileProbeResult.Locked(lockFilePath);
         }
-        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
+        catch (FileNotFoundException)
+        {
+            return UnityProjectLockFileProbeResult.Unlocked(lockFilePath);
+        }
+        catch (DirectoryNotFoundException)
+        {
+            return UnityProjectLockFileProbeResult.Unlocked(lockFilePath);
+        }
+        catch (Exception exception) when (exception is IOException
+                                         || exception is UnauthorizedAccessException)
         {
             return UnityProjectLockFileProbeResult.Failure(
-                $"Unity project lock-file path is invalid. {exception.Message}");
+                UnityProjectLockFailureMessage.CreateInspectionFailed(lockFilePath, exception));
         }
     }
 }

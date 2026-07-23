@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts.Assurance;
 using MackySoft.Ucli.Contracts.Assurance.Build;
 using MackySoft.Ucli.Contracts.Cryptography;
@@ -21,9 +23,10 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public void Create_WithExplicitBuildPipelineRequest_ReturnsNonNullableCaseValues ()
         {
+            var locationPathName = CreateTestPath("output", "player", "Player");
             var outputLayout = new IpcBuildOutputLayout(
                 IpcBuildOutputLayoutShape.File,
-                "/tmp/ucli/output/player/Player");
+                locationPathName);
 
             var result = BuildRunExecutionRequest.Create(CreateExplicitRequest(
                 BuildRunnerKind.BuildPipeline,
@@ -37,17 +40,35 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(request.RunnerKind, Is.EqualTo(BuildRunnerKind.BuildPipeline));
             Assert.That(request.BuildTarget, Is.EqualTo(BuildTargetStableName.StandaloneLinux64));
             Assert.That(request.SceneSource, Is.EqualTo(BuildProfileSceneSource.Explicit));
-            Assert.That(request.OutputLayout, Is.SameAs(outputLayout));
+            Assert.That(request.OutputLayout.Shape, Is.EqualTo(outputLayout.Shape));
+            Assert.That(request.OutputLayout.LocationPath.Value, Is.EqualTo(locationPathName));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void Create_WithRelativeBuildPipelineOutputLocation_RejectsWirePathAtAdapterBoundary ()
+        {
+            var outputLayout = new IpcBuildOutputLayout(
+                IpcBuildOutputLayoutShape.File,
+                "player/Player");
+
+            Assert.Throws<PathValidationException>(() =>
+                BuildRunExecutionRequest.Create(CreateExplicitRequest(
+                    BuildRunnerKind.BuildPipeline,
+                    outputLayout,
+                    profilePath: null,
+                    runnerMethod: null)));
         }
 
         [Test]
         [Category("Size.Small")]
         public void Create_WithExplicitExecuteMethodRequest_ReturnsNonNullableCaseValues ()
         {
+            var profilePath = CreateTestPath("build.ucli.json");
             var result = BuildRunExecutionRequest.Create(CreateExplicitRequest(
                 BuildRunnerKind.ExecuteMethod,
                 outputLayout: null,
-                profilePath: "/tmp/ucli/build.ucli.json",
+                profilePath: profilePath,
                 runnerMethod: "Build.Entry.Run"));
 
             Assert.That(result, Is.TypeOf<BuildRunExecutionRequest.ExplicitExecuteMethod>());
@@ -55,7 +76,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(request.InputKind, Is.EqualTo(BuildProfileInputsKind.Explicit));
             Assert.That(request.RunnerKind, Is.EqualTo(BuildRunnerKind.ExecuteMethod));
             Assert.That(request.BuildTarget, Is.EqualTo(BuildTargetStableName.StandaloneLinux64));
-            Assert.That(request.ProfilePath, Is.EqualTo("/tmp/ucli/build.ucli.json"));
+            Assert.That(request.ProfilePath.Value, Is.EqualTo(profilePath));
             Assert.That(request.RunnerMethod, Is.EqualTo("Build.Entry.Run"));
             Assert.That(request.RunnerEnvironmentSecretValues["UCLI_SECRET"], Is.EqualTo("secret-value"));
         }
@@ -92,10 +113,10 @@ namespace MackySoft.Ucli.Unity.Tests
                 SceneSource: BuildProfileSceneSource.Explicit,
                 ScenePaths: new[] { new SceneAssetPath("Assets/Scenes/Main.unity") },
                 Development: true,
-                OutputPath: "/tmp/ucli/output",
+                OutputPath: CreateTestPath("output"),
                 OutputLayout: outputLayout,
-                BuildReportPath: "/tmp/ucli/build-report.json",
-                BuildLogPath: "/tmp/ucli/build.log",
+                BuildReportPath: CreateTestPath("build-report.json"),
+                BuildLogPath: CreateTestPath("build.log"),
                 AllowedEditorModes: new[] { DaemonEditorMode.Batchmode },
                 ProjectMutationMode: BuildProfileProjectMutationMode.Forbid,
                 RunnerKind: runnerKind,
@@ -126,10 +147,10 @@ namespace MackySoft.Ucli.Unity.Tests
                 SceneSource: null,
                 ScenePaths: Array.Empty<SceneAssetPath>(),
                 Development: false,
-                OutputPath: "/tmp/ucli/output",
+                OutputPath: CreateTestPath("output"),
                 OutputLayout: null,
-                BuildReportPath: "/tmp/ucli/build-report.json",
-                BuildLogPath: "/tmp/ucli/build.log",
+                BuildReportPath: CreateTestPath("build-report.json"),
+                BuildLogPath: CreateTestPath("build.log"),
                 AllowedEditorModes: new[] { DaemonEditorMode.Batchmode },
                 ProjectMutationMode: BuildProfileProjectMutationMode.Forbid,
                 RunnerKind: BuildRunnerKind.BuildPipeline,
@@ -142,6 +163,17 @@ namespace MackySoft.Ucli.Unity.Tests
                 RunnerEnvironmentSecrets: Array.Empty<string>(),
                 RunnerEnvironmentVariableValues: new Dictionary<string, string>(StringComparer.Ordinal),
                 RunnerEnvironmentSecretValues: new Dictionary<string, string>(StringComparer.Ordinal));
+        }
+
+        private static string CreateTestPath (params string[] segments)
+        {
+            var path = Path.Combine(Path.GetTempPath(), "ucli");
+            foreach (var segment in segments)
+            {
+                path = Path.Combine(path, segment);
+            }
+
+            return Path.GetFullPath(path);
         }
     }
 }

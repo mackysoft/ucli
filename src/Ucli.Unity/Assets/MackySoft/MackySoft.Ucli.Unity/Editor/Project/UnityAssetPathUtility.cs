@@ -1,7 +1,7 @@
 using System;
 using System.IO;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts;
-using MackySoft.Ucli.Infrastructure.Paths;
 
 #nullable enable
 
@@ -27,23 +27,33 @@ namespace MackySoft.Ucli.Unity.Project
                 return UnityAssetPathContract.AssetsRootPath;
             }
 
-            return PathStringNormalizer.ToSlashSeparated(directoryPath);
+            return NormalizeProjectRelativeSeparators(directoryPath);
         }
 
-        /// <summary> Resolves one normalized Unity asset path to its absolute filesystem path. </summary>
-        /// <param name="normalizedAssetPath"> The normalized Unity asset path. </param>
-        /// <returns> The absolute filesystem path. </returns>
-        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="normalizedAssetPath" /> is <see langword="null" />. </exception>
-        public static string ToAbsolutePath (string normalizedAssetPath)
+        /// <summary> Normalizes Unity project-relative path separators to <c>/</c>. </summary>
+        /// <param name="projectRelativePath"> The Unity project-relative path text. </param>
+        /// <returns> The path text using Unity's canonical separator. </returns>
+        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="projectRelativePath" /> is <see langword="null" />. </exception>
+        public static string NormalizeProjectRelativeSeparators (string projectRelativePath)
         {
-            if (normalizedAssetPath == null)
+            if (projectRelativePath == null)
             {
-                throw new ArgumentNullException(nameof(normalizedAssetPath));
+                throw new ArgumentNullException(nameof(projectRelativePath));
             }
 
-            return Path.Combine(
-                UnityProjectPathResolver.ResolveProjectRootPath(),
-                PathStringNormalizer.ToPlatformSeparated(normalizedAssetPath));
+            return projectRelativePath.Replace('\\', '/');
         }
+
+        /// <summary> Resolves one Unity project-relative path to a guarded absolute path. </summary>
+        /// <param name="projectRelativePath"> The Unity project-relative path. </param>
+        /// <returns> The guarded path under the current Unity project root. </returns>
+        public static AbsolutePath ResolveProjectRelativePath (string projectRelativePath)
+        {
+            var projectRoot = UnityProjectPathResolver.ResolveProjectRootPath();
+            var relativePath = RootRelativePath.Parse(
+                NormalizeProjectRelativeSeparators(projectRelativePath));
+            return ContainedPath.Create(projectRoot, relativePath).Target;
+        }
+
     }
 }

@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Contracts.Text;
 
@@ -18,8 +19,8 @@ internal sealed record DaemonLaunchAttempt
         DaemonEditorMode? EditorMode,
         int? ProcessId,
         DateTimeOffset? ProcessStartedAtUtc,
-        string? UnityLogPath,
-        string ArtifactPath,
+        AbsolutePath? UnityLogPath,
+        AbsolutePath ArtifactPath,
         DaemonDiagnosis Diagnosis)
     {
         if (LaunchAttemptId == Guid.Empty)
@@ -119,7 +120,7 @@ internal sealed record DaemonLaunchAttempt
         this.ProcessId = ProcessId;
         this.ProcessStartedAtUtc = ProcessStartedAtUtc;
         this.UnityLogPath = UnityLogPath;
-        this.ArtifactPath = ArtifactPath;
+        this.ArtifactPath = ArtifactPath ?? throw new ArgumentNullException(nameof(ArtifactPath));
         this.Diagnosis = Diagnosis ?? throw new ArgumentNullException(nameof(Diagnosis));
     }
 
@@ -143,9 +144,9 @@ internal sealed record DaemonLaunchAttempt
 
     public DateTimeOffset? ProcessStartedAtUtc { get; }
 
-    public string? UnityLogPath { get; }
+    public AbsolutePath? UnityLogPath { get; }
 
-    public string ArtifactPath { get; }
+    public AbsolutePath ArtifactPath { get; }
 
     public DaemonDiagnosis Diagnosis { get; }
 }

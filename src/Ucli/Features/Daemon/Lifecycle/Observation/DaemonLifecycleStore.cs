@@ -1,10 +1,10 @@
 using System.Text.Json;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Observation;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Contracts.Text;
-using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Infrastructure.Storage;
 
 namespace MackySoft.Ucli.Features.Daemon.Lifecycle.Observation;
@@ -14,26 +14,18 @@ internal sealed class DaemonLifecycleStore : IDaemonLifecycleStore
 {
     /// <inheritdoc />
     public async ValueTask<DaemonLifecycleObservationReadResult> ReadAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         ProjectFingerprint projectFingerprint,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        if (!TryResolvePath(storageRoot, projectFingerprint, out var path, out var pathError))
-        {
-            return DaemonLifecycleObservationReadResult.Failure(pathError!);
-        }
+        var path = UcliStoragePathResolver.ResolveDaemonLifecyclePath(storageRoot, projectFingerprint);
 
         string? json;
         try
         {
-            json = await FileUtilities.ReadAllTextOrNullAsync(path!, cancellationToken).ConfigureAwait(false);
-        }
-        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
-        {
-            return DaemonLifecycleObservationReadResult.Failure(ExecutionError.InvalidArgument(
-                $"Daemon lifecycle path is invalid: {path}. {exception.Message}"));
+            json = await FileUtilities.ReadAllTextOrNullAsync(path, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
@@ -63,7 +55,7 @@ internal sealed class DaemonLifecycleStore : IDaemonLifecycleStore
                 $"Daemon lifecycle JSON is invalid: {path}. {exception.Message}"));
         }
 
-        if (!TryCreateObservation(contract, path!, out var observation, out var validationError))
+        if (!TryCreateObservation(contract, path, out var observation, out var validationError))
         {
             return DaemonLifecycleObservationReadResult.Failure(validationError!);
         }
@@ -73,26 +65,18 @@ internal sealed class DaemonLifecycleStore : IDaemonLifecycleStore
 
     /// <inheritdoc />
     public ValueTask<DaemonLifecycleStoreOperationResult> DeleteAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         ProjectFingerprint projectFingerprint,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        if (!TryResolvePath(storageRoot, projectFingerprint, out var path, out var pathError))
-        {
-            return ValueTask.FromResult(DaemonLifecycleStoreOperationResult.Failure(pathError!));
-        }
+        var path = UcliStoragePathResolver.ResolveDaemonLifecyclePath(storageRoot, projectFingerprint);
 
         try
         {
-            FileUtilities.DeleteIfExists(path!);
+            FileUtilities.DeleteIfExists(path);
             return ValueTask.FromResult(DaemonLifecycleStoreOperationResult.Success());
-        }
-        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
-        {
-            return ValueTask.FromResult(DaemonLifecycleStoreOperationResult.Failure(ExecutionError.InvalidArgument(
-                $"Daemon lifecycle path is invalid: {path}. {exception.Message}")));
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
@@ -103,7 +87,7 @@ internal sealed class DaemonLifecycleStore : IDaemonLifecycleStore
 
     private static bool TryCreateObservation (
         DaemonLifecycleJsonContract contract,
-        string path,
+        AbsolutePath path,
         out DaemonLifecycleObservation? observation,
         out ExecutionError? error)
     {
@@ -160,7 +144,7 @@ internal sealed class DaemonLifecycleStore : IDaemonLifecycleStore
 
     private static bool TryValidatePrimaryDiagnostic (
         IpcPrimaryDiagnostic? primaryDiagnostic,
-        string path,
+        AbsolutePath path,
         out IpcPrimaryDiagnostic? normalizedDiagnostic,
         out ExecutionError? error)
     {
@@ -200,23 +184,4 @@ internal sealed class DaemonLifecycleStore : IDaemonLifecycleStore
         return true;
     }
 
-    private static bool TryResolvePath (
-        string storageRoot,
-        ProjectFingerprint projectFingerprint,
-        out string? path,
-        out ExecutionError? error)
-    {
-        try
-        {
-            path = UcliStoragePathResolver.ResolveDaemonLifecyclePath(storageRoot, projectFingerprint);
-            error = null;
-            return true;
-        }
-        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
-        {
-            path = null;
-            error = ExecutionError.InvalidArgument($"Daemon lifecycle path is invalid. {exception.Message}");
-            return false;
-        }
-    }
 }

@@ -14,7 +14,7 @@ public sealed class BuildServiceRuntimePolicyTests
         var service = CreateService(
             profileFileReader: new StubBuildProfileFileReader(BuildProfileFileReadResult.Success(
                 CreateProfileJson(["oneshot"], ["batchmode", "gui"], "forbid"),
-                "/workspace/build.ucli.json")),
+                DefaultBuildProfilePath)),
             modeDecisionService: new StubModeDecisionService(UnityExecutionModeDecisionResult.Success(new UnityExecutionModeDecision(
                 UnityExecutionMode.Auto,
                 DaemonRunning: true,
@@ -38,7 +38,7 @@ public sealed class BuildServiceRuntimePolicyTests
         var service = CreateService(
             profileFileReader: new StubBuildProfileFileReader(BuildProfileFileReadResult.Success(
                 CreateProfileJson(["oneshot"], ["gui"], "forbid"),
-                "/workspace/build.ucli.json")),
+                DefaultBuildProfilePath)),
             modeDecisionService: new StubModeDecisionService(UnityExecutionModeDecisionResult.Success(new UnityExecutionModeDecision(
                 UnityExecutionMode.Oneshot,
                 DaemonRunning: false,

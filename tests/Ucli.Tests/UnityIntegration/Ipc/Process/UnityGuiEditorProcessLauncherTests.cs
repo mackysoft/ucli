@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Shared.Unity.ProjectLock;
@@ -12,9 +13,13 @@ public sealed class UnityGuiEditorProcessLauncherTests
     [Trait("Size", "Small")]
     public void BuildArgumentTokens_IncludesGuiBootstrapArgumentsAndOmitsBatchmodeArguments ()
     {
+        var projectPath = AbsolutePath.Parse(
+            Path.Combine(Path.GetTempPath(), "repo", "UnityProject"));
+        var unityLogPath = AbsolutePath.Parse(
+            Path.Combine(Path.GetTempPath(), "repo", ".ucli", "logs", "unity.log"));
         var tokens = UnityGuiEditorProcessLauncher.BuildArgumentTokens(
-            "/repo/UnityProject",
-            "/repo/.ucli/logs/unity.log",
+            projectPath,
+            unityLogPath,
             new IpcGuiBootstrapArguments(
                 OwnerProcessId: 123,
                 CanShutdownProcess: true));
@@ -24,9 +29,9 @@ public sealed class UnityGuiEditorProcessLauncherTests
         Assert.Equal(
             [
                 "-projectPath",
-                "/repo/UnityProject",
+                projectPath.Value,
                 "-logFile",
-                "/repo/.ucli/logs/unity.log",
+                unityLogPath.Value,
                 IpcGuiBootstrapArgumentNames.Target,
                 "daemon",
                 IpcGuiBootstrapArgumentNames.OwnerProcessId,
@@ -42,7 +47,7 @@ public sealed class UnityGuiEditorProcessLauncherTests
     public async Task Launch_WhenUnityLockFileExists_ReturnsAlreadyOpenWithoutResolvingUnityVersion ()
     {
         var unityProject = ResolvedUnityProjectContextTestFactory.Create();
-        var lockFilePath = Path.Combine(unityProject.UnityProjectRoot, "Temp", "UnityLockfile");
+        var lockFilePath = AbsolutePath.Resolve(unityProject.UnityProjectRoot, "Temp/UnityLockfile");
         var launcher = new UnityGuiEditorProcessLauncher(
             new UnexpectedUnityVersionResolver("Active Unity project lock must stop before Unity version resolution."),
             new StubUnityEditorPathResolver(),
@@ -53,7 +58,7 @@ public sealed class UnityGuiEditorProcessLauncherTests
 
         var result = await launcher.LaunchAsync(
             unityProject,
-            Path.Combine(unityProject.RepositoryRoot, "unity.log"),
+            AbsolutePath.Resolve(unityProject.RepositoryRoot, "unity.log"),
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
@@ -69,7 +74,7 @@ public sealed class UnityGuiEditorProcessLauncherTests
         using var scope = TestDirectories.CreateTempScope("unity-gui-editor-process-launcher", "lock-file-race");
         var versionResolver = new RecordingUnityVersionResolver();
         var unityProject = ResolvedUnityProjectContextTestFactory.Create();
-        var lockFilePath = Path.Combine(unityProject.UnityProjectRoot, "Temp", "UnityLockfile");
+        var lockFilePath = AbsolutePath.Resolve(unityProject.UnityProjectRoot, "Temp/UnityLockfile");
         var lockPreflightService = new RecordingUnityProjectLockPreflightService(
             UnityProjectLockPreflightResult.Unlocked(lockFilePath),
             UnityProjectLockPreflightResult.ActiveLock(
@@ -85,7 +90,7 @@ public sealed class UnityGuiEditorProcessLauncherTests
 
         var result = await launcher.LaunchAsync(
             unityProject,
-            unityLogPath,
+            AbsolutePath.Parse(unityLogPath),
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);

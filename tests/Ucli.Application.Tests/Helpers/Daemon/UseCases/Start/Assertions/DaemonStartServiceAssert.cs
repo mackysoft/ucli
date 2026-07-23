@@ -1,3 +1,5 @@
+using MackySoft.FileSystem;
+
 namespace MackySoft.Ucli.Application.Tests;
 
 internal static class DaemonStartServiceAssert
@@ -13,7 +15,7 @@ internal static class DaemonStartServiceAssert
     public static void PluginVerificationFailureStoppedBeforeSupervisorBootstrap (
         RecordingUnityPluginVerifier pluginVerifier,
         RecordingDaemonProjectLifecycleGateway supervisorProjectGateway,
-        string expectedUnityProjectRoot)
+        AbsolutePath expectedUnityProjectRoot)
     {
         UnityPluginVerifierAssert.VerificationRequestedFor(pluginVerifier, expectedUnityProjectRoot);
         Assert.Empty(supervisorProjectGateway.EnsureRunningInvocations);

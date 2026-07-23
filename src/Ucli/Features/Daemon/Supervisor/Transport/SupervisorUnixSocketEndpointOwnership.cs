@@ -1,6 +1,7 @@
+using System.Diagnostics.CodeAnalysis;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Ipc;
-using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Infrastructure.Storage;
 
 namespace MackySoft.Ucli.Features.Daemon.Supervisor.Transport;
@@ -8,9 +9,14 @@ namespace MackySoft.Ucli.Features.Daemon.Supervisor.Transport;
 /// <summary> Owns one generation-specific supervisor Unix socket node and its canonical publication link. </summary>
 internal sealed class SupervisorUnixSocketEndpointOwnership
 {
-    private readonly string canonicalAddress;
+    private static readonly AbsolutePath TemporaryDirectoryPath =
+        AbsolutePath.Parse(Path.GetTempPath());
 
-    private readonly string publicationLockPath;
+    private readonly AbsolutePath canonicalAddress;
+
+    private readonly AbsolutePath canonicalDirectoryPath;
+
+    private readonly AbsolutePath publicationLockPath;
 
     private readonly UnixSocketAccessBoundary generationAccessBoundary;
 
@@ -18,36 +24,44 @@ internal sealed class SupervisorUnixSocketEndpointOwnership
 
     private readonly Guid publicationToken = Guid.NewGuid();
 
-    private string? replacedGenerationAddress;
+    private AbsolutePath? replacedGenerationAddress;
 
     private bool endpointPublished;
 
     private bool publicationCommitted;
 
-    public SupervisorUnixSocketEndpointOwnership (string canonicalAddress)
+    public SupervisorUnixSocketEndpointOwnership (AbsolutePath canonicalAddress)
     {
-        if (string.IsNullOrWhiteSpace(canonicalAddress))
+        ArgumentNullException.ThrowIfNull(canonicalAddress);
+        if (!canonicalAddress.TryGetParent(out var resolvedCanonicalDirectoryPath))
         {
-            throw new ArgumentException("Canonical Unix socket address must not be empty.", nameof(canonicalAddress));
+            throw new ArgumentException(
+                "Canonical Unix socket address must have a parent directory.",
+                nameof(canonicalAddress));
         }
 
-        this.canonicalAddress = Path.GetFullPath(canonicalAddress);
+        this.canonicalAddress = canonicalAddress;
+        canonicalDirectoryPath = resolvedCanonicalDirectoryPath;
         generationFallbackPath = new UnixSocketFallbackPath(
-            Path.GetTempPath(),
+            TemporaryDirectoryPath,
             UnixSocketFallbackPurpose.SupervisorGeneration,
-            $"{this.canonicalAddress}\n{publicationToken:N}");
+            $"{canonicalAddress.Value}\n{publicationToken:N}");
         BoundAddress = generationFallbackPath.SocketPath;
         generationAccessBoundary = new UnixSocketAccessBoundary(BoundAddress);
-        publicationLockPath = Path.ChangeExtension(
-            new UnixSocketFallbackPath(
-                Path.GetTempPath(),
-                UnixSocketFallbackPurpose.SupervisorPublicationLock,
-                this.canonicalAddress).SocketPath,
-            ".lock");
+        var publicationLockFallbackPath = new UnixSocketFallbackPath(
+            TemporaryDirectoryPath,
+            UnixSocketFallbackPurpose.SupervisorPublicationLock,
+            canonicalAddress.Value);
+        publicationLockPath = ContainedPath.Create(
+            publicationLockFallbackPath.DirectoryPath,
+            RootRelativePath.Parse(
+                Path.ChangeExtension(
+                    UcliIpcEndpointNames.UnixSocketFileName,
+                    ".lock"))).Target;
     }
 
     /// <summary> Gets the generation-specific path that the listener must bind. </summary>
-    public string BoundAddress { get; }
+    public AbsolutePath BoundAddress { get; }
 
     /// <summary> Prepares the generation-specific node before the listener binds it. </summary>
     public void PrepareForBind ()
@@ -65,9 +79,6 @@ internal sealed class SupervisorUnixSocketEndpointOwnership
     public void PublishBoundEndpoint ()
     {
         using var publicationLock = AcquirePublicationLock();
-        var canonicalDirectoryPath = Path.GetDirectoryName(canonicalAddress)
-            ?? throw new InvalidOperationException(
-                $"Canonical Unix socket directory could not be resolved. Address={canonicalAddress}");
         FileSystemAccessBoundary.EnsureSecureDirectory(canonicalDirectoryPath);
 
         replacedGenerationAddress = TryResolvePublishedGenerationAddress(
@@ -97,7 +108,7 @@ internal sealed class SupervisorUnixSocketEndpointOwnership
         var retiredGenerationAddress = replacedGenerationAddress;
         replacedGenerationAddress = null;
         if (retiredGenerationAddress is not null
-            && !PathIdentity.IsSamePath(retiredGenerationAddress, BoundAddress))
+            && retiredGenerationAddress != BoundAddress)
         {
             try
             {
@@ -110,23 +121,21 @@ internal sealed class SupervisorUnixSocketEndpointOwnership
         }
     }
 
-    private void ReplaceCanonicalLink (string targetAddress)
+    private void ReplaceCanonicalLink (AbsolutePath targetAddress)
     {
-        var canonicalDirectoryPath = Path.GetDirectoryName(canonicalAddress)
-            ?? throw new InvalidOperationException(
-                $"Canonical Unix socket directory could not be resolved. Address={canonicalAddress}");
-        var temporaryLinkPath = Path.Combine(
+        var temporaryLinkPath = ContainedPath.Create(
             canonicalDirectoryPath,
-            $".{Path.GetFileName(canonicalAddress)}.{publicationToken:N}.link");
+            RootRelativePath.Parse(
+                $".{Path.GetFileName(canonicalAddress.Value)}.{publicationToken:N}.link")).Target;
         try
         {
-            File.Delete(temporaryLinkPath);
-            File.CreateSymbolicLink(temporaryLinkPath, targetAddress);
-            File.Move(temporaryLinkPath, canonicalAddress, overwrite: true);
+            File.Delete(temporaryLinkPath.Value);
+            File.CreateSymbolicLink(temporaryLinkPath.Value, targetAddress.Value);
+            File.Move(temporaryLinkPath.Value, canonicalAddress.Value, overwrite: true);
         }
         finally
         {
-            File.Delete(temporaryLinkPath);
+            File.Delete(temporaryLinkPath.Value);
         }
     }
 
@@ -137,17 +146,17 @@ internal sealed class SupervisorUnixSocketEndpointOwnership
         {
             using var publicationLock = AcquirePublicationLock();
             if (TryResolvePublishedGenerationAddress(canonicalAddress, out var publishedGenerationAddress)
-                && PathIdentity.IsSamePath(publishedGenerationAddress, BoundAddress))
+                && publishedGenerationAddress == BoundAddress)
             {
                 if (!publicationCommitted
                     && replacedGenerationAddress is not null
-                    && File.Exists(replacedGenerationAddress))
+                    && File.Exists(replacedGenerationAddress.Value))
                 {
                     ReplaceCanonicalLink(replacedGenerationAddress);
                 }
                 else
                 {
-                    File.Delete(canonicalAddress);
+                    File.Delete(canonicalAddress.Value);
                 }
             }
         }
@@ -164,11 +173,12 @@ internal sealed class SupervisorUnixSocketEndpointOwnership
 
     /// <summary> Resolves a validated generation-specific target from one canonical publication link. </summary>
     public static bool TryResolvePublishedGenerationAddress (
-        string canonicalAddress,
-        out string generationAddress)
+        AbsolutePath canonicalAddress,
+        [NotNullWhen(true)] out AbsolutePath? generationAddress)
     {
-        generationAddress = string.Empty;
-        if (string.IsNullOrWhiteSpace(canonicalAddress))
+        ArgumentNullException.ThrowIfNull(canonicalAddress);
+        generationAddress = null;
+        if (!canonicalAddress.TryGetParent(out var canonicalDirectoryPath))
         {
             return false;
         }
@@ -176,27 +186,22 @@ internal sealed class SupervisorUnixSocketEndpointOwnership
         string? linkTarget;
         try
         {
-            linkTarget = new FileInfo(canonicalAddress).LinkTarget;
+            linkTarget = new FileInfo(canonicalAddress.Value).LinkTarget;
         }
         catch (Exception exception) when (exception is FileNotFoundException or DirectoryNotFoundException or IOException)
         {
             return false;
         }
 
-        if (string.IsNullOrWhiteSpace(linkTarget))
+        if (!AbsolutePath.TryResolve(
+                canonicalDirectoryPath,
+                linkTarget,
+                out var resolvedTarget,
+                out _))
         {
             return false;
         }
 
-        var canonicalDirectoryPath = Path.GetDirectoryName(Path.GetFullPath(canonicalAddress));
-        if (string.IsNullOrWhiteSpace(canonicalDirectoryPath))
-        {
-            return false;
-        }
-
-        var resolvedTarget = Path.IsPathFullyQualified(linkTarget)
-            ? Path.GetFullPath(linkTarget)
-            : Path.GetFullPath(linkTarget, canonicalDirectoryPath);
         if (!IsGenerationAddress(resolvedTarget))
         {
             return false;
@@ -207,21 +212,22 @@ internal sealed class SupervisorUnixSocketEndpointOwnership
     }
 
     /// <summary> Deletes a validated abandoned generation node. </summary>
-    public static void DeleteGenerationNode (string generationAddress)
+    public static void DeleteGenerationNode (AbsolutePath generationAddress)
     {
+        ArgumentNullException.ThrowIfNull(generationAddress);
         if (!IsGenerationAddress(generationAddress))
         {
             throw new InvalidOperationException(
                 $"Supervisor generation socket address is outside the owned endpoint boundary. Address={generationAddress}");
         }
 
-        File.Delete(generationAddress);
+        File.Delete(generationAddress.Value);
     }
 
     /// <summary> Deletes one canonical publication link before deleting its validated generation node. </summary>
     public static bool DeletePublishedGenerationIfPresent (
-        string canonicalAddress,
-        Action<string> deleteIfExists)
+        AbsolutePath canonicalAddress,
+        Action<AbsolutePath> deleteIfExists)
     {
         ArgumentNullException.ThrowIfNull(deleteIfExists);
         if (!TryResolvePublishedGenerationAddress(canonicalAddress, out var generationAddress))
@@ -229,22 +235,22 @@ internal sealed class SupervisorUnixSocketEndpointOwnership
             return false;
         }
 
-        File.Delete(canonicalAddress);
+        File.Delete(canonicalAddress.Value);
         deleteIfExists(generationAddress);
         return true;
     }
 
     private void DeleteOwnedGenerationDirectoryIfEmpty ()
     {
-        if (!Directory.Exists(generationFallbackPath.DirectoryPath))
+        if (!Directory.Exists(generationFallbackPath.DirectoryPath.Value))
         {
             return;
         }
 
-        using var enumerator = Directory.EnumerateFileSystemEntries(generationFallbackPath.DirectoryPath).GetEnumerator();
+        using var enumerator = Directory.EnumerateFileSystemEntries(generationFallbackPath.DirectoryPath.Value).GetEnumerator();
         if (!enumerator.MoveNext())
         {
-            Directory.Delete(generationFallbackPath.DirectoryPath);
+            Directory.Delete(generationFallbackPath.DirectoryPath.Value);
         }
     }
 
@@ -256,29 +262,25 @@ internal sealed class SupervisorUnixSocketEndpointOwnership
             CancellationToken.None);
     }
 
-    private static bool IsGenerationAddress (string generationAddress)
+    private static bool IsGenerationAddress (AbsolutePath generationAddress)
     {
-        if (string.IsNullOrWhiteSpace(generationAddress)
-            || !string.Equals(
-                Path.GetFileName(generationAddress),
+        if (!string.Equals(
+                Path.GetFileName(generationAddress.Value),
                 UcliIpcEndpointNames.UnixSocketFileName,
                 StringComparison.Ordinal))
         {
             return false;
         }
 
-        var normalizedGenerationAddress = Path.GetFullPath(generationAddress);
-        var generationDirectoryPath = Path.GetDirectoryName(normalizedGenerationAddress);
-        if (string.IsNullOrWhiteSpace(generationDirectoryPath)
+        if (!generationAddress.TryGetParent(out var generationDirectoryPath)
             || !UnixSocketFallbackPath.IsDirectoryNameForPurpose(
-                Path.GetFileName(generationDirectoryPath),
+                Path.GetFileName(generationDirectoryPath.Value),
                 UnixSocketFallbackPurpose.SupervisorGeneration))
         {
             return false;
         }
 
-        var generationDirectoryParent = Path.GetDirectoryName(generationDirectoryPath);
-        return !string.IsNullOrWhiteSpace(generationDirectoryParent)
-            && PathIdentity.IsSamePath(generationDirectoryParent, Path.GetTempPath());
+        return generationDirectoryPath.TryGetParent(out var generationDirectoryParent)
+            && generationDirectoryParent == TemporaryDirectoryPath;
     }
 }

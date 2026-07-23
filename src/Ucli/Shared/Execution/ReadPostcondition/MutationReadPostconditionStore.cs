@@ -1,9 +1,9 @@
 using System.Text.Json;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Shared.Execution.ReadPostcondition;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
-using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Infrastructure.Storage;
 
 namespace MackySoft.Ucli.Shared.Execution.ReadPostcondition;
@@ -28,32 +28,20 @@ internal sealed class MutationReadPostconditionStore : IMutationReadPostconditio
 
     /// <inheritdoc />
     public async ValueTask<MutationReadPostconditionReadResult> ReadOrNullAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         ProjectFingerprint projectFingerprint,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        string documentPath;
-        try
-        {
-            documentPath = UcliStoragePathResolver.ResolveMutationReadPostconditionPath(storageRoot, projectFingerprint);
-        }
-        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
-        {
-            return MutationReadPostconditionReadResult.Failure(ExecutionError.InvalidArgument(
-                $"Mutation read postcondition path is invalid. {exception.Message}"));
-        }
+        var documentPath = UcliStoragePathResolver.ResolveMutationReadPostconditionPath(
+            storageRoot,
+            projectFingerprint);
 
         string? json;
         try
         {
             json = await FileUtilities.ReadAllTextOrNullAsync(documentPath, cancellationToken).ConfigureAwait(false);
-        }
-        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
-        {
-            return MutationReadPostconditionReadResult.Failure(ExecutionError.InvalidArgument(
-                $"Mutation read postcondition path is invalid: {documentPath}. {exception.Message}"));
         }
         catch (Exception exception) when (IsIoFailure(exception))
         {
@@ -96,7 +84,7 @@ internal sealed class MutationReadPostconditionStore : IMutationReadPostconditio
 
     /// <inheritdoc />
     public async ValueTask<MutationReadPostconditionStoreOperationResult> WriteMergedAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         ProjectFingerprint projectFingerprint,
         IpcExecuteReadPostcondition readPostcondition,
         CancellationToken cancellationToken = default)
@@ -104,22 +92,18 @@ internal sealed class MutationReadPostconditionStore : IMutationReadPostconditio
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(readPostcondition);
 
-        string documentPath;
-        try
-        {
-            documentPath = UcliStoragePathResolver.ResolveMutationReadPostconditionPath(storageRoot, projectFingerprint);
-        }
-        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
-        {
-            return MutationReadPostconditionStoreOperationResult.Failure(ExecutionError.InvalidArgument(
-                $"Mutation read postcondition path is invalid. {exception.Message}"));
-        }
+        var documentPath = UcliStoragePathResolver.ResolveMutationReadPostconditionPath(
+            storageRoot,
+            projectFingerprint);
+        var writeLockPath = UcliStoragePathResolver.ResolveMutationReadPostconditionLockPath(
+            storageRoot,
+            projectFingerprint);
 
         try
         {
             var mergedRequirements = MergeRequirements(readPostcondition.Requirements);
             using var writeLock = await FileExclusiveLock.AcquireAsync(
-                    documentPath + ".lock",
+                    writeLockPath,
                     WriteLockAcquireTimeout,
                     cancellationToken)
                 .ConfigureAwait(false);
@@ -147,11 +131,6 @@ internal sealed class MutationReadPostconditionStore : IMutationReadPostconditio
         {
             return MutationReadPostconditionStoreOperationResult.Failure(ExecutionError.InvalidArgument(
                 $"Mutation read postcondition is invalid: {documentPath}. {exception.Message}"));
-        }
-        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
-        {
-            return MutationReadPostconditionStoreOperationResult.Failure(ExecutionError.InvalidArgument(
-                $"Mutation read postcondition path is invalid: {documentPath}. {exception.Message}"));
         }
         catch (Exception exception) when (IsIoFailure(exception) || exception is TimeoutException)
         {
@@ -189,10 +168,9 @@ internal sealed class MutationReadPostconditionStore : IMutationReadPostconditio
 
     private static void ValidateDocument (
         MutationReadPostconditionDocument document,
-        string documentPath)
+        AbsolutePath documentPath)
     {
         ArgumentNullException.ThrowIfNull(document);
-        ArgumentException.ThrowIfNullOrWhiteSpace(documentPath);
         if (document.SchemaVersion != SchemaVersion)
         {
             throw new ArgumentOutOfRangeException(nameof(document), document.SchemaVersion, $"schemaVersion must be {SchemaVersion}. {documentPath}");

@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Tests;
 using MackySoft.Ucli.Infrastructure.Storage;
 
@@ -24,9 +25,10 @@ public sealed class FileSystemAccessBoundaryTests
 
         var exception = Assert.Throws<IOException>(() =>
         {
-            FileSystemAccessBoundary.EnsureSecureDirectoryChain(
-                boundaryRootPath,
-                Path.Combine(boundaryRootPath, "unity-projects"));
+            var boundaryRoot = AbsolutePath.Parse(boundaryRootPath);
+            FileSystemAccessBoundary.EnsureSecureDirectoryChain(ContainedPath.Create(
+                boundaryRoot,
+                AbsolutePath.Parse(Path.Combine(boundaryRootPath, "unity-projects"))));
         });
 
         Assert.Contains("reparse point", exception.Message, StringComparison.OrdinalIgnoreCase);
@@ -47,9 +49,9 @@ public sealed class FileSystemAccessBoundaryTests
 
         var exception = Assert.Throws<IOException>(() =>
         {
-            FileSystemAccessBoundary.EnsureSecureDirectoryChain(
-                boundaryRootPath,
-                Path.Combine(symbolicLinkPath, "leaf"));
+            FileSystemAccessBoundary.EnsureSecureDirectoryChain(ContainedPath.Create(
+                AbsolutePath.Parse(boundaryRootPath),
+                AbsolutePath.Parse(Path.Combine(symbolicLinkPath, "leaf"))));
         });
 
         Assert.Contains("reparse point", exception.Message, StringComparison.OrdinalIgnoreCase);
@@ -70,7 +72,7 @@ public sealed class FileSystemAccessBoundaryTests
 
         var exception = Assert.Throws<IOException>(() =>
         {
-            FileSystemAccessBoundary.EnsureSecureDirectory(symbolicLinkPath);
+            FileSystemAccessBoundary.EnsureSecureDirectory(AbsolutePath.Parse(symbolicLinkPath));
         });
 
         Assert.Contains("reparse point", exception.Message, StringComparison.OrdinalIgnoreCase);
@@ -91,14 +93,14 @@ public sealed class FileSystemAccessBoundaryTests
         var exception = Assert.Throws<IOException>(() =>
         {
             FileSystemAccessBoundary.EnsureSecureDirectory(
-                Path.Combine(
+                AbsolutePath.Parse(Path.Combine(
                     ucliDirectoryPath,
                     "local",
                     "fingerprints",
                     "fingerprint",
                     "artifacts",
                     "build",
-                    "run-1"));
+                    "run-1")));
         });
 
         Assert.Contains("reparse point", exception.Message, StringComparison.OrdinalIgnoreCase);
@@ -118,7 +120,7 @@ public sealed class FileSystemAccessBoundaryTests
         }
 
         var exception = Assert.Throws<IOException>(() =>
-            FileSystemAccessBoundary.EnsureSecureFile(symbolicLinkPath));
+            FileSystemAccessBoundary.EnsureSecureFile(AbsolutePath.Parse(symbolicLinkPath)));
 
         Assert.Contains("reparse point", exception.Message, StringComparison.OrdinalIgnoreCase);
         Assert.Equal("target-contents", File.ReadAllText(targetPath));

@@ -1,5 +1,6 @@
 namespace MackySoft.Ucli.Tests;
 
+using MackySoft.FileSystem;
 using MackySoft.Ucli.UnityIntegration.Resolution;
 
 public sealed class UnityEditorInstallationSearchRootsTests
@@ -22,15 +23,15 @@ public sealed class UnityEditorInstallationSearchRootsTests
 
         if (OperatingSystem.IsMacOS())
         {
-            Assert.Contains("/Applications/Unity/Hub/Editor", roots, StringComparer.Ordinal);
-            Assert.Contains("/Applications/Unity/Editor", roots, StringComparer.Ordinal);
+            Assert.Contains(AbsolutePath.Parse("/Applications/Unity/Hub/Editor"), roots);
+            Assert.Contains(AbsolutePath.Parse("/Applications/Unity/Editor"), roots);
             return;
         }
 
         if (OperatingSystem.IsLinux())
         {
-            Assert.Contains("/opt/Unity/Hub/Editor", roots, StringComparer.Ordinal);
-            Assert.Contains("/opt/unity/hub/editor", roots, StringComparer.Ordinal);
+            Assert.Contains(AbsolutePath.Parse("/opt/Unity/Hub/Editor"), roots);
+            Assert.Contains(AbsolutePath.Parse("/opt/unity/hub/editor"), roots);
             return;
         }
 

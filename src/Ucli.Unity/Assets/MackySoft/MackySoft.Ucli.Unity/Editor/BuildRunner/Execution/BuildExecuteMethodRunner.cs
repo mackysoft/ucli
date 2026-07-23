@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Reflection;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity;
@@ -87,7 +88,7 @@ namespace MackySoft.Ucli.Unity.Build
 
             if (!TryCreateRunnerResultArtifact(
                     result,
-                    context.OutputDir,
+                    request.OutputPath,
                     out var runnerResult,
                     out var validationCode,
                     out var validationMessage))
@@ -116,8 +117,8 @@ namespace MackySoft.Ucli.Unity.Build
                 request.RunId,
                 projectIdentity.ProjectPath,
                 projectIdentity.ProjectFingerprint,
-                request.OutputPath,
-                request.ProfilePath,
+                request.OutputPath.Value,
+                request.ProfilePath.Value,
                 request.ProfileDigest,
                 new UcliResolvedBuildTarget(request.BuildTarget, resolvedInput.UnityBuildTarget),
                 scenes,
@@ -140,7 +141,7 @@ namespace MackySoft.Ucli.Unity.Build
 
         private static bool TryCreateRunnerResultArtifact (
             UcliBuildRunnerResult result,
-            string outputDirectory,
+            AbsolutePath outputDirectory,
             [NotNullWhen(true)] out IpcBuildRunnerResultArtifact? runnerResult,
             [NotNullWhen(false)] out UcliCode? errorCode,
             [NotNullWhen(false)] out string? errorMessage)
@@ -163,7 +164,7 @@ namespace MackySoft.Ucli.Unity.Build
                     return false;
                 }
 
-                if (!File.Exists(sourcePath) && !Directory.Exists(sourcePath))
+                if (!File.Exists(sourcePath.Value) && !Directory.Exists(sourcePath.Value))
                 {
                     errorCode = BuildErrorCodes.BuildRunnerResultInvalid;
                     errorMessage = "Build executeMethod runner result output does not exist.";

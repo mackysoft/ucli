@@ -8,6 +8,7 @@ using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.Authorization;
 using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.UnityIntegration.Ipc.Dispatch;
 using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 
@@ -213,7 +214,7 @@ internal sealed class DaemonGuiRebootstrapClient : IDaemonGuiRebootstrapClient
         int expectedProcessId,
         DateTimeOffset? expectedProcessStartedAtUtc,
         out IpcSessionToken? sessionToken,
-        out IpcEndpoint? endpoint)
+        out IpcTransportEndpoint? endpoint)
     {
         sessionToken = null;
         endpoint = null;
@@ -257,7 +258,16 @@ internal sealed class DaemonGuiRebootstrapClient : IDaemonGuiRebootstrapClient
         }
 
         sessionToken = manifest.SessionToken;
-        endpoint = manifest.Endpoint;
+        try
+        {
+            endpoint = IpcTransportEndpoint.FromContract(manifest.Endpoint);
+        }
+        catch (ArgumentException exception)
+        {
+            return ExecutionError.InternalError(
+                $"GUI supervisor manifest endpoint is invalid. {exception.Message}",
+                DaemonErrorCodes.DaemonEndpointNotRegistered);
+        }
 
         return null;
     }

@@ -1,3 +1,5 @@
+using MackySoft.FileSystem;
+
 namespace MackySoft.Ucli.Tests.Helpers.Git;
 
 internal sealed class RecordingGitCommandClient : IGitCommandClient
@@ -8,18 +10,18 @@ internal sealed class RecordingGitCommandClient : IGitCommandClient
 
     public GitCommandTextResult WorktreeListPorcelainResult { get; set; } = GitCommandTextResult.Success(null);
 
-    public List<string> CurrentWorktreeRootPaths { get; } = [];
+    public List<AbsolutePath> CurrentWorktreeRootPaths { get; } = [];
 
-    public List<string> CurrentProjectRelativePathPaths { get; } = [];
+    public List<AbsolutePath> CurrentProjectRelativePathPaths { get; } = [];
 
-    public List<string> WorktreeListPorcelainPaths { get; } = [];
+    public List<AbsolutePath> WorktreeListPorcelainPaths { get; } = [];
 
     public List<TimeSpan> CurrentWorktreeRootTimeouts { get; } = [];
 
-    public Func<string, TimeSpan, CancellationToken, ValueTask<GitCommandTextResult>>? CurrentWorktreeRootHandler { get; set; }
+    public Func<AbsolutePath, TimeSpan, CancellationToken, ValueTask<GitCommandTextResult>>? CurrentWorktreeRootHandler { get; set; }
 
     public ValueTask<GitCommandTextResult> GetCurrentWorktreeRootAsync (
-        string path,
+        AbsolutePath path,
         TimeSpan timeout,
         CancellationToken cancellationToken = default)
     {
@@ -34,7 +36,7 @@ internal sealed class RecordingGitCommandClient : IGitCommandClient
     }
 
     public ValueTask<GitCommandTextResult> GetCurrentProjectRelativePathAsync (
-        string path,
+        AbsolutePath path,
         TimeSpan timeout,
         CancellationToken cancellationToken = default)
     {
@@ -43,7 +45,7 @@ internal sealed class RecordingGitCommandClient : IGitCommandClient
     }
 
     public ValueTask<GitCommandTextResult> GetWorktreeListPorcelainAsync (
-        string path,
+        AbsolutePath path,
         TimeSpan timeout,
         CancellationToken cancellationToken = default)
     {

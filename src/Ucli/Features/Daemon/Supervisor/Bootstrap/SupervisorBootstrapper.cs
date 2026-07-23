@@ -1,9 +1,8 @@
 using System.Text.Json;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Cryptography;
-using MackySoft.Ucli.Infrastructure.Paths;
-using MackySoft.Ucli.Infrastructure.Storage;
 
 namespace MackySoft.Ucli.Features.Daemon.Supervisor.Bootstrap;
 
@@ -56,29 +55,14 @@ internal sealed class SupervisorBootstrapper
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The bootstrap result. </returns>
     public async ValueTask<SupervisorBootstrapResult> EnsureReadyAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         TimeSpan timeout,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        if (string.IsNullOrWhiteSpace(storageRoot))
-        {
-            return SupervisorBootstrapResult.Failure(ExecutionError.InvalidArgument(
-                "Supervisor bootstrap storage root must not be empty."));
-        }
+        ArgumentNullException.ThrowIfNull(storageRoot);
 
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
-        string normalizedStorageRoot;
-        try
-        {
-            normalizedStorageRoot = UcliStoragePathResolver.NormalizeStorageRootPath(storageRoot);
-        }
-        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception) || exception is ArgumentException)
-        {
-            return SupervisorBootstrapResult.Failure(ExecutionError.InvalidArgument(
-                $"Supervisor bootstrap path is invalid. {exception.Message}"));
-        }
-
         var deadline = ExecutionDeadline.Start(timeout, timeProvider);
 
         if (!deadline.TryGetRemainingTimeout(out var lockAcquireTimeout))
@@ -91,7 +75,7 @@ internal sealed class SupervisorBootstrapper
         try
         {
             lockHandle = await bootstrapLockProvider.AcquireAsync(
-                    normalizedStorageRoot,
+                    storageRoot,
                     lockAcquireTimeout,
                     cancellationToken)
                 .ConfigureAwait(false);
@@ -100,11 +84,6 @@ internal sealed class SupervisorBootstrapper
         {
             return SupervisorBootstrapResult.Failure(ExecutionError.Timeout(
                 $"Timed out while waiting for supervisor bootstrap lock. {exception.Message}"));
-        }
-        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
-        {
-            return SupervisorBootstrapResult.Failure(ExecutionError.InvalidArgument(
-                $"Supervisor bootstrap path is invalid. {exception.Message}"));
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
@@ -126,7 +105,7 @@ internal sealed class SupervisorBootstrapper
                 var isWithinLaunchGrace = latestLaunchTimestamp is long launchTimestamp
                     && IsWithinManifestPublicationGrace(launchTimestamp);
                 var manifestProbe = await ProbeManifestAvailabilityAsync(
-                        normalizedStorageRoot,
+                        storageRoot,
                         deadline,
                         isWithinLaunchGrace,
                         cancellationToken)
@@ -196,7 +175,7 @@ internal sealed class SupervisorBootstrapper
                     try
                     {
                         launchResult = await processManager.LaunchAsync(
-                                normalizedStorageRoot,
+                                storageRoot,
                                 launchCancellationScope.Token)
                             .ConfigureAwait(false);
                     }
@@ -270,7 +249,7 @@ internal sealed class SupervisorBootstrapper
     }
 
     private async ValueTask<ManifestAvailabilityProbe> ProbeManifestAvailabilityAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         ExecutionDeadline deadline,
         bool preserveUnreachableManifest,
         CancellationToken cancellationToken)
@@ -307,11 +286,6 @@ internal sealed class SupervisorBootstrapper
         {
             return ManifestAvailabilityProbe.Failure(ExecutionError.InternalError(
                 $"Failed to identify malformed supervisor manifest generation. {exception.Message}"));
-        }
-        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
-        {
-            return ManifestAvailabilityProbe.Failure(ExecutionError.InvalidArgument(
-                $"Supervisor manifest path is invalid. {exception.Message}"));
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
@@ -353,7 +327,7 @@ internal sealed class SupervisorBootstrapper
     }
 
     private async ValueTask<ManifestAvailabilityProbe> CleanupObservedRuntimeStateAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         SupervisorInstanceManifest expectedManifest,
         ExecutionDeadline deadline,
         CancellationToken cancellationToken)
@@ -375,11 +349,6 @@ internal sealed class SupervisorBootstrapper
                 .ConfigureAwait(false);
             return ToManifestAvailabilityProbe(cleanupStatus);
         }
-        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
-        {
-            return ManifestAvailabilityProbe.Failure(ExecutionError.InvalidArgument(
-                $"Supervisor runtime cleanup path is invalid. {exception.Message}"));
-        }
         catch (Exception exception) when (exception is TimeoutException or IOException or UnauthorizedAccessException)
         {
             return ManifestAvailabilityProbe.Pending();
@@ -387,7 +356,7 @@ internal sealed class SupervisorBootstrapper
     }
 
     private async ValueTask<ManifestAvailabilityProbe> CleanupMalformedRuntimeStateAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         Sha256Digest expectedArtifactIdentity,
         ExecutionDeadline deadline,
         CancellationToken cancellationToken)
@@ -408,11 +377,6 @@ internal sealed class SupervisorBootstrapper
                     cancellationToken)
                 .ConfigureAwait(false);
             return ToManifestAvailabilityProbe(cleanupStatus);
-        }
-        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
-        {
-            return ManifestAvailabilityProbe.Failure(ExecutionError.InvalidArgument(
-                $"Supervisor runtime cleanup path is invalid. {exception.Message}"));
         }
         catch (Exception exception) when (exception is TimeoutException or IOException or UnauthorizedAccessException)
         {

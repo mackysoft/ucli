@@ -1,6 +1,6 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Application.Shared.Unity.Resolution;
-using MackySoft.Ucli.Infrastructure.Paths;
 
 namespace MackySoft.Ucli.UnityIntegration.Resolution;
 
@@ -12,7 +12,7 @@ internal sealed class UnityVersionResolver : IUnityVersionResolver
     /// <param name="preferredUnityVersion"> The preferred Unity version value. </param>
     /// <returns> The Unity-version resolution result. </returns>
     public UnityVersionResolutionResult Resolve (
-        string projectPath,
+        AbsolutePath projectPath,
         string? preferredUnityVersion)
     {
         if (!string.IsNullOrWhiteSpace(preferredUnityVersion))
@@ -20,25 +20,11 @@ internal sealed class UnityVersionResolver : IUnityVersionResolver
             return UnityVersionResolutionResult.Success(preferredUnityVersion.Trim());
         }
 
-        if (string.IsNullOrWhiteSpace(projectPath))
+        var projectVersionPath = UnityProjectVersionFileReader.GetProjectVersionPath(projectPath);
+        if (!File.Exists(projectVersionPath.Value))
         {
             return UnityVersionResolutionResult.Failure(ExecutionError.InvalidArgument(
-                "Unity project path must not be null, empty, or whitespace."));
-        }
-
-        var projectPathResult = PathNormalizer.TryNormalizeFullPath(projectPath);
-        if (!projectPathResult.IsSuccess)
-        {
-            return UnityVersionResolutionResult.Failure(ExecutionError.InvalidArgument(
-                $"Unity project path is invalid: {projectPath}"));
-        }
-
-        var normalizedProjectPath = projectPathResult.FullPath!;
-        var projectVersionPath = UnityProjectVersionFileReader.GetProjectVersionPath(normalizedProjectPath);
-        if (!File.Exists(projectVersionPath))
-        {
-            return UnityVersionResolutionResult.Failure(ExecutionError.InvalidArgument(
-                $"ProjectVersion.txt does not exist: {projectVersionPath}"));
+                $"ProjectVersion.txt does not exist: {projectVersionPath.Value}"));
         }
 
         var readResult = UnityProjectVersionFileReader.ReadEditorVersion(projectVersionPath);
@@ -50,13 +36,7 @@ internal sealed class UnityVersionResolver : IUnityVersionResolver
         if (readResult.Status == UnityProjectVersionFileReader.ReadStatus.MissingEditorVersion)
         {
             return UnityVersionResolutionResult.Failure(ExecutionError.InvalidArgument(
-                $"m_EditorVersion is missing or invalid in: {projectVersionPath}"));
-        }
-
-        if (readResult.Status == UnityProjectVersionFileReader.ReadStatus.PathInvalid)
-        {
-            return UnityVersionResolutionResult.Failure(ExecutionError.InvalidArgument(
-                $"ProjectVersion.txt path is invalid: {projectVersionPath}. {readResult.ErrorMessage}"));
+                $"m_EditorVersion is missing or invalid in: {projectVersionPath.Value}"));
         }
 
         return UnityVersionResolutionResult.Failure(ExecutionError.InternalError(

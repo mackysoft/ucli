@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Hosting.Composition.Common;
 using MackySoft.Ucli.Hosting.Supervisor;
@@ -32,24 +33,24 @@ public sealed class InternalSupervisorExecutionRunnerTests
         using var secondServiceProvider = InternalSupervisorExecutionRunner.BuildServiceProvider();
         var firstHost = firstServiceProvider.GetRequiredService<SupervisorHost>();
         var secondHost = secondServiceProvider.GetRequiredService<SupervisorHost>();
-        var manifestPath = UcliStoragePathResolver.ResolveSupervisorManifestPath(scope.FullPath);
+        var manifestPath = UcliStoragePathResolver.ResolveSupervisorManifestPath(AbsolutePath.Parse(scope.FullPath));
         using var firstHostCancellation = new CancellationTokenSource();
-        var firstHostTask = firstHost.RunAsync(scope.FullPath, firstHostCancellation.Token);
+        var firstHostTask = firstHost.RunAsync(AbsolutePath.Parse(scope.FullPath), firstHostCancellation.Token);
 
         try
         {
             await WaitForFileExistsAsync(manifestPath, AsyncTestTimeout);
-            var firstManifestJson = await File.ReadAllTextAsync(manifestPath, CancellationToken.None);
+            var firstManifestJson = await File.ReadAllTextAsync(manifestPath.Value, CancellationToken.None);
 
             var secondExitCode = await secondHost
-                .RunAsync(scope.FullPath, CancellationToken.None)
+                .RunAsync(AbsolutePath.Parse(scope.FullPath), CancellationToken.None)
                 .WaitAsync(AsyncTestTimeout);
 
             Assert.Equal(1, secondExitCode);
             Assert.False(firstHostTask.IsCompleted);
             Assert.Equal(
                 firstManifestJson,
-                await File.ReadAllTextAsync(manifestPath, CancellationToken.None));
+                await File.ReadAllTextAsync(manifestPath.Value, CancellationToken.None));
         }
         finally
         {
@@ -68,16 +69,16 @@ public sealed class InternalSupervisorExecutionRunnerTests
         var host = serviceProvider.GetRequiredService<SupervisorHost>();
         var cleanupTarget = serviceProvider
             .GetRequiredService<SupervisorEndpointResolver>()
-            .ResolveUnixSocketCleanupTargetOrNull(scope.FullPath);
-        var manifestPath = UcliStoragePathResolver.ResolveSupervisorManifestPath(scope.FullPath);
-        var ownershipLockPath = UcliStoragePathResolver.ResolveSupervisorRuntimeOwnershipLockPath(scope.FullPath);
+            .ResolveUnixSocketCleanupTargetOrNull(AbsolutePath.Parse(scope.FullPath));
+        var manifestPath = UcliStoragePathResolver.ResolveSupervisorManifestPath(AbsolutePath.Parse(scope.FullPath));
+        var ownershipLockPath = UcliStoragePathResolver.ResolveSupervisorRuntimeOwnershipLockPath(AbsolutePath.Parse(scope.FullPath));
         using var hostCancellation = new CancellationTokenSource();
-        var hostTask = host.RunAsync(scope.FullPath, hostCancellation.Token);
+        var hostTask = host.RunAsync(AbsolutePath.Parse(scope.FullPath), hostCancellation.Token);
 
         await WaitForFileExistsAsync(manifestPath, AsyncTestTimeout);
         if (cleanupTarget is not null)
         {
-            Assert.True(File.Exists(cleanupTarget.SocketPath));
+            Assert.True(File.Exists(cleanupTarget.SocketPath.Value));
         }
 
         var ownershipWaitTask = FileExclusiveLock.AcquireAsync(
@@ -92,10 +93,10 @@ public sealed class InternalSupervisorExecutionRunnerTests
         using var successorOwnership = await ownershipWaitTask.WaitAsync(AsyncTestTimeout);
 
         Assert.Equal(1, exitCode);
-        Assert.False(File.Exists(manifestPath));
+        Assert.False(File.Exists(manifestPath.Value));
         if (cleanupTarget is not null)
         {
-            Assert.False(File.Exists(cleanupTarget.SocketPath));
+            Assert.False(File.Exists(cleanupTarget.SocketPath.Value));
         }
 
         Assert.Empty(processManager.ReleaseInvocations);
@@ -115,7 +116,7 @@ public sealed class InternalSupervisorExecutionRunnerTests
                 Assert.Throws<IOException>(() =>
                 {
                     using var competingLock = new FileStream(
-                        bootstrapLockPath,
+                        bootstrapLockPath.Value,
                         FileMode.OpenOrCreate,
                         FileAccess.ReadWrite,
                         FileShare.None);
@@ -125,8 +126,8 @@ public sealed class InternalSupervisorExecutionRunnerTests
         };
         using var serviceProvider = BuildServiceProvider(timeProvider, processManager, manifestStore: null);
         var host = serviceProvider.GetRequiredService<SupervisorHost>();
-        var manifestPath = UcliStoragePathResolver.ResolveSupervisorManifestPath(scope.FullPath);
-        var hostTask = host.RunAsync(scope.FullPath, CancellationToken.None);
+        var manifestPath = UcliStoragePathResolver.ResolveSupervisorManifestPath(AbsolutePath.Parse(scope.FullPath));
+        var hostTask = host.RunAsync(AbsolutePath.Parse(scope.FullPath), CancellationToken.None);
 
         await WaitForFileExistsAsync(manifestPath, AsyncTestTimeout);
         await timeProvider.WaitForTimerDueWithinAsync(TimeSpan.FromSeconds(1)).WaitAsync(AsyncTestTimeout);
@@ -135,9 +136,9 @@ public sealed class InternalSupervisorExecutionRunnerTests
         var exitCode = await hostTask.WaitAsync(AsyncTestTimeout);
 
         Assert.Equal(0, exitCode);
-        Assert.False(File.Exists(manifestPath));
+        Assert.False(File.Exists(manifestPath.Value));
         var releaseInvocation = Assert.Single(processManager.ReleaseInvocations);
-        Assert.Equal(UcliStoragePathResolver.NormalizeStorageRootPath(scope.FullPath), releaseInvocation.StorageRoot);
+        Assert.Equal(AbsolutePath.Parse(scope.FullPath), releaseInvocation.StorageRoot);
         Assert.Equal(CancellationToken.None, releaseInvocation.CancellationToken);
     }
 
@@ -151,21 +152,21 @@ public sealed class InternalSupervisorExecutionRunnerTests
         using var serviceProvider = BuildServiceProvider(timeProvider, processManager, manifestStore: null);
         var host = serviceProvider.GetRequiredService<SupervisorHost>();
         var manifestStore = serviceProvider.GetRequiredService<SupervisorManifestStore>();
-        var manifestPath = UcliStoragePathResolver.ResolveSupervisorManifestPath(scope.FullPath);
-        var hostTask = host.RunAsync(scope.FullPath, CancellationToken.None);
+        var manifestPath = UcliStoragePathResolver.ResolveSupervisorManifestPath(AbsolutePath.Parse(scope.FullPath));
+        var hostTask = host.RunAsync(AbsolutePath.Parse(scope.FullPath), CancellationToken.None);
 
         await WaitForFileExistsAsync(manifestPath, AsyncTestTimeout);
         var publishedManifest = await manifestStore.ReadOrNullAsync(
-                scope.FullPath,
+                AbsolutePath.Parse(scope.FullPath),
                 AsyncTestTimeout,
                 CancellationToken.None)
             ?? throw new InvalidOperationException("Published supervisor manifest was not found.");
         var replacementManifest = new SupervisorInstanceManifest(
             publishedManifest.ProcessId,
             IpcSessionTokenTestFactory.CreateFromDiscriminator(99),
-            publishedManifest.Endpoint,
+            publishedManifest.TransportEndpoint,
             publishedManifest.IssuedAtUtc.AddTicks(1));
-        await manifestStore.WriteAsync(scope.FullPath, replacementManifest, CancellationToken.None);
+        await manifestStore.WriteAsync(AbsolutePath.Parse(scope.FullPath), replacementManifest, CancellationToken.None);
         await timeProvider.WaitForTimerDueWithinAsync(TimeSpan.FromSeconds(1)).WaitAsync(AsyncTestTimeout);
         timeProvider.Advance(SupervisorConstants.IdleShutdownDelay);
 
@@ -174,7 +175,7 @@ public sealed class InternalSupervisorExecutionRunnerTests
         Assert.Equal(0, exitCode);
         Assert.Equal(
             replacementManifest,
-            await manifestStore.ReadOrNullAsync(scope.FullPath, AsyncTestTimeout, CancellationToken.None));
+            await manifestStore.ReadOrNullAsync(AbsolutePath.Parse(scope.FullPath), AsyncTestTimeout, CancellationToken.None));
         Assert.Empty(processManager.ReleaseInvocations);
     }
 
@@ -190,10 +191,10 @@ public sealed class InternalSupervisorExecutionRunnerTests
         var firstHost = firstServiceProvider.GetRequiredService<SupervisorHost>();
         var successorHost = successorServiceProvider.GetRequiredService<SupervisorHost>();
         var bootstrapLockProvider = firstServiceProvider.GetRequiredService<SupervisorBootstrapLockProvider>();
-        var manifestPath = UcliStoragePathResolver.ResolveSupervisorManifestPath(scope.FullPath);
+        var manifestPath = UcliStoragePathResolver.ResolveSupervisorManifestPath(AbsolutePath.Parse(scope.FullPath));
         using var firstCancellation = new CancellationTokenSource();
         using var successorCancellation = new CancellationTokenSource();
-        var firstHostTask = firstHost.RunAsync(scope.FullPath, firstCancellation.Token);
+        var firstHostTask = firstHost.RunAsync(AbsolutePath.Parse(scope.FullPath), firstCancellation.Token);
         Task<int>? successorHostTask = null;
         IAsyncDisposable? bootstrapLock = null;
 
@@ -201,7 +202,7 @@ public sealed class InternalSupervisorExecutionRunnerTests
         {
             await WaitForFileExistsAsync(manifestPath, AsyncTestTimeout);
             bootstrapLock = await bootstrapLockProvider.AcquireAsync(
-                scope.FullPath,
+                AbsolutePath.Parse(scope.FullPath),
                 AsyncTestTimeout,
                 CancellationToken.None);
             await timeProvider.WaitForTimerDueWithinAsync(TimeSpan.FromSeconds(1)).WaitAsync(AsyncTestTimeout);
@@ -209,7 +210,7 @@ public sealed class InternalSupervisorExecutionRunnerTests
             await WaitForFileMissingAsync(manifestPath, AsyncTestTimeout);
             Assert.False(firstHostTask.IsCompleted);
 
-            successorHostTask = successorHost.RunAsync(scope.FullPath, successorCancellation.Token);
+            successorHostTask = successorHost.RunAsync(AbsolutePath.Parse(scope.FullPath), successorCancellation.Token);
             await WaitForFileExistsAsync(manifestPath, AsyncTestTimeout);
             await timeProvider.WaitForTimerDueWithinAsync(TimeSpan.FromMilliseconds(50)).WaitAsync(AsyncTestTimeout);
             await bootstrapLock.DisposeAsync();
@@ -253,9 +254,9 @@ public sealed class InternalSupervisorExecutionRunnerTests
             deleteIfExists: static _ => { });
         using var serviceProvider = BuildServiceProvider(TimeProvider.System, processManager, manifestStore);
         var host = serviceProvider.GetRequiredService<SupervisorHost>();
-        var ownershipLockPath = UcliStoragePathResolver.ResolveSupervisorRuntimeOwnershipLockPath(scope.FullPath);
+        var ownershipLockPath = UcliStoragePathResolver.ResolveSupervisorRuntimeOwnershipLockPath(AbsolutePath.Parse(scope.FullPath));
         using var hostCancellation = new CancellationTokenSource();
-        var hostTask = host.RunAsync(scope.FullPath, hostCancellation.Token);
+        var hostTask = host.RunAsync(AbsolutePath.Parse(scope.FullPath), hostCancellation.Token);
 
         try
         {
@@ -267,7 +268,7 @@ public sealed class InternalSupervisorExecutionRunnerTests
 
             Assert.Equal(1, exitCode);
             var releaseInvocation = Assert.Single(processManager.ReleaseInvocations);
-            Assert.Equal(UcliStoragePathResolver.NormalizeStorageRootPath(scope.FullPath), releaseInvocation.StorageRoot);
+            Assert.Equal(AbsolutePath.Parse(scope.FullPath), releaseInvocation.StorageRoot);
         }
         finally
         {
@@ -299,7 +300,7 @@ public sealed class InternalSupervisorExecutionRunnerTests
         using var serviceProvider = BuildServiceProvider(TimeProvider.System, processManager, manifestStore);
         var host = serviceProvider.GetRequiredService<SupervisorHost>();
 
-        var exitCode = await host.RunAsync(scope.FullPath, CancellationToken.None).WaitAsync(AsyncTestTimeout);
+        var exitCode = await host.RunAsync(AbsolutePath.Parse(scope.FullPath), CancellationToken.None).WaitAsync(AsyncTestTimeout);
 
         Assert.Equal(1, exitCode);
         Assert.Single(processManager.ReleaseInvocations);
@@ -323,13 +324,13 @@ public sealed class InternalSupervisorExecutionRunnerTests
     }
 
     private static async Task WaitForFileExistsAsync (
-        string path,
+        AbsolutePath path,
         TimeSpan timeout)
     {
         var waitElapsedTime = Stopwatch.StartNew();
         while (waitElapsedTime.Elapsed < timeout)
         {
-            if (File.Exists(path))
+            if (File.Exists(path.Value))
             {
                 return;
             }
@@ -337,17 +338,17 @@ public sealed class InternalSupervisorExecutionRunnerTests
             await Task.Delay(TimeSpan.FromMilliseconds(5));
         }
 
-        Assert.Fail($"File was not created within {timeout}: {path}");
+        Assert.Fail($"File was not created within {timeout}: {path.Value}");
     }
 
     private static async Task WaitForFileMissingAsync (
-        string path,
+        AbsolutePath path,
         TimeSpan timeout)
     {
         var waitElapsedTime = Stopwatch.StartNew();
         while (waitElapsedTime.Elapsed < timeout)
         {
-            if (!File.Exists(path))
+            if (!File.Exists(path.Value))
             {
                 return;
             }
@@ -355,6 +356,6 @@ public sealed class InternalSupervisorExecutionRunnerTests
             await Task.Delay(TimeSpan.FromMilliseconds(5));
         }
 
-        Assert.Fail($"File was not removed within {timeout}: {path}");
+        Assert.Fail($"File was not removed within {timeout}: {path.Value}");
     }
 }

@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Shared.Unity.ProjectLock;
 
 namespace MackySoft.Ucli.Tests.Helpers.Unity;
@@ -13,7 +14,7 @@ internal sealed class StubUnityProjectLockOwnerProbe : IUnityProjectLockOwnerPro
 
     public ValueTask<UnityProjectLockOwnerProbeResult> ProbeOwnerAsync (
         ResolvedUnityProjectContext unityProject,
-        string lockFilePath,
+        AbsolutePath lockFilePath,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();

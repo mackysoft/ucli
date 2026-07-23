@@ -38,7 +38,7 @@ public sealed class ExecuteResponseConverterTests
         var response = CreateResponse(new IpcExecuteResponse(
             [],
             new IpcProjectIdentity(
-                projectPath: Path.Combine(ExpectedProject.RepositoryRoot, "AnotherUnityProject"),
+                projectPath: Path.Combine(ExpectedProject.RepositoryRoot.Value, "AnotherUnityProject"),
                 projectFingerprint: responseProjectFingerprint,
                 unityVersion: "6000.1.4f1"),
             planToken: null,
@@ -64,7 +64,7 @@ public sealed class ExecuteResponseConverterTests
         var response = CreateResponse(new IpcExecuteResponse(
             [],
             new IpcProjectIdentity(
-                projectPath: Path.Combine(ExpectedProject.RepositoryRoot, "AnotherUnityProject"),
+                projectPath: Path.Combine(ExpectedProject.RepositoryRoot.Value, "AnotherUnityProject"),
                 projectFingerprint: ExpectedProject.ProjectFingerprint,
                 unityVersion: ExpectedProject.UnityVersion),
             planToken: null,
@@ -87,7 +87,7 @@ public sealed class ExecuteResponseConverterTests
         var response = CreateResponse(new IpcExecuteResponse(
             [],
             new IpcProjectIdentity(
-                projectPath: ExpectedProject.UnityProjectRoot,
+                projectPath: ExpectedProject.UnityProjectRoot.Value,
                 projectFingerprint: ExpectedProject.ProjectFingerprint,
                 unityVersion: "different-version"),
             planToken: null,

@@ -79,10 +79,10 @@ public sealed class ReadIndexFreshnessEvaluatorTests
         var evaluator = new ReadIndexFreshnessEvaluator(new RecordingReadIndexInputFingerprintProvider(), sceneHashProvider);
         var unityProject = ProjectContextTestFactory.CreateUnknownVersionUnityProject();
         var scenePath = new SceneAssetPath("Assets/Scenes/Main.unity");
+        var sourcePaths = SceneTreeLiteSourcePaths.Create(unityProject.UnityProjectRoot, scenePath);
 
         var result = await evaluator.ObserveSceneTreeLiteAsync(
-            unityProject,
-            scenePath,
+            sourcePaths,
             Sha256DigestTestFactory.Compute("scene-hash"),
             CancellationToken.None);
 

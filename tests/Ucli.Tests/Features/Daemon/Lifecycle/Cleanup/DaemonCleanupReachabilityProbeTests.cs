@@ -46,7 +46,7 @@ public sealed class DaemonCleanupReachabilityProbeTests
         var expectedEndpoint = UcliIpcEndpointResolver.ResolveDaemonEndpoint(
             unityProject.RepositoryRoot,
             unityProject.ProjectFingerprint);
-        Assert.Equal(expectedEndpoint, Assert.Single(transportClient.Endpoints));
+        Assert.Equal(expectedEndpoint.Contract, Assert.Single(transportClient.Endpoints));
         Assert.Equal(string.Empty, Assert.Single(transportClient.Requests).SessionToken);
     }
 
@@ -74,7 +74,7 @@ public sealed class DaemonCleanupReachabilityProbeTests
         var expectedEndpoint = UcliIpcEndpointResolver.ResolveDaemonEndpoint(
             unityProject.RepositoryRoot,
             unityProject.ProjectFingerprint);
-        Assert.Equal(expectedEndpoint, Assert.Single(transportClient.Endpoints));
+        Assert.Equal(expectedEndpoint.Contract, Assert.Single(transportClient.Endpoints));
         Assert.Equal(
             sessionToken.GetEncodedValue(),
             Assert.Single(transportClient.Requests).SessionToken);

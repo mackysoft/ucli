@@ -1,5 +1,6 @@
 using System.Buffers;
 using System.Runtime.InteropServices;
+using MackySoft.FileSystem;
 
 namespace MackySoft.Ucli.Infrastructure.Storage;
 
@@ -23,12 +24,12 @@ internal static class FileSystemNodeClassifier
     /// <param name="attributes"> The attributes already read for <paramref name="filePath" />. </param>
     /// <returns> <see langword="true" /> when the node is a regular file; otherwise <see langword="false" />. </returns>
     public static bool IsRegularFile (
-        string filePath,
+        AbsolutePath filePath,
         FileAttributes attributes)
     {
-        if (string.IsNullOrWhiteSpace(filePath))
+        if (filePath is null)
         {
-            throw new ArgumentException("File path must not be empty.", nameof(filePath));
+            throw new ArgumentNullException(nameof(filePath));
         }
 
         if ((attributes & (FileAttributes.Directory | FileAttributes.ReparsePoint)) != 0)
@@ -62,14 +63,14 @@ internal static class FileSystemNodeClassifier
     }
 
     private static bool IsPosixRegularFile (
-        string filePath,
+        AbsolutePath filePath,
         int fileModeOffset,
         int bytes)
     {
         var buffer = ArrayPool<byte>.Shared.Rent(PosixFileStatusBufferSize);
         try
         {
-            if (LStat(filePath, buffer) != 0)
+            if (LStat(filePath.Value, buffer) != 0)
             {
                 throw new IOException($"File type could not be inspected: {filePath}. errno={Marshal.GetLastWin32Error()}");
             }

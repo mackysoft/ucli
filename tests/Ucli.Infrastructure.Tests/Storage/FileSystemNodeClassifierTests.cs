@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using MackySoft.FileSystem;
 using MackySoft.Tests;
 using MackySoft.Ucli.Infrastructure.Storage;
 
@@ -11,9 +12,9 @@ public sealed class FileSystemNodeClassifierTests
     public void IsRegularFile_WhenPathIsRegularFile_ReturnsTrue ()
     {
         using var scope = TestDirectories.CreateTempScope("infrastructure-storage", "node-regular-file");
-        var filePath = scope.WriteFile("artifact.bin", "content");
+        var filePath = AbsolutePath.Parse(scope.WriteFile("artifact.bin", "content"));
 
-        var result = FileSystemNodeClassifier.IsRegularFile(filePath, File.GetAttributes(filePath));
+        var result = FileSystemNodeClassifier.IsRegularFile(filePath, File.GetAttributes(filePath.Value));
 
         Assert.True(result);
     }
@@ -23,9 +24,9 @@ public sealed class FileSystemNodeClassifierTests
     public void IsRegularFile_WhenPathIsDirectory_ReturnsFalse ()
     {
         using var scope = TestDirectories.CreateTempScope("infrastructure-storage", "node-directory");
-        var directoryPath = scope.CreateDirectory("output");
+        var directoryPath = AbsolutePath.Parse(scope.CreateDirectory("output"));
 
-        var result = FileSystemNodeClassifier.IsRegularFile(directoryPath, File.GetAttributes(directoryPath));
+        var result = FileSystemNodeClassifier.IsRegularFile(directoryPath, File.GetAttributes(directoryPath.Value));
 
         Assert.False(result);
     }
@@ -35,14 +36,14 @@ public sealed class FileSystemNodeClassifierTests
     public void IsRegularFile_WhenPathIsSymbolicLink_ReturnsFalse ()
     {
         using var scope = TestDirectories.CreateTempScope("infrastructure-storage", "node-symlink");
-        var targetPath = scope.WriteFile("target.txt", "content");
-        var symbolicLinkPath = Path.Combine(scope.FullPath, "linked.txt");
-        if (!TestSymbolicLinks.TryCreateFile(symbolicLinkPath, targetPath))
+        var targetPath = AbsolutePath.Parse(scope.WriteFile("target.txt", "content"));
+        var symbolicLinkPath = AbsolutePath.Parse(Path.Combine(scope.FullPath, "linked.txt"));
+        if (!TestSymbolicLinks.TryCreateFile(symbolicLinkPath.Value, targetPath.Value))
         {
             return;
         }
 
-        var result = FileSystemNodeClassifier.IsRegularFile(symbolicLinkPath, File.GetAttributes(symbolicLinkPath));
+        var result = FileSystemNodeClassifier.IsRegularFile(symbolicLinkPath, File.GetAttributes(symbolicLinkPath.Value));
 
         Assert.False(result);
     }
@@ -57,20 +58,20 @@ public sealed class FileSystemNodeClassifierTests
         }
 
         using var scope = TestDirectories.CreateTempScope("infrastructure-storage", "node-fifo");
-        var fifoPath = Path.Combine(scope.FullPath, "pipe");
+        var fifoPath = AbsolutePath.Parse(Path.Combine(scope.FullPath, "pipe"));
         if (!TryCreateFifo(fifoPath))
         {
             return;
         }
 
-        var result = FileSystemNodeClassifier.IsRegularFile(fifoPath, File.GetAttributes(fifoPath));
+        var result = FileSystemNodeClassifier.IsRegularFile(fifoPath, File.GetAttributes(fifoPath.Value));
 
         Assert.False(result);
     }
 
-    private static bool TryCreateFifo (string path)
+    private static bool TryCreateFifo (AbsolutePath path)
     {
-        return MkFifo(path, Convert.ToUInt32("600", 8)) == 0;
+        return MkFifo(path.Value, Convert.ToUInt32("600", 8)) == 0;
     }
 
     [DllImport("libc", SetLastError = true, EntryPoint = "mkfifo")]

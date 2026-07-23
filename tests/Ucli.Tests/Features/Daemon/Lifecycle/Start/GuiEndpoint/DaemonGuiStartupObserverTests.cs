@@ -1,6 +1,7 @@
 namespace MackySoft.Ucli.Tests.Daemon;
 
 using MackySoft.Tests;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Identity;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Logs;
@@ -48,7 +49,7 @@ public sealed class DaemonGuiStartupObserverTests
             ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-gui-observer-session")),
             processId: 4321,
             processStartedAtUtc: processStartedAtUtc,
-            unityLogPath: "/tmp/unity.log",
+            unityLogPath: AbsolutePath.Parse(Path.Combine(Path.GetTempPath(), "unity.log")),
             deadline: ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), TimeProvider.System),
             cancellationToken: CancellationToken.None);
 
@@ -84,7 +85,7 @@ public sealed class DaemonGuiStartupObserverTests
             ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-gui-observer-session")),
             processId: 4321,
             processStartedAtUtc: DateTimeOffset.UtcNow,
-            unityLogPath: "/tmp/unity.log",
+            unityLogPath: AbsolutePath.Parse(Path.Combine(Path.GetTempPath(), "unity.log")),
             deadline: ExecutionDeadline.Start(TimeSpan.FromSeconds(5), timeProvider),
             cancellationToken: CancellationToken.None);
 
@@ -120,7 +121,7 @@ public sealed class DaemonGuiStartupObserverTests
             ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-gui-observer-compiler")),
             processId: Environment.ProcessId,
             processStartedAtUtc: processStartedAtUtc,
-            unityLogPath: "/tmp/unity.log",
+            unityLogPath: AbsolutePath.Parse(Path.Combine(Path.GetTempPath(), "unity.log")),
             deadline: ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), TimeProvider.System),
             cancellationToken: CancellationToken.None);
 
@@ -203,7 +204,7 @@ public sealed class DaemonGuiStartupObserverTests
             ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create($"fingerprint-gui-observer-{expectedReason}")),
             processId: Environment.ProcessId,
             processStartedAtUtc: processStartedAtUtc,
-            unityLogPath: "/tmp/unity.log",
+            unityLogPath: AbsolutePath.Parse(Path.Combine(Path.GetTempPath(), "unity.log")),
             deadline: ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), TimeProvider.System),
             cancellationToken: CancellationToken.None);
 
@@ -244,7 +245,7 @@ public sealed class DaemonGuiStartupObserverTests
             ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-gui-observer-exit")),
             processId: int.MaxValue,
             processStartedAtUtc: processStartedAtUtc,
-            unityLogPath: "/tmp/unity.log",
+            unityLogPath: AbsolutePath.Parse(Path.Combine(Path.GetTempPath(), "unity.log")),
             deadline: ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), TimeProvider.System),
             cancellationToken: CancellationToken.None);
 
@@ -288,7 +289,7 @@ public sealed class DaemonGuiStartupObserverTests
             ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-gui-observer-exit-with-log")),
             processId: int.MaxValue,
             processStartedAtUtc: processStartedAtUtc,
-            unityLogPath: "/tmp/unity.log",
+            unityLogPath: AbsolutePath.Parse(Path.Combine(Path.GetTempPath(), "unity.log")),
             deadline: ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), TimeProvider.System),
             cancellationToken: CancellationToken.None);
 
@@ -322,7 +323,7 @@ public sealed class DaemonGuiStartupObserverTests
             ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-gui-observer-unclassified-timeout")),
             processId: Environment.ProcessId,
             processStartedAtUtc: new DateTimeOffset(2026, 03, 12, 0, 0, 1, TimeSpan.Zero),
-            unityLogPath: "/tmp/unity.log",
+            unityLogPath: AbsolutePath.Parse(Path.Combine(Path.GetTempPath(), "unity.log")),
             deadline: ExecutionDeadline.Start(TimeSpan.FromMilliseconds(10), timeProvider),
             cancellationToken: CancellationToken.None);
 

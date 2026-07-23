@@ -1,4 +1,5 @@
 using System.Text;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Infrastructure.Storage;
@@ -21,7 +22,7 @@ internal static class FileReadIndexArtifactReaderTestSupport
     }
 
     public static Guid EnsureCurrentGeneration (
-        string storageRoot,
+        AbsolutePath storageRoot,
         ProjectFingerprint fingerprint)
     {
         var pointerPath = UcliStoragePathResolver.ResolveReadIndexCurrentGenerationPath(storageRoot, fingerprint);
@@ -35,23 +36,26 @@ internal static class FileReadIndexArtifactReaderTestSupport
         Directory.CreateDirectory(UcliStoragePathResolver.ResolveReadIndexGenerationDirectory(
             storageRoot,
             fingerprint,
-            generationId));
+            generationId).Value);
         FileUtilities.WriteAllTextAtomically(pointerPath, generationId.ToString("N"));
         return generationId;
     }
 
     public static void WriteText (
-        string path,
+        AbsolutePath path,
         string contents)
     {
-        var directoryPath = Path.GetDirectoryName(path)
-            ?? throw new InvalidOperationException($"Directory path could not be resolved: {path}");
-        Directory.CreateDirectory(directoryPath);
-        File.WriteAllText(path, contents);
+        if (!path.TryGetParent(out var directoryPath))
+        {
+            throw new InvalidOperationException($"Directory path could not be resolved: {path.Value}");
+        }
+
+        Directory.CreateDirectory(directoryPath.Value);
+        File.WriteAllText(path.Value, contents);
     }
 
     public static ValidatedOpsCatalogEntry WriteOpsDescribe (
-        string storageRoot,
+        AbsolutePath storageRoot,
         ProjectFingerprint fingerprint,
         IndexOpEntryJsonContract operation,
         Sha256Digest sourceInputsHash)

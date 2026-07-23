@@ -38,18 +38,18 @@ internal sealed class TestRunMetaStore : ITestRunMetaStore
             RunId: session.RunId,
             StartedAt: session.StartedAtUtc.ToString("O", CultureInfo.InvariantCulture),
             FinishedAt: finishedAtUtc.ToString("O", CultureInfo.InvariantCulture),
-            ProjectPath: configuration.UnityProject.UnityProjectRoot,
+            ProjectPath: configuration.UnityProject.UnityProjectRoot.Value,
             UnityVersion: configuration.UnityVersion,
-            UnityEditorPath: configuration.UnityEditorPath,
+            UnityEditorPath: configuration.UnityEditorPath.Value,
             Mode: UnityExecutionModeCodec.ToValue(configuration.Mode),
             TestPlatform: TestRunPlatformCodec.ToValue(configuration.TestPlatform),
             TestFilter: configuration.TestFilter,
             TestCategories: configuration.TestCategories,
             AssemblyNames: configuration.AssemblyNames,
-            ArtifactsDir: session.Paths.ArtifactsDir);
+            ArtifactsDir: session.Paths.ArtifactsDir.Value);
 
         var json = JsonSerializer.Serialize(payload, SerializerOptions);
-        await File.WriteAllTextAsync(session.Paths.MetaJsonPath, json, cancellationToken).ConfigureAwait(false);
+        await File.WriteAllTextAsync(session.Paths.MetaJsonPath.Value, json, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary> Represents metadata payload for one test-run artifacts session. </summary>

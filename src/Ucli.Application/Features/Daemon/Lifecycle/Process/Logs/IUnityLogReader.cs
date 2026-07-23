@@ -1,3 +1,5 @@
+using MackySoft.FileSystem;
+
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Logs;
 
 /// <summary> Reads Unity batchmode log text segments from local storage. </summary>
@@ -13,7 +15,7 @@ internal interface IUnityLogReader
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The Unity log read result. </returns>
     ValueTask<UnityLogReadResult> ReadTailAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         ProjectFingerprint projectFingerprint,
         int maxBytes = DefaultMaxBytes,
         CancellationToken cancellationToken = default);

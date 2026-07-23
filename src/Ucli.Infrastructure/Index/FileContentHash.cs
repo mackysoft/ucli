@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts.Cryptography;
 
 namespace MackySoft.Ucli.Infrastructure.Index;
@@ -10,11 +11,16 @@ internal static class FileContentHash
     /// <param name="cancellationToken"> The cancellation token propagated by the caller. </param>
     /// <returns> The computed hash when the file can be read; otherwise <see langword="null" />. </returns>
     public static async ValueTask<Sha256Digest?> TryComputeFileHashAsync (
-        string filePath,
+        AbsolutePath filePath,
         CancellationToken cancellationToken = default)
     {
+        if (filePath is null)
+        {
+            throw new ArgumentNullException(nameof(filePath));
+        }
+
         cancellationToken.ThrowIfCancellationRequested();
-        if (!File.Exists(filePath))
+        if (!File.Exists(filePath.Value))
         {
             return null;
         }
@@ -22,7 +28,7 @@ internal static class FileContentHash
         byte[] bytes;
         try
         {
-            bytes = await File.ReadAllBytesAsync(filePath, cancellationToken).ConfigureAwait(false);
+            bytes = await File.ReadAllBytesAsync(filePath.Value, cancellationToken).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {

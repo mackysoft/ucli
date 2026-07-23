@@ -1,3 +1,5 @@
+using MackySoft.FileSystem;
+
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 
 /// <summary> Provides persistence access for daemon session metadata. </summary>
@@ -9,7 +11,7 @@ internal interface IDaemonSessionStore
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The daemon session read result. </returns>
     ValueTask<DaemonSessionReadResult> ReadAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         ProjectFingerprint projectFingerprint,
         CancellationToken cancellationToken = default);
 
@@ -19,7 +21,7 @@ internal interface IDaemonSessionStore
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The daemon session storage operation result. </returns>
     ValueTask<DaemonSessionStoreOperationResult> WriteAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         DaemonSession session,
         CancellationToken cancellationToken = default);
 
@@ -29,7 +31,7 @@ internal interface IDaemonSessionStore
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The daemon session storage operation result. </returns>
     ValueTask<DaemonSessionStoreOperationResult> DeleteAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         ProjectFingerprint projectFingerprint,
         CancellationToken cancellationToken = default);
 }

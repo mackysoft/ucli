@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Daemon;
@@ -9,6 +10,7 @@ using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Unity.Ipc;
+using MackySoft.Ucli.Unity.Project;
 using MackySoft.Ucli.Unity.Runtime;
 using NUnit.Framework;
 
@@ -41,6 +43,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var storageRoot = Path.Combine(
                 Path.GetTempPath(),
                 $"ucli-gui-host-generation-identity-tests-{Guid.NewGuid():N}");
+            var guardedStorageRoot = AbsolutePath.Parse(storageRoot);
             UnityGuiSessionRegistration registration = null;
 
             try
@@ -50,9 +53,12 @@ namespace MackySoft.Ucli.Unity.Tests
                 UnityEditorSessionStateStore.SetEditorInstanceIdForTests(OtherEditorInstanceId.ToString("N"));
 
                 using (var preparedSession = await UnityGuiSessionPersistence.PrepareAsync(
-                           storageRoot,
+                           guardedStorageRoot,
                            ProjectFingerprint,
-                           new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-gui-host-generation-identity"),
+                           UnityIpcEndpointBinding.Create(
+                               new IpcEndpoint(
+                                   IpcTransportKind.NamedPipe,
+                                   "ucli-gui-host-generation-identity")),
                            UnityGuiBootstrapSessionOptions.Create(null),
                            capturedEditorInstanceId,
                            UnityGuiSessionReplacementScope.EquivalentCurrentProcessSession,
@@ -64,7 +70,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 }
 
                 var lifecyclePersistence = new UnityLifecycleSidecarPersistence(
-                    storageRoot,
+                    guardedStorageRoot,
                     ProjectFingerprint,
                     capturedEditorInstanceId,
                     SidecarGenerationId,
@@ -86,7 +92,10 @@ namespace MackySoft.Ucli.Unity.Tests
                     CancellationToken.None);
 
                 var operationStore = FileRecoverableIpcOperationStore.Create(
-                    new IpcProjectIdentity(storageRoot, ProjectFingerprint, "6000.1.4f1"),
+                    new UnityHostProjectIdentity(
+                        AbsolutePath.Parse(storageRoot),
+                        ProjectFingerprint,
+                        "6000.1.4f1"),
                     capturedEditorInstanceId);
                 var requestId = Guid.Parse("7b6d4c17-1b8e-4f28-a2e6-123456789abc");
                 var operationWriteResult = await operationStore.WritePendingAsync(
@@ -104,12 +113,12 @@ namespace MackySoft.Ucli.Unity.Tests
 
                 var sessionContract = DaemonSessionJsonContractSerializer.Deserialize(
                     File.ReadAllText(UcliStoragePathResolver.ResolveSessionPath(
-                        storageRoot,
-                        ProjectFingerprint)));
+                        guardedStorageRoot,
+                        ProjectFingerprint).Value));
                 var lifecycleContract = DaemonLifecycleJsonContractSerializer.Deserialize(
                     File.ReadAllText(UcliStoragePathResolver.ResolveDaemonLifecyclePath(
-                        storageRoot,
-                        ProjectFingerprint)));
+                        guardedStorageRoot,
+                        ProjectFingerprint).Value));
                 Assert.That(operationWriteResult.IsSuccess, Is.True, operationWriteResult.ErrorMessage);
                 Assert.That(operationReadResult.IsSuccess, Is.True, operationReadResult.ErrorMessage);
                 Assert.That(sessionContract, Is.Not.Null);

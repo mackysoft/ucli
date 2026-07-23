@@ -12,7 +12,13 @@ internal sealed record ScreenshotArtifact
         long sizeBytes,
         DateTimeOffset createdAtUtc)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+        if (!RelativePathContract.IsNormalized(path))
+        {
+            throw new ArgumentException(
+                "Screenshot artifact path must be a normalized portable relative path.",
+                nameof(path));
+        }
+
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sizeBytes);
         if (createdAtUtc == default || createdAtUtc.Offset != TimeSpan.Zero)
         {

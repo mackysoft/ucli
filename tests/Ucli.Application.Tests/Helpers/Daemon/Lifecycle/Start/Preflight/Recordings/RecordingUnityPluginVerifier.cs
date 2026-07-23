@@ -1,3 +1,5 @@
+using MackySoft.FileSystem;
+
 namespace MackySoft.Ucli.Application.Tests;
 
 internal sealed class RecordingUnityPluginVerifier : IUnityPluginVerifier
@@ -6,7 +8,7 @@ internal sealed class RecordingUnityPluginVerifier : IUnityPluginVerifier
 
     public IReadOnlyList<Invocation> Invocations => invocations;
 
-    public Func<string, CancellationToken, ValueTask<UnityPluginVerificationResult>>? Handler { get; set; }
+    public Func<AbsolutePath, CancellationToken, ValueTask<UnityPluginVerificationResult>>? Handler { get; set; }
 
     public bool ObservedCancellation { get; private set; }
 
@@ -15,7 +17,7 @@ internal sealed class RecordingUnityPluginVerifier : IUnityPluginVerifier
     public TaskCompletionSource? Started { get; set; }
 
     public ValueTask<UnityPluginVerificationResult> VerifyAsync (
-        string unityProjectRoot,
+        AbsolutePath unityProjectRoot,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -32,7 +34,7 @@ internal sealed class RecordingUnityPluginVerifier : IUnityPluginVerifier
     }
 
     private async ValueTask<UnityPluginVerificationResult> VerifyCoreAsync (
-        string unityProjectRoot,
+        AbsolutePath unityProjectRoot,
         CancellationToken cancellationToken)
     {
         try
@@ -48,6 +50,6 @@ internal sealed class RecordingUnityPluginVerifier : IUnityPluginVerifier
     }
 
     internal readonly record struct Invocation (
-        string UnityProjectRoot,
+        AbsolutePath UnityProjectRoot,
         CancellationToken CancellationToken);
 }

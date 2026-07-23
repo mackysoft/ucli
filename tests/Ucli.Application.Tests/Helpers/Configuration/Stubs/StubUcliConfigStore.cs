@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Shared.Configuration;
 
 namespace MackySoft.Ucli.Application.Tests;
@@ -16,13 +17,15 @@ internal sealed class StubUcliConfigStore : IUcliConfigStore
         this.loadResult = loadResult;
     }
 
-    public string GetConfigPath (string storageRoot)
+    public AbsolutePath GetConfigPath (AbsolutePath storageRoot)
     {
-        return Path.Combine(storageRoot, ".ucli", "config.json");
+        return ContainedPath.Create(
+            storageRoot,
+            RootRelativePath.Parse(".ucli/config.json")).Target;
     }
 
     public ValueTask<UcliConfigLoadResult> LoadAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -30,7 +33,7 @@ internal sealed class StubUcliConfigStore : IUcliConfigStore
     }
 
     public ValueTask<UcliConfigSaveResult> SaveAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         UcliConfig config,
         CancellationToken cancellationToken = default)
     {

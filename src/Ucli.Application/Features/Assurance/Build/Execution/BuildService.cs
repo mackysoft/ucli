@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Artifacts;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Contracts;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Metadata;
@@ -162,11 +163,11 @@ internal sealed class BuildService : IBuildService
         }
 
         var paths = prepareResult.Paths!;
-        IpcBuildOutputLayout? outputLayout = null;
+        BuildPipelineOutputLayout? outputLayout = null;
         if (profile.Inputs is ResolvedBuildInputs.Explicit explicitInputs
             && profile.Runner is ResolvedBuildRunner.BuildPipeline)
         {
-            if (!IpcBuildOutputLayoutResolver.TryResolve(
+            if (!BuildPipelineOutputLayoutResolver.TryResolve(
                 paths.RunnerOutputDirectory,
                 explicitInputs.BuildTarget,
                 androidAppBundle: false,
@@ -179,7 +180,6 @@ internal sealed class BuildService : IBuildService
 
             var outputLayoutPrepareResult = artifactStore.PrepareBuildPipelineOutputLayout(
                 paths,
-                explicitInputs.BuildTarget,
                 outputLayout!);
             if (!outputLayoutPrepareResult.IsSuccess)
             {
@@ -189,7 +189,7 @@ internal sealed class BuildService : IBuildService
 
         var runnerInvocationResult = ResolveRunnerInvocation(
             profile,
-            profileReadResult.DisplayPath!,
+            profileReadResult.Path!,
             runId,
             paths.RunnerOutputDirectory,
             context.UnityProject.UnityProjectRoot,
@@ -209,7 +209,7 @@ internal sealed class BuildService : IBuildService
         var runnerInvocation = runnerInvocationResult.Invocation!;
         var request = CreateBuildRunRequest(
             profile,
-            profileReadResult.DisplayPath!,
+            profileReadResult.Path!,
             paths,
             outputLayout,
             runId,
@@ -263,7 +263,8 @@ internal sealed class BuildService : IBuildService
             runId,
             context.UnityProject.ProjectFingerprint,
             profile,
-            paths.RunnerOutputDirectory);
+            paths.RunnerOutputDirectory,
+            outputLayout);
         if (!responseResult.IsSuccess)
         {
             var dirtyState = responseResult.Error!.Code == BuildErrorCodes.BuildDirtyStatePresent
@@ -304,7 +305,7 @@ internal sealed class BuildService : IBuildService
             var terminalResult = GetTerminalResult(buildResponse);
             var buildReportSource = ResolveBuildReportSource(buildResponse);
 
-            var resolvedOutputLayout = buildResponse.OutputLayout ?? outputLayout;
+            var resolvedOutputLayout = responseResult.OutputLayout ?? outputLayout;
             var outputSourcesResult = ResolveOutputSources(
                 buildResponse,
                 resolvedOutputLayout,
@@ -333,7 +334,7 @@ internal sealed class BuildService : IBuildService
             var output = CreateOutput(
                 project,
                 runId,
-                profileReadResult.DisplayPath!,
+                profileReadResult.Path!,
                 profile,
                 buildResponse,
                 accounting,
@@ -423,31 +424,24 @@ internal sealed class BuildService : IBuildService
 
     private RunnerInvocationResolutionResult ResolveRunnerInvocation (
         ResolvedBuildProfile profile,
-        string profilePath,
+        AbsolutePath profilePath,
         Guid runId,
-        string outputDirectory,
-        string projectPath,
+        AbsolutePath outputDirectory,
+        AbsolutePath projectPath,
         ProjectFingerprint projectFingerprint)
     {
         ArgumentNullException.ThrowIfNull(profile);
+        ArgumentNullException.ThrowIfNull(profilePath);
         if (profile.Runner is ResolvedBuildRunner.BuildPipeline)
         {
-            ArgumentException.ThrowIfNullOrWhiteSpace(profilePath);
-            ArgumentException.ThrowIfNullOrWhiteSpace(outputDirectory);
-            ArgumentException.ThrowIfNullOrWhiteSpace(projectPath);
+            ArgumentNullException.ThrowIfNull(outputDirectory);
+            ArgumentNullException.ThrowIfNull(projectPath);
             ArgumentNullException.ThrowIfNull(projectFingerprint);
             return RunnerInvocationResolutionResult.Success(ResolvedRunnerInvocationInput.Empty);
         }
 
         var executeMethodRunner = (ResolvedBuildRunner.ExecuteMethod)profile.Runner;
         var explicitInputs = (ResolvedBuildInputs.Explicit)profile.Inputs;
-
-        if (!TryValidateRequiredPathVariable("ucli.build.profilePath", profilePath, out var pathError)
-            || !TryValidateRequiredPathVariable("ucli.build.outputDir", outputDirectory, out pathError)
-            || !TryValidateRequiredPathVariable("project.path", projectPath, out pathError))
-        {
-            return RunnerInvocationResolutionResult.Failure(pathError!);
-        }
 
         ArgumentNullException.ThrowIfNull(projectFingerprint);
 
@@ -518,19 +512,19 @@ internal sealed class BuildService : IBuildService
     private static IReadOnlyDictionary<string, string> CreateBuiltInVariableMap (
         ResolvedBuildProfile profile,
         BuildTargetStableName buildTarget,
-        string profilePath,
+        AbsolutePath profilePath,
         Guid runId,
-        string outputDirectory,
-        string projectPath,
+        AbsolutePath outputDirectory,
+        AbsolutePath projectPath,
         ProjectFingerprint projectFingerprint)
     {
         return new Dictionary<string, string>(StringComparer.Ordinal)
         {
             ["ucli.build.runId"] = runId.ToString("D"),
-            ["ucli.build.outputDir"] = outputDirectory,
-            ["ucli.build.profilePath"] = profilePath,
+            ["ucli.build.outputDir"] = outputDirectory.Value,
+            ["ucli.build.profilePath"] = profilePath.Value,
             ["ucli.build.profileDigest"] = profile.Digest.ToString(),
-            ["project.path"] = projectPath,
+            ["project.path"] = projectPath.Value,
             ["project.fingerprint"] = projectFingerprint.ToString(),
             ["build.target"] = ContractLiteralCodec.ToValue(buildTarget),
         };
@@ -591,23 +585,6 @@ internal sealed class BuildService : IBuildService
 
         substituted = builder.ToString();
         return true;
-    }
-
-    private static bool TryValidateRequiredPathVariable (
-        string variableName,
-        string value,
-        out ExecutionError? error)
-    {
-        error = null;
-        if (!string.IsNullOrWhiteSpace(value))
-        {
-            return true;
-        }
-
-        error = ExecutionError.InvalidArgument(
-            $"Build profile runner.invocation.arguments built-in variable resolves to an empty required path: {variableName}.",
-            BuildErrorCodes.BuildProfileInvalid);
-        return false;
     }
 
     private static bool RequiresNonEmptyVariableValue (string variableName)
@@ -774,9 +751,9 @@ internal sealed class BuildService : IBuildService
 
     private static UnityRequestPayload.BuildRun CreateBuildRunRequest (
         ResolvedBuildProfile profile,
-        string profilePath,
+        AbsolutePath profilePath,
         BuildRunArtifactPaths paths,
-        IpcBuildOutputLayout? outputLayout,
+        BuildPipelineOutputLayout? outputLayout,
         Guid runId,
         ResolvedRunnerInvocationInput runnerInvocation)
     {
@@ -816,16 +793,16 @@ internal sealed class BuildService : IBuildService
             SceneSource: sceneSource,
             ScenePaths: scenePaths,
             Development: development,
-            OutputPath: paths.RunnerOutputDirectory,
-            OutputLayout: outputLayout,
-            BuildReportPath: paths.BuildReportJsonPath,
-            BuildLogPath: paths.BuildLogPath,
+            OutputPath: paths.RunnerOutputDirectory.Value,
+            OutputLayout: outputLayout?.ToContract(),
+            BuildReportPath: paths.BuildReportJsonPath.Value,
+            BuildLogPath: paths.BuildLogPath.Value,
             AllowedEditorModes: profile.Policy.Runtime.AllowedEditorModes,
             ProjectMutationMode: profile.Policy.ProjectMutationMode,
             RunnerKind: profile.Runner.Kind,
             ProfileDigest: profile.Digest,
             UnityBuildProfile: unityBuildProfile,
-            ProfilePath: executeMethodRunner != null ? profilePath : null,
+            ProfilePath: executeMethodRunner != null ? profilePath.Value : null,
             RunnerMethod: executeMethodRunner?.Method,
             RunnerArguments: runnerInvocation.Arguments,
             RunnerEnvironmentVariables: runnerInvocation.EnvironmentVariables,
@@ -843,7 +820,7 @@ internal sealed class BuildService : IBuildService
 
     private static OutputSourcesResolutionResult ResolveOutputSources (
         IpcBuildRunResponse response,
-        IpcBuildOutputLayout? outputLayout,
+        BuildPipelineOutputLayout? outputLayout,
         BuildRunnerKind runnerKind)
     {
         if (runnerKind == BuildRunnerKind.BuildPipeline)
@@ -855,7 +832,9 @@ internal sealed class BuildService : IBuildService
                     "BuildPipeline output layout is required for output accounting."));
             }
 
-            return OutputSourcesResolutionResult.Success([BuildOutputSourceEntry.FromAbsolutePath(outputLayout.LocationPathName)]);
+            return OutputSourcesResolutionResult.Success([
+                BuildOutputSourceEntry.FromAbsolutePath(outputLayout.LocationPath),
+            ]);
         }
 
         var runnerResult = response.RunnerResult;
@@ -897,7 +876,8 @@ internal sealed class BuildService : IBuildService
         Guid expectedRunId,
         ProjectFingerprint expectedProjectFingerprint,
         ResolvedBuildProfile expectedProfile,
-        string expectedOutputDirectory)
+        AbsolutePath expectedOutputDirectory,
+        BuildPipelineOutputLayout? expectedOutputLayout)
     {
         if (response.Errors.Count != 0)
         {
@@ -920,15 +900,28 @@ internal sealed class BuildService : IBuildService
             return BuildResponseResolutionResult.Failure(failure);
         }
 
+        BuildPipelineOutputLayout? outputLayout = null;
+        if (buildResponse.OutputLayout is not null
+            && !BuildPipelineOutputLayout.TryFromContract(
+                buildResponse.OutputLayout,
+                out outputLayout,
+                out var outputLayoutPathFailure))
+        {
+            return BuildResponseResolutionResult.Failure(ApplicationFailure.InternalError(
+                $"Unity build response outputLayout locationPathName is invalid. {outputLayoutPathFailure.Message}"));
+        }
+
         var validationFailure = ValidateResponse(
             buildResponse,
+            outputLayout,
             expectedRunId,
             expectedProjectFingerprint,
             expectedProfile,
-            expectedOutputDirectory);
+            expectedOutputDirectory,
+            expectedOutputLayout);
         return validationFailure != null
             ? BuildResponseResolutionResult.Failure(validationFailure)
-            : BuildResponseResolutionResult.Success(buildResponse);
+            : BuildResponseResolutionResult.Success(buildResponse, outputLayout);
     }
 
     private static IpcBuildRunErrorPayload? TryReadErrorPayload (UnityRequestResponse response)
@@ -940,10 +933,12 @@ internal sealed class BuildService : IBuildService
 
     private static ApplicationFailure? ValidateResponse (
         IpcBuildRunResponse response,
+        BuildPipelineOutputLayout? outputLayout,
         Guid expectedRunId,
         ProjectFingerprint expectedProjectFingerprint,
         ResolvedBuildProfile expectedProfile,
-        string expectedOutputDirectory)
+        AbsolutePath expectedOutputDirectory,
+        BuildPipelineOutputLayout? expectedOutputLayout)
     {
         if (response.RunId != expectedRunId)
         {
@@ -992,9 +987,10 @@ internal sealed class BuildService : IBuildService
         }
 
         var outputLayoutValidationFailure = ValidateResponseOutputLayout(
-            response.OutputLayout,
+            outputLayout,
             response.Input.BuildTarget,
             expectedOutputDirectory,
+            expectedOutputLayout,
             expectedProfile.Inputs.Kind,
             expectedProfile.Runner.Kind);
         if (outputLayoutValidationFailure != null)
@@ -1087,9 +1083,10 @@ internal sealed class BuildService : IBuildService
     }
 
     private static ApplicationFailure? ValidateResponseOutputLayout (
-        IpcBuildOutputLayout? outputLayout,
+        BuildPipelineOutputLayout? outputLayout,
         BuildTargetStableName buildTarget,
-        string expectedOutputDirectory,
+        AbsolutePath expectedOutputDirectory,
+        BuildPipelineOutputLayout? requestedOutputLayout,
         BuildProfileInputsKind inputKind,
         BuildRunnerKind runnerKind)
     {
@@ -1105,7 +1102,15 @@ internal sealed class BuildService : IBuildService
             return ApplicationFailure.InternalError("Unity build response outputLayout is missing.");
         }
 
-        if (!IpcBuildOutputLayoutResolver.TryResolve(
+        if (inputKind == BuildProfileInputsKind.Explicit)
+        {
+            return requestedOutputLayout is not null
+                && IsExpectedOutputLayout(outputLayout, requestedOutputLayout)
+                    ? null
+                    : ApplicationFailure.InternalError("Unity build response outputLayout does not match the requested output layout.");
+        }
+
+        if (!BuildPipelineOutputLayoutResolver.TryResolve(
             expectedOutputDirectory,
             buildTarget,
             androidAppBundle: false,
@@ -1119,9 +1124,8 @@ internal sealed class BuildService : IBuildService
             return null;
         }
 
-        if (inputKind == BuildProfileInputsKind.UnityBuildProfile
-            && buildTarget == BuildTargetStableName.Android
-            && IpcBuildOutputLayoutResolver.TryResolve(
+        if (buildTarget == BuildTargetStableName.Android
+            && BuildPipelineOutputLayoutResolver.TryResolve(
                 expectedOutputDirectory,
                 buildTarget,
                 androidAppBundle: true,
@@ -1135,11 +1139,11 @@ internal sealed class BuildService : IBuildService
     }
 
     private static bool IsExpectedOutputLayout (
-        IpcBuildOutputLayout actual,
-        IpcBuildOutputLayout expected)
+        BuildPipelineOutputLayout actual,
+        BuildPipelineOutputLayout expected)
     {
         return actual.Shape == expected.Shape
-            && string.Equals(actual.LocationPathName, expected.LocationPathName, StringComparison.Ordinal);
+            && actual.LocationPath.IsSameAs(expected.LocationPath);
     }
 
     private static ApplicationFailure? ValidateExplicitResponseInputs (
@@ -1325,7 +1329,7 @@ internal sealed class BuildService : IBuildService
     private static BuildExecutionOutput CreateOutput (
         ProjectIdentityInfo project,
         Guid runId,
-        string profilePath,
+        AbsolutePath profilePath,
         ResolvedBuildProfile profile,
         IpcBuildRunResponse response,
         BuildRunArtifactAccountingResult accounting,
@@ -1373,7 +1377,7 @@ internal sealed class BuildService : IBuildService
             UnityBuildProfile: unityBuildProfile);
         var build = new BuildOutput(
             runId: runId,
-            profile: new BuildProfileOutput(profilePath, profile.Digest),
+            profile: new BuildProfileOutput(profilePath.Value, profile.Digest),
             inputs: inputs,
             runner: new BuildRunnerOutput(
                 Kind: profile.Runner.Kind,
@@ -1512,7 +1516,7 @@ internal sealed class BuildService : IBuildService
         BuildExecutionOutput output,
         IpcBuildRunResponse response,
         ResolvedBuildProfile profile,
-        IpcBuildOutputLayout? outputLayout,
+        BuildPipelineOutputLayout? outputLayout,
         BuildRunArtifactAccountingResult accounting)
     {
         var invocationEnv = output.Build.Runner.Invocation.Environment;
@@ -1530,7 +1534,7 @@ internal sealed class BuildService : IBuildService
                     Environment: new BuildRunRunnerInvocationEnvironmentMetadata(
                         Variables: invocationEnv.Variables,
                         Secrets: invocationEnv.Secrets)),
-                OutputLayout: outputLayout)),
+                OutputLayout: outputLayout?.ToContract())),
             runnerResult: SerializeMetadataElement(CreateRunnerResultMetadata(output, response, accounting.BuildReport != null)),
             lifecycle: SerializeMetadataElement(new BuildRunLifecycleMetadata(
                 Before: response.LifecycleBefore,
@@ -1948,15 +1952,18 @@ internal sealed class BuildService : IBuildService
 
     private sealed record BuildResponseResolutionResult (
         IpcBuildRunResponse? Response,
+        BuildPipelineOutputLayout? OutputLayout,
         ApplicationFailure? Error,
         IpcBuildRunErrorPayload? ErrorPayload)
     {
         public bool IsSuccess => Response != null && Error == null;
 
-        public static BuildResponseResolutionResult Success (IpcBuildRunResponse response)
+        public static BuildResponseResolutionResult Success (
+            IpcBuildRunResponse response,
+            BuildPipelineOutputLayout? outputLayout)
         {
             ArgumentNullException.ThrowIfNull(response);
-            return new BuildResponseResolutionResult(response, null, null);
+            return new BuildResponseResolutionResult(response, outputLayout, null, null);
         }
 
         public static BuildResponseResolutionResult Failure (
@@ -1964,7 +1971,7 @@ internal sealed class BuildService : IBuildService
             IpcBuildRunErrorPayload? errorPayload = null)
         {
             ArgumentNullException.ThrowIfNull(failure);
-            return new BuildResponseResolutionResult(null, failure, errorPayload);
+            return new BuildResponseResolutionResult(null, null, failure, errorPayload);
         }
     }
 

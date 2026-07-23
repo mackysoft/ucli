@@ -1,5 +1,6 @@
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Context;
+using MackySoft.FileSystem;
 
 namespace MackySoft.Ucli.Application.Tests;
 
@@ -119,8 +120,8 @@ internal static class ProjectContextTestFactory
         string unityVersion = UnityVersion)
     {
         return ResolvedUnityProjectContext.Create(
-            unityProjectRoot: unityProjectRoot,
-            repositoryRoot: repositoryRoot,
+            unityProjectRoot: AbsolutePath.Parse(unityProjectRoot),
+            repositoryRoot: AbsolutePath.Parse(repositoryRoot),
             projectFingerprint: projectFingerprint ?? ProjectFingerprint,
             pathSource: pathSource,
             pathSourceLabel: pathSourceLabel,

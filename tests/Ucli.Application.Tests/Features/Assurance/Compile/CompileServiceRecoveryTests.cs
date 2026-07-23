@@ -81,7 +81,7 @@ public sealed class CompileServiceRecoveryTests
             CompileProgressEventNames.Completed);
         CompileProgressAssert.TimeoutRecoveredArtifactProgressPayload(
             progressSink,
-            "/workspace/.ucli/local/compile/run-1/summary.json");
+            artifactStore.SummaryPath.Value);
 
         var resultWithoutProgress = await CreateService(
                 unityRequestExecutor: new RecordingUnityRequestExecutor(UnityRequestExecutionResult.Success(new UnityRequestResponse(

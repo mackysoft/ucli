@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Ipc;
 
@@ -28,7 +29,7 @@ public sealed class UnixSocketFallbackPathTests
 
         Assert.Collection(
             parameters,
-            parameter => Assert.Equal(typeof(string), parameter.ParameterType),
+            parameter => Assert.Equal(typeof(AbsolutePath), parameter.ParameterType),
             parameter => Assert.Equal(typeof(UnixSocketFallbackPurpose), parameter.ParameterType),
             parameter => Assert.Equal(typeof(string), parameter.ParameterType));
     }
@@ -51,7 +52,7 @@ public sealed class UnixSocketFallbackPathTests
         string expectedDirectoryPrefix)
     {
         var purpose = (UnixSocketFallbackPurpose)purposeValue;
-        var temporaryDirectoryPath = Path.GetFullPath(Path.GetTempPath());
+        var temporaryDirectoryPath = AbsolutePath.Parse(Path.GetTempPath());
         var expectedIdentityHex = Convert.ToHexString(
                 SHA256.HashData(Encoding.UTF8.GetBytes(IdentitySource)))
             .ToLowerInvariant()[..32];
@@ -68,12 +69,12 @@ public sealed class UnixSocketFallbackPathTests
         Assert.Equal(purpose, fallbackPath.Purpose);
         Assert.Equal(
             expectedDirectoryPrefix + expectedIdentityHex,
-            Path.GetFileName(fallbackPath.DirectoryPath));
+            Path.GetFileName(fallbackPath.DirectoryPath.Value));
         Assert.Equal(
-            Path.Combine(fallbackPath.DirectoryPath, UcliIpcEndpointNames.UnixSocketFileName),
-            fallbackPath.SocketPath);
+            Path.Combine(fallbackPath.DirectoryPath.Value, UcliIpcEndpointNames.UnixSocketFileName),
+            fallbackPath.SocketPath.Value);
         Assert.True(
-            Encoding.UTF8.GetByteCount(fallbackPath.SocketPath)
+            Encoding.UTF8.GetByteCount(fallbackPath.SocketPath.Value)
             <= IpcTransportConstraints.UnixDomainSocketPathMaxBytes);
         Assert.Equal(fallbackPath, sameValue);
         Assert.Equal(fallbackPath.GetHashCode(), sameValue.GetHashCode());
@@ -84,38 +85,11 @@ public sealed class UnixSocketFallbackPathTests
     public void Constructor_WithUndefinedPurpose_ThrowsArgumentOutOfRangeException ()
     {
         var exception = Assert.Throws<ArgumentOutOfRangeException>(() => new UnixSocketFallbackPath(
-            Path.GetTempPath(),
+            AbsolutePath.Parse(Path.GetTempPath()),
             (UnixSocketFallbackPurpose)int.MaxValue,
             IdentitySource));
 
         Assert.Equal("purpose", exception.ParamName);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void Constructor_WithRelativeTemporaryDirectory_ThrowsArgumentException ()
-    {
-        var exception = Assert.Throws<ArgumentException>(() => new UnixSocketFallbackPath(
-            "relative-temp",
-            UnixSocketFallbackPurpose.Daemon,
-            IdentitySource));
-
-        Assert.Equal("temporaryDirectoryPath", exception.ParamName);
-    }
-
-    [Theory]
-    [InlineData(null)]
-    [InlineData("")]
-    [InlineData(" ")]
-    [Trait("Size", "Small")]
-    public void Constructor_WithEmptyTemporaryDirectory_ThrowsArgumentException (string? temporaryDirectoryPath)
-    {
-        var exception = Assert.ThrowsAny<ArgumentException>(() => new UnixSocketFallbackPath(
-            temporaryDirectoryPath!,
-            UnixSocketFallbackPurpose.Daemon,
-            IdentitySource));
-
-        Assert.Equal("temporaryDirectoryPath", exception.ParamName);
     }
 
     [Theory]
@@ -126,7 +100,7 @@ public sealed class UnixSocketFallbackPathTests
     public void Constructor_WithEmptyIdentitySource_ThrowsArgumentException (string? identitySource)
     {
         var exception = Assert.ThrowsAny<ArgumentException>(() => new UnixSocketFallbackPath(
-            Path.GetTempPath(),
+            AbsolutePath.Parse(Path.GetTempPath()),
             UnixSocketFallbackPurpose.Daemon,
             identitySource!));
 
@@ -148,7 +122,7 @@ public sealed class UnixSocketFallbackPathTests
             "ucli-fallback-length-" + new string('t', IpcTransportConstraints.UnixDomainSocketPathMaxBytes));
 
         var exception = Assert.Throws<InvalidOperationException>(() => new UnixSocketFallbackPath(
-            temporaryDirectoryPath,
+            AbsolutePath.Parse(temporaryDirectoryPath),
             UnixSocketFallbackPurpose.Daemon,
             IdentitySource));
 

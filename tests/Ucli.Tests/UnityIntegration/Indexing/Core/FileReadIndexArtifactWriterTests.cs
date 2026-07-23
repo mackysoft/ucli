@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Json;
@@ -22,7 +23,7 @@ public sealed class FileReadIndexArtifactWriterTests
         var snapshot = CreateSnapshot();
 
         await writer.WriteOpsCatalogAsync(
-            scope.FullPath,
+            GetStorageRoot(scope),
             ProjectFingerprintTestFactory.Create("fingerprint"),
             generatedAtUtc,
             operations,
@@ -56,7 +57,7 @@ public sealed class FileReadIndexArtifactWriterTests
         var secondOperation = firstOperation with { Description = "Updated operation description." };
 
         await writer.WriteOpsCatalogAsync(
-            scope.FullPath,
+            GetStorageRoot(scope),
             ProjectFingerprintTestFactory.Create("fingerprint"),
             DateTimeOffset.Parse("2026-03-08T00:00:00+00:00"),
             CreateValidatedOperations([firstOperation]),
@@ -68,12 +69,12 @@ public sealed class FileReadIndexArtifactWriterTests
         Assert.True(firstCatalogResult.IsSuccess);
         var firstEntry = Assert.Single(firstCatalogResult.Value!.Entries!);
         var firstDescribePath = UcliStoragePathResolver.ResolveOpsDescribePath(
-            scope.FullPath,
+            GetStorageRoot(scope),
             ProjectFingerprintTestFactory.Create("fingerprint"),
             firstEntry.DescribeKey!);
 
         await writer.WriteOpsCatalogAsync(
-            scope.FullPath,
+            GetStorageRoot(scope),
             ProjectFingerprintTestFactory.Create("fingerprint"),
             DateTimeOffset.Parse("2026-03-08T00:01:00+00:00"),
             CreateValidatedOperations([secondOperation]),
@@ -85,7 +86,7 @@ public sealed class FileReadIndexArtifactWriterTests
         Assert.True(secondCatalogResult.IsSuccess);
         var secondEntry = Assert.Single(secondCatalogResult.Value!.Entries!);
         var secondDescribePath = UcliStoragePathResolver.ResolveOpsDescribePath(
-            scope.FullPath,
+            GetStorageRoot(scope),
             ProjectFingerprintTestFactory.Create("fingerprint"),
             secondEntry.DescribeKey!);
         var firstDescribeResult = await reader.ReadOpsDescribeAsync(
@@ -97,8 +98,8 @@ public sealed class FileReadIndexArtifactWriterTests
         Assert.Equal(firstEntry.DescribeHash, firstEntry.DescribeKey);
         Assert.Equal(secondEntry.DescribeHash, secondEntry.DescribeKey);
         Assert.NotEqual(firstEntry.DescribeKey, secondEntry.DescribeKey);
-        Assert.True(File.Exists(firstDescribePath));
-        Assert.True(File.Exists(secondDescribePath));
+        Assert.True(File.Exists(firstDescribePath.Value));
+        Assert.True(File.Exists(secondDescribePath.Value));
         Assert.True(firstDescribeResult.IsSuccess);
         Assert.Equal(firstOperation.Description, firstDescribeResult.Value!.Operation.Description);
     }
@@ -114,7 +115,7 @@ public sealed class FileReadIndexArtifactWriterTests
         var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, fingerprint);
         var firstOperation = ReadIndexOperationTestFactory.CreateGoDescribeEntry();
         await writer.WriteOpsCatalogAsync(
-            scope.FullPath,
+            GetStorageRoot(scope),
             fingerprint,
             DateTimeOffset.Parse("2026-07-15T00:00:00Z"),
             CreateValidatedOperations([firstOperation]),
@@ -124,22 +125,24 @@ public sealed class FileReadIndexArtifactWriterTests
         var firstCatalog = await reader.ReadOpsCatalogAsync(project, CancellationToken.None);
         var firstEntry = Assert.Single(firstCatalog.Value!.Entries);
         var firstDescribePath = UcliStoragePathResolver.ResolveOpsDescribePath(
-            scope.FullPath,
+            GetStorageRoot(scope),
             fingerprint,
             firstEntry.DescribeKey);
-        File.SetLastWriteTimeUtc(firstDescribePath, DateTime.UnixEpoch);
-        var describeDirectory = UcliStoragePathResolver.ResolveOpsDescribeDirectory(scope.FullPath, fingerprint);
+        File.SetLastWriteTimeUtc(firstDescribePath.Value, DateTime.UnixEpoch);
+        var describeDirectory = UcliStoragePathResolver.ResolveOpsDescribeDirectory(GetStorageRoot(scope), fingerprint);
         for (var index = 0; index < 512; index++)
         {
-            var orphanPath = Path.Combine(describeDirectory, $"orphan-{index:D4}.json");
-            await File.WriteAllTextAsync(orphanPath, "{}");
+            var orphanPath = ContainedPath.Create(
+                describeDirectory,
+                RootRelativePath.Parse($"orphan-{index:D4}.json")).Target;
+            await File.WriteAllTextAsync(orphanPath.Value, "{}");
             File.SetLastWriteTimeUtc(
-                orphanPath,
+                orphanPath.Value,
                 new DateTime(2090, 1, 1, 0, 0, 0, DateTimeKind.Utc));
         }
 
         await writer.WriteOpsCatalogAsync(
-            scope.FullPath,
+            GetStorageRoot(scope),
             fingerprint,
             DateTimeOffset.Parse("2026-07-15T00:01:00Z"),
             CreateValidatedOperations([firstOperation with { Description = "Updated description." }]),
@@ -147,7 +150,7 @@ public sealed class FileReadIndexArtifactWriterTests
             manifestInputSnapshot: null,
             CancellationToken.None);
 
-        Assert.True(File.Exists(firstDescribePath));
+        Assert.True(File.Exists(firstDescribePath.Value));
         var retainedDescribe = await reader.ReadOpsDescribeAsync(
             project,
             firstEntry,
@@ -163,22 +166,24 @@ public sealed class FileReadIndexArtifactWriterTests
         using var scope = TestDirectories.CreateTempScope("read-index-writer", "ops-describe-prune");
         var projectFingerprint = ProjectFingerprintTestFactory.Create("fingerprint");
         var describeDirectory = UcliStoragePathResolver.ResolveOpsDescribeDirectory(
-            scope.FullPath,
+            GetStorageRoot(scope),
             projectFingerprint);
-        Directory.CreateDirectory(describeDirectory);
-        var foreignArtifactPath = Path.Combine(describeDirectory, "foreign.json");
-        await File.WriteAllTextAsync(foreignArtifactPath, "{}");
-        File.SetLastWriteTimeUtc(foreignArtifactPath, DateTime.UnixEpoch);
+        Directory.CreateDirectory(describeDirectory.Value);
+        var foreignArtifactPath = ContainedPath.Create(
+            describeDirectory,
+            RootRelativePath.Parse("foreign.json")).Target;
+        await File.WriteAllTextAsync(foreignArtifactPath.Value, "{}");
+        File.SetLastWriteTimeUtc(foreignArtifactPath.Value, DateTime.UnixEpoch);
         for (var index = 0; index < 520; index++)
         {
             await File.WriteAllTextAsync(
-                CreateDescribeArtifactPath(describeDirectory, index),
+                CreateDescribeArtifactPath(describeDirectory, index).Value,
                 "{}");
         }
 
         var writer = CreateWriter();
         await writer.WriteOpsCatalogAsync(
-            scope.FullPath,
+            GetStorageRoot(scope),
             projectFingerprint,
             DateTimeOffset.Parse("2026-03-08T00:00:00+00:00"),
             CreateValidatedOperations([ReadIndexOperationTestFactory.CreateGoDescribeEntry()]),
@@ -192,14 +197,14 @@ public sealed class FileReadIndexArtifactWriterTests
         Assert.True(catalogResult.IsSuccess);
         var currentEntry = Assert.Single(catalogResult.Value!.Entries!);
         var currentDescribePath = UcliStoragePathResolver.ResolveOpsDescribePath(
-            scope.FullPath,
+            GetStorageRoot(scope),
             projectFingerprint,
             currentEntry.DescribeKey!);
 
-        Assert.True(File.Exists(currentDescribePath));
-        Assert.True(File.Exists(foreignArtifactPath));
+        Assert.True(File.Exists(currentDescribePath.Value));
+        Assert.True(File.Exists(foreignArtifactPath.Value));
         Assert.True(Directory
-            .EnumerateFiles(describeDirectory, "*.json")
+            .EnumerateFiles(describeDirectory.Value, "*.json")
             .Count(path => StoragePathSegmentCodec.IsEncodedSha256Digest(Path.GetFileNameWithoutExtension(path))) <= 513);
     }
 
@@ -210,23 +215,23 @@ public sealed class FileReadIndexArtifactWriterTests
         using var scope = TestDirectories.CreateTempScope("read-index-writer", "ops-describe-locked-prune");
         var projectFingerprint = ProjectFingerprintTestFactory.Create("fingerprint");
         var describeDirectory = UcliStoragePathResolver.ResolveOpsDescribeDirectory(
-            scope.FullPath,
+            GetStorageRoot(scope),
             projectFingerprint);
-        Directory.CreateDirectory(describeDirectory);
+        Directory.CreateDirectory(describeDirectory.Value);
 
         var lockedArtifactPath = CreateDescribeArtifactPath(describeDirectory, 0);
-        await File.WriteAllTextAsync(lockedArtifactPath, "{}");
-        File.SetLastWriteTimeUtc(lockedArtifactPath, DateTime.UnixEpoch);
+        await File.WriteAllTextAsync(lockedArtifactPath.Value, "{}");
+        File.SetLastWriteTimeUtc(lockedArtifactPath.Value, DateTime.UnixEpoch);
         var retainedArtifactTimestamp = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
         for (var index = 1; index <= 512; index++)
         {
             var artifactPath = CreateDescribeArtifactPath(describeDirectory, index);
-            await File.WriteAllTextAsync(artifactPath, "{}");
-            File.SetLastWriteTimeUtc(artifactPath, retainedArtifactTimestamp);
+            await File.WriteAllTextAsync(artifactPath.Value, "{}");
+            File.SetLastWriteTimeUtc(artifactPath.Value, retainedArtifactTimestamp);
         }
 
         using var lockedArtifact = new FileStream(
-            lockedArtifactPath,
+            lockedArtifactPath.Value,
             FileMode.Open,
             FileAccess.ReadWrite,
             FileShare.None);
@@ -234,7 +239,7 @@ public sealed class FileReadIndexArtifactWriterTests
         var writer = CreateWriter();
 
         await writer.WriteOpsCatalogAsync(
-            scope.FullPath,
+            GetStorageRoot(scope),
             projectFingerprint,
             generatedAtUtc,
             CreateValidatedOperations([ReadIndexOperationTestFactory.CreateGoDescribeEntry()]),
@@ -250,7 +255,7 @@ public sealed class FileReadIndexArtifactWriterTests
         Assert.Equal(generatedAtUtc, catalogResult.Value!.GeneratedAtUtc);
         if (OperatingSystem.IsWindows())
         {
-            Assert.True(File.Exists(lockedArtifactPath));
+            Assert.True(File.Exists(lockedArtifactPath.Value));
         }
     }
 
@@ -265,7 +270,7 @@ public sealed class FileReadIndexArtifactWriterTests
             [ReadIndexOperationTestFactory.CreateGoDescribeEntry()]);
 
         await writer.WriteOpsCatalogAsync(
-            scope.FullPath,
+            GetStorageRoot(scope),
             ProjectFingerprintTestFactory.Create("fingerprint"),
             generatedAtUtc,
             operations,
@@ -297,7 +302,7 @@ public sealed class FileReadIndexArtifactWriterTests
         var newOperation = oldOperation with { Description = "Updated operation description." };
 
         await writer.WriteOpsCatalogAsync(
-            scope.FullPath,
+            GetStorageRoot(scope),
             ProjectFingerprintTestFactory.Create("fingerprint"),
             DateTimeOffset.Parse("2026-03-08T00:00:00+00:00"),
             CreateValidatedOperations([oldOperation]),
@@ -309,7 +314,7 @@ public sealed class FileReadIndexArtifactWriterTests
             new InvalidOperationException("catalog write failed.")));
 
         await Assert.ThrowsAsync<InvalidOperationException>(async () => await failingWriter.WriteOpsCatalogAsync(
-            scope.FullPath,
+            GetStorageRoot(scope),
             ProjectFingerprintTestFactory.Create("fingerprint"),
             DateTimeOffset.Parse("2026-03-08T00:01:00+00:00"),
             CreateValidatedOperations([newOperation]),
@@ -342,7 +347,7 @@ public sealed class FileReadIndexArtifactWriterTests
         var secondWriter = CreateWriter();
 
         var firstWriteTask = Task.Run(async () => await firstWriter.WriteOpsCatalogAsync(
-            scope.FullPath,
+            GetStorageRoot(scope),
             ProjectFingerprintTestFactory.Create("fingerprint"),
             DateTimeOffset.Parse("2026-03-08T00:00:00+00:00"),
             CreateValidatedOperations([ReadIndexOperationTestFactory.CreateGoDescribeEntry()]),
@@ -352,7 +357,7 @@ public sealed class FileReadIndexArtifactWriterTests
         await firstDescribeWriter.WaitUntilEnteredAsync();
 
         var secondWriteTask = secondWriter.WriteAssetLookupsAsync(
-                scope.FullPath,
+                GetStorageRoot(scope),
                 ProjectFingerprintTestFactory.Create("fingerprint"),
                 DateTimeOffset.Parse("2026-03-08T00:01:00+00:00"),
                 Array.Empty<IndexAssetSearchEntryJsonContract>(),
@@ -367,9 +372,9 @@ public sealed class FileReadIndexArtifactWriterTests
         await secondWriteTask;
 
         var fingerprint = ProjectFingerprintTestFactory.Create("fingerprint");
-        var generationId = FileReadIndexArtifactReaderTestSupport.EnsureCurrentGeneration(scope.FullPath, fingerprint);
-        Assert.True(File.Exists(UcliStoragePathResolver.ResolveOpsCatalogPath(scope.FullPath, fingerprint, generationId)));
-        Assert.True(File.Exists(UcliStoragePathResolver.ResolveAssetSearchLookupPath(scope.FullPath, fingerprint, generationId)));
+        var generationId = FileReadIndexArtifactReaderTestSupport.EnsureCurrentGeneration(GetStorageRoot(scope), fingerprint);
+        Assert.True(File.Exists(UcliStoragePathResolver.ResolveOpsCatalogPath(GetStorageRoot(scope), fingerprint, generationId).Value));
+        Assert.True(File.Exists(UcliStoragePathResolver.ResolveAssetSearchLookupPath(GetStorageRoot(scope), fingerprint, generationId).Value));
         var generation = await FileReadIndexArtifactReaderTestSupport
             .CreateReader()
             .ReadGenerationArtifactsAsync(
@@ -392,21 +397,21 @@ public sealed class FileReadIndexArtifactWriterTests
         var fingerprint = ProjectFingerprintTestFactory.Create("fingerprint");
         var snapshot = CreateSnapshot();
         await CreateWriter().WriteAssetLookupsAsync(
-            scope.FullPath,
+            GetStorageRoot(scope),
             fingerprint,
             DateTimeOffset.Parse("2026-07-15T00:00:00Z"),
             Array.Empty<IndexAssetSearchEntryJsonContract>(),
             Array.Empty<IndexGuidPathEntryJsonContract>(),
             snapshot,
             CancellationToken.None);
-        var pointerPath = UcliStoragePathResolver.ResolveReadIndexCurrentGenerationPath(scope.FullPath, fingerprint);
-        var previousPointer = await File.ReadAllTextAsync(pointerPath);
+        var pointerPath = UcliStoragePathResolver.ResolveReadIndexCurrentGenerationPath(GetStorageRoot(scope), fingerprint);
+        var previousPointer = await File.ReadAllTextAsync(pointerPath.Value);
         var failingPointerStore = new ThrowingPublishGenerationPointerStore(new FileReadIndexGenerationPointerStore());
         var failingWriter = CreateWriter(
             generationStore: new FileReadIndexGenerationStore(failingPointerStore, TimeProvider.System));
 
         await Assert.ThrowsAsync<IOException>(async () => await failingWriter.WriteOpsCatalogAsync(
-            scope.FullPath,
+            GetStorageRoot(scope),
             fingerprint,
             DateTimeOffset.Parse("2026-07-15T00:01:00Z"),
             CreateValidatedOperations([ReadIndexOperationTestFactory.CreateGoDescribeEntry()]),
@@ -414,7 +419,7 @@ public sealed class FileReadIndexArtifactWriterTests
             snapshot,
             CancellationToken.None));
 
-        Assert.Equal(previousPointer, await File.ReadAllTextAsync(pointerPath));
+        Assert.Equal(previousPointer, await File.ReadAllTextAsync(pointerPath.Value));
         var generation = await FileReadIndexArtifactReaderTestSupport
             .CreateReader()
             .ReadGenerationArtifactsAsync(
@@ -425,7 +430,7 @@ public sealed class FileReadIndexArtifactWriterTests
         Assert.True(generation.GuidPathLookup.IsSuccess);
         Assert.True(generation.InputsManifest.IsSuccess);
         Assert.Single(Directory.EnumerateDirectories(
-            UcliStoragePathResolver.ResolveReadIndexGenerationsDirectory(scope.FullPath, fingerprint)));
+            UcliStoragePathResolver.ResolveReadIndexGenerationsDirectory(GetStorageRoot(scope), fingerprint).Value));
     }
 
     [Fact]
@@ -439,7 +444,7 @@ public sealed class FileReadIndexArtifactWriterTests
             generationStore: new FileReadIndexGenerationStore(pointerStore, TimeProvider.System));
 
         await writer.WriteOpsCatalogAsync(
-            scope.FullPath,
+            GetStorageRoot(scope),
             fingerprint,
             DateTimeOffset.Parse("2026-07-15T00:00:00Z"),
             CreateValidatedOperations([ReadIndexOperationTestFactory.CreateGoDescribeEntry()]),
@@ -454,9 +459,9 @@ public sealed class FileReadIndexArtifactWriterTests
                 CancellationToken.None);
         Assert.True(catalog.IsSuccess);
         Assert.True(Directory.Exists(UcliStoragePathResolver.ResolveReadIndexGenerationDirectory(
-            scope.FullPath,
+            GetStorageRoot(scope),
             fingerprint,
-            pointerStore.PublishedGenerationId)));
+            pointerStore.PublishedGenerationId).Value));
     }
 
     [Fact]
@@ -470,7 +475,7 @@ public sealed class FileReadIndexArtifactWriterTests
             generationStore: new FileReadIndexGenerationStore(pointerStore, TimeProvider.System));
 
         await Assert.ThrowsAsync<IOException>(async () => await writer.WriteOpsCatalogAsync(
-            scope.FullPath,
+            GetStorageRoot(scope),
             fingerprint,
             DateTimeOffset.Parse("2026-07-15T00:00:00Z"),
             CreateValidatedOperations([ReadIndexOperationTestFactory.CreateGoDescribeEntry()]),
@@ -479,9 +484,9 @@ public sealed class FileReadIndexArtifactWriterTests
             CancellationToken.None));
 
         Assert.True(Directory.Exists(UcliStoragePathResolver.ResolveReadIndexGenerationDirectory(
-            scope.FullPath,
+            GetStorageRoot(scope),
             fingerprint,
-            pointerStore.PublishedGenerationId)));
+            pointerStore.PublishedGenerationId).Value));
         var catalog = await FileReadIndexArtifactReaderTestSupport
             .CreateReader()
             .ReadOpsCatalogAsync(
@@ -500,7 +505,7 @@ public sealed class FileReadIndexArtifactWriterTests
         var writer = CreateWriter(generationStore: new FileReadIndexGenerationStore(pointerStore, TimeProvider.System));
 
         await writer.WriteOpsCatalogAsync(
-            scope.FullPath,
+            GetStorageRoot(scope),
             fingerprint,
             DateTimeOffset.Parse("2026-07-15T00:00:00Z"),
             CreateValidatedOperations([ReadIndexOperationTestFactory.CreateGoDescribeEntry()]),
@@ -509,10 +514,10 @@ public sealed class FileReadIndexArtifactWriterTests
             CancellationToken.None);
 
         var currentDirectoryPath = UcliStoragePathResolver.ResolveReadIndexGenerationDirectory(
-            scope.FullPath,
+            GetStorageRoot(scope),
             fingerprint,
             pointerStore.PublishedGenerationId);
-        Assert.True(Directory.Exists(currentDirectoryPath));
+        Assert.True(Directory.Exists(currentDirectoryPath.Value));
         var catalog = await FileReadIndexArtifactReaderTestSupport
             .CreateReader()
             .ReadOpsCatalogAsync(
@@ -527,14 +532,14 @@ public sealed class FileReadIndexArtifactWriterTests
     {
         using var scope = TestDirectories.CreateTempScope("read-index-writer", "ops-manifest-rebase");
         using var heldLock = await FileExclusiveLock.AcquireAsync(
-            UcliStoragePathResolver.ResolveReadIndexWriteLockPath(scope.FullPath, ProjectFingerprintTestFactory.Create("fingerprint")),
+            UcliStoragePathResolver.ResolveReadIndexWriteLockPath(GetStorageRoot(scope), ProjectFingerprintTestFactory.Create("fingerprint")),
             TimeSpan.FromSeconds(1),
             CancellationToken.None);
         var writer = CreateWriter();
         var suppliedSnapshot = CreateSnapshot();
 
         var writeTask = writer.WriteOpsCatalogAsync(
-                scope.FullPath,
+                GetStorageRoot(scope),
                 ProjectFingerprintTestFactory.Create("fingerprint"),
                 DateTimeOffset.Parse("2026-03-08T00:01:00+00:00"),
                 CreateValidatedOperations([ReadIndexOperationTestFactory.CreateGoDescribeEntry()]),
@@ -556,8 +561,8 @@ public sealed class FileReadIndexArtifactWriterTests
             GuidPathHash: new string('6', 64),
             CombinedHash: new string('7', 64));
         var fingerprint = ProjectFingerprintTestFactory.Create("fingerprint");
-        var generationId = FileReadIndexArtifactReaderTestSupport.EnsureCurrentGeneration(scope.FullPath, fingerprint);
-        var manifestPath = UcliStoragePathResolver.ResolveIndexInputsManifestPath(scope.FullPath, fingerprint, generationId);
+        var generationId = FileReadIndexArtifactReaderTestSupport.EnsureCurrentGeneration(GetStorageRoot(scope), fingerprint);
+        var manifestPath = UcliStoragePathResolver.ResolveIndexInputsManifestPath(GetStorageRoot(scope), fingerprint, generationId);
         await FileUtilities.WriteAllTextAtomicallyAsync(
             manifestPath,
             new IndexInputsManifestJsonContractWriter().Write(currentManifest),
@@ -584,14 +589,14 @@ public sealed class FileReadIndexArtifactWriterTests
     {
         using var scope = TestDirectories.CreateTempScope("read-index-writer", "asset-manifest-rebase");
         using var heldLock = await FileExclusiveLock.AcquireAsync(
-            UcliStoragePathResolver.ResolveReadIndexWriteLockPath(scope.FullPath, ProjectFingerprintTestFactory.Create("fingerprint")),
+            UcliStoragePathResolver.ResolveReadIndexWriteLockPath(GetStorageRoot(scope), ProjectFingerprintTestFactory.Create("fingerprint")),
             TimeSpan.FromSeconds(1),
             CancellationToken.None);
         var writer = CreateWriter();
         var suppliedSnapshot = CreateSnapshot();
 
         var writeTask = writer.WriteAssetLookupsAsync(
-                scope.FullPath,
+                GetStorageRoot(scope),
                 ProjectFingerprintTestFactory.Create("fingerprint"),
                 DateTimeOffset.Parse("2026-03-08T00:01:00+00:00"),
                 Array.Empty<IndexAssetSearchEntryJsonContract>(),
@@ -613,8 +618,8 @@ public sealed class FileReadIndexArtifactWriterTests
             GuidPathHash: new string('6', 64),
             CombinedHash: new string('7', 64));
         var fingerprint = ProjectFingerprintTestFactory.Create("fingerprint");
-        var generationId = FileReadIndexArtifactReaderTestSupport.EnsureCurrentGeneration(scope.FullPath, fingerprint);
-        var manifestPath = UcliStoragePathResolver.ResolveIndexInputsManifestPath(scope.FullPath, fingerprint, generationId);
+        var generationId = FileReadIndexArtifactReaderTestSupport.EnsureCurrentGeneration(GetStorageRoot(scope), fingerprint);
+        var manifestPath = UcliStoragePathResolver.ResolveIndexInputsManifestPath(GetStorageRoot(scope), fingerprint, generationId);
         await FileUtilities.WriteAllTextAtomicallyAsync(
             manifestPath,
             new IndexInputsManifestJsonContractWriter().Write(currentManifest),
@@ -646,7 +651,7 @@ public sealed class FileReadIndexArtifactWriterTests
         var initialWriter = CreateWriter();
         var initialSnapshot = CreateSnapshot();
         await initialWriter.WriteAssetLookupsAsync(
-            scope.FullPath,
+            GetStorageRoot(scope),
             ProjectFingerprintTestFactory.Create("fingerprint"),
             DateTimeOffset.Parse("2026-03-08T00:00:00+00:00"),
             [new IndexAssetSearchEntryJsonContract("Assets/Old.asset", "11111111111111111111111111111111", "Old", "Game.Old, Assembly-CSharp", ["Game.Old, Assembly-CSharp"])],
@@ -655,13 +660,13 @@ public sealed class FileReadIndexArtifactWriterTests
             CancellationToken.None);
 
         var fingerprint = ProjectFingerprintTestFactory.Create("fingerprint");
-        var generationId = FileReadIndexArtifactReaderTestSupport.EnsureCurrentGeneration(scope.FullPath, fingerprint);
-        var assetSearchPath = UcliStoragePathResolver.ResolveAssetSearchLookupPath(scope.FullPath, fingerprint, generationId);
-        var guidPath = UcliStoragePathResolver.ResolveGuidPathLookupPath(scope.FullPath, fingerprint, generationId);
-        var manifestPath = UcliStoragePathResolver.ResolveIndexInputsManifestPath(scope.FullPath, fingerprint, generationId);
-        var initialAssetSearchJson = await File.ReadAllTextAsync(assetSearchPath);
-        var initialGuidJson = await File.ReadAllTextAsync(guidPath);
-        var initialManifestJson = await File.ReadAllTextAsync(manifestPath);
+        var generationId = FileReadIndexArtifactReaderTestSupport.EnsureCurrentGeneration(GetStorageRoot(scope), fingerprint);
+        var assetSearchPath = UcliStoragePathResolver.ResolveAssetSearchLookupPath(GetStorageRoot(scope), fingerprint, generationId);
+        var guidPath = UcliStoragePathResolver.ResolveGuidPathLookupPath(GetStorageRoot(scope), fingerprint, generationId);
+        var manifestPath = UcliStoragePathResolver.ResolveIndexInputsManifestPath(GetStorageRoot(scope), fingerprint, generationId);
+        var initialAssetSearchJson = await File.ReadAllTextAsync(assetSearchPath.Value);
+        var initialGuidJson = await File.ReadAllTextAsync(guidPath.Value);
+        var initialManifestJson = await File.ReadAllTextAsync(manifestPath.Value);
         var failingWriter = CreateWriter(
             guidPathLookupWriter: new ThrowingJsonContractWriter<IndexGuidPathLookupJsonContract>(
                 new IOException("guid lookup write failed")));
@@ -671,7 +676,7 @@ public sealed class FileReadIndexArtifactWriterTests
             Sha256DigestTestFactory.Create('a'));
 
         await Assert.ThrowsAsync<IOException>(async () => await failingWriter.WriteAssetLookupsAsync(
-            scope.FullPath,
+            GetStorageRoot(scope),
             ProjectFingerprintTestFactory.Create("fingerprint"),
             DateTimeOffset.Parse("2026-03-08T00:01:00+00:00"),
             [new IndexAssetSearchEntryJsonContract("Assets/New.asset", "22222222222222222222222222222222", "New", "Game.New, Assembly-CSharp", ["Game.New, Assembly-CSharp"])],
@@ -679,9 +684,9 @@ public sealed class FileReadIndexArtifactWriterTests
             updatedSnapshot,
             CancellationToken.None));
 
-        Assert.Equal(initialAssetSearchJson, await File.ReadAllTextAsync(assetSearchPath));
-        Assert.Equal(initialGuidJson, await File.ReadAllTextAsync(guidPath));
-        Assert.Equal(initialManifestJson, await File.ReadAllTextAsync(manifestPath));
+        Assert.Equal(initialAssetSearchJson, await File.ReadAllTextAsync(assetSearchPath.Value));
+        Assert.Equal(initialGuidJson, await File.ReadAllTextAsync(guidPath.Value));
+        Assert.Equal(initialManifestJson, await File.ReadAllTextAsync(manifestPath.Value));
     }
 
     [Fact]
@@ -711,7 +716,7 @@ public sealed class FileReadIndexArtifactWriterTests
         ];
 
         await writer.WriteAssetLookupsAsync(
-            scope.FullPath,
+            GetStorageRoot(scope),
             ProjectFingerprintTestFactory.Create("fingerprint"),
             generatedAtUtc,
             assetSearchEntries,
@@ -751,7 +756,7 @@ public sealed class FileReadIndexArtifactWriterTests
         ];
 
         await writer.WriteSceneTreeLiteAsync(
-            scope.FullPath,
+            GetStorageRoot(scope),
             ProjectFingerprintTestFactory.Create("fingerprint"),
             generatedAtUtc,
             new SceneAssetPath("Assets\\Scenes\\Main.unity"),
@@ -772,9 +777,9 @@ public sealed class FileReadIndexArtifactWriterTests
         Assert.Equal(Sha256DigestTestFactory.Create('a'), result.Value.SourceInputsHash);
         Assert.Single(result.Value.Roots);
         Assert.True(File.Exists(UcliStoragePathResolver.ResolveSceneTreeLiteLookupPath(
-            scope.FullPath,
+            GetStorageRoot(scope),
             ProjectFingerprintTestFactory.Create("fingerprint"),
-            "Assets/Scenes/Main.unity")));
+            new SceneAssetPath("Assets/Scenes/Main.unity")).Value));
     }
 
     [Fact]
@@ -788,7 +793,7 @@ public sealed class FileReadIndexArtifactWriterTests
         var updatedGeneratedAtUtc = DateTimeOffset.Parse("2026-04-14T00:02:00+00:00");
 
         await writer.WriteSceneTreeLiteAsync(
-            scope.FullPath,
+            GetStorageRoot(scope),
             ProjectFingerprintTestFactory.Create("fingerprint"),
             firstGeneratedAtUtc,
             new SceneAssetPath("Assets/Scenes/First.unity"),
@@ -796,7 +801,7 @@ public sealed class FileReadIndexArtifactWriterTests
             Sha256DigestTestFactory.Create('a'),
             CancellationToken.None);
         await writer.WriteSceneTreeLiteAsync(
-            scope.FullPath,
+            GetStorageRoot(scope),
             ProjectFingerprintTestFactory.Create("fingerprint"),
             secondGeneratedAtUtc,
             new SceneAssetPath("Assets/Scenes/Second.unity"),
@@ -804,7 +809,7 @@ public sealed class FileReadIndexArtifactWriterTests
             Sha256DigestTestFactory.Create('b'),
             CancellationToken.None);
         await writer.WriteSceneTreeLiteAsync(
-            scope.FullPath,
+            GetStorageRoot(scope),
             ProjectFingerprintTestFactory.Create("fingerprint"),
             updatedGeneratedAtUtc,
             new SceneAssetPath("Assets/Scenes/First.unity"),
@@ -849,14 +854,20 @@ public sealed class FileReadIndexArtifactWriterTests
             generationStore ?? FileReadIndexArtifactReaderTestSupport.CreateGenerationStore());
     }
 
-    private static string CreateDescribeArtifactPath (
-        string describeDirectory,
+    private static AbsolutePath GetStorageRoot (TestDirectoryScope scope)
+    {
+        return AbsolutePath.Parse(scope.FullPath);
+    }
+
+    private static AbsolutePath CreateDescribeArtifactPath (
+        AbsolutePath describeDirectory,
         int index)
     {
-        return Path.Combine(
+        return ContainedPath.Create(
             describeDirectory,
-            StoragePathSegmentCodec.EncodeSha256Digest(Sha256Digest.Parse($"{index:x64}"))
-                + UcliStoragePathNames.OpsDescribeFileExtension);
+            RootRelativePath.Parse(
+                StoragePathSegmentCodec.EncodeSha256Digest(Sha256Digest.Parse($"{index:x64}"))
+                + UcliStoragePathNames.OpsDescribeFileExtension)).Target;
     }
 
     private static IndexSceneTreeLiteNodeJsonContract CreateSceneRoot (string name)
@@ -930,7 +941,7 @@ public sealed class FileReadIndexArtifactWriterTests
         }
 
         public ValueTask<Guid?> ReadAsync (
-            string storageRoot,
+            AbsolutePath storageRoot,
             ProjectFingerprint projectFingerprint,
             CancellationToken cancellationToken)
         {
@@ -938,7 +949,7 @@ public sealed class FileReadIndexArtifactWriterTests
         }
 
         public ValueTask PublishAsync (
-            string storageRoot,
+            AbsolutePath storageRoot,
             ProjectFingerprint projectFingerprint,
             Guid generationId,
             CancellationToken cancellationToken)
@@ -959,7 +970,7 @@ public sealed class FileReadIndexArtifactWriterTests
         public Guid PublishedGenerationId { get; private set; }
 
         public ValueTask<Guid?> ReadAsync (
-            string storageRoot,
+            AbsolutePath storageRoot,
             ProjectFingerprint projectFingerprint,
             CancellationToken cancellationToken)
         {
@@ -967,7 +978,7 @@ public sealed class FileReadIndexArtifactWriterTests
         }
 
         public async ValueTask PublishAsync (
-            string storageRoot,
+            AbsolutePath storageRoot,
             ProjectFingerprint projectFingerprint,
             Guid generationId,
             CancellationToken cancellationToken)
@@ -992,7 +1003,7 @@ public sealed class FileReadIndexArtifactWriterTests
         public Guid PublishedGenerationId { get; private set; }
 
         public ValueTask<Guid?> ReadAsync (
-            string storageRoot,
+            AbsolutePath storageRoot,
             ProjectFingerprint projectFingerprint,
             CancellationToken cancellationToken)
         {
@@ -1005,7 +1016,7 @@ public sealed class FileReadIndexArtifactWriterTests
         }
 
         public async ValueTask PublishAsync (
-            string storageRoot,
+            AbsolutePath storageRoot,
             ProjectFingerprint projectFingerprint,
             Guid generationId,
             CancellationToken cancellationToken)
@@ -1029,7 +1040,7 @@ public sealed class FileReadIndexArtifactWriterTests
         public Guid PublishedGenerationId { get; private set; }
 
         public ValueTask<Guid?> ReadAsync (
-            string storageRoot,
+            AbsolutePath storageRoot,
             ProjectFingerprint projectFingerprint,
             CancellationToken cancellationToken)
         {
@@ -1037,7 +1048,7 @@ public sealed class FileReadIndexArtifactWriterTests
         }
 
         public async ValueTask PublishAsync (
-            string storageRoot,
+            AbsolutePath storageRoot,
             ProjectFingerprint projectFingerprint,
             Guid generationId,
             CancellationToken cancellationToken)
@@ -1048,7 +1059,7 @@ public sealed class FileReadIndexArtifactWriterTests
                 UcliStoragePathResolver.ResolveReadIndexGenerationDirectory(
                     storageRoot,
                     projectFingerprint,
-                    generationId),
+                    generationId).Value,
                 DateTime.UnixEpoch);
             for (var index = 0; index < 9; index++)
             {
@@ -1056,9 +1067,9 @@ public sealed class FileReadIndexArtifactWriterTests
                     storageRoot,
                     projectFingerprint,
                     Guid.NewGuid());
-                Directory.CreateDirectory(orphanDirectory);
+                Directory.CreateDirectory(orphanDirectory.Value);
                 Directory.SetLastWriteTimeUtc(
-                    orphanDirectory,
+                    orphanDirectory.Value,
                     new DateTime(2090, 1, 1, 0, 0, 0, DateTimeKind.Utc));
             }
         }

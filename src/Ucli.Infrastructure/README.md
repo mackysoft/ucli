@@ -6,7 +6,7 @@
 
 `MackySoft.Ucli.Infrastructure` contains shared infrastructure services used by uCLI runtime components.
 
-This is an advanced integration package, not the protocol contract layer. It builds on `MackySoft.Ucli.Contracts` and provides boundary services for runtime code that needs filesystem, process, fingerprint, and transport helpers. Users who only run the `ucli` command or install `MackySoft.Ucli.Unity` usually do not need to reference this package directly.
+This is an advanced integration package, not the protocol contract layer. It builds on `MackySoft.FileSystem` and `MackySoft.Ucli.Contracts` and provides boundary services for runtime code that needs filesystem I/O, storage layout, process, fingerprint, and transport services. Guarded lexical path values belong to `MackySoft.FileSystem`; this package owns the uCLI-specific operations that consume them. Users who only run the `ucli` command or install `MackySoft.Ucli.Unity` usually do not need to reference this package directly.
 
 Operation Args/Result contracts and operation schema generation belong to `MackySoft.Ucli.Contracts`, not this infrastructure package. Infrastructure code may transport or persist generated contract data, but it does not define the operation contract source of truth.
 
@@ -20,7 +20,7 @@ dotnet add package MackySoft.Ucli.Infrastructure --version <version>
 
 ## What This Package Provides
 
-- Filesystem and storage path helpers.
+- uCLI-specific filesystem I/O and storage layout services.
 - Process liveness probing utilities.
 - Project and index fingerprint helpers.
 - IPC transport path utilities.
@@ -32,6 +32,7 @@ dotnet add package MackySoft.Ucli.Infrastructure --version <version>
 | --- | --- |
 | `MackySoft.Ucli` | .NET global tool that provides the `ucli` command. |
 | `MackySoft.Ucli.Unity` | Unity Editor plugin for uCLI IPC and automation. |
+| `MackySoft.FileSystem` | Guarded lexical filesystem path values with current-platform identity semantics. |
 | `MackySoft.Ucli.Contracts` | Shared IPC protocol and data contract types. |
 
 ## Repository

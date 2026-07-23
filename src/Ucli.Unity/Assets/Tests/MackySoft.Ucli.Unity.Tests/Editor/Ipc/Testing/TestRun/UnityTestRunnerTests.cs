@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
@@ -38,9 +39,9 @@ namespace MackySoft.Ucli.Unity.Tests
                 testFilter: "^MackySoft\\.Ucli\\.Unity\\.Tests\\.ExecuteRequestIdempotencyCoordinatorTests$",
                 testCategories: new[] { "Size.Small" },
                 assemblyNames: new[] { "MackySoft.Ucli.Unity.Tests.Editor" },
-                resultsXmlPath: "results.xml",
-                editorLogPath: "editor.log",
-                consoleLogPath: "console.log");
+                resultsXmlPath: CreateAbsolutePath("results.xml"),
+                editorLogPath: CreateAbsolutePath("editor.log"),
+                consoleLogPath: CreateAbsolutePath("console.log"));
 
             var executionSettings = UnityTestRunner.CreateExecutionSettings(requestContext);
 
@@ -343,9 +344,9 @@ namespace MackySoft.Ucli.Unity.Tests
                 testFilter: null,
                 testCategories: new[] { "Size.Small" },
                 assemblyNames: new[] { "MackySoft.Ucli.Unity.Tests.Editor" },
-                resultsXmlPath: "results.xml",
-                editorLogPath: "editor.log",
-                consoleLogPath: "console.log");
+                resultsXmlPath: CreateAbsolutePath("results.xml"),
+                editorLogPath: CreateAbsolutePath("editor.log"),
+                consoleLogPath: CreateAbsolutePath("console.log"));
 
             var executionSettings = UnityTestRunner.CreateExecutionSettings(requestContext);
 
@@ -360,7 +361,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public void CreateRequestContext_WhenPlayerBuildTargetLiteral_IsMappedToPlayModeAndTargetPlatform ()
         {
-            var projectIdentity = new IpcProjectIdentity(
+            var projectIdentity = new UnityHostProjectIdentity(
                 UnityProjectPathResolver.ResolveProjectRootPath(),
                 ProjectFingerprintTestFactory.Create("test-run-request-context"),
                 "6000.1.4f1");
@@ -383,10 +384,14 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(context.TargetPlatform, Is.EqualTo(BuildTarget.Android));
             Assert.That(
                 context.ResultsXmlPath,
-                Is.EqualTo(Path.Combine(expectedArtifactsDirectory, UcliStoragePathNames.TestResultsXmlFileName)));
+                Is.EqualTo(ContainedPath.Create(
+                    expectedArtifactsDirectory,
+                    RootRelativePath.Parse(UcliStoragePathNames.TestResultsXmlFileName)).Target));
             Assert.That(
                 context.EditorLogPath,
-                Is.EqualTo(Path.Combine(expectedArtifactsDirectory, UcliStoragePathNames.TestEditorLogFileName)));
+                Is.EqualTo(ContainedPath.Create(
+                    expectedArtifactsDirectory,
+                    RootRelativePath.Parse(UcliStoragePathNames.TestEditorLogFileName)).Target));
         }
 
         private static UnityTestRunRequestContext CreateRequestContext ()
@@ -399,9 +404,14 @@ namespace MackySoft.Ucli.Unity.Tests
                 testFilter: null,
                 testCategories: Array.Empty<string>(),
                 assemblyNames: new[] { "MackySoft.Ucli.Unity.Tests.Editor" },
-                resultsXmlPath: "results.xml",
-                editorLogPath: "editor.log",
-                consoleLogPath: "console.log");
+                resultsXmlPath: CreateAbsolutePath("results.xml"),
+                editorLogPath: CreateAbsolutePath("editor.log"),
+                consoleLogPath: CreateAbsolutePath("console.log"));
+        }
+
+        private static AbsolutePath CreateAbsolutePath (string fileName)
+        {
+            return AbsolutePath.Parse(Path.Combine(Path.GetTempPath(), "ucli-unity-test-runner", fileName));
         }
 
         private sealed class RecordingMutationLaneControl : IUnityMutationLaneControl

@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.UnityIntegration.Indexing.Core;
@@ -57,7 +58,7 @@ internal sealed class RecordingReadIndexArtifactWriter : IReadIndexArtifactWrite
     }
 
     public ValueTask WriteAssetLookupsAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         ProjectFingerprint projectFingerprint,
         DateTimeOffset generatedAtUtc,
         IReadOnlyList<IndexAssetSearchEntryJsonContract> assetSearchEntries,
@@ -88,7 +89,7 @@ internal sealed class RecordingReadIndexArtifactWriter : IReadIndexArtifactWrite
     }
 
     public ValueTask WriteOpsCatalogAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         ProjectFingerprint projectFingerprint,
         DateTimeOffset generatedAtUtc,
         IReadOnlyList<ValidatedOpsOperation> operations,
@@ -119,7 +120,7 @@ internal sealed class RecordingReadIndexArtifactWriter : IReadIndexArtifactWrite
     }
 
     public ValueTask WriteSceneTreeLiteAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         ProjectFingerprint projectFingerprint,
         DateTimeOffset generatedAtUtc,
         SceneAssetPath scenePath,
@@ -150,7 +151,7 @@ internal sealed class RecordingReadIndexArtifactWriter : IReadIndexArtifactWrite
     }
 
     internal readonly record struct AssetLookupInvocation (
-        string StorageRoot,
+        AbsolutePath StorageRoot,
         ProjectFingerprint ProjectFingerprint,
         DateTimeOffset GeneratedAtUtc,
         IReadOnlyList<IndexAssetSearchEntryJsonContract> AssetSearchEntries,
@@ -159,7 +160,7 @@ internal sealed class RecordingReadIndexArtifactWriter : IReadIndexArtifactWrite
         CancellationToken CancellationToken);
 
     internal readonly record struct OpsCatalogInvocation (
-        string StorageRoot,
+        AbsolutePath StorageRoot,
         ProjectFingerprint ProjectFingerprint,
         DateTimeOffset GeneratedAtUtc,
         IReadOnlyList<ValidatedOpsOperation> Operations,
@@ -168,7 +169,7 @@ internal sealed class RecordingReadIndexArtifactWriter : IReadIndexArtifactWrite
         CancellationToken CancellationToken);
 
     internal readonly record struct SceneTreeLiteInvocation (
-        string StorageRoot,
+        AbsolutePath StorageRoot,
         ProjectFingerprint ProjectFingerprint,
         DateTimeOffset GeneratedAtUtc,
         SceneAssetPath ScenePath,

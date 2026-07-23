@@ -9,21 +9,17 @@ internal static class TestRunConfigurationMerger
     /// <summary> Merges one command input and profile configuration into a normalized configuration. </summary>
     /// <param name="cli"> The interpreted CLI input values. </param>
     /// <param name="profile"> The optional loaded profile. </param>
-    /// <param name="projectPath"> The resolved project path candidate selected before merge. </param>
     /// <returns> The merged normalized configuration. </returns>
     public static MergedTestRunConfiguration Merge (
         TestRunConfigurationRequest cli,
-        TestRunProfile? profile,
-        string projectPath)
+        TestRunProfile? profile)
     {
         ArgumentNullException.ThrowIfNull(cli);
-        ArgumentException.ThrowIfNullOrWhiteSpace(projectPath);
 
         var mode = ResolveMode(cli);
         var (mergedRawTestPlatform, parsedTestPlatform) = ResolveTestPlatform(cli, profile);
 
         return new MergedTestRunConfiguration(
-            ProjectPath: projectPath,
             Mode: mode,
             UnityVersion: StringValueNormalizer.TrimToNull(cli.UnityVersion ?? profile?.UnityVersion),
             UnityEditorPath: NormalizeOptionalValue(cli.UnityEditorPath ?? profile?.UnityEditorPath),

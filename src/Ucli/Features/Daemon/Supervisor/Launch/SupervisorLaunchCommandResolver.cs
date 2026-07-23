@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Shared.Foundation;
 
 namespace MackySoft.Ucli.Features.Daemon.Supervisor.Launch;
@@ -10,32 +11,42 @@ internal sealed class SupervisorLaunchCommandResolver
     public SupervisorLaunchCommandResolutionResult Resolve ()
     {
         var processPath = Environment.ProcessPath;
-        if (string.IsNullOrWhiteSpace(processPath))
+        if (!AbsolutePath.TryParse(processPath, out var executablePath, out var executablePathFailure))
         {
             return SupervisorLaunchCommandResolutionResult.Failure(ExecutionError.InternalError(
-                "Current process executable path could not be resolved."));
+                $"Current process executable path is invalid. {executablePathFailure.Message}"));
         }
 
-        if (IsDotNetHost(processPath))
+        if (IsDotNetHost(executablePath))
         {
             var commandLineArguments = Environment.GetCommandLineArgs();
-            if (commandLineArguments.Length == 0 || string.IsNullOrWhiteSpace(commandLineArguments[0]))
+            if (commandLineArguments.Length == 0)
             {
                 return SupervisorLaunchCommandResolutionResult.Failure(ExecutionError.InternalError(
                     "Current process application path could not be resolved."));
             }
 
+            if (!AbsolutePath.TryResolve(
+                    AbsolutePath.Parse(Environment.CurrentDirectory),
+                    commandLineArguments[0],
+                    out var applicationPath,
+                    out var applicationPathFailure))
+            {
+                return SupervisorLaunchCommandResolutionResult.Failure(ExecutionError.InternalError(
+                    $"Current process application path is invalid. {applicationPathFailure.Message}"));
+            }
+
             return SupervisorLaunchCommandResolutionResult.Success(new SupervisorLaunchCommand(
-                processPath,
-                [Path.GetFullPath(commandLineArguments[0])]));
+                executablePath.Value,
+                [applicationPath.Value]));
         }
 
-        return SupervisorLaunchCommandResolutionResult.Success(new SupervisorLaunchCommand(processPath, []));
+        return SupervisorLaunchCommandResolutionResult.Success(new SupervisorLaunchCommand(executablePath.Value, []));
     }
 
-    private static bool IsDotNetHost (string processPath)
+    private static bool IsDotNetHost (AbsolutePath processPath)
     {
-        var fileNameWithoutExtension = Path.GetFileNameWithoutExtension(processPath);
+        var fileNameWithoutExtension = Path.GetFileNameWithoutExtension(processPath.Value);
         return string.Equals(fileNameWithoutExtension, "dotnet", StringComparison.OrdinalIgnoreCase);
     }
 }

@@ -1,6 +1,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -102,7 +103,8 @@ namespace MackySoft.Ucli.Unity.Ipc
                 var projectRoot = UnityProjectPathResolver.ResolveProjectRootPath();
                 var storageRoot = UcliStoragePathResolver.ResolveStorageRoot(projectRoot);
                 var projectFingerprint = UnityProjectFingerprintCalculator.Create(storageRoot, projectRoot);
-                var endpoint = UcliIpcEndpointResolver.ResolveGuiSupervisorEndpoint(storageRoot, projectFingerprint);
+                var endpointBinding = UnityIpcEndpointBinding.Create(
+                    UcliIpcEndpointResolver.ResolveGuiSupervisorEndpoint(storageRoot, projectFingerprint));
                 var sessionToken = IpcSessionToken.CreateRandom();
                 if (!TryAttachStartingIdentity(
                         state,
@@ -117,7 +119,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 services.AddUnityGuiSupervisorHostServices(
                     new ExactSessionTokenValidator(sessionToken),
                     projectFingerprint,
-                    endpoint,
+                    endpointBinding,
                     state.DaemonLogger);
                 var serviceProvider = services.BuildServiceProvider();
                 var server = serviceProvider.GetRequiredService<IUnityIpcServer>();
@@ -145,13 +147,15 @@ namespace MackySoft.Ucli.Unity.Ipc
                 }
 
                 EnsureStartingGenerationOwnership(state);
-                using var publicationFence = await server.StartAsync(endpoint, state.CancellationToken);
+                using var publicationFence = await server.StartAsync(
+                    endpointBinding,
+                    state.CancellationToken);
                 publicationFence.ThrowIfGenerationTerminated();
                 EnsureStartingGenerationOwnership(state);
                 var manifest = await BeginTrackedManifestPublication(
                     state,
                     publicationLease,
-                    endpoint,
+                    endpointBinding.Endpoint,
                     sessionToken);
                 if (!TryValidatePublishedManifest(state, manifest))
                 {
@@ -189,7 +193,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 state.ReleasePublicationLeaseAfterSuccessfulPublication();
                 LogInfoBestEffort(
                     state.DaemonLogger,
-                    $"uCLI GUI supervisor registered. storageRoot={storageRoot}, fingerprint={projectFingerprint}, endpoint={endpoint.Address}");
+                    $"uCLI GUI supervisor registered. storageRoot={storageRoot}, fingerprint={projectFingerprint}, endpoint={endpointBinding.Endpoint.Address}");
                 _ = MonitorAsync(nextState);
             }
             catch (Exception exception)
@@ -222,7 +226,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private static bool TryAttachStartingIdentity (
             StartingGuiSupervisorState state,
-            string storageRoot,
+            AbsolutePath storageRoot,
             ProjectFingerprint projectFingerprint,
             IpcSessionToken sessionToken)
         {
@@ -1104,7 +1108,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             public IDaemonLogger DaemonLogger { get; }
 
-            public string StorageRoot { get; private set; }
+            public AbsolutePath StorageRoot { get; private set; }
 
             public ProjectFingerprint ProjectFingerprint { get; private set; }
 
@@ -1138,7 +1142,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             public void AttachIdentity (
-                string storageRoot,
+                AbsolutePath storageRoot,
                 ProjectFingerprint projectFingerprint,
                 IpcSessionToken sessionToken)
             {
@@ -1147,9 +1151,9 @@ namespace MackySoft.Ucli.Unity.Ipc
                     throw new InvalidOperationException("The GUI supervisor startup generation no longer owns resources.");
                 }
 
-                if (string.IsNullOrWhiteSpace(storageRoot))
+                if (storageRoot == null)
                 {
-                    throw new ArgumentException("Storage root must not be empty.", nameof(storageRoot));
+                    throw new ArgumentNullException(nameof(storageRoot));
                 }
 
                 if (projectFingerprint == null)
@@ -1498,7 +1502,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 IServiceProvider serviceProvider,
                 IUnityControlPlaneRequestLifetime controlPlaneRequestLifetime,
                 IDaemonLogger daemonLogger,
-                string storageRoot,
+                AbsolutePath storageRoot,
                 ProjectFingerprint projectFingerprint)
             {
                 SessionToken = sessionToken ?? throw new ArgumentNullException(nameof(sessionToken));
@@ -1521,7 +1525,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             public IDaemonLogger DaemonLogger { get; }
 
-            public string StorageRoot { get; }
+            public AbsolutePath StorageRoot { get; }
 
             public ProjectFingerprint ProjectFingerprint { get; }
 

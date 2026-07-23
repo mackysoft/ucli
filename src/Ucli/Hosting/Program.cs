@@ -22,7 +22,7 @@ internal static class Program
             }
 
             var supervisorRunner = new InternalSupervisorExecutionRunner();
-            return await supervisorRunner.RunAsync(supervisorInvocation.RepositoryRoot).ConfigureAwait(false);
+            return await supervisorRunner.RunAsync(supervisorInvocation.RepositoryRoot!).ConfigureAwait(false);
         }
 
         var cliRunner = new CliExecutionRunner();

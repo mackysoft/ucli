@@ -1,7 +1,7 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Application.Shared.Git;
 using MackySoft.Ucli.Contracts.Text;
-using MackySoft.Ucli.Infrastructure.Paths;
 
 namespace MackySoft.Ucli.Shared.Git;
 
@@ -134,19 +134,20 @@ internal sealed class GitWorktreeListPorcelainParser : IGitWorktreeListPorcelain
             return false;
         }
 
-        try
-        {
-            entries.Add(new GitWorktreeInfo(
-                WorktreePath: Path.GetFullPath(normalizedWorktreePath),
-                Head: normalizedHead,
-                BranchRef: hasDetachedMarker ? null : branchRef));
-        }
-        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
+        if (!AbsolutePath.TryParse(
+                normalizedWorktreePath,
+                out var guardedWorktreePath,
+                out var pathFailure))
         {
             error = ExecutionError.InternalError(
-                $"Git worktree list returned an invalid worktree path '{normalizedWorktreePath}'. {exception.Message}");
+                $"Git worktree list returned an invalid worktree path '{normalizedWorktreePath}'. {pathFailure.Message}");
             return false;
         }
+
+        entries.Add(new GitWorktreeInfo(
+            WorktreePath: guardedWorktreePath,
+            Head: normalizedHead,
+            BranchRef: hasDetachedMarker ? null : branchRef));
 
         worktreePath = null;
         head = null;

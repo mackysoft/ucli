@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Assurance.Verify.Contracts;
 using MackySoft.Ucli.Application.Features.Assurance.Verify.Vocabulary;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
@@ -31,11 +32,14 @@ public sealed class VerifyServiceTestStepTests
               ]
             }
             """);
+        var testRunArtifactsDirectory = AbsolutePath.Resolve(
+            AbsolutePath.Parse(scope.FullPath),
+            "test-artifacts");
         var testRunService = new RecordingVerifyTestRunService(_ => TestRunServiceResult.Pass(
             "Tests passed.",
             TestRunId,
-            "/repo/.ucli/local/test/test-run-1",
-            "/repo/.ucli/local/test/test-run-1/summary.json"));
+            testRunArtifactsDirectory,
+            AbsolutePath.Resolve(testRunArtifactsDirectory, "summary.json")));
         var service = CreateService(scope.FullPath, testRunService: testRunService);
 
         var result = await service.ExecuteAsync(new VerifyCommandInput(
@@ -77,11 +81,14 @@ public sealed class VerifyServiceTestStepTests
               ]
             }
             """);
+        var testRunArtifactsDirectory = AbsolutePath.Resolve(
+            AbsolutePath.Parse(scope.FullPath),
+            "test-artifacts");
         var testRunService = new RecordingVerifyTestRunService(_ => TestRunServiceResult.Fail(
             "Tests failed.",
             TestRunId,
-            "/repo/.ucli/local/test/test-run-1",
-            "/repo/.ucli/local/test/test-run-1/summary.json"));
+            testRunArtifactsDirectory,
+            AbsolutePath.Resolve(testRunArtifactsDirectory, "summary.json")));
         var service = CreateService(scope.FullPath, testRunService: testRunService);
 
         var result = await service.ExecuteAsync(new VerifyCommandInput(

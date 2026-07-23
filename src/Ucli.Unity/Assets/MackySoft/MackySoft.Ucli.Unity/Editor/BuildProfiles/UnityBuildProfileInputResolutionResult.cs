@@ -8,7 +8,7 @@ namespace MackySoft.Ucli.Unity.Build
     internal sealed record UnityBuildProfileInputResolutionResult (
         bool IsSuccess,
         UnityBuildPreconditionInput? PreconditionInput,
-        IpcBuildOutputLayout? OutputLayout,
+        ResolvedBuildPipelineOutputLayout? OutputLayout,
         IpcUnityBuildProfileInput? UnityBuildProfile,
         IpcUnityEditorObservation? LifecycleBefore,
         IpcBuildDirtyState? DirtyState,
@@ -17,7 +17,7 @@ namespace MackySoft.Ucli.Unity.Build
         /// <summary> Creates a successful input resolution result. </summary>
         public static UnityBuildProfileInputResolutionResult Success (
             UnityBuildPreconditionInput preconditionInput,
-            IpcBuildOutputLayout outputLayout,
+            ResolvedBuildPipelineOutputLayout outputLayout,
             IpcUnityBuildProfileInput unityBuildProfile)
         {
             return new UnityBuildProfileInputResolutionResult(

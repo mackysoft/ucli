@@ -1,5 +1,7 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Assurance.Verify.Profiles;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Infrastructure.Paths;
 
 namespace MackySoft.Ucli.Features.Assurance.Verify;
 
@@ -9,7 +11,7 @@ internal sealed class FileVerifyProfileFileReader : IVerifyProfileFileReader
     /// <inheritdoc />
     public async ValueTask<VerifyProfileFileReadResult> ReadAsync (
         string profilePath,
-        string repositoryRoot,
+        AbsolutePath repositoryRoot,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -17,24 +19,34 @@ internal sealed class FileVerifyProfileFileReader : IVerifyProfileFileReader
         if (!VerifyRepositoryFilePathResolver.TryResolve(
                 repositoryRoot,
                 profilePath,
-                out var fullPath,
-                out var repositoryRelativePath,
+                out var resolvedPath,
                 out _))
         {
             return VerifyProfileFileReadResult.Failure(ExecutionError.InvalidArgument(
                 "--profilePath must resolve to a file under the repository root."));
         }
 
-        if (!File.Exists(fullPath))
+        if (!File.Exists(resolvedPath!.Target.Value))
         {
             return VerifyProfileFileReadResult.Failure(ExecutionError.InvalidArgument(
-                $"--profilePath does not exist: {repositoryRelativePath}."));
+                $"--profilePath does not exist: {resolvedPath.RelativePath}."));
+        }
+
+        if (!UcliPortablePathAdapter.TryFormat(
+                resolvedPath.RelativePath,
+                out var portableRepositoryRelativePath))
+        {
+            return VerifyProfileFileReadResult.Failure(ExecutionError.InvalidArgument(
+                "--profilePath cannot be represented as a portable repository-relative path."));
         }
 
         try
         {
-            var json = await File.ReadAllTextAsync(fullPath, cancellationToken).ConfigureAwait(false);
-            return VerifyProfileFileReadResult.Success(json, repositoryRelativePath);
+            var json = await File.ReadAllTextAsync(
+                    resolvedPath.Target.Value,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            return VerifyProfileFileReadResult.Success(json, portableRepositoryRelativePath);
         }
         catch (IOException exception)
         {

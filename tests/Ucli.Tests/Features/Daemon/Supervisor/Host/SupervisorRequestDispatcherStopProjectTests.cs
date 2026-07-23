@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Project;
 using static MackySoft.Ucli.Tests.Supervisor.SupervisorRequestDispatcherTestSupport;
@@ -16,7 +17,7 @@ public sealed class SupervisorRequestDispatcherStopProjectTests
             timeProvider: timeProvider,
             stopOperation: stopOperation);
         var runtimeContext = CreateRuntimeContext();
-        var unityProjectRoot = Path.Combine(runtimeContext.StorageRoot, "UnityProject");
+        var unityProjectRoot = AbsolutePath.Parse(Path.Combine(runtimeContext.StorageRoot.Value, "UnityProject"));
         var projectFingerprint = UnityProjectFingerprintCalculator.Create(
             runtimeContext.StorageRoot,
             unityProjectRoot);
@@ -33,7 +34,7 @@ public sealed class SupervisorRequestDispatcherStopProjectTests
                 method: ContractLiteralCodec.ToValue(SupervisorIpcMethod.StopProject),
                 payload: IpcPayloadCodec.SerializeToElement(
                     new SupervisorIpcContracts.StopProjectRequest(
-                        UnityProjectRoot: unityProjectRoot,
+                        UnityProjectRoot: unityProjectRoot.Value,
                         ProjectFingerprint: projectFingerprint)),
                 responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single),
                 requestDeadlineUtc: deadlineUtc,
@@ -54,7 +55,7 @@ public sealed class SupervisorRequestDispatcherStopProjectTests
             timeProvider: timeProvider,
             stopOperation: stopOperation);
         var runtimeContext = CreateRuntimeContext();
-        var unityProjectRoot = Path.Combine(runtimeContext.StorageRoot, "UnityProject");
+        var unityProjectRoot = AbsolutePath.Parse(Path.Combine(runtimeContext.StorageRoot.Value, "UnityProject"));
         var projectFingerprint = UnityProjectFingerprintCalculator.Create(
             runtimeContext.StorageRoot,
             unityProjectRoot);
@@ -71,7 +72,7 @@ public sealed class SupervisorRequestDispatcherStopProjectTests
                 method: ContractLiteralCodec.ToValue(SupervisorIpcMethod.StopProject),
                 payload: IpcPayloadCodec.SerializeToElement(
                     new SupervisorIpcContracts.StopProjectRequest(
-                        UnityProjectRoot: unityProjectRoot,
+                        UnityProjectRoot: unityProjectRoot.Value,
                         ProjectFingerprint: projectFingerprint)),
                 responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single),
                 requestDeadlineUtc: deadlineUtc,
@@ -91,7 +92,7 @@ public sealed class SupervisorRequestDispatcherStopProjectTests
             timeProvider: timeProvider,
             stopOperation: stopOperation);
         var runtimeContext = CreateRuntimeContext();
-        var unityProjectRoot = Path.Combine(runtimeContext.StorageRoot, "UnityProject");
+        var unityProjectRoot = AbsolutePath.Parse(Path.Combine(runtimeContext.StorageRoot.Value, "UnityProject"));
         var projectFingerprint = UnityProjectFingerprintCalculator.Create(
             runtimeContext.StorageRoot,
             unityProjectRoot);
@@ -108,7 +109,7 @@ public sealed class SupervisorRequestDispatcherStopProjectTests
                 method: ContractLiteralCodec.ToValue(SupervisorIpcMethod.StopProject),
                 payload: IpcPayloadCodec.SerializeToElement(
                     new SupervisorIpcContracts.StopProjectRequest(
-                        UnityProjectRoot: unityProjectRoot,
+                        UnityProjectRoot: unityProjectRoot.Value,
                         ProjectFingerprint: projectFingerprint)),
                 responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single),
                 requestDeadlineUtc: deadlineUtc,

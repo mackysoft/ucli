@@ -1,5 +1,6 @@
 using System.Runtime.ExceptionServices;
 using System.Text.Json;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Daemon.Common.Projection;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Logs;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Startup;
@@ -172,8 +173,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
                         cancellationToken)
                     .ConfigureAwait(false));
 
-            var unityLogDirectoryPath = Path.GetDirectoryName(unityLogPath);
-            if (!string.IsNullOrWhiteSpace(unityLogDirectoryPath))
+            if (unityLogPath.TryGetParent(out var unityLogDirectoryPath))
             {
                 FileSystemAccessBoundary.EnsureSecureDirectory(unityLogDirectoryPath);
             }
@@ -192,7 +192,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
                 SessionToken: sessionToken,
                 CreatedAtUtc: bootstrapCreatedAtUtc,
                 ExitDeadlineUtc: deadline.UtcDeadline,
-                Endpoint: endpoint);
+                Endpoint: endpoint.Contract);
             var launchResult = await batchmodeProcessLauncher.LaunchOneshotAsync(
                     unityProject,
                     bootstrapEnvelope,
@@ -1032,7 +1032,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
             requestDeadlineRemainingMilliseconds);
     }
 
-    private static string ResolveUnityLogPath (ResolvedUnityProjectContext unityProject)
+    private static AbsolutePath ResolveUnityLogPath (ResolvedUnityProjectContext unityProject)
     {
         return UcliStoragePathResolver.ResolveUnityLogPath(
             unityProject.RepositoryRoot,

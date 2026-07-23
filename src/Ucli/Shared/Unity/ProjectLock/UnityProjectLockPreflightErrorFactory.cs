@@ -27,12 +27,12 @@ internal static class UnityProjectLockPreflightErrorFactory
             UnityProjectLockPreflightStatus.Ambiguous => ExecutionError.InternalError(
                 preflightResult.Message ?? UnityProjectLockFailureMessage.CreateAmbiguous(
                     unityProject.UnityProjectRoot,
-                    preflightResult.LockFilePath ?? "<unknown>",
+                    preflightResult.LockFilePath,
                     "Lock owner could not be determined safely."),
                 UnityProcessErrorCodes.UnityProjectLockAmbiguous),
             UnityProjectLockPreflightStatus.CleanupFailed => ExecutionError.InternalError(
                 preflightResult.Message ?? UnityProjectLockFailureMessage.CreateCleanupFailed(
-                    preflightResult.LockFilePath ?? "<unknown>",
+                    preflightResult.LockFilePath,
                     "Unknown cleanup failure."),
                 UnityProcessErrorCodes.UnityProjectLockCleanupFailed),
             UnityProjectLockPreflightStatus.InspectionFailed => ExecutionError.InternalError(

@@ -1,11 +1,13 @@
+using MackySoft.FileSystem;
+
 namespace MackySoft.Ucli.Application.Shared.Context.Project;
 
 /// <summary> Represents a resolved UnityProject context shared by command foundation services. </summary>
 internal sealed record ResolvedUnityProjectContext
 {
     private ResolvedUnityProjectContext (
-        string unityProjectRoot,
-        string repositoryRoot,
+        AbsolutePath unityProjectRoot,
+        AbsolutePath repositoryRoot,
         ProjectFingerprint projectFingerprint,
         UnityProjectPathSource pathSource,
         string? pathSourceLabel,
@@ -20,10 +22,10 @@ internal sealed record ResolvedUnityProjectContext
     }
 
     /// <summary> Gets the normalized absolute UnityProject root path. </summary>
-    public string UnityProjectRoot { get; }
+    public AbsolutePath UnityProjectRoot { get; }
 
     /// <summary> Gets the normalized absolute repository root path used for <c>.ucli</c> storage. </summary>
-    public string RepositoryRoot { get; }
+    public AbsolutePath RepositoryRoot { get; }
 
     /// <summary> Gets the deterministic fingerprint used for project identity checks. </summary>
     public ProjectFingerprint ProjectFingerprint { get; }
@@ -46,13 +48,15 @@ internal sealed record ResolvedUnityProjectContext
     /// <param name="unityVersion"> The Unity editor version resolved from <c>ProjectSettings/ProjectVersion.txt</c>, or <c>unknown</c>. </param>
     /// <returns> A context containing canonical absolute project and repository paths. </returns>
     public static ResolvedUnityProjectContext Create (
-        string unityProjectRoot,
-        string repositoryRoot,
+        AbsolutePath unityProjectRoot,
+        AbsolutePath repositoryRoot,
         ProjectFingerprint projectFingerprint,
         UnityProjectPathSource pathSource,
         string? pathSourceLabel,
         string unityVersion)
     {
+        ArgumentNullException.ThrowIfNull(unityProjectRoot);
+        ArgumentNullException.ThrowIfNull(repositoryRoot);
         ArgumentNullException.ThrowIfNull(projectFingerprint);
         ArgumentException.ThrowIfNullOrWhiteSpace(unityVersion);
         if (!string.Equals(unityVersion, unityVersion.Trim(), StringComparison.Ordinal))
@@ -73,24 +77,11 @@ internal sealed record ResolvedUnityProjectContext
         }
 
         return new ResolvedUnityProjectContext(
-            NormalizeAbsolutePath(unityProjectRoot, nameof(unityProjectRoot)),
-            NormalizeAbsolutePath(repositoryRoot, nameof(repositoryRoot)),
+            unityProjectRoot,
+            repositoryRoot,
             projectFingerprint,
             pathSource,
             pathSourceLabel,
             unityVersion);
-    }
-
-    private static string NormalizeAbsolutePath (
-        string path,
-        string parameterName)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(path, parameterName);
-        if (!Path.IsPathFullyQualified(path))
-        {
-            throw new ArgumentException("Path must be fully qualified.", parameterName);
-        }
-
-        return Path.TrimEndingDirectorySeparator(Path.GetFullPath(path));
     }
 }

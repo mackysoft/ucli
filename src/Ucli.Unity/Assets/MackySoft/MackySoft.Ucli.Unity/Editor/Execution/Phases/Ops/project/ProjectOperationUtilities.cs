@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Infrastructure.Paths;
 using UnityEditor;
@@ -44,31 +45,32 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <summary> Captures the current file-state snapshot under <c>ProjectSettings/</c>. </summary>
         /// <param name="projectRoot"> The absolute Unity project root path. </param>
         /// <returns> The snapshot keyed by project-relative path. </returns>
-        /// <exception cref="ArgumentException"> Thrown when <paramref name="projectRoot" /> is null, empty, or whitespace. </exception>
-        public static IReadOnlyDictionary<string, ProjectOperationFileSnapshot> CaptureProjectSettingsSnapshot (string projectRoot)
+        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="projectRoot" /> is <see langword="null" />. </exception>
+        public static IReadOnlyDictionary<RootRelativePath, ProjectOperationFileSnapshot> CaptureProjectSettingsSnapshot (
+            AbsolutePath projectRoot)
         {
-            if (string.IsNullOrWhiteSpace(projectRoot))
+            if (projectRoot == null)
             {
-                throw new ArgumentException("Project root must not be empty.", nameof(projectRoot));
+                throw new ArgumentNullException(nameof(projectRoot));
             }
 
-            var projectSettingsDirectoryPath = Path.Combine(projectRoot, "ProjectSettings");
-            var snapshot = new Dictionary<string, ProjectOperationFileSnapshot>(StringComparer.Ordinal);
-            if (!Directory.Exists(projectSettingsDirectoryPath))
+            var projectSettingsDirectoryPath = ContainedPath.Create(
+                projectRoot,
+                RootRelativePath.Parse("ProjectSettings")).Target;
+            var snapshot = new Dictionary<RootRelativePath, ProjectOperationFileSnapshot>();
+            if (!Directory.Exists(projectSettingsDirectoryPath.Value))
             {
                 return snapshot;
             }
 
-            foreach (var filePath in Directory.EnumerateFiles(projectSettingsDirectoryPath, "*", SearchOption.AllDirectories))
+            foreach (var filePath in Directory.EnumerateFiles(projectSettingsDirectoryPath.Value, "*", SearchOption.AllDirectories))
             {
                 var fileInfo = new FileInfo(filePath);
-                var relativePathResult = RepositoryPathNormalizer.TryNormalize(projectRoot, filePath);
-                if (!relativePathResult.IsSuccess)
-                {
-                    throw new InvalidOperationException(relativePathResult.DiagnosticMessage);
-                }
+                var containedPath = ContainedPath.Create(
+                    projectRoot,
+                    AbsolutePath.Parse(filePath));
 
-                snapshot[relativePathResult.RepositoryRelativeSlashPath!] = new ProjectOperationFileSnapshot(
+                snapshot[containedPath.RelativePath] = new ProjectOperationFileSnapshot(
                     fileInfo.Length,
                     fileInfo.LastWriteTimeUtc.Ticks);
             }
@@ -81,9 +83,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="after"> The post-operation snapshot. </param>
         /// <returns> The stable changed-path list. </returns>
         /// <exception cref="ArgumentNullException"> Thrown when <paramref name="before" /> or <paramref name="after" /> is <see langword="null" />. </exception>
-        public static IReadOnlyList<string> GetChangedProjectSettingsPaths (
-            IReadOnlyDictionary<string, ProjectOperationFileSnapshot> before,
-            IReadOnlyDictionary<string, ProjectOperationFileSnapshot> after)
+        public static IReadOnlyList<RootRelativePath> GetChangedProjectSettingsPaths (
+            IReadOnlyDictionary<RootRelativePath, ProjectOperationFileSnapshot> before,
+            IReadOnlyDictionary<RootRelativePath, ProjectOperationFileSnapshot> after)
         {
             if (before == null)
             {
@@ -95,7 +97,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 throw new ArgumentNullException(nameof(after));
             }
 
-            var changedPaths = new SortedSet<string>(StringComparer.Ordinal);
+            var changedPaths = new HashSet<RootRelativePath>();
             foreach (var beforeEntry in before)
             {
                 if (!after.TryGetValue(beforeEntry.Key, out var afterSnapshot)
@@ -114,8 +116,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 }
             }
 
-            var result = new string[changedPaths.Count];
+            var result = new RootRelativePath[changedPaths.Count];
             changedPaths.CopyTo(result);
+            Array.Sort(
+                result,
+                static (left, right) => string.CompareOrdinal(left.Value, right.Value));
             return result;
         }
 
@@ -126,7 +131,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <exception cref="ArgumentNullException"> Thrown when any argument is <see langword="null" />. </exception>
         public static IReadOnlyList<OperationTouch> CreateTouchedResources (
             IReadOnlyList<string> callbackPaths,
-            IReadOnlyList<string> projectSettingsPaths)
+            IReadOnlyList<RootRelativePath> projectSettingsPaths)
         {
             if (callbackPaths == null)
             {
@@ -237,6 +242,35 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             for (var index = 0; index < candidatePaths.Count; index++)
             {
                 if (!TryCreateTouchedResource(candidatePaths[index], out var touchedResource))
+                {
+                    continue;
+                }
+
+                if (touchedByPath.TryGetValue(touchedResource.Path, out var existing)
+                    && existing.AssetGuid.HasValue)
+                {
+                    continue;
+                }
+
+                touchedByPath[touchedResource.Path] = touchedResource;
+            }
+        }
+
+        /// <summary> Adds guarded filesystem candidates into the portable touched-resource map. </summary>
+        private static void AddTouchedCandidates (
+            IReadOnlyList<RootRelativePath> candidatePaths,
+            SortedDictionary<string, OperationTouch> touchedByPath)
+        {
+            for (var index = 0; index < candidatePaths.Count; index++)
+            {
+                var candidatePath = candidatePaths[index];
+                if (!UcliPortablePathAdapter.TryFormat(candidatePath, out var portablePath))
+                {
+                    throw new InvalidOperationException(
+                        $"Changed ProjectSettings path cannot be represented by the portable operation contract: {candidatePath.Value}");
+                }
+
+                if (!TryCreateTouchedResource(portablePath, out var touchedResource))
                 {
                     continue;
                 }

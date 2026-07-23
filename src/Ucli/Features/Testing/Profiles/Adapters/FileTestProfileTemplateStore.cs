@@ -1,10 +1,10 @@
 using System.Text.Json;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Testing.Profiles;
 using MackySoft.Ucli.Application.Features.Testing.Profiles.Common.Contracts;
 using MackySoft.Ucli.Application.Features.Testing.Profiles.Ports;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Text;
-using MackySoft.Ucli.Infrastructure.Paths;
 
 namespace MackySoft.Ucli.Features.Testing.Profiles.Adapters;
 
@@ -37,36 +37,25 @@ internal sealed class FileTestProfileTemplateStore : ITestProfileTemplateStore
         }
 
         var resolvedOutputPath = outputPathResolution.OutputPath!;
-        if (Directory.Exists(resolvedOutputPath))
+        if (Directory.Exists(resolvedOutputPath.Value))
         {
             return TestProfileInitExecutionResult.Failure(ExecutionError.InvalidArgument(
                 $"Output path must be a file path, but a directory exists: {resolvedOutputPath}"));
         }
 
-        if (File.Exists(resolvedOutputPath) && !force)
+        if (File.Exists(resolvedOutputPath.Value) && !force)
         {
             return TestProfileInitExecutionResult.Failure(ExecutionError.InvalidArgument(
                 $"Output path already exists: {resolvedOutputPath}. Use --force to overwrite."));
         }
 
-        string? parentDirectoryPath;
-        try
-        {
-            parentDirectoryPath = Path.GetDirectoryName(resolvedOutputPath);
-        }
-        catch (Exception ex) when (PathFormatExceptionClassifier.IsPathFormatException(ex))
-        {
-            return TestProfileInitExecutionResult.Failure(ExecutionError.InvalidArgument(
-                $"Output path is invalid: {resolvedOutputPath}. {ex.Message}"));
-        }
-
-        if (string.IsNullOrWhiteSpace(parentDirectoryPath))
+        if (!resolvedOutputPath.TryGetParent(out var parentDirectoryPath))
         {
             return TestProfileInitExecutionResult.Failure(ExecutionError.InternalError(
                 $"Failed to resolve parent directory from output path: {resolvedOutputPath}"));
         }
 
-        if (File.Exists(parentDirectoryPath))
+        if (File.Exists(parentDirectoryPath.Value))
         {
             return TestProfileInitExecutionResult.Failure(ExecutionError.InvalidArgument(
                 $"Output directory path points to a file: {parentDirectoryPath}"));
@@ -74,12 +63,7 @@ internal sealed class FileTestProfileTemplateStore : ITestProfileTemplateStore
 
         try
         {
-            Directory.CreateDirectory(parentDirectoryPath);
-        }
-        catch (Exception ex) when (PathFormatExceptionClassifier.IsPathFormatException(ex))
-        {
-            return TestProfileInitExecutionResult.Failure(ExecutionError.InvalidArgument(
-                $"Output path is invalid: {resolvedOutputPath}. {ex.Message}"));
+            Directory.CreateDirectory(parentDirectoryPath.Value);
         }
         catch (Exception ex) when (IsIoFailure(ex))
         {
@@ -93,15 +77,10 @@ internal sealed class FileTestProfileTemplateStore : ITestProfileTemplateStore
         try
         {
             await File.WriteAllTextAsync(
-                    resolvedOutputPath,
+                    resolvedOutputPath.Value,
                     templateJson + Environment.NewLine,
                     cancellationToken)
                 .ConfigureAwait(false);
-        }
-        catch (Exception ex) when (PathFormatExceptionClassifier.IsPathFormatException(ex))
-        {
-            return TestProfileInitExecutionResult.Failure(ExecutionError.InvalidArgument(
-                $"Output path is invalid: {resolvedOutputPath}. {ex.Message}"));
         }
         catch (Exception ex) when (IsIoFailure(ex))
         {
@@ -109,7 +88,7 @@ internal sealed class FileTestProfileTemplateStore : ITestProfileTemplateStore
                 $"Failed to write profile template file: {resolvedOutputPath}. {ex.Message}"));
         }
 
-        var output = new TestProfileInitExecutionOutput(resolvedOutputPath);
+        var output = new TestProfileInitExecutionOutput(resolvedOutputPath.Value);
         return TestProfileInitExecutionResult.Success(output);
     }
 
@@ -124,15 +103,17 @@ internal sealed class FileTestProfileTemplateStore : ITestProfileTemplateStore
             return OutputPathResolution.Failure(pathValueResolution.ErrorMessage!);
         }
 
-        try
+        var currentDirectory = AbsolutePath.Parse(Environment.CurrentDirectory);
+        if (!AbsolutePath.TryResolve(
+                currentDirectory,
+                pathValueResolution.PathValue,
+                out var resolvedPath,
+                out var failure))
         {
-            var fullPath = Path.GetFullPath(pathValueResolution.PathValue!);
-            return OutputPathResolution.Success(fullPath);
+            return OutputPathResolution.Failure($"Output path is invalid: {failure.Message}");
         }
-        catch (Exception ex) when (PathFormatExceptionClassifier.IsPathFormatException(ex))
-        {
-            return OutputPathResolution.Failure($"Output path is invalid: {ex.Message}");
-        }
+
+        return OutputPathResolution.Success(resolvedPath);
     }
 
     /// <summary> Resolves and normalizes the raw output path value from CLI input. </summary>
@@ -191,17 +172,18 @@ internal sealed class FileTestProfileTemplateStore : ITestProfileTemplateStore
     /// <param name="OutputPath"> The resolved absolute output path when successful. </param>
     /// <param name="ErrorMessage"> The error message when resolution failed. </param>
     private sealed record OutputPathResolution (
-        string? OutputPath,
+        AbsolutePath? OutputPath,
         string? ErrorMessage)
     {
         /// <summary> Gets a value indicating whether output-path resolution succeeded. </summary>
-        public bool IsSuccess => string.IsNullOrWhiteSpace(ErrorMessage);
+        public bool IsSuccess => OutputPath is not null;
 
         /// <summary> Creates a successful output-path resolution. </summary>
         /// <param name="outputPath"> The resolved absolute output path. </param>
         /// <returns> The successful output-path resolution result. </returns>
-        public static OutputPathResolution Success (string outputPath)
+        public static OutputPathResolution Success (AbsolutePath outputPath)
         {
+            ArgumentNullException.ThrowIfNull(outputPath);
             return new OutputPathResolution(outputPath, null);
         }
 

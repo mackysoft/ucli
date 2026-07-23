@@ -1,3 +1,5 @@
+using MackySoft.FileSystem;
+
 namespace MackySoft.Ucli.Features.Daemon.Lifecycle.Process.EditorInstance;
 
 /// <summary> Resolves the Unity <c>Library/EditorInstance.json</c> marker path for one project. </summary>
@@ -11,12 +13,12 @@ internal static class UnityEditorInstanceMarkerPath
     /// <param name="unityProjectRoot"> The Unity project root path. </param>
     /// <returns> The marker path. </returns>
     /// <exception cref="ArgumentException"> Thrown when <paramref name="unityProjectRoot" /> is empty. </exception>
-    public static string Resolve (string unityProjectRoot)
+    public static AbsolutePath Resolve (AbsolutePath unityProjectRoot)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(unityProjectRoot);
-        return Path.Combine(
+        ArgumentNullException.ThrowIfNull(unityProjectRoot);
+        return ContainedPath.Create(
             unityProjectRoot,
-            LibraryDirectoryName,
-            MarkerFileName);
+            RootRelativePath.Parse(
+                $"{LibraryDirectoryName}/{MarkerFileName}")).Target;
     }
 }

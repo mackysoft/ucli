@@ -49,6 +49,7 @@ internal sealed class SceneTreeLiteSourceRefreshService : ISceneTreeLiteSourceRe
         UnityExecutionMode mode,
         TimeSpan timeout,
         UnityScenePath scenePath,
+        SceneTreeLiteSourcePaths? indexSourcePaths,
         string fallbackReason,
         bool failFast = false,
         CancellationToken cancellationToken = default)
@@ -60,7 +61,7 @@ internal sealed class SceneTreeLiteSourceRefreshService : ISceneTreeLiteSourceRe
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
         cancellationToken.ThrowIfCancellationRequested();
 
-        if (!SceneAssetPath.TryParse(scenePath.Value, out var indexScenePath))
+        if (indexSourcePaths is null)
         {
             var fetchResult = await snapshotReader.ReadAsync(
                     project,
@@ -94,7 +95,7 @@ internal sealed class SceneTreeLiteSourceRefreshService : ISceneTreeLiteSourceRe
                     mode,
                     timeout,
                     scenePath,
-                    indexScenePath,
+                    indexSourcePaths,
                     failFast,
                     cancellationToken)
                 .ConfigureAwait(false);
@@ -132,13 +133,13 @@ internal sealed class SceneTreeLiteSourceRefreshService : ISceneTreeLiteSourceRe
         UnityExecutionMode mode,
         TimeSpan timeout,
         UnityScenePath scenePath,
-        SceneAssetPath indexScenePath,
+        SceneTreeLiteSourcePaths indexSourcePaths,
         bool failFast,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var sourceHashBeforeRead = await sceneSourceHashProvider.TryComputeAsync(project, indexScenePath, cancellationToken).ConfigureAwait(false);
+        var sourceHashBeforeRead = await sceneSourceHashProvider.TryComputeAsync(indexSourcePaths, cancellationToken).ConfigureAwait(false);
         var fetchResult = await snapshotReader.ReadAsync(
                 project,
                 config,
@@ -166,7 +167,7 @@ internal sealed class SceneTreeLiteSourceRefreshService : ISceneTreeLiteSourceRe
             return (fetchResult, DirtyLiveSourcePersistenceSkippedMessage, false);
         }
 
-        var sourceHashAfterRead = await sceneSourceHashProvider.TryComputeAsync(project, indexScenePath, cancellationToken).ConfigureAwait(false);
+        var sourceHashAfterRead = await sceneSourceHashProvider.TryComputeAsync(indexSourcePaths, cancellationToken).ConfigureAwait(false);
         if (sourceHashAfterRead == null)
         {
             return (fetchResult, SourceHashFailureMessage, false);
@@ -183,7 +184,7 @@ internal sealed class SceneTreeLiteSourceRefreshService : ISceneTreeLiteSourceRe
                     project.RepositoryRoot,
                     project.ProjectFingerprint,
                     snapshot.GeneratedAtUtc,
-                    indexScenePath,
+                    indexSourcePaths.SceneAssetPath,
                     ReadIndexJsonContractMapper.ToJsonContracts(snapshot.Roots),
                     sourceHashAfterRead,
                     cancellationToken)

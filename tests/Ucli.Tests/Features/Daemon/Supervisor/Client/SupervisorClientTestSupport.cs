@@ -14,13 +14,13 @@ internal static class SupervisorClientTestSupport
     public static SupervisorInstanceManifest CreateManifest (
         byte sessionTokenDiscriminator = 1,
         int? processId = null,
-        IpcEndpoint? endpoint = null,
+        SupervisorTransportEndpoint? endpoint = null,
         DateTimeOffset? issuedAtUtc = null)
     {
         return new SupervisorInstanceManifest(
             processId: processId ?? Environment.ProcessId,
             sessionToken: IpcSessionTokenTestFactory.CreateFromDiscriminator(sessionTokenDiscriminator),
-            endpoint: endpoint ?? new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-supervisor-test"),
+            endpoint: endpoint ?? SupervisorTransportEndpoint.FromNamedPipeAddress("ucli-supervisor-test"),
             issuedAtUtc: issuedAtUtc ?? new DateTimeOffset(2026, 03, 12, 0, 0, 0, TimeSpan.Zero));
     }
 
@@ -32,7 +32,7 @@ internal static class SupervisorClientTestSupport
         return CreateManifest(
             sessionTokenDiscriminator,
             current.ProcessId,
-            current.Endpoint,
+            current.TransportEndpoint,
             current.IssuedAtUtc.AddSeconds(1));
     }
 
@@ -110,7 +110,7 @@ internal static class SupervisorClientTestSupport
             requestId: request.RequestId,
             status: IpcResponseStatus.Error,
             payload: IpcPayloadCodec.SerializeToElement(
-                new SupervisorIpcContracts.EnsureRunningFailureResponse(daemonStatus, diagnosis, startup)),
+                SupervisorEnsureRunningFailurePayloadMapper.ToContract(daemonStatus, diagnosis, startup)),
             errors:
             [
                 new IpcError(ExecutionErrorCodes.IpcTimeout, "endpoint registration timed out", null),

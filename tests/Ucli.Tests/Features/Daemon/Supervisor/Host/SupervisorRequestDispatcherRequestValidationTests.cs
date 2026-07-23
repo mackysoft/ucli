@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using System.Text.Json;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Project;
@@ -268,7 +269,7 @@ public sealed class SupervisorRequestDispatcherRequestValidationTests
         var startOperation = new RecordingDaemonStartOperation();
         var dispatcher = CreateDispatcher(startOperation);
         var runtimeContext = CreateRuntimeContext();
-        var unityProjectRoot = Path.Combine(runtimeContext.StorageRoot, "UnityProject");
+        var unityProjectRoot = AbsolutePath.Parse(Path.Combine(runtimeContext.StorageRoot.Value, "UnityProject"));
         var projectFingerprint = UnityProjectFingerprintCalculator.Create(runtimeContext.StorageRoot, unityProjectRoot);
 
         var response = await SendRequestAsync(
@@ -281,7 +282,7 @@ public sealed class SupervisorRequestDispatcherRequestValidationTests
                 method: ContractLiteralCodec.ToValue(SupervisorIpcMethod.EnsureRunning),
                 payload: IpcPayloadCodec.SerializeToElement(
                     new SupervisorIpcContracts.EnsureRunningRequest(
-                        UnityProjectRoot: unityProjectRoot,
+                        UnityProjectRoot: unityProjectRoot.Value,
                         ProjectFingerprint: projectFingerprint,
                         EditorMode: null,
                         OnStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto)),
@@ -332,7 +333,7 @@ public sealed class SupervisorRequestDispatcherRequestValidationTests
         var startOperation = new RecordingDaemonStartOperation();
         var dispatcher = CreateDispatcher(startOperation);
         var runtimeContext = CreateRuntimeContext();
-        var unityProjectRoot = Path.Combine(runtimeContext.StorageRoot, "UnityProject");
+        var unityProjectRoot = AbsolutePath.Parse(Path.Combine(runtimeContext.StorageRoot.Value, "UnityProject"));
         var projectFingerprint = UnityProjectFingerprintCalculator.Create(runtimeContext.StorageRoot, unityProjectRoot);
 
         var response = await SendRequestAsync(
@@ -345,7 +346,7 @@ public sealed class SupervisorRequestDispatcherRequestValidationTests
                 method: ContractLiteralCodec.ToValue(SupervisorIpcMethod.EnsureRunning),
                 payload: IpcPayloadCodec.SerializeToElement(
                     new SupervisorIpcContracts.EnsureRunningRequest(
-                        UnityProjectRoot: unityProjectRoot,
+                        UnityProjectRoot: unityProjectRoot.Value,
                         ProjectFingerprint: projectFingerprint,
                         EditorMode: null,
                         OnStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto)),
@@ -367,11 +368,11 @@ public sealed class SupervisorRequestDispatcherRequestValidationTests
         var startOperation = new RecordingDaemonStartOperation();
         var dispatcher = CreateDispatcher(startOperation);
         var runtimeContext = CreateRuntimeContext();
-        var unityProjectRoot = Path.Combine(runtimeContext.StorageRoot, "UnityProject");
+        var unityProjectRoot = AbsolutePath.Parse(Path.Combine(runtimeContext.StorageRoot.Value, "UnityProject"));
         var projectFingerprint = UnityProjectFingerprintCalculator.Create(runtimeContext.StorageRoot, unityProjectRoot);
         var payload = IpcPayloadCodec.SerializeToElement(
             new SupervisorIpcContracts.EnsureRunningRequest(
-                UnityProjectRoot: unityProjectRoot,
+                UnityProjectRoot: unityProjectRoot.Value,
                 ProjectFingerprint: projectFingerprint,
                 EditorMode: null,
                 OnStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto));
@@ -480,7 +481,7 @@ public sealed class SupervisorRequestDispatcherRequestValidationTests
     {
         var dispatcher = CreateDispatcher();
         var runtimeContext = CreateRuntimeContext();
-        var unityProjectRoot = Path.Combine(runtimeContext.StorageRoot, "UnityProject");
+        var unityProjectRoot = AbsolutePath.Parse(Path.Combine(runtimeContext.StorageRoot.Value, "UnityProject"));
 
         var response = await SendRequestAsync(
             dispatcher,
@@ -492,7 +493,7 @@ public sealed class SupervisorRequestDispatcherRequestValidationTests
                 method: ContractLiteralCodec.ToValue(SupervisorIpcMethod.EnsureRunning),
                 payload: IpcPayloadCodec.SerializeToElement(
                     new SupervisorIpcContracts.EnsureRunningRequest(
-                        UnityProjectRoot: unityProjectRoot,
+                        UnityProjectRoot: unityProjectRoot.Value,
                         ProjectFingerprint: ProjectFingerprintTestFactory.Create("mismatched-fingerprint"),
                         EditorMode: null,
                         OnStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto)),
@@ -513,7 +514,7 @@ public sealed class SupervisorRequestDispatcherRequestValidationTests
         var startOperation = new RecordingDaemonStartOperation();
         var dispatcher = CreateDispatcher(startOperation);
         var runtimeContext = CreateRuntimeContext();
-        var unityProjectRoot = Path.Combine(runtimeContext.StorageRoot, "UnityProject");
+        var unityProjectRoot = AbsolutePath.Parse(Path.Combine(runtimeContext.StorageRoot.Value, "UnityProject"));
         var projectFingerprint = UnityProjectFingerprintCalculator.Create(runtimeContext.StorageRoot, unityProjectRoot);
 
         var response = await SendRequestAsync(
@@ -527,7 +528,7 @@ public sealed class SupervisorRequestDispatcherRequestValidationTests
                 payload: JsonSerializer.SerializeToElement(
                     new
                     {
-                        UnityProjectRoot = unityProjectRoot,
+                        UnityProjectRoot = unityProjectRoot.Value,
                         ProjectFingerprint = projectFingerprint,
                         EditorMode = "unsupported",
                         OnStartupBlocked = "auto",
@@ -550,7 +551,7 @@ public sealed class SupervisorRequestDispatcherRequestValidationTests
         var startOperation = new RecordingDaemonStartOperation();
         var dispatcher = CreateDispatcher(startOperation);
         var runtimeContext = CreateRuntimeContext();
-        var unityProjectRoot = Path.Combine(runtimeContext.StorageRoot, "UnityProject");
+        var unityProjectRoot = AbsolutePath.Parse(Path.Combine(runtimeContext.StorageRoot.Value, "UnityProject"));
         var projectFingerprint = UnityProjectFingerprintCalculator.Create(runtimeContext.StorageRoot, unityProjectRoot);
 
         var response = await SendRequestAsync(
@@ -564,7 +565,7 @@ public sealed class SupervisorRequestDispatcherRequestValidationTests
                 payload: JsonSerializer.SerializeToElement(
                     new
                     {
-                        UnityProjectRoot = unityProjectRoot,
+                        UnityProjectRoot = unityProjectRoot.Value,
                         ProjectFingerprint = projectFingerprint,
                         EditorMode = (string?)null,
                         OnStartupBlocked = "unsupported",

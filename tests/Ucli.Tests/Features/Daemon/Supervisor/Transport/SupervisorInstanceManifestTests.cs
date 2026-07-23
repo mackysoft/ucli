@@ -1,5 +1,3 @@
-using MackySoft.Ucli.Contracts.Ipc;
-
 namespace MackySoft.Ucli.Tests.Supervisor;
 
 public sealed class SupervisorInstanceManifestTests
@@ -14,9 +12,7 @@ public sealed class SupervisorInstanceManifestTests
             () => new SupervisorInstanceManifest(
                 processId: 2468,
                 sessionToken: IpcSessionTokenTestFactory.CreateFromDiscriminator(1),
-                endpoint: new IpcEndpoint(
-                    IpcTransportKind.UnixDomainSocket,
-                    "/tmp/ucli-supervisor-test/ipc.sock"),
+                endpoint: SupervisorTransportEndpoint.FromNamedPipeAddress("ucli-supervisor-test"),
                 issuedAtUtc: issuedAtUtc));
 
         Assert.Equal("issuedAtUtc", exception.ParamName);

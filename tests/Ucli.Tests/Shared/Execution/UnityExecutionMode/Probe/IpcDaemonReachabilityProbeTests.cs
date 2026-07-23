@@ -2,6 +2,7 @@ using System.Net.Sockets;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.Tests.Helpers.Ipc;
 using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 
@@ -483,7 +484,7 @@ public sealed class IpcDaemonReachabilityProbeTests
             daemonPingClient,
             context,
             DefaultProbeTimeout);
-        Assert.NotEqual(unityProjectRoot, context.RepositoryRoot);
+        Assert.NotEqual(unityProjectRoot, context.RepositoryRoot.Value);
     }
 
     [Fact]
@@ -541,7 +542,7 @@ public sealed class IpcDaemonReachabilityProbeTests
         public IReadOnlyList<TimeSpan> Timeouts => timeouts;
 
         public async ValueTask<IpcResponse> SendAsync (
-            IpcEndpoint endpoint,
+            IpcTransportEndpoint endpoint,
             IpcRequestEnvelope request,
             TimeSpan timeout,
             CancellationToken cancellationToken = default)
@@ -567,7 +568,7 @@ public sealed class IpcDaemonReachabilityProbeTests
         }
 
         public ValueTask<IpcResponse> SendStreamingAsync (
-            IpcEndpoint endpoint,
+            IpcTransportEndpoint endpoint,
             IpcRequestEnvelope request,
             TimeSpan timeout,
             Func<IpcStreamFrame, CancellationToken, ValueTask> onProgressFrame,
@@ -577,7 +578,7 @@ public sealed class IpcDaemonReachabilityProbeTests
         }
 
         public ValueTask<IpcResponse> SendStreamingWithUnboundedResponseWaitAsync (
-            IpcEndpoint endpoint,
+            IpcTransportEndpoint endpoint,
             IpcRequestEnvelope request,
             TimeSpan sendTimeout,
             Func<IpcStreamFrame, CancellationToken, ValueTask> onProgressFrame,
@@ -587,7 +588,7 @@ public sealed class IpcDaemonReachabilityProbeTests
         }
 
         public ValueTask<IpcResponse> SendWithUnboundedResponseWaitAsync (
-            IpcEndpoint endpoint,
+            IpcTransportEndpoint endpoint,
             IpcRequestEnvelope request,
             TimeSpan sendTimeout,
             CancellationToken cancellationToken = default)

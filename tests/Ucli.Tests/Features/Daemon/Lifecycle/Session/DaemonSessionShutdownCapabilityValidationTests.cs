@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Storage;
@@ -16,7 +17,7 @@ public sealed class DaemonSessionShutdownCapabilityValidationTests
         var projectFingerprint = ProjectFingerprintTestFactory.Create("fingerprint-missing-can-shutdown-process");
         var sessionToken = IpcSessionTokenTestFactory.Create("missing-can-shutdown-process").GetEncodedValue();
         await DaemonSessionStorageTestSupport.WriteJsonAsync(
-            scope.FullPath,
+            AbsolutePath.Parse(scope.FullPath),
             projectFingerprint,
             $$"""
             {
@@ -36,7 +37,7 @@ public sealed class DaemonSessionShutdownCapabilityValidationTests
             """,
             CancellationToken.None);
 
-        var readResult = await store.ReadAsync(scope.FullPath, projectFingerprint, CancellationToken.None);
+        var readResult = await store.ReadAsync(AbsolutePath.Parse(scope.FullPath), projectFingerprint, CancellationToken.None);
 
         Assert.False(readResult.IsSuccess);
         Assert.False(readResult.Exists);

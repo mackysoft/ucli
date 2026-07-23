@@ -6,6 +6,7 @@ using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.Authorization;
+using MackySoft.Ucli.Features.Daemon.Common.Ipc;
 using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.UnityIntegration.Ipc.Dispatch;
 using MackySoft.Ucli.UnityIntegration.Ipc.Recovery;
@@ -65,7 +66,7 @@ internal sealed class IpcDaemonPingClient : IDaemonPingClient, IDaemonPingInfoCl
         ValidateRequest(unityProject, timeout, cancellationToken);
         var deadline = ExecutionDeadline.Start(timeout, timeProvider);
         var response = await SendPingRequestAsync(
-                session.Endpoint,
+                DaemonSessionIpcTransportEndpointAdapter.Adapt(session),
                 session.SessionToken,
                 Guid.NewGuid(),
                 deadline,
@@ -171,7 +172,7 @@ internal sealed class IpcDaemonPingClient : IDaemonPingClient, IDaemonPingInfoCl
         }
 
         var response = await SendPingRequestAsync(
-                session.Endpoint,
+                DaemonSessionIpcTransportEndpointAdapter.Adapt(session),
                 session.SessionToken,
                 requestId,
                 deadline,
@@ -288,7 +289,7 @@ internal sealed class IpcDaemonPingClient : IDaemonPingClient, IDaemonPingInfoCl
         CancellationToken cancellationToken)
     {
         var response = await SendPingRequestAsync(
-                session.Endpoint,
+                DaemonSessionIpcTransportEndpointAdapter.Adapt(session),
                 session.SessionToken,
                 requestId,
                 deadline,
@@ -310,7 +311,7 @@ internal sealed class IpcDaemonPingClient : IDaemonPingClient, IDaemonPingInfoCl
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> A task that resolves to the raw ping response. </returns>
     private async ValueTask<IpcResponse> SendPingRequestAsync (
-        IpcEndpoint endpoint,
+        IpcTransportEndpoint endpoint,
         IpcSessionToken sessionToken,
         Guid requestId,
         ExecutionDeadline deadline,

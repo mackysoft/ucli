@@ -1,7 +1,6 @@
 using MackySoft.Ucli.Application.Features.Assurance.Build.Artifacts;
 using MackySoft.Ucli.Contracts.Assurance.Build;
 using MackySoft.Ucli.Contracts.Cryptography;
-using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Tests;
 
@@ -31,7 +30,7 @@ internal sealed class StubBuildRunArtifactStore : IBuildRunArtifactStore
 
     public BuildRunArtifactAccountingRequest? AccountingRequest { get; private set; }
 
-    public IpcBuildOutputLayout? PreparedOutputLayout { get; private set; }
+    public BuildPipelineOutputLayout? PreparedOutputLayout { get; private set; }
 
     public BuildRunArtifactPreparationResult Prepare (
         ResolvedUnityProjectContext unityProject,
@@ -43,22 +42,21 @@ internal sealed class StubBuildRunArtifactStore : IBuildRunArtifactStore
         var artifactOutputDirectory = Path.Combine(runDirectory, "output");
         Directory.CreateDirectory(runnerOutputDirectory);
         PreparedPaths = new BuildRunArtifactPaths(
-            repositoryRoot: rootPath,
+            repositoryRoot: AbsolutePath.Parse(rootPath),
             runId: runId,
-            artifactsDirectory: runDirectory,
-            buildJsonPath: Path.Combine(runDirectory, "build.json"),
-            buildReportJsonPath: Path.Combine(runDirectory, "build-report.json"),
-            buildLogPath: Path.Combine(runDirectory, "build.log"),
-            outputManifestJsonPath: Path.Combine(runDirectory, "output-manifest.json"),
-            runnerOutputDirectory: runnerOutputDirectory,
-            artifactOutputDirectory: artifactOutputDirectory);
+            artifactsDirectory: AbsolutePath.Parse(runDirectory),
+            buildJsonPath: AbsolutePath.Parse(Path.Combine(runDirectory, "build.json")),
+            buildReportJsonPath: AbsolutePath.Parse(Path.Combine(runDirectory, "build-report.json")),
+            buildLogPath: AbsolutePath.Parse(Path.Combine(runDirectory, "build.log")),
+            outputManifestJsonPath: AbsolutePath.Parse(Path.Combine(runDirectory, "output-manifest.json")),
+            runnerOutputDirectory: AbsolutePath.Parse(runnerOutputDirectory),
+            artifactOutputDirectory: AbsolutePath.Parse(artifactOutputDirectory));
         return BuildRunArtifactPreparationResult.Success(PreparedPaths);
     }
 
     public BuildRunArtifactPreparationResult PrepareBuildPipelineOutputLayout (
         BuildRunArtifactPaths paths,
-        BuildTargetStableName buildTarget,
-        IpcBuildOutputLayout outputLayout)
+        BuildPipelineOutputLayout outputLayout)
     {
         PreparedOutputLayout = outputLayout;
         return BuildRunArtifactPreparationResult.Success(paths);

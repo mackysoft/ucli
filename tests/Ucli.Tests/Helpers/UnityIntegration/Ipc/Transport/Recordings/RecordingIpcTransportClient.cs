@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 
 namespace MackySoft.Ucli.Tests.Helpers.Ipc;
@@ -58,7 +59,7 @@ internal sealed class RecordingIpcTransportClient : IIpcTransportClient
     }
 
     public ValueTask<IpcResponse> SendAsync (
-        IpcEndpoint endpoint,
+        IpcTransportEndpoint endpoint,
         IpcRequestEnvelope request,
         TimeSpan timeout,
         CancellationToken cancellationToken = default)
@@ -67,7 +68,7 @@ internal sealed class RecordingIpcTransportClient : IIpcTransportClient
     }
 
     public ValueTask<IpcResponse> SendStreamingAsync (
-        IpcEndpoint endpoint,
+        IpcTransportEndpoint endpoint,
         IpcRequestEnvelope request,
         TimeSpan timeout,
         Func<IpcStreamFrame, CancellationToken, ValueTask> onProgressFrame,
@@ -77,7 +78,7 @@ internal sealed class RecordingIpcTransportClient : IIpcTransportClient
     }
 
     public ValueTask<IpcResponse> SendStreamingWithUnboundedResponseWaitAsync (
-        IpcEndpoint endpoint,
+        IpcTransportEndpoint endpoint,
         IpcRequestEnvelope request,
         TimeSpan sendTimeout,
         Func<IpcStreamFrame, CancellationToken, ValueTask> onProgressFrame,
@@ -87,7 +88,7 @@ internal sealed class RecordingIpcTransportClient : IIpcTransportClient
     }
 
     public ValueTask<IpcResponse> SendWithUnboundedResponseWaitAsync (
-        IpcEndpoint endpoint,
+        IpcTransportEndpoint endpoint,
         IpcRequestEnvelope request,
         TimeSpan sendTimeout,
         CancellationToken cancellationToken = default)
@@ -96,7 +97,7 @@ internal sealed class RecordingIpcTransportClient : IIpcTransportClient
     }
 
     private ValueTask<IpcResponse> SendCore (
-        IpcEndpoint endpoint,
+        IpcTransportEndpoint endpoint,
         IpcRequestEnvelope request,
         TimeSpan timeout,
         CancellationToken cancellationToken)
@@ -105,7 +106,7 @@ internal sealed class RecordingIpcTransportClient : IIpcTransportClient
         ArgumentNullException.ThrowIfNull(request);
         cancellationToken.ThrowIfCancellationRequested();
 
-        endpoints.Add(endpoint);
+        endpoints.Add(endpoint.Contract);
         requests.Add(request);
         timeouts.Add(timeout);
         cancellationTokens.Add(cancellationToken);
@@ -121,7 +122,7 @@ internal sealed class RecordingIpcTransportClient : IIpcTransportClient
     }
 
     private async ValueTask<IpcResponse> SendStreamingCore (
-        IpcEndpoint endpoint,
+        IpcTransportEndpoint endpoint,
         IpcRequestEnvelope request,
         TimeSpan timeout,
         Func<IpcStreamFrame, CancellationToken, ValueTask> onProgressFrame,

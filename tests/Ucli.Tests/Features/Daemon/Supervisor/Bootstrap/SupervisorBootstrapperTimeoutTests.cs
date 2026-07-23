@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Tests.Helpers.Daemon;
 using MackySoft.Ucli.Tests.Helpers.Ipc;
@@ -36,7 +37,7 @@ public sealed class SupervisorBootstrapperTimeoutTests
             timeProvider);
 
         var resultTask = bootstrapper.EnsureReadyAsync(
-                scope.FullPath,
+                AbsolutePath.Parse(scope.FullPath),
                 TimeSpan.FromMilliseconds(150),
                 CancellationToken.None)
             .AsTask();
@@ -81,7 +82,7 @@ public sealed class SupervisorBootstrapperTimeoutTests
             timeProvider);
 
         var resultTask = bootstrapper.EnsureReadyAsync(
-                scope.FullPath,
+                AbsolutePath.Parse(scope.FullPath),
                 TimeSpan.FromMilliseconds(500),
                 CancellationToken.None)
             .AsTask();
@@ -134,7 +135,7 @@ public sealed class SupervisorBootstrapperTimeoutTests
             timeProvider);
 
         var resultTask = bootstrapper.EnsureReadyAsync(
-                scope.FullPath,
+                AbsolutePath.Parse(scope.FullPath),
                 TimeSpan.FromMilliseconds(50),
                 CancellationToken.None)
             .AsTask();
@@ -184,7 +185,7 @@ public sealed class SupervisorBootstrapperTimeoutTests
             timeProvider);
         using var cancellation = new CancellationTokenSource();
         var resultTask = bootstrapper.EnsureReadyAsync(
-                scope.FullPath,
+                AbsolutePath.Parse(scope.FullPath),
                 TimeSpan.FromSeconds(5),
                 cancellation.Token)
             .AsTask();
