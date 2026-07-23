@@ -25,6 +25,7 @@
     <PackageReference Include="MackySoft.AgentSkills" Version="1.0.0" />
     <PackageReference Include="MackySoft.AgentSkills.ConsoleAppFramework" Version="1.0.0" PrivateAssets="all" />
     <PackageReference Include="MackySoft.AgentSkills.Hosting" Version="1.0.0" />
+    <PackageReference Include="MackySoft.Json.Canonicalization" Version="[0.1.0]" GeneratePathProperty="true" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.3" />
   </ItemGroup>
 
@@ -53,6 +54,29 @@
     </None>
 
     <None Update="THIRD-PARTY-NOTICES">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(PkgMackySoft_Json_Canonicalization)' != ''">
+    <None Include="$(PkgMackySoft_Json_Canonicalization)/LICENSE"
+          Link="third-party/MackySoft.Json.Canonicalization/0.1.0/LICENSE">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </None>
+    <None Include="$(PkgMackySoft_Json_Canonicalization)/THIRD-PARTY-NOTICES.md"
+          Link="third-party/MackySoft.Json.Canonicalization/0.1.0/THIRD-PARTY-NOTICES.md">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </None>
+    <None Include="$(PkgMackySoft_Json_Canonicalization)/licenses/Apache-2.0.txt"
+          Link="third-party/MackySoft.Json.Canonicalization/0.1.0/licenses/Apache-2.0.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </None>
+    <None Include="$(PkgMackySoft_Json_Canonicalization)/licenses/MPL-2.0.txt"
+          Link="third-party/MackySoft.Json.Canonicalization/0.1.0/licenses/MPL-2.0.txt">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </None>

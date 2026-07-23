@@ -13,6 +13,7 @@ public sealed class BuildProfileResolverDigestTests
     public void ResolveJson_ComputesStableCanonicalDigest ()
     {
         const string CompactJson = "{\"schemaVersion\":1,\"inputs\":{\"kind\":\"explicit\",\"buildTarget\":\"standaloneLinux64\",\"scenes\":{\"source\":\"explicit\",\"paths\":[\"Assets/Scenes/Main.unity\"]},\"options\":{\"development\":false}},\"runner\":{\"kind\":\"buildPipeline\"},\"policy\":{\"runtime\":{\"allowedExecutionModes\":[\"daemon\",\"oneshot\"],\"allowedEditorModes\":[\"batchmode\",\"gui\"]},\"projectMutationMode\":\"forbid\"}}";
+        const string CanonicalJson = "{\"inputs\":{\"buildTarget\":\"standaloneLinux64\",\"kind\":\"explicit\",\"options\":{\"development\":false},\"scenes\":{\"paths\":[\"Assets/Scenes/Main.unity\"],\"source\":\"explicit\"}},\"policy\":{\"projectMutationMode\":\"forbid\",\"runtime\":{\"allowedEditorModes\":[\"batchmode\",\"gui\"],\"allowedExecutionModes\":[\"daemon\",\"oneshot\"]}},\"runner\":{\"kind\":\"buildPipeline\"},\"schemaVersion\":1}";
         const string ReorderedJson = """
             {
               "policy": {
@@ -50,7 +51,7 @@ public sealed class BuildProfileResolverDigestTests
 
         var first = BuildProfileResolver.ResolveJson(CompactJson).Profile!;
         var second = BuildProfileResolver.ResolveJson(ReorderedJson).Profile!;
-        var expectedDigest = Sha256Digest.Compute(Encoding.UTF8.GetBytes(CompactJson));
+        var expectedDigest = Sha256Digest.Compute(Encoding.UTF8.GetBytes(CanonicalJson));
 
         Assert.Equal(first.Digest, second.Digest);
         Assert.Equal(expectedDigest, first.Digest);

@@ -1,6 +1,6 @@
-using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using MackySoft.Json.Canonicalization;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
@@ -29,8 +29,8 @@ internal static class BuildProfileDigestCalculator
             Runner: CanonicalBuildRunner.From(runner),
             Policy: CanonicalBuildPolicy.From(policy));
 
-        var json = JsonSerializer.Serialize(canonical, SerializerOptions);
-        return Sha256Digest.Compute(Encoding.UTF8.GetBytes(json));
+        var json = JsonSerializer.SerializeToElement(canonical, SerializerOptions);
+        return Sha256Digest.Compute(Rfc8785JsonCanonicalizer.Canonicalize(json));
     }
 
     private sealed record CanonicalBuildProfile (
@@ -111,15 +111,9 @@ internal static class BuildProfileDigestCalculator
     {
         public static CanonicalBuildRunnerInvocation From (ResolvedBuildRunnerInvocation invocation)
         {
-            var arguments = new SortedDictionary<string, string>(StringComparer.Ordinal);
-            foreach (var pair in invocation.Arguments)
-            {
-                arguments.Add(pair.Key, pair.Value);
-            }
-
             var invocationEnv = invocation.Environment;
             return new CanonicalBuildRunnerInvocation(
-                arguments,
+                invocation.Arguments,
                 new CanonicalBuildRunnerEnvironment(
                     invocationEnv.Variables,
                     invocationEnv.Secrets));

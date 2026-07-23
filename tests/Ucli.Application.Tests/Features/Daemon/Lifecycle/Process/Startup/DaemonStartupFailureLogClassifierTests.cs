@@ -219,6 +219,43 @@ public sealed class DaemonStartupFailureLogClassifierTests
         Assert.NotEqual("NUGET_FOR_UNITY_RESTORE_FAILED", classification.PrimaryDiagnostic.Code);
     }
 
+    [Theory]
+    [InlineData("Could not load file or assembly 'MackySoft.Json.Canonicalization'")]
+    [InlineData("Library/PackageCache/MackySoft.Ucli.Unity/Editor/Bootstrap.cs(1,1): error CS0234: The type or namespace name 'Json' does not exist in the namespace 'MackySoft'")]
+    [InlineData("Library/PackageCache/MackySoft.Ucli.Unity/Editor/Bootstrap.cs(1,1): error CS0246: The type or namespace name 'Rfc8785JsonCanonicalizer' could not be found")]
+    [Trait("Size", "Small")]
+    public void TryClassifyFailure_WhenJsonCanonicalizationDependencyIsMissing_ReturnsUcliPluginDependencyMissing (
+        string logLine)
+    {
+        var result = DaemonStartupFailureLogClassifier.TryClassifyFailure(
+            logLine,
+            DaemonStartupFailureClassificationContext.Batchmode,
+            out var classification);
+
+        Assert.True(result);
+        Assert.NotNull(classification);
+        Assert.Equal(DaemonStartupBlockingReason.UcliPlugin, classification!.StartupBlockingReason);
+        Assert.Equal(DaemonDiagnosisReason.UcliPluginDependencyMissing, classification.Reason);
+        Assert.Equal(DaemonStartupRetryDisposition.RetryAfterFix, classification.RetryDisposition);
+        Assert.Equal(DaemonDiagnosisPrimaryDiagnosticKind.PluginDependency, classification.PrimaryDiagnostic!.Kind);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void TryClassifyFailure_WhenUnrelatedSourceHasMackySoftJsonNamespaceError_ReturnsCompilerFailure ()
+    {
+        var result = DaemonStartupFailureLogClassifier.TryClassifyFailure(
+            "Assets/UserCode/Example.cs(1,1): error CS0234: The type or namespace name 'Json' does not exist in the namespace 'MackySoft'",
+            DaemonStartupFailureClassificationContext.Batchmode,
+            out var classification);
+
+        Assert.True(result);
+        Assert.NotNull(classification);
+        Assert.Equal(DaemonStartupBlockingReason.Compile, classification!.StartupBlockingReason);
+        Assert.Equal(DaemonDiagnosisReason.UnityScriptCompilationFailed, classification.Reason);
+        Assert.Equal(DaemonDiagnosisPrimaryDiagnosticKind.Compiler, classification.PrimaryDiagnostic!.Kind);
+    }
+
     [Fact]
     [Trait("Size", "Small")]
     public void TryClassifyFailure_WhenPrecompiledAssemblyConflictAndCompileErrorExist_PrioritizesPrecompiledAssemblyConflict ()

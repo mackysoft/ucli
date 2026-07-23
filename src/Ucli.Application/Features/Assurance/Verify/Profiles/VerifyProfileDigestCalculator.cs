@@ -1,5 +1,5 @@
-using System.Text;
 using System.Text.Json;
+using MackySoft.Json.Canonicalization;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Text;
 
@@ -41,7 +41,7 @@ internal static class VerifyProfileDigestCalculator
             }).ToArray(),
         };
 
-        var json = JsonSerializer.Serialize(canonical, SerializerOptions);
-        return Sha256Digest.Compute(Encoding.UTF8.GetBytes(json));
+        var json = JsonSerializer.SerializeToElement(canonical, SerializerOptions);
+        return Sha256Digest.Compute(Rfc8785JsonCanonicalizer.Canonicalize(json));
     }
 }
