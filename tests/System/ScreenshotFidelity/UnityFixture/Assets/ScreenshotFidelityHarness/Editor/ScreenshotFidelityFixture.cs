@@ -129,7 +129,11 @@ namespace MackySoft.Ucli.ScreenshotFidelity
                     return;
                 }
 
-                RepaintFixtureWindows();
+                if (pendingControl.repaintWhileWaiting)
+                {
+                    RepaintFixtureWindows();
+                }
+
                 pendingControl.remainingUpdates--;
                 if (pendingControl.remainingUpdates <= 0)
                 {
@@ -174,6 +178,7 @@ namespace MackySoft.Ucli.ScreenshotFidelity
 
             try
             {
+                var repaintWhileWaiting = true;
                 switch (request.action)
                 {
                     case "prepareGameCurrent":
@@ -191,12 +196,25 @@ namespace MackySoft.Ucli.ScreenshotFidelity
                         RequireWindow(sceneView, "SceneView");
                         activeTarget = FixtureTarget.Scene;
                         break;
+                    case "prepareWindowsGameA":
+                        PrepareWindowsGameFixture(request, FixtureVisualVariant.A);
+                        repaintWhileWaiting = false;
+                        break;
+                    case "prepareWindowsGameB":
+                        RequireWindow(gameView, "GameView");
+                        ApplyGameVisualVariant(FixtureVisualVariant.B);
+                        activeTarget = FixtureTarget.Game;
+                        repaintWhileWaiting = false;
+                        break;
                     default:
                         throw new InvalidOperationException(
                             $"Unknown screenshot fidelity action: {request.action}");
                 }
 
-                pendingControl = new PendingControl(request, StabilizationUpdateCount);
+                pendingControl = new PendingControl(
+                    request,
+                    StabilizationUpdateCount,
+                    repaintWhileWaiting);
             }
             catch (Exception exception)
             {
@@ -220,20 +238,59 @@ namespace MackySoft.Ucli.ScreenshotFidelity
         private static void PrepareGameFixture (ControlRequest request)
         {
             EnsureFixtureObjects();
+            OpenGameView(request, requestRepaint: true, showAsStandalone: false);
+        }
+
+        private static void PrepareWindowsGameFixture (
+            ControlRequest request,
+            FixtureVisualVariant variant)
+        {
+            EnsureFixtureObjects();
+            ApplyGameVisualVariant(variant);
+            OpenGameView(request, requestRepaint: false, showAsStandalone: true);
+        }
+
+        private static void OpenGameView (
+            ControlRequest request,
+            bool requestRepaint,
+            bool showAsStandalone)
+        {
             CloseWindow(ref sceneView);
             var gameViewType = ResolveEditorType("UnityEditor.GameView");
             CloseAllWindowsOfType(gameViewType);
 
-            gameView = EditorWindow.GetWindow(
-                gameViewType,
-                utility: false,
-                title: GameWindowTitlePrefix + request.nonce,
-                focus: true);
+            if (showAsStandalone)
+            {
+                gameView = ScriptableObject.CreateInstance(gameViewType) as EditorWindow;
+                if (gameView == null)
+                {
+                    throw new InvalidOperationException("Could not create the Windows GameView utility window.");
+                }
+            }
+            else
+            {
+                gameView = EditorWindow.GetWindow(
+                    gameViewType,
+                    utility: false,
+                    title: GameWindowTitlePrefix + request.nonce,
+                    focus: true);
+            }
+
+            var targetPosition = new Rect(90f, 90f, 760f, 520f);
             gameView.titleContent = new GUIContent(GameWindowTitlePrefix + request.nonce);
-            gameView.position = new Rect(90f, 90f, 760f, 520f);
+            gameView.position = targetPosition;
             gameView.Show();
+            if (showAsStandalone)
+            {
+                // Standalone windows can restore type-specific geometry when shown.
+                gameView.position = targetPosition;
+            }
+
             activeTarget = FixtureTarget.Game;
-            RepaintFixtureWindows();
+            if (requestRepaint)
+            {
+                RepaintFixtureWindows();
+            }
         }
 
         private static void PrepareSceneFixture (ControlRequest request)
@@ -325,6 +382,42 @@ namespace MackySoft.Ucli.ScreenshotFidelity
                 color = new Color(0.95f, 0.35f, 0.08f, 1f),
             };
             fixtureCube.GetComponent<MeshRenderer>().sharedMaterial = material;
+        }
+
+        private static void ApplyGameVisualVariant (FixtureVisualVariant variant)
+        {
+            RequireFixtureObjects();
+            var material = fixtureCube.GetComponent<MeshRenderer>().sharedMaterial;
+            if (material == null)
+            {
+                throw new InvalidOperationException(
+                    "The screenshot fidelity cube does not have a material.");
+            }
+
+            switch (variant)
+            {
+                case FixtureVisualVariant.A:
+                    fixtureCamera.backgroundColor = new Color(0.04f, 0.07f, 0.12f, 1f);
+                    material.color = new Color(0.95f, 0.35f, 0.08f, 1f);
+                    fixtureCube.transform.localRotation = Quaternion.Euler(20f, 35f, 0f);
+                    break;
+                case FixtureVisualVariant.B:
+                    fixtureCamera.backgroundColor = new Color(0.14f, 0.03f, 0.09f, 1f);
+                    material.color = new Color(0.08f, 0.82f, 0.92f, 1f);
+                    fixtureCube.transform.localRotation = Quaternion.Euler(-25f, 60f, 12f);
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(variant), variant, null);
+            }
+        }
+
+        private static void RequireFixtureObjects ()
+        {
+            if (fixtureCamera == null || fixtureCube == null)
+            {
+                throw new InvalidOperationException(
+                    "The screenshot fidelity scene objects have not been prepared.");
+            }
         }
 
         private static void RepaintFixtureWindows ()
@@ -470,6 +563,9 @@ namespace MackySoft.Ucli.ScreenshotFidelity
         private static EnvironmentSnapshot CreateEnvironmentSnapshot ()
         {
             var pipeline = GraphicsSettings.currentRenderPipeline;
+            var pipelinePackage = pipeline == null
+                ? null
+                : UnityEditor.PackageManager.PackageInfo.FindForAssembly(pipeline.GetType().Assembly);
             return new EnvironmentSnapshot
             {
                 observedAtUtc = DateTimeOffset.UtcNow.ToString("O"),
@@ -488,6 +584,8 @@ namespace MackySoft.Ucli.ScreenshotFidelity
                 renderPipelineAssemblyVersion = pipeline == null
                     ? null
                     : pipeline.GetType().Assembly.GetName().Version?.ToString(),
+                renderPipelinePackageName = pipelinePackage?.name,
+                renderPipelinePackageVersion = pipelinePackage?.version,
             };
         }
 
@@ -702,19 +800,35 @@ namespace MackySoft.Ucli.ScreenshotFidelity
             public string renderPipelineType;
 
             public string renderPipelineAssemblyVersion;
+
+            public string renderPipelinePackageName;
+
+            public string renderPipelinePackageVersion;
         }
 
         private sealed class PendingControl
         {
-            public PendingControl (ControlRequest request, int remainingUpdates)
+            public PendingControl (
+                ControlRequest request,
+                int remainingUpdates,
+                bool repaintWhileWaiting)
             {
                 this.request = request;
                 this.remainingUpdates = remainingUpdates;
+                this.repaintWhileWaiting = repaintWhileWaiting;
             }
 
             public ControlRequest request;
 
             public int remainingUpdates;
+
+            public bool repaintWhileWaiting;
+        }
+
+        private enum FixtureVisualVariant
+        {
+            A = 0,
+            B = 1,
         }
 
         private enum FixtureTarget
