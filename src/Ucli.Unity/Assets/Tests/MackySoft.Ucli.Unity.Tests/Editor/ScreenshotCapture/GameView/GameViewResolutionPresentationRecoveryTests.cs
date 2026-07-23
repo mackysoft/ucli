@@ -328,6 +328,15 @@ namespace MackySoft.Ucli.Unity.Tests
                 return TargetIsCurrent;
             }
 
+            public bool TryValidateSource (
+                GameViewPresentationSource source,
+                out string errorMessage)
+            {
+                var isCurrent = source == CurrentSource;
+                errorMessage = isCurrent ? null : "Presentation source changed.";
+                return isCurrent;
+            }
+
             public bool TryRepaintImmediately (
                 EditorWindow gameView,
                 out string errorMessage)

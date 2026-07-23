@@ -19,7 +19,7 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.GameView
 
         private readonly IGameViewPresentationAdapter presentationAdapter;
 
-        private readonly UnityScreenshotRequestedResolutionFreshnessTracker freshnessTracker;
+        private readonly UnityGameViewPresentationFreshnessTracker freshnessTracker;
 
         private uint completedEditorUpdateGeneration;
 
@@ -51,7 +51,7 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.GameView
             gameViewInstanceId = gameView.GetInstanceID();
             this.presentationAdapter = presentationAdapter
                 ?? throw new ArgumentNullException(nameof(presentationAdapter));
-            freshnessTracker = new UnityScreenshotRequestedResolutionFreshnessTracker(
+            freshnessTracker = new UnityGameViewPresentationFreshnessTracker(
                 originalSource.Width,
                 originalSource.Height);
         }
@@ -163,7 +163,7 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.GameView
 
             var freshness = ObserveFreshness(currentSource);
             if (freshness
-                != UnityScreenshotRequestedResolutionFreshnessTracker.Observation.ReadyForImmediateRepaint)
+                != UnityGameViewPresentationFreshnessTracker.Observation.ReadyForImmediateRepaint)
             {
                 errorMessage = "GameView presentation dimensions have not produced a fresh restored frame.";
                 return Observation.Waiting;
@@ -189,7 +189,7 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.GameView
 
             freshness = ObserveFreshness(currentSource);
             if (freshness
-                    != UnityScreenshotRequestedResolutionFreshnessTracker.Observation.ReadyForImmediateRepaint
+                    != UnityGameViewPresentationFreshnessTracker.Observation.ReadyForImmediateRepaint
                 || currentSource.RenderTexture != preRepaintTexture)
             {
                 errorMessage = "GameView presentation changed during its recovery repaint.";
@@ -272,7 +272,7 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.GameView
             ActiveRecoveries.Clear();
         }
 
-        private UnityScreenshotRequestedResolutionFreshnessTracker.Observation ObserveFreshness (
+        private UnityGameViewPresentationFreshnessTracker.Observation ObserveFreshness (
             GameViewPresentationSource source)
         {
             return freshnessTracker.Observe(

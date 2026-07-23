@@ -15,6 +15,7 @@ public sealed class ProjectPackabilityTests
             ["src/Ucli.Infrastructure/Ucli.Infrastructure.csproj"] = "true",
             ["src/Ucli/Ucli.csproj"] = "true",
             ["tests/Tests.Helper/Tests.Helper.csproj"] = "false",
+            ["tests/System/ScreenshotFidelity/Oracle.Windows/ScreenshotFidelityOracle.Windows.csproj"] = "false",
             ["tests/Ucli.Application.Tests/Ucli.Application.Tests.csproj"] = "false",
             ["tests/Ucli.Contracts.Tests/Ucli.Contracts.Tests.csproj"] = "false",
             ["tests/Ucli.Infrastructure.Tests/Ucli.Infrastructure.Tests.csproj"] = "false",

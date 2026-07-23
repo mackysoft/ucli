@@ -14,18 +14,18 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.GameView
     /// <summary> Captures GameView presentation pixels, including reversible requested-resolution transactions. </summary>
     internal sealed class UnityGameViewScreenshotCapture
     {
-        private const int ResolutionRepaintAttemptCount = 16;
+        private const int PresentationRepaintAttemptCount = 16;
 
         private const int ResolutionRestoreTimeoutMilliseconds = 2000;
 
-        private readonly UnityGameViewPresentationAdapter presentationAdapter;
+        private readonly IGameViewPresentationAdapter presentationAdapter;
 
         private readonly UnityGameViewResolutionAdapter resolutionAdapter;
 
         private readonly IUnityEditorUpdateAwaiter editorUpdateAwaiter;
 
         public UnityGameViewScreenshotCapture (
-            UnityGameViewPresentationAdapter presentationAdapter,
+            IGameViewPresentationAdapter presentationAdapter,
             UnityGameViewResolutionAdapter resolutionAdapter,
             IUnityEditorUpdateAwaiter editorUpdateAwaiter)
         {
@@ -78,10 +78,15 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.GameView
             try
             {
                 var source = initialSource;
-                if (request.RequestedWidth.HasValue)
+                var isRequestedSize = request.RequestedWidth.HasValue;
+                var expectedWidth = initialSource.Width;
+                var expectedHeight = initialSource.Height;
+                if (isRequestedSize)
                 {
                     var requestedWidth = request.RequestedWidth.Value;
                     var requestedHeight = request.RequestedHeight.Value;
+                    expectedWidth = requestedWidth;
+                    expectedHeight = requestedHeight;
                     resolutionPresentationRecovery = new GameViewResolutionPresentationRecovery(
                         initialSource,
                         presentationAdapter);
@@ -101,90 +106,118 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.GameView
                             resolutionErrorCode ?? UcliCoreErrorCodes.InternalError,
                             resolutionError);
                     }
+                }
 
-                    var resolved = false;
-                    var freshnessTracker = new UnityScreenshotRequestedResolutionFreshnessTracker(
-                        requestedWidth,
-                        requestedHeight);
-                    var completedEditorUpdateGeneration = 0u;
-                    for (var attempt = 0;
-                        captureResult == null && attempt < ResolutionRepaintAttemptCount;
-                        attempt++)
+                var resolved = false;
+                var freshnessTracker = new UnityGameViewPresentationFreshnessTracker(
+                    expectedWidth,
+                    expectedHeight);
+                var completedEditorUpdateGeneration = 0u;
+                if (!isRequestedSize)
+                {
+                    ObserveFreshness(
+                        freshnessTracker,
+                        initialSource,
+                        completedEditorUpdateGeneration);
+                }
+
+                for (var attempt = 0;
+                    captureResult == null && attempt < PresentationRepaintAttemptCount;
+                    attempt++)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    if (!presentationAdapter.IsCurrentTarget(initialSource.View))
                     {
-                        cancellationToken.ThrowIfCancellationRequested();
-                        resolutionLease.GameView.Repaint();
-                        await editorUpdateAwaiter.WaitForNextUpdateAsync(cancellationToken);
-                        completedEditorUpdateGeneration = unchecked(completedEditorUpdateGeneration + 1u);
-                        cancellationToken.ThrowIfCancellationRequested();
-                        if (!presentationAdapter.TryGetSource(out var candidate, out _))
-                        {
-                            continue;
-                        }
-
-                        if (candidate.TargetDisplay != initialSource.TargetDisplay)
-                        {
-                            captureResult = Unsupported(
-                                "GameView target display changed while establishing the requested resolution.");
-                            break;
-                        }
-
-                        var freshness = freshnessTracker.Observe(
-                            candidate.RenderTexture,
-                            candidate.Width,
-                            candidate.Height,
-                            candidate.RenderTexture.width,
-                            candidate.RenderTexture.height,
-                            completedEditorUpdateGeneration);
-                        if (freshness
-                            != UnityScreenshotRequestedResolutionFreshnessTracker.Observation.ReadyForImmediateRepaint)
-                        {
-                            continue;
-                        }
-
-                        var preRepaintTexture = candidate.RenderTexture;
-                        cancellationToken.ThrowIfCancellationRequested();
-                        if (!presentationAdapter.TryRepaintImmediately(
-                            resolutionLease.GameView,
-                            out var repaintError))
-                        {
-                            captureResult = Unsupported(repaintError);
-                            break;
-                        }
-
-                        cancellationToken.ThrowIfCancellationRequested();
-                        if (!presentationAdapter.TryGetSource(out candidate, out _))
-                        {
-                            continue;
-                        }
-
-                        if (candidate.TargetDisplay != initialSource.TargetDisplay)
-                        {
-                            captureResult = Unsupported(
-                                "GameView target display changed during its requested-resolution repaint.");
-                            break;
-                        }
-
-                        freshness = freshnessTracker.Observe(
-                            candidate.RenderTexture,
-                            candidate.Width,
-                            candidate.Height,
-                            candidate.RenderTexture.width,
-                            candidate.RenderTexture.height,
-                            completedEditorUpdateGeneration);
-                        if (freshness
-                                == UnityScreenshotRequestedResolutionFreshnessTracker.Observation.ReadyForImmediateRepaint
-                            && candidate.RenderTexture == preRepaintTexture)
-                        {
-                            source = candidate;
-                            resolved = true;
-                            break;
-                        }
+                        captureResult = Unsupported(
+                            "The selected GameView changed while establishing a fresh presentation frame.");
+                        break;
                     }
 
-                    if (captureResult == null && !resolved)
+                    initialSource.View.Repaint();
+                    await editorUpdateAwaiter.WaitForNextUpdateAsync(cancellationToken);
+                    completedEditorUpdateGeneration = unchecked(completedEditorUpdateGeneration + 1u);
+                    cancellationToken.ThrowIfCancellationRequested();
+                    if (!presentationAdapter.TryGetSource(out var candidate, out _))
                     {
-                        captureResult = RequestedSizeUnsupported(requestedWidth, requestedHeight);
+                        continue;
                     }
+
+                    if (!IsSamePresentationTarget(candidate, initialSource))
+                    {
+                        captureResult = Unsupported(
+                            "GameView target changed while establishing a fresh presentation frame.");
+                        break;
+                    }
+
+                    if (!isRequestedSize
+                        && !IsSamePresentationMapping(candidate, initialSource))
+                    {
+                        captureResult = Unsupported(
+                            "GameView presentation mapping changed while refreshing the current surface.");
+                        break;
+                    }
+
+                    var freshness = ObserveFreshness(
+                        freshnessTracker,
+                        candidate,
+                        completedEditorUpdateGeneration);
+                    if (freshness
+                        != UnityGameViewPresentationFreshnessTracker.Observation.ReadyForImmediateRepaint)
+                    {
+                        continue;
+                    }
+
+                    cancellationToken.ThrowIfCancellationRequested();
+                    if (!presentationAdapter.TryRepaintImmediately(
+                        initialSource.View,
+                        out var repaintError))
+                    {
+                        captureResult = Unsupported(repaintError);
+                        break;
+                    }
+
+                    cancellationToken.ThrowIfCancellationRequested();
+                    if (!presentationAdapter.TryGetSource(out candidate, out _))
+                    {
+                        continue;
+                    }
+
+                    if (!IsSamePresentationTarget(candidate, initialSource))
+                    {
+                        captureResult = Unsupported(
+                            "GameView target changed during its immediate presentation repaint.");
+                        break;
+                    }
+
+                    if (!isRequestedSize
+                        && !IsSamePresentationMapping(candidate, initialSource))
+                    {
+                        captureResult = Unsupported(
+                            "GameView presentation mapping changed during its immediate repaint.");
+                        break;
+                    }
+
+                    freshness = ObserveFreshness(
+                        freshnessTracker,
+                        candidate,
+                        completedEditorUpdateGeneration);
+                    if (freshness
+                        != UnityGameViewPresentationFreshnessTracker.Observation.ReadyForImmediateRepaint)
+                    {
+                        continue;
+                    }
+
+                    source = candidate;
+                    resolved = true;
+                    break;
+                }
+
+                if (captureResult == null && !resolved)
+                {
+                    captureResult = isRequestedSize
+                        ? RequestedSizeUnsupported(expectedWidth, expectedHeight)
+                        : Unsupported(
+                            "GameView could not establish a fresh current presentation frame.");
                 }
 
                 if (captureResult == null
@@ -277,7 +310,7 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.GameView
             var lastRestoreOutcome = GameViewResolutionLease.RestoreOutcome.Retryable;
             try
             {
-                for (var attempt = 0; attempt < ResolutionRepaintAttemptCount; attempt++)
+                for (var attempt = 0; attempt < PresentationRepaintAttemptCount; attempt++)
                 {
                     lastRestoreOutcome = resolutionLease.TryRestore(
                         (out string ownershipError) => presentationRecovery.TryReserve(
@@ -459,20 +492,48 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.GameView
             return true;
         }
 
-        private static bool IsSameRestoredPresentation (
+        private static UnityGameViewPresentationFreshnessTracker.Observation ObserveFreshness (
+            UnityGameViewPresentationFreshnessTracker freshnessTracker,
+            GameViewPresentationSource source,
+            uint completedEditorUpdateGeneration)
+        {
+            return freshnessTracker.Observe(
+                source.RenderTexture,
+                source.Width,
+                source.Height,
+                source.RenderTexture.width,
+                source.RenderTexture.height,
+                completedEditorUpdateGeneration);
+        }
+
+        private static bool IsSamePresentationTarget (
             GameViewPresentationSource current,
             GameViewPresentationSource initial)
         {
             return current.View == initial.View
-                && current.Width == initial.Width
-                && current.Height == initial.Height
+                && current.TargetDisplay == initial.TargetDisplay;
+        }
+
+        private static bool IsSamePresentationMapping (
+            GameViewPresentationSource current,
+            GameViewPresentationSource baseline)
+        {
+            return IsSamePresentationTarget(current, baseline)
+                && current.Width == baseline.Width
+                && current.Height == baseline.Height
+                && Mathf.Approximately(current.BackingScale, baseline.BackingScale)
+                && current.TargetInView == baseline.TargetInView
+                && current.DeviceFlippedTargetInView == baseline.DeviceFlippedTargetInView
+                && current.SourceUvTransform == baseline.SourceUvTransform;
+        }
+
+        private static bool IsSameRestoredPresentation (
+            GameViewPresentationSource current,
+            GameViewPresentationSource initial)
+        {
+            return IsSamePresentationMapping(current, initial)
                 && current.RenderTexture.width == initial.Width
-                && current.RenderTexture.height == initial.Height
-                && Mathf.Approximately(current.BackingScale, initial.BackingScale)
-                && current.TargetDisplay == initial.TargetDisplay
-                && current.TargetInView == initial.TargetInView
-                && current.DeviceFlippedTargetInView == initial.DeviceFlippedTargetInView
-                && current.SourceUvTransform == initial.SourceUvTransform;
+                && current.RenderTexture.height == initial.Height;
         }
 
         private static UnityScreenshotBackendResult RequestedSizeUnsupported (

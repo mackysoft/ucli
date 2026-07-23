@@ -190,7 +190,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             services.AddSingleton<IUnityConsoleClearer, UnityEditorConsoleClearer>();
             services.AddSingleton<IUnityScreenshotResolutionOrphanCleaner, UnityScreenshotResolutionOrphanCleaner>();
             services.AddSingleton<UnityGameViewResolutionAdapter>();
-            services.AddSingleton<UnityGameViewPresentationAdapter>();
+            services.AddSingleton<IGameViewPresentationAdapter, UnityGameViewPresentationAdapter>();
             services.AddSingleton<UnityGameViewScreenshotCapture>();
             services.AddSingleton<UnitySceneViewPresentationAdapter>();
             services.AddSingleton<UnitySceneViewScreenshotCapture>();
