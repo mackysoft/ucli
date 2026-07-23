@@ -1,8 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ "$#" -ne 2 ]]; then
-  echo "Usage: $0 <package-dir> <expected-version>" >&2
+print_usage() {
+  echo "Usage: $0 <package-dir> <expected-version> [--filesystem-package-source <dir>]" >&2
+}
+
+if [[ "$#" -lt 2 ]]; then
+  print_usage
   exit 2
 fi
 
@@ -12,6 +16,29 @@ source "${script_dir}/schema-artifact-common.sh"
 repo_root="$(cd "${script_dir}/.." && pwd)"
 package_dir="$1"
 expected_version="$2"
+filesystem_package_source="${FILESYSTEM_PACKAGE_SOURCE:-}"
+shift 2
+
+while [[ "$#" -gt 0 ]]; do
+  case "$1" in
+    --filesystem-package-source)
+      if [[ "$#" -lt 2 ]]; then
+        print_usage
+        exit 2
+      fi
+      filesystem_package_source="$2"
+      shift 2
+      ;;
+    --filesystem-package-source=*)
+      filesystem_package_source="${1#--filesystem-package-source=}"
+      shift
+      ;;
+    *)
+      print_usage
+      exit 2
+      ;;
+  esac
+done
 
 if [[ ! -d "${package_dir}" ]]; then
   echo "CLI package directory does not exist: ${package_dir}" >&2
@@ -27,16 +54,256 @@ if [[ ! -f "${package_path}" ]]; then
   exit 1
 fi
 
+filesystem_package_id="MackySoft.FileSystem"
+filesystem_package_version="0.1.0"
+filesystem_package_file_name="${filesystem_package_id}.${filesystem_package_version}.nupkg"
+if [[ -n "${filesystem_package_source}" ]]; then
+  if [[ ! -d "${filesystem_package_source}" ]]; then
+    echo "Filesystem package source does not exist: ${filesystem_package_source}" >&2
+    exit 1
+  fi
+
+  filesystem_package_source="$(cd "${filesystem_package_source}" && pwd)"
+  if [[ ! -f "${filesystem_package_source}/${filesystem_package_file_name}" ]]; then
+    echo "Filesystem package source is missing ${filesystem_package_file_name}: ${filesystem_package_source}" >&2
+    exit 1
+  fi
+fi
+
+for required_tool in cmp dotnet unzip; do
+  if ! command -v "${required_tool}" >/dev/null 2>&1; then
+    echo "Required tool is missing: ${required_tool}" >&2
+    exit 1
+  fi
+done
+require_python3
+
 temp_root="${RUNNER_TEMP:-${TMPDIR:-/tmp}}"
 tool_path="$(mktemp -d "${temp_root%/}/ucli-tool.XXXXXX")"
+verification_root="$(mktemp -d "${temp_root%/}/ucli-tool-verification.XXXXXX")"
+tool_packages_root="$(mktemp -d "${temp_root%/}/ucli-tool-packages.XXXXXX")"
+tool_http_cache="$(mktemp -d "${temp_root%/}/ucli-tool-http-cache.XXXXXX")"
+tool_dotnet_home="$(mktemp -d "${temp_root%/}/ucli-tool-dotnet-home.XXXXXX")"
+tool_package_source="${verification_root}/tool-source"
+isolated_filesystem_package_source="${verification_root}/filesystem-source"
+tool_nuget_config="${verification_root}/NuGet.config"
+provider_restore_project="${verification_root}/ProviderRestore.csproj"
+publish_path="${verification_root}/publish"
 install_repo=""
-trap 'rm -rf "${tool_path}" "${install_repo}"' EXIT
+source_build_directories=(
+  "${repo_root}/src/Ucli.Application"
+  "${repo_root}/src/Ucli.Contracts"
+  "${repo_root}/src/Ucli.Infrastructure"
+  "${repo_root}/src/Ucli"
+)
 
-# The package directory must be available for the just-built CLI nupkg, while
-# configured feeds remain available for runtime package dependencies.
+cleanup() {
+  rm -rf \
+    "${tool_path}" \
+    "${verification_root}" \
+    "${tool_packages_root}" \
+    "${tool_http_cache}" \
+    "${tool_dotnet_home}"
+  if [[ -n "${install_repo}" ]]; then
+    rm -rf "${install_repo}"
+  fi
+  for project_directory in "${source_build_directories[@]}"; do
+    rm -rf "${project_directory}/bin" "${project_directory}/obj"
+  done
+}
+
+trap cleanup EXIT
+
+mkdir -p "${tool_package_source}"
+cp "${package_path}" "${tool_package_source}/"
+
+filesystem_source_entry=""
+filesystem_source_mapping=""
+public_filesystem_mapping='<package pattern="MackySoft.FileSystem" />'
+if [[ -n "${filesystem_package_source}" ]]; then
+  mkdir -p "${isolated_filesystem_package_source}"
+  cp "${filesystem_package_source}/${filesystem_package_file_name}" \
+    "${isolated_filesystem_package_source}/${filesystem_package_file_name}"
+  filesystem_source_entry='<add key="FileSystemCandidate" value="./filesystem-source" />'
+  filesystem_source_mapping='
+    <packageSource key="FileSystemCandidate">
+      <package pattern="MackySoft.FileSystem" />
+    </packageSource>'
+  public_filesystem_mapping=""
+fi
+
+cat > "${tool_nuget_config}" <<EOF
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+  <packageSources>
+    <clear />
+    ${filesystem_source_entry}
+    <add key="ToolPackage" value="./tool-source" />
+    <add key="nuget.org" value="https://api.nuget.org/v3/index.json" />
+  </packageSources>
+  <packageSourceMapping>${filesystem_source_mapping}
+    <packageSource key="ToolPackage">
+      <package pattern="MackySoft.Ucli" />
+    </packageSource>
+    <packageSource key="nuget.org">
+      ${public_filesystem_mapping}
+      <package pattern="ConsoleAppFramework*" />
+      <package pattern="MackySoft.AgentSkills*" />
+      <package pattern="Microsoft.*" />
+      <package pattern="NETStandard.Library" />
+      <package pattern="Newtonsoft.Json" />
+      <package pattern="System.*" />
+      <package pattern="runtime.*" />
+    </packageSource>
+  </packageSourceMapping>
+</configuration>
+EOF
+
+cat > "${provider_restore_project}" <<EOF
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="${filesystem_package_id}" Version="[${filesystem_package_version}]" />
+  </ItemGroup>
+</Project>
+EOF
+
+for project_directory in "${source_build_directories[@]}"; do
+  rm -rf "${project_directory}/bin" "${project_directory}/obj"
+done
+
+export DOTNET_CLI_HOME="${tool_dotnet_home}"
+export NUGET_HTTP_CACHE_PATH="${tool_http_cache}"
+export NUGET_PACKAGES="${tool_packages_root}"
+
+dotnet restore "${provider_restore_project}" \
+  --configfile "${tool_nuget_config}" \
+  --no-cache \
+  --force-evaluate \
+  --verbosity minimal
+dotnet restore "${repo_root}/src/Ucli/Ucli.csproj" \
+  --configfile "${tool_nuget_config}" \
+  --no-cache \
+  --force-evaluate \
+  --verbosity minimal
+dotnet publish "${repo_root}/src/Ucli/Ucli.csproj" \
+  --configuration Release \
+  --no-restore \
+  --output "${publish_path}" \
+  -p:Version="${expected_version}" \
+  -p:PackageVersion="${expected_version}" \
+  --verbosity minimal
+
+filesystem_package_root="${tool_packages_root}/mackysoft.filesystem/${filesystem_package_version}"
+restored_filesystem_package="${filesystem_package_root}/mackysoft.filesystem.${filesystem_package_version}.nupkg"
+restored_filesystem_metadata="${filesystem_package_root}/.nupkg.metadata"
+filesystem_provider_assembly="${filesystem_package_root}/lib/net8.0/${filesystem_package_id}.dll"
+filesystem_provider_license="${filesystem_package_root}/LICENSE"
+for restored_entry in \
+  "${restored_filesystem_metadata}" \
+  "${filesystem_provider_assembly}" \
+  "${filesystem_provider_license}"; do
+  if [[ ! -f "${restored_entry}" ]]; then
+    echo "Restored filesystem package is missing required entry: ${restored_entry}" >&2
+    exit 1
+  fi
+done
+
+if [[ -n "${filesystem_package_source}" ]]; then
+  if [[ ! -f "${restored_filesystem_package}" ]] \
+    || ! cmp -s \
+      "${filesystem_package_source}/${filesystem_package_file_name}" \
+      "${restored_filesystem_package}"; then
+    echo "Restored filesystem package does not match the supplied prepublication package." >&2
+    exit 1
+  fi
+
+  FILESYSTEM_METADATA_PATH="${restored_filesystem_metadata}" \
+  EXPECTED_FILESYSTEM_SOURCE="${isolated_filesystem_package_source}" \
+    python3 - <<'PY'
+import json
+import os
+import sys
+
+metadata_path = os.environ["FILESYSTEM_METADATA_PATH"]
+expected_source = os.path.normcase(os.path.realpath(os.environ["EXPECTED_FILESYSTEM_SOURCE"]))
+with open(metadata_path, encoding="utf-8") as metadata_file:
+    actual_source_value = json.load(metadata_file).get("source")
+
+if not isinstance(actual_source_value, str):
+    print(
+        "Restored MackySoft.FileSystem metadata does not contain a source string.",
+        file=sys.stderr,
+    )
+    sys.exit(1)
+
+actual_source = os.path.normcase(os.path.realpath(actual_source_value))
+if actual_source != expected_source:
+    print(
+        "Restored MackySoft.FileSystem source differs from the isolated candidate source. "
+        f"Expected: {expected_source}. Actual: {actual_source}",
+        file=sys.stderr,
+    )
+    sys.exit(1)
+PY
+fi
+
+FILESYSTEM_PROJECT_ASSETS="${repo_root}/src/Ucli/obj/project.assets.json" \
+FILESYSTEM_PACKAGE_ROOT="${filesystem_package_root}" \
+  python3 - <<'PY'
+import json
+import os
+import sys
+
+assets_path = os.environ["FILESYSTEM_PROJECT_ASSETS"]
+package_root = os.environ["FILESYSTEM_PACKAGE_ROOT"]
+with open(assets_path, encoding="utf-8") as assets_file:
+    library = json.load(assets_file).get("libraries", {}).get("MackySoft.FileSystem/0.1.0")
+if not isinstance(library, dict):
+    print(
+        f"CLI project assets do not contain MackySoft.FileSystem/0.1.0: {assets_path}",
+        file=sys.stderr,
+    )
+    sys.exit(1)
+
+with open(
+    os.path.join(package_root, "mackysoft.filesystem.0.1.0.nupkg.sha512"),
+    encoding="utf-8",
+) as hash_file:
+    expected_hash = hash_file.read().strip()
+actual_hash = library.get("sha512")
+if actual_hash != expected_hash:
+    print(
+        "CLI project assets content hash differs from the restored MackySoft.FileSystem package. "
+        f"Expected: {expected_hash}. Actual: {actual_hash}",
+        file=sys.stderr,
+    )
+    sys.exit(1)
+PY
+
+published_filesystem_assembly="${publish_path}/${filesystem_package_id}.dll"
+published_filesystem_license="${publish_path}/third-party/${filesystem_package_id}/${filesystem_package_version}/LICENSE"
+if [[ ! -f "${published_filesystem_assembly}" ]] \
+  || ! cmp -s "${filesystem_provider_assembly}" "${published_filesystem_assembly}"; then
+  echo "CLI publish contains a filesystem assembly that differs from the restored package." >&2
+  exit 1
+fi
+if [[ ! -f "${published_filesystem_license}" ]] \
+  || ! cmp -s "${filesystem_provider_license}" "${published_filesystem_license}"; then
+  echo "CLI publish filesystem license differs from the restored package." >&2
+  exit 1
+fi
+if find "${publish_path}" -type f -iname "${filesystem_package_id}.*.nupkg" -print -quit | grep -q .; then
+  echo "CLI publish contains the standalone filesystem provider nupkg." >&2
+  exit 1
+fi
+
 dotnet tool install \
   --tool-path "${tool_path}" \
-  --add-source "${package_dir}" \
+  --configfile "${tool_nuget_config}" \
+  --no-http-cache \
   MackySoft.Ucli \
   --version "${expected_version}"
 
@@ -57,12 +324,96 @@ if ! "${tool_path}/ucli" query --help | grep -F "asset schema" >/dev/null; then
 fi
 
 package_entries="$(unzip -Z1 "${package_path}")"
-for entry in README.md LICENSE tools/net8.0/any/DotnetToolSettings.xml tools/net8.0/any/schemas/v1/schema-manifest.json tools/net8.0/any/skills/bundle.json; do
+filesystem_license_entry="tools/net8.0/any/third-party/${filesystem_package_id}/${filesystem_package_version}/LICENSE"
+for entry in \
+  README.md \
+  LICENSE \
+  tools/net8.0/any/DotnetToolSettings.xml \
+  "tools/net8.0/any/${filesystem_package_id}.dll" \
+  tools/net8.0/any/THIRD-PARTY-NOTICES \
+  "${filesystem_license_entry}" \
+  tools/net8.0/any/schemas/v1/schema-manifest.json \
+  tools/net8.0/any/skills/bundle.json; do
   if ! grep -Fx "${entry}" <<< "${package_entries}" >/dev/null; then
     echo "CLI package is missing required entry: ${entry}" >&2
     exit 1
   fi
 done
+
+if grep -Ei '(^|/)MackySoft[.]FileSystem[.][^/]+[.]nupkg$' <<< "${package_entries}" >/dev/null; then
+  echo "CLI package must redistribute only the filesystem runtime closure, not the standalone provider nupkg." >&2
+  exit 1
+fi
+
+if ! unzip -p "${package_path}" "tools/net8.0/any/${filesystem_package_id}.dll" \
+  | cmp -s - "${filesystem_provider_assembly}"; then
+  echo "CLI package filesystem assembly differs from the restored ${filesystem_package_version} package." >&2
+  exit 1
+fi
+if ! unzip -p "${package_path}" "${filesystem_license_entry}" \
+  | cmp -s - "${filesystem_provider_license}"; then
+  echo "CLI package filesystem license differs from the restored ${filesystem_package_version} package." >&2
+  exit 1
+fi
+
+cli_notice="$(
+  unzip -p "${package_path}" tools/net8.0/any/THIRD-PARTY-NOTICES
+)"
+if ! unzip -p "${package_path}" tools/net8.0/any/THIRD-PARTY-NOTICES \
+  | cmp -s - "${repo_root}/src/Ucli/THIRD-PARTY-NOTICES"; then
+  echo "CLI package third-party notice differs from src/Ucli/THIRD-PARTY-NOTICES." >&2
+  exit 1
+fi
+if ! grep -F "${filesystem_package_id} ${filesystem_package_version}" <<< "${cli_notice}" >/dev/null \
+  || ! grep -F "third-party/${filesystem_package_id}/${filesystem_package_version}/LICENSE" <<< "${cli_notice}" >/dev/null; then
+  echo "CLI package third-party notice does not identify the redistributed filesystem provider license." >&2
+  exit 1
+fi
+
+installed_filesystem_assembly_count="$(
+  find "${tool_path}" -path "*/tools/net8.0/any/${filesystem_package_id}.dll" -type f \
+    | wc -l \
+    | tr -d '[:space:]'
+)"
+if [[ "${installed_filesystem_assembly_count}" != "1" ]]; then
+  echo "Installed CLI tool must contain exactly one ${filesystem_package_id}.dll; found ${installed_filesystem_assembly_count}." >&2
+  exit 1
+fi
+installed_filesystem_assembly="$(
+  find "${tool_path}" -path "*/tools/net8.0/any/${filesystem_package_id}.dll" -type f -print -quit
+)"
+if ! cmp -s "${filesystem_provider_assembly}" "${installed_filesystem_assembly}"; then
+  echo "Installed CLI tool filesystem assembly differs from the restored ${filesystem_package_version} package." >&2
+  exit 1
+fi
+
+installed_filesystem_license_count="$(
+  find "${tool_path}" \
+    -path "*/third-party/${filesystem_package_id}/${filesystem_package_version}/LICENSE" \
+    -type f \
+    | wc -l \
+    | tr -d '[:space:]'
+)"
+if [[ "${installed_filesystem_license_count}" != "1" ]]; then
+  echo "Installed CLI tool must contain exactly one filesystem provider license; found ${installed_filesystem_license_count}." >&2
+  exit 1
+fi
+installed_filesystem_license="$(
+  find "${tool_path}" \
+    -path "*/third-party/${filesystem_package_id}/${filesystem_package_version}/LICENSE" \
+    -type f \
+    -print \
+    -quit
+)"
+if ! cmp -s "${filesystem_provider_license}" "${installed_filesystem_license}"; then
+  echo "Installed CLI tool filesystem license differs from the restored ${filesystem_package_version} package." >&2
+  exit 1
+fi
+
+if find "${tool_path}" -type f -iname "${filesystem_package_id}.*.nupkg" -print -quit | grep -q .; then
+  echo "Installed CLI tool contains the standalone filesystem provider nupkg." >&2
+  exit 1
+fi
 
 package_schema_manifest_path="${tool_path}/package-schema-manifest.json"
 unzip -p "${package_path}" tools/net8.0/any/schemas/v1/schema-manifest.json > "${package_schema_manifest_path}"

@@ -67,7 +67,7 @@ if [ "$#" -gt 0 ] && [[ "$1" != -* ]]; then
 fi
 
 if [ "$restore" = true ]; then
-  dotnet restore "$solution"
+  dotnet_restore_with_local_packages "$solution"
 fi
 
 dotnet test \

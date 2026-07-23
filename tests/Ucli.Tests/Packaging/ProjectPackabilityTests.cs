@@ -6,7 +6,7 @@ public sealed class ProjectPackabilityTests
 {
     [Fact]
     [Trait("Size", "Medium")]
-    public void Projects_declare_expected_packability ()
+    public void Ucli_projects_declare_expected_packability ()
     {
         var expectedPackabilityByProject = new Dictionary<string, string>(StringComparer.Ordinal)
         {
@@ -23,7 +23,9 @@ public sealed class ProjectPackabilityTests
             ["tools/Ucli.SchemaGenerator/Ucli.SchemaGenerator.csproj"] = "false",
         };
 
-        string[] actualProjectPaths = PackageMetadataTestSupport.EnumerateDotNetProjectPaths();
+        string[] actualProjectPaths = PackageMetadataTestSupport
+            .EnumerateDotNetProjectPaths()
+            .ToArray();
         Assert.Equal(
             expectedPackabilityByProject.Keys.OrderBy(static path => path, StringComparer.Ordinal),
             actualProjectPaths);

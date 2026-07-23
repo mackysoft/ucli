@@ -5,6 +5,9 @@ namespace MackySoft.Ucli.Tests.Packaging;
 
 public sealed class VerifyScopeDetectorTests
 {
+    private const string PullRequestDotnetMatrixJson =
+        """{"include":[{"runs_on":"ubuntu-latest","os_name":"linux"},{"runs_on":"windows-latest","os_name":"windows"},{"runs_on":"macos-latest","os_name":"macos"}]}""";
+
     private static readonly IReadOnlyList<VerifyScopeDetectorChangeCase> VerifyScopeDetectorChangeCases =
     [
         new(
@@ -84,6 +87,17 @@ public sealed class VerifyScopeDetectorTests
             NeedsUnity: "false",
             NeedsUnityPack: "true",
             NeedsReleasePack: "true"),
+        new(
+            "Unity dependency preparation",
+            "scripts/update-local-shared-packages.sh",
+            "echo old\n",
+            "echo new\n",
+            NeedsDotnet: "false",
+            NeedsSharedPack: "false",
+            NeedsCliPack: "false",
+            NeedsUnity: "true",
+            NeedsUnityPack: "true",
+            NeedsReleasePack: "false"),
     ];
 
     [Fact]
@@ -103,6 +117,11 @@ public sealed class VerifyScopeDetectorTests
             AssertDetectorOutput(outputs, testCase.Name, "needs_unity", testCase.NeedsUnity);
             AssertDetectorOutput(outputs, testCase.Name, "needs_unity_pack", testCase.NeedsUnityPack);
             AssertDetectorOutput(outputs, testCase.Name, "needs_release_pack", testCase.NeedsReleasePack);
+            AssertDetectorOutput(
+                outputs,
+                testCase.Name,
+                "dotnet_matrix_json",
+                PullRequestDotnetMatrixJson);
         }
     }
 

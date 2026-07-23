@@ -6,6 +6,43 @@ public sealed class PackageMetadataCentralProjectTests
 {
     [Fact]
     [Trait("Size", "Medium")]
+    public void Production_projects_pin_external_filesystem_package_to_fixed_version ()
+    {
+        var projectPaths = new[]
+        {
+            "src/Ucli/Ucli.csproj",
+            "src/Ucli.Application/Ucli.Application.csproj",
+            "src/Ucli.Infrastructure/Ucli.Infrastructure.csproj",
+        };
+
+        foreach (string projectPath in projectPaths)
+        {
+            XDocument document = XDocument.Load(TestRepositoryPaths.GetFullPath(projectPath));
+            XElement packageReference = document
+                .Descendants("PackageReference")
+                .SingleOrDefault(static element => string.Equals(
+                    element.Attribute("Include")?.Value,
+                    "MackySoft.FileSystem",
+                    StringComparison.Ordinal))
+                ?? throw new InvalidOperationException(
+                    $"{projectPath} must reference the MackySoft.FileSystem package.");
+
+            Assert.Equal("[0.1.0]", packageReference.Attribute("Version")?.Value);
+            if (string.Equals(projectPath, "src/Ucli/Ucli.csproj", StringComparison.Ordinal))
+            {
+                Assert.Equal("true", packageReference.Attribute("GeneratePathProperty")?.Value);
+            }
+            Assert.DoesNotContain(
+                document.Descendants("ProjectReference"),
+                static element => string.Equals(
+                    Path.GetFileName(element.Attribute("Include")?.Value),
+                    "MackySoft.FileSystem.csproj",
+                    StringComparison.Ordinal));
+        }
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
     public void Source_projects_do_not_redefine_central_package_metadata ()
     {
         var sourceProjectPaths = new[]
