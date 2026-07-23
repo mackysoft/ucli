@@ -7,7 +7,11 @@ using MackySoft.Ucli.Contracts.Ipc.ContractReading;
 
 namespace MackySoft.Ucli.Unity.Execution.Requests
 {
-    /// <summary> Writes canonical JSON payload bytes used for request-digest material. </summary>
+    /// <summary>
+    /// Writes product-specific execution-identity JSON used for request-digest material.
+    /// Object properties are ordered deterministically while JSON number tokens retain their
+    /// exact parsed representation instead of adopting RFC 8785 binary64 identity.
+    /// </summary>
     internal static class CanonicalRequestWriter
     {
         /// <summary> Compares JSON properties by ordinal property-name order for canonical output. </summary>
@@ -68,7 +72,11 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
             WriteCanonicalJsonValueCore(writer, step.Element);
         }
 
-        /// <summary> Writes one canonical JSON value recursively. </summary>
+        /// <summary>
+        /// Writes one product-specific execution-identity JSON value recursively.
+        /// Object properties are ordered ordinally and JSON number tokens retain their exact
+        /// representation.
+        /// </summary>
         /// <param name="writer"> The target writer. </param>
         /// <param name="value"> The JSON value to canonicalize. </param>
         /// <exception cref="ArgumentNullException"> Thrown when <paramref name="writer" /> is <see langword="null" />. </exception>

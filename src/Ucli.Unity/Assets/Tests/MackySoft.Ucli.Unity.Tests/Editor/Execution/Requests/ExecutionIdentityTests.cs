@@ -106,5 +106,47 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(internalPayload, Does.Contain("\"aliasReferences\""));
             Assert.That(internalPayload, Does.Not.Contain("__edit:"));
         }
+
+        [Test]
+        [Category("Size.Small")]
+        public void CompiledExecutionDigest_WhenArgumentsUseDistinctExactInt64Values_ProducesDifferentPayloads ()
+        {
+            using var firstDocument = JsonDocument.Parse("{\"value\":9007199254740992}");
+            using var secondDocument = JsonDocument.Parse("{\"value\":9007199254740993}");
+            var executionKey = OperationExecutionKey.ForRawStep(new IpcExecuteStepId("number"));
+            var firstOperation = new NormalizedOperation(
+                executionKey,
+                "ucli.tests.number",
+                firstDocument.RootElement.Clone(),
+                As: null,
+                Expect: null,
+                AliasReferences: OperationAliasReferenceMap.Empty,
+                PersistenceReportingPolicy: OperationPersistenceReportingPolicy.ReportAll,
+                AllowExplicitPrefabAssetMutation: false);
+            var secondOperation = new NormalizedOperation(
+                executionKey,
+                "ucli.tests.number",
+                secondDocument.RootElement.Clone(),
+                As: null,
+                Expect: null,
+                AliasReferences: OperationAliasReferenceMap.Empty,
+                PersistenceReportingPolicy: OperationPersistenceReportingPolicy.ReportAll,
+                AllowExplicitPrefabAssetMutation: false);
+
+            var firstPayload = CompiledExecutionDigestWriter.WriteDigestPayload(
+                Array.Empty<NormalizedRequestStep>(),
+                new[] { firstOperation });
+            var secondPayload = CompiledExecutionDigestWriter.WriteDigestPayload(
+                Array.Empty<NormalizedRequestStep>(),
+                new[] { secondOperation });
+
+            Assert.That(firstPayload.Span.SequenceEqual(secondPayload.Span), Is.False);
+            Assert.That(
+                Encoding.UTF8.GetString(firstPayload.ToArray()),
+                Does.Contain("\"args\":{\"value\":9007199254740992}"));
+            Assert.That(
+                Encoding.UTF8.GetString(secondPayload.ToArray()),
+                Does.Contain("\"args\":{\"value\":9007199254740993}"));
+        }
     }
 }
