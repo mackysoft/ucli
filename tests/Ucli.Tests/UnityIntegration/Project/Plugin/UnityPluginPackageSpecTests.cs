@@ -72,7 +72,14 @@ public sealed class UnityPluginPackageSpecTests
             .Descendants("package")
             .ToDictionary(
                 package => package.Attribute("id")?.Value ?? string.Empty,
-                package => package.Attribute("version")?.Value ?? string.Empty,
+                package =>
+                {
+                    string id = package.Attribute("id")?.Value ?? string.Empty;
+                    string version = package.Attribute("version")?.Value ?? string.Empty;
+                    return id == "MackySoft.Json.Canonicalization"
+                        ? $"[{version}]"
+                        : version;
+                },
                 StringComparer.Ordinal);
     }
 

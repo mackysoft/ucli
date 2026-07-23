@@ -13,6 +13,7 @@
     "allowUnsafeCode": false,
     "overrideReferences": true,
     "precompiledReferences": [
+        "MackySoft.Json.Canonicalization.dll",
         "MackySoft.Ucli.Contracts.dll",
         "MackySoft.Ucli.Infrastructure.dll",
         "System.Text.Json.dll",
