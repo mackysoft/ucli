@@ -62,7 +62,9 @@ namespace MackySoft.Ucli.Unity.Ipc
             services.AddUnityRuntimeServices(editorMode);
             services.AddUnityIndexServices();
             services.AddUnityExecutionServices();
-            services.AddSingleton(UnityProjectIdentityFactory.Create(projectFingerprint));
+            var projectIdentity = UnityProjectIdentityFactory.Create(projectFingerprint);
+            services.AddSingleton(projectIdentity);
+            services.AddSingleton(projectIdentity.IpcIdentity);
             services.AddSingleton<ISessionTokenValidator>(sessionTokenValidator);
             services.AddSingleton<IDaemonLogger>(daemonLogger);
             services.AddSingleton<UnityLogRedactionScopeProvider>();
@@ -129,15 +131,13 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         /// <summary> Registers daemon-only transport, logging, and lifetime services. </summary>
         /// <param name="services"> The target service collection. </param>
-        /// <param name="bootstrapArguments"> The daemon bootstrap arguments. </param>
-        /// <param name="expectedEndpoint"> The endpoint derived and validated for this daemon host. </param>
+        /// <param name="bootstrapContext"> The guarded daemon bootstrap context. </param>
         /// <param name="daemonLogStream"> The daemon log stream. </param>
         /// <param name="editorInstanceId"> The non-empty Editor process identity captured for this host generation. </param>
         /// <returns> The updated service collection. </returns>
         public static IServiceCollection AddUnityIpcDaemonHostServices (
             this IServiceCollection services,
-            IpcDaemonBootstrapArguments bootstrapArguments,
-            IpcEndpoint expectedEndpoint,
+            UnityDaemonBootstrapContext bootstrapContext,
             IDaemonLogStream daemonLogStream,
             Guid editorInstanceId)
         {
@@ -146,14 +146,9 @@ namespace MackySoft.Ucli.Unity.Ipc
                 throw new ArgumentNullException(nameof(services));
             }
 
-            if (bootstrapArguments == null)
+            if (bootstrapContext == null)
             {
-                throw new ArgumentNullException(nameof(bootstrapArguments));
-            }
-
-            if (expectedEndpoint == null)
-            {
-                throw new ArgumentNullException(nameof(expectedEndpoint));
+                throw new ArgumentNullException(nameof(bootstrapContext));
             }
 
             if (daemonLogStream == null)
@@ -166,11 +161,11 @@ namespace MackySoft.Ucli.Unity.Ipc
                 throw new ArgumentException("Editor instance identifier must not be empty.", nameof(editorInstanceId));
             }
 
-            services.AddSingleton(bootstrapArguments);
+            services.AddSingleton(bootstrapContext);
             services.AddSingleton<IDaemonLogStream>(daemonLogStream);
             services.AddSingleton<IRecoverableIpcOperationStore>(serviceProvider =>
                 FileRecoverableIpcOperationStore.Create(
-                    serviceProvider.GetRequiredService<IpcProjectIdentity>(),
+                    serviceProvider.GetRequiredService<UnityHostProjectIdentity>(),
                     editorInstanceId));
             services.AddSingleton<IUnityIpcMethodDispatcher>(serviceProvider => CreateMethodDispatcher(
                 serviceProvider,
@@ -203,7 +198,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             services.AddSingleton<IUnityIpcMethodHandler, ScreenshotCaptureUnityIpcMethodHandler>();
             services.AddSingleton<IUnityIpcMethodHandler, ShutdownUnityIpcMethodHandler>();
             services.AddSingleton<IUnityIpcConnectionHandler>(CreateConnectionHandler);
-            AddTransportListeners(services, expectedEndpoint);
+            AddTransportListeners(services, bootstrapContext.EndpointBinding);
             services.AddSingleton<IUnityIpcServer>(serviceProvider =>
             {
                 return new UnityIpcServer(
@@ -222,12 +217,12 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         /// <summary> Registers oneshot-only transport and completion services. </summary>
         /// <param name="services"> The target service collection. </param>
-        /// <param name="expectedEndpoint"> The endpoint derived and validated for this oneshot host. </param>
+        /// <param name="endpointBinding"> The guarded runtime binding derived and validated for this oneshot host. </param>
         /// <param name="lifetimeWatchdog"> The watchdog instance that owns this oneshot process lifetime. </param>
         /// <returns> The updated service collection. </returns>
         public static IServiceCollection AddUnityIpcOneshotHostServices (
             this IServiceCollection services,
-            IpcEndpoint expectedEndpoint,
+            UnityIpcEndpointBinding endpointBinding,
             OneshotProcessLifetimeWatchdog lifetimeWatchdog)
         {
             if (services == null)
@@ -235,9 +230,9 @@ namespace MackySoft.Ucli.Unity.Ipc
                 throw new ArgumentNullException(nameof(services));
             }
 
-            if (expectedEndpoint == null)
+            if (endpointBinding == null)
             {
-                throw new ArgumentNullException(nameof(expectedEndpoint));
+                throw new ArgumentNullException(nameof(endpointBinding));
             }
 
             if (lifetimeWatchdog == null)
@@ -256,7 +251,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             services.AddSingleton<IUnityIpcMethodHandler, ShutdownUnityIpcMethodHandler>();
             services.AddSingleton(CreateConnectionHandler);
             services.AddSingleton<IUnityIpcConnectionHandler, UnityOneshotConnectionHandler>();
-            AddTransportListeners(services, expectedEndpoint);
+            AddTransportListeners(services, endpointBinding);
             services.AddSingleton<IUnityIpcServer>(serviceProvider =>
             {
                 return new UnityIpcServer(
@@ -277,14 +272,14 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <param name="services"> The target service collection. </param>
         /// <param name="sessionTokenValidator"> The supervisor-token validator used by the host. </param>
         /// <param name="projectFingerprint"> The project fingerprint served by this GUI supervisor. </param>
-        /// <param name="expectedEndpoint"> The endpoint derived for this GUI-supervisor host. </param>
+        /// <param name="endpointBinding"> The guarded runtime binding derived for this GUI-supervisor host. </param>
         /// <param name="daemonLogger"> The daemon logger used by the host. </param>
         /// <returns> The updated service collection. </returns>
         public static IServiceCollection AddUnityGuiSupervisorHostServices (
             this IServiceCollection services,
             ISessionTokenValidator sessionTokenValidator,
             ProjectFingerprint projectFingerprint,
-            IpcEndpoint expectedEndpoint,
+            UnityIpcEndpointBinding endpointBinding,
             IDaemonLogger daemonLogger)
         {
             if (services == null)
@@ -307,9 +302,9 @@ namespace MackySoft.Ucli.Unity.Ipc
                 throw new ArgumentNullException(nameof(projectFingerprint));
             }
 
-            if (expectedEndpoint == null)
+            if (endpointBinding == null)
             {
-                throw new ArgumentNullException(nameof(expectedEndpoint));
+                throw new ArgumentNullException(nameof(endpointBinding));
             }
 
             services.AddUnityRuntimeServices(DaemonEditorMode.Gui);
@@ -328,7 +323,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             services.AddSingleton<IDaemonShutdownSignal, DaemonShutdownSignal>();
             services.AddSingleton<IUnityShutdownAdmissionCoordinator, UnityShutdownAdmissionCoordinator>();
             services.AddSingleton<IUnityIpcConnectionHandler>(CreateConnectionHandler);
-            AddTransportListeners(services, expectedEndpoint);
+            AddTransportListeners(services, endpointBinding);
             services.AddSingleton<IUnityIpcServer>(serviceProvider =>
             {
                 return new UnityIpcServer(
@@ -370,16 +365,16 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private static void AddTransportListeners (
             IServiceCollection services,
-            IpcEndpoint expectedEndpoint)
+            UnityIpcEndpointBinding endpointBinding)
         {
-            services.AddSingleton(expectedEndpoint);
+            services.AddSingleton(endpointBinding);
             services.AddSingleton(serviceProvider => new NamedPipeUnityIpcTransportListener(
                 serviceProvider.GetRequiredService<IDaemonLogger>(),
                 MaximumActiveTransportConnections,
                 ConnectionDrainTimeout));
             services.AddSingleton(serviceProvider => new UnixDomainSocketUnityIpcTransportListener(
                 serviceProvider.GetRequiredService<IDaemonLogger>(),
-                serviceProvider.GetRequiredService<IpcEndpoint>(),
+                serviceProvider.GetRequiredService<UnityIpcEndpointBinding>(),
                 MaximumActiveTransportConnections,
                 ConnectionDrainTimeout));
         }

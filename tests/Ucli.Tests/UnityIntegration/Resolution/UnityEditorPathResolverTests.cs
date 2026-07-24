@@ -1,5 +1,6 @@
 namespace MackySoft.Ucli.Tests;
 
+using MackySoft.FileSystem;
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.UnityIntegration.Resolution;
@@ -17,7 +18,7 @@ public sealed class UnityEditorPathResolverTests
         var result = resolver.Resolve("6000.1.4f1", executablePath);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(Path.GetFullPath(executablePath), result.UnityEditorPath);
+        Assert.Equal(AbsolutePath.Parse(executablePath), result.UnityEditorPath);
         Assert.Null(result.Error);
     }
 
@@ -33,7 +34,7 @@ public sealed class UnityEditorPathResolverTests
         var result = resolver.Resolve("6000.1.4f1", versionDirectoryPath);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(Path.GetFullPath(executablePath), result.UnityEditorPath);
+        Assert.Equal(AbsolutePath.Parse(executablePath), result.UnityEditorPath);
         Assert.Null(result.Error);
     }
 
@@ -100,7 +101,7 @@ public sealed class UnityEditorPathResolverTests
         var result = resolver.Resolve(unityVersion, executablePath);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(Path.GetFullPath(executablePath), result.UnityEditorPath);
+        Assert.Equal(AbsolutePath.Parse(executablePath), result.UnityEditorPath);
         Assert.Null(result.Error);
     }
 

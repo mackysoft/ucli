@@ -16,12 +16,12 @@ internal static class OperationMaxPolicyOptionNormalizer
             return OperationPolicyOptionNormalizationResult.Success(policy: null);
         }
 
-        if (ContractLiteralInputParser.TryParseIgnoreCase<OperationPolicy>(optionValue, out var policy))
+        if (VocabularyInputParser.TryParseIgnoreCase<OperationPolicy>(optionValue, out var policy))
         {
             return OperationPolicyOptionNormalizationResult.Success(policy);
         }
 
         return OperationPolicyOptionNormalizationResult.Failure(ExecutionError.InvalidArgument(
-            $"maxPolicy must be one of '{ContractLiteralCodec.ToValue(OperationPolicy.Safe)}', '{ContractLiteralCodec.ToValue(OperationPolicy.Advanced)}', '{ContractLiteralCodec.ToValue(OperationPolicy.Dangerous)}'. Actual: {optionValue}."));
+            $"maxPolicy must be one of '{TextVocabulary.GetText(OperationPolicy.Safe)}', '{TextVocabulary.GetText(OperationPolicy.Advanced)}', '{TextVocabulary.GetText(OperationPolicy.Dangerous)}'. Actual: {optionValue}."));
     }
 }

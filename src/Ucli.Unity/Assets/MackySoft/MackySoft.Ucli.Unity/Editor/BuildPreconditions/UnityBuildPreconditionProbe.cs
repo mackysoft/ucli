@@ -1,22 +1,24 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
-using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.Text.Vocabularies;
+using TextVocabulary = MackySoft.Text.Vocabularies.Vocabulary;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Assurance;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
-using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Unity.Ipc;
 using MackySoft.Ucli.Unity.Runtime;
 using UnityEditor;
+using UnityEditor.PackageManager;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using Object = UnityEngine.Object;
+using PackageManagerPackageInfo = UnityEditor.PackageManager.PackageInfo;
 
 #nullable enable
 
@@ -99,7 +101,7 @@ namespace MackySoft.Ucli.Unity.Build
                     null,
                     new IpcError(
                         BuildErrorCodes.BuildInputsInvalid,
-                        $"Unity build target is invalid: {ContractLiteralCodec.ToValue(input.BuildTarget)}.",
+                        $"Unity build target is invalid: {TextVocabulary.GetText(input.BuildTarget)}.",
                         null));
             }
 
@@ -286,7 +288,7 @@ namespace MackySoft.Ucli.Unity.Build
                 return true;
             }
 
-            if (HasProjectLocalPackagePath(auditPath))
+            if (IsProjectOwnedPackageAssetPath(auditPath))
             {
                 return true;
             }
@@ -295,29 +297,15 @@ namespace MackySoft.Ucli.Unity.Build
             return false;
         }
 
-        private static bool HasProjectLocalPackagePath (ProjectMutationAuditPath path)
+        private static bool IsProjectOwnedPackageAssetPath (ProjectMutationAuditPath path)
         {
-            var projectRootPathResult = PathNormalizer.TryNormalizeFullPath(Path.Combine(Application.dataPath, ".."));
-            if (!projectRootPathResult.IsSuccess)
-            {
-                return false;
-            }
+            var packageInfo = PackageManagerPackageInfo.FindForAssetPath(path.Value);
+            return packageInfo != null && IsProjectOwnedPackageSource(packageInfo.source);
+        }
 
-            var projectRootPath = projectRootPathResult.FullPath!;
-            var packageRootPath = Path.Combine(projectRootPath, "Packages");
-            var packagePathResult = RepositoryPathNormalizer.TryNormalize(projectRootPath, path.Value);
-            if (!packagePathResult.IsSuccess)
-            {
-                return false;
-            }
-
-            var packagePath = packagePathResult.FullPath!;
-            if (!RepositoryPathNormalizer.TryNormalize(packageRootPath, packagePath).IsSuccess)
-            {
-                return false;
-            }
-
-            return File.Exists(packagePath) || Directory.Exists(packagePath);
+        internal static bool IsProjectOwnedPackageSource (PackageSource source)
+        {
+            return source == PackageSource.Embedded;
         }
 
         private static bool IsEditorModeAllowed (

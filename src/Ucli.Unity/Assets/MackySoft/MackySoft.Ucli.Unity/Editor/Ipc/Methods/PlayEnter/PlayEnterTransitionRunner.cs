@@ -1,6 +1,8 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.Text.Vocabularies;
+using TextVocabulary = MackySoft.Text.Vocabularies.Vocabulary;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -369,7 +371,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             {
                 return CreateFailure(
                     PlayModeErrorCodes.PlayModeTransitionBlocked,
-                    $"Unity Play Mode enter is blocked by lifecycleState={ContractLiteralCodec.ToValue(before.State.LifecycleState)}.",
+                    $"Unity Play Mode enter is blocked by lifecycleState={TextVocabulary.GetText(before.State.LifecycleState)}.",
                     before,
                     before,
                     IpcApplicationState.NotApplied);
@@ -426,7 +428,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             {
                 return CreateFailure(
                     PlayModeErrorCodes.PlayModeTransitionBlocked,
-                    $"Unity Play Mode enter was blocked by lifecycleState={ContractLiteralCodec.ToValue(observed.State.LifecycleState)}.",
+                    $"Unity Play Mode enter was blocked by lifecycleState={TextVocabulary.GetText(observed.State.LifecycleState)}.",
                     before,
                     observed,
                     IpcApplicationState.Unknown);

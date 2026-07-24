@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Infrastructure.Storage;
 
@@ -7,18 +8,18 @@ namespace MackySoft.Ucli.Features.Daemon.Lifecycle.Start.GuiAttach;
 internal sealed class GuiSupervisorManifestStore : IGuiSupervisorManifestStore
 {
     private static async ValueTask<GuiSupervisorManifestJsonContract?> ReadWithoutPublicationLockAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         ProjectFingerprint projectFingerprint,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        ArgumentException.ThrowIfNullOrWhiteSpace(storageRoot);
+        ArgumentNullException.ThrowIfNull(storageRoot);
         ArgumentNullException.ThrowIfNull(projectFingerprint);
 
         var manifestPath = UcliStoragePathResolver.ResolveGuiSupervisorManifestPath(
             storageRoot,
             projectFingerprint);
-        if (!File.Exists(manifestPath))
+        if (!File.Exists(manifestPath.Value))
         {
             return null;
         }
@@ -41,13 +42,13 @@ internal sealed class GuiSupervisorManifestStore : IGuiSupervisorManifestStore
 
     /// <inheritdoc />
     public async ValueTask<GuiSupervisorManifestJsonContract?> ReadAfterEndpointPublicationAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         ProjectFingerprint projectFingerprint,
         TimeSpan timeout,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        ArgumentException.ThrowIfNullOrWhiteSpace(storageRoot);
+        ArgumentNullException.ThrowIfNull(storageRoot);
         ArgumentNullException.ThrowIfNull(projectFingerprint);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
 

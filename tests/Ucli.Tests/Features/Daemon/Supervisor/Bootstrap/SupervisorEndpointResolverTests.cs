@@ -1,4 +1,6 @@
+using System.Runtime.Versioning;
 using System.Text;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Features.Daemon.Supervisor;
 
@@ -8,13 +10,13 @@ public sealed class SupervisorEndpointResolverTests
 {
     [Fact]
     [Trait("Size", "Small")]
-    public void WorktreeIdentity_UsesNormalizedStorageRootForFixedPurposeSpecificSegments ()
+    public void WorktreeIdentity_UsesGuardedStorageRootForFixedPurposeSpecificSegments ()
     {
-        var storageRoot = Path.Combine(".", "sandbox", "Supervisor", "..");
+        var storageRoot = AbsolutePath.Parse(Path.GetFullPath(Path.Combine(".", "sandbox")));
 
         var identity = SupervisorWorktreeIdentity.Create(storageRoot);
 
-        Assert.Equal(Path.GetFullPath(storageRoot), identity.NormalizedStorageRoot);
+        Assert.Equal(storageRoot, identity.NormalizedStorageRoot);
         Assert.Equal(16, identity.LaunchServiceNameSuffix.Length);
         Assert.Equal(24, identity.NamedPipeAddressSegment.Length);
         Assert.StartsWith(identity.LaunchServiceNameSuffix, identity.NamedPipeAddressSegment, StringComparison.Ordinal);
@@ -22,17 +24,32 @@ public sealed class SupervisorEndpointResolverTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void SupervisorUnixSocketCleanupTarget_WithRelativePath_ThrowsArgumentException ()
+    [SupportedOSPlatform("windows")]
+    public void WorktreeIdentity_OnWindows_WithStorageRootCaseVariant_ReturnsSameSegments ()
     {
-        Assert.Throws<ArgumentException>(
-            () => new SupervisorUnixSocketCleanupTarget("relative-supervisor.sock"));
+        if (!OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        var storageRoot = AbsolutePath.Parse(
+            Path.GetFullPath(Path.Combine(".", "sandbox", "Supervisor")));
+        var storageRootCaseVariant = AbsolutePath.Parse(SwapLetterCase(storageRoot.Value));
+
+        var primary = SupervisorWorktreeIdentity.Create(storageRoot);
+        var secondary = SupervisorWorktreeIdentity.Create(storageRootCaseVariant);
+
+        Assert.Equal(storageRoot, storageRootCaseVariant);
+        Assert.NotEqual(storageRoot.Value, storageRootCaseVariant.Value);
+        Assert.Equal(primary.LaunchServiceNameSuffix, secondary.LaunchServiceNameSuffix);
+        Assert.Equal(primary.NamedPipeAddressSegment, secondary.NamedPipeAddressSegment);
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public void CreateNamedPipeGenerationAddress_WithDifferentSessionToken_ReturnsDistinctStableNames ()
     {
-        var storageRoot = Path.GetFullPath(Path.Combine(".", "sandbox", "Supervisor"));
+        var storageRoot = AbsolutePath.Parse(Path.GetFullPath(Path.Combine(".", "sandbox", "Supervisor")));
         var firstSessionToken = IpcSessionTokenTestFactory.CreateFromDiscriminator(1);
         var secondSessionToken = IpcSessionTokenTestFactory.CreateFromDiscriminator(2);
 
@@ -54,7 +71,7 @@ public sealed class SupervisorEndpointResolverTests
     public void ResolveUnixSocketCleanupTargetOrNull_ReturnsOnlyARealFilesystemCleanupTarget ()
     {
         var resolver = new SupervisorEndpointResolver();
-        var storageRoot = Path.GetFullPath(Path.Combine(".", "sandbox", "Supervisor"));
+        var storageRoot = AbsolutePath.Parse(Path.GetFullPath(Path.Combine(".", "sandbox", "Supervisor")));
 
         var cleanupTarget = resolver.ResolveUnixSocketCleanupTargetOrNull(storageRoot);
 
@@ -65,18 +82,8 @@ public sealed class SupervisorEndpointResolverTests
         }
 
         Assert.NotNull(cleanupTarget);
-        Assert.True(Path.IsPathFullyQualified(cleanupTarget.SocketPath));
-        Assert.True(Encoding.UTF8.GetByteCount(cleanupTarget.SocketPath) <= IpcTransportConstraints.UnixDomainSocketPathMaxBytes);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void ResolveRuntimeEndpoint_WithEmptyStorageRoot_ThrowsArgumentException ()
-    {
-        var resolver = new SupervisorEndpointResolver();
-        var sessionToken = IpcSessionTokenTestFactory.CreateFromDiscriminator(1);
-
-        Assert.Throws<ArgumentException>(() => resolver.ResolveRuntimeEndpoint("", sessionToken));
+        Assert.True(Path.IsPathFullyQualified(cleanupTarget.SocketPath.Value));
+        Assert.True(Encoding.UTF8.GetByteCount(cleanupTarget.SocketPath.Value) <= IpcTransportConstraints.UnixDomainSocketPathMaxBytes);
     }
 
     [Fact]
@@ -84,34 +91,37 @@ public sealed class SupervisorEndpointResolverTests
     public void ResolveRuntimeEndpoint_WithValidInputs_ReturnsPlatformSpecificEndpoint ()
     {
         var resolver = new SupervisorEndpointResolver();
-        var storageRoot = Path.GetFullPath(Path.Combine(".", "sandbox", "Supervisor"));
+        var storageRoot = AbsolutePath.Parse(Path.GetFullPath(Path.Combine(".", "sandbox", "Supervisor")));
         var sessionToken = IpcSessionTokenTestFactory.CreateFromDiscriminator(1);
 
         var endpoint = resolver.ResolveRuntimeEndpoint(storageRoot, sessionToken);
 
         if (OperatingSystem.IsWindows())
         {
-            Assert.Equal(IpcTransportKind.NamedPipe, endpoint.TransportKind);
+            Assert.Equal(IpcTransportKind.NamedPipe, endpoint.Contract.TransportKind);
+            Assert.Null(endpoint.UnixSocketPath);
             Assert.Equal(
                 SupervisorEndpointResolver.CreateNamedPipeGenerationAddress(
                     storageRoot,
                     sessionToken),
-                endpoint.Address);
+                endpoint.Contract.Address);
             return;
         }
 
-        var preferredPath = Path.Combine(storageRoot, ".ucli", "local", "supervisor", "ipc.sock");
+        var preferredPath = Path.Combine(storageRoot.Value, ".ucli", "local", "supervisor", "ipc.sock");
+        var socketPath = Assert.IsType<AbsolutePath>(endpoint.UnixSocketPath);
 
-        Assert.Equal(IpcTransportKind.UnixDomainSocket, endpoint.TransportKind);
-        Assert.True(Encoding.UTF8.GetByteCount(endpoint.Address) <= IpcTransportConstraints.UnixDomainSocketPathMaxBytes);
+        Assert.Equal(IpcTransportKind.UnixDomainSocket, endpoint.Contract.TransportKind);
+        Assert.Equal(socketPath.Value, endpoint.Contract.Address);
+        Assert.True(Encoding.UTF8.GetByteCount(socketPath.Value) <= IpcTransportConstraints.UnixDomainSocketPathMaxBytes);
 
         if (Encoding.UTF8.GetByteCount(preferredPath) <= IpcTransportConstraints.UnixDomainSocketPathMaxBytes)
         {
-            Assert.Equal(preferredPath, endpoint.Address);
+            Assert.Equal(preferredPath, socketPath.Value);
             return;
         }
 
-        AssertFallbackPath(endpoint.Address, "ucli-s-");
+        AssertFallbackPath(socketPath.Value, "ucli-s-");
     }
 
     [Fact]
@@ -125,18 +135,20 @@ public sealed class SupervisorEndpointResolverTests
 
         var resolver = new SupervisorEndpointResolver();
         var sessionToken = IpcSessionTokenTestFactory.CreateFromDiscriminator(1);
-        var storageRoot = Path.GetFullPath(Path.Combine(
+        var storageRoot = AbsolutePath.Parse(Path.GetFullPath(Path.Combine(
             Path.GetTempPath(),
             "ucli-tests",
-            new string('a', 140)));
+            new string('a', 140))));
 
         var endpoint1 = resolver.ResolveRuntimeEndpoint(storageRoot, sessionToken);
         var endpoint2 = resolver.ResolveRuntimeEndpoint(storageRoot, sessionToken);
 
-        Assert.Equal(IpcTransportKind.UnixDomainSocket, endpoint1.TransportKind);
-        Assert.Equal(endpoint1.Address, endpoint2.Address);
-        Assert.True(Encoding.UTF8.GetByteCount(endpoint1.Address) <= IpcTransportConstraints.UnixDomainSocketPathMaxBytes);
-        AssertFallbackPath(endpoint1.Address, "ucli-s-");
+        var socketPath1 = Assert.IsType<AbsolutePath>(endpoint1.UnixSocketPath);
+        var socketPath2 = Assert.IsType<AbsolutePath>(endpoint2.UnixSocketPath);
+        Assert.Equal(IpcTransportKind.UnixDomainSocket, endpoint1.Contract.TransportKind);
+        Assert.Equal(socketPath1, socketPath2);
+        Assert.True(Encoding.UTF8.GetByteCount(socketPath1.Value) <= IpcTransportConstraints.UnixDomainSocketPathMaxBytes);
+        AssertFallbackPath(socketPath1.Value, "ucli-s-");
     }
 
     private static void AssertFallbackPath (
@@ -155,5 +167,24 @@ public sealed class SupervisorEndpointResolverTests
         Assert.Equal(
             Path.GetFullPath(Path.GetTempPath()).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
             Path.GetDirectoryName(directoryPath!)!.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+    }
+
+    private static string SwapLetterCase (string value)
+    {
+        var characters = value.ToCharArray();
+        for (var index = 0; index < characters.Length; index++)
+        {
+            var character = characters[index];
+            if (char.IsUpper(character))
+            {
+                characters[index] = char.ToLowerInvariant(character);
+            }
+            else if (char.IsLower(character))
+            {
+                characters[index] = char.ToUpperInvariant(character);
+            }
+        }
+
+        return new string(characters);
     }
 }

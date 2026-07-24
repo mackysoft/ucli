@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Storage;
 
@@ -12,7 +13,7 @@ public sealed class FileReadIndexArtifactReaderLookupTests
         using var scope = TestDirectories.CreateTempScope("index-catalog-reader", "asset-search-success");
         var reader = FileReadIndexArtifactReaderTestSupport.CreateReader();
         var fingerprint = ProjectFingerprintTestFactory.Create("fingerprint");
-        var generationId = FileReadIndexArtifactReaderTestSupport.EnsureCurrentGeneration(scope.FullPath, fingerprint);
+        var generationId = FileReadIndexArtifactReaderTestSupport.EnsureCurrentGeneration(AbsolutePath.Parse(scope.FullPath), fingerprint);
         var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, fingerprint);
         var contract = new IndexAssetSearchLookupJsonContract(
             SchemaVersion: 1,
@@ -33,7 +34,7 @@ public sealed class FileReadIndexArtifactReaderLookupTests
                     ]),
             ]);
         FileReadIndexArtifactReaderTestSupport.WriteText(
-            UcliStoragePathResolver.ResolveAssetSearchLookupPath(scope.FullPath, fingerprint, generationId),
+            UcliStoragePathResolver.ResolveAssetSearchLookupPath(AbsolutePath.Parse(scope.FullPath), fingerprint, generationId),
             FileReadIndexArtifactReaderTestSupport.Write(contract));
 
         var result = await reader.ReadAssetSearchLookupAsync(project, CancellationToken.None);
@@ -53,9 +54,9 @@ public sealed class FileReadIndexArtifactReaderLookupTests
         using var scope = TestDirectories.CreateTempScope("index-catalog-reader", "guid-path-malformed");
         var reader = FileReadIndexArtifactReaderTestSupport.CreateReader();
         var fingerprint = ProjectFingerprintTestFactory.Create("fingerprint");
-        var generationId = FileReadIndexArtifactReaderTestSupport.EnsureCurrentGeneration(scope.FullPath, fingerprint);
+        var generationId = FileReadIndexArtifactReaderTestSupport.EnsureCurrentGeneration(AbsolutePath.Parse(scope.FullPath), fingerprint);
         var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, fingerprint);
-        var lookupPath = UcliStoragePathResolver.ResolveGuidPathLookupPath(scope.FullPath, fingerprint, generationId);
+        var lookupPath = UcliStoragePathResolver.ResolveGuidPathLookupPath(AbsolutePath.Parse(scope.FullPath), fingerprint, generationId);
         FileReadIndexArtifactReaderTestSupport.WriteText(lookupPath, "{");
 
         var result = await reader.ReadGuidPathLookupAsync(project, CancellationToken.None);
@@ -90,7 +91,10 @@ public sealed class FileReadIndexArtifactReaderLookupTests
                     childrenState: IndexSceneTreeLiteNodeChildrenState.Complete),
             ]);
         FileReadIndexArtifactReaderTestSupport.WriteText(
-            UcliStoragePathResolver.ResolveSceneTreeLiteLookupPath(scope.FullPath, fingerprint, scenePath),
+            UcliStoragePathResolver.ResolveSceneTreeLiteLookupPath(
+                AbsolutePath.Parse(scope.FullPath),
+                fingerprint,
+                new SceneAssetPath(scenePath)),
             FileReadIndexArtifactReaderTestSupport.Write(contract));
 
         var result = await reader.ReadSceneTreeLiteLookupAsync(project, typedScenePath, CancellationToken.None);
@@ -127,7 +131,10 @@ public sealed class FileReadIndexArtifactReaderLookupTests
                     childrenState: IndexSceneTreeLiteNodeChildrenState.Complete),
             ]);
         FileReadIndexArtifactReaderTestSupport.WriteText(
-            UcliStoragePathResolver.ResolveSceneTreeLiteLookupPath(scope.FullPath, fingerprint, requestedScenePath),
+            UcliStoragePathResolver.ResolveSceneTreeLiteLookupPath(
+                AbsolutePath.Parse(scope.FullPath),
+                fingerprint,
+                new SceneAssetPath(requestedScenePath)),
             FileReadIndexArtifactReaderTestSupport.Write(contract));
 
         var result = await reader.ReadSceneTreeLiteLookupAsync(project, typedRequestedScenePath, CancellationToken.None);

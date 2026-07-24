@@ -1,3 +1,5 @@
+using MackySoft.FileSystem;
+
 namespace MackySoft.Ucli.Shared.Unity.ProjectLock;
 
 /// <summary> Represents one Unity project lock preflight outcome. </summary>
@@ -6,15 +8,15 @@ namespace MackySoft.Ucli.Shared.Unity.ProjectLock;
 /// <param name="Message"> A diagnostic message for failure or cleanup outcomes. </param>
 internal sealed record UnityProjectLockPreflightResult (
     UnityProjectLockPreflightStatus Status,
-    string? LockFilePath,
+    AbsolutePath? LockFilePath,
     string? Message)
 {
     /// <summary> Creates an unlocked result. </summary>
     /// <param name="lockFilePath"> The inspected lock-file path. </param>
     /// <returns> The preflight result. </returns>
-    public static UnityProjectLockPreflightResult Unlocked (string lockFilePath)
+    public static UnityProjectLockPreflightResult Unlocked (AbsolutePath lockFilePath)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(lockFilePath);
+        ArgumentNullException.ThrowIfNull(lockFilePath);
         return new UnityProjectLockPreflightResult(UnityProjectLockPreflightStatus.Unlocked, lockFilePath, null);
     }
 
@@ -23,10 +25,10 @@ internal sealed record UnityProjectLockPreflightResult (
     /// <param name="message"> The ownership diagnostic message. </param>
     /// <returns> The preflight result. </returns>
     public static UnityProjectLockPreflightResult ActiveLock (
-        string lockFilePath,
+        AbsolutePath lockFilePath,
         string message)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(lockFilePath);
+        ArgumentNullException.ThrowIfNull(lockFilePath);
         ArgumentException.ThrowIfNullOrWhiteSpace(message);
         return new UnityProjectLockPreflightResult(UnityProjectLockPreflightStatus.ActiveLock, lockFilePath, message);
     }
@@ -34,9 +36,9 @@ internal sealed record UnityProjectLockPreflightResult (
     /// <summary> Creates a stale-lock-cleared result. </summary>
     /// <param name="lockFilePath"> The Unity lock-file path that was removed. </param>
     /// <returns> The preflight result. </returns>
-    public static UnityProjectLockPreflightResult StaleLockCleared (string lockFilePath)
+    public static UnityProjectLockPreflightResult StaleLockCleared (AbsolutePath lockFilePath)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(lockFilePath);
+        ArgumentNullException.ThrowIfNull(lockFilePath);
         return new UnityProjectLockPreflightResult(
             UnityProjectLockPreflightStatus.StaleLockCleared,
             lockFilePath,
@@ -48,10 +50,10 @@ internal sealed record UnityProjectLockPreflightResult (
     /// <param name="message"> The ambiguity diagnostic message. </param>
     /// <returns> The preflight result. </returns>
     public static UnityProjectLockPreflightResult Ambiguous (
-        string lockFilePath,
+        AbsolutePath lockFilePath,
         string message)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(lockFilePath);
+        ArgumentNullException.ThrowIfNull(lockFilePath);
         ArgumentException.ThrowIfNullOrWhiteSpace(message);
         return new UnityProjectLockPreflightResult(UnityProjectLockPreflightStatus.Ambiguous, lockFilePath, message);
     }
@@ -70,10 +72,10 @@ internal sealed record UnityProjectLockPreflightResult (
     /// <param name="message"> The cleanup failure message. </param>
     /// <returns> The preflight result. </returns>
     public static UnityProjectLockPreflightResult CleanupFailed (
-        string lockFilePath,
+        AbsolutePath lockFilePath,
         string message)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(lockFilePath);
+        ArgumentNullException.ThrowIfNull(lockFilePath);
         ArgumentException.ThrowIfNullOrWhiteSpace(message);
         return new UnityProjectLockPreflightResult(UnityProjectLockPreflightStatus.CleanupFailed, lockFilePath, message);
     }

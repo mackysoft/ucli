@@ -1,4 +1,4 @@
-using MackySoft.Ucli.Contracts.Text;
+using MackySoft.FileSystem;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Startup;
 
@@ -18,7 +18,7 @@ internal sealed record DaemonStartupObservation
         int? ProcessId,
         DateTimeOffset? StartedAtUtc,
         int? ElapsedMilliseconds,
-        string? ArtifactPath)
+        AbsolutePath? ArtifactPath)
     {
         if (StartupStatus is not (DaemonStartupStatus.Blocked
             or DaemonStartupStatus.Timeout
@@ -30,7 +30,7 @@ internal sealed record DaemonStartupObservation
                 "Unsupported daemon startup failure status.");
         }
 
-        if (!ContractLiteralCodec.IsDefined(StartupBlockingReason))
+        if (!TextVocabulary.IsDefined(StartupBlockingReason))
         {
             throw new ArgumentOutOfRangeException(
                 nameof(StartupBlockingReason),
@@ -43,7 +43,7 @@ internal sealed record DaemonStartupObservation
             throw new ArgumentException("Launch attempt identifier must not be empty.", nameof(LaunchAttemptId));
         }
 
-        if (!ContractLiteralCodec.IsDefined(ProcessAction))
+        if (!TextVocabulary.IsDefined(ProcessAction))
         {
             throw new ArgumentOutOfRangeException(
                 nameof(ProcessAction),
@@ -51,7 +51,7 @@ internal sealed record DaemonStartupObservation
                 "Unsupported daemon startup process action.");
         }
 
-        if (!ContractLiteralCodec.IsDefined(RetryDisposition))
+        if (!TextVocabulary.IsDefined(RetryDisposition))
         {
             throw new ArgumentOutOfRangeException(
                 nameof(RetryDisposition),
@@ -59,12 +59,12 @@ internal sealed record DaemonStartupObservation
                 "Unsupported daemon startup retry disposition.");
         }
 
-        if (EditorMode.HasValue && !ContractLiteralCodec.IsDefined(EditorMode.Value))
+        if (EditorMode.HasValue && !TextVocabulary.IsDefined(EditorMode.Value))
         {
             throw new ArgumentOutOfRangeException(nameof(EditorMode), EditorMode, "Unsupported daemon Editor mode.");
         }
 
-        if (OwnerKind.HasValue && !ContractLiteralCodec.IsDefined(OwnerKind.Value))
+        if (OwnerKind.HasValue && !TextVocabulary.IsDefined(OwnerKind.Value))
         {
             throw new ArgumentOutOfRangeException(nameof(OwnerKind), OwnerKind, "Unsupported daemon session owner kind.");
         }
@@ -126,5 +126,5 @@ internal sealed record DaemonStartupObservation
 
     public int? ElapsedMilliseconds { get; }
 
-    public string? ArtifactPath { get; }
+    public AbsolutePath? ArtifactPath { get; }
 }

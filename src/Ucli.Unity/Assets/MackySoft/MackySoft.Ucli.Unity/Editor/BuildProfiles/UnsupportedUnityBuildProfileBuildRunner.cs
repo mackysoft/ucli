@@ -12,7 +12,7 @@ namespace MackySoft.Ucli.Unity.Build
         public IpcBuildReportArtifact? Run (
             IpcUnityBuildProfileInput unityBuildProfile,
             UnityBuildResolvedInput resolvedInput,
-            IpcBuildOutputLayout outputLayout)
+            ResolvedBuildPipelineOutputLayout outputLayout)
         {
             throw new InvalidOperationException("Unity Build Profile input requires Unity 6000.0 or newer.");
         }

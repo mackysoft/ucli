@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Compensation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.LaunchAttempts;
@@ -576,7 +577,7 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
         DaemonSession? session = null;
         int? processId = null;
         DateTimeOffset? processStartedAtUtc = null;
-        string? unityLogPath = null;
+        AbsolutePath? unityLogPath = null;
         var compensationRequired = false;
 
         try
@@ -746,7 +747,7 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
 
     private async ValueTask<UnityDaemonLaunchResult> LaunchGuiProcessWithinOwnershipAsync (
         ResolvedUnityProjectContext unityProject,
-        string unityLogPath,
+        AbsolutePath unityLogPath,
         Guid launchAttemptId,
         IDaemonStartProgressObserver? progressObserver,
         ExecutionDeadline deadline,
@@ -853,7 +854,7 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
         Guid launchAttemptId,
         DateTimeOffset launchStartedAtUtc,
         DaemonEditorMode editorMode,
-        string? unityLogPath,
+        AbsolutePath? unityLogPath,
         ExecutionError primaryError,
         DaemonStartupStatus startupStatus,
         string primaryErrorMessagePrefix,
@@ -957,7 +958,7 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
         int? processId,
         DateTimeOffset? processStartedAtUtc,
         DateTimeOffset sessionIssuedAtUtc,
-        string? unityLogPath,
+        AbsolutePath? unityLogPath,
         DaemonEditorMode? editorMode,
         ExecutionError primaryError,
         DaemonStartupStatus startupStatus,
@@ -1036,7 +1037,7 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
         DaemonEditorMode? editorMode,
         int? processId,
         DateTimeOffset? processStartedAtUtc,
-        string? unityLogPath,
+        AbsolutePath? unityLogPath,
         DaemonDiagnosis diagnosis,
         bool pruneAfterWrite = true)
     {
@@ -1197,7 +1198,7 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
             ProcessStartedAtUtc: processStartedAtUtc);
     }
 
-    private static string CreateLaunchAttemptArtifactPath (
+    private static AbsolutePath CreateLaunchAttemptArtifactPath (
         ResolvedUnityProjectContext unityProject,
         Guid launchAttemptId)
     {
@@ -1220,7 +1221,7 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
         DateTimeOffset? processStartedAtUtc,
         DateTimeOffset launchStartedAtUtc,
         DateTimeOffset updatedAtUtc,
-        string? artifactPath)
+        AbsolutePath? artifactPath)
     {
         return new DaemonStartupObservation(
             StartupStatus: startupStatus,
@@ -1247,7 +1248,7 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
         DaemonSession expectedSession,
         Guid launchAttemptId,
         DateTimeOffset launchStartedAtUtc,
-        string? unityLogPath)
+        AbsolutePath? unityLogPath)
     {
         var updatedAtUtc = timeProvider.GetUtcNow();
         var diagnosis = new DaemonDiagnosis(
@@ -1420,7 +1421,7 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
         ResolvedUnityProjectContext unityProject,
         int? processId,
         DateTimeOffset? processStartedAtUtc,
-        string? unityLogPath,
+        AbsolutePath? unityLogPath,
         ExecutionError waitError)
     {
         return await DaemonGuiEndpointNotRegisteredFailureFactory.CreateFailureAsync(
@@ -1442,7 +1443,7 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
         ResolvedUnityProjectContext unityProject,
         int processId,
         DateTimeOffset processStartedAtUtc,
-        string unityLogPath,
+        AbsolutePath unityLogPath,
         Guid launchAttemptId,
         DateTimeOffset launchStartedAtUtc,
         DaemonStartupBlockedProcessPolicy onStartupBlocked,
@@ -1533,7 +1534,7 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
         ResolvedUnityProjectContext unityProject,
         int processId,
         DateTimeOffset processStartedAtUtc,
-        string unityLogPath,
+        AbsolutePath unityLogPath,
         Guid launchAttemptId,
         DateTimeOffset launchStartedAtUtc,
         ExecutionError startupError)
@@ -1737,7 +1738,7 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
         DaemonStartupProcessAction processAction,
         DateTimeOffset launchStartedAtUtc,
         DateTimeOffset updatedAtUtc,
-        string artifactPath)
+        AbsolutePath artifactPath)
     {
         ArgumentNullException.ThrowIfNull(blockerObservation);
         return CreateStartupFailureObservation(
@@ -1960,7 +1961,7 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
         DaemonSession? Session,
         int? ProcessId,
         DateTimeOffset? ProcessStartedAtUtc,
-        string? UnityLogPath,
+        AbsolutePath? UnityLogPath,
         ExecutionError? Error);
 
     private enum BatchmodeLaunchPreparationStatus

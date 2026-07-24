@@ -1,4 +1,3 @@
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Features.Assurance.Verify.Profiles;
 
@@ -11,7 +10,7 @@ internal sealed record VerifyProfileDefinition
         string? RepositoryRelativePath,
         IReadOnlyList<VerifyProfileStep> Steps)
     {
-        if (!ContractLiteralCodec.IsDefined(Source))
+        if (!TextVocabulary.IsDefined(Source))
         {
             throw new ArgumentOutOfRangeException(nameof(Source), Source, "Unsupported verify profile source.");
         }
@@ -31,9 +30,12 @@ internal sealed record VerifyProfileDefinition
         {
             throw new ArgumentException("Built-in profiles must not have a repository-relative path.", nameof(RepositoryRelativePath));
         }
-        if (Source == VerifyProfileSource.File && !RelativePathContract.IsNormalized(RepositoryRelativePath))
+        if (Source == VerifyProfileSource.File
+            && !RelativePathContract.IsNormalized(RepositoryRelativePath))
         {
-            throw new ArgumentException("File profiles require a normalized repository-relative path.", nameof(RepositoryRelativePath));
+            throw new ArgumentException(
+                "File profiles require a normalized portable repository-relative path.",
+                nameof(RepositoryRelativePath));
         }
 
         var canonicalSteps = Steps
@@ -44,7 +46,7 @@ internal sealed record VerifyProfileDefinition
             if (canonicalSteps[index - 1].Kind == canonicalSteps[index].Kind)
             {
                 throw new ArgumentException(
-                    $"Profile steps must not contain duplicate kind '{ContractLiteralCodec.ToValue(canonicalSteps[index].Kind)}'.",
+                    $"Profile steps must not contain duplicate kind '{TextVocabulary.GetText(canonicalSteps[index].Kind)}'.",
                     nameof(Steps));
             }
         }

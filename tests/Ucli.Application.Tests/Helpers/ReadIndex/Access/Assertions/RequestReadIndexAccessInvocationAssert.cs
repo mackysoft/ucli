@@ -2,6 +2,7 @@ using MackySoft.Ucli.Application.Features.Requests.Query.UseCases.Query;
 using MackySoft.Ucli.Application.Features.Requests.Resolve.UseCases.Resolve;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts.Configuration;
+using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Tests;
 
@@ -90,6 +91,15 @@ internal static class RequestReadIndexAccessInvocationAssert
         var invocation = Assert.Single(accessService.Invocations);
         Assert.Equal(expectedCommand, invocation.Command);
         Assert.Equal(expectedScenePath, invocation.ScenePath.Value);
+        if (SceneAssetPath.TryParse(expectedScenePath, out var expectedIndexScenePath))
+        {
+            Assert.Equal(expectedIndexScenePath, invocation.IndexScenePath);
+        }
+        else
+        {
+            Assert.Null(invocation.IndexScenePath);
+        }
+
         Assert.Equal(expectedReadIndexMode, invocation.ReadIndexMode);
         Assert.Equal(expectedFailFast, invocation.FailFast);
         return invocation;

@@ -43,66 +43,69 @@ internal sealed record IpcEditStepContract (
     /// <summary>
     /// Defines how the normalized selection set must be reduced before action compilation.
     /// </summary>
+    [VocabularyDefinition]
     internal enum CardinalityKind
     {
-        [UcliContractLiteral("one")]
+        [VocabularyText("one")]
         One = 0,
 
-        [UcliContractLiteral("first")]
+        [VocabularyText("first")]
         First,
 
-        [UcliContractLiteral("all")]
+        [VocabularyText("all")]
         All,
 
-        [UcliContractLiteral("atMostOne")]
+        [VocabularyText("atMostOne")]
         AtMostOne,
     }
 
     /// <summary>
     /// Defines the supported public edit actions.
     /// </summary>
+    [VocabularyDefinition]
     internal enum ActionKind
     {
-        [UcliContractLiteral("set")]
+        [VocabularyText("set")]
         Set = 0,
 
-        [UcliContractLiteral("ensureComponent")]
+        [VocabularyText("ensureComponent")]
         EnsureComponent,
 
-        [UcliContractLiteral("createObject")]
+        [VocabularyText("createObject")]
         CreateObject,
 
-        [UcliContractLiteral("createAsset")]
+        [VocabularyText("createAsset")]
         CreateAsset,
 
-        [UcliContractLiteral("createPrefab")]
+        [VocabularyText("createPrefab")]
         CreatePrefab,
 
-        [UcliContractLiteral("applyPrefabOverrides")]
+        [VocabularyText("applyPrefabOverrides")]
         ApplyPrefabOverrides,
 
-        [UcliContractLiteral("revertPrefabOverrides")]
+        [VocabularyText("revertPrefabOverrides")]
         RevertPrefabOverrides,
 
-        [UcliContractLiteral("delete")]
+        [VocabularyText("delete")]
         Delete,
 
-        [UcliContractLiteral("reparent")]
+        [VocabularyText("reparent")]
         Reparent,
     }
 
     /// <summary>
     /// Defines which save boundary the compiler appends after the edit action chain.
     /// </summary>
+    [VocabularyDefinition]
     internal enum CommitKind
     {
-        [UcliContractLiteral("none")]
+        [VocabularyText("none")]
         None = 0,
 
-        [UcliContractLiteral("context")]
+        [VocabularyText("context")]
         Context,
 
-        [UcliContractLiteral("project")]
+        [VocabularyText("project")]
         Project,
     }
 

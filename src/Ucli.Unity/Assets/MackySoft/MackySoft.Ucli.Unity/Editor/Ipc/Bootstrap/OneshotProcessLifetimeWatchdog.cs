@@ -1,5 +1,6 @@
 using System;
 using System.Threading;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts.Execution;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Execution;
@@ -21,7 +22,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private static readonly TimeSpan ProductionPollInterval = TimeSpan.FromMilliseconds(250);
 
-        private readonly string storageRoot;
+        private readonly AbsolutePath storageRoot;
 
         private readonly IpcOneshotBootstrapEnvelope bootstrapEnvelope;
 
@@ -31,7 +32,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private readonly IMonotonicClock monotonicClock;
 
-        private readonly Func<string, IpcOneshotBootstrapEnvelope, bool> tryDeleteEnvelopeIfOwned;
+        private readonly Func<AbsolutePath, IpcOneshotBootstrapEnvelope, bool> tryDeleteEnvelopeIfOwned;
 
         private readonly Action terminateProcess;
 
@@ -40,18 +41,18 @@ namespace MackySoft.Ucli.Unity.Ipc
         private int lifetimeState;
 
         internal OneshotProcessLifetimeWatchdog (
-            string storageRoot,
+            AbsolutePath storageRoot,
             IpcOneshotBootstrapEnvelope bootstrapEnvelope,
             TimeSpan pollInterval,
             Func<ProcessIdentity, bool> parentProcessIsSameProcess,
             DateTimeOffset observedUtcNow,
             IMonotonicClock monotonicClock,
-            Func<string, IpcOneshotBootstrapEnvelope, bool> tryDeleteEnvelopeIfOwned,
+            Func<AbsolutePath, IpcOneshotBootstrapEnvelope, bool> tryDeleteEnvelopeIfOwned,
             Action terminateProcess)
         {
-            if (string.IsNullOrWhiteSpace(storageRoot))
+            if (storageRoot == null)
             {
-                throw new ArgumentException("Storage root must not be empty.", nameof(storageRoot));
+                throw new ArgumentNullException(nameof(storageRoot));
             }
 
             if (pollInterval <= TimeSpan.Zero)
@@ -110,7 +111,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <param name="bootstrapEnvelope"> The exact bootstrap generation owned by the oneshot process. </param>
         /// <returns> The active watchdog. </returns>
         internal static OneshotProcessLifetimeWatchdog Start (
-            string storageRoot,
+            AbsolutePath storageRoot,
             IpcOneshotBootstrapEnvelope bootstrapEnvelope)
         {
             var monotonicClock = new StopwatchMonotonicClock();

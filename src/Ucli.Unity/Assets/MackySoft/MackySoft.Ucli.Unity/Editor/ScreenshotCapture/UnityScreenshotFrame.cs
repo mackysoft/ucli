@@ -1,4 +1,6 @@
 using System;
+using MackySoft.Text.Vocabularies;
+using TextVocabulary = MackySoft.Text.Vocabularies.Vocabulary;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
 
@@ -34,7 +36,7 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture
                     "Screenshot dimensions exceed the supported normalized RGBA8 layout.");
             }
 
-            if (!ContractLiteralCodec.IsDefined(colorSpace))
+            if (!TextVocabulary.IsDefined(colorSpace))
             {
                 throw new ArgumentOutOfRangeException(
                     nameof(colorSpace),

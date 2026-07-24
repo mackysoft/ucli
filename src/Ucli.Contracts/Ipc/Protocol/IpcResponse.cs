@@ -29,7 +29,7 @@ public sealed record IpcResponse
             throw new ArgumentException("Request id must not be empty.", nameof(requestId));
         }
 
-        if (!ContractLiteralCodec.IsDefined(status))
+        if (!TextVocabulary.IsDefined(status))
         {
             throw new ArgumentOutOfRangeException(nameof(status), status, "IPC response status must be specified.");
         }

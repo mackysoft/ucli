@@ -1,20 +1,21 @@
+using System.Diagnostics.CodeAnalysis;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Application.Shared.Unity.Resolution;
-using MackySoft.Ucli.Infrastructure.Paths;
 
 namespace MackySoft.Ucli.UnityIntegration.Resolution;
 
 /// <summary> Locates Unity editor executable paths from preferred values or default installation roots. </summary>
 internal static class UnityEditorExecutablePathLocator
 {
-    private static readonly string[] ExecutableRelativePaths =
+    private static readonly RootRelativePath[] ExecutableRelativePaths =
     {
-        Path.Combine("Contents", "MacOS", "Unity"),
-        Path.Combine("Unity.app", "Contents", "MacOS", "Unity"),
-        Path.Combine("Editor", "Unity.exe"),
-        Path.Combine("Editor", "Unity"),
-        "Unity.exe",
-        "Unity",
+        RootRelativePath.Parse("Contents/MacOS/Unity"),
+        RootRelativePath.Parse("Unity.app/Contents/MacOS/Unity"),
+        RootRelativePath.Parse("Editor/Unity.exe"),
+        RootRelativePath.Parse("Editor/Unity"),
+        RootRelativePath.Parse("Unity.exe"),
+        RootRelativePath.Parse("Unity"),
     };
 
     private static readonly string[] SupportedExecutableFileNames =
@@ -33,7 +34,7 @@ internal static class UnityEditorExecutablePathLocator
     public static UnityEditorPathResolutionResult Resolve (
         string unityVersion,
         string? preferredUnityEditorPath,
-        IReadOnlyList<string> searchRoots)
+        IReadOnlyList<AbsolutePath> searchRoots)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(unityVersion);
         ArgumentNullException.ThrowIfNull(searchRoots);
@@ -51,33 +52,34 @@ internal static class UnityEditorExecutablePathLocator
     /// <returns> The executable-path resolution result. </returns>
     private static UnityEditorPathResolutionResult ResolvePreferredPath (string preferredUnityEditorPath)
     {
-        if (!TryNormalizePath(preferredUnityEditorPath, out var normalizedPath))
+        var currentDirectory = AbsolutePath.Parse(Environment.CurrentDirectory);
+        if (!AbsolutePath.TryResolve(currentDirectory, preferredUnityEditorPath, out var normalizedPath, out _))
         {
             return UnityEditorPathResolutionResult.Failure(ExecutionError.InvalidArgument(
                 $"Unity editor path is invalid: {preferredUnityEditorPath}"));
         }
 
-        if (File.Exists(normalizedPath))
+        if (File.Exists(normalizedPath.Value))
         {
             if (!IsSupportedExecutableFileName(normalizedPath))
             {
                 return UnityEditorPathResolutionResult.Failure(ExecutionError.InvalidArgument(
-                    $"unityEditorPath must point to a Unity executable (Unity or Unity.exe): {normalizedPath}"));
+                    $"unityEditorPath must point to a Unity executable (Unity or Unity.exe): {normalizedPath.Value}"));
             }
 
             return UnityEditorPathResolutionResult.Success(normalizedPath);
         }
 
-        if (!Directory.Exists(normalizedPath))
+        if (!Directory.Exists(normalizedPath.Value))
         {
             return UnityEditorPathResolutionResult.Failure(ExecutionError.InvalidArgument(
-                $"unityEditorPath does not exist: {normalizedPath}"));
+                $"unityEditorPath does not exist: {normalizedPath.Value}"));
         }
 
         if (!TryResolveExecutablePath(normalizedPath, out var executablePath))
         {
             return UnityEditorPathResolutionResult.Failure(ExecutionError.InvalidArgument(
-                $"unityEditorPath does not contain a Unity executable: {normalizedPath}"));
+                $"unityEditorPath does not contain a Unity executable: {normalizedPath.Value}"));
         }
 
         return UnityEditorPathResolutionResult.Success(executablePath);
@@ -89,22 +91,19 @@ internal static class UnityEditorExecutablePathLocator
     /// <returns> The executable-path resolution result. </returns>
     private static UnityEditorPathResolutionResult ResolveFromSearchRoots (
         string unityVersion,
-        IReadOnlyList<string> searchRoots)
+        IReadOnlyList<AbsolutePath> searchRoots)
     {
+        if (!RootRelativePath.TryParse(unityVersion, out var versionRelativePath, out _))
+        {
+            return UnityEditorPathResolutionResult.Failure(ExecutionError.InvalidArgument(
+                $"Unity version cannot be used as an installation directory name: {unityVersion}"));
+        }
+
         foreach (var searchRoot in searchRoots)
         {
-            if (string.IsNullOrWhiteSpace(searchRoot))
-            {
-                continue;
-            }
-
-            if (!TryNormalizePath(searchRoot, out var normalizedSearchRoot))
-            {
-                continue;
-            }
-
-            var versionDirectoryPath = Path.Combine(normalizedSearchRoot, unityVersion);
-            if (!Directory.Exists(versionDirectoryPath))
+            ArgumentNullException.ThrowIfNull(searchRoot);
+            var versionDirectoryPath = ContainedPath.Create(searchRoot, versionRelativePath).Target;
+            if (!Directory.Exists(versionDirectoryPath.Value))
             {
                 continue;
             }
@@ -126,31 +125,26 @@ internal static class UnityEditorExecutablePathLocator
     /// <param name="executablePath"> The resolved executable path. </param>
     /// <returns> <see langword="true" /> when an executable path is resolved; otherwise <see langword="false" />. </returns>
     private static bool TryResolveExecutablePath (
-        string directoryPath,
-        out string executablePath)
+        AbsolutePath directoryPath,
+        [NotNullWhen(true)] out AbsolutePath? executablePath)
     {
-        executablePath = string.Empty;
+        ArgumentNullException.ThrowIfNull(directoryPath);
+        executablePath = null;
 
         foreach (var relativePath in ExecutableRelativePaths)
         {
-            var candidatePath = Path.Combine(directoryPath, relativePath);
-            if (!File.Exists(candidatePath))
+            var candidatePath = ContainedPath.Create(directoryPath, relativePath).Target;
+            if (!File.Exists(candidatePath.Value))
             {
                 continue;
             }
 
-            if (!TryNormalizePath(candidatePath, out executablePath))
+            if (!IsSupportedExecutableFileName(candidatePath))
             {
-                executablePath = string.Empty;
                 continue;
             }
 
-            if (!IsSupportedExecutableFileName(executablePath))
-            {
-                executablePath = string.Empty;
-                continue;
-            }
-
+            executablePath = candidatePath;
             return true;
         }
 
@@ -160,9 +154,10 @@ internal static class UnityEditorExecutablePathLocator
     /// <summary> Determines whether one executable file name is supported as a Unity editor binary. </summary>
     /// <param name="filePath"> The file path to inspect. </param>
     /// <returns> <see langword="true" /> when the file name matches supported Unity binaries; otherwise <see langword="false" />. </returns>
-    private static bool IsSupportedExecutableFileName (string filePath)
+    private static bool IsSupportedExecutableFileName (AbsolutePath filePath)
     {
-        var fileName = Path.GetFileName(filePath);
+        ArgumentNullException.ThrowIfNull(filePath);
+        var fileName = Path.GetFileName(filePath.Value);
         for (var index = 0; index < SupportedExecutableFileNames.Length; index++)
         {
             if (string.Equals(fileName, SupportedExecutableFileNames[index], StringComparison.OrdinalIgnoreCase))
@@ -174,22 +169,4 @@ internal static class UnityEditorExecutablePathLocator
         return false;
     }
 
-    /// <summary> Tries to normalize one path value into an absolute path. </summary>
-    /// <param name="pathValue"> The path value to normalize. </param>
-    /// <param name="normalizedPath"> The normalized absolute path on success. </param>
-    /// <returns> <see langword="true" /> when normalization succeeds; otherwise <see langword="false" />. </returns>
-    private static bool TryNormalizePath (
-        string pathValue,
-        out string normalizedPath)
-    {
-        normalizedPath = string.Empty;
-        var pathResult = PathNormalizer.TryNormalizeFullPath(pathValue);
-        if (!pathResult.IsSuccess)
-        {
-            return false;
-        }
-
-        normalizedPath = pathResult.FullPath!;
-        return true;
-    }
 }

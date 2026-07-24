@@ -15,7 +15,7 @@ internal sealed record SceneTreeLiteNode
     {
         Name = name ?? throw new ArgumentNullException(nameof(name));
         ArgumentNullException.ThrowIfNull(children);
-        if (!ContractLiteralCodec.IsDefined(childrenState))
+        if (!TextVocabulary.IsDefined(childrenState))
         {
             throw new ArgumentOutOfRangeException(nameof(childrenState));
         }

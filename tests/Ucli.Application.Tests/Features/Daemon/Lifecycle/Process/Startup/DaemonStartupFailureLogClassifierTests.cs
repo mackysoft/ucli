@@ -206,7 +206,7 @@ public sealed class DaemonStartupFailureLogClassifierTests
     public void TryClassifyFailure_WhenUcliDependencyIsMissingWithoutNuGetRestoreLog_DoesNotReturnNuGetDiagnosticCode ()
     {
         var result = DaemonStartupFailureLogClassifier.TryClassifyFailure(
-            "Library/PackageCache/MackySoft.Ucli.Unity/Editor/Bootstrap.cs(1,1): error CS0234: The type or namespace name 'Contracts' does not exist in the namespace 'MackySoft.Ucli'\n",
+            "Could not load file or assembly 'MackySoft.FileSystem'\n",
             DaemonStartupFailureClassificationContext.Batchmode,
             out var classification);
 

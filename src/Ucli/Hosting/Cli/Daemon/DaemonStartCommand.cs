@@ -127,8 +127,8 @@ internal sealed class DaemonStartCommand
                 message: "uCLI daemon start completed.",
                 payload: new
                 {
-                    startStatus = ContractLiteralCodec.ToValue(output.StartStatus),
-                    daemonStatus = ContractLiteralCodec.ToValue(output.DaemonStatus),
+                    startStatus = TextVocabulary.GetText(output.StartStatus),
+                    daemonStatus = TextVocabulary.GetText(output.DaemonStatus),
                     lifecycleState = output.LifecycleState,
                     blockingReason = output.BlockingReason,
                     canAcceptExecutionRequests = output.CanAcceptExecutionRequests,
@@ -148,8 +148,8 @@ internal sealed class DaemonStartCommand
             ApplicationFailure.FromExecutionError(executionResult.Error!),
             payload: new
             {
-                startStatus = ContractLiteralCodec.ToValue(DaemonStartStatus.Failed),
-                daemonStatus = ContractLiteralCodec.ToValue(failureOutput.DaemonStatus),
+                startStatus = TextVocabulary.GetText(DaemonStartStatus.Failed),
+                daemonStatus = TextVocabulary.GetText(failureOutput.DaemonStatus),
                 timeoutMilliseconds = failureOutput.TimeoutMilliseconds,
                 session = (object?)null,
                 startup = failureOutput.Startup,

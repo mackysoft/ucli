@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Inventory;
 
 namespace MackySoft.Ucli.Features.Daemon.Lifecycle.Inventory;
@@ -6,15 +7,13 @@ namespace MackySoft.Ucli.Features.Daemon.Lifecycle.Inventory;
 internal sealed class WorktreeProjectPathResolver : IWorktreeProjectPathResolver
 {
     /// <inheritdoc />
-    public string ResolveCandidateProjectPath (
-        string worktreePath,
-        string projectRelativePath)
+    public AbsolutePath ResolveCandidateProjectPath (
+        AbsolutePath worktreePath,
+        RootRelativePath projectRelativePath)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(worktreePath);
-        ArgumentException.ThrowIfNullOrWhiteSpace(projectRelativePath);
+        ArgumentNullException.ThrowIfNull(worktreePath);
+        ArgumentNullException.ThrowIfNull(projectRelativePath);
 
-        return string.Equals(projectRelativePath, ".", StringComparison.Ordinal)
-            ? worktreePath
-            : Path.Combine(worktreePath, projectRelativePath);
+        return ContainedPath.Create(worktreePath, projectRelativePath).Target;
     }
 }

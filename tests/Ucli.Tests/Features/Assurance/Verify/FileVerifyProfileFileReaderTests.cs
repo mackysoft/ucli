@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Features.Assurance.Verify;
 using Xunit.Sdk;
@@ -14,7 +15,7 @@ public sealed class FileVerifyProfileFileReaderTests
         repository.WriteFile("profiles/verify.json", """{"schemaVersion":1,"steps":[]}""");
         var reader = new FileVerifyProfileFileReader();
 
-        var result = await reader.ReadAsync("profiles/verify.json", repository.FullPath);
+        var result = await reader.ReadAsync("profiles/verify.json", AbsolutePath.Parse(repository.FullPath));
 
         Assert.True(result.IsSuccess);
         Assert.Equal("""{"schemaVersion":1,"steps":[]}""", result.Json);
@@ -30,7 +31,7 @@ public sealed class FileVerifyProfileFileReaderTests
         var path = outside.WriteFile("verify.json", """{"schemaVersion":1,"steps":[]}""");
         var reader = new FileVerifyProfileFileReader();
 
-        var result = await reader.ReadAsync(path, repository.FullPath);
+        var result = await reader.ReadAsync(path, AbsolutePath.Parse(repository.FullPath));
 
         Assert.False(result.IsSuccess);
         Assert.Equal(ExecutionErrorKind.InvalidArgument, result.Error!.Kind);
@@ -51,7 +52,7 @@ public sealed class FileVerifyProfileFileReaderTests
 
         var reader = new FileVerifyProfileFileReader();
 
-        var result = await reader.ReadAsync("verify.json", repository.FullPath);
+        var result = await reader.ReadAsync("verify.json", AbsolutePath.Parse(repository.FullPath));
 
         Assert.False(result.IsSuccess);
         Assert.Equal(ExecutionErrorKind.InvalidArgument, result.Error!.Kind);
@@ -72,10 +73,34 @@ public sealed class FileVerifyProfileFileReaderTests
 
         var reader = new FileVerifyProfileFileReader();
 
-        var result = await reader.ReadAsync("linked/verify.json", repository.FullPath);
+        var result = await reader.ReadAsync("linked/verify.json", AbsolutePath.Parse(repository.FullPath));
 
         Assert.False(result.IsSuccess);
         Assert.Equal(ExecutionErrorKind.InvalidArgument, result.Error!.Kind);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task ReadAsync_OnUnixWithLiteralBackslashProfileName_ReturnsInvalidArgument ()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        using var repository = TestDirectories.CreateTempScope(
+            "ucli-verify",
+            nameof(ReadAsync_OnUnixWithLiteralBackslashProfileName_ReturnsInvalidArgument));
+        repository.WriteFile(@"profiles/verify\local.json", """{"schemaVersion":1,"steps":[]}""");
+        var reader = new FileVerifyProfileFileReader();
+
+        var result = await reader.ReadAsync(
+            @"profiles/verify\local.json",
+            AbsolutePath.Parse(repository.FullPath));
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ExecutionErrorKind.InvalidArgument, result.Error!.Kind);
+        Assert.Contains("portable repository-relative path", result.Error.Message, StringComparison.Ordinal);
     }
 
 }

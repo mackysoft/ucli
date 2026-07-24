@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Contracts;
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Payload;
 using MackySoft.Ucli.Application.Features.Assurance.Ready;
@@ -236,7 +237,7 @@ internal sealed class VerifyService : IVerifyService
 
     private async ValueTask<VerifyProfileResolutionResult> ResolveProfileAsync (
         VerifyCommandInput input,
-        string repositoryRoot,
+        AbsolutePath repositoryRoot,
         CancellationToken cancellationToken)
     {
         if (!string.IsNullOrWhiteSpace(input.Profile) && !string.IsNullOrWhiteSpace(input.ProfilePath))
@@ -480,9 +481,9 @@ internal sealed class VerifyService : IVerifyService
         var status = result.Result == TestRunResultKind.Pass
             ? AssuranceClaimStatus.Passed
             : AssuranceClaimStatus.Failed;
-        var summaryReport = string.IsNullOrWhiteSpace(result.SummaryJsonPath)
+        var summaryReport = result.SummaryJsonPath is null
             ? null
-            : AssuranceReportReference.FromPath(result.SummaryJsonPath, digest: null);
+            : AssuranceReportReference.FromPath(result.SummaryJsonPath.Value, digest: null);
         var reportRef = summaryReport is null ? null : TestReportRef;
         builder.AddVerifier(new VerifyVerifierOutput(
             TestVerifierId,
@@ -676,7 +677,7 @@ internal sealed class VerifyService : IVerifyService
             VerifierRef: claim.VerifierRef,
             Statement: claim.Statement,
             Subject: claim.Subject,
-            Evidence: claim.Evidence.Select(static evidence => new VerifyEvidenceOutput(ContractLiteralCodec.ToValue(evidence.Kind))
+            Evidence: claim.Evidence.Select(static evidence => new VerifyEvidenceOutput(TextVocabulary.GetText(evidence.Kind))
             {
                 EvidenceRef = evidence.EvidenceRef,
                 Data = evidence.Data,

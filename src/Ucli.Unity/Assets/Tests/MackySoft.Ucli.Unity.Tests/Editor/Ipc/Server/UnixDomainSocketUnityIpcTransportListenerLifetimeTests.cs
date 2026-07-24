@@ -6,6 +6,7 @@ using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.Unity.Ipc;
@@ -33,14 +34,15 @@ namespace MackySoft.Ucli.Unity.Tests
             }
 
             var fallbackPath = new UnixSocketFallbackPath(
-                Path.GetTempPath(),
+                AbsolutePath.Parse(Path.GetTempPath()),
                 UnixSocketFallbackPurpose.Daemon,
                 Guid.NewGuid().ToString("N"));
-            var socketDirectoryPath = fallbackPath.DirectoryPath;
-            var address = fallbackPath.SocketPath;
+            var socketDirectoryPath = fallbackPath.DirectoryPath.Value;
+            var address = fallbackPath.SocketPath.Value;
+            var endpointBinding = CreateEndpointBinding(address);
             var listener = new UnixDomainSocketUnityIpcTransportListener(
                 NoOpDaemonLogger.Instance,
-                new IpcEndpoint(IpcTransportKind.UnixDomainSocket, address),
+                endpointBinding,
                 MaximumActiveConnections,
                 ConnectionDrainTimeout);
             using var cancellationTokenSource = new CancellationTokenSource();
@@ -48,17 +50,18 @@ namespace MackySoft.Ucli.Unity.Tests
             try
             {
                 listener.ReserveRun(cancellationTokenSource.Token);
-                ArgumentException validationException = null;
+                InvalidOperationException validationException = null;
                 try
                 {
                     await listener.RunAsync(
-                        string.Empty,
+                        UnityIpcEndpointBinding.Create(
+                            new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-reservation-validation")),
                         new NoOpConnectionHandler(),
                         () => { },
                         _ => { },
                         cancellationTokenSource.Token);
                 }
-                catch (ArgumentException exception)
+                catch (InvalidOperationException exception)
                 {
                     validationException = exception;
                 }
@@ -68,7 +71,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 listener.ReserveRun(cancellationTokenSource.Token);
                 listener.Release();
                 await listener.RunAsync(
-                    address,
+                    endpointBinding,
                     new NoOpConnectionHandler(),
                     () => { },
                     _ => { },
@@ -94,14 +97,15 @@ namespace MackySoft.Ucli.Unity.Tests
             }
 
             var fallbackPath = new UnixSocketFallbackPath(
-                Path.GetTempPath(),
+                AbsolutePath.Parse(Path.GetTempPath()),
                 UnixSocketFallbackPurpose.Daemon,
                 Guid.NewGuid().ToString("N"));
-            var socketDirectoryPath = fallbackPath.DirectoryPath;
-            var address = fallbackPath.SocketPath;
+            var socketDirectoryPath = fallbackPath.DirectoryPath.Value;
+            var address = fallbackPath.SocketPath.Value;
+            var endpointBinding = CreateEndpointBinding(address);
             var listener = new UnixDomainSocketUnityIpcTransportListener(
                 NoOpDaemonLogger.Instance,
-                new IpcEndpoint(IpcTransportKind.UnixDomainSocket, address),
+                endpointBinding,
                 MaximumActiveConnections,
                 ConnectionDrainTimeout);
             using var releasedCancellationTokenSource = new CancellationTokenSource();
@@ -117,7 +121,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 listener.Release();
 
                 releasedRunTask = listener.RunAsync(
-                    address,
+                    endpointBinding,
                     new NoOpConnectionHandler(),
                     () => releasedGenerationStarted = true,
                     _ => { },
@@ -129,7 +133,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
                 listener.ReserveRun(successorCancellationTokenSource.Token);
                 successorRunTask = listener.RunAsync(
-                    address,
+                    endpointBinding,
                     new NoOpConnectionHandler(),
                     () => successorStarted.TrySetResult(true),
                     _ => { },
@@ -191,13 +195,15 @@ namespace MackySoft.Ucli.Unity.Tests
             }
 
             var fallbackPath = new UnixSocketFallbackPath(
-                Path.GetTempPath(),
+                AbsolutePath.Parse(Path.GetTempPath()),
                 UnixSocketFallbackPurpose.Daemon,
                 Guid.NewGuid().ToString("N"));
-            var socketDirectoryPath = fallbackPath.DirectoryPath;
-            var address = fallbackPath.SocketPath;
-            var lockPath = UnixDomainSocketUnityIpcTransportListener.ResolveEndpointOwnershipLockPath(address);
-            var lockDirectoryPath = Path.GetDirectoryName(lockPath);
+            var socketDirectoryPath = fallbackPath.DirectoryPath.Value;
+            var address = fallbackPath.SocketPath.Value;
+            var endpointBinding = CreateEndpointBinding(address);
+            var lockPath = UnixDomainSocketUnityIpcTransportListener.ResolveEndpointOwnershipLockPath(
+                AbsolutePath.Parse(address));
+            var lockDirectoryPath = Path.GetDirectoryName(lockPath.Value);
             Assert.That(lockDirectoryPath, Is.Not.Null);
             Directory.CreateDirectory(socketDirectoryPath);
             Directory.CreateDirectory(lockDirectoryPath!);
@@ -205,7 +211,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var listener = new UnixDomainSocketUnityIpcTransportListener(
                 NoOpDaemonLogger.Instance,
-                new IpcEndpoint(IpcTransportKind.UnixDomainSocket, address),
+                endpointBinding,
                 MaximumActiveConnections,
                 ConnectionDrainTimeout);
             using var firstCancellationTokenSource = new CancellationTokenSource();
@@ -215,10 +221,10 @@ namespace MackySoft.Ucli.Unity.Tests
             EndpointOwnershipLockOwner independentOwner = null;
             try
             {
-                independentOwner = await EndpointOwnershipLockOwner.AcquireAsync(lockPath);
+                independentOwner = await EndpointOwnershipLockOwner.AcquireAsync(lockPath.Value);
                 var firstStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
                 firstRunTask = listener.RunAsync(
-                    address,
+                    endpointBinding,
                     new NoOpConnectionHandler(),
                     () => firstStarted.TrySetResult(true),
                     _ => { },
@@ -260,7 +266,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
                 var restarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
                 restartedRunTask = listener.RunAsync(
-                    address,
+                    endpointBinding,
                     new NoOpConnectionHandler(),
                     () => restarted.TrySetResult(true),
                     _ => { },
@@ -312,20 +318,21 @@ namespace MackySoft.Ucli.Unity.Tests
             }
 
             var fallbackPath = new UnixSocketFallbackPath(
-                Path.GetTempPath(),
+                AbsolutePath.Parse(Path.GetTempPath()),
                 UnixSocketFallbackPurpose.Daemon,
                 Guid.NewGuid().ToString("N"));
-            var socketDirectoryPath = fallbackPath.DirectoryPath;
-            var address = fallbackPath.SocketPath;
+            var socketDirectoryPath = fallbackPath.DirectoryPath.Value;
+            var address = fallbackPath.SocketPath.Value;
+            var endpointBinding = CreateEndpointBinding(address);
             var firstListener = new UnixDomainSocketUnityIpcTransportListener(
                 NoOpDaemonLogger.Instance,
-                new IpcEndpoint(IpcTransportKind.UnixDomainSocket, address),
+                endpointBinding,
                 MaximumActiveConnections,
                 ConnectionDrainTimeout);
             var restartedListener = useSeparateListenerInstance
                 ? new UnixDomainSocketUnityIpcTransportListener(
                     NoOpDaemonLogger.Instance,
-                    new IpcEndpoint(IpcTransportKind.UnixDomainSocket, address),
+                    endpointBinding,
                     MaximumActiveConnections,
                     ConnectionDrainTimeout)
                 : firstListener;
@@ -341,7 +348,7 @@ namespace MackySoft.Ucli.Unity.Tests
             try
             {
                 firstRunTask = firstListener.RunAsync(
-                    address,
+                    endpointBinding,
                     firstConnectionHandler,
                     () => firstStarted.TrySetResult(true),
                     _ => { },
@@ -362,7 +369,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 firstListener.Release();
 
                 restartedRunTask = restartedListener.RunAsync(
-                    address,
+                    endpointBinding,
                     new NoOpConnectionHandler(),
                     () => restarted.TrySetResult(true),
                     _ => { },
@@ -423,6 +430,12 @@ namespace MackySoft.Ucli.Unity.Tests
             catch (OperationCanceledException)
             {
             }
+        }
+
+        private static UnityIpcEndpointBinding CreateEndpointBinding (string address)
+        {
+            return UnityIpcEndpointBinding.Create(
+                new IpcEndpoint(IpcTransportKind.UnixDomainSocket, address));
         }
 
         private sealed class EndpointOwnershipLockOwner

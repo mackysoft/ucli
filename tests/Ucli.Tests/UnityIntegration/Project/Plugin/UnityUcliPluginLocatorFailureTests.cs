@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using static MackySoft.Ucli.Tests.UnityUcliPluginLocatorTestSupport;
 
@@ -11,11 +12,16 @@ public sealed class UnityUcliPluginLocatorFailureTests
     {
         using var scope = TestDirectories.CreateTempScope("unity-ucli-plugin-locator", "multiple-found-standard-and-nonstandard");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
-        await WriteMarkerAsync(scope, Path.Combine("UnityProject", "Assets", "MackySoft", "MackySoft.Ucli.Unity"));
-        await WriteMarkerAsync(scope, Path.Combine("UnityProject", "Assets", "ThirdParty", "UcliCopy"));
+        var unityProjectRoot = AbsolutePath.Parse(unityProjectPath);
+        await WriteMarkerAsync(
+            scope,
+            RootRelativePath.Parse(Path.Combine("UnityProject", "Assets", "MackySoft", "MackySoft.Ucli.Unity")));
+        await WriteMarkerAsync(
+            scope,
+            RootRelativePath.Parse(Path.Combine("UnityProject", "Assets", "ThirdParty", "UcliCopy")));
         var locator = CreateLocator();
 
-        var result = await locator.LocateAsync(unityProjectPath, CancellationToken.None);
+        var result = await locator.LocateAsync(unityProjectRoot, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(UnityUcliPluginLocateStatus.MultipleFound, result.Status);
@@ -28,9 +34,10 @@ public sealed class UnityUcliPluginLocatorFailureTests
     {
         using var scope = TestDirectories.CreateTempScope("unity-ucli-plugin-locator", "not-found");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
+        var unityProjectRoot = AbsolutePath.Parse(unityProjectPath);
         var locator = CreateLocator();
 
-        var result = await locator.LocateAsync(unityProjectPath, CancellationToken.None);
+        var result = await locator.LocateAsync(unityProjectRoot, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(UnityUcliPluginLocateStatus.NotFound, result.Status);
@@ -45,12 +52,13 @@ public sealed class UnityUcliPluginLocatorFailureTests
     {
         using var scope = TestDirectories.CreateTempScope("unity-ucli-plugin-locator", "invalid-json");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
+        var unityProjectRoot = AbsolutePath.Parse(unityProjectPath);
         await scope.WriteFileAsync(
             Path.Combine("UnityProject", "Assets", "MackySoft", "MackySoft.Ucli.Unity", UnityUcliPluginMarkerContract.MarkerFileName),
             "{ invalid");
         var locator = CreateLocator();
 
-        var result = await locator.LocateAsync(unityProjectPath, CancellationToken.None);
+        var result = await locator.LocateAsync(unityProjectRoot, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(UnityUcliPluginLocateStatus.InvalidMarker, result.Status);
@@ -65,9 +73,10 @@ public sealed class UnityUcliPluginLocatorFailureTests
     {
         using var scope = TestDirectories.CreateTempScope("unity-ucli-plugin-locator", "invalid-plugin-id");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
+        var unityProjectRoot = AbsolutePath.Parse(unityProjectPath);
         await WriteMarkerAsync(
             scope,
-            Path.Combine("UnityProject", "Assets", "MackySoft", "MackySoft.Ucli.Unity"),
+            RootRelativePath.Parse(Path.Combine("UnityProject", "Assets", "MackySoft", "MackySoft.Ucli.Unity")),
             """
             {
               "pluginId": "com.example.other",
@@ -76,7 +85,7 @@ public sealed class UnityUcliPluginLocatorFailureTests
             """);
         var locator = CreateLocator();
 
-        var result = await locator.LocateAsync(unityProjectPath, CancellationToken.None);
+        var result = await locator.LocateAsync(unityProjectRoot, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(UnityUcliPluginLocateStatus.InvalidMarker, result.Status);
@@ -91,9 +100,10 @@ public sealed class UnityUcliPluginLocatorFailureTests
     {
         using var scope = TestDirectories.CreateTempScope("unity-ucli-plugin-locator", "invalid-protocol-version");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
+        var unityProjectRoot = AbsolutePath.Parse(unityProjectPath);
         await WriteMarkerAsync(
             scope,
-            Path.Combine("UnityProject", "Assets", "MackySoft", "MackySoft.Ucli.Unity"),
+            RootRelativePath.Parse(Path.Combine("UnityProject", "Assets", "MackySoft", "MackySoft.Ucli.Unity")),
             """
             {
               "pluginId": "com.mackysoft.ucli.unity",
@@ -102,7 +112,7 @@ public sealed class UnityUcliPluginLocatorFailureTests
             """);
         var locator = CreateLocator();
 
-        var result = await locator.LocateAsync(unityProjectPath, CancellationToken.None);
+        var result = await locator.LocateAsync(unityProjectRoot, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(UnityUcliPluginLocateStatus.InvalidMarker, result.Status);
@@ -117,11 +127,16 @@ public sealed class UnityUcliPluginLocatorFailureTests
     {
         using var scope = TestDirectories.CreateTempScope("unity-ucli-plugin-locator", "multiple-found");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
-        await WriteMarkerAsync(scope, Path.Combine("UnityProject", "Assets", "MackySoft", "MackySoft.Ucli.Unity"));
-        await WriteMarkerAsync(scope, Path.Combine("UnityProject", "Packages", "com.mackysoft.ucli.unity"));
+        var unityProjectRoot = AbsolutePath.Parse(unityProjectPath);
+        await WriteMarkerAsync(
+            scope,
+            RootRelativePath.Parse(Path.Combine("UnityProject", "Assets", "MackySoft", "MackySoft.Ucli.Unity")));
+        await WriteMarkerAsync(
+            scope,
+            RootRelativePath.Parse(Path.Combine("UnityProject", "Packages", "com.mackysoft.ucli.unity")));
         var locator = CreateLocator();
 
-        var result = await locator.LocateAsync(unityProjectPath, CancellationToken.None);
+        var result = await locator.LocateAsync(unityProjectRoot, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(UnityUcliPluginLocateStatus.MultipleFound, result.Status);

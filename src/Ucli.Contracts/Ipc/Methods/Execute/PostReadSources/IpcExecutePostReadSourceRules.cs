@@ -1,4 +1,3 @@
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
@@ -25,9 +24,9 @@ public static class IpcExecutePostReadSourceRules
         IpcExecuteExpectedPostState expectedPostState)
     {
         ContractArgumentGuard.RequireValue(operationName, nameof(operationName));
-        if (!ContractLiteralCodec.IsDefined(sourceKind)
-            || !ContractLiteralCodec.IsDefined(expectedPostState)
-            || (commit.HasValue && !ContractLiteralCodec.IsDefined(commit.Value)))
+        if (!TextVocabulary.IsDefined(sourceKind)
+            || !TextVocabulary.IsDefined(expectedPostState)
+            || (commit.HasValue && !TextVocabulary.IsDefined(commit.Value)))
         {
             return false;
         }

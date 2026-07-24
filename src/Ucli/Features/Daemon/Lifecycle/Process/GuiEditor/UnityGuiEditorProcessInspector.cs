@@ -1,6 +1,7 @@
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using System.Security.Principal;
+using MackySoft.FileSystem;
 using DiagnosticsProcess = System.Diagnostics.Process;
 using DiagnosticsProcessStartInfo = System.Diagnostics.ProcessStartInfo;
 
@@ -86,11 +87,14 @@ internal sealed class UnityGuiEditorProcessInspector : IUnityGuiEditorProcessIns
         }
     }
 
-    private static string? TryReadExecutablePath (DiagnosticsProcess process)
+    private static AbsolutePath? TryReadExecutablePath (DiagnosticsProcess process)
     {
         try
         {
-            return process.MainModule?.FileName;
+            var executablePath = process.MainModule?.FileName;
+            return AbsolutePath.TryParse(executablePath, out var guardedPath, out _)
+                ? guardedPath
+                : null;
         }
         catch (Exception)
         {

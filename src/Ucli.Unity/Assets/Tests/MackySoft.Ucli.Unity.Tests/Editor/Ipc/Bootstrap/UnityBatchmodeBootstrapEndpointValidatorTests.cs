@@ -1,4 +1,6 @@
 using System;
+using System.IO;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.Authorization;
@@ -49,7 +51,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var endpoint = mismatchKind == EndpointMismatchKind.Transport
                 ? otherTransportKind == IpcTransportKind.NamedPipe
                     ? new IpcEndpoint(otherTransportKind, "ucli-foreign-endpoint")
-                    : new IpcEndpoint(otherTransportKind, "/tmp/ucli-foreign-endpoint.sock")
+                    : CreateForeignEndpoint(otherTransportKind)
                 : CreateForeignEndpoint(expected.Endpoint.TransportKind);
             var arguments = CreateArguments(
                 bootstrapKind,
@@ -97,7 +99,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var exception = Assert.Throws<InvalidOperationException>(() =>
                 UnityBatchmodeBootstrapEndpointValidator.ResolveValidatedDaemonEndpoint(
-                    (IpcDaemonBootstrapArguments)arguments));
+                    (UnityDaemonBootstrapContext)arguments));
 
             Assert.That(exception!.Message, Does.Contain("storage root"));
         }
@@ -108,14 +110,18 @@ namespace MackySoft.Ucli.Unity.Tests
             var storageRoot = UcliStoragePathResolver.ResolveStorageRoot(projectRoot);
             var projectFingerprint = UnityProjectFingerprintCalculator.Create(storageRoot, projectRoot);
             var endpoint = UcliIpcEndpointResolver.ResolveDaemonEndpoint(storageRoot, projectFingerprint);
-            return new ExpectedEndpointContext(storageRoot, projectFingerprint, endpoint);
+            return new ExpectedEndpointContext(storageRoot.Value, projectFingerprint, endpoint.Contract);
         }
 
         private static IpcEndpoint CreateForeignEndpoint (IpcTransportKind transportKind)
         {
             return transportKind == IpcTransportKind.NamedPipe
                 ? new IpcEndpoint(transportKind, "ucli-foreign-endpoint")
-                : new IpcEndpoint(transportKind, "/tmp/ucli-foreign-endpoint.sock");
+                : new IpcEndpoint(
+                    transportKind,
+                    AbsolutePath.Parse(Path.Combine(
+                        Path.GetTempPath(),
+                        "ucli-foreign-endpoint.sock")).Value);
         }
 
         private static object CreateArguments (
@@ -127,13 +133,14 @@ namespace MackySoft.Ucli.Unity.Tests
             switch (bootstrapKind)
             {
                 case BatchmodeBootstrapKind.Daemon:
-                    return new IpcDaemonBootstrapArguments(
-                        RepositoryRoot: storageRoot,
-                        ProjectFingerprint: projectFingerprint,
-                        SessionPath: "/tmp/ucli-session.json",
-                        SessionGenerationId: Guid.Parse("11111111-1111-1111-1111-111111111111"),
-                        SessionIssuedAtUtc: DateTimeOffset.Parse("2026-01-01T00:00:00Z"),
-                        Endpoint: endpoint);
+                    return UnityDaemonBootstrapContext.FromWire(
+                        new IpcDaemonBootstrapArguments(
+                            RepositoryRoot: storageRoot,
+                            ProjectFingerprint: projectFingerprint,
+                            SessionPath: Path.Combine(storageRoot, "ucli-session.json"),
+                            SessionGenerationId: Guid.Parse("11111111-1111-1111-1111-111111111111"),
+                            SessionIssuedAtUtc: DateTimeOffset.Parse("2026-01-01T00:00:00Z"),
+                            Endpoint: endpoint));
 
                 case BatchmodeBootstrapKind.Oneshot:
                     var nowUtc = DateTimeOffset.UtcNow;
@@ -159,10 +166,10 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 case BatchmodeBootstrapKind.Daemon:
                     return UnityBatchmodeBootstrapEndpointValidator.ResolveValidatedDaemonEndpoint(
-                        (IpcDaemonBootstrapArguments)arguments);
+                        (UnityDaemonBootstrapContext)arguments).Endpoint;
                 case BatchmodeBootstrapKind.Oneshot:
                     return UnityBatchmodeBootstrapEndpointValidator.ResolveValidatedOneshotEndpoint(
-                        (IpcOneshotBootstrapEnvelope)arguments);
+                        (IpcOneshotBootstrapEnvelope)arguments).Endpoint;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(bootstrapKind), bootstrapKind, null);
             }

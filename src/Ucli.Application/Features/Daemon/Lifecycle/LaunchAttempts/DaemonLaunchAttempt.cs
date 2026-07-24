@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Contracts.Text;
 
@@ -18,8 +19,8 @@ internal sealed record DaemonLaunchAttempt
         DaemonEditorMode? EditorMode,
         int? ProcessId,
         DateTimeOffset? ProcessStartedAtUtc,
-        string? UnityLogPath,
-        string ArtifactPath,
+        AbsolutePath? UnityLogPath,
+        AbsolutePath ArtifactPath,
         DaemonDiagnosis Diagnosis)
     {
         if (LaunchAttemptId == Guid.Empty)
@@ -59,7 +60,7 @@ internal sealed record DaemonLaunchAttempt
                 "Unsupported terminal daemon startup status.");
         }
 
-        if (!ContractLiteralCodec.IsDefined(StartupBlockingReason))
+        if (!TextVocabulary.IsDefined(StartupBlockingReason))
         {
             throw new ArgumentOutOfRangeException(
                 nameof(StartupBlockingReason),
@@ -67,7 +68,7 @@ internal sealed record DaemonLaunchAttempt
                 "Unsupported daemon startup blocking reason.");
         }
 
-        if (!ContractLiteralCodec.IsDefined(RetryDisposition))
+        if (!TextVocabulary.IsDefined(RetryDisposition))
         {
             throw new ArgumentOutOfRangeException(
                 nameof(RetryDisposition),
@@ -75,7 +76,7 @@ internal sealed record DaemonLaunchAttempt
                 "Unsupported daemon startup retry disposition.");
         }
 
-        if (!ContractLiteralCodec.IsDefined(ProcessAction))
+        if (!TextVocabulary.IsDefined(ProcessAction))
         {
             throw new ArgumentOutOfRangeException(
                 nameof(ProcessAction),
@@ -83,7 +84,7 @@ internal sealed record DaemonLaunchAttempt
                 "Unsupported daemon startup process action.");
         }
 
-        if (EditorMode.HasValue && !ContractLiteralCodec.IsDefined(EditorMode.Value))
+        if (EditorMode.HasValue && !TextVocabulary.IsDefined(EditorMode.Value))
         {
             throw new ArgumentOutOfRangeException(nameof(EditorMode), EditorMode, "Unsupported daemon Editor mode.");
         }
@@ -119,7 +120,7 @@ internal sealed record DaemonLaunchAttempt
         this.ProcessId = ProcessId;
         this.ProcessStartedAtUtc = ProcessStartedAtUtc;
         this.UnityLogPath = UnityLogPath;
-        this.ArtifactPath = ArtifactPath;
+        this.ArtifactPath = ArtifactPath ?? throw new ArgumentNullException(nameof(ArtifactPath));
         this.Diagnosis = Diagnosis ?? throw new ArgumentNullException(nameof(Diagnosis));
     }
 
@@ -143,9 +144,9 @@ internal sealed record DaemonLaunchAttempt
 
     public DateTimeOffset? ProcessStartedAtUtc { get; }
 
-    public string? UnityLogPath { get; }
+    public AbsolutePath? UnityLogPath { get; }
 
-    public string ArtifactPath { get; }
+    public AbsolutePath ArtifactPath { get; }
 
     public DaemonDiagnosis Diagnosis { get; }
 }

@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -37,7 +38,7 @@ namespace MackySoft.Ucli.Unity.Tests
         public void Constructor_WhenEditorInstanceIdIsEmpty_ThrowsArgumentException ()
         {
             var exception = Assert.Throws<ArgumentException>(() => new UnityLifecycleSidecarPersistence(
-                Path.GetTempPath(),
+                AbsolutePath.Parse(Path.GetTempPath()),
                 ProjectFingerprint,
                 Guid.Empty,
                 PredecessorSidecarGenerationId,
@@ -51,7 +52,7 @@ namespace MackySoft.Ucli.Unity.Tests
         public void Constructor_WhenSidecarGenerationIdIsEmpty_ThrowsArgumentException ()
         {
             var exception = Assert.Throws<ArgumentException>(() => new UnityLifecycleSidecarPersistence(
-                Path.GetTempPath(),
+                AbsolutePath.Parse(Path.GetTempPath()),
                 ProjectFingerprint,
                 EditorInstanceId,
                 Guid.Empty,
@@ -67,9 +68,10 @@ namespace MackySoft.Ucli.Unity.Tests
             var storageRoot = Path.Combine(
                 Path.GetTempPath(),
                 $"ucli-lifecycle-sidecar-persistence-tests-{Guid.NewGuid():N}");
+            var guardedStorageRoot = AbsolutePath.Parse(storageRoot);
             var observedAtUtc = new DateTimeOffset(2026, 7, 11, 0, 0, 0, TimeSpan.Zero);
             var persistence = new UnityLifecycleSidecarPersistence(
-                storageRoot,
+                guardedStorageRoot,
                 ProjectFingerprint,
                 EditorInstanceId,
                 PredecessorSidecarGenerationId,
@@ -86,10 +88,10 @@ namespace MackySoft.Ucli.Unity.Tests
                 await persistence.WriteAsync(snapshot, recoveryLease, CancellationToken.None);
 
                 var sidecarPath = UcliStoragePathResolver.ResolveDaemonLifecyclePath(
-                    storageRoot,
+                    guardedStorageRoot,
                     ProjectFingerprint);
                 var contract = DaemonLifecycleJsonContractSerializer.Deserialize(
-                    File.ReadAllText(sidecarPath));
+                    File.ReadAllText(sidecarPath.Value));
 
                 Assert.That(contract, Is.Not.Null);
                 Assert.That(contract.State.LifecycleState, Is.EqualTo(IpcEditorLifecycleState.Recovering));
@@ -107,7 +109,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
                 await persistence.DeleteIfOwnedAsync(CancellationToken.None);
 
-                Assert.That(File.Exists(sidecarPath), Is.False);
+                Assert.That(File.Exists(sidecarPath.Value), Is.False);
             }
             finally
             {
@@ -125,20 +127,21 @@ namespace MackySoft.Ucli.Unity.Tests
             var storageRoot = Path.Combine(
                 Path.GetTempPath(),
                 $"ucli-lifecycle-sidecar-ownership-tests-{Guid.NewGuid():N}");
+            var guardedStorageRoot = AbsolutePath.Parse(storageRoot);
             var predecessor = new UnityLifecycleSidecarPersistence(
-                storageRoot,
+                guardedStorageRoot,
                 OwnershipProjectFingerprint,
                 EditorInstanceId,
                 PredecessorSidecarGenerationId,
                 "same-version");
             var successor = new UnityLifecycleSidecarPersistence(
-                storageRoot,
+                guardedStorageRoot,
                 OwnershipProjectFingerprint,
                 EditorInstanceId,
                 SuccessorSidecarGenerationId,
                 "same-version");
             var sidecarPath = UcliStoragePathResolver.ResolveDaemonLifecyclePath(
-                storageRoot,
+                guardedStorageRoot,
                 OwnershipProjectFingerprint);
             var observation = CreateObservation(
                 IpcEditorLifecycleState.Ready,
@@ -151,15 +154,15 @@ namespace MackySoft.Ucli.Unity.Tests
 
                 await predecessor.DeleteIfOwnedAsync(CancellationToken.None);
 
-                Assert.That(File.Exists(sidecarPath), Is.True);
+                Assert.That(File.Exists(sidecarPath.Value), Is.True);
                 var contract = DaemonLifecycleJsonContractSerializer.Deserialize(
-                    File.ReadAllText(sidecarPath));
+                    File.ReadAllText(sidecarPath.Value));
                 Assert.That(contract, Is.Not.Null);
                 Assert.That(contract.SidecarGenerationId, Is.EqualTo(SuccessorSidecarGenerationId));
 
                 await successor.DeleteIfOwnedAsync(CancellationToken.None);
 
-                Assert.That(File.Exists(sidecarPath), Is.False);
+                Assert.That(File.Exists(sidecarPath.Value), Is.False);
             }
             finally
             {

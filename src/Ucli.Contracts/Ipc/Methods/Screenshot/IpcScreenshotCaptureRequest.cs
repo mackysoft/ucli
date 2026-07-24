@@ -25,7 +25,7 @@ public sealed record IpcScreenshotCaptureRequest
             throw new ArgumentException("Capture id must not be empty.", nameof(CaptureId));
         }
 
-        if (!ContractLiteralCodec.IsDefined(Target))
+        if (!TextVocabulary.IsDefined(Target))
         {
             throw new ArgumentOutOfRangeException(nameof(Target), Target, "Screenshot target must be specified.");
         }

@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Infrastructure.Project;
 using MackySoft.Ucli.UnityIntegration.Indexing.Core;
 
@@ -16,7 +17,10 @@ internal static class ReadIndexCatalogTestSeeder
         ArgumentException.ThrowIfNullOrWhiteSpace(unityProjectPath);
         ArgumentNullException.ThrowIfNull(operations);
 
-        var fingerprint = UnityProjectFingerprintCalculator.Create(unityProjectPath, unityProjectPath);
+        var absoluteUnityProjectPath = AbsolutePath.Parse(unityProjectPath);
+        var fingerprint = UnityProjectFingerprintCalculator.Create(
+            absoluteUnityProjectPath,
+            absoluteUnityProjectPath);
         var writer = new FileReadIndexArtifactWriter(
             new IndexOpsCatalogJsonContractWriter(),
             new IndexOpsDescribeJsonContractWriter(),
@@ -28,7 +32,7 @@ internal static class ReadIndexCatalogTestSeeder
                 new FileReadIndexGenerationPointerStore(),
                 TimeProvider.System));
         writer.WriteOpsCatalogAsync(
-                unityProjectPath,
+                absoluteUnityProjectPath,
                 fingerprint,
                 DefaultGeneratedAtUtc,
                 OperationCatalogTestFixtures.CreateSnapshot(DefaultGeneratedAtUtc, operations).Operations,

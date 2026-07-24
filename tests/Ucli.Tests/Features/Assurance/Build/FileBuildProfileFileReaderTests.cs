@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Features.Assurance.Build;
 
@@ -20,23 +21,26 @@ public sealed class FileBuildProfileFileReaderTests
 
         Assert.True(result.IsSuccess);
         Assert.Equal("""{"schemaVersion":1}""", result.Json);
-        Assert.Equal(profilePath, result.DisplayPath);
+        Assert.Equal(AbsolutePath.Parse(profilePath), result.Path);
     }
 
     [Fact]
     [Trait("Size", "Medium")]
-    public async Task ReadAsync_WithBlankProfilePath_ThrowsArgumentException ()
+    public async Task ReadAsync_WithBlankProfilePath_ReturnsBuildProfileInvalid ()
     {
-        using var repository = TestDirectories.CreateTempScope("ucli-build", nameof(ReadAsync_WithBlankProfilePath_ThrowsArgumentException));
+        using var repository = TestDirectories.CreateTempScope("ucli-build", nameof(ReadAsync_WithBlankProfilePath_ReturnsBuildProfileInvalid));
         var reader = new FileBuildProfileFileReader();
 
-        await Assert.ThrowsAsync<ArgumentException>(
-            () => reader.ReadAsync(
-                " ",
-                ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(
-                    repository.FullPath,
-                    pathSourceLabel: "--projectPath",
-                    unityVersion: "6000.1.4f1")).AsTask());
+        var result = await reader.ReadAsync(
+            " ",
+            ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(
+                repository.FullPath,
+                pathSourceLabel: "--projectPath",
+                unityVersion: "6000.1.4f1"));
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ExecutionErrorKind.InvalidArgument, result.Error!.Kind);
+        Assert.Equal(BuildErrorCodes.BuildProfileInvalid, result.Error.Code);
     }
 
     [Fact]

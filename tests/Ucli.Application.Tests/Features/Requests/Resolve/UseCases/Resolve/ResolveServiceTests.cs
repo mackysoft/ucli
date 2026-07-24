@@ -165,7 +165,7 @@ public sealed class ResolveServiceTests
             sceneTreeLiteAccessService);
         Assert.NotNull(result.Project);
         var project = result.Project!;
-        Assert.Equal(ResolveProjectContext.UnityProject.UnityProjectRoot, project.ProjectPath);
+        Assert.Equal(ResolveProjectContext.UnityProject.UnityProjectRoot.Value, project.ProjectPath);
         Assert.Equal(ResolveProjectContext.UnityProject.ProjectFingerprint, project.ProjectFingerprint);
         Assert.Equal(ResolveProjectContext.UnityProject.UnityVersion, project.UnityVersion);
         Assert.Equal(RequestId, result.RequestId);
@@ -296,7 +296,7 @@ public sealed class ResolveServiceTests
     private static IpcProjectIdentity CreateUnityResponseProjectIdentity ()
     {
         return new IpcProjectIdentity(
-            projectPath: ResolveProjectContext.UnityProject.UnityProjectRoot,
+            projectPath: ResolveProjectContext.UnityProject.UnityProjectRoot.Value,
             projectFingerprint: ResolveProjectContext.UnityProject.ProjectFingerprint,
             unityVersion: ResolveProjectContext.UnityProject.UnityVersion);
     }

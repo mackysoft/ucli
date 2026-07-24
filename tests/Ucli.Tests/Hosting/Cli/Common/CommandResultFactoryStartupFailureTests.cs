@@ -79,7 +79,7 @@ public sealed class CommandResultFactoryStartupFailureTests
             var root = json.RootElement;
             JsonAssert.For(root)
                 .HasString("command", testCase.CommandName)
-                .HasString("status", ContractLiteralCodec.ToValue(CommandResultStatus.Error))
+                .HasString("status", TextVocabulary.GetText(CommandResultStatus.Error))
                 .HasProperty("payload", payload => payload
                     .HasProperty("startup", startup => startup
                         .HasString("startupStatus", "blocked")

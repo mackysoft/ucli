@@ -1,7 +1,7 @@
 using System.Text.RegularExpressions;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Application.Shared.Unity.Resolution;
-using MackySoft.Ucli.Infrastructure.Paths;
 
 namespace MackySoft.Ucli.UnityIntegration.Resolution;
 
@@ -18,16 +18,16 @@ internal static class UnityEditorVersionConsistencyValidator
     /// <returns> The validation result as editor-path resolution output. </returns>
     /// <exception cref="ArgumentException"> Thrown when one input value is <see langword="null" />, empty, or whitespace. </exception>
     public static UnityEditorPathResolutionResult Validate (
-        string unityEditorPath,
+        AbsolutePath unityEditorPath,
         string unityVersion)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(unityEditorPath);
+        ArgumentNullException.ThrowIfNull(unityEditorPath);
         ArgumentException.ThrowIfNullOrWhiteSpace(unityVersion);
 
         if (!TryGetVersionFromPath(unityEditorPath, out var detectedVersion))
         {
             return UnityEditorPathResolutionResult.Failure(ExecutionError.InvalidArgument(
-                $"unityEditorPath version cannot be determined from standard layout: {unityEditorPath}"));
+                $"unityEditorPath version cannot be determined from standard layout: {unityEditorPath.Value}"));
         }
 
         if (!string.Equals(detectedVersion, unityVersion, StringComparison.Ordinal))
@@ -44,13 +44,14 @@ internal static class UnityEditorVersionConsistencyValidator
     /// <param name="detectedVersion"> The detected version value. </param>
     /// <returns> <see langword="true" /> when one version value is detected; otherwise <see langword="false" />. </returns>
     private static bool TryGetVersionFromPath (
-        string unityEditorPath,
+        AbsolutePath unityEditorPath,
         out string detectedVersion)
     {
         detectedVersion = string.Empty;
 
-        var normalizedPath = PathStringNormalizer.ToSlashSeparated(unityEditorPath);
-        var segments = normalizedPath.Split('/', StringSplitOptions.RemoveEmptyEntries);
+        var segments = unityEditorPath.Value.Split(
+            Path.DirectorySeparatorChar,
+            StringSplitOptions.RemoveEmptyEntries);
         for (var index = 0; index < segments.Length; index++)
         {
             if (!UnityVersionRegex.IsMatch(segments[index]))
@@ -60,8 +61,8 @@ internal static class UnityEditorVersionConsistencyValidator
 
             var previousSegment = index > 0 ? segments[index - 1] : null;
             var nextSegment = index < segments.Length - 1 ? segments[index + 1] : null;
-            if (string.Equals(previousSegment, "Editor", PathStringNormalizer.CurrentPlatformPathComparison)
-                || string.Equals(nextSegment, "Editor", PathStringNormalizer.CurrentPlatformPathComparison))
+            if (string.Equals(previousSegment, "Editor", StringComparison.Ordinal)
+                || string.Equals(nextSegment, "Editor", StringComparison.Ordinal))
             {
                 detectedVersion = segments[index];
                 return true;

@@ -1,6 +1,6 @@
 using System.Buffers;
 using System.Text;
-using MackySoft.Ucli.Infrastructure.Paths;
+using MackySoft.FileSystem;
 
 namespace MackySoft.Ucli.Infrastructure.Storage;
 
@@ -21,16 +21,9 @@ public static class FileUtilities
 
     private const int WindowsUnableToRemoveReplacedHResult = unchecked((int)0x80070497);
 
-    /// <summary> Reads one file as text without blocking concurrent atomic replacement. </summary>
-    /// <param name="path"> The target file path. </param>
-    /// <returns> The text when file exists; otherwise <see langword="null" />. </returns>
-    public static string? ReadAllTextOrNull (string path)
+    /// <summary> Reads one guarded file as text without blocking concurrent atomic replacement. </summary>
+    internal static string? ReadAllTextOrNull (AbsolutePath path)
     {
-        if (string.IsNullOrWhiteSpace(path))
-        {
-            throw new ArgumentException("path must not be empty.", nameof(path));
-        }
-
         try
         {
             using var stream = OpenReopenSafeReadStream(path);
@@ -52,19 +45,11 @@ public static class FileUtilities
         }
     }
 
-    /// <summary> Reads one file as text, or returns <see langword="null" /> when file does not exist. </summary>
-    /// <param name="path"> The target file path. </param>
-    /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
-    /// <returns> The text when file exists; otherwise <see langword="null" />. </returns>
-    public static async ValueTask<string?> ReadAllTextOrNullAsync (
-        string path,
+    /// <summary> Reads one guarded file as text, or returns <see langword="null" /> when it does not exist. </summary>
+    internal static async ValueTask<string?> ReadAllTextOrNullAsync (
+        AbsolutePath path,
         CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(path))
-        {
-            throw new ArgumentException("path must not be empty.", nameof(path));
-        }
-
         cancellationToken.ThrowIfCancellationRequested();
 
         try
@@ -109,39 +94,20 @@ public static class FileUtilities
         }
     }
 
-    /// <summary> Reads the exact bytes of one file without blocking concurrent atomic replacement. </summary>
-    /// <param name="path"> The target file path. </param>
-    /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
-    /// <returns> Newly owned read-only file bytes when the file exists; otherwise <see langword="null" />. </returns>
-    public static ValueTask<ReadOnlyMemory<byte>?> ReadAllBytesOrNullAsync (
-        string path,
+    /// <summary> Reads the exact bytes of one guarded file without blocking concurrent atomic replacement. </summary>
+    internal static ValueTask<ReadOnlyMemory<byte>?> ReadAllBytesOrNullAsync (
+        AbsolutePath path,
         CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(path))
-        {
-            throw new ArgumentException("path must not be empty.", nameof(path));
-        }
-
         return ReadBytesOrNullCoreAsync(path, maximumBytes: null, cancellationToken);
     }
 
-    /// <summary> Reads at most the specified number of exact file bytes without blocking concurrent atomic replacement. </summary>
-    /// <param name="path"> The target file path. </param>
-    /// <param name="maximumBytes"> The maximum accepted file size in bytes. </param>
-    /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
-    /// <returns> Newly owned read-only file bytes when the file exists; otherwise <see langword="null" />. </returns>
-    /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="maximumBytes" /> is not positive. </exception>
-    /// <exception cref="IOException"> Thrown when the file exceeds <paramref name="maximumBytes" />. </exception>
-    public static ValueTask<ReadOnlyMemory<byte>?> ReadBytesOrNullWithinLimitAsync (
-        string path,
+    /// <summary> Reads at most the specified number of bytes from one guarded file. </summary>
+    internal static ValueTask<ReadOnlyMemory<byte>?> ReadBytesOrNullWithinLimitAsync (
+        AbsolutePath path,
         int maximumBytes,
         CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(path))
-        {
-            throw new ArgumentException("path must not be empty.", nameof(path));
-        }
-
         if (maximumBytes <= 0)
         {
             throw new ArgumentOutOfRangeException(
@@ -154,7 +120,7 @@ public static class FileUtilities
     }
 
     private static async ValueTask<ReadOnlyMemory<byte>?> ReadBytesOrNullCoreAsync (
-        string path,
+        AbsolutePath path,
         int? maximumBytes,
         CancellationToken cancellationToken)
     {
@@ -166,7 +132,7 @@ public static class FileUtilities
             if (maximumBytes.HasValue && stream.Length > maximumBytes.Value)
             {
                 throw new IOException(
-                    $"File exceeds the maximum size of {maximumBytes.Value} bytes: {path}");
+                    $"File exceeds the maximum size of {maximumBytes.Value} bytes: {path.Value}");
             }
 
             using var contents = new MemoryStream();
@@ -189,7 +155,7 @@ public static class FileUtilities
                     if (maximumBytes.HasValue && totalBytesRead > maximumBytes.Value)
                     {
                         throw new IOException(
-                            $"File exceeds the maximum size of {maximumBytes.Value} bytes: {path}");
+                            $"File exceeds the maximum size of {maximumBytes.Value} bytes: {path.Value}");
                     }
 
                     contents.Write(buffer, 0, readCount);
@@ -210,20 +176,13 @@ public static class FileUtilities
         }
     }
 
-    /// <summary> Opens a read handle that does not block concurrent atomic file replacement. </summary>
-    /// <param name="path"> The target file path. </param>
-    /// <returns> The asynchronous sequential-read stream owned by the caller. </returns>
-    internal static FileStream OpenReopenSafeReadStream (string path)
+    /// <summary> Opens a read handle for a guarded path without blocking concurrent atomic replacement. </summary>
+    internal static FileStream OpenReopenSafeReadStream (AbsolutePath path)
     {
-        if (string.IsNullOrWhiteSpace(path))
-        {
-            throw new ArgumentException("path must not be empty.", nameof(path));
-        }
-
         EnsureRegularFile(path, "Read source");
 
         return new FileStream(
-            path,
+            path.Value,
             FileMode.Open,
             FileAccess.Read,
             FileShare.ReadWrite | FileShare.Delete,
@@ -231,21 +190,12 @@ public static class FileUtilities
             FileOptions.Asynchronous | FileOptions.SequentialScan);
     }
 
-    /// <summary> Writes text atomically to the target file path. </summary>
-    /// <param name="path"> The target file path. </param>
-    /// <param name="contents"> The text contents. </param>
-    /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
-    /// <returns> A task that completes when the write operation finishes. </returns>
-    public static async ValueTask WriteAllTextAtomicallyAsync (
-        string path,
+    /// <summary> Writes text atomically to one guarded target file path. </summary>
+    internal static async ValueTask WriteAllTextAtomicallyAsync (
+        AbsolutePath path,
         string contents,
         CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(path))
-        {
-            throw new ArgumentException("path must not be empty.", nameof(path));
-        }
-
         if (contents == null)
         {
             throw new ArgumentNullException(nameof(contents));
@@ -253,15 +203,11 @@ public static class FileUtilities
 
         cancellationToken.ThrowIfCancellationRequested();
 
-        var pathResult = PathNormalizer.TryNormalizeFullPath(path);
-        if (!pathResult.IsSuccess)
+        if (!path.TryGetParent(out var directoryPath))
         {
-            throw new ArgumentException(pathResult.DiagnosticMessage, nameof(path));
+            throw new InvalidOperationException($"Directory path could not be resolved: {path.Value}");
         }
-
-        var directoryPath = Path.GetDirectoryName(pathResult.FullPath!)
-            ?? throw new InvalidOperationException($"Directory path could not be resolved: {path}");
-        Directory.CreateDirectory(directoryPath);
+        Directory.CreateDirectory(directoryPath.Value);
         var temporaryStream = OpenAtomicWriteTemporaryFileInDirectory(directoryPath, out var temporaryPath);
         var temporaryFileOwned = true;
 
@@ -294,27 +240,18 @@ public static class FileUtilities
     /// <param name="contents"> The borrowed byte contents retained by the caller until this operation completes. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> A task that completes when the write operation finishes. </returns>
-    public static async ValueTask WriteAllBytesAtomicallyAsync (
-        string path,
+    internal static async ValueTask WriteAllBytesAtomicallyAsync (
+        AbsolutePath path,
         ReadOnlyMemory<byte> contents,
         CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(path))
-        {
-            throw new ArgumentException("path must not be empty.", nameof(path));
-        }
-
         cancellationToken.ThrowIfCancellationRequested();
 
-        var pathResult = PathNormalizer.TryNormalizeFullPath(path);
-        if (!pathResult.IsSuccess)
+        if (!path.TryGetParent(out var directoryPath))
         {
-            throw new ArgumentException(pathResult.DiagnosticMessage, nameof(path));
+            throw new InvalidOperationException($"Directory path could not be resolved: {path.Value}");
         }
-
-        var directoryPath = Path.GetDirectoryName(pathResult.FullPath!)
-            ?? throw new InvalidOperationException($"Directory path could not be resolved: {path}");
-        Directory.CreateDirectory(directoryPath);
+        Directory.CreateDirectory(directoryPath.Value);
         var temporaryStream = OpenAtomicWriteTemporaryFileInDirectory(directoryPath, out var temporaryPath);
         var temporaryFileOwned = true;
 
@@ -338,32 +275,21 @@ public static class FileUtilities
         }
     }
 
-    /// <summary> Writes text atomically to the target file path. </summary>
-    /// <param name="path"> The target file path. </param>
-    /// <param name="contents"> The text contents. </param>
-    public static void WriteAllTextAtomically (
-        string path,
+    /// <summary> Writes text atomically to one guarded target file path. </summary>
+    internal static void WriteAllTextAtomically (
+        AbsolutePath path,
         string contents)
     {
-        if (string.IsNullOrWhiteSpace(path))
-        {
-            throw new ArgumentException("path must not be empty.", nameof(path));
-        }
-
         if (contents == null)
         {
             throw new ArgumentNullException(nameof(contents));
         }
 
-        var pathResult = PathNormalizer.TryNormalizeFullPath(path);
-        if (!pathResult.IsSuccess)
+        if (!path.TryGetParent(out var directoryPath))
         {
-            throw new ArgumentException(pathResult.DiagnosticMessage, nameof(path));
+            throw new InvalidOperationException($"Directory path could not be resolved: {path.Value}");
         }
-
-        var directoryPath = Path.GetDirectoryName(pathResult.FullPath!)
-            ?? throw new InvalidOperationException($"Directory path could not be resolved: {path}");
-        Directory.CreateDirectory(directoryPath);
+        Directory.CreateDirectory(directoryPath.Value);
         var temporaryStream = OpenAtomicWriteTemporaryFileInDirectory(directoryPath, out var temporaryPath);
         var temporaryFileOwned = true;
 
@@ -391,19 +317,12 @@ public static class FileUtilities
         }
     }
 
-    /// <summary> Deletes one file and treats a missing file as a valid no-op state. </summary>
-    /// <param name="path"> The target file path. </param>
-    /// <exception cref="ArgumentException"> Thrown when <paramref name="path" /> is invalid. </exception>
-    public static void DeleteIfExists (string path)
+    /// <summary> Deletes one guarded file and treats a missing file as a valid no-op state. </summary>
+    internal static void DeleteIfExists (AbsolutePath path)
     {
-        if (string.IsNullOrWhiteSpace(path))
+        if (File.Exists(path.Value))
         {
-            throw new ArgumentException("path must not be empty.", nameof(path));
-        }
-
-        if (File.Exists(path))
-        {
-            File.Delete(path);
+            File.Delete(path.Value);
         }
     }
 
@@ -416,11 +335,11 @@ public static class FileUtilities
     /// <param name="cancellationToken"> The cancellation token propagated while waiting between replacement attempts. </param>
     /// <returns> A task that completes after the destination owns the temporary file contents. </returns>
     internal static async ValueTask PublishAtomicWriteTemporaryFileAsync (
-        string temporaryPath,
-        string path,
+        AbsolutePath temporaryPath,
+        AbsolutePath path,
         CancellationToken cancellationToken)
     {
-        ValidateAtomicWritePublication(temporaryPath, path, out temporaryPath, out path);
+        ValidateAtomicWritePublication(temporaryPath, path);
 
         var failureCount = 0;
         while (true)
@@ -452,10 +371,10 @@ public static class FileUtilities
     /// <param name="temporaryPath"> The owned temporary file path consumed on success. </param>
     /// <param name="path"> The destination path in the same directory. </param>
     internal static void PublishAtomicWriteTemporaryFile (
-        string temporaryPath,
-        string path)
+        AbsolutePath temporaryPath,
+        AbsolutePath path)
     {
-        ValidateAtomicWritePublication(temporaryPath, path, out temporaryPath, out path);
+        ValidateAtomicWritePublication(temporaryPath, path);
 
         var failureCount = 0;
         while (true)
@@ -507,22 +426,25 @@ public static class FileUtilities
         return TimeSpan.FromMilliseconds(FileReplacementRetryDelayMilliseconds * failureCount);
     }
 
-    /// <summary> Creates and exclusively opens a short-named temporary file in a validated publication directory. </summary>
-    /// <param name="directoryPath"> The existing directory that owns the temporary file. </param>
-    /// <param name="temporaryPath"> The reserved temporary file path. </param>
-    /// <returns> The exclusive write stream owned by the caller. </returns>
+    /// <summary> Creates and exclusively opens a short-named temporary file in a guarded publication directory. </summary>
     internal static FileStream OpenAtomicWriteTemporaryFileInDirectory (
-        string directoryPath,
-        out string temporaryPath)
+        AbsolutePath directoryPath,
+        out AbsolutePath temporaryPath)
     {
-        temporaryPath = string.Empty;
+        if (directoryPath is null)
+        {
+            throw new ArgumentNullException(nameof(directoryPath));
+        }
+        temporaryPath = null!;
         for (var attempt = 0; attempt < TemporaryFileCreationAttemptLimit; attempt++)
         {
-            var candidatePath = Path.Combine(directoryPath, CreateAtomicWriteTemporaryFileName());
+            var candidatePath = ContainedPath.Create(
+                directoryPath,
+                RootRelativePath.Parse(CreateAtomicWriteTemporaryFileName())).Target;
             try
             {
                 var stream = new FileStream(
-                    candidatePath,
+                    candidatePath.Value,
                     FileMode.CreateNew,
                     FileAccess.Write,
                     FileShare.None,
@@ -531,14 +453,14 @@ public static class FileUtilities
                 temporaryPath = candidatePath;
                 return stream;
             }
-            catch (IOException) when (File.Exists(candidatePath) || Directory.Exists(candidatePath))
+            catch (IOException) when (File.Exists(candidatePath.Value) || Directory.Exists(candidatePath.Value))
             {
                 // A concurrent reservation owns this random name; retry with another name.
             }
         }
 
         throw new IOException(
-            $"Could not reserve a temporary file after {TemporaryFileCreationAttemptLimit} attempts: {directoryPath}");
+            $"Could not reserve a temporary file after {TemporaryFileCreationAttemptLimit} attempts: {directoryPath.Value}");
     }
 
     /// <summary> Creates a short random file name used by atomic writers before publication. </summary>
@@ -549,56 +471,44 @@ public static class FileUtilities
     }
 
     private static void ValidateAtomicWritePublication (
-        string temporaryPath,
-        string path,
-        out string normalizedTemporaryPath,
-        out string normalizedPath)
+        AbsolutePath temporaryPath,
+        AbsolutePath path)
     {
-        if (string.IsNullOrWhiteSpace(temporaryPath))
+        if (temporaryPath is null)
         {
-            throw new ArgumentException("Temporary path must not be empty.", nameof(temporaryPath));
+            throw new ArgumentNullException(nameof(temporaryPath));
         }
 
-        if (string.IsNullOrWhiteSpace(path))
+        if (path is null)
         {
-            throw new ArgumentException("Destination path must not be empty.", nameof(path));
+            throw new ArgumentNullException(nameof(path));
         }
-
-        var temporaryPathResult = PathNormalizer.TryNormalizeFullPath(temporaryPath);
-        if (!temporaryPathResult.IsSuccess)
-        {
-            throw new ArgumentException(temporaryPathResult.DiagnosticMessage, nameof(temporaryPath));
-        }
-
-        var pathResult = PathNormalizer.TryNormalizeFullPath(path);
-        if (!pathResult.IsSuccess)
-        {
-            throw new ArgumentException(pathResult.DiagnosticMessage, nameof(path));
-        }
-
-        normalizedTemporaryPath = temporaryPathResult.FullPath!;
-        normalizedPath = pathResult.FullPath!;
-        if (PathIdentity.IsSamePath(normalizedTemporaryPath, normalizedPath))
+        if (temporaryPath.IsSameAs(path))
         {
             throw new ArgumentException(
                 "Atomic write temporary file and destination must be different paths.",
                 nameof(path));
         }
 
-        var temporaryDirectoryPath = Path.GetDirectoryName(normalizedTemporaryPath)
-            ?? throw new InvalidOperationException(
-                $"Temporary file directory path could not be resolved: {normalizedTemporaryPath}");
-        var destinationDirectoryPath = Path.GetDirectoryName(normalizedPath)
-            ?? throw new InvalidOperationException(
-                $"Destination directory path could not be resolved: {normalizedPath}");
-        if (!PathIdentity.IsSamePath(temporaryDirectoryPath, destinationDirectoryPath))
+        if (!temporaryPath.TryGetParent(out var temporaryDirectoryPath))
+        {
+            throw new InvalidOperationException(
+                $"Temporary file directory path could not be resolved: {temporaryPath.Value}");
+        }
+
+        if (!path.TryGetParent(out var destinationDirectoryPath))
+        {
+            throw new InvalidOperationException(
+                $"Destination directory path could not be resolved: {path.Value}");
+        }
+        if (!temporaryDirectoryPath.IsSameAs(destinationDirectoryPath))
         {
             throw new ArgumentException(
                 "Atomic write temporary file and destination must share one directory.",
                 nameof(temporaryPath));
         }
 
-        if (!Path.GetFileName(normalizedTemporaryPath).StartsWith(
+        if (!Path.GetFileName(temporaryPath.Value).StartsWith(
                 AtomicWriteTemporaryFileNamePrefix,
                 StringComparison.Ordinal))
         {
@@ -607,45 +517,45 @@ public static class FileUtilities
                 nameof(temporaryPath));
         }
 
-        EnsureRegularFile(normalizedTemporaryPath, "Atomic write temporary file");
-        EnsureWritableAtomicDestination(normalizedPath);
+        EnsureRegularFile(temporaryPath, "Atomic write temporary file");
+        EnsureWritableAtomicDestination(path);
     }
 
     private static void ReplaceFileOnce (
-        string temporaryPath,
-        string path)
+        AbsolutePath temporaryPath,
+        AbsolutePath path)
     {
         EnsureWritableAtomicDestination(path);
         try
         {
-            File.Replace(temporaryPath, path, destinationBackupFileName: null, ignoreMetadataErrors: true);
+            File.Replace(temporaryPath.Value, path.Value, destinationBackupFileName: null, ignoreMetadataErrors: true);
         }
         catch (FileNotFoundException)
         {
             MoveOrReplaceWhenCreatedConcurrently(temporaryPath, path);
         }
-        catch (IOException) when (!File.Exists(path))
+        catch (IOException) when (!File.Exists(path.Value))
         {
             MoveOrReplaceWhenCreatedConcurrently(temporaryPath, path);
         }
     }
 
     private static void MoveOrReplaceWhenCreatedConcurrently (
-        string temporaryPath,
-        string path)
+        AbsolutePath temporaryPath,
+        AbsolutePath path)
     {
         try
         {
-            File.Move(temporaryPath, path);
+            File.Move(temporaryPath.Value, path.Value);
         }
-        catch (IOException) when (File.Exists(path))
+        catch (IOException) when (File.Exists(path.Value))
         {
             EnsureWritableAtomicDestination(path);
-            File.Replace(temporaryPath, path, destinationBackupFileName: null, ignoreMetadataErrors: true);
+            File.Replace(temporaryPath.Value, path.Value, destinationBackupFileName: null, ignoreMetadataErrors: true);
         }
     }
 
-    private static void EnsureWritableAtomicDestination (string path)
+    private static void EnsureWritableAtomicDestination (AbsolutePath path)
     {
         try
         {
@@ -657,41 +567,37 @@ public static class FileUtilities
         }
     }
 
-    /// <summary> Ensures an existing path is a regular file and not a reparse point. </summary>
-    /// <param name="path"> The file path to inspect. </param>
-    /// <param name="subject"> The subject included in a contract failure message. </param>
-    /// <exception cref="FileNotFoundException"> Thrown when <paramref name="path" /> does not exist. </exception>
-    /// <exception cref="IOException"> Thrown when <paramref name="path" /> is a directory or reparse point. </exception>
+    /// <summary> Ensures an existing guarded path is a regular file and not a reparse point. </summary>
     internal static void EnsureRegularFile (
-        string path,
+        AbsolutePath path,
         string subject)
     {
         FileAttributes attributes;
         try
         {
-            attributes = File.GetAttributes(path);
+            attributes = File.GetAttributes(path.Value);
         }
         catch (FileNotFoundException)
         {
-            throw new FileNotFoundException($"{subject} was not found: {path}", path);
+            throw new FileNotFoundException($"{subject} was not found: {path.Value}", path.Value);
         }
         catch (DirectoryNotFoundException)
         {
-            throw new FileNotFoundException($"{subject} was not found: {path}", path);
+            throw new FileNotFoundException($"{subject} was not found: {path.Value}", path.Value);
         }
         if ((attributes & FileAttributes.ReparsePoint) != 0)
         {
-            throw new IOException($"{subject} must not be a reparse point: {path}");
+            throw new IOException($"{subject} must not be a reparse point: {path.Value}");
         }
 
         if ((attributes & FileAttributes.Directory) != 0)
         {
-            throw new IOException($"{subject} must not be a directory: {path}");
+            throw new IOException($"{subject} must not be a directory: {path.Value}");
         }
 
         if (!FileSystemNodeClassifier.IsRegularFile(path, attributes))
         {
-            throw new IOException($"{subject} must be a regular file: {path}");
+            throw new IOException($"{subject} must be a regular file: {path.Value}");
         }
     }
 }

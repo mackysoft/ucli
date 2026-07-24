@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Shared.Foundation;
 
 namespace MackySoft.Ucli.Features.Daemon.Supervisor.Launch;
@@ -22,7 +23,7 @@ internal sealed class SystemdRunSupervisorProcessLauncher
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The launch outcome, including any generation lease whose cleanup ownership remains with the caller. </returns>
     public async ValueTask<SupervisorProcessLaunchResult> LaunchAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         SupervisorLaunchCommand launchCommand,
         CancellationToken cancellationToken)
     {
@@ -157,7 +158,7 @@ internal sealed class SystemdRunSupervisorProcessLauncher
     }
 
     internal static IReadOnlyList<string> BuildArguments (
-        string normalizedStorageRoot,
+        AbsolutePath normalizedStorageRoot,
         string unitName,
         SupervisorLaunchCommand launchCommand)
     {
@@ -171,7 +172,7 @@ internal sealed class SystemdRunSupervisorProcessLauncher
             "--unit",
             unitName,
             "--working-directory",
-            normalizedStorageRoot,
+            normalizedStorageRoot.Value,
             launchCommand.FileName,
         };
         arguments.AddRange(launchCommand.Arguments);

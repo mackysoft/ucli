@@ -1,6 +1,7 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Shared.Foundation;
-using MackySoft.Ucli.Infrastructure.Paths;
 
 namespace MackySoft.Ucli.UnityIntegration.Project.Plugin.Marker;
 
@@ -17,15 +18,14 @@ internal sealed class UnityUcliPluginMarkerValidator
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The structured error on failure; otherwise <see langword="null" />. </returns>
     public async ValueTask<ExecutionError?> ValidateMarkerAsync (
-        string markerPath,
+        AbsolutePath markerPath,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        ArgumentException.ThrowIfNullOrWhiteSpace(markerPath);
 
         try
         {
-            await using var stream = File.OpenRead(markerPath);
+            await using var stream = File.OpenRead(markerPath.Value);
             var marker = await JsonSerializer.DeserializeAsync<UnityUcliPluginMarkerJson>(
                     stream,
                     JsonOptions,
@@ -56,11 +56,6 @@ internal sealed class UnityUcliPluginMarkerValidator
             return ExecutionError.InvalidArgument(
                 $"uCLI Unity plugin marker is invalid. Path='{markerPath}'. Reason=Marker JSON could not be parsed. {exception.Message}");
         }
-        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
-        {
-            return ExecutionError.InvalidArgument(
-                $"uCLI Unity plugin marker is invalid. Path='{markerPath}'. Reason=Marker path is invalid. {exception.Message}");
-        }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
             return ExecutionError.InvalidArgument(
@@ -74,31 +69,22 @@ internal sealed class UnityUcliPluginMarkerValidator
     /// <param name="projectRelativeMarkerPath"> The resolved project-relative marker path. </param>
     /// <returns> <see langword="true" /> when conversion succeeded. </returns>
     public bool TryCreateProjectRelativeMarkerPath (
-        string unityProjectRoot,
-        string markerPath,
-        out string? projectRelativeMarkerPath)
+        AbsolutePath unityProjectRoot,
+        AbsolutePath markerPath,
+        [NotNullWhen(true)] out RootRelativePath? projectRelativeMarkerPath)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(unityProjectRoot);
-        ArgumentException.ThrowIfNullOrWhiteSpace(markerPath);
-
-        try
-        {
-            var markerPathResult = RepositoryPathNormalizer.TryNormalize(unityProjectRoot, markerPath);
-            if (!markerPathResult.IsSuccess)
-            {
-                projectRelativeMarkerPath = null;
-                return false;
-            }
-
-            projectRelativeMarkerPath = markerPathResult.RepositoryRelativeSlashPath;
-            return true;
-        }
-        catch (Exception exception) when (exception is ArgumentException
-                                          || PathFormatExceptionClassifier.IsPathFormatException(exception))
+        if (!ContainedPath.TryCreate(
+                unityProjectRoot,
+                markerPath,
+                out var containedMarkerPath,
+                out _))
         {
             projectRelativeMarkerPath = null;
             return false;
         }
+
+        projectRelativeMarkerPath = containedMarkerPath.RelativePath;
+        return true;
     }
 
     /// <summary> Tries to resolve an absolute marker path from one cached project-relative marker path. </summary>
@@ -107,37 +93,23 @@ internal sealed class UnityUcliPluginMarkerValidator
     /// <param name="resolvedMarkerPath"> The resolved absolute marker path. </param>
     /// <returns> <see langword="true" /> when the cached path remained valid under the project root. </returns>
     public bool TryResolveCachedMarkerPath (
-        string unityProjectRoot,
+        AbsolutePath unityProjectRoot,
         string projectRelativeMarkerPath,
-        out string? resolvedMarkerPath)
+        [NotNullWhen(true)] out AbsolutePath? resolvedMarkerPath)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(unityProjectRoot);
-        ArgumentException.ThrowIfNullOrWhiteSpace(projectRelativeMarkerPath);
-
-        try
-        {
-            if (!RelativePathContract.TryNormalize(projectRelativeMarkerPath, out var normalizedRelativeMarkerPath))
-            {
-                resolvedMarkerPath = null;
-                return false;
-            }
-
-            var markerPathResult = RepositoryPathNormalizer.TryNormalize(unityProjectRoot, normalizedRelativeMarkerPath);
-            if (!markerPathResult.IsSuccess)
-            {
-                resolvedMarkerPath = null;
-                return false;
-            }
-
-            resolvedMarkerPath = markerPathResult.FullPath;
-            return true;
-        }
-        catch (Exception exception) when (exception is ArgumentException
-                                          || PathFormatExceptionClassifier.IsPathFormatException(exception))
+        if (!RootRelativePath.TryParse(
+                projectRelativeMarkerPath,
+                out var relativeMarkerPath,
+                out _))
         {
             resolvedMarkerPath = null;
             return false;
         }
+
+        resolvedMarkerPath = ContainedPath.Create(
+            unityProjectRoot,
+            relativeMarkerPath).Target;
+        return true;
     }
 
     /// <summary> Maps the marker JSON contract. </summary>

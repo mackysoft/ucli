@@ -4,6 +4,7 @@ using System.IO;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -28,16 +29,16 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <summary> Prepares one GUI daemon session generation without publishing <c>session.json</c>. </summary>
         /// <param name="storageRoot"> The shared storage root path. </param>
         /// <param name="projectFingerprint"> The project fingerprint served by this GUI Editor. </param>
-        /// <param name="endpoint"> The resolved daemon IPC endpoint. </param>
+        /// <param name="endpointBinding"> The guarded runtime binding for the resolved daemon IPC endpoint. </param>
         /// <param name="sessionOptions"> The normalized session ownership options. </param>
         /// <param name="editorInstanceId"> The non-empty Editor process identity captured for this host generation. </param>
         /// <param name="sessionReplacementScope"> The scope of existing current-process GUI sessions that may be replaced. </param>
         /// <param name="cancellationToken"> The cancellation token propagated by bootstrap lifecycle. </param>
         /// <returns> The prepared generation that retains exclusive publication ownership until disposed. </returns>
         public static async Task<PreparedSession> PrepareAsync (
-            string storageRoot,
+            AbsolutePath storageRoot,
             ProjectFingerprint projectFingerprint,
-            IpcEndpoint endpoint,
+            UnityIpcEndpointBinding endpointBinding,
             UnityGuiBootstrapSessionOptions sessionOptions,
             Guid editorInstanceId,
             UnityGuiSessionReplacementScope sessionReplacementScope,
@@ -47,15 +48,18 @@ namespace MackySoft.Ucli.Unity.Ipc
             ValidateArguments(
                 storageRoot,
                 projectFingerprint,
-                endpoint,
+                endpointBinding,
                 sessionOptions,
                 editorInstanceId,
                 sessionReplacementScope);
 
             var sessionPath = UcliStoragePathResolver.ResolveSessionPath(storageRoot, projectFingerprint);
             var sessionLockPath = UcliStoragePathResolver.ResolveDaemonSessionLockPath(storageRoot, projectFingerprint);
-            var sessionDirectoryPath = Path.GetDirectoryName(sessionPath)
-                ?? throw new InvalidOperationException($"GUI session directory path could not be resolved: {sessionPath}");
+            if (!sessionPath.TryGetParent(out var sessionDirectoryPath))
+            {
+                throw new InvalidOperationException(
+                    $"GUI session directory path could not be resolved: {sessionPath}");
+            }
             FileSystemAccessBoundary.EnsureSecureDirectory(sessionDirectoryPath);
 
             var sessionLock = await FileExclusiveLock.AcquireAsync(
@@ -64,20 +68,21 @@ namespace MackySoft.Ucli.Unity.Ipc
                 cancellationToken);
             try
             {
+                var endpoint = endpointBinding.Endpoint;
                 using var currentProcess = Process.GetCurrentProcess();
                 var currentProcessId = currentProcess.Id;
                 var currentProcessStartedAtUtc = currentProcess.StartTime.ToUniversalTime();
                 var replaceableSession = ReadExistingSessionForReplacement(
                     sessionPath,
                     projectFingerprint,
-                    endpoint,
+                    endpointBinding,
                     sessionOptions,
                     currentProcessId,
                     editorInstanceId,
                     sessionReplacementScope);
                 if (replaceableSession != null)
                 {
-                    DeleteUnixEndpointResidue(replaceableSession, endpoint);
+                    DeleteUnixEndpointResidue(replaceableSession, endpointBinding);
                 }
 
                 var issuedAtUtc = DateTimeOffset.UtcNow;
@@ -105,7 +110,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     sessionToken,
                     projectFingerprint,
                     issuedAtUtc,
-                    endpoint,
+                    endpointBinding,
                     sessionOptions.CanShutdownProcess);
                 var json = DaemonSessionJsonContractSerializer.Serialize(sessionContract) + Environment.NewLine;
                 return new PreparedSession(registration, json, sessionLock);
@@ -180,17 +185,17 @@ namespace MackySoft.Ucli.Unity.Ipc
         }
 
         private static void ValidateArguments (
-            string storageRoot,
+            AbsolutePath storageRoot,
             ProjectFingerprint projectFingerprint,
-            IpcEndpoint endpoint,
+            UnityIpcEndpointBinding endpointBinding,
             UnityGuiBootstrapSessionOptions sessionOptions,
             Guid editorInstanceId,
             UnityGuiSessionReplacementScope sessionReplacementScope)
         {
             ValidateSessionReplacementScope(sessionReplacementScope);
-            if (string.IsNullOrWhiteSpace(storageRoot))
+            if (storageRoot == null)
             {
-                throw new ArgumentException("storageRoot must not be empty.", nameof(storageRoot));
+                throw new ArgumentNullException(nameof(storageRoot));
             }
 
             if (projectFingerprint == null)
@@ -198,9 +203,9 @@ namespace MackySoft.Ucli.Unity.Ipc
                 throw new ArgumentNullException(nameof(projectFingerprint));
             }
 
-            if (endpoint == null)
+            if (endpointBinding == null)
             {
-                throw new ArgumentNullException(nameof(endpoint));
+                throw new ArgumentNullException(nameof(endpointBinding));
             }
 
             if (sessionOptions == null)
@@ -228,9 +233,9 @@ namespace MackySoft.Ucli.Unity.Ipc
         }
 
         private static DaemonSessionJsonContract ReadExistingSessionForReplacement (
-            string sessionPath,
+            AbsolutePath sessionPath,
             ProjectFingerprint projectFingerprint,
-            IpcEndpoint expectedEndpoint,
+            UnityIpcEndpointBinding expectedEndpointBinding,
             UnityGuiBootstrapSessionOptions sessionOptions,
             int currentProcessId,
             Guid currentEditorInstanceId,
@@ -256,7 +261,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 || !MatchesCurrentProcessGuiSession(
                     sessionContract,
                     projectFingerprint,
-                    expectedEndpoint,
+                    expectedEndpointBinding.Endpoint,
                     sessionOptions,
                     currentProcessId,
                     currentEditorInstanceId,
@@ -306,16 +311,18 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private static void DeleteUnixEndpointResidue (
             DaemonSessionJsonContract sessionContract,
-            IpcEndpoint expectedEndpoint)
+            UnityIpcEndpointBinding expectedEndpointBinding)
         {
+            var expectedEndpoint = expectedEndpointBinding.Endpoint;
             if (expectedEndpoint.TransportKind != IpcTransportKind.UnixDomainSocket
                 || sessionContract.EndpointTransportKind != expectedEndpoint.TransportKind
-                || !string.Equals(sessionContract.EndpointAddress, expectedEndpoint.Address, StringComparison.Ordinal))
+                || !string.Equals(sessionContract.EndpointAddress, expectedEndpoint.Address, StringComparison.Ordinal)
+                || !expectedEndpointBinding.TryGetUnixDomainSocketPath(out var unixDomainSocketPath))
             {
                 return;
             }
 
-            FileUtilities.DeleteIfExists(expectedEndpoint.Address);
+            FileUtilities.DeleteIfExists(unixDomainSocketPath);
         }
 
         private static bool MatchesRegistration (
@@ -352,12 +359,13 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             FileUtilities.DeleteIfExists(registration.SessionPath);
-            if (!deleteEndpoint || registration.Endpoint.TransportKind != IpcTransportKind.UnixDomainSocket)
+            if (!deleteEndpoint
+                || !registration.EndpointBinding.TryGetUnixDomainSocketPath(out var unixDomainSocketPath))
             {
                 return;
             }
 
-            FileUtilities.DeleteIfExists(registration.Endpoint.Address);
+            FileUtilities.DeleteIfExists(unixDomainSocketPath);
         }
 
         /// <summary> Represents one unpublished GUI session generation and its exclusive publication lease. </summary>
@@ -379,7 +387,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 this.sessionLock = sessionLock ?? throw new ArgumentNullException(nameof(sessionLock));
             }
 
-            public string SessionPath => Registration.SessionPath;
+            public AbsolutePath SessionPath => Registration.SessionPath;
 
             internal UnityGuiSessionRegistration Registration { get; }
 

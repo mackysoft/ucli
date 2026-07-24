@@ -5,6 +5,7 @@ using System.IO;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Infrastructure.Storage;
 
 namespace MackySoft.Ucli.Unity.Ipc
@@ -24,8 +25,8 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <param name="cancellationToken"> The cancellation token propagated by caller. </param>
         /// <returns> The counters collected from the exported log range. </returns>
         public async Task<EditorLogRangeExportResult> ExportRangeAsync (
-            string sourcePath,
-            string destinationPath,
+            AbsolutePath sourcePath,
+            AbsolutePath destinationPath,
             long startOffset,
             long endOffset,
             IEnumerable<string>? redactionValues = null,
@@ -33,14 +34,14 @@ namespace MackySoft.Ucli.Unity.Ipc
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            if (string.IsNullOrWhiteSpace(sourcePath))
+            if (sourcePath == null)
             {
-                throw new ArgumentException("Source path must not be null or whitespace.", nameof(sourcePath));
+                throw new ArgumentNullException(nameof(sourcePath));
             }
 
-            if (string.IsNullOrWhiteSpace(destinationPath))
+            if (destinationPath == null)
             {
-                throw new ArgumentException("Destination path must not be null or whitespace.", nameof(destinationPath));
+                throw new ArgumentNullException(nameof(destinationPath));
             }
 
             if (startOffset < 0)
@@ -53,21 +54,20 @@ namespace MackySoft.Ucli.Unity.Ipc
                 throw new ArgumentOutOfRangeException(nameof(endOffset), "End offset must be greater than or equal to start offset.");
             }
 
-            var destinationDirectoryPath = Path.GetDirectoryName(destinationPath);
-            if (string.IsNullOrWhiteSpace(destinationDirectoryPath))
+            if (!destinationPath.TryGetParent(out var destinationDirectoryPath))
             {
-                throw new InvalidOperationException($"Destination directory path could not be resolved: {destinationPath}");
+                throw new InvalidOperationException($"Destination directory path could not be resolved: {destinationPath.Value}");
             }
 
             FileSystemAccessBoundary.EnsureSecureDirectory(destinationDirectoryPath);
-            using var sourceStream = new FileStream(sourcePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite, BufferSize, true);
+            using var sourceStream = new FileStream(sourcePath.Value, FileMode.Open, FileAccess.Read, FileShare.ReadWrite, BufferSize, true);
             if (startOffset > sourceStream.Length || endOffset > sourceStream.Length)
             {
                 throw new InvalidOperationException(
                     $"Editor log offset is out of range. start={startOffset}, end={endOffset}, length={sourceStream.Length}.");
             }
 
-            var temporaryPath = string.Empty;
+            AbsolutePath? temporaryPath = null;
             var temporaryFileOwned = false;
             try
             {
@@ -152,7 +152,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             {
                 if (temporaryFileOwned)
                 {
-                    FileUtilities.DeleteIfExists(temporaryPath);
+                    FileUtilities.DeleteIfExists(temporaryPath!);
                 }
             }
         }

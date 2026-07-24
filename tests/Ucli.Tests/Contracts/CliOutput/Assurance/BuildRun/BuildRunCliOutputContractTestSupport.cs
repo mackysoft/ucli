@@ -42,16 +42,16 @@ internal static class BuildRunCliOutputContractTestSupport
         switch (caseName)
         {
             case "missing-report-ref":
-                payloadNode["reports"]!.AsObject().Remove(ContractLiteralCodec.ToValue(BuildArtifactKind.BuildReport));
+                payloadNode["reports"]!.AsObject().Remove(TextVocabulary.GetText(BuildArtifactKind.BuildReport));
                 break;
             case "digest-only-entry":
-                payloadNode["reports"]![ContractLiteralCodec.ToValue(BuildArtifactKind.BuildLog)]!.AsObject().Remove("path");
+                payloadNode["reports"]![TextVocabulary.GetText(BuildArtifactKind.BuildLog)]!.AsObject().Remove("path");
                 break;
             case "invalid-digest":
-                payloadNode["reports"]![ContractLiteralCodec.ToValue(BuildArtifactKind.BuildLog)]!["digest"] = "sha256:dddd";
+                payloadNode["reports"]![TextVocabulary.GetText(BuildArtifactKind.BuildLog)]!["digest"] = "sha256:dddd";
                 break;
             case "manifest-ref-mismatch":
-                payloadNode["build"]!["output"]!["manifestRef"] = ContractLiteralCodec.ToValue(BuildArtifactKind.Build);
+                payloadNode["build"]!["output"]!["manifestRef"] = TextVocabulary.GetText(BuildArtifactKind.Build);
                 break;
             default:
                 throw new ArgumentOutOfRangeException(nameof(caseName), caseName, "Unknown invalid build invariant case.");

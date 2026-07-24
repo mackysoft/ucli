@@ -27,6 +27,7 @@ public sealed class DaemonSessionContractMapperTests
             contract,
             Fingerprint,
             "/repository/.ucli/local/fingerprints/fingerprint/session.json",
+            CreateEndpointBinding,
             out var session,
             out var error);
 
@@ -51,6 +52,7 @@ public sealed class DaemonSessionContractMapperTests
             contract,
             Fingerprint,
             "/repository/.ucli/local/fingerprints/fingerprint/session.json",
+            CreateEndpointBinding,
             out var session,
             out var error);
 
@@ -59,8 +61,9 @@ public sealed class DaemonSessionContractMapperTests
         Assert.NotNull(session);
         Assert.Equal(DaemonEditorMode.Gui, session.EditorMode);
         Assert.Equal(DaemonSessionOwnerKind.User, session.OwnerKind);
-        Assert.Equal(IpcTransportKind.NamedPipe, session.Endpoint.TransportKind);
-        Assert.Equal("ucli-daemon-endpoint", session.Endpoint.Address);
+        Assert.Equal(IpcTransportKind.NamedPipe, session.EndpointContract.TransportKind);
+        Assert.Equal("ucli-daemon-endpoint", session.EndpointContract.Address);
+        Assert.Null(session.UnixSocketEndpointPath);
         Assert.Equal(SessionToken, session.SessionToken.GetEncodedValue());
         Assert.Equal(SessionGenerationId, session.SessionGenerationId);
         Assert.Equal(EditorInstanceId, session.EditorInstanceId);
@@ -71,6 +74,7 @@ public sealed class DaemonSessionContractMapperTests
     public void ToContract_WritesCurrentSchemaAndCanonicalBoundaryValues ()
     {
         Assert.True(IpcSessionToken.TryParse(SessionToken, out var token));
+        var socketPath = AbsolutePath.Parse(Path.Combine(Path.GetTempPath(), "ucli.sock"));
         var session = new DaemonSession(
             SessionGenerationId,
             token,
@@ -79,7 +83,8 @@ public sealed class DaemonSessionContractMapperTests
             DaemonEditorMode.Gui,
             DaemonSessionOwnerKind.User,
             canShutdownProcess: false,
-            new IpcEndpoint(IpcTransportKind.UnixDomainSocket, "/tmp/ucli.sock"),
+            new IpcEndpoint(IpcTransportKind.UnixDomainSocket, socketPath.Value),
+            socketPath,
             processId: 1234,
             processStartedAtUtc: new DateTimeOffset(2026, 7, 13, 0, 0, 1, TimeSpan.Zero),
             ownerProcessId: 5678,
@@ -93,8 +98,60 @@ public sealed class DaemonSessionContractMapperTests
         Assert.Equal(DaemonEditorMode.Gui, contract.EditorMode);
         Assert.Equal(DaemonSessionOwnerKind.User, contract.OwnerKind);
         Assert.Equal(IpcTransportKind.UnixDomainSocket, contract.EndpointTransportKind);
-        Assert.Equal("/tmp/ucli.sock", contract.EndpointAddress);
+        Assert.Equal(socketPath.Value, contract.EndpointAddress);
         Assert.Equal(EditorInstanceId, contract.EditorInstanceId);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void TryCreate_WithUnixSocketContract_ParsesAndRetainsGuardedPathAtPersistenceBoundary ()
+    {
+        var socketPathText = Path.Combine(
+            Path.GetTempPath(),
+            ".",
+            "ucli-session.sock");
+        var contract = CreateContract() with
+        {
+            EndpointTransportKind = IpcTransportKind.UnixDomainSocket,
+            EndpointAddress = socketPathText,
+        };
+
+        var isValid = DaemonSessionContractMapper.TryCreate(
+            contract,
+            Fingerprint,
+            "session.json",
+            CreateEndpointBinding,
+            out var session,
+            out var error);
+
+        Assert.True(isValid);
+        Assert.Null(error);
+        Assert.NotNull(session);
+        Assert.NotNull(session.UnixSocketEndpointPath);
+        Assert.Equal(session.UnixSocketEndpointPath.Value, session.EndpointContract.Address);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void TryCreate_WithRelativeUnixSocketContract_ReturnsNoRuntimeSession ()
+    {
+        var contract = CreateContract() with
+        {
+            EndpointTransportKind = IpcTransportKind.UnixDomainSocket,
+            EndpointAddress = "relative/ucli-session.sock",
+        };
+
+        var isValid = DaemonSessionContractMapper.TryCreate(
+            contract,
+            Fingerprint,
+            "session.json",
+            CreateEndpointBinding,
+            out var session,
+            out var error);
+
+        Assert.False(isValid);
+        Assert.Null(session);
+        Assert.Contains("fully qualified", Assert.IsType<ExecutionError>(error).Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -110,6 +167,7 @@ public sealed class DaemonSessionContractMapperTests
             contract,
             Fingerprint,
             "/repository/.ucli/local/fingerprints/fingerprint/session.json",
+            CreateEndpointBinding,
             out var session,
             out var error);
 
@@ -131,6 +189,7 @@ public sealed class DaemonSessionContractMapperTests
             contract,
             Fingerprint,
             "/repository/.ucli/local/fingerprints/fingerprint/session.json",
+            CreateEndpointBinding,
             out var session,
             out var error);
 
@@ -152,6 +211,7 @@ public sealed class DaemonSessionContractMapperTests
             contract,
             Fingerprint,
             "/repository/.ucli/local/fingerprints/fingerprint/session.json",
+            CreateEndpointBinding,
             out var session,
             out var error);
 
@@ -173,6 +233,7 @@ public sealed class DaemonSessionContractMapperTests
             contract,
             Fingerprint,
             "/repository/.ucli/local/fingerprints/fingerprint/session.json",
+            CreateEndpointBinding,
             out var session,
             out var error);
 
@@ -197,6 +258,7 @@ public sealed class DaemonSessionContractMapperTests
             contract,
             Fingerprint,
             "/repository/.ucli/local/fingerprints/fingerprint/session.json",
+            CreateEndpointBinding,
             out var session,
             out var error);
 
@@ -222,5 +284,25 @@ public sealed class DaemonSessionContractMapperTests
             ProcessStartedAtUtc: new DateTimeOffset(2026, 7, 13, 0, 0, 1, TimeSpan.Zero),
             OwnerProcessId: 5678,
             EditorInstanceId: null);
+    }
+
+    private static DaemonSessionEndpointBinding CreateEndpointBinding (
+        IpcTransportKind transportKind,
+        string address)
+    {
+        var endpoint = new IpcEndpoint(transportKind, address);
+        if (transportKind != IpcTransportKind.UnixDomainSocket)
+        {
+            return new DaemonSessionEndpointBinding(endpoint, UnixSocketPath: null);
+        }
+
+        var socketPath = AbsolutePath.Parse(endpoint.Address);
+        var normalizedEndpoint = string.Equals(
+                endpoint.Address,
+                socketPath.Value,
+                StringComparison.Ordinal)
+            ? endpoint
+            : new IpcEndpoint(transportKind, socketPath.Value);
+        return new DaemonSessionEndpointBinding(normalizedEndpoint, socketPath);
     }
 }

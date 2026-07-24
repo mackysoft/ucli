@@ -197,7 +197,7 @@ internal static class BuildRunCliOutputClaimFixtureFactory
         {
             return new Dictionary<string, object?>(StringComparer.Ordinal)
             {
-                ["reportRef"] = ContractLiteralCodec.ToValue(BuildArtifactKind.BuildReport),
+                ["reportRef"] = TextVocabulary.GetText(BuildArtifactKind.BuildReport),
             };
         }
 
@@ -205,7 +205,7 @@ internal static class BuildRunCliOutputClaimFixtureFactory
         {
             return new Dictionary<string, object?>(StringComparer.Ordinal)
             {
-                ["manifestRef"] = ContractLiteralCodec.ToValue(BuildArtifactKind.BuildOutputManifest),
+                ["manifestRef"] = TextVocabulary.GetText(BuildArtifactKind.BuildOutputManifest),
                 ["entryCount"] = build.Output.EntryCount,
                 ["fileCount"] = build.Output.FileCount,
             };
@@ -223,7 +223,7 @@ internal static class BuildRunCliOutputClaimFixtureFactory
         {
             return new Dictionary<string, object?>(StringComparer.Ordinal)
             {
-                ["reportRef"] = ContractLiteralCodec.ToValue(BuildArtifactKind.BuildLog),
+                ["reportRef"] = TextVocabulary.GetText(BuildArtifactKind.BuildLog),
                 ["entryCount"] = build.Logs.EntryCount,
                 ["completionReason"] = build.Logs.CompletionReason,
             };
@@ -259,7 +259,7 @@ internal static class BuildRunCliOutputClaimFixtureFactory
             return
             [
                 new BuildEvidenceOutput(
-                    ContractLiteralCodec.ToValue(BuildEvidenceKind.BuildProfile),
+                    TextVocabulary.GetText(BuildEvidenceKind.BuildProfile),
                     BuildArtifactKind.Build,
                     build.Profile),
             ];
@@ -270,7 +270,7 @@ internal static class BuildRunCliOutputClaimFixtureFactory
             return
             [
                 new BuildEvidenceOutput(
-                    ContractLiteralCodec.ToValue(AssuranceEffect.UnityLifecycleRead),
+                    TextVocabulary.GetText(AssuranceEffect.UnityLifecycleRead),
                     EvidenceRef: null,
                     Data: new Dictionary<string, object?>(StringComparer.Ordinal)
                     {
@@ -285,7 +285,7 @@ internal static class BuildRunCliOutputClaimFixtureFactory
             return
             [
                 new BuildEvidenceOutput(
-                    ContractLiteralCodec.ToValue(BuildEvidenceKind.BuildInput),
+                    TextVocabulary.GetText(BuildEvidenceKind.BuildInput),
                     BuildArtifactKind.Build,
                     new Dictionary<string, object?>(StringComparer.Ordinal)
                     {
@@ -300,42 +300,42 @@ internal static class BuildRunCliOutputClaimFixtureFactory
 
         if (BuildClaimCodes.UnityBuildRunnerResolved == code)
         {
-            return [new BuildEvidenceOutput(ContractLiteralCodec.ToValue(AssuranceEffect.UnityBuildPipeline), BuildArtifactKind.Build, Data: null)];
+            return [new BuildEvidenceOutput(TextVocabulary.GetText(AssuranceEffect.UnityBuildPipeline), BuildArtifactKind.Build, Data: null)];
         }
 
         if (BuildClaimCodes.UnityBuildCompleted == code)
         {
-            return [new BuildEvidenceOutput(ContractLiteralCodec.ToValue(AssuranceEffect.UnityBuildPipeline), BuildArtifactKind.BuildReport, build.Summary)];
+            return [new BuildEvidenceOutput(TextVocabulary.GetText(AssuranceEffect.UnityBuildPipeline), BuildArtifactKind.BuildReport, build.Summary)];
         }
 
         if (BuildClaimCodes.UnityBuildSucceeded == code)
         {
-            return [new BuildEvidenceOutput(ContractLiteralCodec.ToValue(AssuranceEffect.UnityBuildReportRead), BuildArtifactKind.BuildReport, build.Summary)];
+            return [new BuildEvidenceOutput(TextVocabulary.GetText(AssuranceEffect.UnityBuildReportRead), BuildArtifactKind.BuildReport, build.Summary)];
         }
 
         if (BuildClaimCodes.UnityBuildResultAccounted == code)
         {
-            return [new BuildEvidenceOutput(ContractLiteralCodec.ToValue(AssuranceEffect.UnityBuildReportRead), BuildArtifactKind.Build, build.RunnerResult)];
+            return [new BuildEvidenceOutput(TextVocabulary.GetText(AssuranceEffect.UnityBuildReportRead), BuildArtifactKind.Build, build.RunnerResult)];
         }
 
         if (BuildClaimCodes.UnityBuildReportAccounted == code)
         {
-            return [new BuildEvidenceOutput(ContractLiteralCodec.ToValue(AssuranceEffect.UnityBuildReportRead), BuildArtifactKind.BuildReport, Data: null)];
+            return [new BuildEvidenceOutput(TextVocabulary.GetText(AssuranceEffect.UnityBuildReportRead), BuildArtifactKind.BuildReport, Data: null)];
         }
 
         if (BuildClaimCodes.UnityBuildArtifactsAccounted == code)
         {
-            return [new BuildEvidenceOutput(ContractLiteralCodec.ToValue(AssuranceEffect.OutputManifestWrite), BuildArtifactKind.Build, build.Output)];
+            return [new BuildEvidenceOutput(TextVocabulary.GetText(AssuranceEffect.OutputManifestWrite), BuildArtifactKind.Build, build.Output)];
         }
 
         if (BuildClaimCodes.UnityBuildOutputDigested == code)
         {
-            return [new BuildEvidenceOutput(ContractLiteralCodec.ToValue(AssuranceEffect.OutputManifestWrite), BuildArtifactKind.BuildOutputManifest, Data: null)];
+            return [new BuildEvidenceOutput(TextVocabulary.GetText(AssuranceEffect.OutputManifestWrite), BuildArtifactKind.BuildOutputManifest, Data: null)];
         }
 
         if (BuildClaimCodes.UnityBuildLogsAccounted == code)
         {
-            return [new BuildEvidenceOutput(ContractLiteralCodec.ToValue(AssuranceEffect.UnityLogWindowRead), BuildArtifactKind.BuildLog, build.Logs)];
+            return [new BuildEvidenceOutput(TextVocabulary.GetText(AssuranceEffect.UnityLogWindowRead), BuildArtifactKind.BuildLog, build.Logs)];
         }
 
         if (BuildClaimCodes.UnityBuildProjectMutationAccounted == code)
@@ -343,7 +343,7 @@ internal static class BuildRunCliOutputClaimFixtureFactory
             return
             [
                 new BuildEvidenceOutput(
-                    ContractLiteralCodec.ToValue(AssuranceEffect.ProjectMutationAudit),
+                    TextVocabulary.GetText(AssuranceEffect.ProjectMutationAudit),
                     BuildArtifactKind.Build,
                     new Dictionary<string, object?>(StringComparer.Ordinal)
                     {
@@ -357,6 +357,6 @@ internal static class BuildRunCliOutputClaimFixtureFactory
             ];
         }
 
-        return [new BuildEvidenceOutput(ContractLiteralCodec.ToValue(AssuranceEffect.GenerationSnapshot), BuildArtifactKind.Build, build.Generations)];
+        return [new BuildEvidenceOutput(TextVocabulary.GetText(AssuranceEffect.GenerationSnapshot), BuildArtifactKind.Build, build.Generations)];
     }
 }

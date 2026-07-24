@@ -1,4 +1,6 @@
 using System;
+using MackySoft.Text.Vocabularies;
+using TextVocabulary = MackySoft.Text.Vocabularies.Vocabulary;
 using MackySoft.Ucli.Contracts.Assurance.Build;
 using MackySoft.Ucli.Contracts.Text;
 using UnityEditor;
@@ -17,7 +19,7 @@ namespace MackySoft.Ucli.Unity
             BuildTargetStableName stableName,
             BuildTarget unityBuildTarget)
         {
-            if (!ContractLiteralCodec.IsDefined(stableName))
+            if (!TextVocabulary.IsDefined(stableName))
             {
                 throw new ArgumentOutOfRangeException(nameof(stableName), stableName, "Build target must be specified.");
             }

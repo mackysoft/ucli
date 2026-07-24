@@ -561,11 +561,15 @@ public sealed class DaemonCompensationOperationOwnerTests
         Assert.False(ownedCancellationObserved.Task.IsCompleted);
         Assert.True(owner.TryTransferLifecycleLease(context, lifecycleLease));
 
+        await TestAwaiter.WaitAsync(
+            timeProvider.WaitForTimerDueWithinAsync(timeout),
+            "Owned mutation deadline timer registration",
+            TimeSpan.FromSeconds(5));
         timeProvider.Advance(timeout);
         await TestAwaiter.WaitAsync(
             ownedCancellationObserved.Task,
             "Owned mutation cancellation at original deadline",
-            TimeSpan.FromMilliseconds(250));
+            TimeSpan.FromSeconds(5));
         var quiescenceError = await TestAwaiter.WaitAsync(
             owner.WaitForQuiescenceAsync(
                     context,

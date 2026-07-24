@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Testing.Run.Results;
 
 namespace MackySoft.Ucli.Tests.Helpers.Testing;
@@ -12,7 +13,7 @@ internal sealed class StubUnityResultsXmlParser : IUnityResultsXmlParser
     }
 
     public ValueTask<UnityResultsXmlParseResult> ParseAsync (
-        string resultsXmlPath,
+        AbsolutePath resultsXmlPath,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();

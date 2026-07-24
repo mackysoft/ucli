@@ -1,4 +1,6 @@
 using System;
+using MackySoft.Text.Vocabularies;
+using TextVocabulary = MackySoft.Text.Vocabularies.Vocabulary;
 using MackySoft.Ucli.Contracts.Index;
 using UnityEditor;
 
@@ -20,90 +22,90 @@ namespace MackySoft.Ucli.Unity.Index
             switch (propertyType)
             {
                 case SerializedPropertyType.Generic:
-                    return ContractLiteralCodec.ToValue(IndexPropertyType.Generic);
+                    return TextVocabulary.GetText(IndexPropertyType.Generic);
 
                 case SerializedPropertyType.Integer:
-                    return ContractLiteralCodec.ToValue(IndexPropertyType.Integer);
+                    return TextVocabulary.GetText(IndexPropertyType.Integer);
 
                 case SerializedPropertyType.Boolean:
-                    return ContractLiteralCodec.ToValue(IndexPropertyType.Boolean);
+                    return TextVocabulary.GetText(IndexPropertyType.Boolean);
 
                 case SerializedPropertyType.Float:
-                    return ContractLiteralCodec.ToValue(IndexPropertyType.Float);
+                    return TextVocabulary.GetText(IndexPropertyType.Float);
 
                 case SerializedPropertyType.String:
-                    return ContractLiteralCodec.ToValue(IndexPropertyType.String);
+                    return TextVocabulary.GetText(IndexPropertyType.String);
 
                 case SerializedPropertyType.Color:
-                    return ContractLiteralCodec.ToValue(IndexPropertyType.Color);
+                    return TextVocabulary.GetText(IndexPropertyType.Color);
 
                 case SerializedPropertyType.ObjectReference:
-                    return ContractLiteralCodec.ToValue(IndexPropertyType.ObjectReference);
+                    return TextVocabulary.GetText(IndexPropertyType.ObjectReference);
 
                 case SerializedPropertyType.LayerMask:
-                    return ContractLiteralCodec.ToValue(IndexPropertyType.LayerMask);
+                    return TextVocabulary.GetText(IndexPropertyType.LayerMask);
 
                 case SerializedPropertyType.Enum:
-                    return ContractLiteralCodec.ToValue(IndexPropertyType.Enum);
+                    return TextVocabulary.GetText(IndexPropertyType.Enum);
 
                 case SerializedPropertyType.Vector2:
-                    return ContractLiteralCodec.ToValue(IndexPropertyType.Vector2);
+                    return TextVocabulary.GetText(IndexPropertyType.Vector2);
 
                 case SerializedPropertyType.Vector3:
-                    return ContractLiteralCodec.ToValue(IndexPropertyType.Vector3);
+                    return TextVocabulary.GetText(IndexPropertyType.Vector3);
 
                 case SerializedPropertyType.Vector4:
-                    return ContractLiteralCodec.ToValue(IndexPropertyType.Vector4);
+                    return TextVocabulary.GetText(IndexPropertyType.Vector4);
 
                 case SerializedPropertyType.Rect:
-                    return ContractLiteralCodec.ToValue(IndexPropertyType.Rect);
+                    return TextVocabulary.GetText(IndexPropertyType.Rect);
 
                 case SerializedPropertyType.ArraySize:
-                    return ContractLiteralCodec.ToValue(IndexPropertyType.ArraySize);
+                    return TextVocabulary.GetText(IndexPropertyType.ArraySize);
 
                 case SerializedPropertyType.Character:
-                    return ContractLiteralCodec.ToValue(IndexPropertyType.Character);
+                    return TextVocabulary.GetText(IndexPropertyType.Character);
 
                 case SerializedPropertyType.AnimationCurve:
-                    return ContractLiteralCodec.ToValue(IndexPropertyType.AnimationCurve);
+                    return TextVocabulary.GetText(IndexPropertyType.AnimationCurve);
 
                 case SerializedPropertyType.Bounds:
-                    return ContractLiteralCodec.ToValue(IndexPropertyType.Bounds);
+                    return TextVocabulary.GetText(IndexPropertyType.Bounds);
 
                 case SerializedPropertyType.Gradient:
-                    return ContractLiteralCodec.ToValue(IndexPropertyType.Gradient);
+                    return TextVocabulary.GetText(IndexPropertyType.Gradient);
 
                 case SerializedPropertyType.Quaternion:
-                    return ContractLiteralCodec.ToValue(IndexPropertyType.Quaternion);
+                    return TextVocabulary.GetText(IndexPropertyType.Quaternion);
 
                 case SerializedPropertyType.ExposedReference:
-                    return ContractLiteralCodec.ToValue(IndexPropertyType.ExposedReference);
+                    return TextVocabulary.GetText(IndexPropertyType.ExposedReference);
 
                 case SerializedPropertyType.FixedBufferSize:
-                    return ContractLiteralCodec.ToValue(IndexPropertyType.FixedBufferSize);
+                    return TextVocabulary.GetText(IndexPropertyType.FixedBufferSize);
 
                 case SerializedPropertyType.Vector2Int:
-                    return ContractLiteralCodec.ToValue(IndexPropertyType.Vector2Int);
+                    return TextVocabulary.GetText(IndexPropertyType.Vector2Int);
 
                 case SerializedPropertyType.Vector3Int:
-                    return ContractLiteralCodec.ToValue(IndexPropertyType.Vector3Int);
+                    return TextVocabulary.GetText(IndexPropertyType.Vector3Int);
 
                 case SerializedPropertyType.RectInt:
-                    return ContractLiteralCodec.ToValue(IndexPropertyType.RectInt);
+                    return TextVocabulary.GetText(IndexPropertyType.RectInt);
 
                 case SerializedPropertyType.BoundsInt:
-                    return ContractLiteralCodec.ToValue(IndexPropertyType.BoundsInt);
+                    return TextVocabulary.GetText(IndexPropertyType.BoundsInt);
 
                 case SerializedPropertyType.ManagedReference:
-                    return ContractLiteralCodec.ToValue(IndexPropertyType.ManagedReference);
+                    return TextVocabulary.GetText(IndexPropertyType.ManagedReference);
 
                 case SerializedPropertyType.Hash128:
-                    return ContractLiteralCodec.ToValue(IndexPropertyType.Hash128);
+                    return TextVocabulary.GetText(IndexPropertyType.Hash128);
 
 #if UNITY_6000_0_OR_NEWER
                 // NOTE: Enable RenderingLayerMask mapping only on Unity 6000.0 or newer.
                 case SerializedPropertyType.RenderingLayerMask:
-                    return ContractLiteralCodec.ToValue(IndexPropertyType.LayerMask);
+                    return TextVocabulary.GetText(IndexPropertyType.LayerMask);
 #endif
 
                 default:

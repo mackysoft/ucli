@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Infrastructure.Ipc;
 
 namespace MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 
@@ -17,7 +18,7 @@ internal interface IIpcTransportClient
     /// <exception cref="OperationCanceledException"> Thrown when <paramref name="cancellationToken" /> is canceled. </exception>
     /// <exception cref="IpcResponseReadInterruptedException"> Thrown when request transmission completed but the response frame read was interrupted. </exception>
     ValueTask<IpcResponse> SendAsync (
-        IpcEndpoint endpoint,
+        IpcTransportEndpoint endpoint,
         IpcRequestEnvelope request,
         TimeSpan timeout,
         CancellationToken cancellationToken = default);
@@ -36,7 +37,7 @@ internal interface IIpcTransportClient
     /// <exception cref="IpcResponseReadInterruptedException"> Thrown when request transmission completed but a response stream frame read was interrupted. </exception>
     /// <exception cref="IpcStreamingOperationInProgressException"> Thrown when another streaming operation on this client is active or has not finished after cancellation or timeout. </exception>
     ValueTask<IpcResponse> SendStreamingAsync (
-        IpcEndpoint endpoint,
+        IpcTransportEndpoint endpoint,
         IpcRequestEnvelope request,
         TimeSpan timeout,
         Func<IpcStreamFrame, CancellationToken, ValueTask> onProgressFrame,
@@ -59,7 +60,7 @@ internal interface IIpcTransportClient
     /// <exception cref="IpcResponseReadInterruptedException"> Thrown when request transmission completed but a response stream frame read was interrupted. </exception>
     /// <exception cref="IpcStreamingOperationInProgressException"> Thrown when another streaming operation on this client is active or has not finished after cancellation. </exception>
     ValueTask<IpcResponse> SendStreamingWithUnboundedResponseWaitAsync (
-        IpcEndpoint endpoint,
+        IpcTransportEndpoint endpoint,
         IpcRequestEnvelope request,
         TimeSpan sendTimeout,
         Func<IpcStreamFrame, CancellationToken, ValueTask> onProgressFrame,
@@ -80,7 +81,7 @@ internal interface IIpcTransportClient
     /// <exception cref="OperationCanceledException"> Thrown when <paramref name="cancellationToken" /> is canceled during connection, writing, or the otherwise unbounded response wait. </exception>
     /// <exception cref="IpcResponseReadInterruptedException"> Thrown when request transmission completed but the response frame read was interrupted. </exception>
     ValueTask<IpcResponse> SendWithUnboundedResponseWaitAsync (
-        IpcEndpoint endpoint,
+        IpcTransportEndpoint endpoint,
         IpcRequestEnvelope request,
         TimeSpan sendTimeout,
         CancellationToken cancellationToken = default);

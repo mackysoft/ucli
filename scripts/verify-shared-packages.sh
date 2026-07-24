@@ -1,8 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ "$#" -ne 2 ]]; then
+print_usage() {
   echo "Usage: $0 <package-dir> <expected-version>" >&2
+}
+
+if [[ "$#" -ne 2 ]]; then
+  print_usage
   exit 2
 fi
 
@@ -14,14 +18,20 @@ if [[ ! -d "${package_dir}" ]]; then
   exit 1
 fi
 
-if ! command -v unzip >/dev/null 2>&1; then
-  echo "Required tool is missing: unzip" >&2
-  exit 1
-fi
+for required_tool in unzip; do
+  if ! command -v "${required_tool}" >/dev/null 2>&1; then
+    echo "Required tool is missing: ${required_tool}" >&2
+    exit 1
+  fi
+done
 
 package_dir="$(cd "${package_dir}" && pwd)"
+filesystem_package_id="MackySoft.FileSystem"
+filesystem_package_version="0.1.0"
+
 temp_dir="$(mktemp -d)"
 trap 'rm -rf "${temp_dir}"' EXIT
+foundation_dependency_version_range="[0.1.0]"
 package_ids=(
   "MackySoft.Ucli.Contracts"
   "MackySoft.Ucli.Infrastructure"
@@ -49,11 +59,20 @@ for package_id in "${package_ids[@]}"; do
       required_library_entries=(
         "lib/netstandard2.1/MackySoft.Ucli.Contracts.dll"
       )
+      required_dependencies=(
+        "MackySoft.Text.Vocabularies"
+        "MackySoft.Text.Vocabularies.Json"
+      )
       ;;
     MackySoft.Ucli.Infrastructure)
       required_library_entries=(
         "lib/netstandard2.1/MackySoft.Ucli.Infrastructure.dll"
         "lib/net8.0/MackySoft.Ucli.Infrastructure.dll"
+      )
+      required_dependencies=(
+        "MackySoft.FileSystem"
+        "MackySoft.Ucli.Contracts"
+        "MackySoft.Text.Vocabularies.Json"
       )
       ;;
     *)
@@ -82,48 +101,144 @@ for package_id in "${package_ids[@]}"; do
     exit 1
   fi
 
-  if [[ "${package_id}" == "MackySoft.Ucli.Infrastructure" ]]; then
+  for dependency_id in "${required_dependencies[@]}"; do
     dependency_versions="$(
-      perl -ne '
+      DEPENDENCY_ID="${dependency_id}" perl -ne '
+        my $dependency_id = $ENV{"DEPENDENCY_ID"};
         while (/<dependency\b([^>]*)>/g) {
           my $attributes = $1;
-          next unless $attributes =~ /\bid="MackySoft\.Ucli\.Contracts"/;
+          next unless $attributes =~ /\bid="([^"]+)"/;
+          next unless $1 eq $dependency_id;
           if ($attributes =~ /\bversion="([^"]+)"/) {
             print "$1\n";
           }
         }
-      ' "${nuspec_path}"
-    )"
+        ' "${nuspec_path}"
+      )"
 
     if [[ -z "${dependency_versions}" ]]; then
-      echo "MackySoft.Ucli.Infrastructure is missing dependency: MackySoft.Ucli.Contracts." >&2
+      echo "${package_id} is missing dependency: ${dependency_id}." >&2
       exit 1
     fi
 
+    case "${dependency_id}" in
+      MackySoft.FileSystem|MackySoft.Text.Vocabularies|MackySoft.Text.Vocabularies.Json)
+        required_dependency_version="${foundation_dependency_version_range}"
+        ;;
+      *)
+        required_dependency_version="${expected_version}"
+        ;;
+    esac
+
     unexpected_dependency_versions="$(
-      grep -Fvx "${expected_version}" <<< "${dependency_versions}" || true
+      grep -Fvx "${required_dependency_version}" <<< "${dependency_versions}" || true
     )"
     if [[ -n "${unexpected_dependency_versions}" ]]; then
-      echo "MackySoft.Ucli.Infrastructure dependency version does not match ${expected_version}." >&2
+      echo "${package_id} dependency ${dependency_id} does not match ${required_dependency_version}." >&2
       printf '%s\n' "${unexpected_dependency_versions}" >&2
       exit 1
     fi
-  fi
+  done
 done
 
-consumer_dir="${temp_dir}/consumer"
-export DOTNET_CLI_HOME="${temp_dir}/dotnet-home"
-export NUGET_PACKAGES="${temp_dir}/nuget-packages"
-mkdir -p "${DOTNET_CLI_HOME}" "${NUGET_PACKAGES}"
+consumer_dir="${temp_dir}/filesystem-consumer"
+consumer_project_path="${consumer_dir}/FileSystemPackageConsumer.csproj"
+consumer_dotnet_home="${temp_dir}/dotnet-home"
+consumer_nuget_packages="${temp_dir}/nuget-packages"
+consumer_nuget_http_cache="${temp_dir}/http-cache"
+consumer_ucli_package_source="${temp_dir}/ucli-source"
+consumer_nuget_config="${temp_dir}/NuGet.config"
+dotnet_consumer_home="${consumer_dotnet_home}"
+dotnet_consumer_nuget_packages="${consumer_nuget_packages}"
+if command -v cygpath >/dev/null 2>&1; then
+  dotnet_consumer_home="$(cygpath -m "${consumer_dotnet_home}")"
+  dotnet_consumer_nuget_packages="$(cygpath -m "${consumer_nuget_packages}")"
+fi
+export DOTNET_CLI_HOME="${dotnet_consumer_home}"
+export NUGET_PACKAGES="${dotnet_consumer_nuget_packages}"
+export NUGET_HTTP_CACHE_PATH="${consumer_nuget_http_cache}"
+mkdir -p \
+  "${consumer_dotnet_home}" \
+  "${consumer_nuget_http_cache}" \
+  "${consumer_nuget_packages}" \
+  "${consumer_ucli_package_source}"
+for package_id in "${package_ids[@]}"; do
+  cp "${package_dir}/${package_id}.${expected_version}.nupkg" \
+    "${consumer_ucli_package_source}/${package_id}.${expected_version}.nupkg"
+done
 
-dotnet new classlib --output "${consumer_dir}" --no-restore >/dev/null
+cat > "${consumer_nuget_config}" <<EOF
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+  <packageSources>
+    <clear />
+    <add key="UcliPackages" value="./ucli-source" />
+    <add key="nuget.org" value="https://api.nuget.org/v3/index.json" />
+  </packageSources>
+  <packageSourceMapping>
+    <packageSource key="UcliPackages">
+      <package pattern="MackySoft.Ucli.Contracts" />
+      <package pattern="MackySoft.Ucli.Infrastructure" />
+    </packageSource>
+    <packageSource key="nuget.org">
+      <package pattern="MackySoft.FileSystem" />
+      <package pattern="MackySoft.Text.Vocabularies" />
+      <package pattern="MackySoft.Text.Vocabularies.Json" />
+      <package pattern="Microsoft.*" />
+      <package pattern="NETStandard.Library" />
+      <package pattern="System.*" />
+      <package pattern="runtime.*" />
+    </packageSource>
+  </packageSourceMapping>
+</configuration>
+EOF
+
+dotnet new classlib \
+  --name FileSystemPackageConsumer \
+  --output "${consumer_dir}" \
+  --framework netstandard2.1 \
+  --no-restore \
+  >/dev/null
 EXPECTED_VERSION="${expected_version}" perl -0pi -e '
   my $version = $ENV{"EXPECTED_VERSION"};
-  s{</Project>}{  <ItemGroup>\n    <PackageReference Include="MackySoft.Ucli.Contracts" Version="$version" />\n    <PackageReference Include="MackySoft.Ucli.Infrastructure" Version="$version" />\n  </ItemGroup>\n</Project>};
-' "${consumer_dir}/consumer.csproj"
-dotnet restore "${consumer_dir}/consumer.csproj" \
-  --source "${package_dir}" \
-  --source https://api.nuget.org/v3/index.json >/dev/null
-dotnet build "${consumer_dir}/consumer.csproj" --configuration Release --no-restore >/dev/null
+  s{<TargetFramework>netstandard2\.1</TargetFramework>}{<TargetFrameworks>net8.0;netstandard2.1</TargetFrameworks>};
+  s{</Project>}{  <ItemGroup>\n    <PackageReference Include="MackySoft.Ucli.Infrastructure" Version="$version" />\n  </ItemGroup>\n</Project>};
+' "${consumer_project_path}"
+cat > "${consumer_dir}/Class1.cs" <<'EOF'
+using MackySoft.FileSystem;
+using MackySoft.Ucli.Contracts;
+using MackySoft.Ucli.Infrastructure.Ipc;
+
+namespace FileSystemPackageConsumer
+{
+    public static class GuardedPathConsumer
+    {
+        public static ContainedPath Resolve (string rootPath, string relativePath)
+        {
+            AbsolutePath root = AbsolutePath.Parse(rootPath);
+            RootRelativePath relative = RootRelativePath.Parse(relativePath);
+            return ContainedPath.Create(root, relative);
+        }
+
+        public static void UseUcliPublicTypes ()
+        {
+            _ = typeof(ScreenshotArtifactKind);
+            _ = typeof(IpcFrameCodec);
+        }
+    }
+}
+EOF
+consumer_restore_args=(
+  --configfile "${consumer_nuget_config}"
+  --no-cache
+  --force-evaluate
+  --verbosity minimal
+)
+dotnet restore "${consumer_project_path}" "${consumer_restore_args[@]}"
+
+dotnet build "${consumer_project_path}" \
+  --configuration Release \
+  --no-restore \
+  --verbosity minimal
 
 echo "Shared package verification passed: ${package_dir}"

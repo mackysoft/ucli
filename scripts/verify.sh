@@ -75,7 +75,7 @@ solution="$(dotnet_resolve_solution "$solution_arg")"
 cd "$DOTNET_REPO_ROOT"
 
 if [ "$restore" = true ]; then
-  dotnet restore "$solution"
+  dotnet_restore_with_local_packages "$solution"
 fi
 
 bash scripts/verify-skills.sh

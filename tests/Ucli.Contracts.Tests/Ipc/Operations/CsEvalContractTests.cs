@@ -13,23 +13,23 @@ public sealed class CsEvalContractTests
     [Trait("Size", "Small")]
     public void FiniteVocabularies_HaveStableLiteralsAndRejectDefaultValues ()
     {
-        Assert.Equal(["succeeded", "failed"], ContractLiteralCodec.GetLiterals<CsEvalCompileStatus>());
-        Assert.Equal(["info", "warning", "error"], ContractLiteralCodec.GetLiterals<UcliDiagnosticSeverity>());
-        Assert.Equal(["log", "warning", "error"], ContractLiteralCodec.GetLiterals<CsEvalLogLevel>());
-        Assert.Equal(["null", "json"], ContractLiteralCodec.GetLiterals<CsEvalReturnValueKind>());
-        Assert.Equal(["unknown", "none", "declared"], ContractLiteralCodec.GetLiterals<CsEvalTouchedResourceState>());
-        Assert.Equal(["csharp"], ContractLiteralCodec.GetLiterals<UcliCodeLanguage>());
-        Assert.Equal(["compilationUnit", "snippet"], ContractLiteralCodec.GetLiterals<UcliCodeSourceFormKind>());
-        Assert.Equal(["property", "method"], ContractLiteralCodec.GetLiterals<UcliCodeApiMemberKind>());
+        Assert.Equal(["succeeded", "failed"], TextVocabulary.GetTexts<CsEvalCompileStatus>());
+        Assert.Equal(["info", "warning", "error"], TextVocabulary.GetTexts<UcliDiagnosticSeverity>());
+        Assert.Equal(["log", "warning", "error"], TextVocabulary.GetTexts<CsEvalLogLevel>());
+        Assert.Equal(["null", "json"], TextVocabulary.GetTexts<CsEvalReturnValueKind>());
+        Assert.Equal(["unknown", "none", "declared"], TextVocabulary.GetTexts<CsEvalTouchedResourceState>());
+        Assert.Equal(["csharp"], TextVocabulary.GetTexts<UcliCodeLanguage>());
+        Assert.Equal(["compilationUnit", "snippet"], TextVocabulary.GetTexts<UcliCodeSourceFormKind>());
+        Assert.Equal(["property", "method"], TextVocabulary.GetTexts<UcliCodeApiMemberKind>());
 
-        Assert.False(ContractLiteralCodec.IsDefined(default(CsEvalCompileStatus)));
-        Assert.False(ContractLiteralCodec.IsDefined(default(UcliDiagnosticSeverity)));
-        Assert.False(ContractLiteralCodec.IsDefined(default(CsEvalLogLevel)));
-        Assert.False(ContractLiteralCodec.IsDefined(default(CsEvalReturnValueKind)));
-        Assert.False(ContractLiteralCodec.IsDefined(default(CsEvalTouchedResourceState)));
-        Assert.False(ContractLiteralCodec.IsDefined(default(UcliCodeLanguage)));
-        Assert.False(ContractLiteralCodec.IsDefined(default(UcliCodeSourceFormKind)));
-        Assert.False(ContractLiteralCodec.IsDefined(default(UcliCodeApiMemberKind)));
+        Assert.False(TextVocabulary.IsDefined(default(CsEvalCompileStatus)));
+        Assert.False(TextVocabulary.IsDefined(default(UcliDiagnosticSeverity)));
+        Assert.False(TextVocabulary.IsDefined(default(CsEvalLogLevel)));
+        Assert.False(TextVocabulary.IsDefined(default(CsEvalReturnValueKind)));
+        Assert.False(TextVocabulary.IsDefined(default(CsEvalTouchedResourceState)));
+        Assert.False(TextVocabulary.IsDefined(default(UcliCodeLanguage)));
+        Assert.False(TextVocabulary.IsDefined(default(UcliCodeSourceFormKind)));
+        Assert.False(TextVocabulary.IsDefined(default(UcliCodeApiMemberKind)));
     }
 
     [Fact]

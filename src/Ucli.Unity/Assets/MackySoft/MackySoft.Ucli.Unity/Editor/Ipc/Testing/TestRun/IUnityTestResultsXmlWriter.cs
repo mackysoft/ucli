@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using UnityEditor.TestTools.TestRunner.Api;
 
 namespace MackySoft.Ucli.Unity.Ipc
@@ -10,6 +11,6 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <param name="resultsXmlPath"> The output XML path. </param>
         void Write (
             ITestResultAdaptor testResult,
-            string resultsXmlPath);
+            AbsolutePath resultsXmlPath);
     }
 }

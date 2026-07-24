@@ -1,10 +1,28 @@
 using System.Diagnostics.CodeAnalysis;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.Authorization;
 using MackySoft.Ucli.Contracts.Storage;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
+
+/// <summary>
+/// Converts one transport-specific endpoint text value to its normalized contract and guarded runtime path.
+/// </summary>
+/// <param name="transportKind"> The endpoint transport kind declared by the session contract. </param>
+/// <param name="address"> The raw endpoint address declared by the session contract. </param>
+/// <returns> The normalized endpoint contract and guarded Unix socket path produced at the input boundary. </returns>
+internal delegate DaemonSessionEndpointBinding DaemonSessionEndpointBindingFactory (
+    IpcTransportKind transportKind,
+    string address);
+
+/// <summary> Carries one normalized endpoint contract and its guarded Unix socket path into session creation. </summary>
+/// <param name="Contract"> The normalized endpoint contract. </param>
+/// <param name="UnixSocketPath"> The guarded Unix socket path, or <see langword="null" /> for a Named Pipe endpoint. </param>
+internal sealed record DaemonSessionEndpointBinding (
+    IpcEndpoint Contract,
+    AbsolutePath? UnixSocketPath);
 
 /// <summary> Converts raw daemon session contracts to and from validated runtime sessions. </summary>
 internal static class DaemonSessionContractMapper
@@ -13,6 +31,9 @@ internal static class DaemonSessionContractMapper
     /// <param name="contract"> The raw session contract. </param>
     /// <param name="expectedProjectFingerprint"> The project fingerprint expected by the consuming boundary. </param>
     /// <param name="sourceDescription"> The contract source included in diagnostic errors. </param>
+    /// <param name="endpointBindingFactory">
+    /// The boundary adapter that validates the raw endpoint address once and returns its guarded runtime representation.
+    /// </param>
     /// <param name="session"> The validated runtime session when successful. </param>
     /// <param name="error"> The validation error when unsuccessful. </param>
     /// <returns> <see langword="true" /> when the contract represents a valid session; otherwise <see langword="false" />. </returns>
@@ -20,12 +41,14 @@ internal static class DaemonSessionContractMapper
         DaemonSessionJsonContract contract,
         ProjectFingerprint expectedProjectFingerprint,
         string sourceDescription,
+        DaemonSessionEndpointBindingFactory endpointBindingFactory,
         [NotNullWhen(true)] out DaemonSession? session,
         [NotNullWhen(false)] out ExecutionError? error)
     {
         ArgumentNullException.ThrowIfNull(contract);
         ArgumentNullException.ThrowIfNull(expectedProjectFingerprint);
         ArgumentException.ThrowIfNullOrWhiteSpace(sourceDescription);
+        ArgumentNullException.ThrowIfNull(endpointBindingFactory);
 
         session = null;
 
@@ -83,7 +106,13 @@ internal static class DaemonSessionContractMapper
 
         try
         {
-            var endpoint = new IpcEndpoint(transportKind, contract.EndpointAddress!);
+            var endpointBinding = endpointBindingFactory(
+                    transportKind,
+                    contract.EndpointAddress!)
+                ?? throw new ArgumentException(
+                    "Daemon session endpoint adapter returned no endpoint binding.",
+                    nameof(endpointBindingFactory));
+
             session = new DaemonSession(
                 contract.SessionGenerationId,
                 sessionToken,
@@ -92,7 +121,8 @@ internal static class DaemonSessionContractMapper
                 editorMode,
                 ownerKind,
                 contract.CanShutdownProcess,
-                endpoint,
+                endpointBinding.Contract,
+                endpointBinding.UnixSocketPath,
                 contract.ProcessId,
                 contract.ProcessStartedAtUtc,
                 ownerProcessId,
@@ -124,8 +154,8 @@ internal static class DaemonSessionContractMapper
             EditorMode: session.EditorMode,
             OwnerKind: session.OwnerKind,
             CanShutdownProcess: session.CanShutdownProcess,
-            EndpointTransportKind: session.Endpoint.TransportKind,
-            EndpointAddress: session.Endpoint.Address,
+            EndpointTransportKind: session.EndpointContract.TransportKind,
+            EndpointAddress: session.EndpointContract.Address,
             ProcessId: session.ProcessId,
             ProcessStartedAtUtc: session.ProcessStartedAtUtc,
             OwnerProcessId: session.OwnerProcessId,

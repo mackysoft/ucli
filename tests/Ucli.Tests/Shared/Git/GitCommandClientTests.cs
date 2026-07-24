@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Tests.Helpers.Git;
 using MackySoft.Ucli.Tests.Helpers.Process;
@@ -14,6 +15,7 @@ public sealed class GitCommandClientTests
             ProcessRunResult.Exited(0, standardOutput: "/repo/wt-current" + Environment.NewLine),
             ProcessRunResult.Exited(0, standardOutput: "/repo/wt-current" + Environment.NewLine));
         var client = new GitCommandClient(processRunner);
+        var unityProjectPath = GuardedPath("/repo/wt-current/UnityProject");
 
         foreach (var timeout in new[]
         {
@@ -22,7 +24,7 @@ public sealed class GitCommandClientTests
         })
         {
             var result = await client.GetCurrentWorktreeRootAsync(
-                "/repo/wt-current/UnityProject",
+                unityProjectPath,
                 timeout,
                 CancellationToken.None);
 
@@ -32,6 +34,7 @@ public sealed class GitCommandClientTests
 
         GitCommandProcessAssert.WorktreeRootRequestedWithTimeouts(
             processRunner,
+            unityProjectPath,
             TimeSpan.FromSeconds(30),
             TimeSpan.FromMilliseconds(200));
     }
@@ -46,7 +49,7 @@ public sealed class GitCommandClientTests
         ]));
 
         var result = await client.GetCurrentProjectRelativePathAsync(
-            "/repo/not-git/UnityProject",
+            GuardedPath("/repo/not-git/UnityProject"),
             TimeSpan.FromSeconds(10),
             CancellationToken.None);
 
@@ -65,7 +68,7 @@ public sealed class GitCommandClientTests
         ]));
 
         var result = await client.GetCurrentProjectRelativePathAsync(
-            "/repo/not-git/UnityProject",
+            GuardedPath("/repo/not-git/UnityProject"),
             TimeSpan.FromSeconds(10),
             CancellationToken.None);
 
@@ -84,7 +87,7 @@ public sealed class GitCommandClientTests
         ]));
 
         var result = await client.GetWorktreeListPorcelainAsync(
-            "/repo/wt-current/UnityProject",
+            GuardedPath("/repo/wt-current/UnityProject"),
             TimeSpan.FromSeconds(10),
             CancellationToken.None);
 
@@ -93,4 +96,8 @@ public sealed class GitCommandClientTests
         Assert.Contains("worktree list failed", result.Error.Message, StringComparison.Ordinal);
     }
 
+    private static AbsolutePath GuardedPath (string path)
+    {
+        return AbsolutePath.Parse(Path.GetFullPath(path));
+    }
 }

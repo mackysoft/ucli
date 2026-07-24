@@ -22,17 +22,17 @@ public sealed record IpcScreenshotCapture
         IpcScreenshotColorSpace ColorSpace,
         UnityEditorStateSnapshot State)
     {
-        if (!ContractLiteralCodec.IsDefined(Target))
+        if (!TextVocabulary.IsDefined(Target))
         {
             throw new ArgumentOutOfRangeException(nameof(Target), Target, "Screenshot target must be specified.");
         }
 
-        if (!ContractLiteralCodec.IsDefined(SizeMode))
+        if (!TextVocabulary.IsDefined(SizeMode))
         {
             throw new ArgumentOutOfRangeException(nameof(SizeMode), SizeMode, "Screenshot size mode must be specified.");
         }
 
-        if (!ContractLiteralCodec.IsDefined(ColorSpace))
+        if (!TextVocabulary.IsDefined(ColorSpace))
         {
             throw new ArgumentOutOfRangeException(nameof(ColorSpace), ColorSpace, "Screenshot color space must be specified.");
         }

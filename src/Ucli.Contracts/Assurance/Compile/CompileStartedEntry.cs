@@ -28,19 +28,19 @@ public sealed record CompileStartedEntry
 
         this.RunId = RunId;
         this.ProjectFingerprint = ContractArgumentGuard.RequireNotNull(ProjectFingerprint, nameof(ProjectFingerprint));
-        if (!ContractLiteralCodec.IsDefined(RequestedMode))
+        if (!TextVocabulary.IsDefined(RequestedMode))
         {
             throw new ArgumentOutOfRangeException(nameof(RequestedMode), RequestedMode, "Requested execution mode must be defined by the assurance contract.");
         }
 
-        if (!ContractLiteralCodec.IsDefined(ResolvedMode))
+        if (!TextVocabulary.IsDefined(ResolvedMode))
         {
             throw new ArgumentOutOfRangeException(nameof(ResolvedMode), ResolvedMode, "Resolved execution mode must be defined by the assurance contract.");
         }
 
         this.RequestedMode = RequestedMode;
         this.ResolvedMode = ResolvedMode;
-        if (!ContractLiteralCodec.IsDefined(SessionKind))
+        if (!TextVocabulary.IsDefined(SessionKind))
         {
             throw new ArgumentOutOfRangeException(nameof(SessionKind), SessionKind, "Session kind must be defined by the assurance contract.");
         }

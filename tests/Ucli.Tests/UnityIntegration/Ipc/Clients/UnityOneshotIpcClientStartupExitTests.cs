@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Shared.Unity.ProjectLock;
 using MackySoft.Ucli.Tests.Helpers.Ipc;
@@ -22,7 +23,8 @@ public sealed class UnityOneshotIpcClientStartupExitTests
             new RecordingUnityIpcTransportClient(_ => throw new Xunit.Sdk.XunitException("Transport should not be called.")),
             new StubProjectLifecycleLockProvider(),
             CreateProjectLockPreflightService(
-                UnityProjectLockFileProbeResult.Locked(scope.GetPath("UnityProject/Temp/UnityLockfile"))));
+                UnityProjectLockFileProbeResult.Locked(
+                    AbsolutePath.Parse(scope.GetPath("UnityProject/Temp/UnityLockfile")))));
 
         var result = await client.SendAsync(
             unityProject,
@@ -53,7 +55,8 @@ public sealed class UnityOneshotIpcClientStartupExitTests
             new RecordingUnityIpcTransportClient(_ => throw new Xunit.Sdk.XunitException("Transport should not be called.")),
             new StubProjectLifecycleLockProvider(),
             CreateProjectLockPreflightService(
-                UnityProjectLockFileProbeResult.Unlocked(scope.GetPath("UnityProject/Temp/UnityLockfile"))));
+                UnityProjectLockFileProbeResult.Unlocked(
+                    AbsolutePath.Parse(scope.GetPath("UnityProject/Temp/UnityLockfile")))));
 
         var result = await client.SendAsync(
             unityProject,
@@ -124,7 +127,8 @@ public sealed class UnityOneshotIpcClientStartupExitTests
             new RecordingUnityIpcTransportClient(_ => throw new Xunit.Sdk.XunitException("Transport should not be called.")),
             new StubProjectLifecycleLockProvider(),
             CreateProjectLockPreflightService(
-                UnityProjectLockFileProbeResult.Unlocked(scope.GetPath("UnityProject/Temp/UnityLockfile"))),
+                UnityProjectLockFileProbeResult.Unlocked(
+                    AbsolutePath.Parse(scope.GetPath("UnityProject/Temp/UnityLockfile")))),
             logReader);
 
         var result = await client.SendAsync(
@@ -168,7 +172,8 @@ public sealed class UnityOneshotIpcClientStartupExitTests
             new RecordingUnityIpcTransportClient(_ => throw new Xunit.Sdk.XunitException("Transport should not be called.")),
             new StubProjectLifecycleLockProvider(),
             CreateProjectLockPreflightService(
-                UnityProjectLockFileProbeResult.Unlocked(scope.GetPath("UnityProject/Temp/UnityLockfile"))),
+                UnityProjectLockFileProbeResult.Unlocked(
+                    AbsolutePath.Parse(scope.GetPath("UnityProject/Temp/UnityLockfile")))),
             logReader);
 
         var result = await client.SendAsync(
@@ -212,7 +217,7 @@ public sealed class UnityOneshotIpcClientStartupExitTests
             new RecordingUnityIpcTransportClient(_ => throw new Xunit.Sdk.XunitException("Transport should not be called.")),
             new StubProjectLifecycleLockProvider(),
             CreateProjectLockPreflightService(
-                UnityProjectLockFileProbeResult.Locked(lockFilePath)),
+                UnityProjectLockFileProbeResult.Locked(AbsolutePath.Parse(lockFilePath))),
             logReader);
 
         var result = await client.SendAsync(

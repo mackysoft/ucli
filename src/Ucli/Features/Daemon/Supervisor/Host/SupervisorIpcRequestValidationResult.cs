@@ -41,7 +41,7 @@ internal sealed class SupervisorIpcRequestValidationResult
         IpcResponseMode responseMode)
     {
         ArgumentNullException.ThrowIfNull(errorResponse);
-        if (!ContractLiteralCodec.IsDefined(responseMode))
+        if (!TextVocabulary.IsDefined(responseMode))
         {
             throw new ArgumentOutOfRangeException(nameof(responseMode), responseMode, "IPC response mode must be defined.");
         }

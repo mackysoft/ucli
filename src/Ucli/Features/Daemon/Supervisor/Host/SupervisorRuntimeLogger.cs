@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Infrastructure.Storage;
 
 namespace MackySoft.Ucli.Features.Daemon.Supervisor.Host;
@@ -13,7 +14,7 @@ internal sealed class SupervisorRuntimeLogger
     /// <param name="message"> The log message body. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by the caller. </param>
     public async Task WriteAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         string level,
         string message,
         CancellationToken cancellationToken = default)
@@ -21,17 +22,18 @@ internal sealed class SupervisorRuntimeLogger
         cancellationToken.ThrowIfCancellationRequested();
 
         var logPath = UcliStoragePathResolver.ResolveSupervisorLogPath(storageRoot);
-        var logDirectoryPath = Path.GetDirectoryName(logPath);
-        if (!string.IsNullOrWhiteSpace(logDirectoryPath))
+        if (!logPath.TryGetParent(out var logDirectoryPath))
         {
-            FileSystemAccessBoundary.EnsureSecureDirectory(logDirectoryPath);
+            throw new InvalidOperationException(
+                $"Supervisor log directory could not be resolved: {logPath.Value}");
         }
 
+        FileSystemAccessBoundary.EnsureSecureDirectory(logDirectoryPath);
         await writeGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
             var line = $"{DateTimeOffset.UtcNow:O} [{level}] {message}{Environment.NewLine}";
-            await File.AppendAllTextAsync(logPath, line, cancellationToken).ConfigureAwait(false);
+            await File.AppendAllTextAsync(logPath.Value, line, cancellationToken).ConfigureAwait(false);
         }
         finally
         {

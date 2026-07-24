@@ -6,6 +6,7 @@ using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Threading;
 using Cysharp.Threading.Tasks;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -38,9 +39,9 @@ namespace MackySoft.Ucli.Unity.Tests
         public void PrepareAsync_WhenEditorInstanceIdIsEmpty_ThrowsArgumentException ()
         {
             var exception = Assert.Throws<ArgumentException>(() => UnityGuiSessionPersistence.PrepareAsync(
-                    Path.GetTempPath(),
+                    AbsolutePath.Parse(Path.GetTempPath()),
                     ProjectFingerprint,
-                    CreateDefaultEndpoint(),
+                    UnityIpcEndpointBinding.Create(CreateDefaultEndpoint()),
                     UnityGuiBootstrapSessionOptions.Create(null),
                     Guid.Empty,
                     UnityGuiSessionReplacementScope.EquivalentCurrentProcessSession,
@@ -56,13 +57,13 @@ namespace MackySoft.Ucli.Unity.Tests
         public void UnityGuiSessionRegistration_WhenIssuedAtUtcIsNotCanonicalUtc_ThrowsArgumentException ()
         {
             var exception = Assert.Throws<ArgumentException>(() => new UnityGuiSessionRegistration(
-                sessionPath: "session.json",
-                sessionLockPath: "session.lock",
+                sessionPath: AbsolutePath.Parse(Path.Combine(Path.GetTempPath(), "session.json")),
+                sessionLockPath: AbsolutePath.Parse(Path.Combine(Path.GetTempPath(), "session.lock")),
                 sessionGenerationId: Guid.NewGuid(),
                 sessionToken: ParseSessionToken(FirstCanonicalSessionToken),
                 projectFingerprint: ProjectFingerprint,
                 issuedAtUtc: new DateTimeOffset(2026, 7, 15, 9, 0, 0, TimeSpan.FromHours(9)),
-                endpoint: CreateDefaultEndpoint(),
+                endpointBinding: UnityIpcEndpointBinding.Create(CreateDefaultEndpoint()),
                 canShutdownProcess: false));
 
             Assert.That(exception.ParamName, Is.EqualTo("issuedAtUtc"));
@@ -98,13 +99,13 @@ namespace MackySoft.Ucli.Unity.Tests
                     ProjectFingerprint,
                     expectedSessionToken: retiredToken);
 
-                Assert.That(File.Exists(manifestPath), Is.True);
+                Assert.That(File.Exists(manifestPath.Value), Is.True);
 
                 UnityGuiSupervisorPersistence.Delete(
                     storageRoot,
                     ProjectFingerprint,
                     expectedSessionToken: successorToken);
-                Assert.That(File.Exists(manifestPath), Is.False);
+                Assert.That(File.Exists(manifestPath.Value), Is.False);
             }
             finally
             {
@@ -186,7 +187,7 @@ namespace MackySoft.Ucli.Unity.Tests
             try
             {
                 var sessionPath = UcliStoragePathResolver.ResolveSessionPath(storageRoot, ProjectFingerprint);
-                var sessionDirectoryPath = Path.GetDirectoryName(sessionPath);
+                var sessionDirectoryPath = Path.GetDirectoryName(sessionPath.Value);
                 Assert.That(sessionDirectoryPath, Is.Not.Null);
                 Directory.CreateDirectory(sessionDirectoryPath!);
                 using var currentProcess = Process.GetCurrentProcess();
@@ -236,7 +237,7 @@ namespace MackySoft.Ucli.Unity.Tests
             try
             {
                 var sessionPath = UcliStoragePathResolver.ResolveSessionPath(storageRoot, ProjectFingerprint);
-                var sessionDirectoryPath = Path.GetDirectoryName(sessionPath);
+                var sessionDirectoryPath = Path.GetDirectoryName(sessionPath.Value);
                 Assert.That(sessionDirectoryPath, Is.Not.Null);
                 Directory.CreateDirectory(sessionDirectoryPath!);
                 using var currentProcess = Process.GetCurrentProcess();
@@ -292,7 +293,7 @@ namespace MackySoft.Ucli.Unity.Tests
             try
             {
                 var sessionPath = UcliStoragePathResolver.ResolveSessionPath(storageRoot, ProjectFingerprint);
-                var sessionDirectoryPath = Path.GetDirectoryName(sessionPath);
+                var sessionDirectoryPath = Path.GetDirectoryName(sessionPath.Value);
                 Assert.That(sessionDirectoryPath, Is.Not.Null);
                 Directory.CreateDirectory(sessionDirectoryPath!);
                 using var currentProcess = Process.GetCurrentProcess();
@@ -348,7 +349,7 @@ namespace MackySoft.Ucli.Unity.Tests
             try
             {
                 var sessionPath = UcliStoragePathResolver.ResolveSessionPath(storageRoot, ProjectFingerprint);
-                var sessionDirectoryPath = Path.GetDirectoryName(sessionPath);
+                var sessionDirectoryPath = Path.GetDirectoryName(sessionPath.Value);
                 Assert.That(sessionDirectoryPath, Is.Not.Null);
                 Directory.CreateDirectory(sessionDirectoryPath!);
                 using var currentProcess = Process.GetCurrentProcess();
@@ -403,7 +404,7 @@ namespace MackySoft.Ucli.Unity.Tests
             try
             {
                 var sessionPath = UcliStoragePathResolver.ResolveSessionPath(storageRoot, ProjectFingerprint);
-                var sessionDirectoryPath = Path.GetDirectoryName(sessionPath);
+                var sessionDirectoryPath = Path.GetDirectoryName(sessionPath.Value);
                 Assert.That(sessionDirectoryPath, Is.Not.Null);
                 Directory.CreateDirectory(sessionDirectoryPath!);
                 using var currentProcess = Process.GetCurrentProcess();
@@ -426,7 +427,7 @@ namespace MackySoft.Ucli.Unity.Tests
                         EditorInstanceId: EditorInstanceId));
 
                 System.Threading.Tasks.Task<UnityGuiSessionRegistration> replacementTask;
-                using (new FileStream(sessionPath, FileMode.Open, FileAccess.Read, FileShare.Read))
+                using (new FileStream(sessionPath.Value, FileMode.Open, FileAccess.Read, FileShare.Read))
                 {
                     replacementTask = PrepareAndPublishSessionAsync(
                         storageRoot,
@@ -457,7 +458,7 @@ namespace MackySoft.Ucli.Unity.Tests
             try
             {
                 var sessionPath = UcliStoragePathResolver.ResolveSessionPath(storageRoot, ProjectFingerprint);
-                var sessionDirectoryPath = Path.GetDirectoryName(sessionPath);
+                var sessionDirectoryPath = Path.GetDirectoryName(sessionPath.Value);
                 Assert.That(sessionDirectoryPath, Is.Not.Null);
                 Directory.CreateDirectory(sessionDirectoryPath!);
                 using var currentProcess = Process.GetCurrentProcess();
@@ -513,7 +514,7 @@ namespace MackySoft.Ucli.Unity.Tests
             try
             {
                 var sessionPath = UcliStoragePathResolver.ResolveSessionPath(storageRoot, ProjectFingerprint);
-                var sessionDirectoryPath = Path.GetDirectoryName(sessionPath);
+                var sessionDirectoryPath = Path.GetDirectoryName(sessionPath.Value);
                 Assert.That(sessionDirectoryPath, Is.Not.Null);
                 Directory.CreateDirectory(sessionDirectoryPath!);
                 using var currentProcess = Process.GetCurrentProcess();
@@ -536,7 +537,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 var serializedEditorInstanceId = EditorInstanceId.ToString("D");
                 Assert.That(validJson, Does.Contain(serializedEditorInstanceId));
                 File.WriteAllText(
-                    sessionPath,
+                    sessionPath.Value,
                     validJson.Replace(serializedEditorInstanceId, "editor-instance") + Environment.NewLine);
 
                 InvalidOperationException exception = null;
@@ -555,7 +556,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
                 Assert.That(exception, Is.Not.Null);
                 Assert.That(exception.Message, Does.Contain("GUI session already exists"));
-                using var jsonDocument = JsonDocument.Parse(File.ReadAllText(sessionPath));
+                using var jsonDocument = JsonDocument.Parse(File.ReadAllText(sessionPath.Value));
                 Assert.That(
                     jsonDocument.RootElement.GetProperty("sessionToken").GetString(),
                     Is.EqualTo("existing-malformed-editor-token"));
@@ -573,16 +574,21 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public IEnumerator PrepareAndPublish_WhenCurrentProcessGuiSessionUsesUnexpectedUnixEndpoint_DoesNotDeleteEndpointResidue () => UniTask.ToCoroutine(async () =>
         {
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                return;
+            }
+
             var storageRoot = CreateStorageRoot();
             var endpointDirectoryAddress = CreateUnixEndpointFixtureDirectoryAddress();
             var endpointDirectoryPath = Path.GetFullPath(endpointDirectoryAddress);
-            var unexpectedEndpointAddress = $"{endpointDirectoryAddress}/unexpected.sock";
+            var unexpectedEndpointAddress = Path.Combine(endpointDirectoryAddress, "unexpected.sock");
             var unexpectedEndpointPath = Path.GetFullPath(unexpectedEndpointAddress);
-            var expectedEndpointAddress = $"{endpointDirectoryAddress}/expected.sock";
+            var expectedEndpointAddress = Path.Combine(endpointDirectoryAddress, "expected.sock");
             try
             {
                 var sessionPath = UcliStoragePathResolver.ResolveSessionPath(storageRoot, ProjectFingerprint);
-                var sessionDirectoryPath = Path.GetDirectoryName(sessionPath);
+                var sessionDirectoryPath = Path.GetDirectoryName(sessionPath.Value);
                 Assert.That(sessionDirectoryPath, Is.Not.Null);
                 Directory.CreateDirectory(sessionDirectoryPath!);
                 using var currentProcess = Process.GetCurrentProcess();
@@ -640,7 +646,7 @@ namespace MackySoft.Ucli.Unity.Tests
             try
             {
                 var sessionPath = UcliStoragePathResolver.ResolveSessionPath(storageRoot, ProjectFingerprint);
-                var sessionDirectoryPath = Path.GetDirectoryName(sessionPath);
+                var sessionDirectoryPath = Path.GetDirectoryName(sessionPath.Value);
                 Assert.That(sessionDirectoryPath, Is.Not.Null);
                 Directory.CreateDirectory(sessionDirectoryPath!);
                 WriteSessionContract(
@@ -690,12 +696,50 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator Delete_WhenRegistrationOwnsUnixEndpoint_DeletesEndpointResidue () => UniTask.ToCoroutine(async () =>
+        {
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                return;
+            }
+
+            var storageRoot = CreateStorageRoot();
+            var endpointDirectoryAddress = CreateUnixEndpointFixtureDirectoryAddress();
+            var endpointResiduePath = Path.Combine(endpointDirectoryAddress, "endpoint.sock");
+            try
+            {
+                var registration = await PrepareAndPublishSessionAsync(
+                    storageRoot,
+                    UnityGuiBootstrapSessionOptions.Create(null),
+                    new IpcEndpoint(IpcTransportKind.UnixDomainSocket, endpointResiduePath),
+                    UnityGuiSessionReplacementScope.EquivalentCurrentProcessSession);
+                File.WriteAllText(endpointResiduePath, "socket residue placeholder");
+
+                UnityGuiSessionPersistence.Delete(registration);
+
+                Assert.That(File.Exists(registration.SessionPath.Value), Is.False);
+                Assert.That(File.Exists(endpointResiduePath), Is.False);
+            }
+            finally
+            {
+                DeleteDirectory(endpointDirectoryAddress);
+                DeleteDirectory(storageRoot);
+            }
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator Delete_WhenSessionWasReplaced_LeavesCurrentSessionAndEndpointResidue () => UniTask.ToCoroutine(async () =>
         {
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                return;
+            }
+
             var storageRoot = CreateStorageRoot();
             var endpointDirectoryAddress = CreateUnixEndpointFixtureDirectoryAddress();
             var endpointDirectoryPath = Path.GetFullPath(endpointDirectoryAddress);
-            var endpointResidueAddress = $"{endpointDirectoryAddress}/endpoint.sock";
+            var endpointResidueAddress = Path.Combine(endpointDirectoryAddress, "endpoint.sock");
             var endpointResiduePath = Path.GetFullPath(endpointResidueAddress);
             try
             {
@@ -721,7 +765,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
                 UnityGuiSessionPersistence.Delete(registration);
 
-                Assert.That(File.Exists(registration.SessionPath), Is.True);
+                Assert.That(File.Exists(registration.SessionPath.Value), Is.True);
                 Assert.That(File.Exists(endpointResiduePath), Is.True);
                 var contract = ReadSessionContract(storageRoot);
                 Assert.That(contract.SessionToken, Is.EqualTo("replacement-session-token"));
@@ -758,7 +802,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 var secondSessionToken = ReadSessionContract(storageRoot).SessionToken;
 
                 Assert.That(secondSessionToken, Is.Not.EqualTo(firstSessionToken));
-                Assert.That(File.Exists(secondRegistration.SessionPath), Is.True);
+                Assert.That(File.Exists(secondRegistration.SessionPath.Value), Is.True);
             }
             finally
             {
@@ -767,7 +811,7 @@ namespace MackySoft.Ucli.Unity.Tests
         });
 
         private static async UniTask<UnityGuiSessionRegistration> PrepareAndPublishSessionAsync (
-            string storageRoot,
+            AbsolutePath storageRoot,
             UnityGuiBootstrapSessionOptions sessionOptions,
             IpcEndpoint endpoint,
             UnityGuiSessionReplacementScope sessionReplacementScope)
@@ -775,7 +819,7 @@ namespace MackySoft.Ucli.Unity.Tests
             using var preparedSession = await UnityGuiSessionPersistence.PrepareAsync(
                 storageRoot,
                 ProjectFingerprint,
-                endpoint,
+                UnityIpcEndpointBinding.Create(endpoint),
                 sessionOptions,
                 EditorInstanceId,
                 sessionReplacementScope: sessionReplacementScope,
@@ -790,27 +834,28 @@ namespace MackySoft.Ucli.Unity.Tests
             return new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-gui-session-tests");
         }
 
-        private static DaemonSessionJsonContract ReadSessionContract (string storageRoot)
+        private static DaemonSessionJsonContract ReadSessionContract (AbsolutePath storageRoot)
         {
             var sessionPath = UcliStoragePathResolver.ResolveSessionPath(storageRoot, ProjectFingerprint);
-            var json = File.ReadAllText(sessionPath);
+            var json = File.ReadAllText(sessionPath.Value);
             var contract = DaemonSessionJsonContractSerializer.Deserialize(json);
             Assert.That(contract, Is.Not.Null);
             return contract!;
         }
 
         private static void WriteSessionContract (
-            string sessionPath,
+            AbsolutePath sessionPath,
             DaemonSessionJsonContract contract)
         {
             File.WriteAllText(
-                sessionPath,
+                sessionPath.Value,
                 DaemonSessionJsonContractSerializer.Serialize(contract) + Environment.NewLine);
         }
 
-        private static string CreateStorageRoot ()
+        private static AbsolutePath CreateStorageRoot ()
         {
-            return Path.Combine(Path.GetTempPath(), $"ucli-gui-session-tests-{Guid.NewGuid():N}");
+            return AbsolutePath.Parse(
+                Path.Combine(Path.GetTempPath(), $"ucli-gui-session-tests-{Guid.NewGuid():N}"));
         }
 
         private static string CreateUnixEndpointFixtureDirectoryAddress ()
@@ -832,6 +877,11 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 Directory.Delete(storageRoot, recursive: true);
             }
+        }
+
+        private static void DeleteDirectory (AbsolutePath storageRoot)
+        {
+            DeleteDirectory(storageRoot.Value);
         }
 
     }

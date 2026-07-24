@@ -3,6 +3,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Launch;
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Application.Shared.Identifiers;
+using MackySoft.Ucli.Features.Daemon.Common.Ipc;
 using MackySoft.Ucli.Infrastructure.Ipc;
 
 namespace MackySoft.Ucli.Features.Daemon.Lifecycle.Start.Launch;
@@ -64,11 +65,13 @@ internal sealed class DaemonLaunchSessionService : IDaemonLaunchSessionService
             launchEditorMode,
             DaemonSessionOwnerKind.Cli,
             canShutdownProcess: true,
-            endpoint,
+            endpoint.Contract,
+            endpoint.UnixSocketPath,
             processId: null,
             processStartedAtUtc: null,
             Environment.ProcessId,
             editorInstanceId: null);
+        DaemonSessionIpcTransportEndpointAdapter.Bind(session, endpoint);
 
         var writeResult = await daemonSessionStore.WriteAsync(
                 unityProject.RepositoryRoot,
@@ -121,11 +124,15 @@ internal sealed class DaemonLaunchSessionService : IDaemonLaunchSessionService
             session.EditorMode,
             session.OwnerKind,
             session.CanShutdownProcess,
-            session.Endpoint,
+            session.EndpointContract,
+            session.UnixSocketEndpointPath,
             launchedProcessId,
             processStartedAtUtc.Value,
             session.OwnerProcessId,
             session.EditorInstanceId);
+        DaemonSessionIpcTransportEndpointAdapter.Bind(
+            updatedSession,
+            DaemonSessionIpcTransportEndpointAdapter.Adapt(session));
         var writeResult = await daemonSessionStore.WriteAsync(
                 unityProject.RepositoryRoot,
                 updatedSession,

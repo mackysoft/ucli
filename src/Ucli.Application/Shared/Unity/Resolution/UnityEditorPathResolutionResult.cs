@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Shared.Foundation;
 
 namespace MackySoft.Ucli.Application.Shared.Unity.Resolution;
@@ -6,19 +7,19 @@ namespace MackySoft.Ucli.Application.Shared.Unity.Resolution;
 /// <param name="UnityEditorPath"> The resolved editor path on success; otherwise <see langword="null" />. </param>
 /// <param name="Error"> The structured error on failure; otherwise <see langword="null" />. </param>
 internal sealed record UnityEditorPathResolutionResult (
-    string? UnityEditorPath,
+    AbsolutePath? UnityEditorPath,
     ExecutionError? Error)
 {
     /// <summary> Gets a value indicating whether resolution succeeded. </summary>
-    public bool IsSuccess => !string.IsNullOrWhiteSpace(UnityEditorPath) && Error is null;
+    public bool IsSuccess => UnityEditorPath is not null && Error is null;
 
     /// <summary> Creates a successful editor-path resolution result. </summary>
     /// <param name="unityEditorPath"> The resolved editor path. </param>
     /// <returns> The successful result. </returns>
-    /// <exception cref="ArgumentException"> Thrown when <paramref name="unityEditorPath" /> is <see langword="null" />, empty, or whitespace. </exception>
-    public static UnityEditorPathResolutionResult Success (string unityEditorPath)
+    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityEditorPath" /> is <see langword="null" />. </exception>
+    public static UnityEditorPathResolutionResult Success (AbsolutePath unityEditorPath)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(unityEditorPath);
+        ArgumentNullException.ThrowIfNull(unityEditorPath);
         return new UnityEditorPathResolutionResult(unityEditorPath, null);
     }
 

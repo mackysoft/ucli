@@ -1,8 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ "$#" -ne 2 ]]; then
+print_usage() {
   echo "Usage: $0 <package-dir> <expected-version>" >&2
+}
+
+if [[ "$#" -ne 2 ]]; then
+  print_usage
   exit 2
 fi
 
@@ -27,68 +31,101 @@ if [[ ! -f "${package_path}" ]]; then
   exit 1
 fi
 
+filesystem_package_id="MackySoft.FileSystem"
+filesystem_package_version="0.1.0"
+canonicalization_package_id="MackySoft.Json.Canonicalization"
+canonicalization_package_version="0.1.0"
+
+for required_tool in cmp dotnet unzip; do
+  if ! command -v "${required_tool}" >/dev/null 2>&1; then
+    echo "Required tool is missing: ${required_tool}" >&2
+    exit 1
+  fi
+done
+require_python3
+
+text_package_version="0.1.0"
+text_package_ids=(
+  "MackySoft.Text.Vocabularies"
+  "MackySoft.Text.Vocabularies.Json"
+)
+foundation_package_ids=(
+  "${filesystem_package_id}"
+  "${text_package_ids[@]}"
+  "${canonicalization_package_id}"
+)
+canonicalization_notice_root="tools/net8.0/any/third-party/${canonicalization_package_id}/${canonicalization_package_version}"
+canonicalization_notice_files=(
+  "LICENSE"
+  "THIRD-PARTY-NOTICES.md"
+  "licenses/Apache-2.0.txt"
+  "licenses/MPL-2.0.txt"
+)
+
 temp_root="${RUNNER_TEMP:-${TMPDIR:-/tmp}}"
 tool_path="$(mktemp -d "${temp_root%/}/ucli-tool.XXXXXX")"
+verification_root="$(mktemp -d "${temp_root%/}/ucli-tool-verification.XXXXXX")"
 tool_packages_root="$(mktemp -d "${temp_root%/}/ucli-tool-packages.XXXXXX")"
-tool_nuget_config="${tool_path}/NuGet.config"
-provider_restore_project="${tool_path}/ProviderRestore.csproj"
-canonicalization_package_version="0.1.0"
-canonicalization_package_artifact="${package_dir}/MackySoft.Json.Canonicalization.${canonicalization_package_version}.nupkg"
-canonicalization_local_mapping=""
-canonicalization_remote_mapping='      <package pattern="MackySoft.Json.Canonicalization" />'
-expected_canonicalization_source="https://api.nuget.org/v3/index.json"
-if [[ -f "${canonicalization_package_artifact}" ]]; then
-  canonicalization_local_mapping='      <package pattern="MackySoft.Json.Canonicalization" />'
-  canonicalization_remote_mapping=""
-  expected_canonicalization_source="${package_dir}"
-fi
+tool_http_cache="$(mktemp -d "${temp_root%/}/ucli-tool-http-cache.XXXXXX")"
+tool_dotnet_home="$(mktemp -d "${temp_root%/}/ucli-tool-dotnet-home.XXXXXX")"
+tool_package_source="${verification_root}/tool-source"
+tool_nuget_config="${verification_root}/NuGet.config"
 install_repo=""
-trap 'rm -rf "${tool_path}" "${tool_packages_root}" "${install_repo}"' EXIT
+
+cleanup() {
+  rm -rf \
+    "${tool_path}" \
+    "${verification_root}" \
+    "${tool_packages_root}" \
+    "${tool_http_cache}" \
+    "${tool_dotnet_home}"
+  if [[ -n "${install_repo}" ]]; then
+    rm -rf "${install_repo}"
+  fi
+}
+
+trap cleanup EXIT
+
+mkdir -p "${tool_package_source}"
+cp "${package_path}" "${tool_package_source}/"
 
 cat > "${tool_nuget_config}" <<EOF
 <?xml version="1.0" encoding="utf-8"?>
 <configuration>
   <packageSources>
     <clear />
-    <add key="PackageArtifacts" value="${package_dir}" />
+    <add key="ToolPackage" value="./tool-source" />
     <add key="nuget.org" value="https://api.nuget.org/v3/index.json" />
   </packageSources>
   <packageSourceMapping>
-    <packageSource key="PackageArtifacts">
+    <packageSource key="ToolPackage">
       <package pattern="MackySoft.Ucli" />
-${canonicalization_local_mapping}
     </packageSource>
     <packageSource key="nuget.org">
-${canonicalization_remote_mapping}
+      <package pattern="ConsoleAppFramework*" />
+      <package pattern="MackySoft.AgentSkills*" />
+      <package pattern="MackySoft.FileSystem" />
+      <package pattern="MackySoft.Json.Canonicalization" />
+      <package pattern="MackySoft.Text.Vocabularies" />
+      <package pattern="MackySoft.Text.Vocabularies.Json" />
       <package pattern="Microsoft.*" />
+      <package pattern="NETStandard.Library" />
+      <package pattern="Newtonsoft.Json" />
       <package pattern="System.*" />
+      <package pattern="runtime.*" />
     </packageSource>
   </packageSourceMapping>
 </configuration>
 EOF
 
-cat > "${provider_restore_project}" <<EOF
-<Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
-  </PropertyGroup>
-  <ItemGroup>
-    <PackageReference Include="MackySoft.Json.Canonicalization" Version="[${canonicalization_package_version}]" />
-  </ItemGroup>
-</Project>
-EOF
+export DOTNET_CLI_HOME="${tool_dotnet_home}"
+export NUGET_HTTP_CACHE_PATH="${tool_http_cache}"
+export NUGET_PACKAGES="${tool_packages_root}"
 
-# Restore the provider into the same isolated cache used by the tool install.
-# A local provider artifact is exact-mapped during pre-publication validation;
-# after publication the fixed version is resolved from nuget.org.
-NUGET_PACKAGES="${tool_packages_root}" dotnet restore "${provider_restore_project}" \
-  --configfile "${tool_nuget_config}" \
-  --no-cache \
-  --force-evaluate
-
-# Resolve the tool from the inspected package directory and an empty cache so
-# another package with the same version cannot satisfy the smoke test.
-NUGET_PACKAGES="${tool_packages_root}" dotnet tool install \
+# Resolve the tool from the inspected package directory and an empty cache.
+# Foundation dependencies must therefore be satisfied by their public packages
+# or by the runtime closure intentionally embedded in the tool package.
+dotnet tool install \
   --tool-path "${tool_path}" \
   --configfile "${tool_nuget_config}" \
   --no-http-cache \
@@ -112,23 +149,26 @@ if ! "${tool_path}/ucli" query --help | grep -F "asset schema" >/dev/null; then
 fi
 
 package_entries="$(unzip -Z1 "${package_path}")"
-canonicalization_notice_root="tools/net8.0/any/third-party/MackySoft.Json.Canonicalization/${canonicalization_package_version}"
-canonicalization_notice_files=(
-  "LICENSE"
-  "THIRD-PARTY-NOTICES.md"
-  "licenses/Apache-2.0.txt"
-  "licenses/MPL-2.0.txt"
-)
+filesystem_license_entry="tools/net8.0/any/third-party/${filesystem_package_id}/${filesystem_package_version}/LICENSE"
 required_package_entries=(
   "README.md"
   "LICENSE"
   "tools/net8.0/any/DotnetToolSettings.xml"
-  "tools/net8.0/any/MackySoft.Json.Canonicalization.dll"
+  "tools/net8.0/any/${filesystem_package_id}.dll"
+  "${filesystem_license_entry}"
+  "tools/net8.0/any/MackySoft.Text.Vocabularies.dll"
+  "tools/net8.0/any/MackySoft.Text.Vocabularies.Json.dll"
+  "tools/net8.0/any/${canonicalization_package_id}.dll"
   "tools/net8.0/any/MackySoft.Ucli.deps.json"
   "tools/net8.0/any/THIRD-PARTY-NOTICES"
   "tools/net8.0/any/schemas/v1/schema-manifest.json"
   "tools/net8.0/any/skills/bundle.json"
 )
+for package_id in "${text_package_ids[@]}"; do
+  required_package_entries+=(
+    "tools/net8.0/any/third-party/${package_id}/${text_package_version}/LICENSE"
+  )
+done
 for relative_path in "${canonicalization_notice_files[@]}"; do
   required_package_entries+=("${canonicalization_notice_root}/${relative_path}")
 done
@@ -140,176 +180,89 @@ for entry in "${required_package_entries[@]}"; do
   fi
 done
 
-if grep -Fi "es6numberserializer" <<< "${package_entries}" >/dev/null; then
-  echo "CLI package contains the legacy es6numberserializer package or assembly." >&2
-  grep -Fi "es6numberserializer" <<< "${package_entries}" >&2
-  exit 1
-fi
-
-if grep -Ei '(^|/)MackySoft[.]Json[.]Canonicalization[.][^/]+[.]nupkg$' <<< "${package_entries}" >/dev/null; then
-  echo "CLI package must redistribute only the canonicalization runtime closure, not the standalone provider nupkg." >&2
-  exit 1
-fi
-
-if unzip -p "${package_path}" tools/net8.0/any/MackySoft.Ucli.deps.json \
-  | grep -Fi "es6numberserializer" >/dev/null; then
-  echo "CLI package dependency manifest references the legacy es6numberserializer package or assembly." >&2
-  exit 1
-fi
-
-canonicalization_package_root="${tool_packages_root}/mackysoft.json.canonicalization/${canonicalization_package_version}"
-if [[ ! -d "${canonicalization_package_root}" ]]; then
-  echo "Restored MackySoft.Json.Canonicalization package was not found: ${canonicalization_package_root}" >&2
-  exit 1
-fi
-
-canonicalization_metadata_path="${canonicalization_package_root}/.nupkg.metadata"
-require_python3
-CANONICALIZATION_METADATA_PATH="${canonicalization_metadata_path}" \
-EXPECTED_CANONICALIZATION_SOURCE="${expected_canonicalization_source}" \
-python3 - <<'PY'
-import json
-import os
-import sys
-
-metadata_path = os.environ["CANONICALIZATION_METADATA_PATH"]
-expected_source = os.environ["EXPECTED_CANONICALIZATION_SOURCE"]
-if not os.path.isfile(metadata_path):
-    print(
-        f"Restored MackySoft.Json.Canonicalization metadata was not found: {metadata_path}",
-        file=sys.stderr,
-    )
-    sys.exit(1)
-with open(metadata_path, encoding="utf-8") as metadata_file:
-    actual_source = json.load(metadata_file).get("source")
-if actual_source != expected_source:
-    print(
-        "Restored MackySoft.Json.Canonicalization source differs from the inspected source. "
-        f"Expected: {expected_source}. Actual: {actual_source}",
-        file=sys.stderr,
-    )
-    sys.exit(1)
-PY
-
-if [[ -f "${canonicalization_package_artifact}" ]]; then
-  restored_canonicalization_package="${canonicalization_package_root}/mackysoft.json.canonicalization.${canonicalization_package_version}.nupkg"
-  if ! cmp -s "${canonicalization_package_artifact}" "${restored_canonicalization_package}"; then
-    echo "Restored MackySoft.Json.Canonicalization package differs from the inspected provider artifact." >&2
-    exit 1
-  fi
-fi
-
-canonicalization_provider_assembly="${canonicalization_package_root}/lib/netstandard2.1/MackySoft.Json.Canonicalization.dll"
-if [[ ! -f "${canonicalization_provider_assembly}" ]]; then
-  echo "Restored MackySoft.Json.Canonicalization package is missing its netstandard2.1 assembly." >&2
-  exit 1
-fi
-if ! unzip -p "${package_path}" tools/net8.0/any/MackySoft.Json.Canonicalization.dll \
-  | cmp -s - "${canonicalization_provider_assembly}"; then
-  echo "CLI package contains a MackySoft.Json.Canonicalization assembly that differs from the restored ${canonicalization_package_version} package." >&2
-  exit 1
-fi
-
-for relative_path in "${canonicalization_notice_files[@]}"; do
-  provider_file="${canonicalization_package_root}/${relative_path}"
-  package_entry="${canonicalization_notice_root}/${relative_path}"
-  if [[ ! -f "${provider_file}" ]]; then
-    echo "Restored MackySoft.Json.Canonicalization package is missing notice material: ${provider_file}" >&2
-    exit 1
-  fi
-  if ! unzip -p "${package_path}" "${package_entry}" | cmp -s - "${provider_file}"; then
-    echo "CLI package notice material differs from MackySoft.Json.Canonicalization ${canonicalization_package_version}: ${relative_path}" >&2
+for package_id in "${foundation_package_ids[@]}"; do
+  if grep -Ei "(^|/)${package_id//./[.]}.+nupkg$" <<< "${package_entries}" >/dev/null; then
+    echo "CLI package must not embed the standalone ${package_id} provider package." >&2
     exit 1
   fi
 done
+
+if grep -Fi "es6numberserializer" <<< "${package_entries}" >/dev/null; then
+  echo "CLI package contains the retired es6numberserializer dependency." >&2
+  exit 1
+fi
+
+dependency_manifest="$(
+  unzip -p "${package_path}" tools/net8.0/any/MackySoft.Ucli.deps.json
+)"
+for package_id in "${foundation_package_ids[@]}"; do
+  if ! grep -F "\"${package_id}/0.1.0\"" <<< "${dependency_manifest}" >/dev/null; then
+    echo "CLI package dependency manifest does not reference ${package_id} 0.1.0." >&2
+    exit 1
+  fi
+done
+if grep -Fi "es6numberserializer" <<< "${dependency_manifest}" >/dev/null; then
+  echo "CLI package dependency manifest references the retired es6numberserializer dependency." >&2
+  exit 1
+fi
 
 cli_notice="$(
   unzip -p "${package_path}" tools/net8.0/any/THIRD-PARTY-NOTICES
 )"
-if ! unzip -p "${package_path}" tools/net8.0/any/THIRD-PARTY-NOTICES \
-  | cmp -s - "${repo_root}/src/Ucli/THIRD-PARTY-NOTICES"; then
-  echo "CLI package third-party notice differs from src/Ucli/THIRD-PARTY-NOTICES." >&2
+if ! grep -F "${filesystem_package_id} ${filesystem_package_version}" <<< "${cli_notice}" >/dev/null \
+  || ! grep -F "third-party/${filesystem_package_id}/${filesystem_package_version}/LICENSE" <<< "${cli_notice}" >/dev/null; then
+  echo "CLI package third-party notice does not identify the filesystem provider license." >&2
   exit 1
 fi
-if ! grep -F "MackySoft.Json.Canonicalization ${canonicalization_package_version}" <<< "${cli_notice}" >/dev/null \
-  || ! grep -F "third-party/MackySoft.Json.Canonicalization/${canonicalization_package_version}/" <<< "${cli_notice}" >/dev/null; then
-  echo "CLI package third-party notice does not identify the redistributed provider and its bundled notice directory." >&2
-  exit 1
-fi
-
-if find "${tool_path}" -type f -iname '*es6numberserializer*' -print -quit | grep -q .; then
-  echo "Installed CLI tool contains the legacy es6numberserializer package or assembly." >&2
-  find "${tool_path}" -type f -iname '*es6numberserializer*' -print >&2
-  exit 1
-fi
-
-installed_canonicalization_assembly_count="$(
-  find "${tool_path}" -path '*/tools/net8.0/any/MackySoft.Json.Canonicalization.dll' -type f \
-    | wc -l \
-    | tr -d '[:space:]'
-)"
-if [[ "${installed_canonicalization_assembly_count}" != "1" ]]; then
-  echo "Installed CLI tool must contain exactly one MackySoft.Json.Canonicalization.dll; found ${installed_canonicalization_assembly_count}." >&2
-  exit 1
-fi
-installed_canonicalization_assembly="$(
-  find "${tool_path}" -path '*/tools/net8.0/any/MackySoft.Json.Canonicalization.dll' -type f -print -quit
-)"
-if ! cmp -s "${canonicalization_provider_assembly}" "${installed_canonicalization_assembly}"; then
-  echo "Installed CLI tool canonicalization assembly differs from the restored ${canonicalization_package_version} package." >&2
-  exit 1
-fi
-
-while IFS= read -r dependency_manifest; do
-  if grep -Fi "es6numberserializer" "${dependency_manifest}" >/dev/null; then
-    echo "Installed CLI tool dependency manifest references the legacy es6numberserializer package or assembly: ${dependency_manifest}" >&2
-    exit 1
-  fi
-done < <(find "${tool_path}" -type f -name '*.deps.json' -print)
-
-installed_cli_notice_count="$(
-  find "${tool_path}" -path '*/tools/net8.0/any/THIRD-PARTY-NOTICES' -type f | wc -l | tr -d '[:space:]'
-)"
-if [[ "${installed_cli_notice_count}" != "1" ]]; then
-  echo "Installed CLI tool must contain exactly one top-level THIRD-PARTY-NOTICES file; found ${installed_cli_notice_count}." >&2
-  exit 1
-fi
-installed_cli_notice="$(
-  find "${tool_path}" -path '*/tools/net8.0/any/THIRD-PARTY-NOTICES' -type f -print -quit
-)"
-if ! cmp -s "${repo_root}/src/Ucli/THIRD-PARTY-NOTICES" "${installed_cli_notice}"; then
-  echo "Installed CLI tool third-party notice differs from src/Ucli/THIRD-PARTY-NOTICES." >&2
-  exit 1
-fi
-
-for relative_path in "${canonicalization_notice_files[@]}"; do
-  installed_file_count="$(
-    find "${tool_path}" \
-      -path "*/third-party/MackySoft.Json.Canonicalization/${canonicalization_package_version}/${relative_path}" \
-      -type f \
-      | wc -l \
-      | tr -d '[:space:]'
-  )"
-  if [[ "${installed_file_count}" != "1" ]]; then
-    echo "Installed CLI tool must contain exactly one provider notice file ${relative_path}; found ${installed_file_count}." >&2
-    exit 1
-  fi
-  installed_file="$(
-    find "${tool_path}" \
-      -path "*/third-party/MackySoft.Json.Canonicalization/${canonicalization_package_version}/${relative_path}" \
-      -type f \
-      -print \
-      -quit
-  )"
-  if [[ -z "${installed_file}" ]]; then
-    echo "Installed CLI tool is missing provider notice material: ${relative_path}" >&2
-    exit 1
-  fi
-  if ! cmp -s "${canonicalization_package_root}/${relative_path}" "${installed_file}"; then
-    echo "Installed CLI tool notice material differs from MackySoft.Json.Canonicalization ${canonicalization_package_version}: ${relative_path}" >&2
+for package_id in "${text_package_ids[@]}"; do
+  if ! grep -F "${package_id} ${text_package_version}" <<< "${cli_notice}" >/dev/null \
+    || ! grep -F "third-party/${package_id}/${text_package_version}/LICENSE" <<< "${cli_notice}" >/dev/null; then
+    echo "CLI package third-party notice does not identify ${package_id} and its bundled license." >&2
     exit 1
   fi
 done
+if ! grep -F "${canonicalization_package_id} ${canonicalization_package_version}" <<< "${cli_notice}" >/dev/null \
+  || ! grep -F "third-party/${canonicalization_package_id}/${canonicalization_package_version}/" <<< "${cli_notice}" >/dev/null; then
+  echo "CLI package third-party notice does not identify the canonicalization provider notice directory." >&2
+  exit 1
+fi
+
+for package_id in "${foundation_package_ids[@]}"; do
+  if [[ -z "$(find "${tool_path}" -type f -name "${package_id}.dll" -print -quit)" ]]; then
+    echo "Installed CLI is missing ${package_id}.dll." >&2
+    exit 1
+  fi
+  if find "${tool_path}" -type f -iname "${package_id}.*.nupkg" -print -quit | grep -q .; then
+    echo "Installed CLI contains the standalone ${package_id} provider package." >&2
+    exit 1
+  fi
+done
+
+installed_notice="$(find "${tool_path}" -type f -name THIRD-PARTY-NOTICES -print -quit)"
+if [[ -z "${installed_notice}" ]]; then
+  echo "Installed CLI is missing THIRD-PARTY-NOTICES." >&2
+  exit 1
+fi
+if [[ -z "$(find "${tool_path}" -type f -path "*/third-party/${filesystem_package_id}/${filesystem_package_version}/LICENSE" -print -quit)" ]]; then
+  echo "Installed CLI is missing the filesystem provider license." >&2
+  exit 1
+fi
+for package_id in "${text_package_ids[@]}"; do
+  if [[ -z "$(find "${tool_path}" -type f -path "*/third-party/${package_id}/${text_package_version}/LICENSE" -print -quit)" ]]; then
+    echo "Installed CLI is missing the ${package_id} license." >&2
+    exit 1
+  fi
+done
+for relative_path in "${canonicalization_notice_files[@]}"; do
+  if [[ -z "$(find "${tool_path}" -type f -path "*/third-party/${canonicalization_package_id}/${canonicalization_package_version}/${relative_path}" -print -quit)" ]]; then
+    echo "Installed CLI is missing canonicalization notice material: ${relative_path}" >&2
+    exit 1
+  fi
+done
+if find "${tool_path}" -type f -iname "*es6numberserializer*" -print -quit | grep -q .; then
+  echo "Installed CLI contains the retired es6numberserializer dependency." >&2
+  exit 1
+fi
 
 package_schema_manifest_path="${tool_path}/package-schema-manifest.json"
 unzip -p "${package_path}" tools/net8.0/any/schemas/v1/schema-manifest.json > "${package_schema_manifest_path}"
@@ -375,6 +328,7 @@ if ! grep -F '"skillName": "ucli-plan-apply"' <<< "${skills_list}" >/dev/null; t
   exit 1
 fi
 
+require_python3
 EXPECTED_BUNDLE_DESCRIPTOR_PATH="${expected_bundle_descriptor_path}" SKILLS_LIST_JSON="${skills_list}" python3 - <<'PY'
 import json
 import os

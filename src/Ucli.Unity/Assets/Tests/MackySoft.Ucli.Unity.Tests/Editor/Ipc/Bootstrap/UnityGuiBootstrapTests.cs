@@ -5,6 +5,9 @@ using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
+using MackySoft.FileSystem;
+using MackySoft.Text.Vocabularies;
+using TextVocabulary = MackySoft.Text.Vocabularies.Vocabulary;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -46,20 +49,21 @@ namespace MackySoft.Ucli.Unity.Tests
             try
             {
                 var endpoint = new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-gui-bootstrap-publication-order");
+                var endpointBinding = UnityIpcEndpointBinding.Create(endpoint);
                 preparedSession = await UnityGuiSessionPersistence.PrepareAsync(
                     storageRoot,
                     ProjectFingerprintTestFactory.Create("fingerprint-publication-order"),
-                    endpoint,
+                    endpointBinding,
                     UnityGuiBootstrapSessionOptions.Create(null),
                     EditorInstanceId,
                     UnityGuiSessionReplacementScope.EquivalentCurrentProcessSession,
                     CancellationToken.None);
                 var server = new SpyUnityIpcServer(onStart: _ =>
-                    Assert.That(File.Exists(preparedSession.SessionPath), Is.False));
+                    Assert.That(File.Exists(preparedSession.SessionPath.Value), Is.False));
 
                 var startResult = await UnityGuiBootstrap.StartServerAndPublishSessionAsync(
                     server,
-                    endpoint,
+                    endpointBinding,
                     CancellationToken.None,
                     static () => { },
                     () => UnityGuiSessionPersistence.PublishAsync(
@@ -73,7 +77,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
                 Assert.That(server.StartCallCount, Is.EqualTo(1));
                 Assert.That(ownershipCommitted, Is.True);
-                Assert.That(File.Exists(startResult.Registration.SessionPath), Is.True);
+                Assert.That(File.Exists(startResult.Registration.SessionPath.Value), Is.True);
             }
             finally
             {
@@ -91,10 +95,11 @@ namespace MackySoft.Ucli.Unity.Tests
             try
             {
                 var endpoint = new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-gui-bootstrap-failed-listen");
+                var endpointBinding = UnityIpcEndpointBinding.Create(endpoint);
                 preparedSession = await UnityGuiSessionPersistence.PrepareAsync(
                     storageRoot,
                     ProjectFingerprintTestFactory.Create("fingerprint-failed-listen"),
-                    endpoint,
+                    endpointBinding,
                     UnityGuiBootstrapSessionOptions.Create(null),
                     EditorInstanceId,
                     UnityGuiSessionReplacementScope.EquivalentCurrentProcessSession,
@@ -107,7 +112,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 {
                     await UnityGuiBootstrap.StartServerAndPublishSessionAsync(
                         server,
-                        endpoint,
+                        endpointBinding,
                         CancellationToken.None,
                         static () => { },
                         () => UnityGuiSessionPersistence.PublishAsync(
@@ -121,7 +126,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
                 Assert.That(observedException, Is.Not.Null);
                 Assert.That(server.StartCallCount, Is.EqualTo(1));
-                Assert.That(File.Exists(preparedSession.SessionPath), Is.False);
+                Assert.That(File.Exists(preparedSession.SessionPath.Value), Is.False);
             }
             finally
             {
@@ -208,7 +213,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 Assert.That(server.StopCallCount, Is.EqualTo(1));
                 Assert.That(logCapture.DisposeCallCount, Is.EqualTo(1));
                 Assert.That(serviceProvider.DisposeCallCount, Is.EqualTo(1));
-                Assert.That(File.Exists(registration.SessionPath), Is.False);
+                Assert.That(File.Exists(registration.SessionPath.Value), Is.False);
             }
             finally
             {
@@ -237,7 +242,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
                 Assert.That(stoppedSafely, Is.False);
                 Assert.That(serviceProvider.DisposeCallCount, Is.EqualTo(1));
-                Assert.That(File.Exists(registration.SessionPath), Is.False);
+                Assert.That(File.Exists(registration.SessionPath.Value), Is.False);
 
                 UnityGuiBootstrap.ReleaseResourcesForEditorLifecycleEvent(
                     registration: null,
@@ -279,7 +284,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 Assert.That(server.StopCallCount, Is.EqualTo(1));
                 Assert.That(logCapture.DisposeCallCount, Is.Zero);
                 Assert.That(serviceProvider.DisposeCallCount, Is.Zero);
-                Assert.That(File.Exists(registration.SessionPath), Is.False);
+                Assert.That(File.Exists(registration.SessionPath.Value), Is.False);
 
                 UnityGuiBootstrap.ReleaseResourcesForEditorLifecycleEvent(
                     null,
@@ -327,7 +332,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
                 Assert.That(stoppedSafely, Is.False);
                 Assert.That(server.StopCallCount, Is.EqualTo(1));
-                Assert.That(File.Exists(registration.SessionPath), Is.False);
+                Assert.That(File.Exists(registration.SessionPath.Value), Is.False);
                 Assert.That(logCapture.DisposeCallCount, Is.Zero);
                 Assert.That(serviceProvider.DisposeCallCount, Is.Zero);
 
@@ -375,7 +380,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
                 Assert.That(stoppedSafely, Is.False);
                 Assert.That(server.StopCallCount, Is.EqualTo(1));
-                Assert.That(File.Exists(registration.SessionPath), Is.False);
+                Assert.That(File.Exists(registration.SessionPath.Value), Is.False);
                 Assert.That(logCapture.DisposeCallCount, Is.Zero);
                 Assert.That(serviceProvider.DisposeCallCount, Is.Zero);
 
@@ -483,10 +488,11 @@ namespace MackySoft.Ucli.Unity.Tests
                 var successorEndpoint = new IpcEndpoint(
                     IpcTransportKind.NamedPipe,
                     "ucli-gui-bootstrap-fenced-successor");
+                var successorEndpointBinding = UnityIpcEndpointBinding.Create(successorEndpoint);
                 using var successorSession = await UnityGuiSessionPersistence.PrepareAsync(
                     storageRoot,
                     ProjectFingerprintTestFactory.Create("fingerprint-fenced-successor"),
-                    successorEndpoint,
+                    successorEndpointBinding,
                     UnityGuiBootstrapSessionOptions.Create(null),
                     EditorInstanceId,
                     UnityGuiSessionReplacementScope.AnyCurrentProcessSession,
@@ -494,7 +500,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 var successorServer = new SpyUnityIpcServer();
                 var successorStart = await UnityGuiBootstrap.StartServerAndPublishSessionAsync(
                     successorServer,
-                    successorEndpoint,
+                    successorEndpointBinding,
                     CancellationToken.None,
                     static () => { },
                     () => UnityGuiSessionPersistence.PublishAsync(
@@ -508,7 +514,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 Assert.That(successorStarted, Is.True);
                 Assert.That(successorOwnershipCommitted, Is.True);
                 Assert.That(successorServer.StartCallCount, Is.EqualTo(1));
-                Assert.That(File.Exists(successorStart.Registration.SessionPath), Is.True);
+                Assert.That(File.Exists(successorStart.Registration.SessionPath.Value), Is.True);
                 Assert.That(serviceProvider.DisposeCallCount, Is.EqualTo(1));
             }
             finally
@@ -658,7 +664,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 Assert.That(logCapture.DisposeCallCount, Is.EqualTo(1));
                 Assert.That(logCapture.DisposeThreadId, Is.EqualTo(callingThreadId));
                 Assert.That(serviceProvider.DisposeCallCount, Is.Zero);
-                Assert.That(File.Exists(registration.SessionPath), Is.False);
+                Assert.That(File.Exists(registration.SessionPath.Value), Is.False);
             }
             finally
             {
@@ -687,7 +693,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
                 Assert.That(serviceProvider.DisposeCallCount, Is.EqualTo(1));
                 Assert.That(serviceProvider.DisposeThreadId, Is.EqualTo(callingThreadId));
-                Assert.That(File.Exists(registration.SessionPath), Is.False);
+                Assert.That(File.Exists(registration.SessionPath.Value), Is.False);
             }
             finally
             {
@@ -706,7 +712,10 @@ namespace MackySoft.Ucli.Unity.Tests
                 preparedSession = await UnityGuiSessionPersistence.PrepareAsync(
                     storageRoot,
                     ProjectFingerprintTestFactory.Create("fingerprint-starting-lifecycle"),
-                    new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-gui-bootstrap-starting-lifecycle"),
+                    UnityIpcEndpointBinding.Create(
+                        new IpcEndpoint(
+                            IpcTransportKind.NamedPipe,
+                            "ucli-gui-bootstrap-starting-lifecycle")),
                     UnityGuiBootstrapSessionOptions.Create(null),
                     EditorInstanceId,
                     UnityGuiSessionReplacementScope.EquivalentCurrentProcessSession,
@@ -741,7 +750,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 Assert.That(server.ReleaseCallCount, Is.EqualTo(1));
                 Assert.That(logCapture.DisposeCallCount, Is.EqualTo(1));
                 Assert.That(serviceProvider.DisposeCallCount, Is.Zero);
-                Assert.That(File.Exists(registration.SessionPath), Is.True);
+                Assert.That(File.Exists(registration.SessionPath.Value), Is.True);
                 Assert.Throws<InvalidOperationException>(preparedSession.ThrowIfCannotPublish);
 
                 publicationCompletionSource.SetResult(registration);
@@ -750,7 +759,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     "Starting GUI publication lease finalization",
                     TimeSpan.FromSeconds(5));
 
-                Assert.That(File.Exists(registration.SessionPath), Is.False);
+                Assert.That(File.Exists(registration.SessionPath.Value), Is.False);
                 Assert.Throws<ObjectDisposedException>(preparedSession.ThrowIfCannotPublish);
                 Assert.That(state.TryClaimNormalCleanup(), Is.False);
             }
@@ -821,11 +830,12 @@ namespace MackySoft.Ucli.Unity.Tests
                 var endpoint = new IpcEndpoint(
                     IpcTransportKind.NamedPipe,
                     "ucli-gui-bootstrap-token-rotation");
+                var endpointBinding = UnityIpcEndpointBinding.Create(endpoint);
                 UnityGuiSessionRegistration previousRegistration;
                 using (var previousSession = await UnityGuiSessionPersistence.PrepareAsync(
                            storageRoot,
                            ProjectFingerprintTestFactory.Create("fingerprint-token-rotation"),
-                           endpoint,
+                           endpointBinding,
                            UnityGuiBootstrapSessionOptions.Create(null),
                            EditorInstanceId,
                            UnityGuiSessionReplacementScope.EquivalentCurrentProcessSession,
@@ -839,7 +849,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 replacementSession = await UnityGuiSessionPersistence.PrepareAsync(
                     storageRoot,
                     ProjectFingerprintTestFactory.Create("fingerprint-token-rotation"),
-                    endpoint,
+                    endpointBinding,
                     UnityGuiBootstrapSessionOptions.Create(null),
                     EditorInstanceId,
                     UnityGuiSessionReplacementScope.EquivalentCurrentProcessSession,
@@ -854,7 +864,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     protocolVersion: IpcProtocol.CurrentVersion,
                     requestId: Guid.NewGuid(),
                     sessionToken: previousRegistration.SessionToken.GetEncodedValue(),
-                    method: ContractLiteralCodec.ToValue(UnityIpcMethod.Ping),
+                    method: TextVocabulary.GetText(UnityIpcMethod.Ping),
                     payload: IpcPayloadCodec.SerializeToElement(new IpcPingRequest("tests")),
                     responseMode: "single",
                     requestDeadlineUtc: DateTimeOffset.UtcNow + TimeSpan.FromSeconds(30),
@@ -872,7 +882,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     replacementSession.Registration.SessionToken,
                     CancellationToken.None);
 
-                Assert.That(File.Exists(previousRegistration.SessionPath), Is.True);
+                Assert.That(File.Exists(previousRegistration.SessionPath.Value), Is.True);
                 Assert.That(previousGenerationResponse.Status, Is.EqualTo(IpcResponseStatus.Error));
                 Assert.That(previousGenerationResponse.Errors.Count, Is.EqualTo(1));
                 Assert.That(
@@ -887,9 +897,10 @@ namespace MackySoft.Ucli.Unity.Tests
             }
         });
 
-        private static string CreateStorageRoot ()
+        private static AbsolutePath CreateStorageRoot ()
         {
-            return Path.Combine(Path.GetTempPath(), $"ucli-gui-bootstrap-tests-{Guid.NewGuid():N}");
+            return AbsolutePath.Parse(
+                Path.Combine(Path.GetTempPath(), $"ucli-gui-bootstrap-tests-{Guid.NewGuid():N}"));
         }
 
         private static FieldInfo GetGuiBootstrapStateField (string fieldName)
@@ -948,12 +959,14 @@ namespace MackySoft.Ucli.Unity.Tests
                 new UnityLogRedactionScopeProvider()));
         }
 
-        private static async UniTask<UnityGuiSessionRegistration> PrepareAndPublishSessionAsync (string storageRoot)
+        private static async UniTask<UnityGuiSessionRegistration> PrepareAndPublishSessionAsync (
+            AbsolutePath storageRoot)
         {
             using var preparedSession = await UnityGuiSessionPersistence.PrepareAsync(
                 storageRoot,
                 ProjectFingerprintTestFactory.Create("fingerprint"),
-                new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-gui-bootstrap-tests"),
+                UnityIpcEndpointBinding.Create(
+                    new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-gui-bootstrap-tests")),
                 UnityGuiBootstrapSessionOptions.Create(null),
                 EditorInstanceId,
                 UnityGuiSessionReplacementScope.EquivalentCurrentProcessSession,
@@ -979,11 +992,11 @@ namespace MackySoft.Ucli.Unity.Tests
                 observedAtUtc);
         }
 
-        private static void DeleteDirectory (string storageRoot)
+        private static void DeleteDirectory (AbsolutePath storageRoot)
         {
-            if (Directory.Exists(storageRoot))
+            if (Directory.Exists(storageRoot.Value))
             {
-                Directory.Delete(storageRoot, recursive: true);
+                Directory.Delete(storageRoot.Value, recursive: true);
             }
         }
 
@@ -1117,7 +1130,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private sealed class SpyUnityIpcServer : IUnityIpcServer
         {
-            private readonly Action<IpcEndpoint> onStart;
+            private readonly Action<UnityIpcEndpointBinding> onStart;
 
             private readonly bool throwOnStop;
 
@@ -1126,7 +1139,7 @@ namespace MackySoft.Ucli.Unity.Tests
             public SpyUnityIpcServer (
                 bool throwOnStop = false,
                 Task stopTask = null,
-                Action<IpcEndpoint> onStart = null)
+                Action<UnityIpcEndpointBinding> onStart = null)
             {
                 this.throwOnStop = throwOnStop;
                 this.stopTask = stopTask;
@@ -1140,11 +1153,11 @@ namespace MackySoft.Ucli.Unity.Tests
             public int ReleaseCallCount { get; private set; }
 
             public Task<IUnityIpcServerPublicationFence> StartAsync (
-                IpcEndpoint endpoint,
+                UnityIpcEndpointBinding endpointBinding,
                 CancellationToken cancellationToken = default)
             {
                 StartCallCount++;
-                onStart?.Invoke(endpoint);
+                onStart?.Invoke(endpointBinding);
                 return Task.FromResult<IUnityIpcServerPublicationFence>(
                     new SpyUnityIpcServerPublicationFence());
             }

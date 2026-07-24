@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Contracts.Ipc;
 
@@ -13,11 +14,19 @@ internal static class DaemonGuiEditorAttachServiceTestSupport
     public static UnityEditorInstanceMarker CreateMarker ()
     {
         return new UnityEditorInstanceMarker(
-            MarkerPath: "/repo/UnityProject/Library/EditorInstance.json",
+            MarkerPath: AbsolutePath.Parse(Path.Combine(
+                ProjectPathTestValues.RepositoryUnityProject,
+                "Library",
+                "EditorInstance.json")),
             ProcessId: 1234,
             UpdatedAtUtc: new DateTimeOffset(2026, 03, 12, 0, 1, 0, TimeSpan.Zero),
-            AppPath: "/Applications/Unity.app",
-            AppContentsPath: "/Applications/Unity.app/Contents");
+            AppPath: AbsolutePath.Parse(Path.Combine(
+                ProjectPathTestValues.WorkspaceRoot,
+                "Unity.app")),
+            AppContentsPath: AbsolutePath.Parse(Path.Combine(
+                ProjectPathTestValues.WorkspaceRoot,
+                "Unity.app",
+                "Contents")));
     }
 
     public static DaemonSession CreateGuiSession ()

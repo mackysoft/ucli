@@ -18,12 +18,12 @@ public sealed record IpcPlayModeSnapshot
         bool IsPlaying,
         bool IsPlayingOrWillChangePlaymode)
     {
-        if (!ContractLiteralCodec.IsDefined(State))
+        if (!TextVocabulary.IsDefined(State))
         {
             throw new ArgumentOutOfRangeException(nameof(State), State, "Unsupported Play Mode state.");
         }
 
-        if (!ContractLiteralCodec.IsDefined(Transition))
+        if (!TextVocabulary.IsDefined(Transition))
         {
             throw new ArgumentOutOfRangeException(nameof(Transition), Transition, "Unsupported Play Mode transition.");
         }

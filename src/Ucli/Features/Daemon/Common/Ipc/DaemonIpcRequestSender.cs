@@ -47,7 +47,7 @@ internal sealed class DaemonIpcRequestSender : IDaemonIpcRequestSender
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(unityProject);
-        if (!ContractLiteralCodec.IsDefined(method))
+        if (!TextVocabulary.IsDefined(method))
         {
             throw new ArgumentOutOfRangeException(nameof(method), method, "Unity IPC method must be defined.");
         }
@@ -114,7 +114,7 @@ internal sealed class DaemonIpcRequestSender : IDaemonIpcRequestSender
                     deadline.UtcDeadline,
                     requestDeadlineRemainingMilliseconds);
                 var response = await transportClient.SendAsync(
-                        session.Endpoint,
+                        DaemonSessionIpcTransportEndpointAdapter.Adapt(session),
                         request,
                         remainingTimeout,
                         cancellationToken)

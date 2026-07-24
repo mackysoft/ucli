@@ -21,12 +21,12 @@ public sealed record IpcExecuteDiagnostic
         IpcExecuteDiagnosticCoverageImpact CoverageImpact,
         string Message)
     {
-        if (!ContractLiteralCodec.IsDefined(Severity))
+        if (!TextVocabulary.IsDefined(Severity))
         {
             throw new ArgumentOutOfRangeException(nameof(Severity), Severity, "Diagnostic severity must be specified.");
         }
 
-        if (!ContractLiteralCodec.IsDefined(CoverageImpact))
+        if (!TextVocabulary.IsDefined(CoverageImpact))
         {
             throw new ArgumentOutOfRangeException(nameof(CoverageImpact), CoverageImpact, "Diagnostic coverage impact must be specified.");
         }

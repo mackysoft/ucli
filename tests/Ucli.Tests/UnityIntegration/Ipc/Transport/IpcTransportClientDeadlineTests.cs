@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 
 namespace MackySoft.Ucli.Tests.Ipc;
@@ -244,7 +245,7 @@ public sealed class IpcTransportClientDeadlineTests
         TimeSpan timeout,
         CancellationToken cancellationToken)
     {
-        var endpoint = new IpcEndpoint(IpcTransportKind.NamedPipe, "test-transport");
+        var endpoint = IpcTransportEndpoint.FromNamedPipeAddress("test-transport");
         return requestKind switch
         {
             RequestKind.Single => client.SendAsync(
@@ -311,7 +312,7 @@ public sealed class IpcTransportClientDeadlineTests
         }
 
         public ValueTask<Stream> ConnectAsync (
-            IpcEndpoint endpoint,
+            IpcTransportEndpoint endpoint,
             CancellationToken cancellationToken)
         {
             _ = endpoint;

@@ -3,7 +3,6 @@ using System.Text.Json;
 using MackySoft.Ucli.Application.Features.Testing.Run.Artifacts;
 using MackySoft.Ucli.Application.Features.Testing.Run.Configuration;
 using MackySoft.Ucli.Contracts.Testing;
-using MackySoft.Ucli.Shared.Execution.UnityExecutionMode;
 
 namespace MackySoft.Ucli.Features.Testing.Run.Artifacts;
 
@@ -38,18 +37,18 @@ internal sealed class TestRunMetaStore : ITestRunMetaStore
             RunId: session.RunId,
             StartedAt: session.StartedAtUtc.ToString("O", CultureInfo.InvariantCulture),
             FinishedAt: finishedAtUtc.ToString("O", CultureInfo.InvariantCulture),
-            ProjectPath: configuration.UnityProject.UnityProjectRoot,
+            ProjectPath: configuration.UnityProject.UnityProjectRoot.Value,
             UnityVersion: configuration.UnityVersion,
-            UnityEditorPath: configuration.UnityEditorPath,
-            Mode: UnityExecutionModeCodec.ToValue(configuration.Mode),
+            UnityEditorPath: configuration.UnityEditorPath.Value,
+            Mode: TextVocabulary.GetText(configuration.Mode),
             TestPlatform: TestRunPlatformCodec.ToValue(configuration.TestPlatform),
             TestFilter: configuration.TestFilter,
             TestCategories: configuration.TestCategories,
             AssemblyNames: configuration.AssemblyNames,
-            ArtifactsDir: session.Paths.ArtifactsDir);
+            ArtifactsDir: session.Paths.ArtifactsDir.Value);
 
         var json = JsonSerializer.Serialize(payload, SerializerOptions);
-        await File.WriteAllTextAsync(session.Paths.MetaJsonPath, json, cancellationToken).ConfigureAwait(false);
+        await File.WriteAllTextAsync(session.Paths.MetaJsonPath.Value, json, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary> Represents metadata payload for one test-run artifacts session. </summary>

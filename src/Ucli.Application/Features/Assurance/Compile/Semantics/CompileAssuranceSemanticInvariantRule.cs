@@ -91,7 +91,7 @@ internal sealed class CompileAssuranceSemanticInvariantRule : IAssuranceClaimInv
         foreach (var effectElement in effectsElement.EnumerateArray())
         {
             if (effectElement.ValueKind != JsonValueKind.String
-                || !ContractLiteralCodec.TryParse(effectElement.GetString(), out AssuranceEffect effect))
+                || !TextVocabulary.TryGetValue(effectElement.GetString(), out AssuranceEffect effect))
             {
                 AddViolation(violations, effectsPath, "Compile verifier effects contain an unsupported value.");
                 return;
@@ -145,7 +145,7 @@ internal sealed class CompileAssuranceSemanticInvariantRule : IAssuranceClaimInv
             return;
         }
 
-        if (!ContractLiteralCodec.TryParse(origin, out CompileRefreshOrigin _))
+        if (!TextVocabulary.TryGetValue(origin, out CompileRefreshOrigin _))
         {
             AddViolation(violations, BuildPropertyPath(refreshPath, "origin"), "Compile refresh origin must distinguish assetDatabaseRefresh from diagnosticsRead.");
         }
@@ -163,7 +163,7 @@ internal sealed class CompileAssuranceSemanticInvariantRule : IAssuranceClaimInv
         }
 
         if (!TryReadString(claimElement, "status", out var statusLiteral)
-            || !ContractLiteralCodec.TryParse(statusLiteral, out AssuranceClaimStatus status))
+            || !TextVocabulary.TryGetValue(statusLiteral, out AssuranceClaimStatus status))
         {
             return;
         }
@@ -201,7 +201,7 @@ internal sealed class CompileAssuranceSemanticInvariantRule : IAssuranceClaimInv
 
         if (TryReadBoolean(domainReloadElement, "settled", out var settled)
             && TryReadString(claimElement, "status", out var statusLiteral)
-            && ContractLiteralCodec.TryParse(statusLiteral, out AssuranceClaimStatus status)
+            && TextVocabulary.TryGetValue(statusLiteral, out AssuranceClaimStatus status)
             && !IsExpectedBooleanClaimStatus(settled, status))
         {
             AddViolation(violations, BuildPropertyPath(claimPath, "status"), "UNITY_DOMAIN_RELOAD_SETTLED must match domainReload.settled.");
@@ -234,7 +234,7 @@ internal sealed class CompileAssuranceSemanticInvariantRule : IAssuranceClaimInv
 
         if (TryReadBoolean(lifecycleElement, "canAcceptExecutionRequests", out var canAcceptExecutionRequests)
             && TryReadString(claimElement, "status", out var statusLiteral)
-            && ContractLiteralCodec.TryParse(statusLiteral, out AssuranceClaimStatus status)
+            && TextVocabulary.TryGetValue(statusLiteral, out AssuranceClaimStatus status)
             && !IsExpectedBooleanClaimStatus(canAcceptExecutionRequests, status))
         {
             AddViolation(violations, BuildPropertyPath(claimPath, "status"), "UNITY_LIFECYCLE_READY_AFTER_COMPILE must match lifecycle.canAcceptExecutionRequests.");

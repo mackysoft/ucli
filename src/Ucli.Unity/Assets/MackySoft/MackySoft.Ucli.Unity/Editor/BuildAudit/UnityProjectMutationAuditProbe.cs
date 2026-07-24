@@ -2,11 +2,12 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Security.Cryptography;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts.Assurance;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Infrastructure.Cryptography;
 using MackySoft.Ucli.Infrastructure.Paths;
+using MackySoft.Ucli.Infrastructure.Cryptography;
 
 #nullable enable
 
@@ -22,7 +23,7 @@ namespace MackySoft.Ucli.Unity.Build
         /// <summary> Captures the current project mutation audit baseline. </summary>
         /// <param name="projectPath"> The Unity project root path. </param>
         /// <returns> The captured project snapshot. </returns>
-        public ProjectMutationSnapshot CaptureBaseline (string projectPath)
+        public ProjectMutationSnapshot CaptureBaseline (AbsolutePath projectPath)
         {
             return CaptureObservation(projectPath);
         }
@@ -33,7 +34,7 @@ namespace MackySoft.Ucli.Unity.Build
         /// <param name="baseline"> The previously captured baseline. </param>
         /// <returns> The completed project mutation audit. </returns>
         public IpcBuildProjectMutationAudit Complete (
-            string projectPath,
+            AbsolutePath projectPath,
             BuildProfileProjectMutationMode mode,
             ProjectMutationSnapshot baseline)
         {
@@ -54,20 +55,13 @@ namespace MackySoft.Ucli.Unity.Build
                 Items: items);
         }
 
-        private static ProjectMutationSnapshot CaptureObservation (string projectPath)
+        private static ProjectMutationSnapshot CaptureObservation (AbsolutePath projectPath)
         {
-            if (string.IsNullOrWhiteSpace(projectPath))
+            if (projectPath == null)
             {
-                throw new ArgumentException("Project path must not be empty.", nameof(projectPath));
+                throw new ArgumentNullException(nameof(projectPath));
             }
 
-            var projectPathResult = PathNormalizer.TryNormalizeFullPath(projectPath);
-            if (!projectPathResult.IsSuccess)
-            {
-                throw new ArgumentException(projectPathResult.DiagnosticMessage, nameof(projectPath));
-            }
-
-            var projectRoot = projectPathResult.FullPath!;
             var files = new List<ProjectMutationFileEntry>();
             var coverage = IpcBuildProjectMutationAuditCoverage.Full;
             var scannedRootCount = 0;
@@ -75,8 +69,10 @@ namespace MackySoft.Ucli.Unity.Build
             for (var i = 0; i < auditedRootRelativePaths.Count; i++)
             {
                 var rootRelativePath = auditedRootRelativePaths[i];
-                var rootPath = Path.Combine(projectRoot, rootRelativePath);
-                if (!Directory.Exists(rootPath))
+                var rootPath = ContainedPath.Create(
+                    projectPath,
+                    RootRelativePath.Parse(rootRelativePath)).Target;
+                if (!Directory.Exists(rootPath.Value))
                 {
                     coverage = IpcBuildProjectMutationAuditCoverage.Partial;
                     continue;
@@ -90,7 +86,7 @@ namespace MackySoft.Ucli.Unity.Build
                     rootFiles.Clear();
                     try
                     {
-                        rootHasFullCoverage = CaptureRoot(projectRoot, rootPath, rootFiles);
+                        rootHasFullCoverage = CaptureRoot(projectPath, rootPath, rootFiles);
                         rootCaptured = true;
                         break;
                     }
@@ -139,26 +135,26 @@ namespace MackySoft.Ucli.Unity.Build
         }
 
         private static bool CaptureRoot (
-            string projectRoot,
-            string rootPath,
+            AbsolutePath projectRoot,
+            AbsolutePath rootPath,
             List<ProjectMutationFileEntry> files)
         {
             var fullCoverage = true;
-            var pendingDirectories = new Stack<string>();
-            var normalizedRootPath = Path.GetFullPath(rootPath);
-            var rootAttributes = File.GetAttributes(normalizedRootPath);
+            var pendingDirectories = new Stack<AbsolutePath>();
+            var rootAttributes = File.GetAttributes(rootPath.Value);
             if ((rootAttributes & FileAttributes.ReparsePoint) != 0)
             {
                 return false;
             }
 
-            pendingDirectories.Push(normalizedRootPath);
+            pendingDirectories.Push(rootPath);
             while (pendingDirectories.Count > 0)
             {
                 var currentDirectory = pendingDirectories.Pop();
-                foreach (var entryPath in Directory.EnumerateFileSystemEntries(currentDirectory))
+                foreach (var entryPathText in Directory.EnumerateFileSystemEntries(currentDirectory.Value))
                 {
-                    var attributes = File.GetAttributes(entryPath);
+                    var entryPath = AbsolutePath.Parse(entryPathText);
+                    var attributes = File.GetAttributes(entryPath.Value);
                     if ((attributes & FileAttributes.ReparsePoint) != 0)
                     {
                         fullCoverage = false;
@@ -167,13 +163,19 @@ namespace MackySoft.Ucli.Unity.Build
 
                     if ((attributes & FileAttributes.Directory) != 0)
                     {
-                        pendingDirectories.Push(Path.GetFullPath(entryPath));
+                        pendingDirectories.Push(entryPath);
                         continue;
                     }
 
-                    var fullPath = Path.GetFullPath(entryPath);
-                    var relativePath = CreateProjectMutationAuditPath(projectRoot, fullPath);
-                    files.Add(new ProjectMutationFileEntry(relativePath, ComputeFileSha256(fullPath)));
+                    if (!TryCreateProjectMutationAuditPath(projectRoot, entryPath, out var relativePath))
+                    {
+                        // The portable audit contract cannot represent every filename that is legal
+                        // on the current platform, such as a literal backslash on Unix.
+                        fullCoverage = false;
+                        continue;
+                    }
+
+                    files.Add(new ProjectMutationFileEntry(relativePath, ComputeFileSha256(entryPath)));
                 }
             }
 
@@ -254,17 +256,14 @@ namespace MackySoft.Ucli.Unity.Build
             return IpcBuildProjectMutationAuditCoverage.Full;
         }
 
-        private static ProjectMutationAuditPath CreateProjectMutationAuditPath (
-            string projectRoot,
-            string fullPath)
+        private static bool TryCreateProjectMutationAuditPath (
+            AbsolutePath projectRoot,
+            AbsolutePath fullPath,
+            out ProjectMutationAuditPath? auditPath)
         {
-            var result = RepositoryPathNormalizer.TryNormalize(projectRoot, fullPath);
-            if (!result.IsSuccess)
-            {
-                throw new InvalidOperationException(result.DiagnosticMessage);
-            }
-
-            return new ProjectMutationAuditPath(result.RepositoryRelativeSlashPath!);
+            return ProjectMutationAuditPathAdapter.TryFromRootRelativePath(
+                ContainedPath.Create(projectRoot, fullPath).RelativePath,
+                out auditPath);
         }
 
         private static Sha256Digest CalculateAggregateDigest (IReadOnlyList<ProjectMutationFileEntry> files)
@@ -281,11 +280,11 @@ namespace MackySoft.Ucli.Unity.Build
             return hashWriter.GetHashAndReset();
         }
 
-        private static Sha256Digest ComputeFileSha256 (string path)
+        private static Sha256Digest ComputeFileSha256 (AbsolutePath path)
         {
             using (var sha256 = SHA256.Create())
             using (var stream = new FileStream(
-                       path,
+                       path.Value,
                        FileMode.Open,
                        FileAccess.Read,
                        FileShare.ReadWrite,

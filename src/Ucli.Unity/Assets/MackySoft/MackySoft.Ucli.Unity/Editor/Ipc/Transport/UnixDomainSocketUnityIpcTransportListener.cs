@@ -4,6 +4,7 @@ using System.IO;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.Infrastructure.Storage;
@@ -17,8 +18,8 @@ namespace MackySoft.Ucli.Unity.Ipc
     {
         private static readonly object EndpointOwnershipSyncRoot = new object();
 
-        private static readonly Dictionary<string, EndpointOwnershipState> ActiveEndpointOwners =
-            new Dictionary<string, EndpointOwnershipState>(StringComparer.Ordinal);
+        private static readonly Dictionary<AbsolutePath, EndpointOwnershipState> ActiveEndpointOwners =
+            new Dictionary<AbsolutePath, EndpointOwnershipState>();
 
         private static readonly SemaphoreSlim EndpointOwnershipClaimGate = new SemaphoreSlim(1, 1);
 
@@ -31,7 +32,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private readonly IDaemonLogger daemonLogger;
 
-        private readonly IpcEndpoint expectedEndpoint;
+        private readonly UnityIpcEndpointBinding expectedEndpointBinding;
 
         private readonly int maximumActiveConnections;
 
@@ -45,19 +46,20 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         /// <summary> Initializes a new instance of the <see cref="UnixDomainSocketUnityIpcTransportListener" /> class. </summary>
         /// <param name="daemonLogger"> The daemon logger dependency. </param>
-        /// <param name="expectedEndpoint"> The exact endpoint derived for this host before listener construction. </param>
+        /// <param name="expectedEndpointBinding"> The exact guarded endpoint binding derived for this host before listener construction. </param>
         /// <param name="maximumActiveConnections"> The maximum number of accepted connections that may be handled concurrently. </param>
         /// <param name="connectionDrainTimeout"> The maximum time allowed for active connections to finish during listener shutdown. </param>
-        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="daemonLogger" /> or <paramref name="expectedEndpoint" /> is <see langword="null" />. </exception>
+        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="daemonLogger" /> or <paramref name="expectedEndpointBinding" /> is <see langword="null" />. </exception>
         /// <exception cref="ArgumentOutOfRangeException"> Thrown when a numeric limit is not positive. </exception>
         public UnixDomainSocketUnityIpcTransportListener (
             IDaemonLogger daemonLogger,
-            IpcEndpoint expectedEndpoint,
+            UnityIpcEndpointBinding expectedEndpointBinding,
             int maximumActiveConnections,
             TimeSpan connectionDrainTimeout)
         {
             this.daemonLogger = daemonLogger ?? throw new ArgumentNullException(nameof(daemonLogger));
-            this.expectedEndpoint = expectedEndpoint ?? throw new ArgumentNullException(nameof(expectedEndpoint));
+            this.expectedEndpointBinding = expectedEndpointBinding
+                ?? throw new ArgumentNullException(nameof(expectedEndpointBinding));
 
             if (maximumActiveConnections <= 0)
             {
@@ -83,13 +85,13 @@ namespace MackySoft.Ucli.Unity.Ipc
         public IpcTransportKind TransportKind => IpcTransportKind.UnixDomainSocket;
 
         /// <summary> Runs transport-specific accept loop until cancellation is requested. </summary>
-        /// <param name="address"> The unix-domain-socket path value. </param>
+        /// <param name="endpointBinding"> The guarded runtime endpoint binding for this listener generation. </param>
         /// <param name="connectionHandler"> The connection handler dependency. </param>
         /// <param name="cancellationToken"> The cancellation token for listener lifecycle. </param>
-        /// <exception cref="ArgumentException"> Thrown when <paramref name="address" /> is empty. </exception>
-        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="connectionHandler" /> is <see langword="null" />. </exception>
+        /// <exception cref="ArgumentNullException"> Thrown when a required dependency is <see langword="null" />. </exception>
+        /// <exception cref="InvalidOperationException"> Thrown when the endpoint binding does not match the guarded socket path derived for this host. </exception>
         public async Task RunAsync (
-            string address,
+            UnityIpcEndpointBinding endpointBinding,
             IUnityIpcConnectionHandler connectionHandler,
             Action onStarted,
             Action<UnityIpcConnectionHandleResult> onConnectionCompleted,
@@ -98,18 +100,21 @@ namespace MackySoft.Ucli.Unity.Ipc
             var runReservation = ClaimRunReservation(cancellationToken);
             try
             {
-                if (string.IsNullOrWhiteSpace(address))
+                if (endpointBinding == null)
                 {
-                    throw new ArgumentException("Socket address must not be empty or whitespace.", nameof(address));
+                    throw new ArgumentNullException(nameof(endpointBinding));
                 }
 
-                if (expectedEndpoint.TransportKind != IpcTransportKind.UnixDomainSocket
-                    || !string.Equals(address, expectedEndpoint.Address, StringComparison.Ordinal))
+                if (!endpointBinding.TryGetUnixDomainSocketPath(out var socketPath)
+                    || !expectedEndpointBinding.TryGetUnixDomainSocketPath(out var expectedSocketPath)
+                    || socketPath != expectedSocketPath)
                 {
                     throw new InvalidOperationException(
-                        "Unix socket listener address does not match the endpoint derived for this host. " +
-                        $"ExpectedTransport={expectedEndpoint.TransportKind}, ExpectedAddress={expectedEndpoint.Address}, " +
-                        $"ActualAddress={address}");
+                        "Unix socket listener binding does not match the guarded endpoint derived for this host. " +
+                        $"ExpectedTransport={expectedEndpointBinding.Endpoint.TransportKind}, " +
+                        $"ExpectedAddress={expectedEndpointBinding.Endpoint.Address}, " +
+                        $"ActualTransport={endpointBinding.Endpoint.TransportKind}, " +
+                        $"ActualAddress={endpointBinding.Endpoint.Address}");
                 }
 
                 if (connectionHandler == null)
@@ -135,7 +140,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
                 // Native socket and filesystem operations must not capture or block Unity's main-thread context.
                 await Task.Run(() => RunCoreAsync(
-                        address,
+                        socketPath,
                         connectionHandler,
                         onStarted,
                         onConnectionCompleted,
@@ -150,7 +155,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         }
 
         private async Task RunCoreAsync (
-            string address,
+            AbsolutePath address,
             IUnityIpcConnectionHandler connectionHandler,
             Action onStarted,
             Action<UnityIpcConnectionHandleResult> onConnectionCompleted,
@@ -192,7 +197,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
                     cancellationToken.ThrowIfCancellationRequested();
                     accessBoundary.PrepareForBind();
-                    listener.Bind(new UnixDomainSocketEndPoint(address));
+                    listener.Bind(new UnixDomainSocketEndPoint(address.Value));
                     accessBoundary.HardenBoundSocket();
                     listener.Listen(8);
                     activeEndpointOwnershipLease = endpointOwnershipLease;
@@ -353,12 +358,11 @@ namespace MackySoft.Ucli.Unity.Ipc
         }
 
         private static async ValueTask<EndpointOwnershipLease> ClaimEndpointOwnershipAsync (
-            string address,
+            AbsolutePath address,
             UnixSocketAccessBoundary accessBoundary,
             RunReservation runReservation,
             CancellationToken cancellationToken)
         {
-            var normalizedAddress = Path.GetFullPath(address);
             var ownershipToken = new object();
             // The cross-process lock is retained for the active endpoint lifetime. This shorter gate serializes
             // process-local state discovery and registration without making a successor wait on that retained lock.
@@ -366,7 +370,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             try
             {
                 var processLocalOwnershipLease = ClaimProcessLocalEndpointOwnershipIfPresent(
-                    normalizedAddress,
+                    address,
                     ownershipToken,
                     accessBoundary,
                     runReservation);
@@ -375,7 +379,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     return processLocalOwnershipLease;
                 }
 
-                var lockPath = ResolveEndpointOwnershipLockPath(normalizedAddress);
+                var lockPath = ResolveEndpointOwnershipLockPath(address);
                 FileExclusiveLock ownershipLock;
                 try
                 {
@@ -388,7 +392,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 catch (TimeoutException exception)
                 {
                     throw new TimeoutException(
-                        $"Unix socket endpoint is already owned by another process. Address={normalizedAddress}",
+                        $"Unix socket endpoint is already owned by another process. Address={address.Value}",
                         exception);
                 }
 
@@ -403,12 +407,12 @@ namespace MackySoft.Ucli.Unity.Ipc
                             ActiveRunReservation = runReservation,
                             LeaseCount = 1,
                         };
-                        ActiveEndpointOwners.Add(normalizedAddress, ownershipState);
+                        ActiveEndpointOwners.Add(address, ownershipState);
                         ownershipLock = null;
                     }
 
                     return new EndpointOwnershipLease(
-                        normalizedAddress,
+                        address,
                         ownershipToken,
                         accessBoundary);
                 }
@@ -424,14 +428,14 @@ namespace MackySoft.Ucli.Unity.Ipc
         }
 
         private static EndpointOwnershipLease ClaimProcessLocalEndpointOwnershipIfPresent (
-            string normalizedAddress,
+            AbsolutePath address,
             object ownershipToken,
             UnixSocketAccessBoundary accessBoundary,
             RunReservation runReservation)
         {
             lock (EndpointOwnershipSyncRoot)
             {
-                if (!ActiveEndpointOwners.TryGetValue(normalizedAddress, out var ownershipState))
+                if (!ActiveEndpointOwners.TryGetValue(address, out var ownershipState))
                 {
                     return null;
                 }
@@ -443,7 +447,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     && !(ownershipState.ActiveRunReservation?.IsClosed ?? false))
                 {
                     throw new InvalidOperationException(
-                        $"Unix socket endpoint is already owned by an active listener in this process. Address={normalizedAddress}");
+                        $"Unix socket endpoint is already owned by an active listener in this process. Address={address.Value}");
                 }
 
                 ownershipState.ActiveOwnershipToken = ownershipToken;
@@ -451,14 +455,14 @@ namespace MackySoft.Ucli.Unity.Ipc
                 ownershipState.AllowsSameProcessSuccessor = false;
                 ownershipState.LeaseCount++;
                 return new EndpointOwnershipLease(
-                    normalizedAddress,
+                    address,
                     ownershipToken,
                     accessBoundary);
             }
         }
 
         private static void ReleaseEndpointOwnership (
-            string normalizedAddress,
+            AbsolutePath address,
             object ownershipToken,
             UnixSocketAccessBoundary accessBoundary)
         {
@@ -467,7 +471,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             {
                 lock (EndpointOwnershipSyncRoot)
                 {
-                    if (!ActiveEndpointOwners.TryGetValue(normalizedAddress, out var ownershipState))
+                    if (!ActiveEndpointOwners.TryGetValue(address, out var ownershipState))
                     {
                         return;
                     }
@@ -494,7 +498,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                         ownershipState.LeaseCount--;
                         if (ownershipState.LeaseCount == 0)
                         {
-                            ActiveEndpointOwners.Remove(normalizedAddress);
+                            ActiveEndpointOwners.Remove(address);
                             // Keep the stable lock file in place. Deleting it could let two successors
                             // lock different inodes while one process is opening the same path.
                             ownershipLockToDispose = ownershipState.OwnershipLock;
@@ -508,28 +512,32 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
         }
 
-        internal static string ResolveEndpointOwnershipLockPath (string address)
+        internal static AbsolutePath ResolveEndpointOwnershipLockPath (AbsolutePath address)
         {
-            if (string.IsNullOrWhiteSpace(address))
+            if (address == null)
             {
-                throw new ArgumentException("Socket address must not be empty or whitespace.", nameof(address));
+                throw new ArgumentNullException(nameof(address));
             }
 
-            var normalizedAddress = Path.GetFullPath(address);
             var lockIdentityPath = new UnixSocketFallbackPath(
-                Path.GetTempPath(),
+                AbsolutePath.Parse(Path.GetTempPath()),
                 UnixSocketFallbackPurpose.ListenerOwnershipLock,
-                normalizedAddress);
-            return Path.ChangeExtension(lockIdentityPath.SocketPath, ".lock");
+                address.Value);
+            return ContainedPath.Create(
+                lockIdentityPath.DirectoryPath,
+                RootRelativePath.Parse(
+                    Path.ChangeExtension(
+                        UcliIpcEndpointNames.UnixSocketFileName,
+                        ".lock"))).Target;
         }
 
         private static void AllowSameProcessSuccessor (
-            string normalizedAddress,
+            AbsolutePath address,
             object ownershipToken)
         {
             lock (EndpointOwnershipSyncRoot)
             {
-                if (ActiveEndpointOwners.TryGetValue(normalizedAddress, out var ownershipState)
+                if (ActiveEndpointOwners.TryGetValue(address, out var ownershipState)
                     && ReferenceEquals(ownershipState.ActiveOwnershipToken, ownershipToken))
                 {
                     ownershipState.AllowsSameProcessSuccessor = true;
@@ -557,7 +565,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private sealed class EndpointOwnershipLease : IDisposable
         {
-            private readonly string normalizedAddress;
+            private readonly AbsolutePath address;
 
             private readonly object ownershipToken;
 
@@ -566,11 +574,11 @@ namespace MackySoft.Ucli.Unity.Ipc
             private int disposed;
 
             public EndpointOwnershipLease (
-                string normalizedAddress,
+                AbsolutePath address,
                 object ownershipToken,
                 UnixSocketAccessBoundary accessBoundary)
             {
-                this.normalizedAddress = normalizedAddress ?? throw new ArgumentNullException(nameof(normalizedAddress));
+                this.address = address ?? throw new ArgumentNullException(nameof(address));
                 this.ownershipToken = ownershipToken ?? throw new ArgumentNullException(nameof(ownershipToken));
                 this.accessBoundary = accessBoundary ?? throw new ArgumentNullException(nameof(accessBoundary));
             }
@@ -583,7 +591,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 }
 
                 ReleaseEndpointOwnership(
-                    normalizedAddress,
+                    address,
                     ownershipToken,
                     accessBoundary);
             }
@@ -593,7 +601,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 if (Volatile.Read(ref disposed) == 0)
                 {
                     UnixDomainSocketUnityIpcTransportListener.AllowSameProcessSuccessor(
-                        normalizedAddress,
+                        address,
                         ownershipToken);
                 }
             }

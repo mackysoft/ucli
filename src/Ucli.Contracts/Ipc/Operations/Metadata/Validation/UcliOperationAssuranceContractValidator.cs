@@ -27,7 +27,7 @@ internal static class UcliOperationAssuranceContractValidator
         if (!allowMayCreatePreviewState
             && assurance.PlanMode == UcliOperationPlanMode.MayCreatePreviewState)
         {
-            errorMessage = $"{ownerName} public raw assurance metadata must not use planMode '{ContractLiteralCodec.ToValue(UcliOperationPlanMode.MayCreatePreviewState)}'.";
+            errorMessage = $"{ownerName} public raw assurance metadata must not use planMode '{TextVocabulary.GetText(UcliOperationPlanMode.MayCreatePreviewState)}'.";
             return false;
         }
 
@@ -66,7 +66,7 @@ internal static class UcliOperationAssuranceContractValidator
             return true;
         }
 
-        if (!ContractLiteralInputParser.TryParseIgnoreCase<UcliOperationKind>(operationKind, out var parsedKind))
+        if (!VocabularyInputParser.TryParseIgnoreCase<UcliOperationKind>(operationKind, out var parsedKind))
         {
             errorMessage = $"{ownerName} has unsupported operation kind metadata.";
             return false;
@@ -100,7 +100,7 @@ internal static class UcliOperationAssuranceContractValidator
             return true;
         }
 
-        errorMessage = $"{ownerName} codeContract requires assurance.sideEffects to include '{ContractLiteralCodec.ToValue(UcliOperationSideEffect.ArbitrarySourceExecution)}'.";
+        errorMessage = $"{ownerName} codeContract requires assurance.sideEffects to include '{TextVocabulary.GetText(UcliOperationSideEffect.ArbitrarySourceExecution)}'.";
         return false;
     }
 
@@ -116,7 +116,7 @@ internal static class UcliOperationAssuranceContractValidator
             return true;
         }
 
-        if (!ContractLiteralInputParser.TryParseIgnoreCase<OperationPolicy>(operationPolicy, out var parsedPolicy))
+        if (!VocabularyInputParser.TryParseIgnoreCase<OperationPolicy>(operationPolicy, out var parsedPolicy))
         {
             errorMessage = $"{ownerName} has unsupported operation policy metadata.";
             return false;
@@ -124,7 +124,7 @@ internal static class UcliOperationAssuranceContractValidator
 
         if (parsedPolicy != derivedPolicy)
         {
-            errorMessage = $"{ownerName} policy '{operationPolicy}' does not match derived policy '{ContractLiteralCodec.ToValue(derivedPolicy)}'.";
+            errorMessage = $"{ownerName} policy '{operationPolicy}' does not match derived policy '{TextVocabulary.GetText(derivedPolicy)}'.";
             return false;
         }
 

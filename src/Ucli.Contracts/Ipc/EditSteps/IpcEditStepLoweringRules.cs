@@ -254,7 +254,7 @@ internal static class IpcEditStepLoweringRules
         IpcEditStepContract.ActionKind actionKind,
         string message)
     {
-        return $"Edit action '{ContractLiteralCodec.ToValue(actionKind)}' {message}.";
+        return $"Edit action '{TextVocabulary.GetText(actionKind)}' {message}.";
     }
 
     private static bool Succeed (

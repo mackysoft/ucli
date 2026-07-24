@@ -7,6 +7,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -1853,8 +1854,14 @@ namespace MackySoft.Ucli.Unity.Tests
                 Directory.CreateDirectory(Path.Combine(RepositoryRoot, ".git"));
                 Directory.CreateDirectory(Path.Combine(ProjectRoot, "Assets"));
                 Directory.CreateDirectory(Path.Combine(ProjectRoot, "ProjectSettings"));
-                ProjectFingerprint = UnityProjectFingerprintCalculator.Create(RepositoryRoot, ProjectRoot);
-                PlanTokenKeyPath = UcliStoragePathResolver.ResolvePlanTokenKeyPath(RepositoryRoot, ProjectFingerprint);
+                var guardedRepositoryRoot = AbsolutePath.Parse(RepositoryRoot);
+                var guardedProjectRoot = AbsolutePath.Parse(ProjectRoot);
+                ProjectFingerprint = UnityProjectFingerprintCalculator.Create(
+                    guardedRepositoryRoot,
+                    guardedProjectRoot);
+                PlanTokenKeyPath = UcliStoragePathResolver.ResolvePlanTokenKeyPath(
+                    guardedRepositoryRoot,
+                    ProjectFingerprint).Value;
             }
 
             public string RepositoryRoot { get; }
@@ -1868,8 +1875,8 @@ namespace MackySoft.Ucli.Unity.Tests
             public MutablePlanTokenEnvironment CreateEnvironment ()
             {
                 var snapshot = new PlanTokenEnvironmentSnapshot(
-                    projectRoot: ProjectRoot,
-                    repositoryRoot: RepositoryRoot,
+                    projectRoot: AbsolutePath.Parse(ProjectRoot),
+                    repositoryRoot: AbsolutePath.Parse(RepositoryRoot),
                     projectFingerprint: ProjectFingerprint,
                     unityVersion: "6000.0.0f1",
                     compileState: IpcCompileState.Ready,
@@ -1879,9 +1886,10 @@ namespace MackySoft.Ucli.Unity.Tests
 
             public void WriteConfigJson (string json)
             {
-                var configDirectoryPath = UcliStoragePathResolver.ResolveUcliDirectoryPath(RepositoryRoot);
-                Directory.CreateDirectory(configDirectoryPath);
-                File.WriteAllText(UcliStoragePathResolver.ResolveConfigPath(RepositoryRoot), json);
+                var repositoryRoot = AbsolutePath.Parse(RepositoryRoot);
+                var configDirectoryPath = UcliStoragePathResolver.ResolveUcliDirectoryPath(repositoryRoot);
+                Directory.CreateDirectory(configDirectoryPath.Value);
+                File.WriteAllText(UcliStoragePathResolver.ResolveConfigPath(repositoryRoot).Value, json);
             }
 
             public void Dispose ()

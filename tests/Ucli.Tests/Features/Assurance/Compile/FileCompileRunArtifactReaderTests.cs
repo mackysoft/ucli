@@ -10,18 +10,35 @@ public sealed class FileCompileRunArtifactReaderTests
 {
     [Fact]
     [Trait("Size", "Medium")]
+    public async Task ReadSummaryAsync_WithEmptyRunId_ReturnsInvalidArgumentWithoutCreatingStorage ()
+    {
+        using var scope = TestDirectories.CreateTempScope("compile-artifact-reader", "read-empty-run-id");
+        var store = new FileCompileRunArtifactReader();
+        var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, ProjectFingerprintTestFactory.Create("fingerprint"));
+
+        var result = await store.ReadSummaryAsync(project, Guid.Empty, CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.False(result.IsMissing);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
+        Assert.False(Directory.Exists(Path.Combine(scope.FullPath, UcliStoragePathNames.UcliDirectoryName)));
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
     public async Task ReadSummaryAsync_WhenSummaryIsSymbolicLink_ReturnsFailure ()
     {
         using var scope = TestDirectories.CreateTempScope("compile-artifact-reader", "summary-symlink");
         var store = new FileCompileRunArtifactReader();
         var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, ProjectFingerprintTestFactory.Create("fingerprint"));
         var summaryPath = store.ResolveSummaryPath(project, RunIdTestValues.Compile);
-        var directoryPath = Path.GetDirectoryName(summaryPath)
+        var directoryPath = Path.GetDirectoryName(summaryPath.Value)
             ?? throw new InvalidOperationException($"Directory path could not be resolved: {summaryPath}");
         Directory.CreateDirectory(directoryPath);
         var targetPath = Path.Combine(scope.FullPath, "target-summary.json");
         File.WriteAllText(targetPath, Serialize(CreateSummary(errorCount: 0)));
-        if (!TryCreateFileSymbolicLink(summaryPath, targetPath))
+        if (!TryCreateFileSymbolicLink(summaryPath.Value, targetPath))
         {
             return;
         }
@@ -43,10 +60,10 @@ public sealed class FileCompileRunArtifactReaderTests
         var store = new FileCompileRunArtifactReader();
         var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, ProjectFingerprintTestFactory.Create("fingerprint"));
         var summaryPath = store.ResolveSummaryPath(project, RunIdTestValues.Compile);
-        var directoryPath = Path.GetDirectoryName(summaryPath)
+        var directoryPath = Path.GetDirectoryName(summaryPath.Value)
             ?? throw new InvalidOperationException($"Directory path could not be resolved: {summaryPath}");
         Directory.CreateDirectory(directoryPath);
-        await File.WriteAllTextAsync(summaryPath, new string(' ', (1024 * 1024) + 1), CancellationToken.None);
+        await File.WriteAllTextAsync(summaryPath.Value, new string(' ', (1024 * 1024) + 1), CancellationToken.None);
 
         var result = await store.ReadSummaryAsync(project, RunIdTestValues.Compile, CancellationToken.None);
 
@@ -65,10 +82,10 @@ public sealed class FileCompileRunArtifactReaderTests
         var store = new FileCompileRunArtifactReader();
         var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, ProjectFingerprintTestFactory.Create("fingerprint"));
         var summaryPath = store.ResolveSummaryPath(project, RunIdTestValues.Compile);
-        Directory.CreateDirectory(Path.GetDirectoryName(summaryPath)!);
+        Directory.CreateDirectory(Path.GetDirectoryName(summaryPath.Value)!);
         var invalidJson = Serialize(CreateSummary())
             .Replace(RunIdTestValues.CompileText, Guid.Empty.ToString("D"), StringComparison.Ordinal);
-        await File.WriteAllTextAsync(summaryPath, invalidJson, CancellationToken.None);
+        await File.WriteAllTextAsync(summaryPath.Value, invalidJson, CancellationToken.None);
 
         var result = await store.ReadSummaryAsync(project, RunIdTestValues.Compile, CancellationToken.None);
 
@@ -97,7 +114,7 @@ public sealed class FileCompileRunArtifactReaderTests
         Assert.Null(secondError);
         Assert.True(readResult.IsSuccess);
         Assert.Equal(0, readResult.Summary!.ScriptCompilation.Diagnostics.ErrorCount);
-        var runDirectoryPath = Path.GetDirectoryName(store.ResolveSummaryPath(project, RunIdTestValues.Compile))
+        var runDirectoryPath = Path.GetDirectoryName(store.ResolveSummaryPath(project, RunIdTestValues.Compile).Value)
             ?? throw new InvalidOperationException("Run directory path could not be resolved.");
         Assert.DoesNotContain(
             Directory.EnumerateFiles(runDirectoryPath),

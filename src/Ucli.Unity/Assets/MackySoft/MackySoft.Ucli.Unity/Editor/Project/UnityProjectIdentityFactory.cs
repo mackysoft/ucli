@@ -1,7 +1,6 @@
 using System;
-using System.IO;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts;
-using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Project;
 using MackySoft.Ucli.Infrastructure.Storage;
 using UnityEngine;
@@ -12,14 +11,14 @@ namespace MackySoft.Ucli.Unity.Project
     internal static class UnityProjectIdentityFactory
     {
         /// <summary> Creates the current project identity after validating the expected fingerprint. </summary>
-        public static IpcProjectIdentity Create (ProjectFingerprint expectedProjectFingerprint)
+        public static UnityHostProjectIdentity Create (ProjectFingerprint expectedProjectFingerprint)
         {
             if (expectedProjectFingerprint == null)
             {
                 throw new ArgumentNullException(nameof(expectedProjectFingerprint));
             }
 
-            var projectPath = Path.GetFullPath(UnityProjectPathResolver.ResolveProjectRootPath());
+            var projectPath = UnityProjectPathResolver.ResolveProjectRootPath();
             var storageRoot = UcliStoragePathResolver.ResolveStorageRoot(projectPath);
             var actualProjectFingerprint = UnityProjectFingerprintCalculator.Create(storageRoot, projectPath);
             if (expectedProjectFingerprint != actualProjectFingerprint)
@@ -32,10 +31,10 @@ namespace MackySoft.Ucli.Unity.Project
             var unityVersion = string.IsNullOrWhiteSpace(Application.unityVersion)
                 ? "unknown"
                 : Application.unityVersion;
-            return new IpcProjectIdentity(
-                projectPath: projectPath,
-                projectFingerprint: actualProjectFingerprint,
-                unityVersion: unityVersion);
+            return new UnityHostProjectIdentity(
+                projectPath,
+                actualProjectFingerprint,
+                unityVersion);
         }
     }
 }

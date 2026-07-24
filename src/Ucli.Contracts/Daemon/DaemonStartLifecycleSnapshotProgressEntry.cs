@@ -28,12 +28,12 @@ public sealed record DaemonStartLifecycleSnapshotProgressEntry
             throw new ArgumentOutOfRangeException(nameof(PayloadKind), PayloadKind, "Payload kind must identify a lifecycle snapshot.");
         }
 
-        if (EditorMode.HasValue && !ContractLiteralCodec.IsDefined(EditorMode.Value))
+        if (EditorMode.HasValue && !TextVocabulary.IsDefined(EditorMode.Value))
         {
             throw new ArgumentOutOfRangeException(nameof(EditorMode), EditorMode, "Editor mode must be defined when specified.");
         }
 
-        if (!ContractLiteralCodec.IsDefined(OnStartupBlocked))
+        if (!TextVocabulary.IsDefined(OnStartupBlocked))
         {
             throw new ArgumentOutOfRangeException(nameof(OnStartupBlocked), OnStartupBlocked, "Startup-blocked process policy must be defined.");
         }

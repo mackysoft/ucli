@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Cleanup;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
@@ -57,8 +58,8 @@ public sealed class SupervisorExitHandlerTests
 
         await exitHandler.HandleExitAsync(managedProcess, CancellationToken.None);
 
-        var logPath = UcliStoragePathResolver.ResolveSupervisorLogPath(scope.FullPath);
-        var logText = await File.ReadAllTextAsync(logPath);
+        var logPath = UcliStoragePathResolver.ResolveSupervisorLogPath(AbsolutePath.Parse(scope.FullPath));
+        var logText = await File.ReadAllTextAsync(logPath.Value);
         Assert.Contains("Supervisor diagnosis write failed after daemon exit.", logText, StringComparison.Ordinal);
         Assert.Contains("diagnosis failed", logText, StringComparison.Ordinal);
         Assert.Contains("Supervisor artifact cleanup failed after daemon exit.", logText, StringComparison.Ordinal);
@@ -111,8 +112,8 @@ public sealed class SupervisorExitHandlerTests
 
         await exitHandler.HandleExitAsync(managedProcess, CancellationToken.None);
 
-        var logPath = UcliStoragePathResolver.ResolveSupervisorLogPath(scope.FullPath);
-        var logText = await File.ReadAllTextAsync(logPath);
+        var logPath = UcliStoragePathResolver.ResolveSupervisorLogPath(AbsolutePath.Parse(scope.FullPath));
+        var logText = await File.ReadAllTextAsync(logPath.Value);
         SupervisorExitHandlerAssert.SessionReadFailureLoggedAfterCleanup(
             artifactCleaner,
             unityProject,

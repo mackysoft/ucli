@@ -277,13 +277,33 @@ public sealed class IpcBatchmodeBootstrapArgumentsCodecTests
         Assert.Equal(IpcBatchmodeBootstrapParseErrorKind.InvalidEndpointTransportKind, error.Kind);
     }
 
-    [Theory]
-    [InlineData("namedPipe", "directory/pipe")]
-    [InlineData("unixDomainSocket", "relative.sock")]
-    [InlineData("unixDomainSocket", "/tmp/../ucli.sock")]
+    [Fact]
     [Trait("Size", "Small")]
-    public void TryParse_WhenEndpointAddressViolatesTransportContract_ReturnsInvalidEndpointAddress (
-        string transportKind,
+    public void TryParse_WhenNamedPipeAddressViolatesTransportContract_ReturnsInvalidEndpointAddress ()
+    {
+        var args = new[]
+        {
+            IpcBatchmodeBootstrapArgumentNames.Target, "daemon",
+            IpcDaemonBootstrapArgumentNames.RepositoryRoot, "/repo/root",
+            IpcBatchmodeBootstrapArgumentNames.ProjectFingerprint, ProjectFingerprintText,
+            IpcDaemonBootstrapArgumentNames.SessionPath, "/tmp/session.json",
+            IpcDaemonBootstrapArgumentNames.SessionGenerationId, SessionGenerationId.ToString("D"),
+            IpcDaemonBootstrapArgumentNames.SessionIssuedAtUtc, "2026-03-09T00:00:00.0000000+00:00",
+            IpcEndpointBootstrapArgumentNames.TransportKind, "namedPipe",
+            IpcEndpointBootstrapArgumentNames.Address, "directory/pipe",
+        };
+
+        var parsed = IpcBatchmodeBootstrapArgumentsCodec.TryParse(args, out _, out var error);
+
+        Assert.False(parsed);
+        Assert.Equal(IpcBatchmodeBootstrapParseErrorKind.InvalidEndpointAddress, error.Kind);
+    }
+
+    [Theory]
+    [InlineData("relative.sock")]
+    [InlineData("/tmp/../ucli.sock")]
+    [Trait("Size", "Small")]
+    public void TryParse_WhenUnixEndpointRequiresRuntimePathAdaptation_PreservesWireAddress (
         string endpointAddress)
     {
         var args = new[]
@@ -294,14 +314,19 @@ public sealed class IpcBatchmodeBootstrapArgumentsCodecTests
             IpcDaemonBootstrapArgumentNames.SessionPath, "/tmp/session.json",
             IpcDaemonBootstrapArgumentNames.SessionGenerationId, SessionGenerationId.ToString("D"),
             IpcDaemonBootstrapArgumentNames.SessionIssuedAtUtc, "2026-03-09T00:00:00.0000000+00:00",
-            IpcEndpointBootstrapArgumentNames.TransportKind, transportKind,
+            IpcEndpointBootstrapArgumentNames.TransportKind, "unixDomainSocket",
             IpcEndpointBootstrapArgumentNames.Address, endpointAddress,
         };
 
-        var parsed = IpcBatchmodeBootstrapArgumentsCodec.TryParse(args, out _, out var error);
+        var parsed = IpcBatchmodeBootstrapArgumentsCodec.TryParse(
+            args,
+            out var bootstrapArguments,
+            out var error);
 
-        Assert.False(parsed);
-        Assert.Equal(IpcBatchmodeBootstrapParseErrorKind.InvalidEndpointAddress, error.Kind);
+        Assert.True(parsed);
+        Assert.Equal(IpcBatchmodeBootstrapParseError.None, error);
+        var daemonArguments = Assert.IsType<IpcDaemonBootstrapArguments>(bootstrapArguments);
+        Assert.Equal(endpointAddress, daemonArguments.Endpoint.Address);
     }
 
     [Fact]

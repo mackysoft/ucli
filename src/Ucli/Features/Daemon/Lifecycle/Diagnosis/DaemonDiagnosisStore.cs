@@ -1,9 +1,9 @@
 using System.Text.Json;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Contracts.Text;
-using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Infrastructure.Storage;
 
 namespace MackySoft.Ucli.Features.Daemon.Lifecycle.Diagnosis;
@@ -13,32 +13,18 @@ internal sealed class DaemonDiagnosisStore : IDaemonDiagnosisStore
 {
     /// <inheritdoc />
     public async ValueTask<DaemonDiagnosisReadResult> ReadAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         ProjectFingerprint projectFingerprint,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        string diagnosisPath;
-        try
-        {
-            diagnosisPath = UcliStoragePathResolver.ResolveDaemonDiagnosisPath(storageRoot, projectFingerprint);
-        }
-        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
-        {
-            return DaemonDiagnosisReadResult.Failure(ExecutionError.InvalidArgument(
-                $"Daemon diagnosis path is invalid. {exception.Message}"));
-        }
+        var diagnosisPath = UcliStoragePathResolver.ResolveDaemonDiagnosisPath(storageRoot, projectFingerprint);
 
         string? json;
         try
         {
             json = await FileUtilities.ReadAllTextOrNullAsync(diagnosisPath, cancellationToken).ConfigureAwait(false);
-        }
-        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
-        {
-            return DaemonDiagnosisReadResult.Failure(ExecutionError.InvalidArgument(
-                $"Daemon diagnosis path is invalid: {diagnosisPath}. {exception.Message}"));
         }
         catch (Exception exception) when (IsIoFailure(exception))
         {
@@ -78,6 +64,18 @@ internal sealed class DaemonDiagnosisStore : IDaemonDiagnosisStore
             return DaemonDiagnosisReadResult.Failure(validationError!);
         }
 
+        if (!TryParseOptionalAbsolutePath(contract.EditorInstancePath, out var editorInstancePath))
+        {
+            return DaemonDiagnosisReadResult.Failure(ExecutionError.InvalidArgument(
+                $"Daemon diagnosis editorInstancePath is invalid: {diagnosisPath}"));
+        }
+
+        if (!TryParseOptionalAbsolutePath(contract.UnityLogPath, out var unityLogPath))
+        {
+            return DaemonDiagnosisReadResult.Failure(ExecutionError.InvalidArgument(
+                $"Daemon diagnosis unityLogPath is invalid: {diagnosisPath}"));
+        }
+
         var diagnosis = new DaemonDiagnosis(
             Reason: contract.Reason!.Value,
             Message: contract.Message!,
@@ -85,10 +83,10 @@ internal sealed class DaemonDiagnosisStore : IDaemonDiagnosisStore
             IsInferred: contract.IsInferred!.Value,
             UpdatedAtUtc: contract.UpdatedAtUtc,
             ProcessId: contract.ProcessId,
-            EditorInstancePath: StringValueNormalizer.TrimToNull(contract.EditorInstancePath),
+            EditorInstancePath: editorInstancePath,
             SessionIssuedAtUtc: contract.SessionIssuedAtUtc,
             ProcessStartedAtUtc: contract.ProcessStartedAtUtc,
-            UnityLogPath: StringValueNormalizer.TrimToNull(contract.UnityLogPath),
+            UnityLogPath: unityLogPath,
             StartupPhase: contract.StartupPhase,
             ActionRequired: contract.ActionRequired,
             PrimaryDiagnostic: contract.PrimaryDiagnostic is null
@@ -105,7 +103,7 @@ internal sealed class DaemonDiagnosisStore : IDaemonDiagnosisStore
 
     /// <inheritdoc />
     public async ValueTask<DaemonDiagnosisStoreOperationResult> WriteAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         ProjectFingerprint projectFingerprint,
         DaemonDiagnosis diagnosis,
         CancellationToken cancellationToken = default)
@@ -113,16 +111,7 @@ internal sealed class DaemonDiagnosisStore : IDaemonDiagnosisStore
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(diagnosis);
 
-        string diagnosisPath;
-        try
-        {
-            diagnosisPath = UcliStoragePathResolver.ResolveDaemonDiagnosisPath(storageRoot, projectFingerprint);
-        }
-        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
-        {
-            return DaemonDiagnosisStoreOperationResult.Failure(ExecutionError.InvalidArgument(
-                $"Daemon diagnosis path is invalid. {exception.Message}"));
-        }
+        var diagnosisPath = UcliStoragePathResolver.ResolveDaemonDiagnosisPath(storageRoot, projectFingerprint);
 
         var contract = new DaemonDiagnosisJsonContract(
             Reason: diagnosis.Reason,
@@ -131,10 +120,10 @@ internal sealed class DaemonDiagnosisStore : IDaemonDiagnosisStore
             IsInferred: diagnosis.IsInferred,
             UpdatedAtUtc: diagnosis.UpdatedAtUtc,
             ProcessId: diagnosis.ProcessId,
-            EditorInstancePath: diagnosis.EditorInstancePath,
+            EditorInstancePath: diagnosis.EditorInstancePath?.Value,
             SessionIssuedAtUtc: diagnosis.SessionIssuedAtUtc,
             ProcessStartedAtUtc: diagnosis.ProcessStartedAtUtc,
-            UnityLogPath: diagnosis.UnityLogPath,
+            UnityLogPath: diagnosis.UnityLogPath?.Value,
             StartupPhase: diagnosis.StartupPhase,
             ActionRequired: diagnosis.ActionRequired,
             PrimaryDiagnostic: diagnosis.PrimaryDiagnostic is null
@@ -160,16 +149,12 @@ internal sealed class DaemonDiagnosisStore : IDaemonDiagnosisStore
 
         try
         {
-            var diagnosisDirectoryPath = Path.GetDirectoryName(diagnosisPath)
-                ?? throw new InvalidOperationException($"Daemon diagnosis directory path could not be resolved: {diagnosisPath}");
+            var diagnosisDirectoryPath = UcliStoragePathResolver.ResolveProjectDirectory(
+                storageRoot,
+                projectFingerprint);
             FileSystemAccessBoundary.EnsureSecureDirectory(diagnosisDirectoryPath);
             await FileUtilities.WriteAllTextAtomicallyAsync(diagnosisPath, json, cancellationToken).ConfigureAwait(false);
             return DaemonDiagnosisStoreOperationResult.Success();
-        }
-        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
-        {
-            return DaemonDiagnosisStoreOperationResult.Failure(ExecutionError.InvalidArgument(
-                $"Daemon diagnosis path is invalid: {diagnosisPath}. {exception.Message}"));
         }
         catch (Exception exception) when (IsIoFailure(exception))
         {
@@ -180,33 +165,19 @@ internal sealed class DaemonDiagnosisStore : IDaemonDiagnosisStore
 
     /// <inheritdoc />
     public async ValueTask<DaemonDiagnosisStoreOperationResult> DeleteAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         ProjectFingerprint projectFingerprint,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        string diagnosisPath;
-        try
-        {
-            diagnosisPath = UcliStoragePathResolver.ResolveDaemonDiagnosisPath(storageRoot, projectFingerprint);
-        }
-        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
-        {
-            return DaemonDiagnosisStoreOperationResult.Failure(ExecutionError.InvalidArgument(
-                $"Daemon diagnosis path is invalid. {exception.Message}"));
-        }
+        var diagnosisPath = UcliStoragePathResolver.ResolveDaemonDiagnosisPath(storageRoot, projectFingerprint);
 
         try
         {
             cancellationToken.ThrowIfCancellationRequested();
             FileUtilities.DeleteIfExists(diagnosisPath);
             return DaemonDiagnosisStoreOperationResult.Success();
-        }
-        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
-        {
-            return DaemonDiagnosisStoreOperationResult.Failure(ExecutionError.InvalidArgument(
-                $"Daemon diagnosis path is invalid: {diagnosisPath}. {exception.Message}"));
         }
         catch (Exception exception) when (IsIoFailure(exception))
         {
@@ -217,7 +188,7 @@ internal sealed class DaemonDiagnosisStore : IDaemonDiagnosisStore
 
     private static bool TryValidate (
         DaemonDiagnosisJsonContract contract,
-        string diagnosisPath,
+        AbsolutePath diagnosisPath,
         out ExecutionError? error)
     {
         if (!contract.Reason.HasValue)
@@ -265,9 +236,19 @@ internal sealed class DaemonDiagnosisStore : IDaemonDiagnosisStore
         return true;
     }
 
+    private static bool TryParseOptionalAbsolutePath (
+        string? value,
+        out AbsolutePath? path)
+    {
+        path = null;
+        var normalizedValue = StringValueNormalizer.TrimToNull(value);
+        return normalizedValue is null
+            || AbsolutePath.TryParse(normalizedValue, out path, out _);
+    }
+
     private static bool TryValidatePrimaryDiagnostic (
         DaemonDiagnosisPrimaryDiagnosticJsonContract? primaryDiagnostic,
-        string diagnosisPath,
+        AbsolutePath diagnosisPath,
         out ExecutionError? error)
     {
         if (primaryDiagnostic is null)

@@ -1,6 +1,6 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Foundation;
-using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Infrastructure.Project;
 using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.UnityIntegration.Resolution;
@@ -17,27 +17,40 @@ internal sealed class UnityProjectResolver : IUnityProjectResolver
     {
         ArgumentNullException.ThrowIfNull(projectPathCandidate);
 
-        var fullPathResult = PathNormalizer.TryNormalizeFullPath(projectPathCandidate.Path);
-        if (!fullPathResult.IsSuccess)
+        var currentDirectory = AbsolutePath.Parse(Environment.CurrentDirectory);
+        if (!AbsolutePath.TryResolve(currentDirectory, projectPathCandidate.Path, out var unityProjectRoot, out _))
         {
             return UnityProjectResolutionResult.Failure(ExecutionError.InvalidArgument(
                 "UnityProject path is invalid: Path format is invalid.",
                 ProjectContextErrorCodes.ProjectPathInvalidFormat));
         }
 
-        var unityProjectRoot = fullPathResult.FullPath!;
-        if (!Directory.Exists(unityProjectRoot))
+        return Resolve(
+            unityProjectRoot,
+            projectPathCandidate.Source,
+            projectPathCandidate.SourceLabel);
+    }
+
+    /// <inheritdoc />
+    public UnityProjectResolutionResult Resolve (
+        AbsolutePath unityProjectRoot,
+        UnityProjectPathSource source,
+        string? sourceLabel = null)
+    {
+        ArgumentNullException.ThrowIfNull(unityProjectRoot);
+
+        if (!Directory.Exists(unityProjectRoot.Value))
         {
             return UnityProjectResolutionResult.Failure(ExecutionError.InvalidArgument(
-                $"UnityProject path does not exist: {unityProjectRoot}",
+                $"UnityProject path does not exist: {unityProjectRoot.Value}",
                 ProjectContextErrorCodes.ProjectPathNotFound));
         }
 
         var projectVersionPath = UnityProjectVersionFileReader.GetProjectVersionPath(unityProjectRoot);
-        if (!File.Exists(projectVersionPath))
+        if (!File.Exists(projectVersionPath.Value))
         {
             return UnityProjectResolutionResult.Failure(ExecutionError.InvalidArgument(
-                $"UnityProject is invalid. Missing file: {projectVersionPath}",
+                $"UnityProject is invalid. Missing file: {projectVersionPath.Value}",
                 ProjectContextErrorCodes.UnityProjectMarkerMissing));
         }
 
@@ -48,12 +61,12 @@ internal sealed class UnityProjectResolver : IUnityProjectResolver
             unityProjectRoot: unityProjectRoot,
             repositoryRoot: repositoryRoot,
             projectFingerprint: projectFingerprint,
-            pathSource: projectPathCandidate.Source,
-            pathSourceLabel: projectPathCandidate.SourceLabel,
+            pathSource: source,
+            pathSourceLabel: sourceLabel,
             unityVersion: unityVersion));
     }
 
-    private static string ReadUnityVersionOrUnknown (string projectVersionPath)
+    private static string ReadUnityVersionOrUnknown (AbsolutePath projectVersionPath)
     {
         var readResult = UnityProjectVersionFileReader.ReadEditorVersion(projectVersionPath);
         return readResult.Status == UnityProjectVersionFileReader.ReadStatus.Success

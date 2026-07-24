@@ -1,4 +1,5 @@
 using System;
+using MackySoft.FileSystem;
 using UnityEditor;
 using UnityEditor.TestTools.TestRunner.Api;
 
@@ -28,9 +29,9 @@ namespace MackySoft.Ucli.Unity.Ipc
             string? testFilter,
             string[] testCategories,
             string[] assemblyNames,
-            string resultsXmlPath,
-            string editorLogPath,
-            string consoleLogPath)
+            AbsolutePath resultsXmlPath,
+            AbsolutePath editorLogPath,
+            AbsolutePath consoleLogPath)
         {
             if (runId == Guid.Empty)
             {
@@ -64,10 +65,10 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         public string[] AssemblyNames { get; }
 
-        public string ResultsXmlPath { get; }
+        public AbsolutePath ResultsXmlPath { get; }
 
-        public string EditorLogPath { get; }
+        public AbsolutePath EditorLogPath { get; }
 
-        public string ConsoleLogPath { get; }
+        public AbsolutePath ConsoleLogPath { get; }
     }
 }

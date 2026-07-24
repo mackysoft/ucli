@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -50,7 +51,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     CreateSessionContract(SessionGenerationId, FirstSessionToken, SessionIssuedAtUtc));
 
                 var sessionToken = await DaemonBootstrapSessionTokenResolver.ResolveAsync(
-                    CreateBootstrapArguments(storageRoot, sessionPath, SessionGenerationId),
+                    CreateBootstrapContext(storageRoot, sessionPath, SessionGenerationId),
                     CancellationToken.None);
                 var validator = new ExactSessionTokenValidator(sessionToken);
 
@@ -87,7 +88,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     CreateSessionContract(SessionGenerationId, FirstSessionToken, SessionIssuedAtUtc));
 
                 var sessionToken = await DaemonBootstrapSessionTokenResolver.ResolveAsync(
-                    CreateBootstrapArguments(storageRoot, sessionPath, SessionGenerationId),
+                    CreateBootstrapContext(storageRoot, sessionPath, SessionGenerationId),
                     CancellationToken.None);
                 var validator = new ExactSessionTokenValidator(sessionToken);
 
@@ -119,7 +120,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 WriteSessionJson(
                     sessionPath,
                     CreateSessionContract(SessionGenerationId, FirstSessionToken, SessionIssuedAtUtc));
-                var bootstrapArguments = CreateBootstrapArguments(
+                var bootstrapContext = CreateBootstrapContext(
                     storageRoot,
                     sessionPath,
                     SessionGenerationId);
@@ -133,7 +134,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
                 Assert.ThrowsAsync<InvalidDataException>(() =>
                     DaemonBootstrapSessionTokenResolver.ResolveAsync(
-                        bootstrapArguments,
+                        bootstrapContext,
                         CancellationToken.None));
             }
             finally
@@ -150,14 +151,15 @@ namespace MackySoft.Ucli.Unity.Tests
             try
             {
                 var canonicalSessionPath = UcliStoragePathResolver.ResolveSessionPath(storageRoot, ProjectFingerprint);
-                var replacedSessionPath = Path.Combine(storageRoot, "replacement", "session.json");
+                var replacedSessionPath = AbsolutePath.Parse(
+                    Path.Combine(storageRoot.Value, "replacement", "session.json"));
                 var contract = CreateSessionContract(SessionGenerationId, FirstSessionToken, SessionIssuedAtUtc);
                 WriteSessionJson(canonicalSessionPath, contract);
                 WriteSessionJson(replacedSessionPath, contract);
 
                 Assert.ThrowsAsync<InvalidOperationException>(() =>
                     DaemonBootstrapSessionTokenResolver.ResolveAsync(
-                        CreateBootstrapArguments(storageRoot, replacedSessionPath, SessionGenerationId),
+                        CreateBootstrapContext(storageRoot, replacedSessionPath, SessionGenerationId),
                         CancellationToken.None));
             }
             finally
@@ -191,7 +193,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
                 Assert.ThrowsAsync<InvalidDataException>(() =>
                     DaemonBootstrapSessionTokenResolver.ResolveAsync(
-                        CreateBootstrapArguments(storageRoot, sessionPath, SessionGenerationId),
+                        CreateBootstrapContext(storageRoot, sessionPath, SessionGenerationId),
                         CancellationToken.None));
             }
             finally
@@ -214,7 +216,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
                 Assert.ThrowsAsync<InvalidDataException>(() =>
                     DaemonBootstrapSessionTokenResolver.ResolveAsync(
-                        CreateBootstrapArguments(storageRoot, sessionPath, SessionGenerationId),
+                        CreateBootstrapContext(storageRoot, sessionPath, SessionGenerationId),
                         CancellationToken.None));
             }
             finally
@@ -231,14 +233,14 @@ namespace MackySoft.Ucli.Unity.Tests
             try
             {
                 var sessionPath = UcliStoragePathResolver.ResolveSessionPath(storageRoot, ProjectFingerprint);
-                Directory.CreateDirectory(Path.GetDirectoryName(sessionPath)!);
+                Directory.CreateDirectory(Path.GetDirectoryName(sessionPath.Value)!);
                 File.WriteAllText(
-                    sessionPath,
+                    sessionPath.Value,
                     $"{{\"sessionToken\":\"{FirstSessionToken}\",\"padding\":\"{new string('a', DaemonSessionStorageContract.MaximumFileSizeBytes)}\"}}");
 
                 Assert.ThrowsAsync<IOException>(() =>
                     DaemonBootstrapSessionTokenResolver.ResolveAsync(
-                        CreateBootstrapArguments(storageRoot, sessionPath, SessionGenerationId),
+                        CreateBootstrapContext(storageRoot, sessionPath, SessionGenerationId),
                         CancellationToken.None));
             }
             finally
@@ -321,27 +323,27 @@ namespace MackySoft.Ucli.Unity.Tests
         }
 
         private static void WriteSessionJson (
-            string sessionPath,
+            AbsolutePath sessionPath,
             DaemonSessionJsonContract contract)
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(sessionPath)!);
+            Directory.CreateDirectory(Path.GetDirectoryName(sessionPath.Value)!);
             File.WriteAllText(
-                sessionPath,
+                sessionPath.Value,
                 DaemonSessionJsonContractSerializer.Serialize(contract) + Environment.NewLine);
         }
 
-        private static IpcDaemonBootstrapArguments CreateBootstrapArguments (
-            string storageRoot,
-            string sessionPath,
+        private static UnityDaemonBootstrapContext CreateBootstrapContext (
+            AbsolutePath storageRoot,
+            AbsolutePath sessionPath,
             Guid sessionGenerationId)
         {
-            return new IpcDaemonBootstrapArguments(
-                RepositoryRoot: storageRoot,
-                ProjectFingerprint: ProjectFingerprint,
-                SessionPath: sessionPath,
-                SessionGenerationId: sessionGenerationId,
-                SessionIssuedAtUtc: SessionIssuedAtUtc,
-                Endpoint: Endpoint);
+            return new UnityDaemonBootstrapContext(
+                storageRoot,
+                ProjectFingerprint,
+                sessionPath,
+                sessionGenerationId,
+                SessionIssuedAtUtc,
+                UnityIpcEndpointBinding.Create(Endpoint));
         }
 
         private static IpcSessionToken ParseSessionToken (string value)
@@ -350,21 +352,21 @@ namespace MackySoft.Ucli.Unity.Tests
             return sessionToken!;
         }
 
-        private static string CreateTemporaryStorageRoot ()
+        private static AbsolutePath CreateTemporaryStorageRoot ()
         {
             var storageRoot = Path.Combine(
                 Path.GetTempPath(),
                 "ucli-daemon-bootstrap-session-token-resolver-tests",
                 Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(storageRoot);
-            return storageRoot;
+            return AbsolutePath.Parse(storageRoot);
         }
 
-        private static void DeleteTemporaryStorageRoot (string storageRoot)
+        private static void DeleteTemporaryStorageRoot (AbsolutePath storageRoot)
         {
-            if (Directory.Exists(storageRoot))
+            if (Directory.Exists(storageRoot.Value))
             {
-                Directory.Delete(storageRoot, recursive: true);
+                Directory.Delete(storageRoot.Value, recursive: true);
             }
         }
 

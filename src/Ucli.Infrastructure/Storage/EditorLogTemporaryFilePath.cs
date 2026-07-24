@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Globalization;
 using System.Security.Cryptography;
+using MackySoft.FileSystem;
 
 namespace MackySoft.Ucli.Infrastructure.Storage;
 
@@ -32,19 +33,18 @@ internal static class EditorLogTemporaryFilePath
     /// <param name="bufferSize"> The write stream buffer size. </param>
     /// <param name="temporaryPath"> The reserved sibling path in the form <c>.tmp-&lt;processId&gt;-&lt;14 lowercase hex nonce&gt;</c>. </param>
     /// <returns> The exclusive asynchronous write stream that owns <paramref name="temporaryPath" />. </returns>
-    /// <exception cref="ArgumentException"> Thrown when <paramref name="destinationPath" /> is empty. </exception>
+    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="destinationPath" /> is <see langword="null" />. </exception>
     /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="bufferSize" /> is not positive. </exception>
     /// <exception cref="InvalidOperationException"> Thrown when the destination directory cannot be resolved. </exception>
     /// <exception cref="IOException"> Thrown when no unique temporary file can be reserved. </exception>
     public static FileStream OpenExclusiveWrite (
-        string destinationPath,
+        AbsolutePath destinationPath,
         int bufferSize,
-        out string temporaryPath)
+        out AbsolutePath temporaryPath)
     {
-        temporaryPath = string.Empty;
-        if (string.IsNullOrWhiteSpace(destinationPath))
+        if (destinationPath is null)
         {
-            throw new ArgumentException("Destination path must not be null or whitespace.", nameof(destinationPath));
+            throw new ArgumentNullException(nameof(destinationPath));
         }
 
         if (bufferSize <= 0)
@@ -52,11 +52,10 @@ internal static class EditorLogTemporaryFilePath
             throw new ArgumentOutOfRangeException(nameof(bufferSize), "Buffer size must be positive.");
         }
 
-        var directoryPath = Path.GetDirectoryName(destinationPath);
-        if (string.IsNullOrWhiteSpace(directoryPath))
+        if (!destinationPath.TryGetParent(out var directoryPath))
         {
             throw new InvalidOperationException(
-                $"Destination directory path could not be resolved: {destinationPath}");
+                $"Destination directory path could not be resolved: {destinationPath.Value}");
         }
 
         int processId;
@@ -67,17 +66,17 @@ internal static class EditorLogTemporaryFilePath
 
         for (var attempt = 0; attempt < TemporaryFileCreationAttemptLimit; attempt++)
         {
-            var candidatePath = Path.Combine(
+            var candidatePath = ContainedPath.Create(
                 directoryPath,
-                string.Concat(
+                RootRelativePath.Parse(string.Concat(
                     FileNamePrefix,
                     processId.ToString(CultureInfo.InvariantCulture),
                     "-",
-                    CreateTemporaryNonce()));
+                    CreateTemporaryNonce()))).Target;
             try
             {
                 var stream = new FileStream(
-                    candidatePath,
+                    candidatePath.Value,
                     FileMode.CreateNew,
                     FileAccess.Write,
                     FileShare.None,
@@ -86,14 +85,14 @@ internal static class EditorLogTemporaryFilePath
                 temporaryPath = candidatePath;
                 return stream;
             }
-            catch (IOException) when (File.Exists(candidatePath) || Directory.Exists(candidatePath))
+            catch (IOException) when (File.Exists(candidatePath.Value) || Directory.Exists(candidatePath.Value))
             {
                 // A different writer owns this random name; retry without deleting its file.
             }
         }
 
         throw new IOException(
-            $"Could not reserve an editor-log temporary file after {TemporaryFileCreationAttemptLimit} attempts: {directoryPath}");
+            $"Could not reserve an editor-log temporary file after {TemporaryFileCreationAttemptLimit} attempts: {directoryPath.Value}");
     }
 
     /// <summary> Extracts the positive owner process identifier from an exact editor-log temporary file name. </summary>

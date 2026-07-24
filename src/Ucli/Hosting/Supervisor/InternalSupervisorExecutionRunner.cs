@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Features.Daemon.Supervisor.Host;
 using MackySoft.Ucli.Hosting.Composition.Common;
 using Microsoft.Extensions.DependencyInjection;
@@ -12,13 +13,10 @@ internal sealed class InternalSupervisorExecutionRunner
     /// <param name="cancellationToken"> The cancellation token propagated by the hosting environment. </param>
     /// <returns> The supervisor process exit code. </returns>
     public async Task<int> RunAsync (
-        string repositoryRoot,
+        AbsolutePath repositoryRoot,
         CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(repositoryRoot))
-        {
-            return 1;
-        }
+        ArgumentNullException.ThrowIfNull(repositoryRoot);
 
         await using var serviceProvider = BuildServiceProvider();
         var supervisorHost = serviceProvider.GetRequiredService<SupervisorHost>();

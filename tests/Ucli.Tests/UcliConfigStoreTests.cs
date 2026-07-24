@@ -79,7 +79,7 @@ public sealed class UcliConfigStoreTests
             loadedConfig.IpcTimeoutMillisecondsByCommand[UcliContractConstants.Config.IpcTimeoutCommandPlan]);
         Assert.Equal(config.OperationAllowlist, loadedConfig.OperationAllowlist);
 
-        using var jsonDocument = JsonDocument.Parse(File.ReadAllText(project.ConfigPath));
+        using var jsonDocument = JsonDocument.Parse(File.ReadAllText(project.ConfigPath.Value));
         JsonAssert.For(jsonDocument.RootElement)
             .HasInt32("schemaVersion", UcliContractConstants.Config.SchemaVersion)
             .HasString("operationPolicy", UcliContractConstants.Config.OperationPolicyDangerous)

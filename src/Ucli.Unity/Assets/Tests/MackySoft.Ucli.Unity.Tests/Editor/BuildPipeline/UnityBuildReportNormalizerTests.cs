@@ -18,10 +18,11 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public void Normalize_WithSucceededSnapshot_ReturnsBuildReportArtifact ()
         {
+            var outputPath = CreateTestPath("output", "build");
             var snapshot = new UnityBuildReportNormalizer.BuildReportSnapshot(
                 Result: IpcBuildReportResult.Succeeded,
                 UnityBuildTarget: "StandaloneLinux64",
-                OutputPath: "/tmp/ucli/output/build",
+                OutputPath: outputPath,
                 Duration: TimeSpan.FromMilliseconds(1234.6),
                 TotalSizeBytes: 4096,
                 ErrorCount: 0,
@@ -45,7 +46,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(artifact.SchemaVersion, Is.EqualTo(1));
             Assert.That(artifact.Result, Is.EqualTo(IpcBuildReportResult.Succeeded));
             Assert.That(artifact.UnityBuildTarget, Is.EqualTo("StandaloneLinux64"));
-            Assert.That(artifact.OutputPath, Is.EqualTo("/tmp/ucli/output/build"));
+            Assert.That(artifact.OutputPath, Is.EqualTo(outputPath));
             Assert.That(artifact.DurationMilliseconds, Is.EqualTo(1235));
             Assert.That(artifact.TotalSizeBytes, Is.EqualTo(4096));
             Assert.That(artifact.ErrorCount, Is.Zero);
@@ -64,10 +65,11 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public void Normalize_WithFailedSnapshot_PreservesFailedResultAndErrorCount ()
         {
+            var outputPath = CreateTestPath("output", "build");
             var snapshot = new UnityBuildReportNormalizer.BuildReportSnapshot(
                 Result: IpcBuildReportResult.Failed,
                 UnityBuildTarget: "StandaloneLinux64",
-                OutputPath: "/tmp/ucli/output/build",
+                OutputPath: outputPath,
                 Duration: TimeSpan.FromMilliseconds(10),
                 TotalSizeBytes: 0,
                 ErrorCount: 1,
@@ -110,6 +112,8 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var outputPath = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "ucli", "output"));
             var locationPathName = Path.Combine(outputPath, "player", "Player");
+            var buildReportPath = CreateTestPath("build-report.json");
+            var buildLogPath = CreateTestPath("build.log");
             var wireRequest = new IpcBuildRunRequest(
                 RunId: Guid.Parse("00000000-0000-0000-0000-000000000604"),
                 InputKind: BuildProfileInputsKind.Explicit,
@@ -121,8 +125,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 OutputLayout: new IpcBuildOutputLayout(
                     Shape: IpcBuildOutputLayoutShape.File,
                     LocationPathName: locationPathName),
-                BuildReportPath: "/tmp/ucli/build-report.json",
-                BuildLogPath: "/tmp/ucli/build.log",
+                BuildReportPath: buildReportPath,
+                BuildLogPath: buildLogPath,
                 AllowedEditorModes: new[] { DaemonEditorMode.Batchmode },
                 ProjectMutationMode: BuildProfileProjectMutationMode.Forbid,
                 RunnerKind: BuildRunnerKind.BuildPipeline,
@@ -149,6 +153,17 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(options.targetGroup, Is.EqualTo(BuildTargetGroup.Standalone));
             Assert.That(options.options, Is.EqualTo(BuildOptions.Development));
             Assert.That(options.locationPathName, Is.EqualTo(locationPathName));
+        }
+
+        private static string CreateTestPath (params string[] segments)
+        {
+            var path = Path.Combine(Path.GetTempPath(), "ucli");
+            foreach (var segment in segments)
+            {
+                path = Path.Combine(path, segment);
+            }
+
+            return Path.GetFullPath(path);
         }
     }
 }

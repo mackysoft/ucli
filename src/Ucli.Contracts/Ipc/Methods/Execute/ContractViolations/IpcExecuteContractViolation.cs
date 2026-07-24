@@ -21,7 +21,7 @@ public sealed record IpcExecuteContractViolation
         string ObservedResult,
         IpcApplicationState ApplicationState)
     {
-        if (!ContractLiteralCodec.IsDefined(ApplicationState))
+        if (!TextVocabulary.IsDefined(ApplicationState))
         {
             throw new ArgumentOutOfRangeException(nameof(ApplicationState), ApplicationState, "Application state must be specified.");
         }

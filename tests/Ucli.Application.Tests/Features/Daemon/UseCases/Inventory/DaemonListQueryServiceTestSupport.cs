@@ -14,6 +14,16 @@ internal static class DaemonListQueryServiceTestSupport
 {
     public static readonly TimeSpan SignalWaitTimeout = TimeSpan.FromSeconds(5);
 
+    public static AbsolutePath GuardedAbsolutePath (string path)
+    {
+        return AbsolutePath.Parse(Path.GetFullPath(path));
+    }
+
+    public static RootRelativePath GuardedRelativePath (string path)
+    {
+        return RootRelativePath.Parse(path);
+    }
+
     public static DaemonListQueryService CreateSingleWorktreeService (
         ResolvedUnityProjectContext currentProject,
         DaemonSessionReadResult sessionReadResult,
@@ -28,7 +38,8 @@ internal static class DaemonListQueryServiceTestSupport
         return CreateService(
             new RecordingGitWorktreeQueryService(GitWorktreeQueryResult.Success(new GitWorktreeQueryOutput(
                 CurrentWorktreeRoot: currentProject.RepositoryRoot,
-                ProjectRelativePath: currentProject.UnityProjectRoot == currentProject.RepositoryRoot ? "." : "UnityProject",
+                ProjectRelativePath: RootRelativePath.Parse(
+                    currentProject.UnityProjectRoot == currentProject.RepositoryRoot ? "." : "UnityProject"),
                 Worktrees:
                 [
                     new GitWorktreeInfo(currentProject.RepositoryRoot, "abcdef01", "refs/heads/main"),
@@ -105,13 +116,13 @@ internal static class DaemonListQueryServiceTestSupport
             EditorInstancePath: null,
             SessionIssuedAtUtc: session.IssuedAtUtc,
             ProcessStartedAtUtc: session.ProcessStartedAtUtc,
-            UnityLogPath: Path.Combine(
+            UnityLogPath: AbsolutePath.Parse(Path.Combine(
                 ProjectPathTestValues.RepositoryRoot,
                 ".ucli",
                 "local",
                 "fingerprints",
                 "fp-current",
-                "unity.log"),
+                "unity.log")),
             StartupPhase: DaemonDiagnosisStartupPhase.EndpointRegistration,
             ActionRequired: DaemonDiagnosisActionRequired.InspectUnityLog,
             PrimaryDiagnostic: new DaemonPrimaryDiagnostic(

@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
@@ -54,7 +55,7 @@ public sealed class SupervisorRequestDispatcherStreamingTests
         };
         var dispatcher = CreateDispatcher(startOperation);
         var runtimeContext = CreateRuntimeContext();
-        var unityProjectRoot = Path.Combine(runtimeContext.StorageRoot, "UnityProject");
+        var unityProjectRoot = AbsolutePath.Parse(Path.Combine(runtimeContext.StorageRoot.Value, "UnityProject"));
         var projectFingerprint = UnityProjectFingerprintCalculator.Create(runtimeContext.StorageRoot, unityProjectRoot);
 
         var frames = await SendStreamingRequestAsync(
@@ -64,24 +65,26 @@ public sealed class SupervisorRequestDispatcherStreamingTests
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: Guid.NewGuid(),
                 sessionToken: runtimeContext.Manifest.SessionToken.GetEncodedValue(),
-                method: ContractLiteralCodec.ToValue(SupervisorIpcMethod.EnsureRunning),
+                method: TextVocabulary.GetText(SupervisorIpcMethod.EnsureRunning),
                 payload: IpcPayloadCodec.SerializeToElement(
                     new SupervisorIpcContracts.EnsureRunningRequest(
-                        UnityProjectRoot: unityProjectRoot,
+                        UnityProjectRoot: unityProjectRoot.Value,
                         ProjectFingerprint: projectFingerprint,
                         EditorMode: DaemonEditorMode.Gui,
                         OnStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto)),
-                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Stream),
+                responseMode: TextVocabulary.GetText(IpcResponseMode.Stream),
                 requestDeadlineUtc: CreateEnsureRunningDeadline(1000),
                 requestDeadlineRemainingMilliseconds: 1000));
 
         Assert.Equal(2, frames.Count);
         Assert.Equal(IpcStreamFrameKind.Progress, frames[0].Kind);
-        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartProgressEvent.WaitingForEndpoint), frames[0].Event);
+        Assert.Equal(TextVocabulary.GetText(DaemonStartProgressEvent.WaitingForEndpoint), frames[0].Event);
+        var operationTimeoutMilliseconds = checked(
+            (int)Math.Ceiling(Assert.Single(startOperation.Invocations).RemainingTimeout.TotalMilliseconds));
         JsonAssert.For(frames[0].Payload)
             .HasString("payloadKind", "startupObservation")
             .HasString("projectFingerprint", projectFingerprint.ToString())
-            .HasInt32("timeoutMilliseconds", 1000)
+            .HasInt32("timeoutMilliseconds", operationTimeoutMilliseconds)
             .HasString("message", "Waiting for daemon endpoint.");
         Assert.Equal(IpcStreamFrameKind.Terminal, frames[1].Kind);
         Assert.Null(frames[1].Event);
@@ -138,7 +141,7 @@ public sealed class SupervisorRequestDispatcherStreamingTests
         };
         var dispatcher = CreateDispatcher(startOperation, timeProvider);
         var runtimeContext = CreateRuntimeContext();
-        var unityProjectRoot = Path.Combine(runtimeContext.StorageRoot, "UnityProject");
+        var unityProjectRoot = AbsolutePath.Parse(Path.Combine(runtimeContext.StorageRoot.Value, "UnityProject"));
         var projectFingerprint = UnityProjectFingerprintCalculator.Create(runtimeContext.StorageRoot, unityProjectRoot);
         var sendTask = SendStreamingRequestAsync(
             dispatcher,
@@ -147,14 +150,14 @@ public sealed class SupervisorRequestDispatcherStreamingTests
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: Guid.NewGuid(),
                 sessionToken: runtimeContext.Manifest.SessionToken.GetEncodedValue(),
-                method: ContractLiteralCodec.ToValue(SupervisorIpcMethod.EnsureRunning),
+                method: TextVocabulary.GetText(SupervisorIpcMethod.EnsureRunning),
                 payload: IpcPayloadCodec.SerializeToElement(
                     new SupervisorIpcContracts.EnsureRunningRequest(
-                        UnityProjectRoot: unityProjectRoot,
+                        UnityProjectRoot: unityProjectRoot.Value,
                         ProjectFingerprint: projectFingerprint,
                         EditorMode: DaemonEditorMode.Batchmode,
                         OnStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto)),
-                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Stream),
+                responseMode: TextVocabulary.GetText(IpcResponseMode.Stream),
                 requestDeadlineUtc: timeProvider.GetUtcNow().AddSeconds(5),
                 requestDeadlineRemainingMilliseconds: 5000));
         await TestAwaiter.WaitAsync(
@@ -204,7 +207,7 @@ public sealed class SupervisorRequestDispatcherStreamingTests
         };
         var dispatcher = CreateDispatcher(startOperation);
         var runtimeContext = CreateRuntimeContext();
-        var unityProjectRoot = Path.Combine(runtimeContext.StorageRoot, "UnityProject");
+        var unityProjectRoot = AbsolutePath.Parse(Path.Combine(runtimeContext.StorageRoot.Value, "UnityProject"));
         var projectFingerprint = UnityProjectFingerprintCalculator.Create(runtimeContext.StorageRoot, unityProjectRoot);
 
         var frames = await SendStreamingRequestWithTransientWriteFailureAsync(
@@ -214,14 +217,14 @@ public sealed class SupervisorRequestDispatcherStreamingTests
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: Guid.NewGuid(),
                 sessionToken: runtimeContext.Manifest.SessionToken.GetEncodedValue(),
-                method: ContractLiteralCodec.ToValue(SupervisorIpcMethod.EnsureRunning),
+                method: TextVocabulary.GetText(SupervisorIpcMethod.EnsureRunning),
                 payload: IpcPayloadCodec.SerializeToElement(
                     new SupervisorIpcContracts.EnsureRunningRequest(
-                        UnityProjectRoot: unityProjectRoot,
+                        UnityProjectRoot: unityProjectRoot.Value,
                         ProjectFingerprint: projectFingerprint,
                         EditorMode: DaemonEditorMode.Batchmode,
                         OnStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto)),
-                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Stream),
+                responseMode: TextVocabulary.GetText(IpcResponseMode.Stream),
                 requestDeadlineUtc: CreateEnsureRunningDeadline(1000),
                 requestDeadlineRemainingMilliseconds: 1000));
 
@@ -255,20 +258,20 @@ public sealed class SupervisorRequestDispatcherStreamingTests
         };
         var dispatcher = CreateDispatcher(startOperation);
         var runtimeContext = CreateRuntimeContext();
-        var unityProjectRoot = Path.Combine(runtimeContext.StorageRoot, "UnityProject");
+        var unityProjectRoot = AbsolutePath.Parse(Path.Combine(runtimeContext.StorageRoot.Value, "UnityProject"));
         var projectFingerprint = UnityProjectFingerprintCalculator.Create(runtimeContext.StorageRoot, unityProjectRoot);
         var request = new IpcRequestEnvelope(
             protocolVersion: IpcProtocol.CurrentVersion,
             requestId: Guid.NewGuid(),
             sessionToken: runtimeContext.Manifest.SessionToken.GetEncodedValue(),
-            method: ContractLiteralCodec.ToValue(SupervisorIpcMethod.EnsureRunning),
+            method: TextVocabulary.GetText(SupervisorIpcMethod.EnsureRunning),
             payload: IpcPayloadCodec.SerializeToElement(
                 new SupervisorIpcContracts.EnsureRunningRequest(
-                    UnityProjectRoot: unityProjectRoot,
+                    UnityProjectRoot: unityProjectRoot.Value,
                     ProjectFingerprint: projectFingerprint,
                     EditorMode: DaemonEditorMode.Batchmode,
                     OnStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto)),
-            responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single),
+            responseMode: TextVocabulary.GetText(IpcResponseMode.Single),
             requestDeadlineUtc: CreateEnsureRunningDeadline(1000),
             requestDeadlineRemainingMilliseconds: 1000);
 
@@ -315,7 +318,7 @@ public sealed class SupervisorRequestDispatcherStreamingTests
         };
         var dispatcher = CreateDispatcher(startOperation);
         var runtimeContext = CreateRuntimeContext();
-        var unityProjectRoot = Path.Combine(runtimeContext.StorageRoot, "UnityProject");
+        var unityProjectRoot = AbsolutePath.Parse(Path.Combine(runtimeContext.StorageRoot.Value, "UnityProject"));
         var projectFingerprint = UnityProjectFingerprintCalculator.Create(runtimeContext.StorageRoot, unityProjectRoot);
 
         var sendTask = SendStreamingRequestWithTransientWriteFailureAsync(
@@ -325,14 +328,14 @@ public sealed class SupervisorRequestDispatcherStreamingTests
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: Guid.NewGuid(),
                 sessionToken: runtimeContext.Manifest.SessionToken.GetEncodedValue(),
-                method: ContractLiteralCodec.ToValue(SupervisorIpcMethod.EnsureRunning),
+                method: TextVocabulary.GetText(SupervisorIpcMethod.EnsureRunning),
                 payload: IpcPayloadCodec.SerializeToElement(
                     new SupervisorIpcContracts.EnsureRunningRequest(
-                        UnityProjectRoot: unityProjectRoot,
+                        UnityProjectRoot: unityProjectRoot.Value,
                         ProjectFingerprint: projectFingerprint,
                         EditorMode: DaemonEditorMode.Batchmode,
                         OnStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto)),
-                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Stream),
+                responseMode: TextVocabulary.GetText(IpcResponseMode.Stream),
                 requestDeadlineUtc: CreateEnsureRunningDeadline(1000),
                 requestDeadlineRemainingMilliseconds: 1000));
         await TestAwaiter.WaitAsync(

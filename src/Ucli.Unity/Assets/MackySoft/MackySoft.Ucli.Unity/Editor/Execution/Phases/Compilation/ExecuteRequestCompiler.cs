@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using MackySoft.Text.Vocabularies;
+using TextVocabulary = MackySoft.Text.Vocabularies.Vocabulary;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.ContractReading;
@@ -694,7 +696,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 }
 
                 error = ExecuteRequestNormalizationError.InvalidArgument(
-                    $"Edit step '{step.Id}' action '{ContractLiteralCodec.ToValue(actionKind)}' requires the selection to resolve to at most one target.",
+                    $"Edit step '{step.Id}' action '{TextVocabulary.GetText(actionKind)}' requires the selection to resolve to at most one target.",
                     step.Id);
                 return false;
             }

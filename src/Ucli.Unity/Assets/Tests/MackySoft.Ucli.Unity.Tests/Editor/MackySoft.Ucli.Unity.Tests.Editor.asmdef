@@ -14,6 +14,9 @@
     "overrideReferences": true,
     "precompiledReferences": [
         "MackySoft.Json.Canonicalization.dll",
+        "MackySoft.FileSystem.dll",
+        "MackySoft.Text.Vocabularies.dll",
+        "MackySoft.Text.Vocabularies.Json.dll",
         "MackySoft.Ucli.Contracts.dll",
         "MackySoft.Ucli.Infrastructure.dll",
         "System.Text.Json.dll",

@@ -1,4 +1,6 @@
 using System;
+using MackySoft.Text.Vocabularies;
+using TextVocabulary = MackySoft.Text.Vocabularies.Vocabulary;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
 
@@ -50,7 +52,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 throw new ArgumentNullException(nameof(errorResponse));
             }
 
-            if (!ContractLiteralCodec.IsDefined(responseMode))
+            if (!TextVocabulary.IsDefined(responseMode))
             {
                 throw new ArgumentOutOfRangeException(nameof(responseMode), responseMode, "IPC response mode must be defined.");
             }

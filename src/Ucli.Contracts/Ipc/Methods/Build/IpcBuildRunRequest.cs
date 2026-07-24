@@ -432,7 +432,7 @@ public sealed record IpcBuildRunRequest
         string parameterName)
         where TEnum : struct, Enum
     {
-        if (!ContractLiteralCodec.IsDefined(value))
+        if (!TextVocabulary.IsDefined(value))
         {
             throw new ArgumentOutOfRangeException(parameterName, value, $"{typeof(TEnum).Name} must be specified.");
         }

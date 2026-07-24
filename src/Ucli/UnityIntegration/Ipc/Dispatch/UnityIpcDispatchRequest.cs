@@ -25,7 +25,7 @@ internal sealed record UnityIpcDispatchRequest
         JsonElement payload,
         UnityBatchmodeLaunchOptions launchOptions)
     {
-        if (!ContractLiteralCodec.IsDefined(method))
+        if (!TextVocabulary.IsDefined(method))
         {
             throw new ArgumentOutOfRangeException(nameof(method), method, "Unity IPC method must be defined.");
         }

@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.UnityIntegration.Ipc.Process;
 
@@ -19,7 +20,7 @@ internal sealed class RecordingUnityBatchmodeProcessLauncher : IUnityBatchmodePr
     public ValueTask<UnityBatchmodeProcessLaunchResult> LaunchOneshotAsync (
         ResolvedUnityProjectContext unityProject,
         IpcOneshotBootstrapEnvelope bootstrapEnvelope,
-        string unityLogPath,
+        AbsolutePath unityLogPath,
         UnityBatchmodeLaunchOptions launchOptions,
         CancellationToken cancellationToken)
     {
@@ -36,7 +37,7 @@ internal sealed class RecordingUnityBatchmodeProcessLauncher : IUnityBatchmodePr
     internal readonly record struct Invocation (
         ResolvedUnityProjectContext UnityProject,
         IpcOneshotBootstrapEnvelope BootstrapEnvelope,
-        string UnityLogPath,
+        AbsolutePath UnityLogPath,
         UnityBatchmodeLaunchOptions LaunchOptions,
         CancellationToken CancellationToken);
 }

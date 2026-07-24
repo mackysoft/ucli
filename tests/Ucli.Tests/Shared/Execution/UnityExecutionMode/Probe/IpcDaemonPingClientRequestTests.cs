@@ -25,7 +25,7 @@ public sealed class IpcDaemonPingClientRequestTests
 
         var request = DaemonIpcDispatchAssert.SingleDispatchSentToEndpoint(
             unityIpcClient,
-            expectedEndpointAddress: "/tmp/ucli-session.sock",
+            expectedEndpointAddress: Path.GetFullPath("/tmp/ucli-session.sock"),
             expectedMethod: UnityIpcMethod.Ping,
             expectedSessionToken: IpcSessionTokenTestFactory.Create("resolved-token").GetEncodedValue());
         var transportTimeout = Assert.Single(unityIpcClient.Timeouts);
@@ -85,7 +85,7 @@ public sealed class IpcDaemonPingClientRequestTests
             unityProject.ProjectFingerprint);
         DaemonIpcDispatchAssert.SingleDispatchSentToEndpoint(
             unityIpcClient,
-            expectedEndpointAddress: expectedEndpoint.Address,
+            expectedEndpointAddress: expectedEndpoint.Contract.Address,
             expectedMethod: UnityIpcMethod.Ping,
             expectedSessionToken: sessionToken.GetEncodedValue());
     }
@@ -156,8 +156,8 @@ public sealed class IpcDaemonPingClientRequestTests
         Assert.Equal(requestId, unityIpcClient.Requests[1].RequestId);
         Assert.Collection(
             unityIpcClient.Endpoints,
-            endpoint => Assert.Equal(rejectedSession.Endpoint, endpoint),
-            endpoint => Assert.Equal(replacementSession.Endpoint, endpoint));
+            endpoint => Assert.Equal(rejectedSession.EndpointContract, endpoint),
+            endpoint => Assert.Equal(replacementSession.EndpointContract, endpoint));
     }
 
     [Fact]
@@ -501,7 +501,7 @@ public sealed class IpcDaemonPingClientRequestTests
 
         var request = DaemonIpcDispatchAssert.SingleDispatchSentToEndpoint(
             unityIpcClient,
-            expectedEndpointAddress: "/tmp/ucli-captured-session.sock",
+            expectedEndpointAddress: session.EndpointContract.Address,
             expectedMethod: UnityIpcMethod.Ping,
             expectedSessionToken: IpcSessionTokenTestFactory.Create("captured-token").GetEncodedValue());
         Assert.Equal(requestId, request.RequestId);

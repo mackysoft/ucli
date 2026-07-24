@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Testing.Run.Configuration;
 
 namespace MackySoft.Ucli.Application.Tests;
@@ -15,7 +16,8 @@ internal static class TestRunConfigurationResolverTestSupport
             new RecordingProjectPathInputResolver(static (commandOptionProjectPath, fallbackProjectPath) => commandOptionProjectPath ?? fallbackProjectPath),
             new RecordingUnityProjectResolver(UnityProjectResolutionResult.Success(unityProject)),
             new RecordingUnityVersionResolver(UnityVersionResolutionResult.Success("6000.1.4f1")),
-            new StubUnityEditorPathResolver(UnityEditorPathResolutionResult.Success(scope.GetPath("Editors/6000.1.4f1/Editor/Unity"))));
+            new StubUnityEditorPathResolver(UnityEditorPathResolutionResult.Success(
+                AbsolutePath.Parse(scope.GetPath("Editors/6000.1.4f1/Editor/Unity")))));
     }
 
     public static ResolvedUnityProjectContext CreateUnityProjectContext (

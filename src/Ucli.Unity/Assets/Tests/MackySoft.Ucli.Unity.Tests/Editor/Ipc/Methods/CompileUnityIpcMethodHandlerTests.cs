@@ -5,6 +5,8 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
+using MackySoft.Text.Vocabularies;
+using TextVocabulary = MackySoft.Text.Vocabularies.Vocabulary;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Assurance;
 using MackySoft.Ucli.Contracts.Cryptography;
@@ -219,9 +221,9 @@ namespace MackySoft.Ucli.Unity.Tests
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: requestId,
                 sessionToken: "session-token",
-                method: ContractLiteralCodec.ToValue(UnityIpcMethod.Compile),
+                method: TextVocabulary.GetText(UnityIpcMethod.Compile),
                 payload: IpcPayloadCodec.SerializeToElement(new IpcCompileRequest(runId)),
-                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single),
+                responseMode: TextVocabulary.GetText(IpcResponseMode.Single),
                 requestDeadlineUtc: DateTimeOffset.UtcNow
                     + TimeSpan.FromMilliseconds(requestDeadlineRemainingMilliseconds),
                 requestDeadlineRemainingMilliseconds: requestDeadlineRemainingMilliseconds);
@@ -232,7 +234,7 @@ namespace MackySoft.Ucli.Unity.Tests
             return new CompileUnityIpcMethodHandler(
                 new StubUnityEditorReadinessGate(),
                 new IpcProjectIdentity(
-                    UnityProjectPathResolver.ResolveProjectRootPath(),
+                    UnityProjectPathResolver.ResolveProjectRootPath().Value,
                     ProjectFingerprint,
                     "6000.1.4f1"),
                 new StubServerVersionProvider("1.2.3"),
@@ -308,7 +310,7 @@ namespace MackySoft.Ucli.Unity.Tests
             return UcliStoragePathResolver.ResolveCompileRunArtifactsDirectory(
                 storageRoot,
                 ProjectFingerprint,
-                runId);
+                runId).Value;
         }
 
         private static void DeleteDirectoryIfExists (string path)

@@ -31,24 +31,25 @@ namespace MackySoft.Ucli.Unity.Ipc
                 UnityMainThreadDaemonConsoleLogSink.CaptureCurrent());
             var daemonStarted = false;
             var diagnosisWritten = false;
+            UnityDaemonBootstrapContext bootstrapContext = null;
 
             try
             {
-                var endpoint = UnityBatchmodeBootstrapEndpointValidator.ResolveValidatedDaemonEndpoint(bootstrapArguments);
+                bootstrapContext = UnityDaemonBootstrapContext.FromWire(bootstrapArguments);
+                var endpointBinding = UnityBatchmodeBootstrapEndpointValidator.ResolveValidatedDaemonEndpoint(bootstrapContext);
                 var sessionToken = await DaemonBootstrapSessionTokenResolver.ResolveAsync(
-                    bootstrapArguments,
+                    bootstrapContext,
                     CancellationToken.None);
 
                 var services = new ServiceCollection();
                 services
                     .AddUnityIpcApplicationServices(
                         new ExactSessionTokenValidator(sessionToken),
-                        bootstrapArguments.ProjectFingerprint,
+                        bootstrapContext.ProjectFingerprint,
                         daemonLogger,
                         DaemonEditorMode.Batchmode)
                     .AddUnityIpcDaemonHostServices(
-                        bootstrapArguments,
-                        endpoint,
+                        bootstrapContext,
                         daemonLogStream,
                         editorInstanceId);
 
@@ -67,7 +68,9 @@ namespace MackySoft.Ucli.Unity.Ipc
                     var unityLogCaptureService = serviceProvider.GetRequiredService<UnityLogCaptureService>();
                     unityLogCaptureService.Start();
 
-                    using var publicationFence = await server.StartAsync(endpoint, CancellationToken.None);
+                    using var publicationFence = await server.StartAsync(
+                        endpointBinding,
+                        CancellationToken.None);
                     Task shutdownWaitTask = null;
                     Task serverTerminationTask = null;
                     if (!publicationFence.TryCommitActiveOwnership(() =>
@@ -83,7 +86,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
                     daemonLogger.Info(
                         DaemonLogCategories.Lifecycle,
-                        $"uCLI daemon started. repoRoot={bootstrapArguments.RepositoryRoot}, fingerprint={bootstrapArguments.ProjectFingerprint}, endpoint={bootstrapArguments.Endpoint.Address}");
+                        $"uCLI daemon started. repoRoot={bootstrapContext.RepositoryRoot.Value}, fingerprint={bootstrapContext.ProjectFingerprint}, endpoint={bootstrapContext.EndpointBinding.Endpoint.Address}");
 
                     var completedTask = await Task.WhenAny(shutdownWaitTask, serverTerminationTask);
                     if (ReferenceEquals(completedTask, serverTerminationTask))
@@ -94,7 +97,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                             DaemonLogCategories.Lifecycle,
                             Message);
                         diagnosisWritten = await PersistDiagnosisAsync(
-                            bootstrapArguments,
+                            bootstrapContext,
                             DaemonDiagnosisReason.ListenerTerminated,
                             Message,
                             daemonLogger);
@@ -176,7 +179,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     DaemonLogCategories.Lifecycle,
                     "IPC server stop and request execution retirement completed. Exiting Unity batchmode process.");
                 diagnosisWritten = await PersistDiagnosisAsync(
-                    bootstrapArguments,
+                    bootstrapContext,
                     DaemonDiagnosisReason.ShutdownRequested,
                     "Daemon shutdown completed after shutdown request.",
                     daemonLogger);
@@ -189,10 +192,10 @@ namespace MackySoft.Ucli.Unity.Ipc
                     DaemonLogCategories.Lifecycle,
                     "uCLI daemon bootstrap failed with unhandled exception.",
                     exception);
-                if (!diagnosisWritten)
+                if (!diagnosisWritten && bootstrapContext != null)
                 {
                     diagnosisWritten = await PersistDiagnosisAsync(
-                        bootstrapArguments,
+                        bootstrapContext,
                         daemonStarted
                             ? DaemonDiagnosisReason.UnhandledException
                             : DaemonDiagnosisReason.StartupFailed,
@@ -207,7 +210,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         }
 
         private static async Task<bool> PersistDiagnosisAsync (
-            IpcDaemonBootstrapArguments bootstrapArguments,
+            UnityDaemonBootstrapContext bootstrapContext,
             DaemonDiagnosisReason reason,
             string message,
             IDaemonLogger daemonLogger)
@@ -215,7 +218,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             try
             {
                 await DaemonDiagnosisPersistence.WriteAsync(
-                    bootstrapArguments,
+                    bootstrapContext,
                     reason,
                     message,
                     CancellationToken.None);

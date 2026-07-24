@@ -1,9 +1,9 @@
 using System.Text.Json;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.EditorInstance;
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Text;
-using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Infrastructure.Storage;
 
 namespace MackySoft.Ucli.Features.Daemon.Lifecycle.Process.EditorInstance;
@@ -27,16 +27,7 @@ internal sealed class UnityEditorInstanceMarkerReader : IUnityEditorInstanceMark
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(unityProject);
 
-        string markerPath;
-        try
-        {
-            markerPath = UnityEditorInstanceMarkerPath.Resolve(unityProject.UnityProjectRoot);
-        }
-        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
-        {
-            return UnityEditorInstanceMarkerReadResult.Failure(ExecutionError.InvalidArgument(
-                $"Unity Editor instance marker path is invalid. {exception.Message}"));
-        }
+        var markerPath = UnityEditorInstanceMarkerPath.Resolve(unityProject.UnityProjectRoot);
 
         var markerSizeResult = ValidateMarkerSize(markerPath);
         if (markerSizeResult != null)
@@ -48,11 +39,6 @@ internal sealed class UnityEditorInstanceMarkerReader : IUnityEditorInstanceMark
         try
         {
             json = await FileUtilities.ReadAllTextOrNullAsync(markerPath, cancellationToken).ConfigureAwait(false);
-        }
-        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
-        {
-            return UnityEditorInstanceMarkerReadResult.Failure(ExecutionError.InvalidArgument(
-                $"Unity Editor instance marker path is invalid: {markerPath}. {exception.Message}"));
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
@@ -77,23 +63,30 @@ internal sealed class UnityEditorInstanceMarkerReader : IUnityEditorInstanceMark
                     $"Unity Editor instance marker process_id is invalid: {markerPath}."));
             }
 
-            var updatedAtUtc = File.GetLastWriteTimeUtc(markerPath);
+            if (!TryReadOptionalAbsolutePath(document.RootElement, AppPathPropertyName, out var appPath))
+            {
+                return UnityEditorInstanceMarkerReadResult.Failure(ExecutionError.InvalidArgument(
+                    $"Unity Editor instance marker app_path is invalid: {markerPath}."));
+            }
+
+            if (!TryReadOptionalAbsolutePath(document.RootElement, AppContentsPathPropertyName, out var appContentsPath))
+            {
+                return UnityEditorInstanceMarkerReadResult.Failure(ExecutionError.InvalidArgument(
+                    $"Unity Editor instance marker app_contents_path is invalid: {markerPath}."));
+            }
+
+            var updatedAtUtc = File.GetLastWriteTimeUtc(markerPath.Value);
             return UnityEditorInstanceMarkerReadResult.Success(new UnityEditorInstanceMarker(
                 MarkerPath: markerPath,
                 ProcessId: processId,
                 UpdatedAtUtc: new DateTimeOffset(updatedAtUtc, TimeSpan.Zero),
-                AppPath: ReadOptionalString(document.RootElement, AppPathPropertyName),
-                AppContentsPath: ReadOptionalString(document.RootElement, AppContentsPathPropertyName)));
+                AppPath: appPath,
+                AppContentsPath: appContentsPath));
         }
         catch (JsonException exception)
         {
             return UnityEditorInstanceMarkerReadResult.Failure(ExecutionError.InvalidArgument(
                 $"Unity Editor instance marker JSON is invalid: {markerPath}. {exception.Message}"));
-        }
-        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
-        {
-            return UnityEditorInstanceMarkerReadResult.Failure(ExecutionError.InvalidArgument(
-                $"Unity Editor instance marker path is invalid: {markerPath}. {exception.Message}"));
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
@@ -102,11 +95,11 @@ internal sealed class UnityEditorInstanceMarkerReader : IUnityEditorInstanceMark
         }
     }
 
-    private static ExecutionError? ValidateMarkerSize (string markerPath)
+    private static ExecutionError? ValidateMarkerSize (AbsolutePath markerPath)
     {
         try
         {
-            var fileInfo = new FileInfo(markerPath);
+            var fileInfo = new FileInfo(markerPath.Value);
             if (!fileInfo.Exists)
             {
                 return null;
@@ -116,11 +109,6 @@ internal sealed class UnityEditorInstanceMarkerReader : IUnityEditorInstanceMark
                 ? null
                 : ExecutionError.InvalidArgument(
                     $"Unity Editor instance marker is too large: {markerPath}. MaxBytes={MaxMarkerByteLength} ActualBytes={fileInfo.Length}.");
-        }
-        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
-        {
-            return ExecutionError.InvalidArgument(
-                $"Unity Editor instance marker path is invalid: {markerPath}. {exception.Message}");
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
@@ -147,17 +135,21 @@ internal sealed class UnityEditorInstanceMarkerReader : IUnityEditorInstanceMark
         return true;
     }
 
-    private static string? ReadOptionalString (
+    private static bool TryReadOptionalAbsolutePath (
         JsonElement root,
-        string propertyName)
+        string propertyName,
+        out AbsolutePath? path)
     {
+        path = null;
         if (root.ValueKind != JsonValueKind.Object
             || !root.TryGetProperty(propertyName, out var property)
             || property.ValueKind != JsonValueKind.String)
         {
-            return null;
+            return true;
         }
 
-        return StringValueNormalizer.TrimToNull(property.GetString());
+        var value = StringValueNormalizer.TrimToNull(property.GetString());
+        return value is null
+            || AbsolutePath.TryParse(value, out path, out _);
     }
 }

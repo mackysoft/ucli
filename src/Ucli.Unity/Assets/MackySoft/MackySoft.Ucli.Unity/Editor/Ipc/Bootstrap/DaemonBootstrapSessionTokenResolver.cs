@@ -8,7 +8,6 @@ using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.Authorization;
 using MackySoft.Ucli.Contracts.Storage;
-using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Infrastructure.Storage;
 
 namespace MackySoft.Ucli.Unity.Ipc
@@ -21,26 +20,26 @@ namespace MackySoft.Ucli.Unity.Ipc
             throwOnInvalidBytes: true);
 
         /// <summary> Reads the canonical daemon session once and returns the token bound to the bootstrap generation. </summary>
-        /// <param name="bootstrapArguments"> The declared batchmode daemon identity and session generation. </param>
+        /// <param name="bootstrapContext"> The guarded batchmode daemon identity and session generation. </param>
         /// <param name="cancellationToken"> The cancellation token propagated by daemon bootstrap. </param>
         /// <returns> The validated token owned by the bootstrap generation. </returns>
-        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="bootstrapArguments" /> is <see langword="null" />. </exception>
+        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="bootstrapContext" /> is <see langword="null" />. </exception>
         /// <exception cref="InvalidOperationException"> Thrown when the declared session path is not canonical or the session file does not exist. </exception>
         /// <exception cref="InvalidDataException"> Thrown when the persisted session is malformed or belongs to another bootstrap generation. </exception>
         public static async Task<IpcSessionToken> ResolveAsync (
-            IpcDaemonBootstrapArguments bootstrapArguments,
+            UnityDaemonBootstrapContext bootstrapContext,
             CancellationToken cancellationToken)
         {
-            if (bootstrapArguments == null)
+            if (bootstrapContext == null)
             {
-                throw new ArgumentNullException(nameof(bootstrapArguments));
+                throw new ArgumentNullException(nameof(bootstrapContext));
             }
 
             cancellationToken.ThrowIfCancellationRequested();
             var canonicalSessionPath = UcliStoragePathResolver.ResolveSessionPath(
-                bootstrapArguments.RepositoryRoot,
-                bootstrapArguments.ProjectFingerprint);
-            if (!PathIdentity.IsSamePath(bootstrapArguments.SessionPath, canonicalSessionPath))
+                bootstrapContext.RepositoryRoot,
+                bootstrapContext.ProjectFingerprint);
+            if (!bootstrapContext.SessionPath.IsSameAs(canonicalSessionPath))
             {
                 throw new InvalidOperationException(
                     "Daemon bootstrap session path does not match the canonical project session path.");
@@ -59,7 +58,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             cancellationToken.ThrowIfCancellationRequested();
             if (!TryResolveExpectedGenerationToken(
-                bootstrapArguments,
+                bootstrapContext,
                 serializedSession.Value,
                 out var sessionToken))
             {
@@ -71,7 +70,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         }
 
         private static bool TryResolveExpectedGenerationToken (
-            IpcDaemonBootstrapArguments bootstrapArguments,
+            UnityDaemonBootstrapContext bootstrapContext,
             ReadOnlyMemory<byte> serializedSession,
             out IpcSessionToken sessionToken)
         {
@@ -89,10 +88,10 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             if (sessionContract == null
                 || sessionContract.SchemaVersion != DaemonSessionStorageContract.CurrentSchemaVersion
-                || sessionContract.SessionGenerationId != bootstrapArguments.SessionGenerationId
-                || sessionContract.ProjectFingerprint != bootstrapArguments.ProjectFingerprint
+                || sessionContract.SessionGenerationId != bootstrapContext.SessionGenerationId
+                || sessionContract.ProjectFingerprint != bootstrapContext.ProjectFingerprint
                 || sessionContract.IssuedAtUtc.Offset != TimeSpan.Zero
-                || sessionContract.IssuedAtUtc != bootstrapArguments.SessionIssuedAtUtc
+                || sessionContract.IssuedAtUtc != bootstrapContext.SessionIssuedAtUtc
                 || sessionContract.EditorMode != DaemonEditorMode.Batchmode
                 || sessionContract.OwnerKind != DaemonSessionOwnerKind.Cli
                 || !sessionContract.CanShutdownProcess
@@ -113,7 +112,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return false;
             }
 
-            return persistedEndpoint == bootstrapArguments.Endpoint
+            return persistedEndpoint == bootstrapContext.EndpointBinding.Endpoint
                 && IpcSessionToken.TryParse(sessionContract.SessionToken, out sessionToken);
         }
     }

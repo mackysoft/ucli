@@ -5,6 +5,7 @@ using System.IO.Pipes;
 using System.Threading;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Ipc;
 using NUnit.Framework;
 using UnityEngine.TestTools;
@@ -26,12 +27,13 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator Run_WhenAnotherListenerOwnsSamePipe_FailsAtBoundedOwnershipDeadline () => UniTask.ToCoroutine(async () =>
         {
             var address = CreateAddress();
+            var endpointBinding = CreateEndpointBinding(address);
             var owner = CreateListener();
             var contender = CreateListener();
             var ownerStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             var contenderStarted = false;
             var ownerRunTask = owner.RunAsync(
-                address,
+                endpointBinding,
                 new NoOpConnectionHandler(),
                 () => ownerStarted.TrySetResult(true),
                 _ => { },
@@ -45,7 +47,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     SignalWaitTimeout);
 
                 var contenderRunTask = contender.RunAsync(
-                    address,
+                    endpointBinding,
                     new NoOpConnectionHandler(),
                     () => contenderStarted = true,
                     _ => { },
@@ -71,7 +73,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 contender.Release();
                 owner.Release();
                 await WaitForListenerStopAsync(ownerRunTask, "Named pipe endpoint owner cleanup");
-                DeleteOwnershipLock(address);
+                DeleteOwnershipLock(endpointBinding);
             }
         });
 
@@ -80,6 +82,7 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator Run_WhenReservedGenerationIsReleasedBeforeBackgroundEntry_DoesNotStartAndAllowsSuccessor () => UniTask.ToCoroutine(async () =>
         {
             var address = CreateAddress();
+            var endpointBinding = CreateEndpointBinding(address);
             var listener = CreateListener();
             using var releasedCancellationTokenSource = new CancellationTokenSource();
             using var successorCancellationTokenSource = new CancellationTokenSource();
@@ -93,7 +96,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
                 await TestAwaiter.WaitAsync(
                     listener.RunAsync(
-                        address,
+                        endpointBinding,
                         new NoOpConnectionHandler(),
                         () => releasedGenerationStarted = true,
                         _ => { },
@@ -103,7 +106,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
                 listener.ReserveRun(successorCancellationTokenSource.Token);
                 var successorRunTask = listener.RunAsync(
-                    address,
+                    endpointBinding,
                     new NoOpConnectionHandler(),
                     () => successorStarted.TrySetResult(true),
                     _ => { },
@@ -123,7 +126,7 @@ namespace MackySoft.Ucli.Unity.Tests
             finally
             {
                 listener.Release();
-                DeleteOwnershipLock(address);
+                DeleteOwnershipLock(endpointBinding);
             }
         });
 
@@ -146,6 +149,7 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator Run_WhenCancellationAndSameListenerRestartRace_RepeatedlyHandsOffOwnership () => UniTask.ToCoroutine(async () =>
         {
             var address = CreateAddress();
+            var endpointBinding = CreateEndpointBinding(address);
             var listener = CreateListener();
             try
             {
@@ -154,7 +158,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     using var releasedCancellationTokenSource = new CancellationTokenSource();
                     var releasedStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
                     var releasedRunTask = listener.RunAsync(
-                        address,
+                        endpointBinding,
                         new NoOpConnectionHandler(),
                         () => releasedStarted.TrySetResult(true),
                         _ => { },
@@ -170,7 +174,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     using var successorCancellationTokenSource = new CancellationTokenSource();
                     var successorStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
                     var successorRunTask = listener.RunAsync(
-                        address,
+                        endpointBinding,
                         new NoOpConnectionHandler(),
                         () => successorStarted.TrySetResult(true),
                         _ => { },
@@ -197,7 +201,7 @@ namespace MackySoft.Ucli.Unity.Tests
             finally
             {
                 listener.Release();
-                DeleteOwnershipLock(address);
+                DeleteOwnershipLock(endpointBinding);
             }
         });
 
@@ -205,6 +209,7 @@ namespace MackySoft.Ucli.Unity.Tests
             bool useSeparateListenerInstance)
         {
             var address = CreateAddress();
+            var endpointBinding = CreateEndpointBinding(address);
             var firstListener = CreateListener();
             var successorListener = useSeparateListenerInstance
                 ? CreateListener()
@@ -214,7 +219,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var firstStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             var successorStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             var firstRunTask = firstListener.RunAsync(
-                address,
+                endpointBinding,
                 firstConnectionHandler,
                 () => firstStarted.TrySetResult(true),
                 _ => { },
@@ -236,7 +241,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
                 firstListener.Release();
                 successorRunTask = successorListener.RunAsync(
-                    address,
+                    endpointBinding,
                     successorConnectionHandler,
                     () => successorStarted.TrySetResult(true),
                     _ => { },
@@ -293,7 +298,7 @@ namespace MackySoft.Ucli.Unity.Tests
                         "Successor named pipe listener final cleanup");
                 }
 
-                DeleteOwnershipLock(address);
+                DeleteOwnershipLock(endpointBinding);
             }
         }
 
@@ -308,6 +313,12 @@ namespace MackySoft.Ucli.Unity.Tests
         private static string CreateAddress ()
         {
             return "ucli-np-" + Guid.NewGuid().ToString("N");
+        }
+
+        private static UnityIpcEndpointBinding CreateEndpointBinding (string address)
+        {
+            return UnityIpcEndpointBinding.Create(
+                new IpcEndpoint(IpcTransportKind.NamedPipe, address));
         }
 
         private static NamedPipeClientStream Connect (string address)
@@ -356,12 +367,13 @@ namespace MackySoft.Ucli.Unity.Tests
             }
         }
 
-        private static void DeleteOwnershipLock (string address)
+        private static void DeleteOwnershipLock (UnityIpcEndpointBinding endpointBinding)
         {
-            var lockPath = NamedPipeUnityIpcTransportListener.ResolveEndpointOwnershipLockPath(address);
-            if (File.Exists(lockPath))
+            var lockPath = NamedPipeUnityIpcTransportListener.ResolveEndpointOwnershipLockPath(
+                endpointBinding);
+            if (File.Exists(lockPath.Value))
             {
-                File.Delete(lockPath);
+                File.Delete(lockPath.Value);
             }
         }
 

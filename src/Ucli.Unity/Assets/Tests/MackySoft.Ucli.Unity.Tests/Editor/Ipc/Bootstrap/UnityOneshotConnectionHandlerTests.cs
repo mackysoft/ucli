@@ -5,6 +5,9 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
+using MackySoft.FileSystem;
+using MackySoft.Text.Vocabularies;
+using TextVocabulary = MackySoft.Text.Vocabularies.Vocabulary;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Execution;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -19,7 +22,8 @@ namespace MackySoft.Ucli.Unity.Tests
 {
     public sealed class UnityOneshotConnectionHandlerTests
     {
-        private const string StorageRoot = "oneshot-connection-handler-tests";
+        private static readonly AbsolutePath StorageRoot = AbsolutePath.Parse(
+            Path.Combine(Path.GetTempPath(), "oneshot-connection-handler-tests"));
 
         private static readonly DateTimeOffset ObservedUtc =
             new DateTimeOffset(2026, 7, 14, 0, 0, 0, TimeSpan.Zero);
@@ -334,7 +338,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: Guid.NewGuid(),
                 sessionToken: "oneshot",
-                method: ContractLiteralCodec.ToValue(method),
+                method: TextVocabulary.GetText(method),
                 payload: payload,
                 responseMode: "single",
                 requestDeadlineUtc: DateTimeOffset.UtcNow + TimeSpan.FromSeconds(30),

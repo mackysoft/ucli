@@ -196,6 +196,37 @@ public sealed class BuildServiceResponseValidationTests
 
     [Fact]
     [Trait("Size", "Medium")]
+    public async Task Execute_WithRelativeOutputLayoutResponse_ReturnsCommandFailureBeforeArtifactAccounting ()
+    {
+        using var tempDirectory = CreateArtifactDirectoryScope();
+        var artifactStore = new StubBuildRunArtifactStore(tempDirectory.FullPath);
+        var service = CreateService(
+            requestExecutor: new RecordingUnityRequestExecutor(payload =>
+            {
+                var buildRunPayload = (UnityRequestPayload.BuildRun)payload;
+                var relativeLayout = new IpcBuildOutputLayout(
+                    Shape: IpcBuildOutputLayoutShape.File,
+                    LocationPathName: Path.Combine("player", "Player"));
+                return CreateBuildResponseResult(
+                    IpcBuildReportResult.Succeeded,
+                    IpcBuildLogCompletionReason.Completed,
+                    errorCount: 0,
+                    reportOutputPath: buildRunPayload.Request.OutputLayout!.LocationPathName,
+                    outputLayout: relativeLayout);
+            }),
+            artifactStore: artifactStore);
+
+        var result = await service.ExecuteAsync(CreateInput());
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
+        Assert.Null(artifactStore.AccountingRequest);
+        Assert.Null(artifactStore.WrittenMetadata);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
     public async Task Execute_WithMismatchedCompletionReasonResponse_ReturnsCommandFailure ()
     {
         using var tempDirectory = CreateArtifactDirectoryScope();

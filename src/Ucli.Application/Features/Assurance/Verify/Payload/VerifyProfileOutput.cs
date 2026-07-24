@@ -12,7 +12,7 @@ internal sealed record VerifyProfileOutput
         string? Path,
         Sha256Digest Digest)
     {
-        if (!ContractLiteralCodec.IsDefined(Source))
+        if (!TextVocabulary.IsDefined(Source))
         {
             throw new ArgumentOutOfRangeException(nameof(Source), Source, "Unsupported verify profile source.");
         }

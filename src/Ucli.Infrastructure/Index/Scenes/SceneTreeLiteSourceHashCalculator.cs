@@ -1,7 +1,6 @@
 using System.Text;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts.Cryptography;
-using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Infrastructure.Paths;
 
 namespace MackySoft.Ucli.Infrastructure.Index;
 
@@ -10,39 +9,28 @@ internal sealed class SceneTreeLiteSourceHashCalculator : ISceneTreeLiteSourceHa
 {
     /// <inheritdoc />
     public async ValueTask<Sha256Digest?> TryComputeAsync (
-        string projectRootPath,
-        SceneAssetPath scenePath,
+        ContainedPath sceneFilePath,
+        ContainedPath metaFilePath,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        if (string.IsNullOrWhiteSpace(projectRootPath))
+        if (sceneFilePath is null)
         {
-            throw new ArgumentException("Project root path must not be empty.", nameof(projectRootPath));
+            throw new ArgumentNullException(nameof(sceneFilePath));
         }
 
-        if (scenePath is null)
+        if (metaFilePath is null)
         {
-            throw new ArgumentNullException(nameof(scenePath));
+            throw new ArgumentNullException(nameof(metaFilePath));
         }
 
-        var scenePathResult = RepositoryPathNormalizer.TryNormalize(
-            projectRootPath,
-            scenePath.Value);
-        if (!scenePathResult.IsSuccess)
-        {
-            return null;
-        }
-
-        var absoluteScenePath = scenePathResult.FullPath!;
-        var absoluteMetaPath = absoluteScenePath + ".meta";
-
-        var sceneHash = await FileContentHash.TryComputeFileHashAsync(absoluteScenePath, cancellationToken).ConfigureAwait(false);
+        var sceneHash = await FileContentHash.TryComputeFileHashAsync(sceneFilePath.Target, cancellationToken).ConfigureAwait(false);
         if (sceneHash == null)
         {
             return null;
         }
 
-        var metaHash = await FileContentHash.TryComputeFileHashAsync(absoluteMetaPath, cancellationToken).ConfigureAwait(false);
+        var metaHash = await FileContentHash.TryComputeFileHashAsync(metaFilePath.Target, cancellationToken).ConfigureAwait(false);
         if (metaHash == null)
         {
             return null;

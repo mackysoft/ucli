@@ -138,10 +138,10 @@ public sealed class SupervisorRequestDispatcherConnectionLifetimeTests
             protocolVersion: IpcProtocol.CurrentVersion,
             requestId: Guid.NewGuid(),
             sessionToken: runtimeContext.Manifest.SessionToken.GetEncodedValue(),
-            method: ContractLiteralCodec.ToValue(SupervisorIpcMethod.Ping),
+            method: TextVocabulary.GetText(SupervisorIpcMethod.Ping),
             payload: IpcPayloadCodec.SerializeToElement(
                 new SupervisorIpcContracts.PingRequest(SupervisorConstants.PingClientVersion)),
-            responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single),
+            responseMode: TextVocabulary.GetText(IpcResponseMode.Single),
                 requestDeadlineUtc: DateTimeOffset.MaxValue,
                 requestDeadlineRemainingMilliseconds: int.MaxValue);
 
@@ -162,10 +162,10 @@ public sealed class SupervisorRequestDispatcherConnectionLifetimeTests
             protocolVersion: IpcProtocol.CurrentVersion,
             requestId: Guid.NewGuid(),
             sessionToken: runtimeContext.Manifest.SessionToken.GetEncodedValue(),
-            method: ContractLiteralCodec.ToValue(SupervisorIpcMethod.Ping),
+            method: TextVocabulary.GetText(SupervisorIpcMethod.Ping),
             payload: IpcPayloadCodec.SerializeToElement(
                 new SupervisorIpcContracts.PingRequest(SupervisorConstants.PingClientVersion)),
-            responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single),
+            responseMode: TextVocabulary.GetText(IpcResponseMode.Single),
                 requestDeadlineUtc: DateTimeOffset.MaxValue,
                 requestDeadlineRemainingMilliseconds: int.MaxValue);
         using var requestBytes = new MemoryStream();

@@ -1,19 +1,19 @@
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Operations;
 
 /// <summary> Defines supported operation plan modes. </summary>
+[VocabularyDefinition]
 public enum UcliOperationPlanMode
 {
     /// <summary> Plans that only validate args and static preconditions. </summary>
-    [UcliContractLiteral("validationOnly")]
+    [VocabularyText("validationOnly")]
     ValidationOnly = 0,
 
     /// <summary> Plans that observe live Unity state without creating preview state. </summary>
-    [UcliContractLiteral("observesLiveUnity")]
+    [VocabularyText("observesLiveUnity")]
     ObservesLiveUnity = 1,
 
     /// <summary> Plans that can create request-scoped preview state. </summary>
-    [UcliContractLiteral("mayCreatePreviewState")]
+    [VocabularyText("mayCreatePreviewState")]
     MayCreatePreviewState = 2,
 }

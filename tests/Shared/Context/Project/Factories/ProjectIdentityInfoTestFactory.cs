@@ -1,3 +1,5 @@
+using MackySoft.FileSystem;
+
 namespace MackySoft.Ucli.TestSupport;
 
 internal static class ProjectIdentityInfoTestFactory
@@ -24,8 +26,8 @@ internal static class ProjectIdentityInfoTestFactory
         string unityVersion = UnityVersion)
     {
         return ProjectIdentityInfo.From(ResolvedUnityProjectContext.Create(
-            unityProjectRoot: projectPath,
-            repositoryRoot: projectPath,
+            unityProjectRoot: AbsolutePath.Parse(projectPath),
+            repositoryRoot: AbsolutePath.Parse(projectPath),
             projectFingerprint: projectFingerprint ?? ProjectFingerprint,
             pathSource: UnityProjectPathSource.CommandOption,
             pathSourceLabel: null,

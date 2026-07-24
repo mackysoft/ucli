@@ -54,8 +54,8 @@ public sealed class DaemonShutdownClientTests
         var requests = transportClient.Requests;
         Assert.Collection(
             requests,
-            static request => Assert.Equal(ContractLiteralCodec.ToValue(UnityIpcMethod.Shutdown), request.Method),
-            static request => Assert.Equal(ContractLiteralCodec.ToValue(UnityIpcMethod.Shutdown), request.Method));
+            static request => Assert.Equal(TextVocabulary.GetText(UnityIpcMethod.Shutdown), request.Method),
+            static request => Assert.Equal(TextVocabulary.GetText(UnityIpcMethod.Shutdown), request.Method));
         IpcRequestAssert.SessionTokens(
             requests,
             IpcSessionTokenTestFactory.Create("daemon-token-1").GetEncodedValue(),
@@ -468,8 +468,8 @@ public sealed class DaemonShutdownClientTests
         _ = IpcRequestAssert.SingleRequestId(transportClient.Requests);
         Assert.Collection(
             transportClient.Endpoints,
-            endpoint => Assert.Equal(initialSession.Endpoint, endpoint),
-            endpoint => Assert.Equal(successorSession.Endpoint, endpoint));
+            endpoint => Assert.Equal(initialSession.EndpointContract, endpoint),
+            endpoint => Assert.Equal(successorSession.EndpointContract, endpoint));
         Assert.All(
             transportClient.Requests,
             request => Assert.Equal(startedAtUtc + TimeSpan.FromSeconds(5), request.RequestDeadlineUtc));

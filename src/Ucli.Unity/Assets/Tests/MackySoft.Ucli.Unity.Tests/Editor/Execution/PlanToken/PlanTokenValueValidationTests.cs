@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Text;
 using System.Text.Json;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
@@ -31,8 +33,8 @@ namespace MackySoft.Ucli.Unity.Tests
         public void EnvironmentSnapshot_WithNullProjectFingerprint_ThrowsArgumentNullException ()
         {
             var exception = Assert.Throws<ArgumentNullException>(() => new PlanTokenEnvironmentSnapshot(
-                projectRoot: "/repo/UnityProject",
-                repositoryRoot: "/repo",
+                projectRoot: AbsolutePath.Parse(Path.Combine(Path.GetTempPath(), "repo", "UnityProject")),
+                repositoryRoot: AbsolutePath.Parse(Path.Combine(Path.GetTempPath(), "repo")),
                 projectFingerprint: null!,
                 unityVersion: "6000.0.0f1",
                 compileState: IpcCompileState.Ready,

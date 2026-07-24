@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Artifacts;
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Contracts;
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Payload;
@@ -388,7 +389,7 @@ internal sealed class CompileService : ICompileService
     private static ValueTask EmitRecoveredAsync (
         ICommandProgressSink progressSink,
         IpcCompileSummary summary,
-        string summaryJsonPath,
+        AbsolutePath summaryJsonPath,
         ApplicationFailure? dispatchFailure,
         int pollAttempts,
         CancellationToken cancellationToken)
@@ -397,7 +398,7 @@ internal sealed class CompileService : ICompileService
             CompileProgressEventNames.Recovered,
             new CompileRecoveredEntry(
                 RunId: summary.RunId,
-                SummaryJsonPath: summaryJsonPath,
+                SummaryJsonPath: summaryJsonPath.Value,
                 DispatchFailureCode: dispatchFailure?.Code.Value,
                 PollAttempts: pollAttempts),
             cancellationToken);
@@ -406,8 +407,8 @@ internal sealed class CompileService : ICompileService
     private static ValueTask EmitCompletedAsync (
         ICommandProgressSink progressSink,
         CompileExecutionOutput output,
-        string summaryJsonPath,
-        string diagnosticsJsonPath,
+        AbsolutePath summaryJsonPath,
+        AbsolutePath diagnosticsJsonPath,
         CancellationToken cancellationToken)
     {
         return progressSink.OnEntryAsync(
@@ -417,8 +418,8 @@ internal sealed class CompileService : ICompileService
                 Verdict: output.Verdict,
                 ErrorCount: output.Compile.ScriptCompilation.Diagnostics.ErrorCount,
                 WarningCount: output.Compile.ScriptCompilation.Diagnostics.WarningCount,
-                SummaryJsonPath: summaryJsonPath,
-                DiagnosticsJsonPath: diagnosticsJsonPath),
+                SummaryJsonPath: summaryJsonPath.Value,
+                DiagnosticsJsonPath: diagnosticsJsonPath.Value),
             cancellationToken);
     }
 
@@ -428,8 +429,8 @@ internal sealed class CompileService : ICompileService
         UnityExecutionTarget executionTarget,
         TimeSpan timeout,
         IpcCompileSummary summary,
-        string summaryJsonPath,
-        string diagnosticsJsonPath)
+        AbsolutePath summaryJsonPath,
+        AbsolutePath diagnosticsJsonPath)
     {
         var compileOutput = CreateCompileOutput(summary);
         var claims = CreateClaims(summary, compileOutput);
@@ -450,8 +451,8 @@ internal sealed class CompileService : ICompileService
             Claims: claims,
             Reports: new Dictionary<string, AssuranceReportReference>(StringComparer.Ordinal)
             {
-                [SummaryReportRef] = AssuranceReportReference.FromPath(summaryJsonPath, digest: null),
-                [DiagnosticsReportRef] = AssuranceReportReference.FromPath(diagnosticsJsonPath, digest: null),
+                [SummaryReportRef] = AssuranceReportReference.FromPath(summaryJsonPath.Value, digest: null),
+                [DiagnosticsReportRef] = AssuranceReportReference.FromPath(diagnosticsJsonPath.Value, digest: null),
             },
             ResidualRisks: EmptyResidualRisks,
             RequestedMode: AssuranceExecutionModeCodec.ToRequestedMode(requestedMode),

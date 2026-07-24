@@ -25,6 +25,7 @@ dotnet add package MackySoft.Ucli.Contracts --version <version>
 - Protocol constants and shared protocol metadata.
 - Configuration and storage contract models.
 - JSON serialization helpers for uCLI contract types.
+- uCLI vocabulary declarations backed by `MackySoft.Text.Vocabularies` and its JSON adapter.
 - Shared data shapes used by the CLI, Unity plugin, and infrastructure package.
 
 ## Operation Contracts
@@ -46,6 +47,8 @@ JSON remains the IPC wire format. Operation implementations and command builders
 | `MackySoft.Ucli` | .NET global tool that provides the `ucli` command. |
 | `MackySoft.Ucli.Unity` | Unity Editor plugin for uCLI IPC and automation. |
 | `MackySoft.Ucli.Infrastructure` | Shared infrastructure services that use the contract model. |
+| [`MackySoft.Text.Vocabularies`](https://github.com/mackysoft/dotnet-foundations) | Product-independent finite typed text vocabulary definitions and resolution. |
+| [`MackySoft.Text.Vocabularies.Json`](https://github.com/mackysoft/dotnet-foundations) | `System.Text.Json` string and property-name adapters for those vocabularies. |
 
 ## Repository
 

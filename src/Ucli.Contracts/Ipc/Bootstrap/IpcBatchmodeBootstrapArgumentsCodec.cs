@@ -1,4 +1,3 @@
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
@@ -80,7 +79,7 @@ public static class IpcBatchmodeBootstrapArgumentsCodec
             return false;
         }
 
-        if (!ContractLiteralCodec.TryParse<IpcBootstrapTarget>(target, out var bootstrapTarget))
+        if (!TextVocabulary.TryGetValue<IpcBootstrapTarget>(target, out var bootstrapTarget))
         {
             error = InvalidTarget(target);
             return false;
@@ -195,7 +194,7 @@ public static class IpcBatchmodeBootstrapArgumentsCodec
         out IpcBatchmodeBootstrapParseError error)
     {
         endpoint = default!;
-        if (!ContractLiteralCodec.TryParse<IpcTransportKind>(transportKindText, out var transportKind))
+        if (!TextVocabulary.TryGetValue<IpcTransportKind>(transportKindText, out var transportKind))
         {
             error = new IpcBatchmodeBootstrapParseError(
                 IpcBatchmodeBootstrapParseErrorKind.InvalidEndpointTransportKind,

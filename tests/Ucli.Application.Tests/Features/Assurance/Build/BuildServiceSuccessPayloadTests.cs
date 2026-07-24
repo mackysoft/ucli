@@ -1,4 +1,5 @@
 using System.Text.Json;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Artifacts;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Profiles;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Vocabulary;
@@ -84,27 +85,27 @@ public sealed class BuildServiceSuccessPayloadTests
         Assert.NotNull(preparedPaths);
         Assert.NotNull(artifactStore.WrittenMetadata);
         Assert.Equal(
-            ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
+            TextVocabulary.GetText(IpcBuildReportResult.Succeeded),
             artifactStore.WrittenMetadata!.Summary.GetProperty("result").GetString());
         Assert.Equal(
-            ContractLiteralCodec.ToValue(output.Build.RunnerResult.Source),
+            TextVocabulary.GetText(output.Build.RunnerResult.Source),
             artifactStore.WrittenMetadata.RunnerResult.GetProperty("source").GetString());
         Assert.Equal(
-            ContractLiteralCodec.ToValue(output.Build.RunnerResult.Status),
+            TextVocabulary.GetText(output.Build.RunnerResult.Status),
             artifactStore.WrittenMetadata.RunnerResult.GetProperty("status").GetString());
         Assert.Equal(output.Build.Profile.Path, artifactStore.WrittenMetadata.Profile.GetProperty("path").GetString());
         Assert.Equal(expectedProfileDigest.ToString(), artifactStore.WrittenMetadata.Profile.GetProperty("digest").GetString());
         Assert.Equal(
-            ContractLiteralCodec.ToValue(output.Build.Inputs.InputKind),
+            TextVocabulary.GetText(output.Build.Inputs.InputKind),
             artifactStore.WrittenMetadata.Inputs.GetProperty("inputKind").GetString());
         Assert.Equal(
-            ContractLiteralCodec.ToValue(output.Build.Inputs.Target.StableName),
+            TextVocabulary.GetText(output.Build.Inputs.Target.StableName),
             artifactStore.WrittenMetadata.Inputs.GetProperty("target").GetProperty("stableName").GetString());
         Assert.Equal(
             output.Build.Inputs.Target.UnityBuildTarget,
             artifactStore.WrittenMetadata.Inputs.GetProperty("target").GetProperty("unityBuildTarget").GetString());
         Assert.Equal(
-            ContractLiteralCodec.ToValue(output.Build.Inputs.Scenes.Source),
+            TextVocabulary.GetText(output.Build.Inputs.Scenes.Source),
             artifactStore.WrittenMetadata.Inputs.GetProperty("scenes").GetProperty("source").GetString());
         Assert.Equal(
             output.Build.Inputs.Options.Development,
@@ -118,10 +119,10 @@ public sealed class BuildServiceSuccessPayloadTests
         Assert.Equal(0, runnerEnvironment.GetProperty("secrets").GetArrayLength());
         Assert.Equal("file", artifactStore.WrittenMetadata.Runner.GetProperty("outputLayout").GetProperty("shape").GetString());
         Assert.Equal(
-            CreateExpectedPlayerLocationPathName(preparedPaths.RunnerOutputDirectory),
+            CreateExpectedPlayerLocationPathName(preparedPaths.RunnerOutputDirectory.Value),
             artifactStore.WrittenMetadata.Runner.GetProperty("outputLayout").GetProperty("locationPathName").GetString());
-        Assert.Equal(ContractLiteralCodec.ToValue(output.Build.Summary.ReportRef!.Value), artifactStore.WrittenMetadata.Summary.GetProperty("reportRef").GetString());
-        Assert.Equal(ContractLiteralCodec.ToValue(output.Build.Logs.ReportRef), artifactStore.WrittenMetadata.Logs.GetProperty("reportRef").GetString());
+        Assert.Equal(TextVocabulary.GetText(output.Build.Summary.ReportRef!.Value), artifactStore.WrittenMetadata.Summary.GetProperty("reportRef").GetString());
+        Assert.Equal(TextVocabulary.GetText(output.Build.Logs.ReportRef), artifactStore.WrittenMetadata.Logs.GetProperty("reportRef").GetString());
         Assert.False(artifactStore.WrittenMetadata.ProjectMutation.GetProperty("mutated").GetBoolean());
         Assert.Equal("full", artifactStore.WrittenMetadata.ProjectMutation.GetProperty("coverage").GetString());
         Assert.Equal(output.Build.Generations.Before.CompileGeneration, artifactStore.WrittenMetadata.Generations.GetProperty("before").GetProperty("compileGeneration").GetInt64());
@@ -152,17 +153,17 @@ public sealed class BuildServiceSuccessPayloadTests
         var requestPayload = BuildRunInvocationAssert.ExplicitBuildPipelineRequest(
             requestExecutor,
             expectedRunId: RunId,
-            expectedRunnerOutputDirectory: preparedPaths.RunnerOutputDirectory,
-            expectedBuildReportPath: preparedPaths.BuildReportJsonPath,
-            expectedBuildLogPath: preparedPaths.BuildLogPath,
-            expectedLocationPathName: CreateExpectedPlayerLocationPathName(preparedPaths.RunnerOutputDirectory));
+            expectedRunnerOutputDirectory: preparedPaths.RunnerOutputDirectory.Value,
+            expectedBuildReportPath: preparedPaths.BuildReportJsonPath.Value,
+            expectedBuildLogPath: preparedPaths.BuildLogPath.Value,
+            expectedLocationPathName: CreateExpectedPlayerLocationPathName(preparedPaths.RunnerOutputDirectory.Value));
         Assert.NotEqual(preparedPaths.RunnerOutputDirectory, preparedPaths.ArtifactOutputDirectory);
         var accountingRequest = Assert.IsType<BuildRunArtifactAccountingRequest>(artifactStore.AccountingRequest);
         var outputSource = Assert.Single(accountingRequest.OutputSources);
         var absoluteOutputSource = Assert.IsType<BuildOutputSourceEntry.Absolute>(outputSource);
         Assert.Equal(
-            Path.GetFullPath(requestPayload.Request.OutputLayout!.LocationPathName),
-            absoluteOutputSource.Path);
+            AbsolutePath.Parse(requestPayload.Request.OutputLayout!.LocationPathName).Value,
+            absoluteOutputSource.Path.Value);
         Assert.Equal(BuildTargetStableName.StandaloneLinux64, accountingRequest.BuildTarget);
         Assert.Equal("StandaloneLinux64", accountingRequest.UnityBuildTarget);
         Assert.False(accountingRequest.AllowEmptyOutputManifest);

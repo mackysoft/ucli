@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Compensation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Shared.Foundation;
@@ -14,7 +15,7 @@ internal static class DaemonGuiRebootstrapUnavailableFailureFactory
         DaemonCompensationOperationOwner operationOwner,
         IDaemonDiagnosisStore daemonDiagnosisStore,
         TimeProvider timeProvider,
-        string editorInstancePath,
+        AbsolutePath editorInstancePath,
         int processId,
         DateTimeOffset? processStartedAtUtc,
         DaemonStartupBlockedProcessPolicy onStartupBlocked,
@@ -26,11 +27,11 @@ internal static class DaemonGuiRebootstrapUnavailableFailureFactory
         ArgumentNullException.ThrowIfNull(operationOwner);
         ArgumentNullException.ThrowIfNull(daemonDiagnosisStore);
         ArgumentNullException.ThrowIfNull(timeProvider);
-        ArgumentException.ThrowIfNullOrWhiteSpace(editorInstancePath);
+        ArgumentNullException.ThrowIfNull(editorInstancePath);
         ArgumentNullException.ThrowIfNull(rebootstrapError);
 
         var error = ExecutionError.InternalError(
-            $"GUI daemon rebootstrap is unavailable. reason={ContractLiteralCodec.ToValue(DaemonDiagnosisReason.GuiRebootstrapUnavailable)} processId={processId}. {rebootstrapError.Message}",
+            $"GUI daemon rebootstrap is unavailable. reason={TextVocabulary.GetText(DaemonDiagnosisReason.GuiRebootstrapUnavailable)} processId={processId}. {rebootstrapError.Message}",
             DaemonErrorCodes.DaemonEndpointNotRegistered);
         var diagnosis = new DaemonDiagnosis(
             Reason: DaemonDiagnosisReason.GuiRebootstrapUnavailable,

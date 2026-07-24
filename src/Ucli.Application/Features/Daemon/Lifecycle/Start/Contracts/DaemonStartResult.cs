@@ -133,7 +133,7 @@ internal sealed record DaemonStartResult
         DaemonStatusKind daemonStatus = DaemonStatusKind.NotRunning)
     {
         ArgumentNullException.ThrowIfNull(error);
-        if (!ContractLiteralCodec.IsDefined(daemonStatus))
+        if (!TextVocabulary.IsDefined(daemonStatus))
         {
             throw new ArgumentOutOfRangeException(nameof(daemonStatus), daemonStatus, "Daemon status must have a contract literal.");
         }

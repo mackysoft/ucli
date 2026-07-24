@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Storage;
@@ -16,9 +17,9 @@ namespace MackySoft.Ucli.Unity.Ipc
     {
         private static readonly TimeSpan SidecarLockAcquireTimeout = TimeSpan.FromSeconds(1);
 
-        private readonly string path;
+        private readonly AbsolutePath path;
 
-        private readonly string lockPath;
+        private readonly AbsolutePath lockPath;
 
         private readonly int processId;
 
@@ -36,18 +37,20 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <param name="editorInstanceId"> The non-empty Editor process identity captured for this host generation. </param>
         /// <param name="sidecarGenerationId"> The non-empty identity of the lifecycle sidecar writer generation. </param>
         /// <param name="serverVersion"> The uCLI server version written to lifecycle observations. </param>
-        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="projectFingerprint" /> is <see langword="null" />. </exception>
+        /// <exception cref="ArgumentNullException">
+        /// Thrown when <paramref name="storageRoot" /> or <paramref name="projectFingerprint" /> is <see langword="null" />.
+        /// </exception>
         /// <exception cref="ArgumentException"> Thrown when a required text or identifier value is empty. </exception>
         public UnityLifecycleSidecarPersistence (
-            string storageRoot,
+            AbsolutePath storageRoot,
             ProjectFingerprint projectFingerprint,
             Guid editorInstanceId,
             Guid sidecarGenerationId,
             string serverVersion)
         {
-            if (string.IsNullOrWhiteSpace(storageRoot))
+            if (storageRoot == null)
             {
-                throw new ArgumentException("storageRoot must not be empty.", nameof(storageRoot));
+                throw new ArgumentNullException(nameof(storageRoot));
             }
 
             if (projectFingerprint == null)
@@ -74,7 +77,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             using var currentProcess = Process.GetCurrentProcess();
             path = UcliStoragePathResolver.ResolveDaemonLifecyclePath(storageRoot, projectFingerprint);
-            lockPath = path + ".lock";
+            lockPath = UcliStoragePathResolver.ResolveDaemonLifecycleLockPath(storageRoot, projectFingerprint);
             processId = currentProcess.Id;
             processStartedAtUtc = currentProcess.StartTime.ToUniversalTime();
             this.editorInstanceId = editorInstanceId;

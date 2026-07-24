@@ -2,6 +2,8 @@ using MackySoft.Ucli.Application.Features.Daemon.Common.CommandExecution;
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Context;
 
+using MackySoft.FileSystem;
+
 namespace MackySoft.Ucli.TestSupport;
 
 internal static class DaemonCommandExecutionContextTestFactory
@@ -38,8 +40,8 @@ internal static class DaemonCommandExecutionContextTestFactory
         return new DaemonCommandExecutionContext(
             Context: new ProjectContext(
                 ResolvedUnityProjectContext.Create(
-                    unityProjectRoot: Path.Combine(repositoryRoot, "UnityProject"),
-                    repositoryRoot: repositoryRoot,
+                    unityProjectRoot: AbsolutePath.Parse(Path.Combine(repositoryRoot, "UnityProject")),
+                    repositoryRoot: AbsolutePath.Parse(repositoryRoot),
                     projectFingerprint: projectFingerprint ?? ProjectFingerprint,
                     pathSource: UnityProjectPathSource.CommandOption,
                     pathSourceLabel: null,

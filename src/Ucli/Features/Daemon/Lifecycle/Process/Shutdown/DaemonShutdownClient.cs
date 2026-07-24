@@ -4,6 +4,7 @@ using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Features.Daemon.Common.Ipc;
 using MackySoft.Ucli.UnityIntegration.Ipc.Dispatch;
 using MackySoft.Ucli.UnityIntegration.Ipc.Recovery;
 using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
@@ -112,7 +113,7 @@ internal sealed class DaemonShutdownClient : IDaemonShutdownClient
                             "Timed out before sending daemon shutdown request.",
                             "Timed out while sending daemon shutdown request.",
                             token => transportClient.SendAsync(
-                                currentSession.Endpoint,
+                                DaemonSessionIpcTransportEndpointAdapter.Adapt(currentSession),
                                 request,
                                 remainingTimeout,
                                 token))

@@ -1,6 +1,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.Authorization;
@@ -42,14 +43,14 @@ namespace MackySoft.Ucli.Unity.Ipc
                 UnityMainThreadDaemonConsoleLogSink.CaptureCurrent());
             try
             {
-                var endpoint = UnityBatchmodeBootstrapEndpointValidator.ResolveValidatedOneshotEndpoint(bootstrapEnvelope);
+                var endpointBinding = UnityBatchmodeBootstrapEndpointValidator.ResolveValidatedOneshotEndpoint(bootstrapEnvelope);
                 var services = new ServiceCollection();
                 services.AddUnityIpcApplicationServices(
                     new ExactSessionTokenValidator(bootstrapEnvelope.SessionToken),
                     bootstrapEnvelope.ProjectFingerprint,
                     daemonLogger,
                     DaemonEditorMode.Batchmode);
-                services.AddUnityIpcOneshotHostServices(endpoint, lifetimeWatchdog);
+                services.AddUnityIpcOneshotHostServices(endpointBinding, lifetimeWatchdog);
 
                 IServiceProvider serviceProvider = services.BuildServiceProvider();
                 IUnityIpcServer server = null;
@@ -63,7 +64,9 @@ namespace MackySoft.Ucli.Unity.Ipc
                     controlPlaneRequestLifetime = serviceProvider
                         .GetRequiredService<IUnityControlPlaneRequestLifetime>();
                     mutationLaneControl = serviceProvider.GetRequiredService<IUnityMutationLaneControl>();
-                    using var publicationFence = await server.StartAsync(endpoint, CancellationToken.None);
+                    using var publicationFence = await server.StartAsync(
+                        endpointBinding,
+                        CancellationToken.None);
                     Task requestCompletionTask = null;
                     Task serverTerminationTask = null;
                     if (!publicationFence.TryCommitActiveOwnership(() =>

@@ -12,7 +12,7 @@ public sealed class StatusCommandResultFactoryTests
     {
         Converters =
         {
-            new ContractLiteralJsonConverterFactory(),
+            new VocabularyJsonConverterFactory(),
         },
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
     };

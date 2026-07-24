@@ -15,7 +15,7 @@ public sealed record IndexSceneTreeLiteNodeJsonContract
         IReadOnlyList<IndexSceneTreeLiteNodeJsonContract>? children,
         IndexSceneTreeLiteNodeChildrenState childrenState)
     {
-        if (!ContractLiteralCodec.IsDefined(childrenState))
+        if (!TextVocabulary.IsDefined(childrenState))
         {
             throw new ArgumentOutOfRangeException(nameof(childrenState), childrenState, "Unsupported scene-tree-lite node children state.");
         }

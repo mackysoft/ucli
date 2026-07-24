@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Shared.Unity.ProjectLock;
@@ -580,7 +581,7 @@ public sealed class UnityOneshotIpcClientCleanupTests
             };
         });
         var projectLockPreflightService = CreateProjectLockPreflightService(
-            UnityProjectLockFileProbeResult.Locked(lockFilePath));
+            UnityProjectLockFileProbeResult.Locked(AbsolutePath.Parse(lockFilePath)));
         var client = CreateClient(
             launcher,
             transportClient,
@@ -684,7 +685,8 @@ public sealed class UnityOneshotIpcClientCleanupTests
             launcher,
             transportClient,
             new StubProjectLifecycleLockProvider(),
-            CreateProjectLockPreflightService(UnityProjectLockFileProbeResult.Locked(lockFilePath)),
+            CreateProjectLockPreflightService(UnityProjectLockFileProbeResult.Locked(
+                AbsolutePath.Parse(lockFilePath))),
             unityLogReader: null,
             TimeSpan.FromMilliseconds(20),
             TimeSpan.FromMilliseconds(1));
@@ -905,7 +907,8 @@ public sealed class UnityOneshotIpcClientCleanupTests
             launcher,
             transportClient,
             new StubProjectLifecycleLockProvider(),
-            CreateProjectLockPreflightService(UnityProjectLockFileProbeResult.Locked(lockFilePath)));
+            CreateProjectLockPreflightService(UnityProjectLockFileProbeResult.Locked(
+                AbsolutePath.Parse(lockFilePath))));
 
         var result = await client.SendAsync(
             unityProject,

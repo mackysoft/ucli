@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Infrastructure.Storage;
 
 namespace MackySoft.Ucli.Infrastructure.Ipc;
@@ -5,34 +6,34 @@ namespace MackySoft.Ucli.Infrastructure.Ipc;
 /// <summary> Applies same-user filesystem boundary rules for one unix-domain-socket listener path. </summary>
 internal sealed class UnixSocketAccessBoundary
 {
-    private readonly string socketPath;
+    private readonly AbsolutePath socketDirectoryPath;
+
+    private readonly AbsolutePath socketPath;
 
     /// <summary> Initializes a new instance of the <see cref="UnixSocketAccessBoundary" /> class. </summary>
     /// <param name="authorizedSocketPath"> The exact unix-domain-socket path authorized before filesystem access. </param>
-    public UnixSocketAccessBoundary (string authorizedSocketPath)
+    public UnixSocketAccessBoundary (AbsolutePath authorizedSocketPath)
     {
-        if (string.IsNullOrWhiteSpace(authorizedSocketPath))
+        if (authorizedSocketPath is null)
         {
-            throw new ArgumentException("Authorized socket path must not be empty.", nameof(authorizedSocketPath));
+            throw new ArgumentNullException(nameof(authorizedSocketPath));
         }
 
-        if (!Path.IsPathFullyQualified(authorizedSocketPath))
+        if (!authorizedSocketPath.TryGetParent(out var parentDirectoryPath))
         {
-            throw new ArgumentException("Authorized socket path must be fully qualified.", nameof(authorizedSocketPath));
+            throw new ArgumentException(
+                "Authorized socket path must have a parent directory.",
+                nameof(authorizedSocketPath));
         }
 
-        socketPath = Path.GetFullPath(authorizedSocketPath);
+        socketDirectoryPath = parentDirectoryPath;
+        socketPath = authorizedSocketPath;
     }
 
     /// <summary> Ensures the socket directory is secure and removes stale socket residue before bind. </summary>
     public void PrepareForBind ()
     {
-        var socketDirectoryPath = Path.GetDirectoryName(socketPath);
-        if (!string.IsNullOrWhiteSpace(socketDirectoryPath))
-        {
-            FileSystemAccessBoundary.EnsureSecureDirectory(socketDirectoryPath);
-        }
-
+        FileSystemAccessBoundary.EnsureSecureDirectory(socketDirectoryPath);
         FileUtilities.DeleteIfExists(socketPath);
     }
 

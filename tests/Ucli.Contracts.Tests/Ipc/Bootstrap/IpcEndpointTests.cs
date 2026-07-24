@@ -6,18 +6,16 @@ public sealed class IpcEndpointTests
 {
     public static TheoryData<IpcTransportKind, string> InvalidCommonAddresses => new()
     {
-        { IpcTransportKind.NamedPipe, string.Empty },
-        { IpcTransportKind.NamedPipe, " " },
         { IpcTransportKind.NamedPipe, "pipe\0name" },
         { IpcTransportKind.NamedPipe, "pipe\nname" },
-        { IpcTransportKind.UnixDomainSocket, string.Empty },
-        { IpcTransportKind.UnixDomainSocket, " " },
         { IpcTransportKind.UnixDomainSocket, "/tmp/pipe\0name" },
         { IpcTransportKind.UnixDomainSocket, "/tmp/pipe\nname" },
     };
 
     public static TheoryData<string> InvalidNamedPipeAddresses => new()
     {
+        string.Empty,
+        " ",
         "anonymous",
         "ANONYMOUS",
         "directory/pipe",
@@ -25,8 +23,10 @@ public sealed class IpcEndpointTests
         new string('a', IpcTransportConstraints.NamedPipeAddressMaxCharacters + 1),
     };
 
-    public static TheoryData<string> InvalidUnixDomainSocketAddresses => new()
+    public static TheoryData<string> UnixDomainSocketWireAddresses => new()
     {
+        string.Empty,
+        " ",
         "tmp/ucli.sock",
         "/tmp/ucli.sock/",
         "//tmp/ucli.sock",
@@ -126,23 +126,11 @@ public sealed class IpcEndpointTests
     }
 
     [Theory]
-    [MemberData(nameof(InvalidUnixDomainSocketAddresses))]
+    [MemberData(nameof(UnixDomainSocketWireAddresses))]
     [Trait("Size", "Small")]
-    public void Constructor_WithInvalidUnixDomainSocketAddress_ThrowsArgumentException (string address)
+    public void Constructor_WithUnixDomainSocketWireText_PreservesAddressForRuntimeAdapter (
+        string address)
     {
-        var exception = Assert.Throws<ArgumentException>(() => new IpcEndpoint(
-            IpcTransportKind.UnixDomainSocket,
-            address));
-
-        Assert.Equal("address", exception.ParamName);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void Constructor_WithMaximumUtf8UnixDomainSocketAddress_PreservesAddress ()
-    {
-        var address = "/" + new string('a', IpcTransportConstraints.UnixDomainSocketPathMaxBytes - 4) + "\u3042";
-
         var endpoint = new IpcEndpoint(IpcTransportKind.UnixDomainSocket, address);
 
         Assert.Equal(IpcTransportKind.UnixDomainSocket, endpoint.TransportKind);

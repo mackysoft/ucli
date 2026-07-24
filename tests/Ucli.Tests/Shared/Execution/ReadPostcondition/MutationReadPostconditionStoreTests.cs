@@ -1,4 +1,5 @@
 using System.Text.Json;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Storage;
@@ -14,7 +15,7 @@ public sealed class MutationReadPostconditionStoreTests
         using var scope = TestDirectories.CreateTempScope("mutation-read-postcondition-store", "missing");
         var store = new MutationReadPostconditionStore();
 
-        var result = await store.ReadOrNullAsync(scope.FullPath, ProjectFingerprintTestFactory.Create("fingerprint-1"), CancellationToken.None);
+        var result = await store.ReadOrNullAsync(AbsolutePath.Parse(scope.FullPath), ProjectFingerprintTestFactory.Create("fingerprint-1"), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Null(result.Error);
@@ -27,10 +28,10 @@ public sealed class MutationReadPostconditionStoreTests
     {
         using var scope = TestDirectories.CreateTempScope("mutation-read-postcondition-store", "merge-roundtrip");
         var store = new MutationReadPostconditionStore();
-        var documentPath = UcliStoragePathResolver.ResolveMutationReadPostconditionPath(scope.FullPath, ProjectFingerprintTestFactory.Create("fingerprint-1"));
+        var documentPath = UcliStoragePathResolver.ResolveMutationReadPostconditionPath(AbsolutePath.Parse(scope.FullPath), ProjectFingerprintTestFactory.Create("fingerprint-1"));
 
         var firstWrite = await store.WriteMergedAsync(
-            scope.FullPath,
+            AbsolutePath.Parse(scope.FullPath),
             ProjectFingerprintTestFactory.Create("fingerprint-1"),
             new IpcExecuteReadPostcondition(
             [
@@ -45,7 +46,7 @@ public sealed class MutationReadPostconditionStoreTests
             ]),
             CancellationToken.None);
         var secondWrite = await store.WriteMergedAsync(
-            scope.FullPath,
+            AbsolutePath.Parse(scope.FullPath),
             ProjectFingerprintTestFactory.Create("fingerprint-1"),
             new IpcExecuteReadPostcondition(
             [
@@ -63,7 +64,7 @@ public sealed class MutationReadPostconditionStoreTests
         Assert.True(firstWrite.IsSuccess);
         Assert.True(secondWrite.IsSuccess);
 
-        var readResult = await store.ReadOrNullAsync(scope.FullPath, ProjectFingerprintTestFactory.Create("fingerprint-1"), CancellationToken.None);
+        var readResult = await store.ReadOrNullAsync(AbsolutePath.Parse(scope.FullPath), ProjectFingerprintTestFactory.Create("fingerprint-1"), CancellationToken.None);
 
         Assert.True(readResult.IsSuccess);
         var readPostcondition = Assert.IsType<IpcExecuteReadPostcondition>(readResult.ReadPostcondition);
@@ -81,7 +82,7 @@ public sealed class MutationReadPostconditionStoreTests
             static requirement => requirement.Surface == IpcExecuteReadPostconditionSurface.SceneTreeLite
                 && requirement.ScenePath == new UnityScenePath("Assets/Scenes/Main.unity"));
 
-        using var jsonDocument = JsonDocument.Parse(File.ReadAllText(documentPath));
+        using var jsonDocument = JsonDocument.Parse(File.ReadAllText(documentPath.Value));
         JsonAssert.For(jsonDocument.RootElement)
             .HasInt32("schemaVersion", 1)
             .HasArrayLength("requirements", 3);
@@ -107,7 +108,7 @@ public sealed class MutationReadPostconditionStoreTests
 
                     var store = new MutationReadPostconditionStore();
                     return store.WriteMergedAsync(
-                            scope.FullPath,
+                            AbsolutePath.Parse(scope.FullPath),
                             projectFingerprint,
                             new IpcExecuteReadPostcondition(
                             [
@@ -130,7 +131,7 @@ public sealed class MutationReadPostconditionStoreTests
         Assert.All(writeResults, static result => Assert.True(result.IsSuccess, result.Error?.Message));
 
         var readResult = await new MutationReadPostconditionStore().ReadOrNullAsync(
-            scope.FullPath,
+            AbsolutePath.Parse(scope.FullPath),
             projectFingerprint,
             CancellationToken.None);
 
@@ -153,10 +154,10 @@ public sealed class MutationReadPostconditionStoreTests
     {
         using var scope = TestDirectories.CreateTempScope("mutation-read-postcondition-store", "scene-tree-lite-wildcard");
         var store = new MutationReadPostconditionStore();
-        var documentPath = UcliStoragePathResolver.ResolveMutationReadPostconditionPath(scope.FullPath, ProjectFingerprintTestFactory.Create("fingerprint-1"));
+        var documentPath = UcliStoragePathResolver.ResolveMutationReadPostconditionPath(AbsolutePath.Parse(scope.FullPath), ProjectFingerprintTestFactory.Create("fingerprint-1"));
 
         var writeResult = await store.WriteMergedAsync(
-            scope.FullPath,
+            AbsolutePath.Parse(scope.FullPath),
             ProjectFingerprintTestFactory.Create("fingerprint-1"),
             new IpcExecuteReadPostcondition(
             [
@@ -169,7 +170,7 @@ public sealed class MutationReadPostconditionStoreTests
 
         Assert.True(writeResult.IsSuccess);
 
-        var readResult = await store.ReadOrNullAsync(scope.FullPath, ProjectFingerprintTestFactory.Create("fingerprint-1"), CancellationToken.None);
+        var readResult = await store.ReadOrNullAsync(AbsolutePath.Parse(scope.FullPath), ProjectFingerprintTestFactory.Create("fingerprint-1"), CancellationToken.None);
 
         Assert.True(readResult.IsSuccess);
         var readPostcondition = Assert.IsType<IpcExecuteReadPostcondition>(readResult.ReadPostcondition);
@@ -177,7 +178,7 @@ public sealed class MutationReadPostconditionStoreTests
         Assert.Equal(IpcExecuteReadPostconditionSurface.SceneTreeLite, requirement.Surface);
         Assert.Null(requirement.ScenePath);
 
-        using var jsonDocument = JsonDocument.Parse(File.ReadAllText(documentPath));
+        using var jsonDocument = JsonDocument.Parse(File.ReadAllText(documentPath.Value));
         Assert.False(jsonDocument.RootElement.GetProperty("requirements")[0].TryGetProperty("scenePath", out _));
     }
 
@@ -187,11 +188,11 @@ public sealed class MutationReadPostconditionStoreTests
     {
         using var scope = TestDirectories.CreateTempScope("mutation-read-postcondition-store", "malformed-json");
         var store = new MutationReadPostconditionStore();
-        var documentPath = UcliStoragePathResolver.ResolveMutationReadPostconditionPath(scope.FullPath, ProjectFingerprintTestFactory.Create("fingerprint-1"));
-        var relativePath = Path.GetRelativePath(scope.FullPath, documentPath);
+        var documentPath = UcliStoragePathResolver.ResolveMutationReadPostconditionPath(AbsolutePath.Parse(scope.FullPath), ProjectFingerprintTestFactory.Create("fingerprint-1"));
+        var relativePath = Path.GetRelativePath(scope.FullPath, documentPath.Value);
         scope.WriteFile(relativePath, "{");
 
-        var result = await store.ReadOrNullAsync(scope.FullPath, ProjectFingerprintTestFactory.Create("fingerprint-1"), CancellationToken.None);
+        var result = await store.ReadOrNullAsync(AbsolutePath.Parse(scope.FullPath), ProjectFingerprintTestFactory.Create("fingerprint-1"), CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         var error = Assert.IsType<ExecutionError>(result.Error);

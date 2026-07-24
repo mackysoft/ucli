@@ -84,9 +84,9 @@ internal sealed class UcliConfigCompiler
 
         return UcliConfigDocumentBuildResult.Success(new UcliConfigDocument(
             SchemaVersion: config.SchemaVersion,
-            OperationPolicy: ContractLiteralCodec.ToValue(config.OperationPolicy),
-            PlanTokenMode: ContractLiteralCodec.ToValue(config.PlanTokenMode),
-            ReadIndexDefaultMode: ContractLiteralCodec.ToValue(config.ReadIndexDefaultMode),
+            OperationPolicy: TextVocabulary.GetText(config.OperationPolicy),
+            PlanTokenMode: TextVocabulary.GetText(config.PlanTokenMode),
+            ReadIndexDefaultMode: TextVocabulary.GetText(config.ReadIndexDefaultMode),
             OperationAllowlist: config.OperationAllowlist.ToArray(),
             IpcDefaultTimeoutMilliseconds: config.IpcDefaultTimeoutMilliseconds,
             IpcTimeoutMillisecondsByCommand: ipcTimeoutMillisecondsByCommand));

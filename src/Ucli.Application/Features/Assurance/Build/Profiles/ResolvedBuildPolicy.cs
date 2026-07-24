@@ -1,4 +1,3 @@
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Features.Assurance.Build.Profiles;
 
@@ -11,7 +10,7 @@ internal sealed class ResolvedBuildPolicy
         BuildProfileProjectMutationMode projectMutationMode)
     {
         Runtime = runtime ?? throw new ArgumentNullException(nameof(runtime));
-        if (!ContractLiteralCodec.IsDefined(projectMutationMode))
+        if (!TextVocabulary.IsDefined(projectMutationMode))
         {
             throw new ArgumentOutOfRangeException(
                 nameof(projectMutationMode),

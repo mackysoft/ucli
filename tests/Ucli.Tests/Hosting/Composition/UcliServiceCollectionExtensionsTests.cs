@@ -142,7 +142,7 @@ public sealed class UcliServiceCollectionExtensionsTests
                   "required": true,
                   "verifierRef": "ready.lifecycle",
                   "validity": {
-                    "kind": "{{ContractLiteralCodec.ToValue(ReadyValidityKind.ProbeOnly)}}",
+                    "kind": "{{TextVocabulary.GetText(ReadyValidityKind.ProbeOnly)}}",
                     "guaranteesReusableSession": true
                   },
                   "evidence": [],

@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Shared.Context.Project;
 
 namespace MackySoft.Ucli.Shared.Unity.ProjectLock;
@@ -12,6 +13,6 @@ internal interface IUnityProjectLockOwnerProbe
     /// <returns> The lock owner probe result. </returns>
     ValueTask<UnityProjectLockOwnerProbeResult> ProbeOwnerAsync (
         ResolvedUnityProjectContext unityProject,
-        string lockFilePath,
+        AbsolutePath lockFilePath,
         CancellationToken cancellationToken = default);
 }

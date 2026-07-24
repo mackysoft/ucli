@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
@@ -21,9 +22,11 @@ public sealed class FileReadIndexArtifactReaderOpsTests
             SourceInputsHash: Sha256DigestTestFactory.Compute("source-hash").ToString(),
             Entries: Array.Empty<IndexOpsCatalogEntryJsonContract>());
         FileReadIndexArtifactReaderTestSupport.WriteText(
-            Path.Combine(
-                UcliStoragePathResolver.ResolveIndexCatalogsDirectory(scope.FullPath, fingerprint),
-                UcliStoragePathNames.OpsCatalogFileName),
+            ContainedPath.Create(
+                UcliStoragePathResolver.ResolveIndexCatalogsDirectory(
+                    AbsolutePath.Parse(scope.FullPath),
+                    fingerprint),
+                RootRelativePath.Parse(UcliStoragePathNames.OpsCatalogFileName)).Target,
             FileReadIndexArtifactReaderTestSupport.Write(contract));
 
         var result = await reader.ReadOpsCatalogAsync(project, CancellationToken.None);
@@ -39,7 +42,7 @@ public sealed class FileReadIndexArtifactReaderOpsTests
         using var scope = TestDirectories.CreateTempScope("index-catalog-reader", "ops-success");
         var reader = FileReadIndexArtifactReaderTestSupport.CreateReader();
         var fingerprint = ProjectFingerprintTestFactory.Create("fingerprint");
-        var generationId = FileReadIndexArtifactReaderTestSupport.EnsureCurrentGeneration(scope.FullPath, fingerprint);
+        var generationId = FileReadIndexArtifactReaderTestSupport.EnsureCurrentGeneration(AbsolutePath.Parse(scope.FullPath), fingerprint);
         var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, fingerprint);
         var contract = new IndexOpsCatalogJsonContract(
             SchemaVersion: 1,
@@ -56,7 +59,7 @@ public sealed class FileReadIndexArtifactReaderOpsTests
                     DescribeHash: new string('b', 64)),
             ]);
         FileReadIndexArtifactReaderTestSupport.WriteText(
-            UcliStoragePathResolver.ResolveOpsCatalogPath(scope.FullPath, fingerprint, generationId),
+            UcliStoragePathResolver.ResolveOpsCatalogPath(AbsolutePath.Parse(scope.FullPath), fingerprint, generationId),
             FileReadIndexArtifactReaderTestSupport.Write(contract));
 
         var result = await reader.ReadOpsCatalogAsync(project, CancellationToken.None);
@@ -79,7 +82,7 @@ public sealed class FileReadIndexArtifactReaderOpsTests
         using var targetScope = TestDirectories.CreateTempScope("index-catalog-reader", "ops-symbolic-link-target");
         var reader = FileReadIndexArtifactReaderTestSupport.CreateReader();
         var fingerprint = ProjectFingerprintTestFactory.Create("fingerprint");
-        var generationId = FileReadIndexArtifactReaderTestSupport.EnsureCurrentGeneration(scope.FullPath, fingerprint);
+        var generationId = FileReadIndexArtifactReaderTestSupport.EnsureCurrentGeneration(AbsolutePath.Parse(scope.FullPath), fingerprint);
         var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, fingerprint);
         var contract = new IndexOpsCatalogJsonContract(
             SchemaVersion: 1,
@@ -90,10 +93,10 @@ public sealed class FileReadIndexArtifactReaderOpsTests
             "ops.catalog.json",
             FileReadIndexArtifactReaderTestSupport.Write(contract));
         var catalogPath = UcliStoragePathResolver.ResolveOpsCatalogPath(
-            scope.FullPath,
+            AbsolutePath.Parse(scope.FullPath),
             fingerprint,
             generationId);
-        if (!TestSymbolicLinks.TryCreateFile(catalogPath, targetPath))
+        if (!TestSymbolicLinks.TryCreateFile(catalogPath.Value, targetPath))
         {
             return;
         }
@@ -116,7 +119,7 @@ public sealed class FileReadIndexArtifactReaderOpsTests
         using var scope = TestDirectories.CreateTempScope("index-catalog-reader", "ops-noncanonical-literal");
         var reader = FileReadIndexArtifactReaderTestSupport.CreateReader();
         var fingerprint = ProjectFingerprintTestFactory.Create("fingerprint");
-        var generationId = FileReadIndexArtifactReaderTestSupport.EnsureCurrentGeneration(scope.FullPath, fingerprint);
+        var generationId = FileReadIndexArtifactReaderTestSupport.EnsureCurrentGeneration(AbsolutePath.Parse(scope.FullPath), fingerprint);
         var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, fingerprint);
         var contract = new IndexOpsCatalogJsonContract(
             SchemaVersion: 1,
@@ -133,7 +136,7 @@ public sealed class FileReadIndexArtifactReaderOpsTests
                     DescribeHash: new string('b', 64)),
             ]);
         FileReadIndexArtifactReaderTestSupport.WriteText(
-            UcliStoragePathResolver.ResolveOpsCatalogPath(scope.FullPath, fingerprint, generationId),
+            UcliStoragePathResolver.ResolveOpsCatalogPath(AbsolutePath.Parse(scope.FullPath), fingerprint, generationId),
             FileReadIndexArtifactReaderTestSupport.Write(contract));
 
         var result = await reader.ReadOpsCatalogAsync(project, CancellationToken.None);
@@ -153,7 +156,7 @@ public sealed class FileReadIndexArtifactReaderOpsTests
         var sourceInputsHash = Sha256DigestTestFactory.Compute("source-hash");
         var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, fingerprint);
         var operation = ReadIndexOperationTestFactory.CreateGoDescribeEntry();
-        var catalogEntry = FileReadIndexArtifactReaderTestSupport.WriteOpsDescribe(scope.FullPath, fingerprint, operation, sourceInputsHash);
+        var catalogEntry = FileReadIndexArtifactReaderTestSupport.WriteOpsDescribe(AbsolutePath.Parse(scope.FullPath), fingerprint, operation, sourceInputsHash);
 
         var result = await reader.ReadOpsDescribeAsync(project, catalogEntry, sourceInputsHash, CancellationToken.None);
 
@@ -199,7 +202,7 @@ public sealed class FileReadIndexArtifactReaderOpsTests
         var fingerprint = ProjectFingerprintTestFactory.Create("fingerprint");
         var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, fingerprint);
         var operation = ReadIndexOperationTestFactory.CreateGoDescribeEntry();
-        var persistedEntry = FileReadIndexArtifactReaderTestSupport.WriteOpsDescribe(scope.FullPath, fingerprint, operation, Sha256DigestTestFactory.Compute("source-hash"));
+        var persistedEntry = FileReadIndexArtifactReaderTestSupport.WriteOpsDescribe(AbsolutePath.Parse(scope.FullPath), fingerprint, operation, Sha256DigestTestFactory.Compute("source-hash"));
         var catalogEntry = new ValidatedOpsCatalogEntry(
             persistedEntry.Name,
             persistedEntry.Kind,
@@ -226,7 +229,7 @@ public sealed class FileReadIndexArtifactReaderOpsTests
         var fingerprint = ProjectFingerprintTestFactory.Create("fingerprint");
         var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, fingerprint);
         var operation = ReadIndexOperationTestFactory.CreateGoDescribeEntry();
-        var catalogEntry = FileReadIndexArtifactReaderTestSupport.WriteOpsDescribe(scope.FullPath, fingerprint, operation, Sha256DigestTestFactory.Compute("other-source-hash"));
+        var catalogEntry = FileReadIndexArtifactReaderTestSupport.WriteOpsDescribe(AbsolutePath.Parse(scope.FullPath), fingerprint, operation, Sha256DigestTestFactory.Compute("other-source-hash"));
 
         var result = await reader.ReadOpsDescribeAsync(project, catalogEntry, Sha256DigestTestFactory.Compute("source-hash"), CancellationToken.None);
 
@@ -246,7 +249,7 @@ public sealed class FileReadIndexArtifactReaderOpsTests
         var fingerprint = ProjectFingerprintTestFactory.Create("fingerprint");
         var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, fingerprint);
         var operation = ReadIndexOperationTestFactory.CreateGoDescribeEntry() with { Name = "ucli.test.detail" };
-        var persistedEntry = FileReadIndexArtifactReaderTestSupport.WriteOpsDescribe(scope.FullPath, fingerprint, operation, Sha256DigestTestFactory.Compute("source-hash"));
+        var persistedEntry = FileReadIndexArtifactReaderTestSupport.WriteOpsDescribe(AbsolutePath.Parse(scope.FullPath), fingerprint, operation, Sha256DigestTestFactory.Compute("source-hash"));
         var catalogEntry = new ValidatedOpsCatalogEntry(
             UcliPrimitiveOperationNames.GoDescribe,
             persistedEntry.Kind,

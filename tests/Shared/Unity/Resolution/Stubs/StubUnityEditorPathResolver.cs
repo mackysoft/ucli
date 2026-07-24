@@ -2,7 +2,8 @@ namespace MackySoft.Ucli.TestSupport;
 
 internal sealed class StubUnityEditorPathResolver : IUnityEditorPathResolver
 {
-    public const string DefaultUnityEditorPath = "/Applications/Unity.app/Contents/MacOS/Unity";
+    public static string DefaultUnityEditorPath { get; } =
+        Path.Combine(ProjectPathTestValues.WorkspaceRoot, "Unity", "Editor");
 
     private readonly UnityEditorPathResolutionResult result;
 
@@ -12,7 +13,8 @@ internal sealed class StubUnityEditorPathResolver : IUnityEditorPathResolver
     }
 
     public StubUnityEditorPathResolver (string unityEditorPath)
-        : this(UnityEditorPathResolutionResult.Success(unityEditorPath))
+        : this(UnityEditorPathResolutionResult.Success(
+            MackySoft.FileSystem.AbsolutePath.Parse(Path.GetFullPath(unityEditorPath))))
     {
     }
 

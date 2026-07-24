@@ -26,7 +26,7 @@ public sealed class BuildRunPayloadSchemaArtifactTests
         Assert.False(buildProperties.TryGetProperty("scenes", out _));
         Assert.False(buildProperties.TryGetProperty("options", out _));
         Assert.Equal(
-            ContractLiteralCodec.GetLiterals<BuildArtifactKind>(),
+            TextVocabulary.GetTexts<BuildArtifactKind>(),
             reportProperties.EnumerateObject().Select(static property => property.Name).ToArray());
         foreach (var reportSchema in reportProperties.EnumerateObject())
         {

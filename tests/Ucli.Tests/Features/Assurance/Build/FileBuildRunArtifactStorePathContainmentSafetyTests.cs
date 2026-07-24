@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Artifacts;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Storage;
@@ -9,7 +10,7 @@ public sealed class FileBuildRunArtifactStorePathContainmentSafetyTests
 {
     [Fact]
     [Trait("Size", "Medium")]
-    public async Task AccountArtifactsAsync_WhenOutputPathContainsBackslashTraversalText_ReturnsOutputManifestFailed ()
+    public async Task AccountArtifactsAsync_WhenOutputPathCannotBeRepresentedByPortableContract_FailsClosed ()
     {
         if (OperatingSystem.IsWindows())
         {
@@ -18,9 +19,12 @@ public sealed class FileBuildRunArtifactStorePathContainmentSafetyTests
 
         using var scope = TestDirectories.CreateTempScope("build-artifact-store", "output-backslash-traversal");
         var (store, paths) = PrepareArtifacts(scope);
-        var outputSourceDirectory = Path.Combine(paths.RunnerOutputDirectory, "build");
+        var outputSourceDirectory = Path.Combine(paths.RunnerOutputDirectory.Value, "build");
         Directory.CreateDirectory(outputSourceDirectory);
-        File.WriteAllText(Path.Combine(outputSourceDirectory, "foo\\..\\..\\outside"), "ambiguous");
+        var literalBackslashPath = Path.Combine(
+            outputSourceDirectory,
+            "foo\\..\\..\\outside");
+        File.WriteAllText(literalBackslashPath, "ambiguous");
 
         var writeResult = await store.AccountArtifactsAsync(
             CreateAccountingRequest(paths),
@@ -30,7 +34,9 @@ public sealed class FileBuildRunArtifactStorePathContainmentSafetyTests
         var error = Assert.IsType<ExecutionError>(writeResult.Error);
         Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
         Assert.Equal(BuildErrorCodes.BuildOutputManifestFailed, error.Code);
-        Assert.Contains("escaped", error.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("portable artifact contract", error.Message, StringComparison.Ordinal);
+        Assert.True(File.Exists(literalBackslashPath));
+        Assert.False(File.Exists(Path.Combine(paths.RunnerOutputDirectory.Value, "outside")));
     }
 
     [Fact]
@@ -46,7 +52,8 @@ public sealed class FileBuildRunArtifactStorePathContainmentSafetyTests
             defaultRequest.BuildTarget,
             defaultRequest.UnityBuildTarget,
             defaultRequest.BuildReport,
-            [BuildOutputSourceEntry.FromAbsolutePath(Path.Combine(paths.ArtifactsDirectory, "source"))],
+            [BuildOutputSourceEntry.FromAbsolutePath(AbsolutePath.Parse(
+                Path.Combine(paths.ArtifactsDirectory.Value, "source")))],
             defaultRequest.AllowEmptyOutputManifest);
 
         var writeResult = await store.AccountArtifactsAsync(request, CancellationToken.None);
@@ -72,7 +79,7 @@ public sealed class FileBuildRunArtifactStorePathContainmentSafetyTests
             defaultRequest.BuildTarget,
             defaultRequest.UnityBuildTarget,
             defaultRequest.BuildReport,
-            [BuildOutputSourceEntry.FromAbsolutePath(outsideSourcePath)],
+            [BuildOutputSourceEntry.FromAbsolutePath(AbsolutePath.Parse(outsideSourcePath))],
             defaultRequest.AllowEmptyOutputManifest);
 
         var writeResult = await store.AccountArtifactsAsync(request, CancellationToken.None);
@@ -111,10 +118,10 @@ public sealed class FileBuildRunArtifactStorePathContainmentSafetyTests
             Assert.False(File.Exists(escapedPath));
         }
 
-        Assert.False(File.Exists(paths.BuildJsonPath));
-        Assert.False(File.Exists(paths.BuildReportJsonPath));
-        Assert.False(File.Exists(paths.BuildLogPath));
-        Assert.False(File.Exists(paths.OutputManifestJsonPath));
+        Assert.False(File.Exists(paths.BuildJsonPath.Value));
+        Assert.False(File.Exists(paths.BuildReportJsonPath.Value));
+        Assert.False(File.Exists(paths.BuildLogPath.Value));
+        Assert.False(File.Exists(paths.OutputManifestJsonPath.Value));
     }
 
     [Fact]
@@ -127,13 +134,13 @@ public sealed class FileBuildRunArtifactStorePathContainmentSafetyTests
         var unexpectedPaths = new BuildRunArtifactPaths(
             paths.RepositoryRoot,
             paths.RunId,
-            artifactsDirectory,
-            Path.Combine(artifactsDirectory, UcliStoragePathNames.BuildMetadataFileName),
-            Path.Combine(artifactsDirectory, UcliStoragePathNames.BuildReportFileName),
-            Path.Combine(artifactsDirectory, UcliStoragePathNames.BuildLogFileName),
-            Path.Combine(artifactsDirectory, UcliStoragePathNames.BuildOutputManifestFileName),
+            AbsolutePath.Parse(artifactsDirectory),
+            AbsolutePath.Parse(Path.Combine(artifactsDirectory, UcliStoragePathNames.BuildMetadataFileName)),
+            AbsolutePath.Parse(Path.Combine(artifactsDirectory, UcliStoragePathNames.BuildReportFileName)),
+            AbsolutePath.Parse(Path.Combine(artifactsDirectory, UcliStoragePathNames.BuildLogFileName)),
+            AbsolutePath.Parse(Path.Combine(artifactsDirectory, UcliStoragePathNames.BuildOutputManifestFileName)),
             paths.RunnerOutputDirectory,
-            Path.Combine(artifactsDirectory, UcliStoragePathNames.BuildOutputDirectoryName));
+            AbsolutePath.Parse(Path.Combine(artifactsDirectory, UcliStoragePathNames.BuildOutputDirectoryName)));
         var request = CreateAccountingRequest(unexpectedPaths);
 
         var writeResult = await store.AccountArtifactsAsync(request, CancellationToken.None);

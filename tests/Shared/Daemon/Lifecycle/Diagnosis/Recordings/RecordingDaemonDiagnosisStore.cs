@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 
 namespace MackySoft.Ucli.TestSupport;
@@ -8,7 +9,7 @@ internal sealed class RecordingDaemonDiagnosisStore : IDaemonDiagnosisStore
     private readonly List<ReadInvocation> readInvocations = [];
     private readonly List<WriteInvocation> writeInvocations = [];
 
-    public Func<string, ProjectFingerprint, DaemonDiagnosisReadResult>? OnRead { get; set; }
+    public Func<AbsolutePath, ProjectFingerprint, DaemonDiagnosisReadResult>? OnRead { get; set; }
 
     public Action<DaemonDiagnosis>? OnWrite { get; set; }
 
@@ -21,9 +22,9 @@ internal sealed class RecordingDaemonDiagnosisStore : IDaemonDiagnosisStore
     public DaemonDiagnosisStoreOperationResult DeleteResult { get; set; } =
         DaemonDiagnosisStoreOperationResult.Success();
 
-    public Func<string, ProjectFingerprint, CancellationToken, ValueTask<DaemonDiagnosisStoreOperationResult>>? DeleteAsyncHandler { get; set; }
+    public Func<AbsolutePath, ProjectFingerprint, CancellationToken, ValueTask<DaemonDiagnosisStoreOperationResult>>? DeleteAsyncHandler { get; set; }
 
-    public Func<string, ProjectFingerprint, DaemonDiagnosis, CancellationToken, ValueTask<DaemonDiagnosisStoreOperationResult>>? WriteAsyncHandler { get; set; }
+    public Func<AbsolutePath, ProjectFingerprint, DaemonDiagnosis, CancellationToken, ValueTask<DaemonDiagnosisStoreOperationResult>>? WriteAsyncHandler { get; set; }
 
     public IReadOnlyList<ReadInvocation> ReadInvocations => readInvocations;
 
@@ -32,7 +33,7 @@ internal sealed class RecordingDaemonDiagnosisStore : IDaemonDiagnosisStore
     public IReadOnlyList<DeleteInvocation> DeleteInvocations => deleteInvocations;
 
     public ValueTask<DaemonDiagnosisReadResult> ReadAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         ProjectFingerprint projectFingerprint,
         CancellationToken cancellationToken = default)
     {
@@ -44,7 +45,7 @@ internal sealed class RecordingDaemonDiagnosisStore : IDaemonDiagnosisStore
     }
 
     public ValueTask<DaemonDiagnosisStoreOperationResult> WriteAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         ProjectFingerprint projectFingerprint,
         DaemonDiagnosis diagnosis,
         CancellationToken cancellationToken = default)
@@ -64,7 +65,7 @@ internal sealed class RecordingDaemonDiagnosisStore : IDaemonDiagnosisStore
     }
 
     public ValueTask<DaemonDiagnosisStoreOperationResult> DeleteAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         ProjectFingerprint projectFingerprint,
         CancellationToken cancellationToken = default)
     {
@@ -81,18 +82,18 @@ internal sealed class RecordingDaemonDiagnosisStore : IDaemonDiagnosisStore
     }
 
     internal readonly record struct ReadInvocation (
-        string StorageRoot,
+        AbsolutePath StorageRoot,
         ProjectFingerprint ProjectFingerprint,
         CancellationToken CancellationToken);
 
     internal readonly record struct WriteInvocation (
-        string StorageRoot,
+        AbsolutePath StorageRoot,
         ProjectFingerprint ProjectFingerprint,
         DaemonDiagnosis Diagnosis,
         CancellationToken CancellationToken);
 
     internal readonly record struct DeleteInvocation (
-        string StorageRoot,
+        AbsolutePath StorageRoot,
         ProjectFingerprint ProjectFingerprint,
         CancellationToken CancellationToken);
 }

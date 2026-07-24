@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -127,7 +128,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 executionContext);
             var deduplicatedTouched = DeduplicateTouched(touched);
             MarkRequestAttributedChanges(deduplicatedTouched, executionContext);
-            var callbackTouched = ProjectOperationUtilities.CreateTouchedResources(callbackPaths, System.Array.Empty<string>());
+            var callbackTouched = ProjectOperationUtilities.CreateTouchedResources(
+                callbackPaths,
+                System.Array.Empty<RootRelativePath>());
             var result = OperationPhaseStepResult.Success(
                 applied: true,
                 changed: deduplicatedTouched.Count != 0,

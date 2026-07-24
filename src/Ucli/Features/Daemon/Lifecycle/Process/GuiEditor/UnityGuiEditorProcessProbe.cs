@@ -1,6 +1,6 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.EditorInstance;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.GuiEditor;
-using MackySoft.Ucli.Infrastructure.Paths;
 
 namespace MackySoft.Ucli.Features.Daemon.Lifecycle.Process.GuiEditor;
 
@@ -16,6 +16,15 @@ internal sealed class UnityGuiEditorProcessProbe : IUnityGuiEditorProcessProbe
     private const string WindowsUnityExecutableName = "Unity.exe";
 
     private const string MacUnityBundleName = "Unity.app";
+
+    private static readonly RootRelativePath UnityExecutablePathName =
+        RootRelativePath.Parse(UnityExecutableName);
+
+    private static readonly RootRelativePath WindowsUnityExecutablePathName =
+        RootRelativePath.Parse(WindowsUnityExecutableName);
+
+    private static readonly RootRelativePath MacUnityBundlePathName =
+        RootRelativePath.Parse(MacUnityBundleName);
 
     private readonly IUnityGuiEditorProcessInspector processInspector;
 
@@ -106,63 +115,37 @@ internal sealed class UnityGuiEditorProcessProbe : IUnityGuiEditorProcessProbe
 
     private static bool HasMarkerApplicationPath (UnityEditorInstanceMarker marker)
     {
-        return !string.IsNullOrWhiteSpace(marker.AppPath)
-            || !string.IsNullOrWhiteSpace(marker.AppContentsPath);
+        return marker.AppPath is not null
+            || marker.AppContentsPath is not null;
     }
 
     private static bool MatchesMarkerPath (
-        string? executablePath,
-        string? markerPath)
+        AbsolutePath? executablePath,
+        AbsolutePath? markerPath)
     {
-        if (string.IsNullOrWhiteSpace(executablePath) || string.IsNullOrWhiteSpace(markerPath))
+        if (executablePath is null || markerPath is null)
         {
             return false;
         }
 
-        var normalizedExecutablePath = NormalizePath(executablePath);
-        var normalizedMarkerPath = NormalizePath(markerPath);
-        if (normalizedExecutablePath == null || normalizedMarkerPath == null)
+        if (!IsSpecificUnityApplicationPath(markerPath))
         {
             return false;
         }
 
-        if (!IsSpecificUnityApplicationPath(normalizedMarkerPath))
-        {
-            return false;
-        }
-
-        return PathIdentity.IsSameOrChildPath(normalizedMarkerPath, normalizedExecutablePath);
+        return markerPath.IsSameOrAncestorOf(executablePath);
     }
 
-    private static string? NormalizePath (string path)
+    private static bool IsSpecificUnityApplicationPath (AbsolutePath normalizedMarkerPath)
     {
-        if (!Path.IsPathFullyQualified(path))
-        {
-            return null;
-        }
-
-        try
-        {
-            var normalizedPath = PathStringNormalizer.NormalizeAbsolutePathForStableIdentity(path);
-            return string.IsNullOrWhiteSpace(normalizedPath)
-                ? null
-                : normalizedPath;
-        }
-        catch (Exception)
-        {
-            return null;
-        }
-    }
-
-    private static bool IsSpecificUnityApplicationPath (string normalizedMarkerPath)
-    {
-        return HasPathSegment(normalizedMarkerPath, MacUnityBundleName)
+        return HasPathSegment(normalizedMarkerPath, MacUnityBundlePathName)
             || HasUnityExecutableFileName(normalizedMarkerPath);
     }
 
     private static bool LooksLikeUnityEditorProcessMetadata (UnityGuiEditorProcessInspection inspection)
     {
-        if (HasUnityExecutableFileName(inspection.ExecutablePath))
+        if (inspection.ExecutablePath is not null
+            && HasUnityExecutableFileName(inspection.ExecutablePath))
         {
             return true;
         }
@@ -172,28 +155,40 @@ internal sealed class UnityGuiEditorProcessProbe : IUnityGuiEditorProcessProbe
     }
 
     private static bool HasPathSegment (
-        string? path,
-        string segment)
+        AbsolutePath path,
+        RootRelativePath expectedSegment)
     {
-        if (string.IsNullOrWhiteSpace(path))
+        ArgumentNullException.ThrowIfNull(path);
+        var currentPath = path;
+        while (currentPath.TryGetParent(out var parentPath))
         {
-            return false;
+            var currentSegment = ContainedPath.Create(
+                parentPath,
+                currentPath).RelativePath;
+            if (currentSegment == expectedSegment)
+            {
+                return true;
+            }
+
+            currentPath = parentPath;
         }
 
-        return path.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
-            .Any(value => string.Equals(value, segment, PathStringNormalizer.CurrentPlatformPathComparison));
+        return false;
     }
 
-    private static bool HasUnityExecutableFileName (string? path)
+    private static bool HasUnityExecutableFileName (AbsolutePath path)
     {
-        if (string.IsNullOrWhiteSpace(path))
+        ArgumentNullException.ThrowIfNull(path);
+        if (!path.TryGetParent(out var parentPath))
         {
             return false;
         }
 
-        var fileName = Path.GetFileName(path);
-        return string.Equals(fileName, UnityExecutableName, PathStringNormalizer.CurrentPlatformPathComparison)
-            || string.Equals(fileName, WindowsUnityExecutableName, StringComparison.OrdinalIgnoreCase);
+        var fileName = ContainedPath.Create(
+            parentPath,
+            path).RelativePath;
+        return fileName == UnityExecutablePathName
+            || fileName == WindowsUnityExecutablePathName;
     }
 
     private static bool ContainsProjectPathArgument (string? commandLine)

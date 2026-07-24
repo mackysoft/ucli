@@ -30,7 +30,7 @@ public sealed class ReadyCommandStartupFailureTests
         CommandResultAssert.HasStandardEnvelope(
             outputJson.RootElement,
             UcliCommandNames.Ready,
-            ContractLiteralCodec.ToValue(CommandResultStatus.Error),
+            TextVocabulary.GetText(CommandResultStatus.Error),
             (int)CliExitCode.ToolError);
         CommandResultAssert.HasSingleError(outputJson.RootElement, DaemonErrorCodes.DaemonStartupBlocked);
 

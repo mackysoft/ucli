@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Artifacts;
 using MackySoft.Ucli.Contracts.Assurance.Build;
 
@@ -44,7 +45,8 @@ public sealed class BuildRunArtifactAccountingRequestTests
     [Trait("Size", "Small")]
     public void Constructor_WhenSourceCollectionChanges_PreservesConstructionSnapshot ()
     {
-        var source = BuildOutputSourceEntry.FromAbsolutePath(Path.Combine(Path.GetTempPath(), "ucli-build-source", "player"));
+        var source = BuildOutputSourceEntry.FromAbsolutePath(AbsolutePath.Parse(
+            Path.Combine(Path.GetTempPath(), "ucli-build-source", "player")));
         var sources = new List<BuildOutputSourceEntry> { source };
         var request = CreateRequest(
             CreatePaths(),
@@ -77,14 +79,14 @@ public sealed class BuildRunArtifactAccountingRequestTests
         var root = Path.Combine(Path.GetTempPath(), "ucli-build-accounting-request-tests");
         var artifacts = Path.Combine(root, "artifacts");
         return new BuildRunArtifactPaths(
-            root,
+            AbsolutePath.Parse(root),
             Guid.Parse("00000000-0000-0000-0000-000000000452"),
-            artifacts,
-            Path.Combine(artifacts, "build.json"),
-            Path.Combine(artifacts, "build-report.json"),
-            Path.Combine(artifacts, "build.log"),
-            Path.Combine(artifacts, "output-manifest.json"),
-            Path.Combine(root, "runner-output"),
-            Path.Combine(artifacts, "output"));
+            AbsolutePath.Parse(artifacts),
+            AbsolutePath.Parse(Path.Combine(artifacts, "build.json")),
+            AbsolutePath.Parse(Path.Combine(artifacts, "build-report.json")),
+            AbsolutePath.Parse(Path.Combine(artifacts, "build.log")),
+            AbsolutePath.Parse(Path.Combine(artifacts, "output-manifest.json")),
+            AbsolutePath.Parse(Path.Combine(root, "runner-output")),
+            AbsolutePath.Parse(Path.Combine(artifacts, "output")));
     }
 }

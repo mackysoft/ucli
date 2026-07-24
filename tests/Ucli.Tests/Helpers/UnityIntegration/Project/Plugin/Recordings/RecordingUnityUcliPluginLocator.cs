@@ -1,3 +1,5 @@
+using MackySoft.FileSystem;
+
 namespace MackySoft.Ucli.Tests.Helpers.Unity;
 
 internal sealed class RecordingUnityUcliPluginLocator : IUnityUcliPluginLocator
@@ -10,13 +12,15 @@ internal sealed class RecordingUnityUcliPluginLocator : IUnityUcliPluginLocator
 
     public UnityUcliPluginLocateResult Result { get; set; }
         = UnityUcliPluginLocateResult.Found(
-            "/tmp/ucli-plugin.json",
+            AbsolutePath.Resolve(
+                AbsolutePath.Parse(Environment.CurrentDirectory),
+                "ucli-plugin.json"),
             UnityUcliPluginMarkerContract.ExpectedProtocolVersion);
 
     public IReadOnlyList<Invocation> Invocations => invocations;
 
     public ValueTask<UnityUcliPluginLocateResult> LocateAsync (
-        string unityProjectRoot,
+        AbsolutePath unityProjectRoot,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -43,6 +47,6 @@ internal sealed class RecordingUnityUcliPluginLocator : IUnityUcliPluginLocator
     }
 
     internal readonly record struct Invocation (
-        string UnityProjectRoot,
+        AbsolutePath UnityProjectRoot,
         CancellationToken CancellationToken);
 }

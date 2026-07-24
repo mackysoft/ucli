@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Infrastructure.Storage;
 
@@ -23,24 +24,20 @@ internal sealed class SupervisorBootstrapLockProvider
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The async-disposable lock handle. </returns>
     public async ValueTask<IAsyncDisposable> AcquireAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         TimeSpan timeout,
         CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(storageRoot))
-        {
-            throw new ArgumentException("Storage root must not be empty.", nameof(storageRoot));
-        }
-
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
 
         var lockFilePath = UcliStoragePathResolver.ResolveSupervisorBootstrapLockPath(storageRoot);
-        var lockDirectoryPath = Path.GetDirectoryName(lockFilePath);
-        if (!string.IsNullOrWhiteSpace(lockDirectoryPath))
+        if (!lockFilePath.TryGetParent(out var lockDirectoryPath))
         {
-            FileSystemAccessBoundary.EnsureSecureDirectory(lockDirectoryPath);
+            throw new InvalidOperationException(
+                $"Supervisor bootstrap lock directory could not be resolved: {lockFilePath.Value}");
         }
 
+        FileSystemAccessBoundary.EnsureSecureDirectory(lockDirectoryPath);
         var deadline = ExecutionDeadline.Start(timeout, timeProvider);
         while (true)
         {
@@ -49,7 +46,7 @@ internal sealed class SupervisorBootstrapLockProvider
             try
             {
                 var stream = new FileStream(
-                    lockFilePath,
+                    lockFilePath.Value,
                     FileMode.OpenOrCreate,
                     FileAccess.ReadWrite,
                     FileShare.None);

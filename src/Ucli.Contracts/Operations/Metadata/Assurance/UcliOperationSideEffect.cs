@@ -1,91 +1,91 @@
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Operations;
 
 /// <summary> Defines supported operation side-effect literals. </summary>
+[VocabularyDefinition]
 public enum UcliOperationSideEffect
 {
     /// <summary> Observes live Unity state or read-index state. </summary>
-    [UcliContractLiteral("observesUnityState")]
+    [VocabularyText("observesUnityState")]
     ObservesUnityState = 0,
 
     /// <summary> Changes Unity editor state. </summary>
-    [UcliContractLiteral("editorStateChange")]
+    [VocabularyText("editorStateChange")]
     EditorStateChange = 1,
 
     /// <summary> Opens a scene in the Unity editor. </summary>
-    [UcliContractLiteral("opensSceneInEditor")]
+    [VocabularyText("opensSceneInEditor")]
     OpensSceneInEditor = 2,
 
     /// <summary> Opens a prefab stage in the Unity editor. </summary>
-    [UcliContractLiteral("opensPrefabStage")]
+    [VocabularyText("opensPrefabStage")]
     OpensPrefabStage = 3,
 
     /// <summary> Refreshes Unity AssetDatabase state. </summary>
-    [UcliContractLiteral("assetDatabaseRefresh")]
+    [VocabularyText("assetDatabaseRefresh")]
     AssetDatabaseRefresh = 4,
 
     /// <summary> Imports Unity AssetDatabase assets. </summary>
-    [UcliContractLiteral("assetImport")]
+    [VocabularyText("assetImport")]
     AssetImport = 5,
 
     /// <summary> Triggers script compilation. </summary>
-    [UcliContractLiteral("scriptCompilation")]
+    [VocabularyText("scriptCompilation")]
     ScriptCompilation = 6,
 
     /// <summary> Triggers a Unity domain reload. </summary>
-    [UcliContractLiteral("domainReload")]
+    [VocabularyText("domainReload")]
     DomainReload = 7,
 
     /// <summary> Mutates scene content. </summary>
-    [UcliContractLiteral("sceneContentMutation")]
+    [VocabularyText("sceneContentMutation")]
     SceneContentMutation = 8,
 
     /// <summary> Mutates prefab content. </summary>
-    [UcliContractLiteral("prefabContentMutation")]
+    [VocabularyText("prefabContentMutation")]
     PrefabContentMutation = 9,
 
     /// <summary> Mutates asset content. </summary>
-    [UcliContractLiteral("assetContentMutation")]
+    [VocabularyText("assetContentMutation")]
     AssetContentMutation = 10,
 
     /// <summary> Mutates project settings. </summary>
-    [UcliContractLiteral("projectSettingsMutation")]
+    [VocabularyText("projectSettingsMutation")]
     ProjectSettingsMutation = 11,
 
     /// <summary> Saves scene files. </summary>
-    [UcliContractLiteral("sceneSave")]
+    [VocabularyText("sceneSave")]
     SceneSave = 12,
 
     /// <summary> Saves prefab files. </summary>
-    [UcliContractLiteral("prefabSave")]
+    [VocabularyText("prefabSave")]
     PrefabSave = 13,
 
     /// <summary> Saves asset files. </summary>
-    [UcliContractLiteral("assetSave")]
+    [VocabularyText("assetSave")]
     AssetSave = 14,
 
     /// <summary> Saves project-wide state. </summary>
-    [UcliContractLiteral("projectSave")]
+    [VocabularyText("projectSave")]
     ProjectSave = 15,
 
     /// <summary> Runs an external process or shell. </summary>
-    [UcliContractLiteral("externalProcess")]
+    [VocabularyText("externalProcess")]
     ExternalProcess = 16,
 
     /// <summary> Writes to the filesystem outside Unity Editor save boundaries. </summary>
-    [UcliContractLiteral("filesystemWrite")]
+    [VocabularyText("filesystemWrite")]
     FilesystemWrite = 17,
 
     /// <summary> Executes source code supplied by the caller. </summary>
-    [UcliContractLiteral("arbitrarySourceExecution")]
+    [VocabularyText("arbitrarySourceExecution")]
     ArbitrarySourceExecution = 18,
 
     /// <summary> Performs destructive operations whose target boundary is not sufficiently bounded. </summary>
-    [UcliContractLiteral("destructiveScope")]
+    [VocabularyText("destructiveScope")]
     DestructiveScope = 19,
 
     /// <summary> Mutates Play Mode runtime state without persisting Unity project resources. </summary>
-    [UcliContractLiteral("runtimeStateMutation")]
+    [VocabularyText("runtimeStateMutation")]
     RuntimeStateMutation = 20,
 }

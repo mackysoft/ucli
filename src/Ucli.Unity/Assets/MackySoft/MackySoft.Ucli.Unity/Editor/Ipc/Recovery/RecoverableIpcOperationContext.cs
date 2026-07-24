@@ -2,6 +2,8 @@ using System;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.Text.Vocabularies;
+using TextVocabulary = MackySoft.Text.Vocabularies.Vocabulary;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
@@ -31,7 +33,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             RecoverableIpcOperationRecord? record)
         {
             this.store = store ?? throw new ArgumentNullException(nameof(store));
-            if (!ContractLiteralCodec.IsDefined(method))
+            if (!TextVocabulary.IsDefined(method))
             {
                 throw new ArgumentOutOfRangeException(nameof(method), method, "Unity IPC method must be defined.");
             }

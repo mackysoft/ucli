@@ -575,7 +575,8 @@ internal static class DaemonStartupFailureLogClassifier
         var isJsonNamespaceDiagnostic = isUcliPluginCompilerDiagnostic
             && line.Contains("namespace name 'Json'", StringComparison.Ordinal)
             && line.Contains("namespace 'MackySoft'", StringComparison.Ordinal);
-        var mentionsUcliDependency = line.Contains("MackySoft.Ucli.Contracts", StringComparison.Ordinal)
+        var mentionsPluginDependency = line.Contains("MackySoft.FileSystem", StringComparison.Ordinal)
+            || line.Contains("MackySoft.Ucli.Contracts", StringComparison.Ordinal)
             || line.Contains("MackySoft.Ucli.Infrastructure", StringComparison.Ordinal)
             || (line.Contains("MackySoft.Ucli", StringComparison.Ordinal)
                 && (line.Contains("Contracts", StringComparison.Ordinal)
@@ -587,7 +588,7 @@ internal static class DaemonStartupFailureLogClassifier
             || line.Contains("Rfc8785JsonCanonicalizer", StringComparison.Ordinal)
             || line.Contains("JsonCanonicalizationException", StringComparison.Ordinal)
             || line.Contains("JsonCanonicalizationFailureKind", StringComparison.Ordinal);
-        if (!mentionsUcliDependency)
+        if (!mentionsPluginDependency)
         {
             return false;
         }

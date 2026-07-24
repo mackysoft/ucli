@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Index;
@@ -10,7 +11,7 @@ internal interface IReadIndexArtifactWriter
 {
     /// <summary> Writes one ops catalog and an optional input manifest. </summary>
     ValueTask WriteOpsCatalogAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         ProjectFingerprint projectFingerprint,
         DateTimeOffset generatedAtUtc,
         IReadOnlyList<ValidatedOpsOperation> operations,
@@ -20,7 +21,7 @@ internal interface IReadIndexArtifactWriter
 
     /// <summary> Writes asset lookup artifacts and the input manifest. </summary>
     ValueTask WriteAssetLookupsAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         ProjectFingerprint projectFingerprint,
         DateTimeOffset generatedAtUtc,
         IReadOnlyList<IndexAssetSearchEntryJsonContract> assetSearchEntries,
@@ -30,7 +31,7 @@ internal interface IReadIndexArtifactWriter
 
     /// <summary> Writes one scene-tree-lite lookup artifact. </summary>
     ValueTask WriteSceneTreeLiteAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         ProjectFingerprint projectFingerprint,
         DateTimeOffset generatedAtUtc,
         SceneAssetPath scenePath,

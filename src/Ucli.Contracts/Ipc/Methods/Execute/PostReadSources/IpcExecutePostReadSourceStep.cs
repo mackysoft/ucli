@@ -23,17 +23,17 @@ public sealed record IpcExecutePostReadSourceStep
         bool PersistenceExpected,
         IpcExecuteExpectedPostState ExpectedPostState)
     {
-        if (!ContractLiteralCodec.IsDefined(SourceKind))
+        if (!TextVocabulary.IsDefined(SourceKind))
         {
             throw new ArgumentOutOfRangeException(nameof(SourceKind), SourceKind, "Post-read source kind must be specified.");
         }
 
-        if (Commit.HasValue && !ContractLiteralCodec.IsDefined(Commit.Value))
+        if (Commit.HasValue && !TextVocabulary.IsDefined(Commit.Value))
         {
             throw new ArgumentOutOfRangeException(nameof(Commit), Commit, "Post-read commit must be a contract value when specified.");
         }
 
-        if (!ContractLiteralCodec.IsDefined(ExpectedPostState))
+        if (!TextVocabulary.IsDefined(ExpectedPostState))
         {
             throw new ArgumentOutOfRangeException(nameof(ExpectedPostState), ExpectedPostState, "Expected post-state must be specified.");
         }

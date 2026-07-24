@@ -14,7 +14,7 @@ public sealed class FileBuildRunArtifactStoreReparsePointSafetyTests
         using var scope = TestDirectories.CreateTempScope("build-artifact-store", "output-symlink");
         var (store, paths) = PrepareArtifacts(scope);
         var targetPath = scope.WriteFile("target.txt", "linked output");
-        var linkPath = Path.Combine(paths.RunnerOutputDirectory, "build");
+        var linkPath = Path.Combine(paths.RunnerOutputDirectory.Value, "build");
         if (!TryCreateFileSymbolicLink(linkPath, targetPath))
         {
             return;
@@ -37,7 +37,7 @@ public sealed class FileBuildRunArtifactStoreReparsePointSafetyTests
     {
         using var scope = TestDirectories.CreateTempScope("build-artifact-store", "output-symlink-ancestor");
         var (store, paths) = PrepareArtifacts(scope);
-        var outputSourceDirectory = Path.Combine(paths.RunnerOutputDirectory, "build");
+        var outputSourceDirectory = Path.Combine(paths.RunnerOutputDirectory.Value, "build");
         Directory.CreateDirectory(outputSourceDirectory);
         var targetDirectory = scope.CreateDirectory("outside-output");
         var targetFilePath = Path.Combine(targetDirectory, "payload.txt");
@@ -65,14 +65,14 @@ public sealed class FileBuildRunArtifactStoreReparsePointSafetyTests
     {
         using var scope = TestDirectories.CreateTempScope("build-artifact-store", "build-report-symlink-ancestor");
         var (store, paths) = PrepareArtifacts(scope);
-        var outputSourcePath = Path.Combine(paths.RunnerOutputDirectory, "build");
+        var outputSourcePath = Path.Combine(paths.RunnerOutputDirectory.Value, "build");
         WriteUtf8(outputSourcePath, "player output");
         var targetDirectory = scope.CreateDirectory("outside-output");
         var targetBuildReportPath = Path.Combine(targetDirectory, "build-report.json");
         WriteUtf8(
             targetBuildReportPath,
             IpcPayloadCodec.SerializeToElement(CreateBuildReportArtifact(paths)).GetRawText());
-        var reportDirectory = Path.Combine(paths.RunnerOutputDirectory, "reports");
+        var reportDirectory = Path.Combine(paths.RunnerOutputDirectory.Value, "reports");
         Directory.CreateDirectory(reportDirectory);
         var linkPath = Path.Combine(reportDirectory, "linked");
         if (!TryCreateDirectorySymbolicLink(linkPath, targetDirectory))
@@ -106,8 +106,8 @@ public sealed class FileBuildRunArtifactStoreReparsePointSafetyTests
         WriteUtf8(
             Path.Combine(targetOutputRoot, "reports", "build-report.json"),
             IpcPayloadCodec.SerializeToElement(CreateBuildReportArtifact(paths)).GetRawText());
-        Directory.Delete(paths.RunnerOutputDirectory);
-        if (!TryCreateDirectorySymbolicLink(paths.RunnerOutputDirectory, targetOutputRoot))
+        Directory.Delete(paths.RunnerOutputDirectory.Value);
+        if (!TryCreateDirectorySymbolicLink(paths.RunnerOutputDirectory.Value, targetOutputRoot))
         {
             return;
         }

@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Identity;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Logs;
@@ -37,14 +38,14 @@ internal sealed class DaemonGuiStartupObserver : IDaemonGuiStartupObserver
         ResolvedUnityProjectContext unityProject,
         int processId,
         DateTimeOffset processStartedAtUtc,
-        string unityLogPath,
+        AbsolutePath unityLogPath,
         ExecutionDeadline deadline,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(unityProject);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(processId, 0);
-        ArgumentException.ThrowIfNullOrWhiteSpace(unityLogPath);
+        ArgumentNullException.ThrowIfNull(unityLogPath);
         ArgumentNullException.ThrowIfNull(deadline);
 
         while (true)
@@ -134,7 +135,7 @@ internal sealed class DaemonGuiStartupObserver : IDaemonGuiStartupObserver
         ResolvedUnityProjectContext unityProject,
         int processId,
         DateTimeOffset processStartedAtUtc,
-        string unityLogPath,
+        AbsolutePath unityLogPath,
         ExecutionDeadline deadline,
         CancellationToken cancellationToken)
     {
@@ -172,7 +173,7 @@ internal sealed class DaemonGuiStartupObserver : IDaemonGuiStartupObserver
             classification,
             processId,
             processStartedAtUtc,
-            string.IsNullOrWhiteSpace(logReadResult.Path) ? unityLogPath : logReadResult.Path), false);
+            unityLogPath), false);
     }
 
     private static TimeSpan GetObservationAttemptTimeout (TimeSpan remainingTimeout)
@@ -185,7 +186,7 @@ internal sealed class DaemonGuiStartupObserver : IDaemonGuiStartupObserver
     private static DaemonGuiStartupBlockerObservation CreateProcessExitedBlocker (
         int processId,
         DateTimeOffset processStartedAtUtc,
-        string unityLogPath)
+        AbsolutePath unityLogPath)
     {
         var message = $"Unity Editor process exited before GUI daemon session registration. ProcessId={processId}.";
         return new DaemonGuiStartupBlockerObservation(

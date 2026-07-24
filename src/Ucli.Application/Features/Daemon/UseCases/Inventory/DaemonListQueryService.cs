@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 using MackySoft.Ucli.Application.Features.Daemon.Common.Projection;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
@@ -117,7 +118,7 @@ internal sealed class DaemonListQueryService : IDaemonListQueryService
         var gitWorktreeQuery = gitWorktreeQueryResult.Output!;
         var items = new List<DaemonListItemOutput>();
         var orderedWorktrees = gitWorktreeQuery.Worktrees
-            .OrderBy(static x => x.WorktreePath, StringComparer.Ordinal)
+            .OrderBy(static x => x.WorktreePath.Value, StringComparer.Ordinal)
             .ToArray();
         for (var index = 0; index < orderedWorktrees.Length; index++)
         {
@@ -164,15 +165,15 @@ internal sealed class DaemonListQueryService : IDaemonListQueryService
     /// <returns> The observed daemon-list item result. </returns>
     private async ValueTask<WorktreeObservationResult> TryObserveWorktreeAsync (
         GitWorktreeInfo worktree,
-        string projectRelativePath,
+        RootRelativePath projectRelativePath,
         ExecutionDeadline deadline,
         CancellationToken cancellationToken)
     {
         var candidateProjectPath = worktreeProjectPathResolver.ResolveCandidateProjectPath(worktree.WorktreePath, projectRelativePath);
-        var candidateProjectResult = unityProjectResolver.Resolve(new ProjectPathCandidate(
+        var candidateProjectResult = unityProjectResolver.Resolve(
             candidateProjectPath,
             UnityProjectPathSource.Fallback,
-            "gitWorktree.projectRelativePath"));
+            "gitWorktree.projectRelativePath");
         if (!candidateProjectResult.IsSuccess)
         {
             return WorktreeObservationResult.Success(item: null);
@@ -376,10 +377,10 @@ internal sealed class DaemonListQueryService : IDaemonListQueryService
         DaemonDiagnosisOutput? diagnosis)
     {
         return new DaemonListItemOutput(
-            WorktreePath: worktree.WorktreePath,
+            WorktreePath: worktree.WorktreePath.Value,
             BranchRef: worktree.BranchRef,
             Head: worktree.Head,
-            ProjectPath: candidateProject.UnityProjectRoot,
+            ProjectPath: candidateProject.UnityProjectRoot.Value,
             ProjectFingerprint: candidateProject.ProjectFingerprint,
             State: state,
             Reason: reason,
@@ -389,8 +390,8 @@ internal sealed class DaemonListQueryService : IDaemonListQueryService
             EditorMode: session?.EditorMode,
             OwnerKind: session?.OwnerKind,
             CanShutdownProcess: session?.CanShutdownProcess,
-            EndpointTransportKind: session?.Endpoint.TransportKind,
-            EndpointAddress: session?.Endpoint.Address,
+            EndpointTransportKind: session?.EndpointContract.TransportKind,
+            EndpointAddress: session?.EndpointContract.Address,
             LifecycleState: observation?.LifecycleState,
             BlockingReason: observation?.BlockingReason,
             CompileState: observation?.CompileState,
@@ -488,12 +489,12 @@ internal sealed class DaemonListQueryService : IDaemonListQueryService
     /// <returns> The complete daemon-list execution output. </returns>
     private static DaemonListExecutionOutput CreateCompleteOutput (
         TimeSpan timeout,
-        string projectRelativePath,
+        RootRelativePath projectRelativePath,
         IReadOnlyList<DaemonListItemOutput> items)
     {
         return new DaemonListExecutionOutput(
             TimeoutMilliseconds: checked((int)timeout.TotalMilliseconds),
-            ProjectRelativePath: projectRelativePath,
+            ProjectRelativePath: projectRelativePath.Value,
             IsComplete: true,
             CompletionReason: null,
             RemainingWorktreeCount: 0,
@@ -508,7 +509,7 @@ internal sealed class DaemonListQueryService : IDaemonListQueryService
     /// <returns> The partial daemon-list execution output. </returns>
     private static DaemonListExecutionOutput CreatePartialOutput (
         TimeSpan timeout,
-        string projectRelativePath,
+        RootRelativePath projectRelativePath,
         IReadOnlyList<DaemonListItemOutput> items,
         int remainingWorktreeCount)
     {
@@ -516,7 +517,7 @@ internal sealed class DaemonListQueryService : IDaemonListQueryService
 
         return new DaemonListExecutionOutput(
             TimeoutMilliseconds: checked((int)timeout.TotalMilliseconds),
-            ProjectRelativePath: projectRelativePath,
+            ProjectRelativePath: projectRelativePath.Value,
             IsComplete: false,
             CompletionReason: DaemonListCompletionReason.Timeout,
             RemainingWorktreeCount: remainingWorktreeCount,

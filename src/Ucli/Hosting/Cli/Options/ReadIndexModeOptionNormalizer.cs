@@ -18,12 +18,12 @@ internal static class ReadIndexModeOptionNormalizer
             return ReadIndexModeOptionNormalizationResult.Success(mode: null);
         }
 
-        if (ContractLiteralInputParser.TryParseIgnoreCase<ReadIndexMode>(optionValue, out var mode))
+        if (VocabularyInputParser.TryParseIgnoreCase<ReadIndexMode>(optionValue, out var mode))
         {
             return ReadIndexModeOptionNormalizationResult.Success(mode);
         }
 
         return ReadIndexModeOptionNormalizationResult.Failure(ExecutionError.InvalidArgument(
-            $"readIndexMode must be one of '{ContractLiteralCodec.ToValue(ReadIndexMode.Disabled)}', '{ContractLiteralCodec.ToValue(ReadIndexMode.AllowStale)}', '{ContractLiteralCodec.ToValue(ReadIndexMode.RequireFresh)}'. Actual: {optionValue}."));
+            $"readIndexMode must be one of '{TextVocabulary.GetText(ReadIndexMode.Disabled)}', '{TextVocabulary.GetText(ReadIndexMode.AllowStale)}', '{TextVocabulary.GetText(ReadIndexMode.RequireFresh)}'. Actual: {optionValue}."));
     }
 }

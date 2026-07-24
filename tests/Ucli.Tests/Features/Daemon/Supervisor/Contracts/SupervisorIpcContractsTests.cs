@@ -1,5 +1,7 @@
 using System.Text.Json;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Stop;
 using MackySoft.Ucli.Contracts.Ipc;
 
@@ -53,5 +55,75 @@ public sealed class SupervisorIpcContractsTests
             out _);
 
         Assert.False(succeeded);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void FailurePayloadMapper_WhenAnyFilesystemPathIsRelative_RejectsTransportMetadata ()
+    {
+        var editorInstancePath = AbsolutePath.Parse(Path.Combine(
+            Path.GetTempPath(),
+            "ucli-supervisor-contracts",
+            "EditorInstance.json"));
+        var unityLogPath = AbsolutePath.Parse(Path.Combine(
+            Path.GetTempPath(),
+            "ucli-supervisor-contracts",
+            "Editor.log"));
+        var artifactPath = AbsolutePath.Parse(Path.Combine(
+            Path.GetTempPath(),
+            "ucli-supervisor-contracts",
+            "launch-attempt.json"));
+        var diagnosis = DaemonDiagnosisTestFactory.Create(
+            editorInstancePath: editorInstancePath,
+            unityLogPath: unityLogPath);
+        var startup = new DaemonStartupObservation(
+            StartupStatus: DaemonStartupStatus.Timeout,
+            StartupBlockingReason: DaemonStartupBlockingReason.Unknown,
+            LaunchAttemptId: null,
+            ProcessAction: DaemonStartupProcessAction.Kept,
+            RetryDisposition: DaemonStartupRetryDisposition.RetryImmediately,
+            EditorMode: null,
+            OwnerKind: null,
+            CanShutdownProcess: null,
+            ProcessId: null,
+            StartedAtUtc: null,
+            ElapsedMilliseconds: null,
+            ArtifactPath: artifactPath);
+        var validContract = SupervisorEnsureRunningFailurePayloadMapper.ToContract(
+            DaemonStatusKind.Stale,
+            diagnosis,
+            startup);
+
+        var relativeEditorInstancePathContract = validContract with
+        {
+            Diagnosis = validContract.Diagnosis! with
+            {
+                EditorInstancePath = Path.Combine("Library", "EditorInstance.json"),
+            },
+        };
+        var relativeUnityLogPathContract = validContract with
+        {
+            Diagnosis = validContract.Diagnosis! with
+            {
+                UnityLogPath = "Editor.log",
+            },
+        };
+        var relativeArtifactPathContract = validContract with
+        {
+            Startup = validContract.Startup! with
+            {
+                ArtifactPath = "launch-attempt.json",
+            },
+        };
+
+        Assert.False(SupervisorEnsureRunningFailurePayloadMapper.TryToMetadata(
+            relativeEditorInstancePathContract,
+            out _));
+        Assert.False(SupervisorEnsureRunningFailurePayloadMapper.TryToMetadata(
+            relativeUnityLogPathContract,
+            out _));
+        Assert.False(SupervisorEnsureRunningFailurePayloadMapper.TryToMetadata(
+            relativeArtifactPathContract,
+            out _));
     }
 }

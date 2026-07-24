@@ -49,7 +49,7 @@ internal sealed record DaemonLifecycleJsonContract
             throw new ArgumentException("Sidecar generation identifier must not be empty.", nameof(sidecarGenerationId));
         }
 
-        if (actionRequired.HasValue && !ContractLiteralCodec.IsDefined(actionRequired.Value))
+        if (actionRequired.HasValue && !TextVocabulary.IsDefined(actionRequired.Value))
         {
             throw new ArgumentOutOfRangeException(nameof(actionRequired), actionRequired, "Unsupported daemon diagnosis action.");
         }

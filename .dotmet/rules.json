@@ -18,7 +18,6 @@
           {
             "pathExact": [
               "src/Ucli.Unity/MackySoft.Ucli.Unity.Editor.csproj",
-              "src/Ucli.Unity/MackySoft.Ucli.Unity.Sandbox.Tests.Editor.csproj",
               "src/Ucli.Unity/MackySoft.Ucli.Unity.Tests.Editor.csproj",
               "src/Ucli.Unity/MackySoft.Ucli.Unity.Tests.Runtime.csproj"
             ]
@@ -180,7 +179,6 @@
           },
           {
             "pathExact": [
-              "src/Ucli.Unity/MackySoft.Ucli.Unity.Sandbox.Tests.Editor.csproj",
               "src/Ucli.Unity/MackySoft.Ucli.Unity.Tests.Editor.csproj",
               "src/Ucli.Unity/MackySoft.Ucli.Unity.Tests.Runtime.csproj"
             ]
@@ -760,7 +758,6 @@
         "matches": [
           {
             "namespacePrefix": [
-              "MackySoft.Ucli.Unity.Sandbox.Tests",
               "MackySoft.Ucli.Unity.Tests"
             ],
             "pathPrefix": [
@@ -769,11 +766,9 @@
           },
           {
             "pathExact": [
-              "src/Ucli.Unity/Assets/Tests/MackySoft.Ucli.Unity.Sandbox.Tests/Editor/MackySoft.Ucli.Unity.Sandbox.Tests.Editor.asmdef",
               "src/Ucli.Unity/Assets/Tests/MackySoft.Ucli.Unity.Tests/Editor/Ipc/Diagnostics/DaemonLogs/NoOpDaemonLogger.cs",
               "src/Ucli.Unity/Assets/Tests/MackySoft.Ucli.Unity.Tests/Editor/MackySoft.Ucli.Unity.Tests.Editor.asmdef",
               "src/Ucli.Unity/Assets/Tests/MackySoft.Ucli.Unity.Tests/Runtime/MackySoft.Ucli.Unity.Tests.Runtime.asmdef",
-              "src/Ucli.Unity/MackySoft.Ucli.Unity.Sandbox.Tests.Editor.csproj",
               "src/Ucli.Unity/MackySoft.Ucli.Unity.Tests.Editor.csproj",
               "src/Ucli.Unity/MackySoft.Ucli.Unity.Tests.Runtime.csproj"
             ]
@@ -1361,7 +1356,6 @@
           {
             "pathExact": [
               "src/Ucli.Unity/MackySoft.Ucli.Unity.Editor.csproj",
-              "src/Ucli.Unity/MackySoft.Ucli.Unity.Sandbox.Tests.Editor.csproj",
               "src/Ucli.Unity/MackySoft.Ucli.Unity.Tests.Editor.csproj",
               "src/Ucli.Unity/MackySoft.Ucli.Unity.Tests.Runtime.csproj"
             ]

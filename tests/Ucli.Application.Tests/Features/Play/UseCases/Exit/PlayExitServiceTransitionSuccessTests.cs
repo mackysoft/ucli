@@ -20,7 +20,7 @@ public sealed class PlayExitServiceTransitionSuccessTests
         Assert.True(result.IsSuccess);
         var output = Assert.IsType<PlayExitExecutionOutput>(result.Output);
         Assert.Equal(DaemonStatusKind.Running, output.DaemonStatus);
-        Assert.Equal(context.UnityProject.UnityProjectRoot, output.Project.ProjectPath);
+        Assert.Equal(context.UnityProject.UnityProjectRoot.Value, output.Project.ProjectPath);
         Assert.Equal("0.5.0", output.ServerVersion);
         Assert.Equal(DaemonEditorMode.Gui, output.EditorMode);
         Assert.Equal(IpcEditorLifecycleState.Ready, output.LifecycleState);

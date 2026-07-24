@@ -2,6 +2,44 @@
 
 DOTNET_REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
+dotnet_to_native_path() {
+  local path="$1"
+
+  if command -v cygpath >/dev/null 2>&1; then
+    cygpath -m "$path"
+    return
+  fi
+
+  printf '%s\n' "$path"
+}
+
+DOTNET_LOCAL_PACKAGE_SOURCE="$(
+  dotnet_to_native_path "${DOTNET_REPO_ROOT}/src/Ucli.Unity/Packages/nuget-local-source"
+)"
+DOTNET_REPOSITORY_NUGET_PACKAGES="$(
+  dotnet_to_native_path "${DOTNET_REPO_ROOT}/src/Ucli.Unity/.nuget-packages"
+)"
+
+export NUGET_PACKAGES="${DOTNET_REPOSITORY_NUGET_PACKAGES}"
+
+dotnet_restore_with_local_packages() {
+  local additional_sources="${RestoreAdditionalProjectSources:-}"
+
+  if [ -d "${DOTNET_REPO_ROOT}/src/Ucli.Unity/Packages/nuget-local-source" ]; then
+    if [ -n "${additional_sources}" ]; then
+      additional_sources="${additional_sources};${DOTNET_LOCAL_PACKAGE_SOURCE}"
+    else
+      additional_sources="${DOTNET_LOCAL_PACKAGE_SOURCE}"
+    fi
+  fi
+
+  if [ -n "${additional_sources}" ]; then
+    dotnet restore "$@" "-p:RestoreAdditionalProjectSources=${additional_sources}"
+  else
+    dotnet restore "$@"
+  fi
+}
+
 dotnet_to_bash_path() {
   local path="$1"
 

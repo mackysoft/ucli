@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Application.Shared.Git;
 
@@ -10,25 +11,28 @@ public sealed class GitWorktreeListPorcelainParserTests
     public void Parse_WithAttachedAndDetachedWorktrees_ReturnsParsedEntries ()
     {
         var parser = new GitWorktreeListPorcelainParser();
+        var currentDirectory = AbsolutePath.Parse(Environment.CurrentDirectory);
+        var worktreeB = AbsolutePath.Resolve(currentDirectory, Path.Combine("repo", "wt-b"));
+        var worktreeA = AbsolutePath.Resolve(currentDirectory, Path.Combine("repo", "wt-a"));
         var expectedWorktrees = new[]
         {
             new GitWorktreeInfo(
-                Path.GetFullPath("/repo/wt-b"),
+                worktreeB,
                 "bbbbbbbb",
                 "refs/heads/feature/worktree-b"),
             new GitWorktreeInfo(
-                Path.GetFullPath("/repo/wt-a"),
+                worktreeA,
                 "aaaaaaaa",
                 BranchRef: null),
         };
 
         var result = parser.Parse(
-            """
-            worktree /repo/wt-b
+            $"""
+            worktree {worktreeB.Value}
             HEAD bbbbbbbb
             branch refs/heads/feature/worktree-b
 
-            worktree /repo/wt-a
+            worktree {worktreeA.Value}
             HEAD aaaaaaaa
             detached
             """);
@@ -42,10 +46,13 @@ public sealed class GitWorktreeListPorcelainParserTests
     public void Parse_WhenHeadIsMissing_ReturnsInternalError ()
     {
         var parser = new GitWorktreeListPorcelainParser();
+        var worktreePath = AbsolutePath.Resolve(
+            AbsolutePath.Parse(Environment.CurrentDirectory),
+            Path.Combine("repo", "wt-current"));
 
         var result = parser.Parse(
-            """
-            worktree /repo/wt-current
+            $"""
+            worktree {worktreePath.Value}
             branch refs/heads/main
             """);
 

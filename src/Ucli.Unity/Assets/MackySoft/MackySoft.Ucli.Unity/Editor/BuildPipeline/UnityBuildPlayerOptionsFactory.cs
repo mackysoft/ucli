@@ -35,7 +35,7 @@ namespace MackySoft.Ucli.Unity.Build
                 target = resolvedInput.UnityBuildTarget,
                 targetGroup = resolvedInput.UnityBuildTargetGroup,
                 options = resolvedInput.Options,
-                locationPathName = request.OutputLayout.LocationPathName,
+                locationPathName = request.OutputLayout.LocationPath.Value,
             };
         }
     }

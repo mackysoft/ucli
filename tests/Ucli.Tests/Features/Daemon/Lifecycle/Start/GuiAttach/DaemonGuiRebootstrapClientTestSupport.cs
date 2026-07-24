@@ -1,6 +1,7 @@
 namespace MackySoft.Ucli.Tests.Daemon;
 
 using System.Text.Json;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Features.Daemon.Lifecycle.Start.GuiAttach;
@@ -25,10 +26,19 @@ internal static class DaemonGuiRebootstrapClientTestSupport
             SchemaVersion: GuiSupervisorManifestJsonContract.CurrentSchemaVersion,
             SessionToken: IpcSessionTokenTestFactory.Create("supervisor-token"),
             ProjectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint"),
-            Endpoint: new IpcEndpoint(IpcTransportKind.UnixDomainSocket, "/tmp/ucli-gui-supervisor.sock"),
+            Endpoint: CreateCurrentPlatformEndpoint(),
             ProcessId: 1234,
             ProcessStartedAtUtc: ProcessStartedAtUtc,
             IssuedAtUtc: new DateTimeOffset(2026, 5, 9, 1, 2, 4, TimeSpan.Zero));
+    }
+
+    private static IpcEndpoint CreateCurrentPlatformEndpoint ()
+    {
+        return OperatingSystem.IsWindows()
+            ? new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-gui-supervisor")
+            : new IpcEndpoint(
+                IpcTransportKind.UnixDomainSocket,
+                Path.Combine(Path.GetTempPath(), "ucli-gui-supervisor.sock"));
     }
 
     public static async Task WriteManifestAsync<TManifest> (
@@ -36,13 +46,15 @@ internal static class DaemonGuiRebootstrapClientTestSupport
         ProjectFingerprint projectFingerprint,
         TManifest manifest)
     {
-        var manifestPath = UcliStoragePathResolver.ResolveGuiSupervisorManifestPath(storageRoot, projectFingerprint);
-        Directory.CreateDirectory(Path.GetDirectoryName(manifestPath)!);
+        var manifestPath = UcliStoragePathResolver.ResolveGuiSupervisorManifestPath(
+            AbsolutePath.Parse(storageRoot),
+            projectFingerprint);
+        Directory.CreateDirectory(Path.GetDirectoryName(manifestPath.Value)!);
         var json = manifest is GuiSupervisorManifestJsonContract contract
             ? GuiSupervisorManifestJsonContractSerializer.Serialize(contract)
             : JsonSerializer.Serialize(manifest, IpcJsonSerializerOptions.Default);
         await File.WriteAllTextAsync(
-            manifestPath,
+            manifestPath.Value,
             json);
     }
 }

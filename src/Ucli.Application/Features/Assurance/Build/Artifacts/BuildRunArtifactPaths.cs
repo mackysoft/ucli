@@ -1,3 +1,5 @@
+using MackySoft.FileSystem;
+
 namespace MackySoft.Ucli.Application.Features.Assurance.Build.Artifacts;
 
 /// <summary> Represents the resolved filesystem layout for one build run. </summary>
@@ -16,15 +18,15 @@ internal sealed record BuildRunArtifactPaths
     /// <exception cref="ArgumentException"> Thrown when <paramref name="runId" /> is empty. </exception>
     /// <exception cref="ArgumentNullException"> Thrown when a required argument is <see langword="null" />. </exception>
     public BuildRunArtifactPaths (
-        string repositoryRoot,
+        AbsolutePath repositoryRoot,
         Guid runId,
-        string artifactsDirectory,
-        string buildJsonPath,
-        string buildReportJsonPath,
-        string buildLogPath,
-        string outputManifestJsonPath,
-        string runnerOutputDirectory,
-        string artifactOutputDirectory)
+        AbsolutePath artifactsDirectory,
+        AbsolutePath buildJsonPath,
+        AbsolutePath buildReportJsonPath,
+        AbsolutePath buildLogPath,
+        AbsolutePath outputManifestJsonPath,
+        AbsolutePath runnerOutputDirectory,
+        AbsolutePath artifactOutputDirectory)
     {
         if (runId == Guid.Empty)
         {
@@ -51,22 +53,22 @@ internal sealed record BuildRunArtifactPaths
         ArtifactOutputDirectory = artifactOutputDirectory;
     }
 
-    public string RepositoryRoot { get; }
+    public AbsolutePath RepositoryRoot { get; }
 
     /// <summary> Gets the non-empty build run identifier. </summary>
     public Guid RunId { get; }
 
-    public string ArtifactsDirectory { get; }
+    public AbsolutePath ArtifactsDirectory { get; }
 
-    public string BuildJsonPath { get; }
+    public AbsolutePath BuildJsonPath { get; }
 
-    public string BuildReportJsonPath { get; }
+    public AbsolutePath BuildReportJsonPath { get; }
 
-    public string BuildLogPath { get; }
+    public AbsolutePath BuildLogPath { get; }
 
-    public string OutputManifestJsonPath { get; }
+    public AbsolutePath OutputManifestJsonPath { get; }
 
-    public string RunnerOutputDirectory { get; }
+    public AbsolutePath RunnerOutputDirectory { get; }
 
-    public string ArtifactOutputDirectory { get; }
+    public AbsolutePath ArtifactOutputDirectory { get; }
 }

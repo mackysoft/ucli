@@ -1,4 +1,5 @@
 using System.Text.Json;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Ipc;
 
@@ -8,13 +9,12 @@ internal static class IpcTransportTestHarness
 {
     internal static async Task WithUnixStreamingServerAsync (
         Func<IpcRequestEnvelope, Stream, CancellationToken, Task> writeFramesAsync,
-        Func<IpcEndpoint, IpcRequestEnvelope, Task> executeClientAsync,
+        Func<IpcTransportEndpoint, IpcRequestEnvelope, Task> executeClientAsync,
         TimeSpan waitTimeout)
     {
-        var endpoint = new IpcEndpoint(
-            IpcTransportKind.UnixDomainSocket,
+        var endpoint = IpcTransportEndpoint.FromUnixSocketPath(
             new UnixSocketFallbackPath(
-                Path.GetTempPath(),
+                AbsolutePath.Parse(Path.GetTempPath()),
                 UnixSocketFallbackPurpose.Supervisor,
                 Guid.NewGuid().ToString("N")).SocketPath);
         var server = new SupervisorTransportServer(TimeProvider.System);
@@ -22,7 +22,7 @@ internal static class IpcTransportTestHarness
         using var cancellationTokenSource = new CancellationTokenSource();
 
         var serverTask = server.RunAsync(
-            endpoint,
+            SupervisorTransportEndpoint.FromUnixSocketPath(endpoint.UnixSocketPath!),
             async (stream, cancellationToken) =>
             {
                 var readResult = await IpcFrameCodec.TryReadModelAsync<IpcRequestEnvelope>(
@@ -66,13 +66,12 @@ internal static class IpcTransportTestHarness
 
     internal static async Task WithUnixResponseServerAsync (
         Func<IpcRequestEnvelope, Stream, CancellationToken, Task> writeResponseAsync,
-        Func<IpcEndpoint, IpcRequestEnvelope, Task> executeClientAsync,
+        Func<IpcTransportEndpoint, IpcRequestEnvelope, Task> executeClientAsync,
         TimeSpan waitTimeout)
     {
-        var endpoint = new IpcEndpoint(
-            IpcTransportKind.UnixDomainSocket,
+        var endpoint = IpcTransportEndpoint.FromUnixSocketPath(
             new UnixSocketFallbackPath(
-                Path.GetTempPath(),
+                AbsolutePath.Parse(Path.GetTempPath()),
                 UnixSocketFallbackPurpose.Supervisor,
                 Guid.NewGuid().ToString("N")).SocketPath);
         var server = new SupervisorTransportServer(TimeProvider.System);
@@ -80,7 +79,7 @@ internal static class IpcTransportTestHarness
         using var cancellationTokenSource = new CancellationTokenSource();
 
         var serverTask = server.RunAsync(
-            endpoint,
+            SupervisorTransportEndpoint.FromUnixSocketPath(endpoint.UnixSocketPath!),
             async (stream, cancellationToken) =>
             {
                 var readResult = await IpcFrameCodec.TryReadModelAsync<IpcRequestEnvelope>(
@@ -140,9 +139,9 @@ internal static class IpcTransportTestHarness
             IpcProtocol.CurrentVersion,
             Guid.NewGuid(),
             "token",
-            ContractLiteralCodec.ToValue(UnityIpcMethod.Ping),
+            TextVocabulary.GetText(UnityIpcMethod.Ping),
             Json("{}"),
-            ContractLiteralCodec.ToValue(IpcResponseMode.Stream),
+            TextVocabulary.GetText(IpcResponseMode.Stream),
             DateTimeOffset.MaxValue,
             int.MaxValue);
     }
@@ -153,9 +152,9 @@ internal static class IpcTransportTestHarness
             IpcProtocol.CurrentVersion,
             Guid.NewGuid(),
             "token",
-            ContractLiteralCodec.ToValue(UnityIpcMethod.Ping),
+            TextVocabulary.GetText(UnityIpcMethod.Ping),
             Json("{}"),
-            ContractLiteralCodec.ToValue(IpcResponseMode.Single),
+            TextVocabulary.GetText(IpcResponseMode.Single),
             DateTimeOffset.MaxValue,
             int.MaxValue);
     }

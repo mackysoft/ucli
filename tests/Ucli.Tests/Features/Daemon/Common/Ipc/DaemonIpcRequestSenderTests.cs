@@ -1,5 +1,6 @@
 using System.Net.Sockets;
 using System.Text.Json;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Observation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Foundation;
@@ -859,7 +860,7 @@ public sealed class DaemonIpcRequestSenderTests
         var requests = IpcRequestAssert.RetriedAtLeastOnce(transportClient);
         Assert.All(
             requests,
-            request => Assert.Equal(ContractLiteralCodec.ToValue(UnityIpcMethod.UnityLogsRead), request.Method));
+            request => Assert.Equal(TextVocabulary.GetText(UnityIpcMethod.UnityLogsRead), request.Method));
         var requestId = IpcRequestAssert.SingleRequestId(requests);
         Assert.NotEqual(Guid.Empty, requestId);
         var error = Assert.IsType<ExecutionError>(result.Error);
@@ -974,7 +975,7 @@ public sealed class DaemonIpcRequestSenderTests
         }
 
         public override ValueTask<DaemonSessionReadResult> ReadAsync (
-            string storageRoot,
+            AbsolutePath storageRoot,
             ProjectFingerprint projectFingerprint,
             CancellationToken cancellationToken = default)
         {
@@ -1015,7 +1016,7 @@ public sealed class DaemonIpcRequestSenderTests
         public Task CancellationCallbackStarted => cancellationCallbackStartedSource.Task;
 
         public override async ValueTask<DaemonSessionReadResult> ReadAsync (
-            string storageRoot,
+            AbsolutePath storageRoot,
             ProjectFingerprint projectFingerprint,
             CancellationToken cancellationToken = default)
         {

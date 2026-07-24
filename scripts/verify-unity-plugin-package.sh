@@ -1,8 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ $# -ne 2 ]]; then
+print_usage() {
   echo "Usage: $0 <package-dir> <expected-version>" >&2
+}
+
+if [[ "$#" -ne 2 ]]; then
+  print_usage
   exit 2
 fi
 
@@ -21,13 +25,28 @@ package_id="MackySoft.Ucli.Unity"
 package_path="${package_dir}/${package_id}.${expected_version}.nupkg"
 nuspec_entry="${package_id}.nuspec"
 unity_packages_config="${repository_root}/src/Ucli.Unity/Assets/packages.config"
+unity_editor_asmdef_entry="Editor/MackySoft.Ucli.Unity.Editor.asmdef"
+filesystem_package_id="MackySoft.FileSystem"
+filesystem_package_version="0.1.0"
+canonicalization_package_id="MackySoft.Json.Canonicalization"
+foundation_package_ids=(
+  "${filesystem_package_id}"
+  "${canonicalization_package_id}"
+  "MackySoft.Text.Vocabularies"
+  "MackySoft.Text.Vocabularies.Json"
+)
+ucli_dependency_package_ids=(
+  "MackySoft.Ucli.Contracts"
+  "MackySoft.Ucli.Infrastructure"
+)
+ucli_dependency_package_versions=()
 
 if [[ ! -f "${package_path}" ]]; then
   echo "Unity package was not created: ${package_path}" >&2
   exit 1
 fi
 
-for required_tool in unzip nuget; do
+for required_tool in jq nuget unzip; do
   if ! command -v "${required_tool}" >/dev/null 2>&1; then
     echo "Required tool is missing: ${required_tool}" >&2
     exit 1
@@ -39,37 +58,42 @@ if [[ ! -f "${unity_packages_config}" ]]; then
   exit 1
 fi
 
-canonicalization_version="$(
-  sed -nE 's#.*<package id="MackySoft.Json.Canonicalization" version="([^"]+)".*#\1#p' "${unity_packages_config}" \
-    | head -n 1
-)"
-if [[ -z "${canonicalization_version}" ]]; then
-  echo "Unity packages.config does not declare MackySoft.Json.Canonicalization." >&2
-  exit 1
-fi
-canonicalization_package_artifact="${package_dir}/MackySoft.Json.Canonicalization.${canonicalization_version}.nupkg"
+for foundation_package_id in "${foundation_package_ids[@]}"; do
+  foundation_package_version="$(
+    sed -nE "s#.*<package id=\"${foundation_package_id}\" version=\"([^\"]+)\".*#\\1#p" \
+      "${unity_packages_config}" |
+      head -n 1
+  )"
+  if [[ "${foundation_package_version}" != "${filesystem_package_version}" ]]; then
+    echo "${foundation_package_id} must use exact version ${filesystem_package_version}. Actual: ${foundation_package_version}" >&2
+    exit 1
+  fi
+done
+
+for dependency_package_id in "${ucli_dependency_package_ids[@]}"; do
+  dependency_package_version="$(
+    sed -nE "s#.*<package id=\"${dependency_package_id}\" version=\"([^\"]+)\".*#\\1#p" \
+      "${unity_packages_config}" |
+      head -n 1
+  )"
+  if [[ -z "${dependency_package_version}" ]]; then
+    echo "Unity packages.config is missing ${dependency_package_id}." >&2
+    exit 1
+  fi
+
+  ucli_dependency_package_versions+=("${dependency_package_version}")
+  dependency_package_path="${package_dir}/${dependency_package_id}.${dependency_package_version}.nupkg"
+  if [[ ! -f "${dependency_package_path}" ]]; then
+    echo "Unity dependency package was not created: ${dependency_package_path}" >&2
+    exit 1
+  fi
+done
 
 package_entries="$(unzip -Z1 "${package_path}")"
-if grep -Fi "es6numberserializer" <<< "${package_entries}" >/dev/null; then
-  echo "Unity package contains the legacy es6numberserializer package or assembly." >&2
-  grep -Fi "es6numberserializer" <<< "${package_entries}" >&2
-  exit 1
-fi
-
-if grep -F "MackySoft.Json.Canonicalization.dll" <<< "${package_entries}" >/dev/null; then
-  echo "Unity package must reference MackySoft.Json.Canonicalization as a dependency instead of embedding its assembly." >&2
-  exit 1
-fi
-
-if grep -Ei '(^|/)MackySoft[.]Json[.]Canonicalization[.][^/]+[.]nupkg$' <<< "${package_entries}" >/dev/null; then
-  echo "Unity package must reference MackySoft.Json.Canonicalization as a dependency instead of embedding its nupkg." >&2
-  exit 1
-fi
-
 required_entries=(
   "${nuspec_entry}"
   "ucli-plugin.json"
-  "Editor/MackySoft.Ucli.Unity.Editor.asmdef"
+  "${unity_editor_asmdef_entry}"
   "Editor/csc.rsp"
   "Editor/csc.rsp.meta"
   "Editor/AssemblyInfo.cs"
@@ -86,10 +110,23 @@ for entry in "${required_entries[@]}"; do
   fi
 done
 
-for forbidden_pattern in '^Assets/' '^Tests/' '^ProjectSettings/' '^Packages/' '^.*\.unitypackage$' '^package\.json$'; do
-  if grep -E "${forbidden_pattern}" <<< "${package_entries}" >/dev/null; then
+for forbidden_pattern in \
+  '^Assets/' \
+  '^Tests/' \
+  '^ProjectSettings/' \
+  '^Packages/' \
+  '^.*\.unitypackage$' \
+  '^package\.json$' \
+  '(^|/)MackySoft\.FileSystem\.dll$' \
+  '(^|/)MackySoft\.FileSystem\.[^/]*\.nupkg$' \
+  '(^|/)MackySoft\.Json\.Canonicalization\.dll$' \
+  '(^|/)MackySoft\.Json\.Canonicalization\.[^/]*\.nupkg$' \
+  '(^|/)MackySoft\.Text\.Vocabularies(\.Json)?\.dll$' \
+  '(^|/)MackySoft\.Text\.Vocabularies(\.Json)?\.[^/]*\.nupkg$' \
+  'es6numberserializer'; do
+  if grep -Ei "${forbidden_pattern}" <<< "${package_entries}" >/dev/null; then
     echo "Unity package contains forbidden entry matching ${forbidden_pattern}." >&2
-    grep -E "${forbidden_pattern}" <<< "${package_entries}" >&2
+    grep -Ei "${forbidden_pattern}" <<< "${package_entries}" >&2
     exit 1
   fi
 done
@@ -98,11 +135,6 @@ temp_dir="$(mktemp -d)"
 trap 'rm -rf "${temp_dir}"' EXIT
 nuspec_path="${temp_dir}/${nuspec_entry}"
 unzip -p "${package_path}" "${nuspec_entry}" > "${nuspec_path}"
-
-if grep -Fi "es6numberserializer" "${nuspec_path}" >/dev/null; then
-  echo "Unity package nuspec references the legacy es6numberserializer package or assembly." >&2
-  exit 1
-fi
 
 if ! grep -F "<id>${package_id}</id>" "${nuspec_path}" >/dev/null; then
   echo "Unity package nuspec has an unexpected package id." >&2
@@ -114,117 +146,184 @@ if ! grep -F "<version>${expected_version}</version>" "${nuspec_path}" >/dev/nul
   exit 1
 fi
 
+if grep -Fi "es6numberserializer" "${nuspec_path}" >/dev/null; then
+  echo "Unity package nuspec references the retired es6numberserializer dependency." >&2
+  exit 1
+fi
+
 while IFS=$'\t' read -r dependency_id dependency_version; do
   [[ -n "${dependency_id}" ]] || continue
-  if [[ "$(tr '[:upper:]' '[:lower:]' <<< "${dependency_id}")" == "es6numberserializer" ]]; then
-    echo "Unity package must not declare the legacy es6numberserializer dependency." >&2
-    exit 1
-  fi
+  expected_nuspec_version="${dependency_version}"
+  case "${dependency_id}" in
+    MackySoft.FileSystem|MackySoft.Json.Canonicalization|MackySoft.Text.Vocabularies|MackySoft.Text.Vocabularies.Json)
+      expected_nuspec_version="[${dependency_version}]"
+      ;;
+  esac
 
-  expected_dependency_version="${dependency_version}"
-  if [[ "${dependency_id}" == "MackySoft.Json.Canonicalization" ]]; then
-    expected_dependency_version="[${dependency_version}]"
-  fi
-
-  if ! grep -F "<dependency id=\"${dependency_id}\" version=\"${expected_dependency_version}\" />" "${nuspec_path}" >/dev/null; then
-    echo "Unity package nuspec is missing dependency ${dependency_id} ${expected_dependency_version}." >&2
+  if ! grep -F "<dependency id=\"${dependency_id}\" version=\"${expected_nuspec_version}\" />" "${nuspec_path}" >/dev/null; then
+    echo "Unity package nuspec is missing dependency ${dependency_id} ${expected_nuspec_version}." >&2
     exit 1
   fi
 done < <(
   sed -nE 's#.*<package id="([^"]+)" version="([^"]+)".*#\1\t\2#p' "${unity_packages_config}"
 )
 
+unity_package_source="${temp_dir}/unity-source"
+ucli_package_source="${temp_dir}/ucli-source"
+isolated_nuget_packages="${temp_dir}/global-packages"
+isolated_nuget_http_cache="${temp_dir}/http-cache"
+nuget_config="${temp_dir}/NuGet.config"
 restore_root="${temp_dir}/UnityProject"
-mkdir -p "${restore_root}/Assets/Packages"
-canonicalization_local_mapping=""
-canonicalization_remote_mapping='      <package pattern="MackySoft.Json.Canonicalization" />'
-if [[ -f "${canonicalization_package_artifact}" ]]; then
-  canonicalization_local_mapping='      <package pattern="MackySoft.Json.Canonicalization" />'
-  canonicalization_remote_mapping=""
-fi
-cat > "${temp_dir}/NuGet.config" <<EOF
+restore_packages_directory="${restore_root}/Assets/Packages"
+restore_packages_config="${temp_dir}/packages.config"
+mkdir -p \
+  "${unity_package_source}" \
+  "${ucli_package_source}" \
+  "${isolated_nuget_http_cache}" \
+  "${isolated_nuget_packages}" \
+  "${restore_packages_directory}"
+cp "${package_path}" "${unity_package_source}/"
+for dependency_index in "${!ucli_dependency_package_ids[@]}"; do
+  dependency_package_id="${ucli_dependency_package_ids[${dependency_index}]}"
+  dependency_package_version="${ucli_dependency_package_versions[${dependency_index}]}"
+  cp "${package_dir}/${dependency_package_id}.${dependency_package_version}.nupkg" \
+    "${ucli_package_source}/"
+done
+
+cat > "${nuget_config}" <<EOF
 <?xml version="1.0" encoding="utf-8"?>
 <configuration>
   <packageSources>
     <clear />
-    <add key="PackageArtifacts" value="${package_dir}" />
+    <add key="UnityPackage" value="./unity-source" />
+    <add key="UcliPackages" value="./ucli-source" />
     <add key="nuget.org" value="https://api.nuget.org/v3/index.json" />
   </packageSources>
   <packageSourceMapping>
-    <packageSource key="PackageArtifacts">
-      <package pattern="MackySoft.Ucli.*" />
-${canonicalization_local_mapping}
+    <packageSource key="UnityPackage">
+      <package pattern="${package_id}" />
+    </packageSource>
+    <packageSource key="UcliPackages">
+      <package pattern="MackySoft.Ucli.Contracts" />
+      <package pattern="MackySoft.Ucli.Infrastructure" />
     </packageSource>
     <packageSource key="nuget.org">
-${canonicalization_remote_mapping}
+      <package pattern="MackySoft.FileSystem" />
+      <package pattern="MackySoft.Json.Canonicalization" />
+      <package pattern="MackySoft.Text.Vocabularies" />
+      <package pattern="MackySoft.Text.Vocabularies.Json" />
       <package pattern="Microsoft.*" />
+      <package pattern="NETStandard.Library" />
+      <package pattern="Newtonsoft.Json" />
       <package pattern="System.*" />
+      <package pattern="runtime.*" />
     </packageSource>
   </packageSourceMapping>
-  <config>
-    <add key="packageSaveMode" value="nuspec;nupkg" />
-  </config>
 </configuration>
 EOF
 
-nuget install "${package_id}" \
-  -Version "${expected_version}" \
-  -OutputDirectory "${restore_root}/Assets/Packages" \
-  -ConfigFile "${temp_dir}/NuGet.config" \
-  -DependencyVersion Lowest \
+{
+  printf '%s\n' \
+    '<?xml version="1.0" encoding="utf-8"?>' \
+    '<packages>' \
+    "  <package id=\"${package_id}\" version=\"${expected_version}\" targetFramework=\"netstandard2.1\" />"
+  sed -nE '/^[[:space:]]*<package /p' "${unity_packages_config}"
+  printf '%s\n' '</packages>'
+} > "${restore_packages_config}"
+
+NUGET_HTTP_CACHE_PATH="${isolated_nuget_http_cache}" \
+  NUGET_PACKAGES="${isolated_nuget_packages}" \
+  nuget restore "${restore_packages_config}" \
+  -PackagesDirectory "${restore_packages_directory}" \
+  -ConfigFile "${nuget_config}" \
   -NoCache \
   -NonInteractive >/dev/null
 
-restored_marker_path="${restore_root}/Assets/Packages/${package_id}.${expected_version}/ucli-plugin.json"
+if find "${restore_packages_directory}" -iname "*es6numberserializer*" -print -quit | grep -q .; then
+  echo "Restored Unity dependency closure contains the retired es6numberserializer dependency." >&2
+  exit 1
+fi
+
+restored_plugin_root="${restore_packages_directory}/${package_id}.${expected_version}"
+restored_marker_path="${restored_plugin_root}/ucli-plugin.json"
 if [[ ! -f "${restored_marker_path}" ]]; then
   echo "Restored Unity package marker was not found: ${restored_marker_path}" >&2
   exit 1
 fi
 
-required_dependency_files=(
-  "${restore_root}/Assets/Packages/MackySoft.Json.Canonicalization.${canonicalization_version}/lib/netstandard2.1/MackySoft.Json.Canonicalization.dll"
-)
-for dependency_file in "${required_dependency_files[@]}"; do
-  if [[ ! -f "${dependency_file}" ]]; then
-    echo "Unity package dependency closure is missing required assembly: ${dependency_file}" >&2
-    exit 1
-  fi
-done
-
-if [[ -f "${canonicalization_package_artifact}" ]]; then
-  restored_canonicalization_package="${restore_root}/Assets/Packages/MackySoft.Json.Canonicalization.${canonicalization_version}/MackySoft.Json.Canonicalization.${canonicalization_version}.nupkg"
-  if [[ ! -f "${restored_canonicalization_package}" ]]; then
-    echo "Unity package dependency closure is missing the restored local canonicalization nupkg." >&2
-    exit 1
-  fi
-  if ! cmp -s "${canonicalization_package_artifact}" "${restored_canonicalization_package}"; then
-    echo "Unity package dependency closure contains a canonicalization nupkg that differs from the local provider artifact." >&2
-    exit 1
-  fi
-  if ! unzip -p "${canonicalization_package_artifact}" lib/netstandard2.1/MackySoft.Json.Canonicalization.dll \
-    | cmp -s - "${required_dependency_files[0]}"; then
-    echo "Unity package dependency closure contains a canonicalization assembly that differs from the local provider artifact." >&2
-    exit 1
-  fi
-fi
-
-for assembly_name in MackySoft.Json.Canonicalization.dll; do
-  assembly_count="$(
-    find "${restore_root}/Assets/Packages" -type f -name "${assembly_name}" | wc -l | tr -d '[:space:]'
-  )"
-  if [[ "${assembly_count}" != "1" ]]; then
-    echo "Unity package dependency closure must contain exactly one ${assembly_name}; found ${assembly_count}." >&2
-    exit 1
-  fi
-done
-
-legacy_dependency_path="$(
-  find "${restore_root}/Assets/Packages" -iname '*es6numberserializer*' -print -quit
-)"
-if [[ -n "${legacy_dependency_path}" ]]; then
-  echo "Unity package dependency closure contains the legacy es6numberserializer package or assembly." >&2
-  find "${restore_root}/Assets/Packages" -iname '*es6numberserializer*' -print >&2
+restored_editor_asmdef="${restored_plugin_root}/${unity_editor_asmdef_entry}"
+if [[ ! -f "${restored_editor_asmdef}" ]] \
+  || ! jq -e \
+    --arg filesystem_assembly "${filesystem_package_id}" \
+    --arg text_assembly "MackySoft.Text.Vocabularies" \
+    '(.references | type == "array")
+      and (.references | index($filesystem_assembly) != null)
+      and (.references | index($text_assembly) != null)' \
+    "${restored_editor_asmdef}" >/dev/null; then
+  echo "Restored Unity Editor asmdef does not reference the required foundation assemblies." >&2
   exit 1
 fi
+
+for foundation_package_id in "${foundation_package_ids[@]}"; do
+  foundation_package_root="${restore_packages_directory}/${foundation_package_id}.${filesystem_package_version}"
+  foundation_runtime_assembly="${foundation_package_root}/lib/netstandard2.1/${foundation_package_id}.dll"
+  if [[ ! -f "${foundation_runtime_assembly}" ]]; then
+    echo "Restored Unity dependency layout is missing: ${foundation_runtime_assembly}" >&2
+    exit 1
+  fi
+done
+
+if find "${restored_plugin_root}" -type f \
+  \( \
+    -iname "${filesystem_package_id}.dll" \
+    -o -iname "${filesystem_package_id}.*.nupkg" \
+    -o -iname "${canonicalization_package_id}.dll" \
+    -o -iname "${canonicalization_package_id}.*.nupkg" \
+    -o -iname "MackySoft.Text.Vocabularies.dll" \
+    -o -iname "MackySoft.Text.Vocabularies.Json.dll" \
+    -o -iname "MackySoft.Text.Vocabularies.*.nupkg" \
+    -o -iname "MackySoft.Text.Vocabularies.Json.*.nupkg" \
+    -o -iname "*es6numberserializer*" \
+  \) \
+  -print -quit |
+  grep -q .; then
+  echo "Restored Unity plugin directory contains an external foundation provider." >&2
+  find "${restored_plugin_root}" -type f \
+    \( \
+      -iname "${filesystem_package_id}.dll" \
+      -o -iname "${filesystem_package_id}.*.nupkg" \
+      -o -iname "${canonicalization_package_id}.dll" \
+      -o -iname "${canonicalization_package_id}.*.nupkg" \
+      -o -iname "MackySoft.Text.Vocabularies.dll" \
+      -o -iname "MackySoft.Text.Vocabularies.Json.dll" \
+      -o -iname "MackySoft.Text.Vocabularies.*.nupkg" \
+      -o -iname "MackySoft.Text.Vocabularies.Json.*.nupkg" \
+      -o -iname "*es6numberserializer*" \
+    \) \
+    -print >&2
+  exit 1
+fi
+
+for dependency_index in "${!ucli_dependency_package_ids[@]}"; do
+  dependency_package_id="${ucli_dependency_package_ids[${dependency_index}]}"
+  dependency_package_version="${ucli_dependency_package_versions[${dependency_index}]}"
+  dependency_root="${restore_packages_directory}/${dependency_package_id}.${dependency_package_version}"
+  dependency_dll="${dependency_root}/lib/netstandard2.1/${dependency_package_id}.dll"
+  if [[ ! -f "${dependency_dll}" ]]; then
+    echo "Restored Unity dependency layout is missing: ${dependency_dll}" >&2
+    exit 1
+  fi
+done
+
+while IFS=$'\t' read -r restored_package_id restored_package_version; do
+  [[ -n "${restored_package_id}" ]] || continue
+  restored_package_path="${restore_root}/Assets/Packages/${restored_package_id}.${restored_package_version}"
+  if [[ ! -d "${restored_package_path}" ]]; then
+    echo "Unity package dependency was not restored: ${restored_package_id} ${restored_package_version}" >&2
+    exit 1
+  fi
+done < <(
+  sed -nE 's#.*<package id="([^"]+)" version="([^"]+)".*#\1\t\2#p' "${restore_packages_config}"
+)
 
 echo "Unity package verification passed: ${package_path}"

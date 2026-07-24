@@ -48,14 +48,14 @@ internal sealed class VerifyAssuranceSemanticInvariantRule : IAssuranceClaimInva
         }
 
         if (TryReadString(claimElement, "status", out var statusLiteral)
-            && (!ContractLiteralCodec.TryParse(statusLiteral, out AssuranceClaimStatus status)
+            && (!TextVocabulary.TryGetValue(statusLiteral, out AssuranceClaimStatus status)
                 || status != AssuranceClaimStatus.OutOfScope))
         {
             AddViolation(violations, BuildPropertyPath(claimPath, "status"), "Unavailable post-state claims must be outOfScope.");
         }
 
         if (TryReadString(claimElement, "coverage", out var coverageLiteral)
-            && (!ContractLiteralCodec.TryParse(coverageLiteral, out AssuranceCoverage coverage)
+            && (!TextVocabulary.TryGetValue(coverageLiteral, out AssuranceCoverage coverage)
                 || coverage != AssuranceCoverage.None))
         {
             AddViolation(violations, BuildPropertyPath(claimPath, "coverage"), "Unavailable post-state claims must have coverage none.");
@@ -87,9 +87,9 @@ internal sealed class VerifyAssuranceSemanticInvariantRule : IAssuranceClaimInva
         }
 
         if (!TryReadString(claimElement, "status", out var statusLiteral)
-            || !ContractLiteralCodec.TryParse(statusLiteral, out AssuranceClaimStatus status)
+            || !TextVocabulary.TryGetValue(statusLiteral, out AssuranceClaimStatus status)
             || !TryReadString(claimElement, "coverage", out var coverageLiteral)
-            || !ContractLiteralCodec.TryParse(coverageLiteral, out AssuranceCoverage coverage))
+            || !TextVocabulary.TryGetValue(coverageLiteral, out AssuranceCoverage coverage))
         {
             return;
         }
@@ -152,7 +152,7 @@ internal sealed class VerifyAssuranceSemanticInvariantRule : IAssuranceClaimInva
 
             invalidImpactPath = $"{claimPath}.evidence[{index}].data.diagnosticImpact";
             return TryReadString(dataElement, "diagnosticImpact", out var diagnosticImpactLiteral)
-                && ContractLiteralCodec.TryParse(diagnosticImpactLiteral, out diagnosticImpact);
+                && TextVocabulary.TryGetValue(diagnosticImpactLiteral, out diagnosticImpact);
         }
 
         return false;

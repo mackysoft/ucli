@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using MackySoft.FileSystem;
 
 namespace MackySoft.Ucli.Shared.Unity.ProjectLock;
 
@@ -19,16 +20,11 @@ internal sealed class UnityProjectProcessScanner : IUnityProjectProcessScanner
 
     /// <inheritdoc />
     public async ValueTask<UnityProjectProcessScanResult> FindProcessesForProjectAsync (
-        string unityProjectRoot,
+        AbsolutePath unityProjectRoot,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        ArgumentException.ThrowIfNullOrWhiteSpace(unityProjectRoot);
-
-        if (!UnityProjectPathIdentity.TryNormalize(unityProjectRoot, out var normalizedTargetPath, out var normalizationError))
-        {
-            return UnityProjectProcessScanResult.Failure($"Target project path could not be normalized for process scan. {normalizationError}");
-        }
+        ArgumentNullException.ThrowIfNull(unityProjectRoot);
 
         var request = CreateProcessListRequest();
         if (request == null)
@@ -48,7 +44,7 @@ internal sealed class UnityProjectProcessScanner : IUnityProjectProcessScanner
             return UnityProjectProcessScanResult.Failure("Unity process scan produced no process list output.");
         }
 
-        return ParseProcessList(runResult.StandardOutput, normalizedTargetPath);
+        return ParseProcessList(runResult.StandardOutput, unityProjectRoot);
     }
 
     private static ProcessRunRequest? CreateProcessListRequest ()
@@ -89,7 +85,7 @@ internal sealed class UnityProjectProcessScanner : IUnityProjectProcessScanner
 
     private static UnityProjectProcessScanResult ParseProcessList (
         string processListText,
-        string normalizedTargetPath)
+        AbsolutePath targetPath)
     {
         var matches = new List<UnityProjectProcessMatch>();
         var lines = processListText.Split(["\r\n", "\n"], StringSplitOptions.RemoveEmptyEntries);
@@ -106,7 +102,7 @@ internal sealed class UnityProjectProcessScanner : IUnityProjectProcessScanner
                 continue;
             }
 
-            if (!TryGetMatchingProjectPathArgument(tokens, normalizedTargetPath, out var argumentError))
+            if (!TryGetMatchingProjectPathArgument(tokens, targetPath, out var argumentError))
             {
                 if (argumentError != null)
                 {
@@ -163,7 +159,7 @@ internal sealed class UnityProjectProcessScanner : IUnityProjectProcessScanner
 
     private static bool TryGetMatchingProjectPathArgument (
         IReadOnlyList<string> tokens,
-        string normalizedTargetPath,
+        AbsolutePath targetPath,
         out string? errorMessage)
     {
         errorMessage = null;
@@ -184,12 +180,12 @@ internal sealed class UnityProjectProcessScanner : IUnityProjectProcessScanner
             for (var endIndex = i + 2; endIndex <= tokens.Count; endIndex++)
             {
                 var candidateProjectPath = JoinTokens(tokens, i + 1, endIndex);
-                if (!UnityProjectPathIdentity.TryNormalize(candidateProjectPath, out var normalizedProcessProjectPath, out _))
+                if (!AbsolutePath.TryParse(candidateProjectPath, out var processProjectPath, out _))
                 {
                     continue;
                 }
 
-                if (string.Equals(normalizedProcessProjectPath, normalizedTargetPath, StringComparison.Ordinal)
+                if (processProjectPath == targetPath
                     && IsLikelyArgumentBoundary(tokens, endIndex))
                 {
                     return true;

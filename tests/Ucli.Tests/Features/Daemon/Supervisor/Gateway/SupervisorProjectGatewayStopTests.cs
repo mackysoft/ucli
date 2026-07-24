@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using System.Text;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Stop;
 using MackySoft.Ucli.Infrastructure.Storage;
@@ -23,12 +24,12 @@ public sealed class SupervisorProjectGatewayStopTests
         scenario.TransportClient.SendHandler = async (_, request, _, cancellationToken) =>
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (string.Equals(request.Method, ContractLiteralCodec.ToValue(SupervisorIpcMethod.Ping), StringComparison.Ordinal))
+            if (string.Equals(request.Method, TextVocabulary.GetText(SupervisorIpcMethod.Ping), StringComparison.Ordinal))
             {
                 if (Interlocked.Increment(ref pingAttempt) == 1)
                 {
                     await scenario.ManifestStore.WriteAsync(
-                        scope.FullPath,
+                        AbsolutePath.Parse(scope.FullPath),
                         successorManifest,
                         cancellationToken);
                     return IpcResponseTestFactory.CreateError(
@@ -42,7 +43,7 @@ public sealed class SupervisorProjectGatewayStopTests
                     successorManifest);
             }
 
-            Assert.Equal(ContractLiteralCodec.ToValue(SupervisorIpcMethod.StopProject), request.Method);
+            Assert.Equal(TextVocabulary.GetText(SupervisorIpcMethod.StopProject), request.Method);
             Assert.Equal(successorManifest.SessionToken.GetEncodedValue(), request.SessionToken);
             return SupervisorProjectGatewayTestSupport.CreateStopProjectStoppedResponse(request);
         };
@@ -79,19 +80,19 @@ public sealed class SupervisorProjectGatewayStopTests
         scenario.TransportClient.SendHandler = async (_, request, _, cancellationToken) =>
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (string.Equals(request.Method, ContractLiteralCodec.ToValue(SupervisorIpcMethod.Ping), StringComparison.Ordinal))
+            if (string.Equals(request.Method, TextVocabulary.GetText(SupervisorIpcMethod.Ping), StringComparison.Ordinal))
             {
                 return SupervisorProjectGatewayTestSupport.CreateSupervisorPingResponse(
                     request,
                     scenario.Manifest);
             }
 
-            Assert.Equal(ContractLiteralCodec.ToValue(SupervisorIpcMethod.StopProject), request.Method);
+            Assert.Equal(TextVocabulary.GetText(SupervisorIpcMethod.StopProject), request.Method);
             if (Interlocked.Increment(ref stopAttempt) == 1)
             {
                 timeProvider.Advance(TimeSpan.FromMilliseconds(200));
                 await scenario.ManifestStore.WriteAsync(
-                    scope.FullPath,
+                    AbsolutePath.Parse(scope.FullPath),
                     successorManifest,
                     cancellationToken);
                 return IpcResponseTestFactory.CreateError(
@@ -112,7 +113,7 @@ public sealed class SupervisorProjectGatewayStopTests
         Assert.True(result.IsSuccess);
         var requests = scenario.TransportClient.Invocations
             .Select(static invocation => invocation.Request)
-            .Where(static request => request.Method == ContractLiteralCodec.ToValue(SupervisorIpcMethod.StopProject))
+            .Where(static request => request.Method == TextVocabulary.GetText(SupervisorIpcMethod.StopProject))
             .ToArray();
         IpcRequestAssert.SessionTokens(
             requests,
@@ -134,9 +135,9 @@ public sealed class SupervisorProjectGatewayStopTests
     {
         using var scope = TestDirectories.CreateTempScope("supervisor-project-gateway", "malformed-manifest");
         var timeProvider = new ManualTimeProvider();
-        var manifestPath = UcliStoragePathResolver.ResolveSupervisorManifestPath(scope.FullPath);
-        Directory.CreateDirectory(Path.GetDirectoryName(manifestPath)!);
-        await File.WriteAllTextAsync(manifestPath, "{ malformed json", CancellationToken.None);
+        var manifestPath = UcliStoragePathResolver.ResolveSupervisorManifestPath(AbsolutePath.Parse(scope.FullPath));
+        Directory.CreateDirectory(Path.GetDirectoryName(manifestPath.Value)!);
+        await File.WriteAllTextAsync(manifestPath.Value, "{ malformed json", CancellationToken.None);
 
         var manifestStore = SupervisorManifestStoreTestSupport.CreateFileBacked(timeProvider);
         var transportClient = new StubIpcTransportClient
@@ -156,7 +157,7 @@ public sealed class SupervisorProjectGatewayStopTests
             CancellationToken.None);
 
         Assert.Null(result);
-        Assert.False(File.Exists(manifestPath));
+        Assert.False(File.Exists(manifestPath.Value));
     }
 
     [Fact]
@@ -184,7 +185,7 @@ public sealed class SupervisorProjectGatewayStopTests
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 Assert.Equal(successorManifest.SessionToken.GetEncodedValue(), request.SessionToken);
-                return string.Equals(request.Method, ContractLiteralCodec.ToValue(SupervisorIpcMethod.Ping), StringComparison.Ordinal)
+                return string.Equals(request.Method, TextVocabulary.GetText(SupervisorIpcMethod.Ping), StringComparison.Ordinal)
                     ? ValueTask.FromResult(SupervisorProjectGatewayTestSupport.CreateSupervisorPingResponse(
                         request,
                         successorManifest))
@@ -208,8 +209,8 @@ public sealed class SupervisorProjectGatewayStopTests
         Assert.Equal(DaemonStopStatus.Stopped, result.Status);
         Assert.Collection(
             transportClient.Invocations,
-            invocation => Assert.Equal(ContractLiteralCodec.ToValue(SupervisorIpcMethod.Ping), invocation.Request.Method),
-            invocation => Assert.Equal(ContractLiteralCodec.ToValue(SupervisorIpcMethod.StopProject), invocation.Request.Method));
+            invocation => Assert.Equal(TextVocabulary.GetText(SupervisorIpcMethod.Ping), invocation.Request.Method),
+            invocation => Assert.Equal(TextVocabulary.GetText(SupervisorIpcMethod.StopProject), invocation.Request.Method));
     }
 
     [Fact]
@@ -271,7 +272,7 @@ public sealed class SupervisorProjectGatewayStopTests
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            if (string.Equals(request.Method, ContractLiteralCodec.ToValue(SupervisorIpcMethod.Ping), StringComparison.Ordinal))
+            if (string.Equals(request.Method, TextVocabulary.GetText(SupervisorIpcMethod.Ping), StringComparison.Ordinal))
             {
                 timeProvider.Advance(TimeSpan.FromMilliseconds(220));
                 return ValueTask.FromResult(SupervisorProjectGatewayTestSupport.CreateSupervisorPingResponse(
@@ -279,7 +280,7 @@ public sealed class SupervisorProjectGatewayStopTests
                     scenario.Manifest));
             }
 
-            if (string.Equals(request.Method, ContractLiteralCodec.ToValue(SupervisorIpcMethod.StopProject), StringComparison.Ordinal))
+            if (string.Equals(request.Method, TextVocabulary.GetText(SupervisorIpcMethod.StopProject), StringComparison.Ordinal))
             {
                 _ = SupervisorProjectGatewayTestSupport.ReadStopProjectRequest(request);
                 observedStopTimeout = TimeSpan.FromMilliseconds(request.RequestDeadlineRemainingMilliseconds);

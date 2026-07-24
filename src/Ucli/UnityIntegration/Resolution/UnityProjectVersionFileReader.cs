@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Infrastructure.Paths;
 
 namespace MackySoft.Ucli.UnityIntegration.Resolution;
@@ -10,31 +11,26 @@ internal static class UnityProjectVersionFileReader
     private const string EditorVersionPrefix = "m_EditorVersion:";
 
     /// <summary> Creates the canonical project-version file path under a Unity project root. </summary>
-    public static string GetProjectVersionPath (string unityProjectRoot)
+    public static AbsolutePath GetProjectVersionPath (AbsolutePath unityProjectRoot)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(unityProjectRoot);
+        ArgumentNullException.ThrowIfNull(unityProjectRoot);
 
-        return Path.Combine(
+        return ContainedPath.Create(
             unityProjectRoot,
-            ProjectSettingsDirectoryName,
-            ProjectVersionFileName);
+            RootRelativePath.Parse($"{ProjectSettingsDirectoryName}/{ProjectVersionFileName}")).Target;
     }
 
     /// <summary> Reads and extracts the editor version from one project-version file. </summary>
-    public static ReadResult ReadEditorVersion (string projectVersionPath)
+    public static ReadResult ReadEditorVersion (AbsolutePath projectVersionPath)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(projectVersionPath);
+        ArgumentNullException.ThrowIfNull(projectVersionPath);
 
         try
         {
-            using var reader = File.OpenText(projectVersionPath);
+            using var reader = File.OpenText(projectVersionPath.Value);
             return TryReadEditorVersion(reader, out var unityVersion)
                 ? ReadResult.Success(unityVersion)
                 : ReadResult.MissingEditorVersion();
-        }
-        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
-        {
-            return ReadResult.PathInvalid(exception.Message);
         }
         catch (UnauthorizedAccessException exception)
         {
@@ -103,12 +99,6 @@ internal static class UnityProjectVersionFileReader
             return new ReadResult(ReadStatus.MissingEditorVersion, null, null);
         }
 
-        public static ReadResult PathInvalid (string errorMessage)
-        {
-            ArgumentException.ThrowIfNullOrWhiteSpace(errorMessage);
-            return new ReadResult(ReadStatus.PathInvalid, null, errorMessage);
-        }
-
         public static ReadResult ReadFailure (string errorMessage)
         {
             ArgumentException.ThrowIfNullOrWhiteSpace(errorMessage);
@@ -120,7 +110,6 @@ internal static class UnityProjectVersionFileReader
     {
         Success,
         MissingEditorVersion,
-        PathInvalid,
         ReadFailure,
     }
 }
