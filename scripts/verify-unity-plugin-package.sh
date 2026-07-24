@@ -85,8 +85,15 @@ fi
 
 while IFS=$'\t' read -r dependency_id dependency_version; do
   [[ -n "${dependency_id}" ]] || continue
-  if ! grep -F "<dependency id=\"${dependency_id}\" version=\"${dependency_version}\" />" "${nuspec_path}" >/dev/null; then
-    echo "Unity package nuspec is missing dependency ${dependency_id} ${dependency_version}." >&2
+  expected_nuspec_version="${dependency_version}"
+  case "${dependency_id}" in
+    MackySoft.Text.Vocabularies|MackySoft.Text.Vocabularies.Json)
+      expected_nuspec_version="[${dependency_version}]"
+      ;;
+  esac
+
+  if ! grep -F "<dependency id=\"${dependency_id}\" version=\"${expected_nuspec_version}\" />" "${nuspec_path}" >/dev/null; then
+    echo "Unity package nuspec is missing dependency ${dependency_id} ${expected_nuspec_version}." >&2
     exit 1
   fi
 done < <(
