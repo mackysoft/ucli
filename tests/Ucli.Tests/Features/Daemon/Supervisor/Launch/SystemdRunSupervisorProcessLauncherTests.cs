@@ -11,7 +11,7 @@ public sealed class SystemdRunSupervisorProcessLauncherTests
     [Trait("Size", "Small")]
     public void BuildArguments_AppendsInternalSupervisorInvocationArguments ()
     {
-        const string repositoryRoot = "/repo";
+        var repositoryRoot = ProjectPathTestValues.RepositoryRoot;
         var absoluteRepositoryRoot = AbsolutePath.Parse(repositoryRoot);
         const string unitName = "mackysoft-ucli-supervisor-test";
         var launchCommand = new SupervisorLaunchCommand("ucli", ["--base"]);

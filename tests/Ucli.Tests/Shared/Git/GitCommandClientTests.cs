@@ -96,6 +96,6 @@ public sealed class GitCommandClientTests
 
     private static AbsolutePath GuardedPath (string path)
     {
-        return AbsolutePath.Resolve(AbsolutePath.Parse(Environment.CurrentDirectory), path);
+        return AbsolutePath.Parse(Path.GetFullPath(path));
     }
 }

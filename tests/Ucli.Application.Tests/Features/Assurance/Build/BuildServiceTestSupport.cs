@@ -600,10 +600,7 @@ internal static class BuildServiceTestSupport
         string outputDirectory,
         string fileName = "Player")
     {
-        return string.Concat(
-            outputDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
-            "/player/",
-            fileName);
+        return Path.Combine(outputDirectory, "player", fileName);
     }
 
     public static IReadOnlyList<UnityRequestProgressFrame> CreateDefaultProgressFrames (UnityRequestPayload.BuildRun request)

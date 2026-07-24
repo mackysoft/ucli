@@ -26,10 +26,19 @@ internal static class DaemonGuiRebootstrapClientTestSupport
             SchemaVersion: GuiSupervisorManifestJsonContract.CurrentSchemaVersion,
             SessionToken: IpcSessionTokenTestFactory.Create("supervisor-token"),
             ProjectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint"),
-            Endpoint: new IpcEndpoint(IpcTransportKind.UnixDomainSocket, "/tmp/ucli-gui-supervisor.sock"),
+            Endpoint: CreateCurrentPlatformEndpoint(),
             ProcessId: 1234,
             ProcessStartedAtUtc: ProcessStartedAtUtc,
             IssuedAtUtc: new DateTimeOffset(2026, 5, 9, 1, 2, 4, TimeSpan.Zero));
+    }
+
+    private static IpcEndpoint CreateCurrentPlatformEndpoint ()
+    {
+        return OperatingSystem.IsWindows()
+            ? new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-gui-supervisor")
+            : new IpcEndpoint(
+                IpcTransportKind.UnixDomainSocket,
+                Path.Combine(Path.GetTempPath(), "ucli-gui-supervisor.sock"));
     }
 
     public static async Task WriteManifestAsync<TManifest> (

@@ -39,7 +39,7 @@ public sealed class UnityDaemonIpcClientDispatchTests
         AssertUnityResponse(response, result.Response);
         var request = DaemonIpcDispatchAssert.SingleDispatchSentToEndpoint(
             transportClient,
-            "/tmp/ucli-session.sock",
+            Path.GetFullPath("/tmp/ucli-session.sock"),
             UnityIpcMethod.OpsRead,
             IpcSessionTokenTestFactory.Create("daemon-token").GetEncodedValue());
         Assert.Equal(CreateDispatchPayload().GetRawText(), request.Payload.GetRawText());

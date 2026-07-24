@@ -1,4 +1,3 @@
-using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Daemon.Common.Projection;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Observation;
@@ -17,7 +16,7 @@ internal static class DaemonListQueryServiceTestSupport
 
     public static AbsolutePath GuardedAbsolutePath (string path)
     {
-        return AbsolutePath.Resolve(AbsolutePath.Parse(Environment.CurrentDirectory), path);
+        return AbsolutePath.Parse(Path.GetFullPath(path));
     }
 
     public static RootRelativePath GuardedRelativePath (string path)

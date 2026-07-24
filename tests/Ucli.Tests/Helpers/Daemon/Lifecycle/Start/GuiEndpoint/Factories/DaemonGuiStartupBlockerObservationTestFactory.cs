@@ -29,6 +29,6 @@ internal static class DaemonGuiStartupBlockerObservationTestFactory
                 primaryDiagnostic),
             processId,
             processStartedAtUtc,
-            AbsolutePath.Parse(unityLogPath));
+            AbsolutePath.Parse(Path.GetFullPath(unityLogPath)));
     }
 }

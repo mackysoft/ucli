@@ -66,7 +66,7 @@ public sealed class DaemonListQueryServiceTests
             expectedTimeoutMilliseconds: 2500,
             expectedProjectRelativePath: "UnityProject",
             new DaemonListExecutionOutputAssert.RunningWorktreeItem(
-                WorktreePath: "/repo/wt-a",
+                WorktreePath: worktreeA.RepositoryRoot.Value,
                 BranchRef: null,
                 Head: "aaaaaaaa",
                 ProjectPath: worktreeA.UnityProjectRoot.Value,
@@ -77,7 +77,7 @@ public sealed class DaemonListQueryServiceTests
                 CanShutdownProcess: true,
                 EndpointAddress: "endpoint-a"),
             new DaemonListExecutionOutputAssert.RunningWorktreeItem(
-                WorktreePath: "/repo/wt-b",
+                WorktreePath: worktreeB.RepositoryRoot.Value,
                 BranchRef: "refs/heads/feature/worktree-b",
                 Head: "bbbbbbbb",
                 ProjectPath: worktreeB.UnityProjectRoot.Value,

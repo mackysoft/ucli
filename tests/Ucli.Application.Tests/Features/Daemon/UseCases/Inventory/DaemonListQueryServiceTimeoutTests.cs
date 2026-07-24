@@ -1,5 +1,4 @@
 using System.Net.Sockets;
-using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Observation;
@@ -303,7 +302,7 @@ public sealed class DaemonListQueryServiceTimeoutTests
         Assert.Equal(DaemonListCompletionReason.Timeout, output.CompletionReason);
         Assert.Equal(1, output.RemainingWorktreeCount);
         var item = Assert.Single(output.Items);
-        Assert.Equal("/repo/wt-a", item.WorktreePath);
+        Assert.Equal(worktreeA.RepositoryRoot.Value, item.WorktreePath);
         Assert.Equal(DaemonListItemState.Running, item.State);
     }
 

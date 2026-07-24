@@ -55,7 +55,7 @@ public sealed class UnityIpcRequestExecutorDaemonDispatchTests
             oneshotTransportClient,
             launcher,
             modeDecisionService,
-            "/tmp/ucli-session.sock");
+            Path.GetFullPath("/tmp/ucli-session.sock"));
     }
 
     [Fact]

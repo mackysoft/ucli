@@ -7,7 +7,7 @@ public sealed class SupervisorInvocationArgumentsTests
     [Trait("Size", "Small")]
     public void Build_ReturnsParserCompatibleArgumentSequence ()
     {
-        const string repositoryRoot = "/repo";
+        var repositoryRoot = ProjectPathTestValues.RepositoryRoot;
 
         var arguments = SupervisorInvocationArguments.Build(AbsolutePath.Parse(repositoryRoot));
 

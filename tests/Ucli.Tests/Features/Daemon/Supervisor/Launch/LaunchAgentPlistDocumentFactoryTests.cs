@@ -1,5 +1,5 @@
-using MackySoft.FileSystem;
 using System.Xml.Linq;
+using MackySoft.FileSystem;
 
 namespace MackySoft.Ucli.Tests.Supervisor;
 
@@ -10,8 +10,8 @@ public sealed class LaunchAgentPlistDocumentFactoryTests
     public void Build_WritesLaunchAgentPlistWithSupervisorInvocationArguments ()
     {
         const string label = "dev.mackysoft.ucli.supervisor.test";
-        const string storageRoot = "/repo";
-        const string logPath = "/repo/supervisor.log";
+        var storageRoot = ProjectPathTestValues.RepositoryRoot;
+        var logPath = Path.Combine(storageRoot, "supervisor.log");
         var launchCommand = new SupervisorLaunchCommand("ucli", ["--base"]);
 
         var absoluteStorageRoot = AbsolutePath.Parse(storageRoot);
@@ -45,8 +45,8 @@ public sealed class LaunchAgentPlistDocumentFactoryTests
     public void Build_EscapesXmlSpecialCharactersAsStructuredValues ()
     {
         const string label = "label<&>";
-        const string storageRoot = "/repo<&>";
-        const string logPath = "/repo/log<&>.txt";
+        var storageRoot = ProjectPathTestValues.RepositoryRoot + "&";
+        var logPath = Path.Combine(storageRoot, "log&.txt");
         var launchCommand = new SupervisorLaunchCommand("ucli<&>", ["--arg<&>"]);
 
         var absoluteStorageRoot = AbsolutePath.Parse(storageRoot);

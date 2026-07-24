@@ -9,7 +9,6 @@ public sealed class UnixSocketEndpointPathPolicyTests
     [Theory]
     [InlineData(null, PathValidationFailureKind.EmptyPath)]
     [InlineData("", PathValidationFailureKind.EmptyPath)]
-    [InlineData(" ", PathValidationFailureKind.ExpectedAbsolutePath)]
     [InlineData("relative.sock", PathValidationFailureKind.ExpectedAbsolutePath)]
     [Trait("Size", "Small")]
     public void Parse_WithInvalidAbsolutePath_ReturnsFactoryFailure (
@@ -18,6 +17,20 @@ public sealed class UnixSocketEndpointPathPolicyTests
     {
         var exception = Assert.Throws<PathValidationException>(() =>
             UnixSocketEndpointPathPolicy.Parse(address!));
+
+        Assert.Equal(expectedFailureKind, exception.Failure.Kind);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Parse_WithWhitespace_ReturnsCurrentPlatformFactoryFailure ()
+    {
+        var expectedFailureKind = OperatingSystem.IsWindows()
+            ? PathValidationFailureKind.InvalidPathFormat
+            : PathValidationFailureKind.ExpectedAbsolutePath;
+
+        var exception = Assert.Throws<PathValidationException>(() =>
+            UnixSocketEndpointPathPolicy.Parse(" "));
 
         Assert.Equal(expectedFailureKind, exception.Failure.Kind);
     }
