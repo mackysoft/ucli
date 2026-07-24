@@ -9,31 +9,6 @@ internal static class TestProcessRunner
 
     private static readonly Encoding StandardInputEncoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
 
-    public static async Task<TestProcessResult> RunRequiredAsync (
-        string fileName,
-        IReadOnlyList<string> arguments,
-        string workingDirectory,
-        IReadOnlyDictionary<string, string?>? environment = null,
-        string? standardInput = null,
-        TimeSpan? timeout = null,
-        CancellationToken cancellationToken = default)
-    {
-        TestProcessResult result = await RunAsync(
-            fileName,
-            arguments,
-            workingDirectory,
-            environment,
-            standardInput,
-            timeout,
-            cancellationToken);
-        Assert.True(
-            result.ExitCode == 0,
-            $"{fileName} {string.Join(" ", arguments)} failed in {workingDirectory} with exit code {result.ExitCode}." +
-            $"{Environment.NewLine}StdOut:{Environment.NewLine}{result.StdOut}" +
-            $"{Environment.NewLine}StdErr:{Environment.NewLine}{result.StdErr}");
-        return result;
-    }
-
     public static async Task<TestProcessResult> RunAsync (
         string fileName,
         IReadOnlyList<string> arguments,

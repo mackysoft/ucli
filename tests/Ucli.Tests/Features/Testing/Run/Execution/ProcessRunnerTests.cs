@@ -8,6 +8,10 @@ public sealed class ProcessRunnerTests
 
     private static readonly TimeSpan InheritedOutputHandleLifetime = TimeSpan.FromSeconds(1);
 
+    private static readonly TimeSpan RequiredOutputCompletionHandleLifetime = TimeSpan.FromSeconds(2);
+
+    private static readonly TimeSpan RequiredOutputCompletionTimeout = TimeSpan.FromMilliseconds(100);
+
     private static readonly TimeSpan NonResponsiveProcessStartupTimeout = TimeSpan.FromMilliseconds(200);
 
     private static readonly TimeSpan NonResponsiveProcessGraceTimeout = TimeSpan.FromMilliseconds(50);
@@ -195,9 +199,9 @@ public sealed class ProcessRunnerTests
         var result = await TestAwaiter.WaitAsync(
             runner.RunAsync(
                 CreateExitedProcessWithInheritedOutputHandleRequest(
-                    timeout: TimeSpan.FromMilliseconds(20),
+                    timeout: RequiredOutputCompletionTimeout,
                     outputDrainMode: ProcessOutputDrainMode.WaitForCompletion,
-                    childLifetime: TimeSpan.FromMilliseconds(100)),
+                    childLifetime: RequiredOutputCompletionHandleLifetime),
                 CancellationToken.None),
             "Process runner required output completion timeout result",
             SignalWaitTimeout);
