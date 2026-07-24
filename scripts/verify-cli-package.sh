@@ -70,6 +70,7 @@ tool_http_cache="$(mktemp -d "${temp_root%/}/ucli-tool-http-cache.XXXXXX")"
 tool_dotnet_home="$(mktemp -d "${temp_root%/}/ucli-tool-dotnet-home.XXXXXX")"
 tool_package_source="${verification_root}/tool-source"
 tool_nuget_config="${verification_root}/NuGet.config"
+provider_restore_project="${verification_root}/ProviderRestore.csproj"
 install_repo=""
 
 cleanup() {
@@ -118,13 +119,33 @@ cat > "${tool_nuget_config}" <<EOF
 </configuration>
 EOF
 
+cat > "${provider_restore_project}" <<EOF
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="${filesystem_package_id}" Version="[${filesystem_package_version}]" />
+    <PackageReference Include="MackySoft.Text.Vocabularies" Version="[${text_package_version}]" />
+    <PackageReference Include="MackySoft.Text.Vocabularies.Json" Version="[${text_package_version}]" />
+    <PackageReference Include="${canonicalization_package_id}" Version="[${canonicalization_package_version}]" />
+  </ItemGroup>
+</Project>
+EOF
+
 export DOTNET_CLI_HOME="${tool_dotnet_home}"
 export NUGET_HTTP_CACHE_PATH="${tool_http_cache}"
 export NUGET_PACKAGES="${tool_packages_root}"
 
-# Resolve the tool from the inspected package directory and an empty cache.
-# Foundation dependencies must therefore be satisfied by their public packages
-# or by the runtime closure intentionally embedded in the tool package.
+dotnet restore "${provider_restore_project}" \
+  --configfile "${tool_nuget_config}" \
+  --no-cache \
+  --force-evaluate \
+  --verbosity minimal
+
+# Resolve the tool from the inspected package directory and the isolated cache.
+# The tool package source is exact-mapped, so a different local package cannot
+# satisfy this smoke test.
 dotnet tool install \
   --tool-path "${tool_path}" \
   --configfile "${tool_nuget_config}" \

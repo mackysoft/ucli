@@ -110,7 +110,8 @@ contracts_package_id="MackySoft.Ucli.Contracts"
 infrastructure_package_id="MackySoft.Ucli.Infrastructure"
 contracts_csproj="${repository_root}/src/Ucli.Contracts/Ucli.Contracts.csproj"
 infrastructure_csproj="${repository_root}/src/Ucli.Infrastructure/Ucli.Infrastructure.csproj"
-external_text_package_ids=(
+external_foundation_package_ids=(
+  "MackySoft.Json.Canonicalization"
   "MackySoft.Text.Vocabularies"
   "MackySoft.Text.Vocabularies.Json"
 )
@@ -158,7 +159,7 @@ if [[ "${configured_filesystem_package_version}" != "${filesystem_package_versio
   exit 1
 fi
 
-for package_id in "${external_text_package_ids[@]}"; do
+for package_id in "${external_foundation_package_ids[@]}"; do
   package_version="$(read_package_version "${package_id}")"
   if [[ "${package_version}" != "${filesystem_package_version}" ]]; then
     echo "ERROR: ${package_id} must use fixed external version ${filesystem_package_version}. Actual: ${package_version}" >&2
@@ -179,6 +180,7 @@ find "${repository_local_package_source}" \
   -maxdepth 1 \
   -type f \
   \( -name "MackySoft.FileSystem.*.nupkg" \
+     -o -name "MackySoft.Json.Canonicalization.*.nupkg" \
      -o -name "MackySoft.Text.Vocabularies.*.nupkg" \
      -o -name "MackySoft.Text.Vocabularies.Json.*.nupkg" \) \
   -delete
@@ -212,6 +214,7 @@ cat > "${active_unity_nuget_config}" <<EOF
       <package pattern="ConsoleAppFramework*" />
       <package pattern="MackySoft.AgentSkills*" />
       <package pattern="MackySoft.FileSystem" />
+      <package pattern="MackySoft.Json.Canonicalization" />
       <package pattern="MackySoft.Text.Vocabularies" />
       <package pattern="MackySoft.Text.Vocabularies.Json" />
       <package pattern="Microsoft.*" />
