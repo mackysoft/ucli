@@ -102,6 +102,31 @@ done < <(
 
 restore_root="${temp_dir}/UnityProject"
 mkdir -p "${restore_root}/Assets"
+nuget_config_path="${temp_dir}/NuGet.config"
+escaped_package_dir="${package_dir//&/&amp;}"
+escaped_package_dir="${escaped_package_dir//\"/&quot;}"
+cat > "${nuget_config_path}" <<EOF
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+  <packageSources>
+    <clear />
+    <add key="LocalNuGet" value="${escaped_package_dir}" />
+    <add key="nuget.org" value="https://api.nuget.org/v3/index.json" />
+  </packageSources>
+  <packageSourceMapping>
+    <packageSource key="LocalNuGet">
+      <package pattern="MackySoft.Ucli.*" />
+    </packageSource>
+    <packageSource key="nuget.org">
+      <package pattern="MackySoft.Text.Vocabularies" />
+      <package pattern="MackySoft.Text.Vocabularies.Json" />
+      <package pattern="Microsoft.*" />
+      <package pattern="System.*" />
+    </packageSource>
+  </packageSourceMapping>
+</configuration>
+EOF
+
 cat > "${temp_dir}/packages.config" <<EOF
 <?xml version="1.0" encoding="utf-8"?>
 <packages>
@@ -111,7 +136,7 @@ EOF
 
 nuget restore "${temp_dir}/packages.config" \
   -PackagesDirectory "${restore_root}/Assets/Packages" \
-  -Source "${package_dir}" \
+  -ConfigFile "${nuget_config_path}" \
   -NoCache \
   -NonInteractive >/dev/null
 
