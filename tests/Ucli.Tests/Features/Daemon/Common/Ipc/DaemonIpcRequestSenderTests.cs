@@ -859,7 +859,7 @@ public sealed class DaemonIpcRequestSenderTests
         var requests = IpcRequestAssert.RetriedAtLeastOnce(transportClient);
         Assert.All(
             requests,
-            request => Assert.Equal(ContractLiteralCodec.ToValue(UnityIpcMethod.UnityLogsRead), request.Method));
+            request => Assert.Equal(TextVocabulary.GetText(UnityIpcMethod.UnityLogsRead), request.Method));
         var requestId = IpcRequestAssert.SingleRequestId(requests);
         Assert.NotEqual(Guid.Empty, requestId);
         var error = Assert.IsType<ExecutionError>(result.Error);

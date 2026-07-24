@@ -82,7 +82,7 @@ internal sealed class DaemonListCommand
                     projectRelativePath = output.ProjectRelativePath,
                     isComplete = output.IsComplete,
                     completionReason = output.CompletionReason.HasValue
-                        ? ContractLiteralCodec.ToValue(output.CompletionReason.Value)
+                        ? TextVocabulary.GetText(output.CompletionReason.Value)
                         : null,
                     remainingWorktreeCount = output.RemainingWorktreeCount,
                     items = output.Items.Select(DaemonCommandOutputProjector.ToListItem).ToArray(),

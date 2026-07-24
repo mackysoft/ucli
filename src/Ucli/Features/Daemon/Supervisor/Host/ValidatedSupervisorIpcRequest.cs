@@ -21,12 +21,12 @@ internal sealed class ValidatedSupervisorIpcRequest : IIpcRequestCorrelation
             throw new ArgumentException("Request id must not be empty.", nameof(requestId));
         }
 
-        if (!ContractLiteralCodec.IsDefined(method))
+        if (!TextVocabulary.IsDefined(method))
         {
             throw new ArgumentOutOfRangeException(nameof(method), method, "Supervisor IPC method must be defined.");
         }
 
-        if (!ContractLiteralCodec.IsDefined(responseMode))
+        if (!TextVocabulary.IsDefined(responseMode))
         {
             throw new ArgumentOutOfRangeException(nameof(responseMode), responseMode, "IPC response mode must be defined.");
         }

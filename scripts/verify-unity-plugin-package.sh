@@ -85,8 +85,15 @@ fi
 
 while IFS=$'\t' read -r dependency_id dependency_version; do
   [[ -n "${dependency_id}" ]] || continue
-  if ! grep -F "<dependency id=\"${dependency_id}\" version=\"${dependency_version}\" />" "${nuspec_path}" >/dev/null; then
-    echo "Unity package nuspec is missing dependency ${dependency_id} ${dependency_version}." >&2
+  expected_nuspec_version="${dependency_version}"
+  case "${dependency_id}" in
+    MackySoft.Text.Vocabularies|MackySoft.Text.Vocabularies.Json)
+      expected_nuspec_version="[${dependency_version}]"
+      ;;
+  esac
+
+  if ! grep -F "<dependency id=\"${dependency_id}\" version=\"${expected_nuspec_version}\" />" "${nuspec_path}" >/dev/null; then
+    echo "Unity package nuspec is missing dependency ${dependency_id} ${expected_nuspec_version}." >&2
     exit 1
   fi
 done < <(
@@ -95,16 +102,46 @@ done < <(
 
 restore_root="${temp_dir}/UnityProject"
 mkdir -p "${restore_root}/Assets"
-cat > "${temp_dir}/packages.config" <<EOF
+nuget_config_path="${temp_dir}/NuGet.config"
+escaped_package_dir="${package_dir//&/&amp;}"
+escaped_package_dir="${escaped_package_dir//\"/&quot;}"
+cat > "${nuget_config_path}" <<EOF
 <?xml version="1.0" encoding="utf-8"?>
-<packages>
-  <package id="${package_id}" version="${expected_version}" targetFramework="netstandard2.1" />
-</packages>
+<configuration>
+  <packageSources>
+    <clear />
+    <add key="LocalNuGet" value="${escaped_package_dir}" />
+    <add key="nuget.org" value="https://api.nuget.org/v3/index.json" />
+  </packageSources>
+  <packageSourceMapping>
+    <packageSource key="LocalNuGet">
+      <package pattern="MackySoft.Ucli.*" />
+    </packageSource>
+    <packageSource key="nuget.org">
+      <package pattern="MackySoft.Text.Vocabularies" />
+      <package pattern="MackySoft.Text.Vocabularies.Json" />
+      <package pattern="Microsoft.*" />
+      <package pattern="NETStandard.Library" />
+      <package pattern="Newtonsoft.Json" />
+      <package pattern="System.*" />
+      <package pattern="runtime.*" />
+    </packageSource>
+  </packageSourceMapping>
+</configuration>
 EOF
+
+{
+  printf '%s\n' \
+    '<?xml version="1.0" encoding="utf-8"?>' \
+    '<packages>' \
+    "  <package id=\"${package_id}\" version=\"${expected_version}\" targetFramework=\"netstandard2.1\" />"
+  sed -nE '/^[[:space:]]*<package /p' "${unity_packages_config}"
+  printf '%s\n' '</packages>'
+} > "${temp_dir}/packages.config"
 
 nuget restore "${temp_dir}/packages.config" \
   -PackagesDirectory "${restore_root}/Assets/Packages" \
-  -Source "${package_dir}" \
+  -ConfigFile "${nuget_config_path}" \
   -NoCache \
   -NonInteractive >/dev/null
 
@@ -113,5 +150,16 @@ if [[ ! -f "${restored_marker_path}" ]]; then
   echo "Restored Unity package marker was not found: ${restored_marker_path}" >&2
   exit 1
 fi
+
+while IFS=$'\t' read -r restored_package_id restored_package_version; do
+  [[ -n "${restored_package_id}" ]] || continue
+  restored_package_path="${restore_root}/Assets/Packages/${restored_package_id}.${restored_package_version}"
+  if [[ ! -d "${restored_package_path}" ]]; then
+    echo "Unity package dependency was not restored: ${restored_package_id} ${restored_package_version}" >&2
+    exit 1
+  fi
+done < <(
+  sed -nE 's#.*<package id="([^"]+)" version="([^"]+)".*#\1\t\2#p' "${temp_dir}/packages.config"
+)
 
 echo "Unity package verification passed: ${package_path}"

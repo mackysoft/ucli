@@ -493,7 +493,7 @@ internal sealed class ReadyService : IReadyService
         ReadyReadIndexObservation readIndexObservation)
     {
         var claimId = ReadyClaimCodes.ForTarget(target);
-        var targetValue = ContractLiteralCodec.ToValue(target);
+        var targetValue = TextVocabulary.GetText(target);
         var requestedModeValue = AssuranceExecutionModeCodec.ToRequestedMode(requestedMode);
         var resolvedMode = ResolveResolvedMode(target, executionTarget);
         var sessionKind = ResolveSessionKind(target, executionTarget);
@@ -516,8 +516,8 @@ internal sealed class ReadyService : IReadyService
             {
                 ["kind"] = "unityReady",
                 ["target"] = targetValue,
-                ["requestedMode"] = ContractLiteralCodec.ToValue(requestedModeValue),
-                ["resolvedMode"] = ContractLiteralCodec.ToValue(resolvedMode),
+                ["requestedMode"] = TextVocabulary.GetText(requestedModeValue),
+                ["resolvedMode"] = TextVocabulary.GetText(resolvedMode),
                 ["sessionKind"] = sessionKind,
             },
             Validity: validity,
@@ -641,7 +641,7 @@ internal sealed class ReadyService : IReadyService
         ReadyTarget target,
         AssuranceClaimStatus claimStatus)
     {
-        var targetValue = ContractLiteralCodec.ToValue(target);
+        var targetValue = TextVocabulary.GetText(target);
         return claimStatus == AssuranceClaimStatus.Passed
             ? $"Unity is ready for {targetValue}."
             : $"Unity readiness for {targetValue} is not guaranteed.";

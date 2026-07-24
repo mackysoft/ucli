@@ -808,7 +808,7 @@ public sealed class SupervisorTransportServerTests
             sessionToken: "session-token",
             method: method,
             payload: IpcPayloadCodec.SerializeToElement(new { }),
-            responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single),
+            responseMode: TextVocabulary.GetText(IpcResponseMode.Single),
                 requestDeadlineUtc: DateTimeOffset.MaxValue,
                 requestDeadlineRemainingMilliseconds: int.MaxValue);
     }

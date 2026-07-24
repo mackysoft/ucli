@@ -15,7 +15,7 @@ internal sealed record ReadyCommandInput
         bool IsReadIndexModeSpecified,
         bool FailFast)
     {
-        if (!ContractLiteralCodec.IsDefined(Target))
+        if (!TextVocabulary.IsDefined(Target))
         {
             throw new ArgumentOutOfRangeException(nameof(Target), Target, "Ready target must be defined.");
         }

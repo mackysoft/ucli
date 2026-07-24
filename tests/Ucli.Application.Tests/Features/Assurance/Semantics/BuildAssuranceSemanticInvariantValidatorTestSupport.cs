@@ -28,14 +28,14 @@ internal static class BuildAssuranceSemanticInvariantValidatorTestSupport
 
     private static readonly IReadOnlyList<object> BuildPipelineVerifierEffects =
     [
-        ContractLiteralCodec.ToValue(AssuranceEffect.UnityLifecycleRead),
-        ContractLiteralCodec.ToValue(AssuranceEffect.UnityBuildPipeline),
-        ContractLiteralCodec.ToValue(AssuranceEffect.UnityBuildReportRead),
-        ContractLiteralCodec.ToValue(AssuranceEffect.UnityLogWindowRead),
-        ContractLiteralCodec.ToValue(AssuranceEffect.UcliArtifactWrite),
-        ContractLiteralCodec.ToValue(AssuranceEffect.OutputManifestWrite),
-        ContractLiteralCodec.ToValue(AssuranceEffect.GenerationSnapshot),
-        ContractLiteralCodec.ToValue(AssuranceEffect.ProjectMutationAudit),
+        TextVocabulary.GetText(AssuranceEffect.UnityLifecycleRead),
+        TextVocabulary.GetText(AssuranceEffect.UnityBuildPipeline),
+        TextVocabulary.GetText(AssuranceEffect.UnityBuildReportRead),
+        TextVocabulary.GetText(AssuranceEffect.UnityLogWindowRead),
+        TextVocabulary.GetText(AssuranceEffect.UcliArtifactWrite),
+        TextVocabulary.GetText(AssuranceEffect.OutputManifestWrite),
+        TextVocabulary.GetText(AssuranceEffect.GenerationSnapshot),
+        TextVocabulary.GetText(AssuranceEffect.ProjectMutationAudit),
     ];
 
     public static AssuranceSemanticInvariantValidationResult ValidateBuildPayload (string payload)

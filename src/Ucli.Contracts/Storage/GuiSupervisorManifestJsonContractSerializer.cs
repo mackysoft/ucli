@@ -33,7 +33,7 @@ internal static class GuiSupervisorManifestJsonContractSerializer
             throw new JsonException("GUI supervisor manifest sessionToken is invalid.");
         }
 
-        if (!ContractLiteralCodec.TryParse<IpcTransportKind>(
+        if (!TextVocabulary.TryGetValue<IpcTransportKind>(
                 persistedContract.EndpointTransportKind,
                 out var transportKind))
         {
@@ -87,7 +87,7 @@ internal static class GuiSupervisorManifestJsonContractSerializer
             contract.SchemaVersion,
             contract.SessionToken.GetEncodedValue(),
             contract.ProjectFingerprint,
-            ContractLiteralCodec.ToValue(contract.Endpoint.TransportKind),
+            TextVocabulary.GetText(contract.Endpoint.TransportKind),
             contract.Endpoint.Address,
             contract.ProcessId,
             contract.ProcessStartedAtUtc,

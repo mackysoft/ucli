@@ -14,8 +14,8 @@ internal static class PlayTransitionPayloadProjector
     {
         ArgumentNullException.ThrowIfNull(transition);
 
-        var transitionLiteral = ContractLiteralCodec.ToValue(transition.Transition);
-        var resultLiteral = ContractLiteralCodec.ToValue(transition.Result);
+        var transitionLiteral = TextVocabulary.GetText(transition.Transition);
+        var resultLiteral = TextVocabulary.GetText(transition.Result);
 
         return transition.Result switch
         {
@@ -35,7 +35,7 @@ internal static class PlayTransitionPayloadProjector
                 result = resultLiteral,
                 transition.Before,
                 transition.Observed,
-                applicationState = ContractLiteralCodec.ToValue(transition.ApplicationState!.Value),
+                applicationState = TextVocabulary.GetText(transition.ApplicationState!.Value),
             },
             _ => throw new ArgumentOutOfRangeException(nameof(PlayTransitionOutput.Result), transition.Result, null),
         };

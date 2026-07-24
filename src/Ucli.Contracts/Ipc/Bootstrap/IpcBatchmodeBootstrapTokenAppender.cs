@@ -9,7 +9,7 @@ internal static class IpcBatchmodeBootstrapTokenAppender
         IList<string> destination,
         IpcDaemonBootstrapArguments arguments)
     {
-        Add(destination, IpcBatchmodeBootstrapArgumentNames.Target, ContractLiteralCodec.ToValue(IpcBootstrapTarget.Daemon));
+        Add(destination, IpcBatchmodeBootstrapArgumentNames.Target, TextVocabulary.GetText(IpcBootstrapTarget.Daemon));
         Add(destination, IpcDaemonBootstrapArgumentNames.RepositoryRoot, arguments.RepositoryRoot);
         Add(destination, IpcBatchmodeBootstrapArgumentNames.ProjectFingerprint, arguments.ProjectFingerprint.ToString());
         Add(destination, IpcDaemonBootstrapArgumentNames.SessionPath, arguments.SessionPath);
@@ -22,7 +22,7 @@ internal static class IpcBatchmodeBootstrapTokenAppender
         IList<string> destination,
         IpcOneshotBootstrapArguments arguments)
     {
-        Add(destination, IpcBatchmodeBootstrapArgumentNames.Target, ContractLiteralCodec.ToValue(IpcBootstrapTarget.Oneshot));
+        Add(destination, IpcBatchmodeBootstrapArgumentNames.Target, TextVocabulary.GetText(IpcBootstrapTarget.Oneshot));
         Add(destination, IpcOneshotBootstrapArgumentNames.BootstrapId, arguments.BootstrapId.ToString("D"));
     }
 
@@ -30,7 +30,7 @@ internal static class IpcBatchmodeBootstrapTokenAppender
         IList<string> destination,
         IpcEndpoint endpoint)
     {
-        Add(destination, IpcEndpointBootstrapArgumentNames.TransportKind, ContractLiteralCodec.ToValue(endpoint.TransportKind));
+        Add(destination, IpcEndpointBootstrapArgumentNames.TransportKind, TextVocabulary.GetText(endpoint.TransportKind));
         Add(destination, IpcEndpointBootstrapArgumentNames.Address, endpoint.Address);
     }
 

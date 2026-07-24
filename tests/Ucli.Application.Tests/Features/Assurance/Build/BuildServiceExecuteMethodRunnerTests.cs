@@ -116,10 +116,10 @@ public sealed class BuildServiceExecuteMethodRunnerTests
         Assert.Equal("executeMethod", artifactStore.WrittenMetadata!.Runner.GetProperty("kind").GetString());
         Assert.Equal(JsonValueKind.Null, artifactStore.WrittenMetadata.Runner.GetProperty("outputLayout").ValueKind);
         Assert.Equal(
-            ContractLiteralCodec.ToValue(output.Build.RunnerResult.Source),
+            TextVocabulary.GetText(output.Build.RunnerResult.Source),
             artifactStore.WrittenMetadata.RunnerResult.GetProperty("source").GetString());
         Assert.Equal(
-            ContractLiteralCodec.ToValue(output.Build.RunnerResult.Status),
+            TextVocabulary.GetText(output.Build.RunnerResult.Status),
             artifactStore.WrittenMetadata.RunnerResult.GetProperty("status").GetString());
         Assert.Equal(
             ["UCLI_MODE"],

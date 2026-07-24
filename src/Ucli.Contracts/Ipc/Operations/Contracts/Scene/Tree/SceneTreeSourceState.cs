@@ -12,7 +12,7 @@ public sealed record SceneTreeSourceState
         SceneTreeSourceStateKind kind,
         bool isDirty)
     {
-        if (!ContractLiteralCodec.IsDefined(kind))
+        if (!TextVocabulary.IsDefined(kind))
         {
             throw new ArgumentOutOfRangeException(nameof(kind), kind, "Scene tree source kind must be specified.");
         }
@@ -23,7 +23,7 @@ public sealed record SceneTreeSourceState
 
     [UcliRequired]
     [UcliDescription("Source kind used to build the scene tree. Values are temporaryScene, loadedScene, persistedPreview, and readIndex.")]
-    [JsonConverter(typeof(SceneTreeSourceStateKindJsonConverter))]
+    [JsonConverter(typeof(VocabularyJsonConverterFactory))]
     public SceneTreeSourceStateKind Kind { get; }
 
     [UcliRequired]

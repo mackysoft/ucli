@@ -40,10 +40,10 @@ public sealed class DaemonStartServicePluginVerificationTests
             context.Context.UnityProject.UnityProjectRoot);
         EventSequenceAssert.EmittedEventsInOrder(
             progressSink.Entries,
-            ContractLiteralCodec.ToValue(DaemonStartProgressEvent.Started),
-            ContractLiteralCodec.ToValue(DaemonStartProgressEvent.PluginVerificationStarted),
-            ContractLiteralCodec.ToValue(DaemonStartProgressEvent.PluginVerificationCompleted),
-            ContractLiteralCodec.ToValue(DaemonStartProgressEvent.Completed));
+            TextVocabulary.GetText(DaemonStartProgressEvent.Started),
+            TextVocabulary.GetText(DaemonStartProgressEvent.PluginVerificationStarted),
+            TextVocabulary.GetText(DaemonStartProgressEvent.PluginVerificationCompleted),
+            TextVocabulary.GetText(DaemonStartProgressEvent.Completed));
         DaemonStartProgressAssert.PluginVerificationFailurePayloads(
             progressSink,
             expectedErrorCode: "INVALID_ARGUMENT");

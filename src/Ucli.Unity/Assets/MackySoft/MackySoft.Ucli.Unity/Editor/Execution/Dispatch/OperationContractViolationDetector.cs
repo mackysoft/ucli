@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using MackySoft.Text.Vocabularies;
+using TextVocabulary = MackySoft.Text.Vocabularies.Vocabulary;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -78,8 +80,8 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
                 AddContractViolation(
                     violations,
                     trace,
-                    expectedFact: "assurance.touchedKinds=[" + string.Join(",", contracts.TouchedKinds.Select(static kind => ContractLiteralCodec.ToValue(kind))) + "]",
-                    observedResult: "opResults[].touched[].kind=" + ContractLiteralCodec.ToValue(touchedKind));
+                    expectedFact: "assurance.touchedKinds=[" + string.Join(",", contracts.TouchedKinds.Select(static kind => TextVocabulary.GetText(kind))) + "]",
+                    observedResult: "opResults[].touched[].kind=" + TextVocabulary.GetText(touchedKind));
             }
         }
 

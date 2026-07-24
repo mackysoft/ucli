@@ -17,10 +17,10 @@ internal static class SupervisorProjectGatewayAssert
         Assert.Collection(
             progressSink.Entries,
             static entry => Assert.Equal(
-                ContractLiteralCodec.ToValue(DaemonStartProgressEvent.SupervisorBootstrapStarted),
+                TextVocabulary.GetText(DaemonStartProgressEvent.SupervisorBootstrapStarted),
                 entry.EventName),
             static entry => Assert.Equal(
-                ContractLiteralCodec.ToValue(DaemonStartProgressEvent.SupervisorBootstrapCompleted),
+                TextVocabulary.GetText(DaemonStartProgressEvent.SupervisorBootstrapCompleted),
                 entry.EventName));
         var completedEntry = Assert.IsType<DaemonStartProgressEntry>(progressSink.Entries[^1].Payload);
         Assert.Equal(CommandProgressResult.Failed, completedEntry.Result);

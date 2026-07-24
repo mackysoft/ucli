@@ -1,13 +1,13 @@
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Stop;
 
 /// <summary> Defines daemon stop operation outcomes. </summary>
+[VocabularyDefinition]
 internal enum DaemonStopStatus
 {
-    [UcliContractLiteral("stopped")]
+    [VocabularyText("stopped")]
     Stopped = 0,
 
-    [UcliContractLiteral("notRunning")]
+    [VocabularyText("notRunning")]
     NotRunning = 1,
 }

@@ -68,10 +68,10 @@ public sealed class DaemonStartServiceFailureTests
         Assert.Equal("start failed", error.Message);
         EventSequenceAssert.EmittedEventsInOrder(
             progressSink.Entries,
-            ContractLiteralCodec.ToValue(DaemonStartProgressEvent.Started),
-            ContractLiteralCodec.ToValue(DaemonStartProgressEvent.PluginVerificationStarted),
-            ContractLiteralCodec.ToValue(DaemonStartProgressEvent.PluginVerificationCompleted),
-            ContractLiteralCodec.ToValue(DaemonStartProgressEvent.Completed));
+            TextVocabulary.GetText(DaemonStartProgressEvent.Started),
+            TextVocabulary.GetText(DaemonStartProgressEvent.PluginVerificationStarted),
+            TextVocabulary.GetText(DaemonStartProgressEvent.PluginVerificationCompleted),
+            TextVocabulary.GetText(DaemonStartProgressEvent.Completed));
         DaemonStartProgressAssert.CompletedWithStartupFailure(
             progressSink,
             ExecutionErrorCodes.IpcTimeout.Value);

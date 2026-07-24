@@ -363,7 +363,7 @@ public sealed class DaemonSessionStoreTests
         var sessionPath = UcliStoragePathResolver.ResolveSessionPath(scope.FullPath, requestedFingerprint);
         Directory.CreateDirectory(Path.GetDirectoryName(sessionPath)!);
         var json = Serialize(session);
-        var editorModeProperty = $"\"editorMode\": \"{ContractLiteralCodec.ToValue(session.EditorMode)}\"";
+        var editorModeProperty = $"\"editorMode\": \"{TextVocabulary.GetText(session.EditorMode)}\"";
         Assert.Contains(editorModeProperty, json, StringComparison.Ordinal);
         await File.WriteAllTextAsync(
             sessionPath,

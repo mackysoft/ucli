@@ -360,13 +360,13 @@ public sealed class IpcExecuteContractSerializationTests
             .HasProperty("opResults", 0, opResult => opResult
                 .HasString("opId", "op-1")
                 .HasString("op", UcliPrimitiveOperationNames.Resolve)
-                .HasString("phase", ContractLiteralCodec.ToValue(IpcExecuteOperationPhase.Call))
+                .HasString("phase", TextVocabulary.GetText(IpcExecuteOperationPhase.Call))
                 .HasBoolean("applied", true)
                 .HasBoolean("changed", true)
                 .HasArrayLength("touched", 1)
                 .HasArrayLength("diagnostics", 0)
                 .HasProperty("touched", 0, touched => touched
-                    .HasString("kind", ContractLiteralCodec.ToValue(UcliTouchedResourceKind.Scene))
+                    .HasString("kind", TextVocabulary.GetText(UcliTouchedResourceKind.Scene))
                     .HasString("path", "Assets/Scenes/Main.unity")
                     .HasString("assetGuid", "11111111-1111-1111-1111-111111111111")));
     }
@@ -452,7 +452,7 @@ public sealed class IpcExecuteContractSerializationTests
                 .HasString("operation", UcliPrimitiveOperationNames.ProjectRefresh)
                 .HasString("expectedFact", "assurance.mayDirty=false")
                 .HasString("observedResult", "opResults[].changed=true")
-                .HasString("applicationState", ContractLiteralCodec.ToValue(IpcApplicationState.Indeterminate)));
+                .HasString("applicationState", TextVocabulary.GetText(IpcApplicationState.Indeterminate)));
 
         var roundTrip = JsonSerializer.Deserialize<IpcExecuteResponse>(
             jsonElement.GetRawText(),
@@ -516,15 +516,15 @@ public sealed class IpcExecuteContractSerializationTests
         JsonAssert.For(json)
             .HasString("opId", "resolve")
             .HasString("op", UcliPrimitiveOperationNames.Resolve)
-            .HasString("phase", ContractLiteralCodec.ToValue(IpcExecuteOperationPhase.Plan))
+            .HasString("phase", TextVocabulary.GetText(IpcExecuteOperationPhase.Plan))
             .HasBoolean("applied", false)
             .HasBoolean("changed", false)
             .HasArrayLength("touched", 0)
             .HasArrayLength("diagnostics", 1)
             .HasProperty("diagnostics", 0, diagnostic => diagnostic
                 .HasString("code", "HIERARCHY_PATH_UNREPRESENTABLE_OBJECTS")
-                .HasString("severity", ContractLiteralCodec.ToValue(UcliDiagnosticSeverity.Warning))
-                .HasString("coverageImpact", ContractLiteralCodec.ToValue(IpcExecuteDiagnosticCoverageImpact.Partial))
+                .HasString("severity", TextVocabulary.GetText(UcliDiagnosticSeverity.Warning))
+                .HasString("coverageImpact", TextVocabulary.GetText(IpcExecuteDiagnosticCoverageImpact.Partial))
                 .HasString("message", "Scene query skipped GameObjects whose names contain '/'."))
             .HasProperty("result", result => result
                 .HasString("globalObjectId", GlobalObjectIdText));
@@ -717,10 +717,10 @@ public sealed class IpcExecuteContractSerializationTests
             .HasProperty("readPostcondition", readPostcondition => readPostcondition
                 .HasArrayLength("requirements", 2)
                 .HasProperty("requirements", 0, requirement => requirement
-                    .HasString("surface", ContractLiteralCodec.ToValue(IpcExecuteReadPostconditionSurface.AssetSearch))
+                    .HasString("surface", TextVocabulary.GetText(IpcExecuteReadPostconditionSurface.AssetSearch))
                     .HasString("minSafeGeneratedAtUtc", "2026-04-23T00:00:00+00:00"))
                 .HasProperty("requirements", 1, requirement => requirement
-                    .HasString("surface", ContractLiteralCodec.ToValue(IpcExecuteReadPostconditionSurface.SceneTreeLite))
+                    .HasString("surface", TextVocabulary.GetText(IpcExecuteReadPostconditionSurface.SceneTreeLite))
                     .HasString("scenePath", "Assets/Scenes/Main.unity")
                     .HasString("minSafeGeneratedAtUtc", "2026-04-23T00:00:00+00:00")));
         Assert.False(json.GetProperty("readPostcondition").GetProperty("requirements")[0].TryGetProperty("scenePath", out _));
@@ -786,17 +786,17 @@ public sealed class IpcExecuteContractSerializationTests
                 .HasArrayLength("steps", 2)
                 .HasProperty("steps", 0, step => step
                     .HasString("opId", "edit-1")
-                    .HasString("sourceKind", ContractLiteralCodec.ToValue(IpcExecutePostReadSourceKind.Edit))
+                    .HasString("sourceKind", TextVocabulary.GetText(IpcExecutePostReadSourceKind.Edit))
                     .HasBoolean("playModeMutation", false)
-                    .HasString("commit", ContractLiteralCodec.ToValue(IpcExecutePostReadCommit.Context))
+                    .HasString("commit", TextVocabulary.GetText(IpcExecutePostReadCommit.Context))
                     .HasBoolean("persistenceExpected", true)
-                    .HasString("expectedPostState", ContractLiteralCodec.ToValue(IpcExecuteExpectedPostState.Deterministic)))
+                    .HasString("expectedPostState", TextVocabulary.GetText(IpcExecuteExpectedPostState.Deterministic)))
                 .HasProperty("steps", 1, step => step
                     .HasString("opId", "op-1")
-                    .HasString("sourceKind", ContractLiteralCodec.ToValue(IpcExecutePostReadSourceKind.Operation))
+                    .HasString("sourceKind", TextVocabulary.GetText(IpcExecutePostReadSourceKind.Operation))
                     .IsNull("commit")
                     .HasBoolean("persistenceExpected", false)
-                    .HasString("expectedPostState", ContractLiteralCodec.ToValue(IpcExecuteExpectedPostState.Unavailable))));
+                    .HasString("expectedPostState", TextVocabulary.GetText(IpcExecuteExpectedPostState.Unavailable))));
     }
 
     [Fact]
@@ -835,7 +835,7 @@ public sealed class IpcExecuteContractSerializationTests
                 .HasString("operation", UcliPrimitiveOperationNames.SceneQuery)
                 .HasString("expectedFact", "operation.kind=query")
                 .HasString("observedResult", "opResults[].applied=true")
-                .HasString("applicationState", ContractLiteralCodec.ToValue(IpcApplicationState.Applied)));
+                .HasString("applicationState", TextVocabulary.GetText(IpcApplicationState.Applied)));
     }
 
     [Fact]

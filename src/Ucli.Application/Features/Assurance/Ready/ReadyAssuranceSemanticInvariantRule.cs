@@ -34,7 +34,7 @@ internal sealed class ReadyAssuranceSemanticInvariantRule : IAssuranceClaimInvar
             return;
         }
 
-        var hasDefinedKind = ContractLiteralCodec.TryParse(kindLiteral, out ReadyValidityKind kind);
+        var hasDefinedKind = TextVocabulary.TryGetValue(kindLiteral, out ReadyValidityKind kind);
         if (!hasDefinedKind)
         {
             AddViolation(violations, BuildPropertyPath(validityPath, "kind"), "Ready claim validity kind must be sessionBound or probeOnly.");
@@ -63,13 +63,13 @@ internal sealed class ReadyAssuranceSemanticInvariantRule : IAssuranceClaimInvar
     {
         return payload.TryGetProperty("requestedMode", out var requestedModeElement)
             && requestedModeElement.ValueKind == JsonValueKind.String
-            && ContractLiteralCodec.TryParse(
+            && TextVocabulary.TryGetValue(
                 requestedModeElement.GetString(),
                 out AssuranceRequestedExecutionMode requestedMode)
             && requestedMode == AssuranceRequestedExecutionMode.Auto
             && payload.TryGetProperty("resolvedMode", out var resolvedModeElement)
             && resolvedModeElement.ValueKind == JsonValueKind.String
-            && ContractLiteralCodec.TryParse(
+            && TextVocabulary.TryGetValue(
                 resolvedModeElement.GetString(),
                 out AssuranceResolvedExecutionMode resolvedMode)
             && resolvedMode == AssuranceResolvedExecutionMode.Oneshot;

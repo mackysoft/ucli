@@ -13,7 +13,7 @@ public sealed record CsEvalReturnValue
         CsEvalReturnValueKind kind,
         JsonElement? value)
     {
-        if (!ContractLiteralCodec.IsDefined(kind))
+        if (!TextVocabulary.IsDefined(kind))
         {
             throw new ArgumentOutOfRangeException(nameof(kind), kind, "C# eval return value kind must be specified.");
         }

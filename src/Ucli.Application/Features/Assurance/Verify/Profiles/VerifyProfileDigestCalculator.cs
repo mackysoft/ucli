@@ -21,16 +21,16 @@ internal static class VerifyProfileDigestCalculator
 
         var canonical = new
         {
-            source = ContractLiteralCodec.ToValue(profile.Source),
+            source = TextVocabulary.GetText(profile.Source),
             name = profile.Name,
             path = profile.RepositoryRelativePath,
             steps = profile.Steps.Select(static step => new
             {
-                kind = ContractLiteralCodec.ToValue(step.Kind),
+                kind = TextVocabulary.GetText(step.Kind),
                 required = step.Required,
-                effects = step.Effects.Select(static effect => ContractLiteralCodec.ToValue(effect)).ToArray(),
+                effects = step.Effects.Select(static effect => TextVocabulary.GetText(effect)).ToArray(),
                 readyTarget = step.ReadyTarget.HasValue
-                    ? ContractLiteralCodec.ToValue(step.ReadyTarget.Value)
+                    ? TextVocabulary.GetText(step.ReadyTarget.Value)
                     : null,
                 testPlatform = step.TestPlatform.HasValue
                     ? MackySoft.Ucli.Contracts.Testing.TestRunPlatformCodec.ToValue(step.TestPlatform.Value)

@@ -21,12 +21,12 @@ public sealed record BuildDiagnosticEntry
             throw new ArgumentException("Run id must not be empty.", nameof(RunId));
         }
 
-        if (!ContractLiteralCodec.IsDefined(Severity))
+        if (!TextVocabulary.IsDefined(Severity))
         {
             throw new ArgumentOutOfRangeException(nameof(Severity), Severity, "Build diagnostic severity must be specified.");
         }
 
-        if (!ContractLiteralCodec.IsDefined(Phase))
+        if (!TextVocabulary.IsDefined(Phase))
         {
             throw new ArgumentOutOfRangeException(nameof(Phase), Phase, "Build diagnostic phase must be specified.");
         }

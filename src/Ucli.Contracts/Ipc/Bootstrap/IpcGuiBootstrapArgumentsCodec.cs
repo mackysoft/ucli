@@ -32,7 +32,7 @@ public static class IpcGuiBootstrapArgumentsCodec
         }
 
         destination.Add(IpcGuiBootstrapArgumentNames.Target);
-        destination.Add(ContractLiteralCodec.ToValue(IpcBootstrapTarget.Daemon));
+        destination.Add(TextVocabulary.GetText(IpcBootstrapTarget.Daemon));
         destination.Add(IpcGuiBootstrapArgumentNames.OwnerProcessId);
         destination.Add(arguments.OwnerProcessId.ToString(CultureInfo.InvariantCulture));
         destination.Add(IpcGuiBootstrapArgumentNames.CanShutdownProcess);
@@ -169,7 +169,7 @@ public static class IpcGuiBootstrapArgumentsCodec
         string target,
         out IpcGuiBootstrapParseError error)
     {
-        if (ContractLiteralCodec.TryParse<IpcBootstrapTarget>(target, out var bootstrapTarget)
+        if (TextVocabulary.TryGetValue<IpcBootstrapTarget>(target, out var bootstrapTarget)
             && bootstrapTarget == IpcBootstrapTarget.Daemon)
         {
             error = IpcGuiBootstrapParseError.None;

@@ -27,7 +27,7 @@ internal sealed class IndexSceneTreeLiteLookupJsonContractWriter : IndexJsonCont
         WriteNullableString(writer, "name", node.Name);
         WriteNullableString(writer, "globalObjectId", node.GlobalObjectId);
         WriteArray(writer, "children", node.Children, WriteSceneTreeLiteNode);
-        writer.WriteString("childrenState", ContractLiteralCodec.ToValue(node.ChildrenState));
+        writer.WriteString("childrenState", TextVocabulary.GetText(node.ChildrenState));
         writer.WriteEndObject();
     }
 }

@@ -20,7 +20,7 @@ internal sealed record LogsReadServiceResult
         LogsReadCompletionReason completionReason)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(count);
-        if (!ContractLiteralCodec.IsDefined(completionReason))
+        if (!TextVocabulary.IsDefined(completionReason))
         {
             throw new ArgumentOutOfRangeException(nameof(completionReason), completionReason, "Log read completion reason must be specified.");
         }

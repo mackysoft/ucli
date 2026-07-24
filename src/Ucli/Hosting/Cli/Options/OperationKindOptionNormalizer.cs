@@ -16,12 +16,12 @@ internal static class OperationKindOptionNormalizer
             return OperationKindOptionNormalizationResult.Success(kind: null);
         }
 
-        if (ContractLiteralInputParser.TryParseIgnoreCase<UcliOperationKind>(optionValue, out var kind))
+        if (VocabularyInputParser.TryParseIgnoreCase<UcliOperationKind>(optionValue, out var kind))
         {
             return OperationKindOptionNormalizationResult.Success(kind);
         }
 
         return OperationKindOptionNormalizationResult.Failure(ExecutionError.InvalidArgument(
-            $"kind must be one of '{ContractLiteralCodec.ToValue(UcliOperationKind.Query)}', '{ContractLiteralCodec.ToValue(UcliOperationKind.Mutation)}', '{ContractLiteralCodec.ToValue(UcliOperationKind.Command)}'. Actual: {optionValue}."));
+            $"kind must be one of '{TextVocabulary.GetText(UcliOperationKind.Query)}', '{TextVocabulary.GetText(UcliOperationKind.Mutation)}', '{TextVocabulary.GetText(UcliOperationKind.Command)}'. Actual: {optionValue}."));
     }
 }

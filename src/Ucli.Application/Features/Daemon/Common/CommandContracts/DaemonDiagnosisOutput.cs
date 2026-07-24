@@ -32,14 +32,14 @@ internal sealed record DaemonDiagnosisOutput
         DaemonDiagnosisActionRequired? ActionRequired,
         DaemonPrimaryDiagnosticOutput? PrimaryDiagnostic)
     {
-        if (!ContractLiteralCodec.IsDefined(Reason))
+        if (!TextVocabulary.IsDefined(Reason))
         {
             throw new ArgumentOutOfRangeException(nameof(Reason), Reason, "Unsupported daemon diagnosis reason.");
         }
 
         ArgumentException.ThrowIfNullOrWhiteSpace(Message);
 
-        if (!ContractLiteralCodec.IsDefined(ReportedBy))
+        if (!TextVocabulary.IsDefined(ReportedBy))
         {
             throw new ArgumentOutOfRangeException(nameof(ReportedBy), ReportedBy, "Unsupported daemon diagnosis reporter.");
         }
@@ -49,12 +49,12 @@ internal sealed record DaemonDiagnosisOutput
             throw new ArgumentOutOfRangeException(nameof(UpdatedAtUtc), UpdatedAtUtc, "Diagnosis update time must be specified.");
         }
 
-        if (StartupPhase.HasValue && !ContractLiteralCodec.IsDefined(StartupPhase.Value))
+        if (StartupPhase.HasValue && !TextVocabulary.IsDefined(StartupPhase.Value))
         {
             throw new ArgumentOutOfRangeException(nameof(StartupPhase), StartupPhase, "Unsupported daemon diagnosis startup phase.");
         }
 
-        if (ActionRequired.HasValue && !ContractLiteralCodec.IsDefined(ActionRequired.Value))
+        if (ActionRequired.HasValue && !TextVocabulary.IsDefined(ActionRequired.Value))
         {
             throw new ArgumentOutOfRangeException(nameof(ActionRequired), ActionRequired, "Unsupported daemon diagnosis action.");
         }

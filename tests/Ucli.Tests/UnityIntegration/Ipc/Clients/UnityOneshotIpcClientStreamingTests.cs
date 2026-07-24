@@ -56,7 +56,7 @@ public sealed class UnityOneshotIpcClientStreamingTests
         Assert.True(result.IsSuccess);
         IpcRequestAssert.Methods(transportClient, UnityIpcMethod.Ping, UnityIpcMethod.TestRun);
         var dispatchRequest = IpcRequestAssert.SingleWithMethod(transportClient, UnityIpcMethod.TestRun);
-        Assert.Equal(ContractLiteralCodec.ToValue(IpcResponseMode.Stream), dispatchRequest.ResponseMode);
+        Assert.Equal(TextVocabulary.GetText(IpcResponseMode.Stream), dispatchRequest.ResponseMode);
         UnityIpcTransportClientAssert.SingleStreamingRequestSent(transportClient, UnityIpcMethod.TestRun);
         IpcStreamFrameAssert.SingleEvent(progressFrames, "test.progress");
         UnityBatchmodeProcessHandleAssert.WaitedForExitWithoutTermination(processHandle);

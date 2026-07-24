@@ -1,4 +1,6 @@
 using System;
+using MackySoft.Text.Vocabularies;
+using TextVocabulary = MackySoft.Text.Vocabularies.Vocabulary;
 using MackySoft.Ucli.Contracts.Index;
 using UnityEditor;
 using UnityEngine;
@@ -36,7 +38,7 @@ namespace MackySoft.Ucli.Unity.Index
 
                 var serializedObject = new SerializedObject(component);
                 var properties = schemaPropertyCollector.Collect(componentType, serializedObject);
-                var kind = ContractLiteralCodec.ToValue(IndexSchemaKind.Comp);
+                var kind = TextVocabulary.GetText(IndexSchemaKind.Comp);
                 var typeId = IndexTypeIdFormatter.Format(componentType);
                 return new IndexSchemaEntryJsonContract(
                     SchemaKey: $"{kind}:{typeId}",

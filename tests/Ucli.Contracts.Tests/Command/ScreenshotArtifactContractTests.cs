@@ -1,4 +1,3 @@
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Tests.Command;
 
@@ -10,7 +9,7 @@ public sealed class ScreenshotArtifactContractTests
     {
         Assert.Equal(
             "screenshot",
-            ContractLiteralCodec.ToValue(ScreenshotArtifactKind.Screenshot));
+            TextVocabulary.GetText(ScreenshotArtifactKind.Screenshot));
         Assert.Equal("image/png", ScreenshotArtifactContract.MediaType);
     }
 }

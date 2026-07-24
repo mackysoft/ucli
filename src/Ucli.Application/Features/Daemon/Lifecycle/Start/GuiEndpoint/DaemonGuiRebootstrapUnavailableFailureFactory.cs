@@ -30,7 +30,7 @@ internal static class DaemonGuiRebootstrapUnavailableFailureFactory
         ArgumentNullException.ThrowIfNull(rebootstrapError);
 
         var error = ExecutionError.InternalError(
-            $"GUI daemon rebootstrap is unavailable. reason={ContractLiteralCodec.ToValue(DaemonDiagnosisReason.GuiRebootstrapUnavailable)} processId={processId}. {rebootstrapError.Message}",
+            $"GUI daemon rebootstrap is unavailable. reason={TextVocabulary.GetText(DaemonDiagnosisReason.GuiRebootstrapUnavailable)} processId={processId}. {rebootstrapError.Message}",
             DaemonErrorCodes.DaemonEndpointNotRegistered);
         var diagnosis = new DaemonDiagnosis(
             Reason: DaemonDiagnosisReason.GuiRebootstrapUnavailable,

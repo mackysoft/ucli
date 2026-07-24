@@ -188,10 +188,10 @@ internal sealed class ScreenshotCaptureService : IScreenshotCaptureService
 
     private static ExecutionError? ValidateInput (ScreenshotCaptureInput input)
     {
-        if (!ContractLiteralCodec.IsDefined(input.Target))
+        if (!TextVocabulary.IsDefined(input.Target))
         {
             return ExecutionError.InvalidArgument(
-                $"Screenshot target must be one of: {string.Join(", ", ContractLiteralCodec.GetLiterals<IpcScreenshotTarget>())}.");
+                $"Screenshot target must be one of: {string.Join(", ", TextVocabulary.GetTexts<IpcScreenshotTarget>())}.");
         }
 
         var hasWidth = input.RequestedWidth.HasValue;

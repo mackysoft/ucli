@@ -1,27 +1,27 @@
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Assurance;
 
 /// <summary> Defines <c>build.log.entry</c> level literals. </summary>
+[VocabularyDefinition]
 public enum BuildLogEntryLevel
 {
     /// <summary> Trace log level. </summary>
-    [UcliContractLiteral("trace")]
+    [VocabularyText("trace")]
     Trace = 1,
 
     /// <summary> Debug log level. </summary>
-    [UcliContractLiteral("debug")]
+    [VocabularyText("debug")]
     Debug = 2,
 
     /// <summary> Informational log level. </summary>
-    [UcliContractLiteral("info")]
+    [VocabularyText("info")]
     Info = 3,
 
     /// <summary> Warning log level. </summary>
-    [UcliContractLiteral("warning")]
+    [VocabularyText("warning")]
     Warning = 4,
 
     /// <summary> Error log level. </summary>
-    [UcliContractLiteral("error")]
+    [VocabularyText("error")]
     Error = 5,
 }

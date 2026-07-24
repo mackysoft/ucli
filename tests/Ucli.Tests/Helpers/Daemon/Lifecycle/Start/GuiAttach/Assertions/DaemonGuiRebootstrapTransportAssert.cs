@@ -20,9 +20,9 @@ internal static class DaemonGuiRebootstrapTransportAssert
     {
         var invocation = Assert.Single(transportClient.Invocations);
         Assert.False(invocation.UsesUnboundedResponseWait);
-        Assert.Equal(ContractLiteralCodec.ToValue(UnityIpcMethod.GuiRebootstrap), invocation.Request.Method);
+        Assert.Equal(TextVocabulary.GetText(UnityIpcMethod.GuiRebootstrap), invocation.Request.Method);
         Assert.Equal(expectedManifest.SessionToken.GetEncodedValue(), invocation.Request.SessionToken);
-        Assert.Equal(ContractLiteralCodec.ToValue(IpcResponseMode.Single), invocation.Request.ResponseMode);
+        Assert.Equal(TextVocabulary.GetText(IpcResponseMode.Single), invocation.Request.ResponseMode);
         Assert.Equal(expectedManifest.Endpoint, invocation.Endpoint);
         Assert.InRange(invocation.Timeout, TimeSpan.FromTicks(1), expectedTimeout);
 

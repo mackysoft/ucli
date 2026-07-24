@@ -32,7 +32,7 @@ internal static class SupervisorProgressAssert
         string? expectedMessage = null)
     {
         var progress = Assert.Single(progressSink.Entries);
-        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartProgressEvent.WaitingForEndpoint), progress.EventName);
+        Assert.Equal(TextVocabulary.GetText(DaemonStartProgressEvent.WaitingForEndpoint), progress.EventName);
         var payload = Assert.IsType<DaemonStartStartupObservationProgressEntry>(progress.Payload);
         Assert.Equal(DaemonStartProgressPayloadKind.StartupObservation, payload.PayloadKind);
         Assert.Equal(expectedProjectFingerprint, payload.ProjectFingerprint);
@@ -46,7 +46,7 @@ internal static class SupervisorProgressAssert
     public static void LifecycleSnapshotProgressForwarded (CollectingCommandProgressSink progressSink)
     {
         var progress = Assert.Single(progressSink.Entries);
-        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartProgressEvent.LifecycleObserved), progress.EventName);
+        Assert.Equal(TextVocabulary.GetText(DaemonStartProgressEvent.LifecycleObserved), progress.EventName);
         var payload = Assert.IsType<DaemonStartLifecycleSnapshotProgressEntry>(progress.Payload);
         Assert.Equal(DaemonStartProgressPayloadKind.LifecycleSnapshot, payload.PayloadKind);
         Assert.Equal(IpcEditorLifecycleState.Compiling, payload.LifecycleState);

@@ -134,7 +134,7 @@ public sealed class UcliOperationAssuranceContractJsonConverter : JsonConverter<
         writer.WriteStartArray();
         for (var index = 0; index < value.SideEffects.Count; index++)
         {
-            writer.WriteStringValue(ContractLiteralCodec.ToValue(value.SideEffects[index]));
+            writer.WriteStringValue(TextVocabulary.GetText(value.SideEffects[index]));
         }
         writer.WriteEndArray();
 
@@ -145,11 +145,11 @@ public sealed class UcliOperationAssuranceContractJsonConverter : JsonConverter<
         writer.WriteStartArray();
         for (var index = 0; index < value.TouchedKinds.Count; index++)
         {
-            writer.WriteStringValue(ContractLiteralCodec.ToValue(value.TouchedKinds[index]));
+            writer.WriteStringValue(TextVocabulary.GetText(value.TouchedKinds[index]));
         }
         writer.WriteEndArray();
 
-        writer.WriteString("planMode", ContractLiteralCodec.ToValue(value.PlanMode));
+        writer.WriteString("planMode", TextVocabulary.GetText(value.PlanMode));
         writer.WriteString("planSemantics", value.PlanSemantics);
         writer.WriteString("callSemantics", value.CallSemantics);
         writer.WriteString("touchedContract", value.TouchedContract);
@@ -254,7 +254,7 @@ public sealed class UcliOperationAssuranceContractJsonConverter : JsonConverter<
         where TEnum : struct, Enum
     {
         var literal = ReadString(element, propertyName);
-        if (!ContractLiteralCodec.TryParse(literal, out TEnum value))
+        if (!TextVocabulary.TryGetValue(literal, out TEnum value))
         {
             throw new JsonException($"Operation assurance property '{propertyName}' contains unsupported value '{literal}'.");
         }

@@ -20,7 +20,7 @@ public sealed record CsEvalResult
         CsEvalReturnValue? returnValue,
         CsEvalTouchedResources? touchedResources)
     {
-        if (sourceKind.HasValue && !ContractLiteralCodec.IsDefined(sourceKind.Value))
+        if (sourceKind.HasValue && !TextVocabulary.IsDefined(sourceKind.Value))
         {
             throw new ArgumentOutOfRangeException(nameof(sourceKind), sourceKind, "C# eval source form must be defined when specified.");
         }

@@ -4,6 +4,8 @@ using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.Text.Vocabularies;
+using TextVocabulary = MackySoft.Text.Vocabularies.Vocabulary;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Assurance;
 using MackySoft.Ucli.Contracts.Daemon;
@@ -99,7 +101,7 @@ namespace MackySoft.Ucli.Unity.Build
                     null,
                     new IpcError(
                         BuildErrorCodes.BuildInputsInvalid,
-                        $"Unity build target is invalid: {ContractLiteralCodec.ToValue(input.BuildTarget)}.",
+                        $"Unity build target is invalid: {TextVocabulary.GetText(input.BuildTarget)}.",
                         null));
             }
 

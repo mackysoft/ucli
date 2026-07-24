@@ -1,4 +1,3 @@
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Features.Assurance.Build.Profiles;
 
@@ -36,7 +35,7 @@ internal sealed class ResolvedBuildRuntimePolicy
         for (var i = 0; i < values.Count; i++)
         {
             var value = values[i];
-            if (!ContractLiteralCodec.IsDefined(value))
+            if (!TextVocabulary.IsDefined(value))
             {
                 throw new ArgumentOutOfRangeException(parameterName, value, "Runtime policy value must be defined.");
             }

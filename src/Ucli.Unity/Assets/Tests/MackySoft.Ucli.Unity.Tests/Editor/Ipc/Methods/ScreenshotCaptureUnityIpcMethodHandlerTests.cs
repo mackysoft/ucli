@@ -1,6 +1,8 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.Text.Vocabularies;
+using TextVocabulary = MackySoft.Text.Vocabularies.Vocabulary;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -141,9 +143,9 @@ namespace MackySoft.Ucli.Unity.Tests
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: RequestId,
                 sessionToken: "session-token",
-                method: ContractLiteralCodec.ToValue(UnityIpcMethod.ScreenshotCapture),
+                method: TextVocabulary.GetText(UnityIpcMethod.ScreenshotCapture),
                 payload: IpcPayloadCodec.SerializeToElement(payload),
-                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single),
+                responseMode: TextVocabulary.GetText(IpcResponseMode.Single),
                 requestDeadlineUtc: DateTimeOffset.UtcNow
                     + TimeSpan.FromMilliseconds(requestDeadlineRemainingMilliseconds),
                 requestDeadlineRemainingMilliseconds: requestDeadlineRemainingMilliseconds);

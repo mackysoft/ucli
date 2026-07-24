@@ -41,7 +41,7 @@ public sealed record IpcBuildReportArtifact
                 "Build report schema version must be 1.");
         }
 
-        if (!ContractLiteralCodec.IsDefined(Result))
+        if (!TextVocabulary.IsDefined(Result))
         {
             throw new ArgumentOutOfRangeException(nameof(Result), Result, "Build report result must be specified.");
         }

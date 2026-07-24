@@ -107,7 +107,7 @@ public sealed class SkillsInstallCliOutputContractTests
         CommandResultAssert.HasStandardEnvelope(
             outputJson.RootElement,
             command: UcliCommandNames.SkillsInstall,
-            status: ContractLiteralCodec.ToValue(CommandResultStatus.Error),
+            status: TextVocabulary.GetText(CommandResultStatus.Error),
             exitCode: (int)CliExitCode.ToolError);
         CommandResultAssert.HasSingleError(outputJson.RootElement, InstallTargetHostConflictCode);
     }

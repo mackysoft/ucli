@@ -34,8 +34,8 @@ public static class IpcDaemonLogsReadRequestNormalizer
         if (queryTarget == IpcLogQueryTarget.Stack)
         {
             errorMessage =
-                $"queryTarget '{ContractLiteralCodec.ToValue(IpcLogQueryTarget.Stack)}' is not supported for daemon logs. "
-                + $"Supported: {ContractLiteralCodec.ToValue(IpcLogQueryTarget.Message)}, {ContractLiteralCodec.ToValue(IpcLogQueryTarget.Both)}.";
+                $"queryTarget '{TextVocabulary.GetText(IpcLogQueryTarget.Stack)}' is not supported for daemon logs. "
+                + $"Supported: {TextVocabulary.GetText(IpcLogQueryTarget.Message)}, {TextVocabulary.GetText(IpcLogQueryTarget.Both)}.";
             return false;
         }
 

@@ -32,7 +32,7 @@ public sealed class CodesCliOutputDescribeContractTests
             .HasProperty("payload", static payload => payload
                 .HasString("code", PlayModeErrorCodes.PlayModeTransitionTimeout.Value)
                 .HasBoolean("known", true)
-                .HasString("kind", ContractLiteralCodec.ToValue(CodeCatalogKind.Error))
+                .HasString("kind", TextVocabulary.GetText(CodeCatalogKind.Error))
                 .HasString("category", "playMode"));
     }
 
@@ -51,7 +51,7 @@ public sealed class CodesCliOutputDescribeContractTests
             .HasProperty("payload", static payload => payload
                 .HasString("code", "IPC_TIMEOUT")
                 .HasBoolean("known", true)
-                .HasString("kind", ContractLiteralCodec.ToValue(CodeCatalogKind.Error)));
+                .HasString("kind", TextVocabulary.GetText(CodeCatalogKind.Error)));
     }
 
     [Fact]
@@ -90,8 +90,8 @@ public sealed class CodesCliOutputDescribeContractTests
             .HasProperty("payload", payload => payload
                 .HasString("code", expectedCode)
                 .HasBoolean("known", false)
-                .HasString("kind", ContractLiteralCodec.ToValue(CodeCatalogKind.Unknown))
-                .HasString("category", ContractLiteralCodec.ToValue(CodeCatalogKind.Unknown))
+                .HasString("kind", TextVocabulary.GetText(CodeCatalogKind.Unknown))
+                .HasString("category", TextVocabulary.GetText(CodeCatalogKind.Unknown))
                 .HasArrayLength("appearsIn", 0));
     }
 

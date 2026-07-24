@@ -1,4 +1,6 @@
 using System;
+using MackySoft.Text.Vocabularies;
+using TextVocabulary = MackySoft.Text.Vocabularies.Vocabulary;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Infrastructure.Text;
@@ -107,7 +109,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return string.Empty;
             }
 
-            var level = ContractLiteralCodec.ToValue(NormalizeCompileLevel(message.type));
+            var level = TextVocabulary.GetText(NormalizeCompileLevel(message.type));
             if (!StringValueNormalizer.TryTrimToNonEmpty(message.file, out var file))
             {
                 return CreateCompileMessage(level, normalizedMessage);

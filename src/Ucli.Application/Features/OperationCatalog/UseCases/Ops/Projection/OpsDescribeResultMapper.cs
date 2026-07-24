@@ -28,9 +28,9 @@ internal sealed class OpsDescribeResultMapper : IOpsDescribeResultMapper
             new OpsDescribeExecutionOutput(
                 Operation: new OpsOperationDetail(
                     name: operation.Name,
-                    kind: ContractLiteralCodec.ToValue(operation.Kind),
-                    policy: ContractLiteralCodec.ToValue(operation.Policy),
-                    playModeSupport: ContractLiteralCodec.ToValue(operation.PlayModeSupport),
+                    kind: TextVocabulary.GetText(operation.Kind),
+                    policy: TextVocabulary.GetText(operation.Policy),
+                    playModeSupport: TextVocabulary.GetText(operation.PlayModeSupport),
                     description: operation.Description,
                     inputs: operation.Inputs,
                     resultContract: operation.ResultContract,

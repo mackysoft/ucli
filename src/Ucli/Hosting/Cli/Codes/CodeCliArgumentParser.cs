@@ -44,7 +44,7 @@ internal static class CodeCliArgumentParser
                 return false;
             }
 
-            if (!ContractLiteralCodec.TryParse<CodeCatalogKind>(kind, out var parsedKind))
+            if (!TextVocabulary.TryGetValue<CodeCatalogKind>(kind, out var parsedKind))
             {
                 reference = null!;
                 errorMessage = "Code kind is unsupported.";

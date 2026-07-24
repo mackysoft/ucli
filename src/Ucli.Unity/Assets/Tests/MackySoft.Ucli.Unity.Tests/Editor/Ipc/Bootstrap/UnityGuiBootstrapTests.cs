@@ -5,6 +5,8 @@ using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
+using MackySoft.Text.Vocabularies;
+using TextVocabulary = MackySoft.Text.Vocabularies.Vocabulary;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -854,7 +856,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     protocolVersion: IpcProtocol.CurrentVersion,
                     requestId: Guid.NewGuid(),
                     sessionToken: previousRegistration.SessionToken.GetEncodedValue(),
-                    method: ContractLiteralCodec.ToValue(UnityIpcMethod.Ping),
+                    method: TextVocabulary.GetText(UnityIpcMethod.Ping),
                     payload: IpcPayloadCodec.SerializeToElement(new IpcPingRequest("tests")),
                     responseMode: "single",
                     requestDeadlineUtc: DateTimeOffset.UtcNow + TimeSpan.FromSeconds(30),

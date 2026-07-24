@@ -20,7 +20,7 @@ internal sealed record VerifyExecutionOutput
         VerifyProfileOutput Profile,
         int TimeoutMilliseconds)
     {
-        if (!ContractLiteralCodec.IsDefined(Verdict))
+        if (!TextVocabulary.IsDefined(Verdict))
         {
             throw new ArgumentOutOfRangeException(nameof(Verdict), Verdict, "Verdict must be defined by the assurance contract.");
         }

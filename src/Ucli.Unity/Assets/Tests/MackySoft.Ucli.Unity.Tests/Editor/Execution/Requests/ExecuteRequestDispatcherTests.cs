@@ -6,6 +6,8 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
+using MackySoft.Text.Vocabularies;
+using TextVocabulary = MackySoft.Text.Vocabularies.Vocabulary;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Daemon;
@@ -182,8 +184,8 @@ namespace MackySoft.Ucli.Unity.Tests
             var opResult = GetSingleArrayElement(response.Payload.GetProperty("opResults"));
             var diagnostic = GetSingleArrayElement(opResult.GetProperty("diagnostics"));
             Assert.That(diagnostic.GetProperty("code").GetString(), Is.EqualTo(ExecuteRequestErrorCodes.HierarchyPathUnrepresentableObjects.Value));
-            Assert.That(diagnostic.GetProperty("severity").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(UcliDiagnosticSeverity.Warning)));
-            Assert.That(diagnostic.GetProperty("coverageImpact").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(IpcExecuteDiagnosticCoverageImpact.Partial)));
+            Assert.That(diagnostic.GetProperty("severity").GetString(), Is.EqualTo(TextVocabulary.GetText(UcliDiagnosticSeverity.Warning)));
+            Assert.That(diagnostic.GetProperty("coverageImpact").GetString(), Is.EqualTo(TextVocabulary.GetText(IpcExecuteDiagnosticCoverageImpact.Partial)));
             Assert.That(diagnostic.GetProperty("message").GetString(), Does.Contain("Scene query skipped"));
         });
 
@@ -232,16 +234,16 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(steps.GetArrayLength(), Is.EqualTo(2));
             var rawSource = GetArrayElement(steps, 0);
             Assert.That(rawSource.GetProperty("opId").GetString(), Is.EqualTo("raw-1"));
-            Assert.That(rawSource.GetProperty("sourceKind").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(IpcExecutePostReadSourceKind.Operation)));
+            Assert.That(rawSource.GetProperty("sourceKind").GetString(), Is.EqualTo(TextVocabulary.GetText(IpcExecutePostReadSourceKind.Operation)));
             Assert.That(rawSource.GetProperty("commit").ValueKind, Is.EqualTo(JsonValueKind.Null));
             Assert.That(rawSource.GetProperty("persistenceExpected").GetBoolean(), Is.False);
-            Assert.That(rawSource.GetProperty("expectedPostState").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(IpcExecuteExpectedPostState.Unavailable)));
+            Assert.That(rawSource.GetProperty("expectedPostState").GetString(), Is.EqualTo(TextVocabulary.GetText(IpcExecuteExpectedPostState.Unavailable)));
             var refreshSource = GetArrayElement(steps, 1);
             Assert.That(refreshSource.GetProperty("opId").GetString(), Is.EqualTo("refresh"));
-            Assert.That(refreshSource.GetProperty("sourceKind").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(IpcExecutePostReadSourceKind.Refresh)));
+            Assert.That(refreshSource.GetProperty("sourceKind").GetString(), Is.EqualTo(TextVocabulary.GetText(IpcExecutePostReadSourceKind.Refresh)));
             Assert.That(refreshSource.GetProperty("commit").ValueKind, Is.EqualTo(JsonValueKind.Null));
             Assert.That(refreshSource.GetProperty("persistenceExpected").GetBoolean(), Is.True);
-            Assert.That(refreshSource.GetProperty("expectedPostState").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(IpcExecuteExpectedPostState.Unavailable)));
+            Assert.That(refreshSource.GetProperty("expectedPostState").GetString(), Is.EqualTo(TextVocabulary.GetText(IpcExecuteExpectedPostState.Unavailable)));
         });
 
         [UnityTest]
@@ -286,7 +288,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(violation.GetProperty("operation").GetString(), Is.EqualTo(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.ProjectRefresh));
             Assert.That(violation.GetProperty("expectedFact").GetString(), Is.EqualTo("assurance.mayDirty=false"));
             Assert.That(violation.GetProperty("observedResult").GetString(), Is.EqualTo("opResults[].changed=true"));
-            Assert.That(violation.GetProperty("applicationState").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(IpcApplicationState.Applied)));
+            Assert.That(violation.GetProperty("applicationState").GetString(), Is.EqualTo(TextVocabulary.GetText(IpcApplicationState.Applied)));
         });
 
         [UnityTest]
@@ -328,7 +330,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var violation = GetSingleArrayElement(response.Payload.GetProperty("contractViolations"));
             Assert.That(violation.GetProperty("expectedFact").GetString(), Is.EqualTo("assurance.mayPersist=false"));
             Assert.That(violation.GetProperty("observedResult").GetString(), Is.EqualTo("executionTrace.persisted=true"));
-            Assert.That(violation.GetProperty("applicationState").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(IpcApplicationState.Applied)));
+            Assert.That(violation.GetProperty("applicationState").GetString(), Is.EqualTo(TextVocabulary.GetText(IpcApplicationState.Applied)));
         });
 
         [UnityTest]
@@ -365,7 +367,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(response.Status, Is.EqualTo(IpcResponseStatus.Error));
             var violation = GetSingleArrayElement(response.Payload.GetProperty("contractViolations"));
-            Assert.That(violation.GetProperty("applicationState").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(IpcApplicationState.Indeterminate)));
+            Assert.That(violation.GetProperty("applicationState").GetString(), Is.EqualTo(TextVocabulary.GetText(IpcApplicationState.Indeterminate)));
         });
 
         [UnityTest]
@@ -415,7 +417,7 @@ namespace MackySoft.Ucli.Unity.Tests
             foreach (var violation in violations.EnumerateArray())
             {
                 Assert.That(violation.GetProperty("expectedFact").GetString(), Is.EqualTo("operation.kind=query"));
-                Assert.That(violation.GetProperty("applicationState").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(IpcApplicationState.Applied)));
+                Assert.That(violation.GetProperty("applicationState").GetString(), Is.EqualTo(TextVocabulary.GetText(IpcApplicationState.Applied)));
                 observedResults.Add(violation.GetProperty("observedResult").GetString()!);
             }
 
@@ -508,7 +510,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(response.Status, Is.EqualTo(IpcResponseStatus.Error));
             var violation = GetSingleArrayElement(response.Payload.GetProperty("contractViolations"));
-            Assert.That(violation.GetProperty("applicationState").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(IpcApplicationState.NotApplied)));
+            Assert.That(violation.GetProperty("applicationState").GetString(), Is.EqualTo(TextVocabulary.GetText(IpcApplicationState.NotApplied)));
         });
 
         [UnityTest]
@@ -719,8 +721,8 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(opResult.GetProperty("op").GetString(), Is.EqualTo("edit"));
             var diagnostic = GetSingleArrayElement(opResult.GetProperty("diagnostics"));
             Assert.That(diagnostic.GetProperty("code").GetString(), Is.EqualTo(ExecuteRequestErrorCodes.HierarchyPathUnrepresentableObjects.Value));
-            Assert.That(diagnostic.GetProperty("severity").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(UcliDiagnosticSeverity.Warning)));
-            Assert.That(diagnostic.GetProperty("coverageImpact").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(IpcExecuteDiagnosticCoverageImpact.Partial)));
+            Assert.That(diagnostic.GetProperty("severity").GetString(), Is.EqualTo(TextVocabulary.GetText(UcliDiagnosticSeverity.Warning)));
+            Assert.That(diagnostic.GetProperty("coverageImpact").GetString(), Is.EqualTo(TextVocabulary.GetText(IpcExecuteDiagnosticCoverageImpact.Partial)));
             Assert.That(diagnostic.GetProperty("message").GetString(), Does.Contain("Scene edit selection skipped"));
         });
 
@@ -815,8 +817,8 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(failedResult.GetProperty("op").GetString(), Is.EqualTo("edit"));
             var diagnostic = GetSingleArrayElement(failedResult.GetProperty("diagnostics"));
             Assert.That(diagnostic.GetProperty("code").GetString(), Is.EqualTo(ExecuteRequestErrorCodes.HierarchyPathUnrepresentableObjects.Value));
-            Assert.That(diagnostic.GetProperty("severity").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(UcliDiagnosticSeverity.Warning)));
-            Assert.That(diagnostic.GetProperty("coverageImpact").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(IpcExecuteDiagnosticCoverageImpact.Partial)));
+            Assert.That(diagnostic.GetProperty("severity").GetString(), Is.EqualTo(TextVocabulary.GetText(UcliDiagnosticSeverity.Warning)));
+            Assert.That(diagnostic.GetProperty("coverageImpact").GetString(), Is.EqualTo(TextVocabulary.GetText(IpcExecuteDiagnosticCoverageImpact.Partial)));
             Assert.That(diagnostic.GetProperty("message").GetString(), Does.Contain("hierarchyPath cannot represent"));
         });
 
@@ -864,12 +866,12 @@ namespace MackySoft.Ucli.Unity.Tests
             var enumerator = requirements.EnumerateArray();
             Assert.That(enumerator.MoveNext(), Is.True);
             var assetSearchRequirement = enumerator.Current;
-            Assert.That(assetSearchRequirement.GetProperty("surface").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(IpcExecuteReadPostconditionSurface.AssetSearch)));
+            Assert.That(assetSearchRequirement.GetProperty("surface").GetString(), Is.EqualTo(TextVocabulary.GetText(IpcExecuteReadPostconditionSurface.AssetSearch)));
             Assert.That(assetSearchRequirement.TryGetProperty("scenePath", out _), Is.False);
 
             Assert.That(enumerator.MoveNext(), Is.True);
             var sceneTreeRequirement = enumerator.Current;
-            Assert.That(sceneTreeRequirement.GetProperty("surface").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(IpcExecuteReadPostconditionSurface.SceneTreeLite)));
+            Assert.That(sceneTreeRequirement.GetProperty("surface").GetString(), Is.EqualTo(TextVocabulary.GetText(IpcExecuteReadPostconditionSurface.SceneTreeLite)));
             Assert.That(sceneTreeRequirement.GetProperty("scenePath").GetString(), Is.EqualTo("Assets/Scenes/Main.unity"));
             Assert.That(sceneTreeRequirement.GetProperty("minSafeGeneratedAtUtc").GetString(), Is.EqualTo(assetSearchRequirement.GetProperty("minSafeGeneratedAtUtc").GetString()));
             Assert.That(enumerator.MoveNext(), Is.False);
@@ -1343,7 +1345,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var opResult = GetSingleArrayElement(response.Payload.GetProperty("opResults"));
             Assert.That(opResult.GetProperty("opId").GetString(), Is.EqualTo("edit-1"));
             Assert.That(opResult.GetProperty("op").GetString(), Is.EqualTo("edit"));
-            Assert.That(opResult.GetProperty("phase").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(IpcExecuteOperationPhase.Call)));
+            Assert.That(opResult.GetProperty("phase").GetString(), Is.EqualTo(TextVocabulary.GetText(IpcExecuteOperationPhase.Call)));
         });
 
         [UnityTest]
@@ -1365,16 +1367,16 @@ namespace MackySoft.Ucli.Unity.Tests
             var opResult = GetSingleArrayElement(response.Payload.GetProperty("opResults"));
             Assert.That(opResult.GetProperty("opId").GetString(), Is.EqualTo("edit-1"));
             Assert.That(opResult.GetProperty("op").GetString(), Is.EqualTo("edit"));
-            Assert.That(opResult.GetProperty("phase").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(IpcExecuteOperationPhase.Plan)));
+            Assert.That(opResult.GetProperty("phase").GetString(), Is.EqualTo(TextVocabulary.GetText(IpcExecuteOperationPhase.Plan)));
             Assert.That(opResult.GetProperty("applied").GetBoolean(), Is.False);
             Assert.That(opResult.GetProperty("changed").GetBoolean(), Is.False);
             Assert.That(opResult.GetProperty("touched").GetArrayLength(), Is.EqualTo(0));
             var sourceStep = GetSingleArrayElement(response.Payload.GetProperty("postReadSource").GetProperty("steps"));
             Assert.That(sourceStep.GetProperty("opId").GetString(), Is.EqualTo("edit-1"));
-            Assert.That(sourceStep.GetProperty("sourceKind").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(IpcExecutePostReadSourceKind.Edit)));
-            Assert.That(sourceStep.GetProperty("commit").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(IpcExecutePostReadCommit.None)));
+            Assert.That(sourceStep.GetProperty("sourceKind").GetString(), Is.EqualTo(TextVocabulary.GetText(IpcExecutePostReadSourceKind.Edit)));
+            Assert.That(sourceStep.GetProperty("commit").GetString(), Is.EqualTo(TextVocabulary.GetText(IpcExecutePostReadCommit.None)));
             Assert.That(sourceStep.GetProperty("persistenceExpected").GetBoolean(), Is.False);
-            Assert.That(sourceStep.GetProperty("expectedPostState").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(IpcExecuteExpectedPostState.Deterministic)));
+            Assert.That(sourceStep.GetProperty("expectedPostState").GetString(), Is.EqualTo(TextVocabulary.GetText(IpcExecuteExpectedPostState.Deterministic)));
         });
 
         [UnityTest]
@@ -1480,14 +1482,14 @@ namespace MackySoft.Ucli.Unity.Tests
             var opResult = GetSingleArrayElement(opResults);
             Assert.That(opResult.GetProperty("opId").GetString(), Is.EqualTo("op-1"));
             Assert.That(opResult.GetProperty("op").GetString(), Is.EqualTo(operationName));
-            Assert.That(opResult.GetProperty("phase").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(IpcExecuteOperationPhase.Plan)));
+            Assert.That(opResult.GetProperty("phase").GetString(), Is.EqualTo(TextVocabulary.GetText(IpcExecuteOperationPhase.Plan)));
             Assert.That(opResult.GetProperty("applied").GetBoolean(), Is.False);
             Assert.That(opResult.GetProperty("changed").GetBoolean(), Is.True);
 
             var touched = opResult.GetProperty("touched");
             Assert.That(touched.GetArrayLength(), Is.EqualTo(1));
             var touchedElement = GetSingleArrayElement(touched);
-            Assert.That(touchedElement.GetProperty("kind").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(UcliTouchedResourceKind.Scene)));
+            Assert.That(touchedElement.GetProperty("kind").GetString(), Is.EqualTo(TextVocabulary.GetText(UcliTouchedResourceKind.Scene)));
             Assert.That(touchedElement.GetProperty("path").GetString(), Is.EqualTo("Assets/Scenes/Main.unity"));
             Assert.That(touchedElement.GetProperty("assetGuid").GetString(), Is.EqualTo("11111111-1111-1111-1111-111111111111"));
         }

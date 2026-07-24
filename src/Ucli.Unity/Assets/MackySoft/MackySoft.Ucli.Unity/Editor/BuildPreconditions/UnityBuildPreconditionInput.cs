@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using MackySoft.Text.Vocabularies;
+using TextVocabulary = MackySoft.Text.Vocabularies.Vocabulary;
 using MackySoft.Ucli.Contracts.Assurance;
 using MackySoft.Ucli.Contracts.Assurance.Build;
 using MackySoft.Ucli.Contracts.Daemon;
@@ -22,17 +24,17 @@ namespace MackySoft.Ucli.Unity.Build
             bool Development,
             IReadOnlyList<DaemonEditorMode> AllowedEditorModes)
         {
-            if (!ContractLiteralCodec.IsDefined(InputKind))
+            if (!TextVocabulary.IsDefined(InputKind))
             {
                 throw new ArgumentOutOfRangeException(nameof(InputKind), InputKind, "Build input kind must be specified.");
             }
 
-            if (!ContractLiteralCodec.IsDefined(SceneSource))
+            if (!TextVocabulary.IsDefined(SceneSource))
             {
                 throw new ArgumentOutOfRangeException(nameof(SceneSource), SceneSource, "Build scene source must be specified.");
             }
 
-            if (!ContractLiteralCodec.IsDefined(BuildTarget))
+            if (!TextVocabulary.IsDefined(BuildTarget))
             {
                 throw new ArgumentOutOfRangeException(nameof(BuildTarget), BuildTarget, "Build target must be specified.");
             }

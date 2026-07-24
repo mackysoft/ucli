@@ -79,7 +79,7 @@ internal sealed class OpsCatalogAccessService : IOpsCatalogAccessService
 
         return await ReadListFromSourceAsync(
                 context,
-                        $"Existing ops index freshness is '{ContractLiteralCodec.ToValue(persistedFreshness)}'.",
+                        $"Existing ops index freshness is '{TextVocabulary.GetText(persistedFreshness)}'.",
                 cancellationToken)
             .ConfigureAwait(false);
     }
@@ -139,7 +139,7 @@ internal sealed class OpsCatalogAccessService : IOpsCatalogAccessService
             return await ReadDescribeFromSourceAsync(
                     context,
                     operationName,
-                    $"Existing ops index freshness is '{ContractLiteralCodec.ToValue(persistedFreshness)}'.",
+                    $"Existing ops index freshness is '{TextVocabulary.GetText(persistedFreshness)}'.",
                     cancellationToken)
                 .ConfigureAwait(false);
         }

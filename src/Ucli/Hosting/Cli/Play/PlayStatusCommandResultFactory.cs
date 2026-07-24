@@ -25,7 +25,7 @@ internal static class PlayStatusCommandResultFactory
                 payload: new
                 {
                     project = ProjectIdentityPayloadProjector.Create(output.Project),
-                    daemonStatus = ContractLiteralCodec.ToValue(output.DaemonStatus),
+                    daemonStatus = TextVocabulary.GetText(output.DaemonStatus),
                     serverVersion = output.ServerVersion,
                     editorMode = output.EditorMode,
                     lifecycleState = output.LifecycleState,

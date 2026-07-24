@@ -26,7 +26,7 @@ public sealed class PlayExitCommandPayloadTests
                 .HasString("unityVersion", PlayCommandOutputTestData.UnityVersion))
             .HasString("daemonStatus", "running")
             .HasString("editorMode", "gui")
-            .HasString("lifecycleState", ContractLiteralCodec.ToValue(IpcEditorLifecycleState.Ready))
+            .HasString("lifecycleState", TextVocabulary.GetText(IpcEditorLifecycleState.Ready))
             .HasValueKind("blockingReason", JsonValueKind.Null)
             .HasProperty("generations", generations => generations
                 .HasInt32("compileGeneration", 12)
@@ -40,8 +40,8 @@ public sealed class PlayExitCommandPayloadTests
                 .HasBoolean("isPlaying", false)
                 .HasBoolean("isPlayingOrWillChangePlaymode", false))
             .HasProperty("transition", transition => transition
-                .HasString("transition", ContractLiteralCodec.ToValue(IpcPlayTransitionCommand.Exit))
-                .HasString("result", ContractLiteralCodec.ToValue(IpcPlayTransitionOutcome.Exited))
+                .HasString("transition", TextVocabulary.GetText(IpcPlayTransitionCommand.Exit))
+                .HasString("result", TextVocabulary.GetText(IpcPlayTransitionOutcome.Exited))
                 .HasProperty("before", _ => { })
                 .HasProperty("after", _ => { }))
             .HasInt32("timeoutMilliseconds", 1000);
@@ -69,12 +69,12 @@ public sealed class PlayExitCommandPayloadTests
         CommandResultAssert.HasStandardEnvelope(
             outputJson.RootElement,
             UcliCommandNames.PlayExit,
-            ContractLiteralCodec.ToValue(CommandResultStatus.Error),
+            TextVocabulary.GetText(CommandResultStatus.Error),
             (int)CliExitCode.ToolError);
         CommandResultAssert.HasSingleError(outputJson.RootElement, PlayModeErrorCodes.PlayModeTransitionTimeout);
         JsonAssert.For(outputJson.RootElement.GetProperty("payload").GetProperty("transition"))
-            .HasString("result", ContractLiteralCodec.ToValue(IpcPlayTransitionOutcome.Timeout))
-            .HasString("applicationState", ContractLiteralCodec.ToValue(IpcApplicationState.Indeterminate))
+            .HasString("result", TextVocabulary.GetText(IpcPlayTransitionOutcome.Timeout))
+            .HasString("applicationState", TextVocabulary.GetText(IpcApplicationState.Indeterminate))
             .HasProperty("observed", _ => { });
         Assert.False(outputJson.RootElement.GetProperty("payload").GetProperty("transition").TryGetProperty("after", out _));
         Assert.False(outputJson.RootElement.GetProperty("payload").TryGetProperty("opResults", out _));

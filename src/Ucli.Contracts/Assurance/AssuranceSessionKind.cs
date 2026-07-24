@@ -1,19 +1,19 @@
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Assurance;
 
 /// <summary> Defines the finite session kinds emitted by assurance commands. </summary>
+[VocabularyDefinition]
 public enum AssuranceSessionKind
 {
     /// <summary> A reusable daemon session handled the operation. </summary>
-    [UcliContractLiteral("daemon")]
+    [VocabularyText("daemon")]
     Daemon = 1,
 
     /// <summary> A temporary one-shot session handled the probe. </summary>
-    [UcliContractLiteral("transientProbe")]
+    [VocabularyText("transientProbe")]
     TransientProbe = 2,
 
     /// <summary> The result was determined from persisted artifacts without a Unity session. </summary>
-    [UcliContractLiteral("artifactOnly")]
+    [VocabularyText("artifactOnly")]
     ArtifactOnly = 3,
 }

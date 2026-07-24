@@ -155,7 +155,7 @@ public sealed class TestRunCommandProgressOutputTests
         CommandResultAssert.HasStandardEnvelope(
             outputJson.RootElement,
             UcliCommandNames.TestRun,
-            ContractLiteralCodec.ToValue(CommandResultStatus.Error),
+            TextVocabulary.GetText(CommandResultStatus.Error),
             2);
         CommandResultAssert.HasSingleError(outputJson.RootElement, TestRunErrorCodes.UnityTestExecutionFailed);
         JsonAssert.For(outputJson.RootElement)
@@ -274,7 +274,7 @@ public sealed class TestRunCommandProgressOutputTests
         CommandResultAssert.HasStandardEnvelope(
             outputJson.RootElement,
             UcliCommandNames.TestRun,
-            ContractLiteralCodec.ToValue(CommandResultStatus.Ok),
+            TextVocabulary.GetText(CommandResultStatus.Ok),
             1);
         Assert.Equal(
             "Passed SmokeTest.Passes [42 ms]" + Environment.NewLine

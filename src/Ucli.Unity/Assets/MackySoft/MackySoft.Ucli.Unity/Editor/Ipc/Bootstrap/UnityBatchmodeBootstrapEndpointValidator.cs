@@ -1,4 +1,6 @@
 using System;
+using MackySoft.Text.Vocabularies;
+using TextVocabulary = MackySoft.Text.Vocabularies.Vocabulary;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
@@ -80,9 +82,9 @@ namespace MackySoft.Ucli.Unity.Ipc
             {
                 throw new InvalidOperationException(
                     "Batchmode bootstrap endpoint does not match the endpoint owned by the current Unity project. " +
-                    $"ExpectedTransport={ContractLiteralCodec.ToValue(expectedEndpoint.TransportKind)}, " +
+                    $"ExpectedTransport={TextVocabulary.GetText(expectedEndpoint.TransportKind)}, " +
                     $"ExpectedAddress={expectedEndpoint.Address}, " +
-                    $"ActualTransport={ContractLiteralCodec.ToValue(declaredEndpoint.TransportKind)}, ActualAddress={declaredEndpoint.Address}");
+                    $"ActualTransport={TextVocabulary.GetText(declaredEndpoint.TransportKind)}, ActualAddress={declaredEndpoint.Address}");
             }
         }
     }

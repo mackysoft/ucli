@@ -6,6 +6,8 @@ using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.Text.Vocabularies;
+using TextVocabulary = MackySoft.Text.Vocabularies.Vocabulary;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Assurance;
 using MackySoft.Ucli.Contracts.Assurance.Build;
@@ -774,7 +776,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 androidAppBundle: false,
                 out var expectedOutputLayout))
             {
-                errorMessage = $"Build outputLayout could not be resolved for build target: {ContractLiteralCodec.ToValue(buildTarget)}.";
+                errorMessage = $"Build outputLayout could not be resolved for build target: {TextVocabulary.GetText(buildTarget)}.";
                 return false;
             }
 

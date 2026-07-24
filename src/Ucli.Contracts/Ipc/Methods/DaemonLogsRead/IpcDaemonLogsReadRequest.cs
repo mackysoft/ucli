@@ -18,12 +18,12 @@ public sealed record IpcDaemonLogsReadRequest
         IpcLogQueryTarget? QueryTarget,
         string? Category)
     {
-        if (Level.HasValue && !ContractLiteralCodec.IsDefined(Level.Value))
+        if (Level.HasValue && !TextVocabulary.IsDefined(Level.Value))
         {
             throw new ArgumentOutOfRangeException(nameof(Level), Level, "Log level must be defined.");
         }
 
-        if (QueryTarget.HasValue && !ContractLiteralCodec.IsDefined(QueryTarget.Value))
+        if (QueryTarget.HasValue && !TextVocabulary.IsDefined(QueryTarget.Value))
         {
             throw new ArgumentOutOfRangeException(nameof(QueryTarget), QueryTarget, "Log query target must be defined.");
         }

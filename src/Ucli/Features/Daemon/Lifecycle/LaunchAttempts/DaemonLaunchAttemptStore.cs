@@ -356,12 +356,12 @@ internal sealed class DaemonLaunchAttemptStore : IDaemonLaunchAttemptStore
             LaunchAttemptId: launchAttempt.LaunchAttemptId,
             StartedAtUtc: launchAttempt.StartedAtUtc,
             UpdatedAtUtc: launchAttempt.UpdatedAtUtc,
-            StartupStatus: ContractLiteralCodec.ToValue(launchAttempt.StartupStatus),
-            StartupBlockingReason: ContractLiteralCodec.ToValue(launchAttempt.StartupBlockingReason),
-            RetryDisposition: ContractLiteralCodec.ToValue(launchAttempt.RetryDisposition),
-            ProcessAction: ContractLiteralCodec.ToValue(launchAttempt.ProcessAction),
+            StartupStatus: TextVocabulary.GetText(launchAttempt.StartupStatus),
+            StartupBlockingReason: TextVocabulary.GetText(launchAttempt.StartupBlockingReason),
+            RetryDisposition: TextVocabulary.GetText(launchAttempt.RetryDisposition),
+            ProcessAction: TextVocabulary.GetText(launchAttempt.ProcessAction),
             EditorMode: launchAttempt.EditorMode.HasValue
-                ? ContractLiteralCodec.ToValue(launchAttempt.EditorMode.Value)
+                ? TextVocabulary.GetText(launchAttempt.EditorMode.Value)
                 : null,
             ProcessId: launchAttempt.ProcessId,
             ProcessStartedAtUtc: launchAttempt.ProcessStartedAtUtc,
@@ -418,7 +418,7 @@ internal sealed class DaemonLaunchAttemptStore : IDaemonLaunchAttemptStore
                 $"Daemon launch-attempt diagnosis is invalid: {diagnosisPath}"));
         }
 
-        if (!ContractLiteralCodec.TryParse(contract.StartupStatus, out DaemonStartupStatus startupStatus)
+        if (!TextVocabulary.TryGetValue(contract.StartupStatus, out DaemonStartupStatus startupStatus)
             || startupStatus is not (DaemonStartupStatus.Blocked
                 or DaemonStartupStatus.Timeout
                 or DaemonStartupStatus.Failed
@@ -428,7 +428,7 @@ internal sealed class DaemonLaunchAttemptStore : IDaemonLaunchAttemptStore
                 $"Daemon launch-attempt startupStatus is invalid: {diagnosisPath}"));
         }
 
-        if (!ContractLiteralCodec.TryParse(
+        if (!TextVocabulary.TryGetValue(
                 contract.StartupBlockingReason,
                 out DaemonStartupBlockingReason startupBlockingReason))
         {
@@ -436,13 +436,13 @@ internal sealed class DaemonLaunchAttemptStore : IDaemonLaunchAttemptStore
                 $"Daemon launch-attempt startupBlockingReason is invalid: {diagnosisPath}"));
         }
 
-        if (!ContractLiteralCodec.TryParse(contract.RetryDisposition, out DaemonStartupRetryDisposition retryDisposition))
+        if (!TextVocabulary.TryGetValue(contract.RetryDisposition, out DaemonStartupRetryDisposition retryDisposition))
         {
             return DaemonLaunchAttemptReadResult.Failure(ExecutionError.InvalidArgument(
                 $"Daemon launch-attempt retryDisposition is invalid: {diagnosisPath}"));
         }
 
-        if (!ContractLiteralCodec.TryParse(contract.ProcessAction, out DaemonStartupProcessAction processAction))
+        if (!TextVocabulary.TryGetValue(contract.ProcessAction, out DaemonStartupProcessAction processAction))
         {
             return DaemonLaunchAttemptReadResult.Failure(ExecutionError.InvalidArgument(
                 $"Daemon launch-attempt processAction is invalid: {diagnosisPath}"));
@@ -451,7 +451,7 @@ internal sealed class DaemonLaunchAttemptStore : IDaemonLaunchAttemptStore
         DaemonEditorMode? editorMode = null;
         if (contract.EditorMode is not null)
         {
-            if (!ContractLiteralCodec.TryParse(contract.EditorMode, out DaemonEditorMode parsedEditorMode))
+            if (!TextVocabulary.TryGetValue(contract.EditorMode, out DaemonEditorMode parsedEditorMode))
             {
                 return DaemonLaunchAttemptReadResult.Failure(ExecutionError.InvalidArgument(
                     $"Daemon launch-attempt editorMode is invalid: {diagnosisPath}"));

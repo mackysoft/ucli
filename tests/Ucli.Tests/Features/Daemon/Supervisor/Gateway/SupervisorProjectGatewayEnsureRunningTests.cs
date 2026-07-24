@@ -26,14 +26,14 @@ public sealed class SupervisorProjectGatewayEnsureRunningTests
         scenario.TransportClient.SendHandler = async (_, request, _, cancellationToken) =>
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (string.Equals(request.Method, ContractLiteralCodec.ToValue(SupervisorIpcMethod.Ping), StringComparison.Ordinal))
+            if (string.Equals(request.Method, TextVocabulary.GetText(SupervisorIpcMethod.Ping), StringComparison.Ordinal))
             {
                 return SupervisorProjectGatewayTestSupport.CreateSupervisorPingResponse(
                     request,
                     scenario.Manifest);
             }
 
-            Assert.Equal(ContractLiteralCodec.ToValue(SupervisorIpcMethod.EnsureRunning), request.Method);
+            Assert.Equal(TextVocabulary.GetText(SupervisorIpcMethod.EnsureRunning), request.Method);
             if (Interlocked.Increment(ref ensureRunningAttempt) == 1)
             {
                 timeProvider.Advance(TimeSpan.FromMilliseconds(200));
@@ -60,7 +60,7 @@ public sealed class SupervisorProjectGatewayEnsureRunningTests
         Assert.True(result.IsSuccess);
         var requests = scenario.TransportClient.Invocations
             .Select(static invocation => invocation.Request)
-            .Where(static request => request.Method == ContractLiteralCodec.ToValue(SupervisorIpcMethod.EnsureRunning))
+            .Where(static request => request.Method == TextVocabulary.GetText(SupervisorIpcMethod.EnsureRunning))
             .ToArray();
         IpcRequestAssert.SessionTokens(
             requests,
@@ -91,14 +91,14 @@ public sealed class SupervisorProjectGatewayEnsureRunningTests
         scenario.TransportClient.SendHandler = async (_, request, _, cancellationToken) =>
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (string.Equals(request.Method, ContractLiteralCodec.ToValue(SupervisorIpcMethod.Ping), StringComparison.Ordinal))
+            if (string.Equals(request.Method, TextVocabulary.GetText(SupervisorIpcMethod.Ping), StringComparison.Ordinal))
             {
                 return SupervisorProjectGatewayTestSupport.CreateSupervisorPingResponse(
                     request,
                     scenario.Manifest);
             }
 
-            Assert.Equal(ContractLiteralCodec.ToValue(SupervisorIpcMethod.EnsureRunning), request.Method);
+            Assert.Equal(TextVocabulary.GetText(SupervisorIpcMethod.EnsureRunning), request.Method);
             if (Interlocked.Increment(ref ensureRunningAttempt) == 1)
             {
                 await scenario.ManifestStore.WriteAsync(
@@ -124,7 +124,7 @@ public sealed class SupervisorProjectGatewayEnsureRunningTests
         Assert.Equal(IpcSessionErrorCodes.SessionTokenInvalid, result.Error!.Code);
         var requests = scenario.TransportClient.Invocations
             .Select(static invocation => invocation.Request)
-            .Where(static request => request.Method == ContractLiteralCodec.ToValue(SupervisorIpcMethod.EnsureRunning))
+            .Where(static request => request.Method == TextVocabulary.GetText(SupervisorIpcMethod.EnsureRunning))
             .ToArray();
         IpcRequestAssert.SessionTokens(
             requests,
@@ -149,7 +149,7 @@ public sealed class SupervisorProjectGatewayEnsureRunningTests
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            if (string.Equals(request.Method, ContractLiteralCodec.ToValue(SupervisorIpcMethod.Ping), StringComparison.Ordinal))
+            if (string.Equals(request.Method, TextVocabulary.GetText(SupervisorIpcMethod.Ping), StringComparison.Ordinal))
             {
                 timeProvider.Advance(TimeSpan.FromMilliseconds(180));
                 return ValueTask.FromResult(SupervisorProjectGatewayTestSupport.CreateSupervisorPingResponse(
@@ -157,7 +157,7 @@ public sealed class SupervisorProjectGatewayEnsureRunningTests
                     scenario.Manifest));
             }
 
-            if (string.Equals(request.Method, ContractLiteralCodec.ToValue(SupervisorIpcMethod.EnsureRunning), StringComparison.Ordinal))
+            if (string.Equals(request.Method, TextVocabulary.GetText(SupervisorIpcMethod.EnsureRunning), StringComparison.Ordinal))
             {
                 var payload = SupervisorProjectGatewayTestSupport.ReadEnsureRunningRequest(request);
                 observedEnsureRunningTimeout = TimeSpan.FromMilliseconds(request.RequestDeadlineRemainingMilliseconds);
@@ -191,10 +191,10 @@ public sealed class SupervisorProjectGatewayEnsureRunningTests
         Assert.Equal(DaemonStartupBlockedProcessPolicy.Keep, observedOnStartupBlocked);
         EventSequenceAssert.EmittedEventsInOrder(
             progressSink.Entries,
-            ContractLiteralCodec.ToValue(DaemonStartProgressEvent.SupervisorBootstrapStarted),
-            ContractLiteralCodec.ToValue(DaemonStartProgressEvent.SupervisorBootstrapCompleted),
-            ContractLiteralCodec.ToValue(DaemonStartProgressEvent.EnsureRunningStarted),
-            ContractLiteralCodec.ToValue(DaemonStartProgressEvent.EnsureRunningCompleted));
+            TextVocabulary.GetText(DaemonStartProgressEvent.SupervisorBootstrapStarted),
+            TextVocabulary.GetText(DaemonStartProgressEvent.SupervisorBootstrapCompleted),
+            TextVocabulary.GetText(DaemonStartProgressEvent.EnsureRunningStarted),
+            TextVocabulary.GetText(DaemonStartProgressEvent.EnsureRunningCompleted));
         SupervisorProgressAssert.EnsureRunningCompletedSuccessfully(
             progressSink,
             expectedTimeoutMilliseconds: SupervisorProjectGatewayTestSupport.StartTimeoutMilliseconds);
@@ -209,7 +209,7 @@ public sealed class SupervisorProjectGatewayEnsureRunningTests
         scenario.TransportClient.SendHandler = (endpoint, request, timeout, cancellationToken) =>
         {
             cancellationToken.ThrowIfCancellationRequested();
-            Assert.Equal(ContractLiteralCodec.ToValue(SupervisorIpcMethod.Ping), request.Method);
+            Assert.Equal(TextVocabulary.GetText(SupervisorIpcMethod.Ping), request.Method);
             return ValueTask.FromResult(SupervisorProjectGatewayTestSupport.CreateSupervisorPingResponse(
                 request,
                 scenario.Manifest));
@@ -217,13 +217,13 @@ public sealed class SupervisorProjectGatewayEnsureRunningTests
         scenario.TransportClient.StreamingHandler = async (endpoint, request, timeout, onProgressFrame, cancellationToken) =>
         {
             cancellationToken.ThrowIfCancellationRequested();
-            Assert.Equal(ContractLiteralCodec.ToValue(SupervisorIpcMethod.EnsureRunning), request.Method);
-            Assert.Equal(ContractLiteralCodec.ToValue(IpcResponseMode.Stream), request.ResponseMode);
+            Assert.Equal(TextVocabulary.GetText(SupervisorIpcMethod.EnsureRunning), request.Method);
+            Assert.Equal(TextVocabulary.GetText(IpcResponseMode.Stream), request.ResponseMode);
             var payload = SupervisorProjectGatewayTestSupport.ReadEnsureRunningRequest(request);
             await onProgressFrame(
                     SupervisorClientTestSupport.CreateProgressFrame(
                         request,
-                        ContractLiteralCodec.ToValue(DaemonStartProgressEvent.WaitingForEndpoint),
+                        TextVocabulary.GetText(DaemonStartProgressEvent.WaitingForEndpoint),
                         DaemonStartProgressEntryTestFactory.CreateStartupObservation(
                             projectFingerprint: payload.ProjectFingerprint,
                             timeoutMilliseconds: request.RequestDeadlineRemainingMilliseconds,
@@ -266,7 +266,7 @@ public sealed class SupervisorProjectGatewayEnsureRunningTests
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            if (string.Equals(request.Method, ContractLiteralCodec.ToValue(SupervisorIpcMethod.Ping), StringComparison.Ordinal))
+            if (string.Equals(request.Method, TextVocabulary.GetText(SupervisorIpcMethod.Ping), StringComparison.Ordinal))
             {
                 timeProvider.Advance(TimeSpan.FromMilliseconds(180));
                 return ValueTask.FromResult(SupervisorProjectGatewayTestSupport.CreateSupervisorPingResponse(
@@ -274,7 +274,7 @@ public sealed class SupervisorProjectGatewayEnsureRunningTests
                     scenario.Manifest));
             }
 
-            if (string.Equals(request.Method, ContractLiteralCodec.ToValue(SupervisorIpcMethod.EnsureRunning), StringComparison.Ordinal))
+            if (string.Equals(request.Method, TextVocabulary.GetText(SupervisorIpcMethod.EnsureRunning), StringComparison.Ordinal))
             {
                 _ = SupervisorProjectGatewayTestSupport.ReadEnsureRunningRequest(request);
                 observedEnsureRunningTimeout = TimeSpan.FromMilliseconds(request.RequestDeadlineRemainingMilliseconds);
@@ -298,10 +298,10 @@ public sealed class SupervisorProjectGatewayEnsureRunningTests
         Assert.Equal(TimeSpan.FromMilliseconds(720), observedEnsureRunningTimeout);
         EventSequenceAssert.EmittedEventsInOrder(
             progressSink.Entries,
-            ContractLiteralCodec.ToValue(DaemonStartProgressEvent.SupervisorBootstrapStarted),
-            ContractLiteralCodec.ToValue(DaemonStartProgressEvent.SupervisorBootstrapCompleted),
-            ContractLiteralCodec.ToValue(DaemonStartProgressEvent.EnsureRunningStarted),
-            ContractLiteralCodec.ToValue(DaemonStartProgressEvent.EnsureRunningCompleted));
+            TextVocabulary.GetText(DaemonStartProgressEvent.SupervisorBootstrapStarted),
+            TextVocabulary.GetText(DaemonStartProgressEvent.SupervisorBootstrapCompleted),
+            TextVocabulary.GetText(DaemonStartProgressEvent.EnsureRunningStarted),
+            TextVocabulary.GetText(DaemonStartProgressEvent.EnsureRunningCompleted));
     }
 
     [Fact]
@@ -314,14 +314,14 @@ public sealed class SupervisorProjectGatewayEnsureRunningTests
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            if (string.Equals(request.Method, ContractLiteralCodec.ToValue(SupervisorIpcMethod.Ping), StringComparison.Ordinal))
+            if (string.Equals(request.Method, TextVocabulary.GetText(SupervisorIpcMethod.Ping), StringComparison.Ordinal))
             {
                 return ValueTask.FromResult(SupervisorProjectGatewayTestSupport.CreateSupervisorPingResponse(
                     request,
                     scenario.Manifest));
             }
 
-            if (string.Equals(request.Method, ContractLiteralCodec.ToValue(SupervisorIpcMethod.EnsureRunning), StringComparison.Ordinal))
+            if (string.Equals(request.Method, TextVocabulary.GetText(SupervisorIpcMethod.EnsureRunning), StringComparison.Ordinal))
             {
                 return ValueTask.FromResult(IpcResponseTestFactory.CreateError(
                     request,
@@ -346,10 +346,10 @@ public sealed class SupervisorProjectGatewayEnsureRunningTests
         Assert.Equal(ExecutionErrorCodes.IpcTimeout, result.Error!.Code);
         EventSequenceAssert.EmittedEventsInOrder(
             progressSink.Entries,
-            ContractLiteralCodec.ToValue(DaemonStartProgressEvent.SupervisorBootstrapStarted),
-            ContractLiteralCodec.ToValue(DaemonStartProgressEvent.SupervisorBootstrapCompleted),
-            ContractLiteralCodec.ToValue(DaemonStartProgressEvent.EnsureRunningStarted),
-            ContractLiteralCodec.ToValue(DaemonStartProgressEvent.EnsureRunningCompleted));
+            TextVocabulary.GetText(DaemonStartProgressEvent.SupervisorBootstrapStarted),
+            TextVocabulary.GetText(DaemonStartProgressEvent.SupervisorBootstrapCompleted),
+            TextVocabulary.GetText(DaemonStartProgressEvent.EnsureRunningStarted),
+            TextVocabulary.GetText(DaemonStartProgressEvent.EnsureRunningCompleted));
         SupervisorProgressAssert.EnsureRunningCompletedWithFailure(
             progressSink,
             expectedErrorCode: ExecutionErrorCodes.IpcTimeout.Value);

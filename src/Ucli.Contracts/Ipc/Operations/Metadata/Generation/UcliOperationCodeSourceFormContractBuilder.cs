@@ -22,7 +22,7 @@ internal static class UcliOperationCodeSourceFormContractBuilder
     {
         if (sourceForm == null
             || !sourceForm.Kind.HasValue
-            || !ContractLiteralCodec.IsDefined(sourceForm.Kind.Value)
+            || !TextVocabulary.IsDefined(sourceForm.Kind.Value)
             || string.IsNullOrWhiteSpace(sourceForm.Description))
         {
             throw new ArgumentException("Source form kind and description must not be empty.", paramName);

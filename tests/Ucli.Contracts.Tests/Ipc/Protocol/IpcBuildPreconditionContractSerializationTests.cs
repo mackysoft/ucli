@@ -89,18 +89,18 @@ public sealed class IpcBuildPreconditionContractSerializationTests
 
         JsonAssert.For(dirtyState)
             .HasBoolean("dirty", true)
-            .HasString("coverage", ContractLiteralCodec.ToValue(IpcBuildDirtyStateCoverage.Full))
+            .HasString("coverage", TextVocabulary.GetText(IpcBuildDirtyStateCoverage.Full))
             .HasArrayLength("items", 1)
             .HasProperty("items", 0, item => item
-                .HasString("kind", ContractLiteralCodec.ToValue(IpcBuildDirtyStateItemKind.Scene))
+                .HasString("kind", TextVocabulary.GetText(IpcBuildDirtyStateItemKind.Scene))
                 .HasString("path", "Assets/Scenes/Main.unity"));
         Assert.False(dirtyState.TryGetProperty("checked", out _));
         JsonAssert.For(inputProbe)
-            .HasString("inputKind", ContractLiteralCodec.ToValue(BuildProfileInputsKind.Explicit))
+            .HasString("inputKind", TextVocabulary.GetText(BuildProfileInputsKind.Explicit))
             .HasString("buildTarget", "standaloneLinux64")
             .HasString("unityBuildTarget", "StandaloneLinux64")
             .HasString("unityBuildTargetGroup", "Standalone")
-            .HasString("sceneSource", ContractLiteralCodec.ToValue(BuildProfileSceneSource.Explicit))
+            .HasString("sceneSource", TextVocabulary.GetText(BuildProfileSceneSource.Explicit))
             .HasArrayLength("scenes", 1)
             .HasProperty("scenes", 0, scene => scene
                 .HasString("Assets/Scenes/Main.unity"))
@@ -110,7 +110,7 @@ public sealed class IpcBuildPreconditionContractSerializationTests
             .HasString("unityVersion", "6000.0.0f1")
             .HasString("projectFingerprint", TestProjectFingerprint.ToString())
             .HasString("observedAtUtc", "2026-06-12T00:00:00+00:00")
-            .HasString("actionRequired", ContractLiteralCodec.ToValue(DaemonDiagnosisActionRequired.FixCompileErrors))
+            .HasString("actionRequired", TextVocabulary.GetText(DaemonDiagnosisActionRequired.FixCompileErrors))
             .HasProperty("primaryDiagnostic", diagnostic => diagnostic
                 .HasString("kind", "compiler")
                 .HasString("code", "CS1002")
@@ -120,8 +120,8 @@ public sealed class IpcBuildPreconditionContractSerializationTests
                 .HasString("message", "; expected"))
             .HasProperty("state", state => state
                 .HasString("editorMode", "batchmode")
-                .HasString("lifecycleState", ContractLiteralCodec.ToValue(IpcEditorLifecycleState.CompileFailed))
-                .HasString("compileState", ContractLiteralCodec.ToValue(IpcCompileState.Failed))
+                .HasString("lifecycleState", TextVocabulary.GetText(IpcEditorLifecycleState.CompileFailed))
+                .HasString("compileState", TextVocabulary.GetText(IpcCompileState.Failed))
                 .HasProperty("generations", generations => generations
                     .HasInt32("compileGeneration", 1)
                     .HasInt32("domainReloadGeneration", 2)

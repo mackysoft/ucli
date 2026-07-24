@@ -22,7 +22,7 @@ internal static class IpcEditStepCommitReader
             return false;
         }
 
-        if (!ContractLiteralCodec.TryParse(commitLiteral!, out commitKind))
+        if (!TextVocabulary.TryGetValue(commitLiteral!, out commitKind))
         {
             errorMessage = "Edit step property 'step.commit' must be one of 'none', 'context', or 'project'.";
             return false;

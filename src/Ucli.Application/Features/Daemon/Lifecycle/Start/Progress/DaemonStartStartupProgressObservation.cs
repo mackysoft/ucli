@@ -1,4 +1,3 @@
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Progress;
 
@@ -25,12 +24,12 @@ internal sealed record DaemonStartStartupProgressObservation
             throw new ArgumentException("Launch attempt identifier must not be empty.", nameof(LaunchAttemptId));
         }
 
-        if (EditorMode.HasValue && !ContractLiteralCodec.IsDefined(EditorMode.Value))
+        if (EditorMode.HasValue && !TextVocabulary.IsDefined(EditorMode.Value))
         {
             throw new ArgumentOutOfRangeException(nameof(EditorMode), EditorMode, "Unsupported daemon Editor mode.");
         }
 
-        if (OwnerKind.HasValue && !ContractLiteralCodec.IsDefined(OwnerKind.Value))
+        if (OwnerKind.HasValue && !TextVocabulary.IsDefined(OwnerKind.Value))
         {
             throw new ArgumentOutOfRangeException(nameof(OwnerKind), OwnerKind, "Unsupported daemon session owner kind.");
         }
@@ -48,12 +47,12 @@ internal sealed record DaemonStartStartupProgressObservation
                 nameof(ProcessStartedAtUtc));
         }
 
-        if (StartupStatus.HasValue && !ContractLiteralCodec.IsDefined(StartupStatus.Value))
+        if (StartupStatus.HasValue && !TextVocabulary.IsDefined(StartupStatus.Value))
         {
             throw new ArgumentOutOfRangeException(nameof(StartupStatus), StartupStatus, "Unsupported daemon startup status.");
         }
 
-        if (StartupBlockingReason.HasValue && !ContractLiteralCodec.IsDefined(StartupBlockingReason.Value))
+        if (StartupBlockingReason.HasValue && !TextVocabulary.IsDefined(StartupBlockingReason.Value))
         {
             throw new ArgumentOutOfRangeException(
                 nameof(StartupBlockingReason),
@@ -61,12 +60,12 @@ internal sealed record DaemonStartStartupProgressObservation
                 "Unsupported daemon startup blocking reason.");
         }
 
-        if (StartupPhase.HasValue && !ContractLiteralCodec.IsDefined(StartupPhase.Value))
+        if (StartupPhase.HasValue && !TextVocabulary.IsDefined(StartupPhase.Value))
         {
             throw new ArgumentOutOfRangeException(nameof(StartupPhase), StartupPhase, "Unsupported daemon startup phase.");
         }
 
-        if (RetryDisposition.HasValue && !ContractLiteralCodec.IsDefined(RetryDisposition.Value))
+        if (RetryDisposition.HasValue && !TextVocabulary.IsDefined(RetryDisposition.Value))
         {
             throw new ArgumentOutOfRangeException(
                 nameof(RetryDisposition),

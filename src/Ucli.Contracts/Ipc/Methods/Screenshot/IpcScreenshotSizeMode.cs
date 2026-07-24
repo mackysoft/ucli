@@ -1,15 +1,15 @@
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
 /// <summary> Defines screenshot capture size-mode literals. </summary>
+[VocabularyDefinition]
 public enum IpcScreenshotSizeMode
 {
     /// <summary> Captures the current target-surface size. </summary>
-    [UcliContractLiteral("currentSurface")]
+    [VocabularyText("currentSurface")]
     CurrentSurface = 1,
 
     /// <summary> Captures an explicitly requested GameView resolution. </summary>
-    [UcliContractLiteral("requestedResolution")]
+    [VocabularyText("requestedResolution")]
     RequestedResolution = 2,
 }

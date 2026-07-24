@@ -65,8 +65,8 @@ internal static class FileReadIndexArtifactReaderTestSupport
         var json = Write(contract);
         var describeHash = Sha256Digest.Compute(Encoding.UTF8.GetBytes(json));
         WriteText(UcliStoragePathResolver.ResolveOpsDescribePath(storageRoot, fingerprint, describeKey), json);
-        if (!ContractLiteralCodec.TryParse<UcliOperationKind>(operation.Kind, out var kind)
-            || !ContractLiteralCodec.TryParse<OperationPolicy>(operation.Policy, out var policy))
+        if (!TextVocabulary.TryGetValue<UcliOperationKind>(operation.Kind, out var kind)
+            || !TextVocabulary.TryGetValue<OperationPolicy>(operation.Policy, out var policy))
         {
             throw new InvalidOperationException("Operation fixture must use canonical kind and policy literals.");
         }

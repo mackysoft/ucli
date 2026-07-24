@@ -24,7 +24,7 @@ public sealed record IpcExecuteOperationResult
         bool Changed,
         IReadOnlyList<IpcExecuteTouchedResource> Touched)
     {
-        if (!ContractLiteralCodec.IsDefined(Phase))
+        if (!TextVocabulary.IsDefined(Phase))
         {
             throw new ArgumentOutOfRangeException(nameof(Phase), Phase, "Operation phase must be specified.");
         }

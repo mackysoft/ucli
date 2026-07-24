@@ -216,7 +216,7 @@ public sealed class SupervisorManifestStoreTests
         var contract = new SupervisorInstanceManifestJsonContract(
             manifest.ProcessId,
             "legacy-token",
-            ContractLiteralCodec.ToValue(manifest.Endpoint.TransportKind),
+            TextVocabulary.GetText(manifest.Endpoint.TransportKind),
             manifest.Endpoint.Address,
             manifest.IssuedAtUtc);
         var manifestPath = UcliStoragePathResolver.ResolveSupervisorManifestPath(scope.FullPath);
@@ -244,7 +244,7 @@ public sealed class SupervisorManifestStoreTests
         var contract = new SupervisorInstanceManifestJsonContract(
             manifest.ProcessId,
             manifest.SessionToken.GetEncodedValue(),
-            ContractLiteralCodec.ToValue(manifest.Endpoint.TransportKind),
+            TextVocabulary.GetText(manifest.Endpoint.TransportKind),
             manifest.Endpoint.Address,
             manifest.IssuedAtUtc.ToOffset(TimeSpan.FromHours(9)));
         var manifestPath = UcliStoragePathResolver.ResolveSupervisorManifestPath(scope.FullPath);

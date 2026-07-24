@@ -4,7 +4,7 @@ public sealed class SupervisorIpcMethodTests
 {
     [Fact]
     [Trait("Size", "Small")]
-    public void GetLiterals_ReturnsCanonicalSupervisorMethods ()
+    public void GetTexts_ReturnsCanonicalSupervisorMethods ()
     {
         Assert.Equal(
             [
@@ -12,14 +12,14 @@ public sealed class SupervisorIpcMethodTests
                 "supervisor.ping",
                 "supervisor.stopProject",
             ],
-            ContractLiteralCodec
-                .GetLiterals<SupervisorIpcMethod>()
+            Vocabulary
+                .GetTexts<SupervisorIpcMethod>()
                 .Order(StringComparer.Ordinal));
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void ContractLiteralCodec_WhenMethodIsCanonical_RoundTrips ()
+    public void Vocabulary_WhenMethodIsCanonical_RoundTrips ()
     {
         var cases = new (SupervisorIpcMethod Method, string Literal)[]
         {
@@ -30,8 +30,8 @@ public sealed class SupervisorIpcMethodTests
 
         foreach (var (method, literal) in cases)
         {
-            Assert.Equal(literal, ContractLiteralCodec.ToValue(method));
-            Assert.True(ContractLiteralCodec.TryParse(literal, out SupervisorIpcMethod parsedMethod));
+            Assert.Equal(literal, TextVocabulary.GetText(method));
+            Assert.True(TextVocabulary.TryGetValue(literal, out SupervisorIpcMethod parsedMethod));
             Assert.Equal(method, parsedMethod);
         }
     }
@@ -47,7 +47,7 @@ public sealed class SupervisorIpcMethodTests
     [Trait("Size", "Small")]
     public void TryParse_WhenLiteralIsNotCanonical_ReturnsFalse (string? literal)
     {
-        var parsed = ContractLiteralCodec.TryParse<SupervisorIpcMethod>(literal, out _);
+        var parsed = TextVocabulary.TryGetValue<SupervisorIpcMethod>(literal, out _);
 
         Assert.False(parsed);
     }
@@ -59,7 +59,7 @@ public sealed class SupervisorIpcMethodTests
         var method = default(SupervisorIpcMethod);
         Assert.Equal(0, (int)method);
         Assert.Throws<ArgumentOutOfRangeException>(
-            () => ContractLiteralCodec.ToValue(method));
+            () => TextVocabulary.GetText(method));
     }
 
     [Fact]
@@ -67,6 +67,6 @@ public sealed class SupervisorIpcMethodTests
     public void ToValue_WhenMethodIsUndefined_ThrowsArgumentOutOfRangeException ()
     {
         Assert.Throws<ArgumentOutOfRangeException>(
-            () => ContractLiteralCodec.ToValue((SupervisorIpcMethod)999));
+            () => TextVocabulary.GetText((SupervisorIpcMethod)999));
     }
 }

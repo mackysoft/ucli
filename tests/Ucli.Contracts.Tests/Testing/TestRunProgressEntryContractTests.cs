@@ -13,7 +13,7 @@ public sealed class TestRunProgressEntryContractTests
     {
         Assert.Equal(
             ["pass", "fail", "skipped", "inconclusive"],
-            ContractLiteralCodec.GetLiterals<TestCaseResult>());
+            TextVocabulary.GetTexts<TestCaseResult>());
     }
 
     public static TheoryData<bool, string, string?> InvalidCaseIdentityValues => new()
