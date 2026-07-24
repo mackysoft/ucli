@@ -10,15 +10,23 @@ public sealed class UnityPluginPackageSpecTests
 {
     [Fact]
     [Trait("Size", "Medium")]
-    public void Nuspec_DeclaresSameDependenciesAsUnityPackagesConfig ()
+    public void Nuspec_DeclaresUnityPackagesConfigDependenciesWithRequiredVersionRanges ()
     {
         var nuspecPath = TestRepositoryPaths.GetFullPath("src", "Ucli.Unity", "MackySoft.Ucli.Unity.nuspec");
         var packagesConfigPath = TestRepositoryPaths.GetFullPath("src", "Ucli.Unity", "Assets", "packages.config");
 
         var nuspecDependencies = ReadNuspecDependencies(nuspecPath);
         var packagesConfigDependencies = ReadPackagesConfigDependencies(packagesConfigPath);
+        var expectedNuspecDependencies = packagesConfigDependencies.ToDictionary(
+            static dependency => dependency.Key,
+            static dependency => dependency.Key is
+                "MackySoft.Text.Vocabularies" or
+                "MackySoft.Text.Vocabularies.Json"
+                    ? $"[{dependency.Value}]"
+                    : dependency.Value,
+            StringComparer.Ordinal);
 
-        Assert.Equal(packagesConfigDependencies, nuspecDependencies);
+        Assert.Equal(expectedNuspecDependencies, nuspecDependencies);
     }
 
     [Fact]
