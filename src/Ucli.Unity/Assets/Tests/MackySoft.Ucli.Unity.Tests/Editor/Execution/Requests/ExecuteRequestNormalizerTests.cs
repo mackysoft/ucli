@@ -2665,6 +2665,34 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
+        public void Normalize_WhenRequestUsesDistinctExactInt64Values_ProducesDifferentDigestPayloads ()
+        {
+            var requestA = CreateExecuteRequestFromJson(
+                UcliCommandIds.Plan.Name,
+                "{\"protocolVersion\":1,\"steps\":[{\"kind\":\"op\",\"id\":\"resolve\",\"op\":\"__RESOLVE_OP__\",\"args\":{\"number\":9007199254740992}}]}"
+                    .Replace("__RESOLVE_OP__", UcliPrimitiveOperationNames.Resolve, StringComparison.Ordinal));
+            var requestB = CreateExecuteRequestFromJson(
+                UcliCommandIds.Plan.Name,
+                "{\"protocolVersion\":1,\"steps\":[{\"kind\":\"op\",\"id\":\"resolve\",\"op\":\"__RESOLVE_OP__\",\"args\":{\"number\":9007199254740993}}]}"
+                    .Replace("__RESOLVE_OP__", UcliPrimitiveOperationNames.Resolve, StringComparison.Ordinal));
+
+            var normalizer = CreateNormalizer();
+            var resultA = normalizer.Normalize(requestA);
+            var resultB = normalizer.Normalize(requestB);
+
+            Assert.That(resultA.IsSuccess, Is.True);
+            Assert.That(resultB.IsSuccess, Is.True);
+            Assert.That(resultA.Request!.CanonicalDigestPayloadUtf8.Span.SequenceEqual(resultB.Request!.CanonicalDigestPayloadUtf8.Span), Is.False);
+            Assert.That(
+                Encoding.UTF8.GetString(resultA.Request!.CanonicalDigestPayloadUtf8.ToArray()),
+                Does.Contain("\"number\":9007199254740992"));
+            Assert.That(
+                Encoding.UTF8.GetString(resultB.Request!.CanonicalDigestPayloadUtf8.ToArray()),
+                Does.Contain("\"number\":9007199254740993"));
+        }
+
+        [Test]
+        [Category("Size.Small")]
         public void Normalize_WhenProtocolVersionMismatches_ReturnsProtocolVersionMismatchError ()
         {
             var request = CreateExecuteRequest(

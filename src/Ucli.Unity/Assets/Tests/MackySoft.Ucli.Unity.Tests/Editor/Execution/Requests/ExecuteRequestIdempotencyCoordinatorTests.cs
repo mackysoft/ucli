@@ -425,6 +425,25 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
+        public void FingerprintCalculator_WhenArgumentsUseDistinctExactInt64Values_ReturnsDifferentFingerprint ()
+        {
+            using var firstDocument = JsonDocument.Parse(
+                "{\"protocolVersion\":1,\"ops\":[{\"id\":\"op-1\",\"op\":\"__RESOLVE_OP__\",\"args\":{\"number\":9007199254740992}}]}"
+                    .Replace("__RESOLVE_OP__", UcliPrimitiveOperationNames.Resolve, StringComparison.Ordinal));
+            using var secondDocument = JsonDocument.Parse(
+                "{\"protocolVersion\":1,\"ops\":[{\"id\":\"op-1\",\"op\":\"__RESOLVE_OP__\",\"args\":{\"number\":9007199254740993}}]}"
+                    .Replace("__RESOLVE_OP__", UcliPrimitiveOperationNames.Resolve, StringComparison.Ordinal));
+            var firstRequest = new IpcExecuteRequest(UcliCommandIds.Call.Name, firstDocument.RootElement.Clone());
+            var secondRequest = new IpcExecuteRequest(UcliCommandIds.Call.Name, secondDocument.RootElement.Clone());
+
+            var firstFingerprint = ExecuteRequestFingerprintCalculator.Create(firstRequest);
+            var secondFingerprint = ExecuteRequestFingerprintCalculator.Create(secondRequest);
+
+            Assert.That(firstFingerprint, Is.Not.EqualTo(secondFingerprint));
+        }
+
+        [Test]
+        [Category("Size.Small")]
         public void FingerprintCalculator_WhenPlanTokenDiffers_ReturnsDifferentFingerprint ()
         {
             using var document = JsonDocument.Parse(

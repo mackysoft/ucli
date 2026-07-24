@@ -1,11 +1,29 @@
+using System.Text;
 using MackySoft.Ucli.Application.Features.Assurance.Semantics;
 using MackySoft.Ucli.Application.Features.Assurance.Verify.Profiles;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Contracts.Cryptography;
 
 namespace MackySoft.Ucli.Application.Tests.Features.Assurance.Verify;
 
 public sealed class VerifyProfileResolverTests
 {
+    [Fact]
+    [Trait("Size", "Small")]
+    public void CalculateDigest_UsesCanonicalProfileJson ()
+    {
+        const string CanonicalJson = """{"name":"profile","path":null,"source":"builtIn","steps":[]}""";
+        var profile = new VerifyProfileDefinition(
+            VerifyProfileSource.BuiltIn,
+            "profile",
+            RepositoryRelativePath: null,
+            Steps: []);
+
+        var digest = VerifyProfileDigestCalculator.Calculate(profile);
+
+        Assert.Equal(Sha256Digest.Compute(Encoding.UTF8.GetBytes(CanonicalJson)), digest);
+    }
+
     [Fact]
     [Trait("Size", "Small")]
     public void Resolve_WithUnknownBuiltInProfile_ReturnsInvalidArgument ()

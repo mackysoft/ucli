@@ -13,6 +13,7 @@
     "allowUnsafeCode": false,
     "overrideReferences": true,
     "precompiledReferences": [
+        "MackySoft.Json.Canonicalization.dll",
         "MackySoft.FileSystem.dll",
         "MackySoft.Text.Vocabularies.dll",
         "MackySoft.Text.Vocabularies.Json.dll",

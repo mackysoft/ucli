@@ -19,7 +19,7 @@ public sealed class SupervisorClientProgressTests
                 request,
                 onProgressFrame,
                 SupervisorClientTestSupport.CreateWaitingForEndpointProgressFrame(
-                request,
+                    request,
                     onStartupBlocked: DaemonStartupBlockedProcessPolicy.Terminate,
                     message: "Waiting for daemon endpoint."),
                 cancellationToken);
@@ -102,49 +102,5 @@ public sealed class SupervisorClientProgressTests
         Assert.Equal(DaemonStatusKind.Stale, result.DaemonStatus);
         Assert.Empty(progressSink.Entries);
         transportClient.AssertEnsureRunningStreamingRequested();
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public async Task EnsureRunning_WhenStreamingTerminalResponseNeverCompletes_ReturnsTimeoutAfterFiniteGrace ()
-    {
-        var terminalResponseSource = new TaskCompletionSource<IpcResponse>(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-        var cancellationObserved = new TaskCompletionSource(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-        var transportClient = new StreamingSupervisorTransportClient(
-            (_, _, cancellationToken) =>
-            {
-                _ = cancellationToken.Register(() => cancellationObserved.TrySetResult());
-                return new ValueTask<IpcResponse>(terminalResponseSource.Task);
-            });
-        var client = new SupervisorClient(transportClient, TimeProvider.System);
-        var resultTask = client.EnsureRunningAsync(
-                SupervisorClientTestSupport.CreateManifest(),
-                Guid.NewGuid(),
-                SupervisorClientTestSupport.CreateUnityProject(),
-                ExecutionDeadline.Start(TimeSpan.FromMilliseconds(1), TimeProvider.System),
-                editorMode: DaemonEditorMode.Gui,
-                onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
-                new CollectingCommandProgressSink(),
-                cancellationToken: CancellationToken.None)
-            .AsTask();
-
-        DaemonStartResult result;
-        try
-        {
-            result = await resultTask.WaitAsync(
-                SupervisorConstants.EnsureRunningTerminalResponseGrace + TimeSpan.FromSeconds(3));
-        }
-        finally
-        {
-            terminalResponseSource.TrySetException(new TimeoutException("Release non-cooperative streaming response."));
-            _ = await resultTask.WaitAsync(TimeSpan.FromSeconds(5));
-        }
-
-        Assert.False(result.IsSuccess);
-        Assert.Equal(ExecutionErrorKind.Timeout, result.Error!.Kind);
-        Assert.Contains("terminal response", result.Error.Message, StringComparison.Ordinal);
-        await cancellationObserved.Task.WaitAsync(TimeSpan.FromSeconds(5));
     }
 }

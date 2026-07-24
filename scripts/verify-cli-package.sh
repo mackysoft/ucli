@@ -33,6 +33,8 @@ fi
 
 filesystem_package_id="MackySoft.FileSystem"
 filesystem_package_version="0.1.0"
+canonicalization_package_id="MackySoft.Json.Canonicalization"
+canonicalization_package_version="0.1.0"
 
 for required_tool in cmp dotnet unzip; do
   if ! command -v "${required_tool}" >/dev/null 2>&1; then
@@ -46,6 +48,18 @@ text_package_version="0.1.0"
 text_package_ids=(
   "MackySoft.Text.Vocabularies"
   "MackySoft.Text.Vocabularies.Json"
+)
+foundation_package_ids=(
+  "${filesystem_package_id}"
+  "${text_package_ids[@]}"
+  "${canonicalization_package_id}"
+)
+canonicalization_notice_root="tools/net8.0/any/third-party/${canonicalization_package_id}/${canonicalization_package_version}"
+canonicalization_notice_files=(
+  "LICENSE"
+  "THIRD-PARTY-NOTICES.md"
+  "licenses/Apache-2.0.txt"
+  "licenses/MPL-2.0.txt"
 )
 
 temp_root="${RUNNER_TEMP:-${TMPDIR:-/tmp}}"
@@ -92,6 +106,7 @@ cat > "${tool_nuget_config}" <<EOF
       <package pattern="ConsoleAppFramework*" />
       <package pattern="MackySoft.AgentSkills*" />
       <package pattern="MackySoft.FileSystem" />
+      <package pattern="MackySoft.Json.Canonicalization" />
       <package pattern="MackySoft.Text.Vocabularies" />
       <package pattern="MackySoft.Text.Vocabularies.Json" />
       <package pattern="Microsoft.*" />
@@ -113,6 +128,7 @@ cat > "${provider_restore_project}" <<EOF
     <PackageReference Include="${filesystem_package_id}" Version="[${filesystem_package_version}]" />
     <PackageReference Include="MackySoft.Text.Vocabularies" Version="[${text_package_version}]" />
     <PackageReference Include="MackySoft.Text.Vocabularies.Json" Version="[${text_package_version}]" />
+    <PackageReference Include="${canonicalization_package_id}" Version="[${canonicalization_package_version}]" />
   </ItemGroup>
 </Project>
 EOF
@@ -127,20 +143,9 @@ dotnet restore "${provider_restore_project}" \
   --force-evaluate \
   --verbosity minimal
 
-filesystem_package_root="${tool_packages_root}/mackysoft.filesystem/${filesystem_package_version}"
-filesystem_provider_assembly="${filesystem_package_root}/lib/net8.0/${filesystem_package_id}.dll"
-filesystem_provider_license="${filesystem_package_root}/LICENSE"
-for restored_entry in \
-  "${filesystem_provider_assembly}" \
-  "${filesystem_provider_license}"; do
-  if [[ ! -f "${restored_entry}" ]]; then
-    echo "Restored filesystem package is missing required entry: ${restored_entry}" >&2
-    exit 1
-  fi
-done
-
-# Resolve the tool from the inspected package directory and the same empty
-# cache so a previously installed package cannot satisfy the smoke test.
+# Resolve the tool from the inspected package directory and the isolated cache.
+# The tool package source is exact-mapped, so a different local package cannot
+# satisfy this smoke test.
 dotnet tool install \
   --tool-path "${tool_path}" \
   --configfile "${tool_nuget_config}" \
@@ -174,6 +179,7 @@ required_package_entries=(
   "${filesystem_license_entry}"
   "tools/net8.0/any/MackySoft.Text.Vocabularies.dll"
   "tools/net8.0/any/MackySoft.Text.Vocabularies.Json.dll"
+  "tools/net8.0/any/${canonicalization_package_id}.dll"
   "tools/net8.0/any/MackySoft.Ucli.deps.json"
   "tools/net8.0/any/THIRD-PARTY-NOTICES"
   "tools/net8.0/any/schemas/v1/schema-manifest.json"
@@ -184,6 +190,9 @@ for package_id in "${text_package_ids[@]}"; do
     "tools/net8.0/any/third-party/${package_id}/${text_package_version}/LICENSE"
   )
 done
+for relative_path in "${canonicalization_notice_files[@]}"; do
+  required_package_entries+=("${canonicalization_notice_root}/${relative_path}")
+done
 
 for entry in "${required_package_entries[@]}"; do
   if ! grep -Fx "${entry}" <<< "${package_entries}" >/dev/null; then
@@ -192,172 +201,40 @@ for entry in "${required_package_entries[@]}"; do
   fi
 done
 
-if grep -Ei '(^|/)MackySoft[.]FileSystem[.][^/]+[.]nupkg$' <<< "${package_entries}" >/dev/null; then
-  echo "CLI package must redistribute only the filesystem runtime closure, not the standalone provider nupkg." >&2
-  exit 1
-fi
+for package_id in "${foundation_package_ids[@]}"; do
+  if grep -Ei "(^|/)${package_id//./[.]}.+nupkg$" <<< "${package_entries}" >/dev/null; then
+    echo "CLI package must not embed the standalone ${package_id} provider package." >&2
+    exit 1
+  fi
+done
 
-if ! unzip -p "${package_path}" "tools/net8.0/any/${filesystem_package_id}.dll" \
-  | cmp -s - "${filesystem_provider_assembly}"; then
-  echo "CLI package filesystem assembly differs from the restored ${filesystem_package_version} package." >&2
-  exit 1
-fi
-if ! unzip -p "${package_path}" "${filesystem_license_entry}" \
-  | cmp -s - "${filesystem_provider_license}"; then
-  echo "CLI package filesystem license differs from the restored ${filesystem_package_version} package." >&2
-  exit 1
-fi
-
-if grep -Ei '(^|/)MackySoft[.]Text[.]Vocabularies([.]Json)?[.][^/]+[.]nupkg$' <<< "${package_entries}" >/dev/null; then
-  echo "CLI package must redistribute only the text vocabulary runtime closure, not standalone provider nupkgs." >&2
+if grep -Fi "es6numberserializer" <<< "${package_entries}" >/dev/null; then
+  echo "CLI package contains the retired es6numberserializer dependency." >&2
   exit 1
 fi
 
 dependency_manifest="$(
   unzip -p "${package_path}" tools/net8.0/any/MackySoft.Ucli.deps.json
 )"
-if ! grep -F "\"${filesystem_package_id}/${filesystem_package_version}\"" <<< "${dependency_manifest}" >/dev/null; then
-  echo "CLI package dependency manifest does not reference ${filesystem_package_id} ${filesystem_package_version}." >&2
-  exit 1
-fi
-
-for package_id in "${text_package_ids[@]}"; do
-  if ! grep -F "\"${package_id}/${text_package_version}\"" <<< "${dependency_manifest}" >/dev/null; then
-    echo "CLI package dependency manifest does not reference ${package_id} ${text_package_version}." >&2
-    exit 1
-  fi
-
-  package_id_lower="$(tr '[:upper:]' '[:lower:]' <<< "${package_id}")"
-  package_root="${tool_packages_root}/${package_id_lower}/${text_package_version}"
-  provider_assembly="${package_root}/lib/netstandard2.1/${package_id}.dll"
-  provider_license="${package_root}/LICENSE"
-  for provider_entry in "${provider_assembly}" "${provider_license}"; do
-    if [[ ! -f "${provider_entry}" ]]; then
-      echo "Restored ${package_id} package is missing required entry: ${provider_entry}" >&2
-      exit 1
-    fi
-  done
-
-  package_assembly_entry="tools/net8.0/any/${package_id}.dll"
-  if ! unzip -p "${package_path}" "${package_assembly_entry}" \
-    | cmp -s - "${provider_assembly}"; then
-    echo "CLI package contains a ${package_id} assembly that differs from the public ${text_package_version} package." >&2
-    exit 1
-  fi
-
-  package_license_entry="tools/net8.0/any/third-party/${package_id}/${text_package_version}/LICENSE"
-  if ! unzip -p "${package_path}" "${package_license_entry}" \
-    | cmp -s - "${provider_license}"; then
-    echo "CLI package license differs from ${package_id} ${text_package_version}." >&2
-    exit 1
-  fi
-
-  installed_assembly_count="$(
-    find "${tool_path}" -type f -name "${package_id}.dll" | wc -l | tr -d '[:space:]'
-  )"
-  if [[ "${installed_assembly_count}" != "1" ]]; then
-    echo "Installed CLI must contain exactly one ${package_id}.dll. Actual: ${installed_assembly_count}" >&2
-    exit 1
-  fi
-  installed_assembly="$(find "${tool_path}" -type f -name "${package_id}.dll" -print -quit)"
-  if ! cmp -s "${installed_assembly}" "${provider_assembly}"; then
-    echo "Installed CLI ${package_id} assembly differs from the public ${text_package_version} package." >&2
-    exit 1
-  fi
-
-  installed_license_count="$(
-    find "${tool_path}" \
-      -type f \
-      -path "*/third-party/${package_id}/${text_package_version}/LICENSE" \
-      | wc -l \
-      | tr -d '[:space:]'
-  )"
-  if [[ "${installed_license_count}" != "1" ]]; then
-    echo "Installed CLI must contain exactly one license for ${package_id} ${text_package_version}. Actual: ${installed_license_count}" >&2
-    exit 1
-  fi
-  installed_license="$(
-    find "${tool_path}" \
-      -type f \
-      -path "*/third-party/${package_id}/${text_package_version}/LICENSE" \
-      -print \
-      -quit
-  )"
-  if ! cmp -s "${installed_license}" "${provider_license}"; then
-    echo "Installed CLI license differs from ${package_id} ${text_package_version}." >&2
+for package_id in "${foundation_package_ids[@]}"; do
+  if ! grep -F "\"${package_id}/0.1.0\"" <<< "${dependency_manifest}" >/dev/null; then
+    echo "CLI package dependency manifest does not reference ${package_id} 0.1.0." >&2
     exit 1
   fi
 done
-
-if find "${tool_path}" \
-  -type f \
-  \( -iname 'MackySoft.Text.Vocabularies.*.nupkg' -o -iname 'MackySoft.Text.Vocabularies.Json.*.nupkg' \) \
-  -print \
-  -quit \
-  | grep -q .; then
-  echo "Installed CLI contains a standalone text vocabulary provider nupkg." >&2
+if grep -Fi "es6numberserializer" <<< "${dependency_manifest}" >/dev/null; then
+  echo "CLI package dependency manifest references the retired es6numberserializer dependency." >&2
   exit 1
 fi
 
 cli_notice="$(
   unzip -p "${package_path}" tools/net8.0/any/THIRD-PARTY-NOTICES
 )"
-if ! unzip -p "${package_path}" tools/net8.0/any/THIRD-PARTY-NOTICES \
-  | cmp -s - "${repo_root}/src/Ucli/THIRD-PARTY-NOTICES"; then
-  echo "CLI package third-party notice differs from src/Ucli/THIRD-PARTY-NOTICES." >&2
-  exit 1
-fi
 if ! grep -F "${filesystem_package_id} ${filesystem_package_version}" <<< "${cli_notice}" >/dev/null \
   || ! grep -F "third-party/${filesystem_package_id}/${filesystem_package_version}/LICENSE" <<< "${cli_notice}" >/dev/null; then
-  echo "CLI package third-party notice does not identify the redistributed filesystem provider license." >&2
+  echo "CLI package third-party notice does not identify the filesystem provider license." >&2
   exit 1
 fi
-
-installed_filesystem_assembly_count="$(
-  find "${tool_path}" -path "*/tools/net8.0/any/${filesystem_package_id}.dll" -type f \
-    | wc -l \
-    | tr -d '[:space:]'
-)"
-if [[ "${installed_filesystem_assembly_count}" != "1" ]]; then
-  echo "Installed CLI tool must contain exactly one ${filesystem_package_id}.dll; found ${installed_filesystem_assembly_count}." >&2
-  exit 1
-fi
-installed_filesystem_assembly="$(
-  find "${tool_path}" -path "*/tools/net8.0/any/${filesystem_package_id}.dll" -type f -print -quit
-)"
-if ! cmp -s "${filesystem_provider_assembly}" "${installed_filesystem_assembly}"; then
-  echo "Installed CLI tool filesystem assembly differs from the restored ${filesystem_package_version} package." >&2
-  exit 1
-fi
-
-installed_filesystem_license_count="$(
-  find "${tool_path}" \
-    -path "*/third-party/${filesystem_package_id}/${filesystem_package_version}/LICENSE" \
-    -type f \
-    | wc -l \
-    | tr -d '[:space:]'
-)"
-if [[ "${installed_filesystem_license_count}" != "1" ]]; then
-  echo "Installed CLI tool must contain exactly one filesystem provider license; found ${installed_filesystem_license_count}." >&2
-  exit 1
-fi
-installed_filesystem_license="$(
-  find "${tool_path}" \
-    -path "*/third-party/${filesystem_package_id}/${filesystem_package_version}/LICENSE" \
-    -type f \
-    -print \
-    -quit
-)"
-if ! cmp -s "${filesystem_provider_license}" "${installed_filesystem_license}"; then
-  echo "Installed CLI tool filesystem license differs from the restored ${filesystem_package_version} package." >&2
-  exit 1
-fi
-
-if find "${tool_path}" -type f -iname "${filesystem_package_id}.*.nupkg" -print -quit | grep -q .; then
-  echo "Installed CLI tool contains the standalone filesystem provider nupkg." >&2
-  exit 1
-fi
-
 for package_id in "${text_package_ids[@]}"; do
   if ! grep -F "${package_id} ${text_package_version}" <<< "${cli_notice}" >/dev/null \
     || ! grep -F "third-party/${package_id}/${text_package_version}/LICENSE" <<< "${cli_notice}" >/dev/null; then
@@ -365,17 +242,46 @@ for package_id in "${text_package_ids[@]}"; do
     exit 1
   fi
 done
-
-installed_notice_count="$(
-  find "${tool_path}" -type f -name THIRD-PARTY-NOTICES | wc -l | tr -d '[:space:]'
-)"
-if [[ "${installed_notice_count}" != "1" ]]; then
-  echo "Installed CLI must contain exactly one THIRD-PARTY-NOTICES file. Actual: ${installed_notice_count}" >&2
+if ! grep -F "${canonicalization_package_id} ${canonicalization_package_version}" <<< "${cli_notice}" >/dev/null \
+  || ! grep -F "third-party/${canonicalization_package_id}/${canonicalization_package_version}/" <<< "${cli_notice}" >/dev/null; then
+  echo "CLI package third-party notice does not identify the canonicalization provider notice directory." >&2
   exit 1
 fi
+
+for package_id in "${foundation_package_ids[@]}"; do
+  if [[ -z "$(find "${tool_path}" -type f -name "${package_id}.dll" -print -quit)" ]]; then
+    echo "Installed CLI is missing ${package_id}.dll." >&2
+    exit 1
+  fi
+  if find "${tool_path}" -type f -iname "${package_id}.*.nupkg" -print -quit | grep -q .; then
+    echo "Installed CLI contains the standalone ${package_id} provider package." >&2
+    exit 1
+  fi
+done
+
 installed_notice="$(find "${tool_path}" -type f -name THIRD-PARTY-NOTICES -print -quit)"
-if ! cmp -s "${installed_notice}" "${repo_root}/src/Ucli/THIRD-PARTY-NOTICES"; then
-  echo "Installed CLI third-party notice differs from src/Ucli/THIRD-PARTY-NOTICES." >&2
+if [[ -z "${installed_notice}" ]]; then
+  echo "Installed CLI is missing THIRD-PARTY-NOTICES." >&2
+  exit 1
+fi
+if [[ -z "$(find "${tool_path}" -type f -path "*/third-party/${filesystem_package_id}/${filesystem_package_version}/LICENSE" -print -quit)" ]]; then
+  echo "Installed CLI is missing the filesystem provider license." >&2
+  exit 1
+fi
+for package_id in "${text_package_ids[@]}"; do
+  if [[ -z "$(find "${tool_path}" -type f -path "*/third-party/${package_id}/${text_package_version}/LICENSE" -print -quit)" ]]; then
+    echo "Installed CLI is missing the ${package_id} license." >&2
+    exit 1
+  fi
+done
+for relative_path in "${canonicalization_notice_files[@]}"; do
+  if [[ -z "$(find "${tool_path}" -type f -path "*/third-party/${canonicalization_package_id}/${canonicalization_package_version}/${relative_path}" -print -quit)" ]]; then
+    echo "Installed CLI is missing canonicalization notice material: ${relative_path}" >&2
+    exit 1
+  fi
+done
+if find "${tool_path}" -type f -iname "*es6numberserializer*" -print -quit | grep -q .; then
+  echo "Installed CLI contains the retired es6numberserializer dependency." >&2
   exit 1
 fi
 

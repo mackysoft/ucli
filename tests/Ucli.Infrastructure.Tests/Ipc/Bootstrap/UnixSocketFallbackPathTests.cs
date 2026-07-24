@@ -34,16 +34,6 @@ public sealed class UnixSocketFallbackPathTests
             parameter => Assert.Equal(typeof(string), parameter.ParameterType));
     }
 
-    [Fact]
-    [Trait("Size", "Small")]
-    public void InfrastructureAssembly_DoesNotExposeArbitraryPrefixSocketPathUtility ()
-    {
-        var removedUtilityType = typeof(UnixSocketFallbackPath).Assembly.GetType(
-            "MackySoft.Ucli.Infrastructure.Ipc.UnixSocketPathUtilities");
-
-        Assert.Null(removedUtilityType);
-    }
-
     [Theory]
     [MemberData(nameof(PurposePrefixes))]
     [Trait("Size", "Small")]

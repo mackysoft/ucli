@@ -106,5 +106,98 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(internalPayload, Does.Contain("\"aliasReferences\""));
             Assert.That(internalPayload, Does.Not.Contain("__edit:"));
         }
+
+        [Test]
+        [Category("Size.Small")]
+        public void CompiledExecutionDigest_WhenArgumentsUseDistinctExactInt64Values_ProducesDifferentPayloads ()
+        {
+            using var firstDocument = JsonDocument.Parse("{\"value\":9007199254740992}");
+            using var secondDocument = JsonDocument.Parse("{\"value\":9007199254740993}");
+            var executionKey = OperationExecutionKey.ForRawStep(new IpcExecuteStepId("number"));
+            var firstOperation = new NormalizedOperation(
+                executionKey,
+                "ucli.tests.number",
+                firstDocument.RootElement.Clone(),
+                As: null,
+                Expect: null,
+                AliasReferences: OperationAliasReferenceMap.Empty,
+                PersistenceReportingPolicy: OperationPersistenceReportingPolicy.ReportAll,
+                AllowExplicitPrefabAssetMutation: false);
+            var secondOperation = new NormalizedOperation(
+                executionKey,
+                "ucli.tests.number",
+                secondDocument.RootElement.Clone(),
+                As: null,
+                Expect: null,
+                AliasReferences: OperationAliasReferenceMap.Empty,
+                PersistenceReportingPolicy: OperationPersistenceReportingPolicy.ReportAll,
+                AllowExplicitPrefabAssetMutation: false);
+
+            var firstPayload = CompiledExecutionDigestWriter.WriteDigestPayload(
+                Array.Empty<NormalizedRequestStep>(),
+                new[] { firstOperation });
+            var secondPayload = CompiledExecutionDigestWriter.WriteDigestPayload(
+                Array.Empty<NormalizedRequestStep>(),
+                new[] { secondOperation });
+
+            Assert.That(firstPayload.Span.SequenceEqual(secondPayload.Span), Is.False);
+            Assert.That(
+                Encoding.UTF8.GetString(firstPayload.ToArray()),
+                Does.Contain("\"args\":{\"value\":9007199254740992}"));
+            Assert.That(
+                Encoding.UTF8.GetString(secondPayload.ToArray()),
+                Does.Contain("\"args\":{\"value\":9007199254740993}"));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void CompiledExecutionDigest_WhenArgumentExceedsInt64MaxValue_PreservesExactUInt64Token ()
+        {
+            using var document = JsonDocument.Parse("{\"value\":18446744073709551615}");
+            var operation = new NormalizedOperation(
+                OperationExecutionKey.ForRawStep(new IpcExecuteStepId("number")),
+                "ucli.tests.number",
+                document.RootElement.Clone(),
+                As: null,
+                Expect: null,
+                AliasReferences: OperationAliasReferenceMap.Empty,
+                PersistenceReportingPolicy: OperationPersistenceReportingPolicy.ReportAll,
+                AllowExplicitPrefabAssetMutation: false);
+
+            var payload = CompiledExecutionDigestWriter.WriteDigestPayload(
+                Array.Empty<NormalizedRequestStep>(),
+                new[] { operation });
+
+            Assert.That(
+                Encoding.UTF8.GetString(payload.ToArray()),
+                Does.Contain("\"args\":{\"value\":18446744073709551615}"));
+        }
+
+        [TestCase("1")]
+        [TestCase("1.0")]
+        [TestCase("1e0")]
+        [Category("Size.Small")]
+        public void CompiledExecutionDigest_WhenArgumentUsesEquivalentNumberToken_PreservesExactToken (
+            string numberToken)
+        {
+            using var document = JsonDocument.Parse($"{{\"value\":{numberToken}}}");
+            var operation = new NormalizedOperation(
+                OperationExecutionKey.ForRawStep(new IpcExecuteStepId("number")),
+                "ucli.tests.number",
+                document.RootElement.Clone(),
+                As: null,
+                Expect: null,
+                AliasReferences: OperationAliasReferenceMap.Empty,
+                PersistenceReportingPolicy: OperationPersistenceReportingPolicy.ReportAll,
+                AllowExplicitPrefabAssetMutation: false);
+
+            var payload = CompiledExecutionDigestWriter.WriteDigestPayload(
+                Array.Empty<NormalizedRequestStep>(),
+                new[] { operation });
+
+            Assert.That(
+                Encoding.UTF8.GetString(payload.ToArray()),
+                Does.Contain($"\"args\":{{\"value\":{numberToken}}}"));
+        }
     }
 }

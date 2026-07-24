@@ -28,8 +28,10 @@ unity_packages_config="${repository_root}/src/Ucli.Unity/Assets/packages.config"
 unity_editor_asmdef_entry="Editor/MackySoft.Ucli.Unity.Editor.asmdef"
 filesystem_package_id="MackySoft.FileSystem"
 filesystem_package_version="0.1.0"
+canonicalization_package_id="MackySoft.Json.Canonicalization"
 foundation_package_ids=(
   "${filesystem_package_id}"
+  "${canonicalization_package_id}"
   "MackySoft.Text.Vocabularies"
   "MackySoft.Text.Vocabularies.Json"
 )
@@ -117,8 +119,11 @@ for forbidden_pattern in \
   '^package\.json$' \
   '(^|/)MackySoft\.FileSystem\.dll$' \
   '(^|/)MackySoft\.FileSystem\.[^/]*\.nupkg$' \
+  '(^|/)MackySoft\.Json\.Canonicalization\.dll$' \
+  '(^|/)MackySoft\.Json\.Canonicalization\.[^/]*\.nupkg$' \
   '(^|/)MackySoft\.Text\.Vocabularies(\.Json)?\.dll$' \
-  '(^|/)MackySoft\.Text\.Vocabularies(\.Json)?\.[^/]*\.nupkg$'; do
+  '(^|/)MackySoft\.Text\.Vocabularies(\.Json)?\.[^/]*\.nupkg$' \
+  'es6numberserializer'; do
   if grep -Ei "${forbidden_pattern}" <<< "${package_entries}" >/dev/null; then
     echo "Unity package contains forbidden entry matching ${forbidden_pattern}." >&2
     grep -Ei "${forbidden_pattern}" <<< "${package_entries}" >&2
@@ -141,11 +146,16 @@ if ! grep -F "<version>${expected_version}</version>" "${nuspec_path}" >/dev/nul
   exit 1
 fi
 
+if grep -Fi "es6numberserializer" "${nuspec_path}" >/dev/null; then
+  echo "Unity package nuspec references the retired es6numberserializer dependency." >&2
+  exit 1
+fi
+
 while IFS=$'\t' read -r dependency_id dependency_version; do
   [[ -n "${dependency_id}" ]] || continue
   expected_nuspec_version="${dependency_version}"
   case "${dependency_id}" in
-    MackySoft.FileSystem|MackySoft.Text.Vocabularies|MackySoft.Text.Vocabularies.Json)
+    MackySoft.FileSystem|MackySoft.Json.Canonicalization|MackySoft.Text.Vocabularies|MackySoft.Text.Vocabularies.Json)
       expected_nuspec_version="[${dependency_version}]"
       ;;
   esac
@@ -199,6 +209,7 @@ cat > "${nuget_config}" <<EOF
     </packageSource>
     <packageSource key="nuget.org">
       <package pattern="MackySoft.FileSystem" />
+      <package pattern="MackySoft.Json.Canonicalization" />
       <package pattern="MackySoft.Text.Vocabularies" />
       <package pattern="MackySoft.Text.Vocabularies.Json" />
       <package pattern="Microsoft.*" />
@@ -227,6 +238,11 @@ NUGET_HTTP_CACHE_PATH="${isolated_nuget_http_cache}" \
   -ConfigFile "${nuget_config}" \
   -NoCache \
   -NonInteractive >/dev/null
+
+if find "${restore_packages_directory}" -iname "*es6numberserializer*" -print -quit | grep -q .; then
+  echo "Restored Unity dependency closure contains the retired es6numberserializer dependency." >&2
+  exit 1
+fi
 
 restored_plugin_root="${restore_packages_directory}/${package_id}.${expected_version}"
 restored_marker_path="${restored_plugin_root}/ucli-plugin.json"
@@ -261,10 +277,13 @@ if find "${restored_plugin_root}" -type f \
   \( \
     -iname "${filesystem_package_id}.dll" \
     -o -iname "${filesystem_package_id}.*.nupkg" \
+    -o -iname "${canonicalization_package_id}.dll" \
+    -o -iname "${canonicalization_package_id}.*.nupkg" \
     -o -iname "MackySoft.Text.Vocabularies.dll" \
     -o -iname "MackySoft.Text.Vocabularies.Json.dll" \
     -o -iname "MackySoft.Text.Vocabularies.*.nupkg" \
     -o -iname "MackySoft.Text.Vocabularies.Json.*.nupkg" \
+    -o -iname "*es6numberserializer*" \
   \) \
   -print -quit |
   grep -q .; then
@@ -273,10 +292,13 @@ if find "${restored_plugin_root}" -type f \
     \( \
       -iname "${filesystem_package_id}.dll" \
       -o -iname "${filesystem_package_id}.*.nupkg" \
+      -o -iname "${canonicalization_package_id}.dll" \
+      -o -iname "${canonicalization_package_id}.*.nupkg" \
       -o -iname "MackySoft.Text.Vocabularies.dll" \
       -o -iname "MackySoft.Text.Vocabularies.Json.dll" \
       -o -iname "MackySoft.Text.Vocabularies.*.nupkg" \
       -o -iname "MackySoft.Text.Vocabularies.Json.*.nupkg" \
+      -o -iname "*es6numberserializer*" \
     \) \
     -print >&2
   exit 1

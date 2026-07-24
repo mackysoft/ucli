@@ -18,7 +18,6 @@
           {
             "pathExact": [
               "src/Ucli.Unity/MackySoft.Ucli.Unity.Editor.csproj",
-              "src/Ucli.Unity/MackySoft.Ucli.Unity.Sandbox.Tests.Editor.csproj",
               "src/Ucli.Unity/MackySoft.Ucli.Unity.Tests.Editor.csproj",
               "src/Ucli.Unity/MackySoft.Ucli.Unity.Tests.Runtime.csproj"
             ]
@@ -180,7 +179,6 @@
           },
           {
             "pathExact": [
-              "src/Ucli.Unity/MackySoft.Ucli.Unity.Sandbox.Tests.Editor.csproj",
               "src/Ucli.Unity/MackySoft.Ucli.Unity.Tests.Editor.csproj",
               "src/Ucli.Unity/MackySoft.Ucli.Unity.Tests.Runtime.csproj"
             ]
@@ -295,7 +293,8 @@
         "matches": [
           {
             "namespacePrefix": [
-              "MackySoft.Ucli.Application.Tests"
+              "MackySoft.Ucli.Application.Tests",
+              "MackySoft.Ucli.TestSupport"
             ],
             "pathPrefix": [
               "tests/Ucli.Application.Tests"
@@ -309,19 +308,14 @@
         ]
       },
       {
-        "label": "ArchitectureTests",
+        "label": "SharedTestSupport",
         "matches": [
           {
             "namespacePrefix": [
-              "MackySoft.Ucli.Architecture.Tests"
+              "MackySoft.Ucli.TestSupport"
             ],
             "pathPrefix": [
-              "tests/Ucli.Architecture.Tests"
-            ]
-          },
-          {
-            "pathExact": [
-              "tests/Ucli.Architecture.Tests/Ucli.Architecture.Tests.csproj"
+              "tests/Shared"
             ]
           }
         ]
@@ -447,6 +441,7 @@
           {
             "namespacePrefix": [
               "MackySoft.Tests",
+              "MackySoft.Ucli.TestSupport",
               "MackySoft.Ucli.Tests"
             ],
             "pathPrefix": [
@@ -691,6 +686,28 @@
         ]
       },
       {
+        "label": "UnityScreenshotCapture",
+        "matches": [
+          {
+            "namespacePrefix": [
+              "MackySoft.Ucli.Unity.ScreenshotCapture"
+            ],
+            "pathPrefix": [
+              "src/Ucli.Unity/Assets/MackySoft/MackySoft.Ucli.Unity/Editor/ScreenshotCapture"
+            ]
+          },
+          {
+            "namespacePrefix": [
+              "MackySoft.Ucli.Unity.ScreenshotCapture"
+            ],
+            "pathExact": [
+              "src/Ucli.Unity/Assets/MackySoft/MackySoft.Ucli.Unity/Editor/MackySoft.Ucli.Unity.Editor.asmdef",
+              "src/Ucli.Unity/MackySoft.Ucli.Unity.Editor.csproj"
+            ]
+          }
+        ]
+      },
+      {
         "label": "UnitySupport",
         "matches": [
           {
@@ -741,7 +758,6 @@
         "matches": [
           {
             "namespacePrefix": [
-              "MackySoft.Ucli.Unity.Sandbox.Tests",
               "MackySoft.Ucli.Unity.Tests"
             ],
             "pathPrefix": [
@@ -750,10 +766,9 @@
           },
           {
             "pathExact": [
-              "src/Ucli.Unity/Assets/Tests/MackySoft.Ucli.Unity.Sandbox.Tests/Editor/MackySoft.Ucli.Unity.Sandbox.Tests.Editor.asmdef",
+              "src/Ucli.Unity/Assets/Tests/MackySoft.Ucli.Unity.Tests/Editor/Ipc/Diagnostics/DaemonLogs/NoOpDaemonLogger.cs",
               "src/Ucli.Unity/Assets/Tests/MackySoft.Ucli.Unity.Tests/Editor/MackySoft.Ucli.Unity.Tests.Editor.asmdef",
               "src/Ucli.Unity/Assets/Tests/MackySoft.Ucli.Unity.Tests/Runtime/MackySoft.Ucli.Unity.Tests.Runtime.asmdef",
-              "src/Ucli.Unity/MackySoft.Ucli.Unity.Sandbox.Tests.Editor.csproj",
               "src/Ucli.Unity/MackySoft.Ucli.Unity.Tests.Editor.csproj",
               "src/Ucli.Unity/MackySoft.Ucli.Unity.Tests.Runtime.csproj"
             ]
@@ -859,6 +874,7 @@
               "ApplicationShared",
               "ApplicationTests",
               "Contracts",
+              "SharedTestSupport",
               "TestsHelper"
             ]
           },
@@ -870,13 +886,18 @@
       {
         "from": {
           "layer": [
-            "ArchitectureTests"
+            "SharedTestSupport"
           ]
         },
         "allow": [
           {
             "layer": [
-              "ArchitectureTests"
+              "ApplicationDiagnostics",
+              "ApplicationFeatures",
+              "ApplicationShared",
+              "Contracts",
+              "SharedTestSupport",
+              "TestsHelper"
             ]
           },
           {
@@ -977,6 +998,7 @@
               "CliSupervisor",
               "Contracts",
               "Infrastructure",
+              "SharedTestSupport",
               "TestsHelper"
             ]
           },
@@ -1194,6 +1216,7 @@
               "UnityIpc",
               "UnityProject",
               "UnityRuntime",
+              "UnityScreenshotCapture",
               "UnitySupport"
             ]
           },
@@ -1242,6 +1265,27 @@
       {
         "from": {
           "layer": [
+            "UnityScreenshotCapture"
+          ]
+        },
+        "allow": [
+          {
+            "layer": [
+              "Contracts",
+              "Infrastructure",
+              "UnityProject",
+              "UnityRuntime",
+              "UnityScreenshotCapture"
+            ]
+          },
+          {
+            "subject": "external"
+          }
+        ]
+      },
+      {
+        "from": {
+          "layer": [
             "UnitySupport"
           ]
         },
@@ -1277,6 +1321,7 @@
               "UnityIpc",
               "UnityProject",
               "UnityRuntime",
+              "UnityScreenshotCapture",
               "UnitySupport",
               "UnityTests"
             ]
@@ -1311,7 +1356,6 @@
           {
             "pathExact": [
               "src/Ucli.Unity/MackySoft.Ucli.Unity.Editor.csproj",
-              "src/Ucli.Unity/MackySoft.Ucli.Unity.Sandbox.Tests.Editor.csproj",
               "src/Ucli.Unity/MackySoft.Ucli.Unity.Tests.Editor.csproj",
               "src/Ucli.Unity/MackySoft.Ucli.Unity.Tests.Runtime.csproj"
             ]

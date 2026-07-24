@@ -567,13 +567,33 @@ internal static class DaemonStartupFailureLogClassifier
 
     private static bool IsUcliPluginDependencyMissingLine (string line)
     {
+        var compilerDiagnosticIndex = GetCompilerDiagnosticIndex(line);
+        var ucliPluginSourceIndex = line.IndexOf("MackySoft.Ucli.Unity", StringComparison.Ordinal);
+        var isUcliPluginCompilerDiagnostic = compilerDiagnosticIndex >= 0
+            && ucliPluginSourceIndex >= 0
+            && ucliPluginSourceIndex < compilerDiagnosticIndex;
+        var isJsonNamespaceDiagnostic = isUcliPluginCompilerDiagnostic
+            && line.Contains("namespace name 'Json'", StringComparison.Ordinal)
+            && line.Contains("namespace 'MackySoft'", StringComparison.Ordinal);
         var mentionsPluginDependency = line.Contains("MackySoft.FileSystem", StringComparison.Ordinal)
             || line.Contains("MackySoft.Ucli.Contracts", StringComparison.Ordinal)
             || line.Contains("MackySoft.Ucli.Infrastructure", StringComparison.Ordinal)
             || (line.Contains("MackySoft.Ucli", StringComparison.Ordinal)
                 && (line.Contains("Contracts", StringComparison.Ordinal)
-                    || line.Contains("Infrastructure", StringComparison.Ordinal)));
+                    || line.Contains("Infrastructure", StringComparison.Ordinal)))
+            || line.Contains("MackySoft.Json.Canonicalization", StringComparison.Ordinal)
+            || (line.Contains("MackySoft.Json", StringComparison.Ordinal)
+                && line.Contains("Canonicalization", StringComparison.Ordinal))
+            || isJsonNamespaceDiagnostic
+            || line.Contains("Rfc8785JsonCanonicalizer", StringComparison.Ordinal)
+            || line.Contains("JsonCanonicalizationException", StringComparison.Ordinal)
+            || line.Contains("JsonCanonicalizationFailureKind", StringComparison.Ordinal);
         if (!mentionsPluginDependency)
+        {
+            return false;
+        }
+
+        if (compilerDiagnosticIndex >= 0 && !isUcliPluginCompilerDiagnostic)
         {
             return false;
         }
@@ -585,6 +605,20 @@ internal static class DaemonStartupFailureLogClassifier
             || line.Contains("does not exist", StringComparison.OrdinalIgnoreCase)
             || line.Contains("error CS0234", StringComparison.OrdinalIgnoreCase)
             || line.Contains("error CS0246", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static int GetCompilerDiagnosticIndex (string line)
+    {
+        var cs0234Index = line.IndexOf("error CS0234", StringComparison.OrdinalIgnoreCase);
+        var cs0246Index = line.IndexOf("error CS0246", StringComparison.OrdinalIgnoreCase);
+        if (cs0234Index < 0)
+        {
+            return cs0246Index;
+        }
+
+        return cs0246Index < 0
+            ? cs0234Index
+            : Math.Min(cs0234Index, cs0246Index);
     }
 
     private sealed record DaemonStartupFailureCandidate (

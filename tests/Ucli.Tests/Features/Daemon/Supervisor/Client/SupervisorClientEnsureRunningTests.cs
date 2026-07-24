@@ -9,6 +9,8 @@ namespace MackySoft.Ucli.Tests.Supervisor;
 
 public sealed class SupervisorClientEnsureRunningTests
 {
+    private static readonly TimeSpan SignalWaitTimeout = TimeSpan.FromSeconds(5);
+
     [Fact]
     [Trait("Size", "Small")]
     public async Task EnsureRunning_UsesSharedOperationDeadlineAndTerminalResponseGrace ()
@@ -196,6 +198,7 @@ public sealed class SupervisorClientEnsureRunningTests
     [Trait("Size", "Small")]
     public async Task EnsureRunning_WhenFailureTerminalArrivesAfterCommandTimeoutWithinGrace_PreservesMetadata ()
     {
+        var timeProvider = new ManualTimeProvider();
         var diagnosis = DaemonDiagnosisTestFactory.CreateGuiEndpointNotRegistered();
         var startup = SupervisorClientTestSupport.CreateStartupObservation();
         var requestObserved = new TaskCompletionSource<IpcRequestEnvelope>(
@@ -210,23 +213,36 @@ public sealed class SupervisorClientEnsureRunningTests
                 return new ValueTask<IpcResponse>(terminalResponseSource.Task);
             },
         };
-        var client = new SupervisorClient(transportClient, TimeProvider.System);
+        var client = new SupervisorClient(transportClient, timeProvider);
+        var commandTimeout = TimeSpan.FromSeconds(1);
+        var terminalTimeout = commandTimeout.Add(SupervisorConstants.EnsureRunningTerminalResponseGrace);
+        var deadline = ExecutionDeadline.Start(commandTimeout, timeProvider);
 
         var resultTask = client.EnsureRunningAsync(
                 SupervisorClientTestSupport.CreateManifest(),
                 Guid.NewGuid(),
                 SupervisorClientTestSupport.CreateUnityProject(),
-                ExecutionDeadline.Start(TimeSpan.FromMilliseconds(1), TimeProvider.System),
+                deadline,
                 editorMode: DaemonEditorMode.Gui,
                 onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
                 cancellationToken: CancellationToken.None)
             .AsTask();
-        var request = await requestObserved.Task.WaitAsync(TimeSpan.FromSeconds(5));
-        await Task.Delay(TimeSpan.FromMilliseconds(25));
+        var request = await TestAwaiter.WaitAsync(
+            requestObserved.Task,
+            "supervisor ensure-running request",
+            SignalWaitTimeout);
+        await TestAwaiter.WaitAsync(
+            timeProvider.WaitForTimerDueWithinAsync(terminalTimeout),
+            "supervisor ensure-running terminal deadline timer",
+            SignalWaitTimeout);
+        timeProvider.Advance(commandTimeout.Add(TimeSpan.FromMilliseconds(500)));
         terminalResponseSource.TrySetResult(
             SupervisorClientTestSupport.CreateEnsureRunningFailureResponse(request, diagnosis, startup));
 
-        var result = await resultTask.WaitAsync(TimeSpan.FromSeconds(5));
+        var result = await TestAwaiter.WaitAsync(
+            resultTask,
+            "supervisor ensure-running failure result",
+            SignalWaitTimeout);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(ExecutionErrorCodes.IpcTimeout, result.Error!.Code);
@@ -239,6 +255,8 @@ public sealed class SupervisorClientEnsureRunningTests
     [Trait("Size", "Small")]
     public async Task EnsureRunning_WhenSingleTerminalResponseNeverCompletes_ReturnsTimeoutAfterFiniteGrace ()
     {
+        var timeProvider = new ManualTimeProvider();
+        var requestObserved = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var terminalResponseSource = new TaskCompletionSource<IpcResponse>(
             TaskCreationOptions.RunContinuationsAsynchronously);
         var cancellationObserved = new TaskCompletionSource(
@@ -247,37 +265,53 @@ public sealed class SupervisorClientEnsureRunningTests
         {
             SendHandler = (_, _, _, cancellationToken) =>
             {
+                requestObserved.TrySetResult();
                 _ = cancellationToken.Register(() => cancellationObserved.TrySetResult());
                 return new ValueTask<IpcResponse>(terminalResponseSource.Task);
             },
         };
-        var client = new SupervisorClient(transportClient, TimeProvider.System);
+        var client = new SupervisorClient(transportClient, timeProvider);
+        var commandTimeout = TimeSpan.FromSeconds(1);
+        var terminalTimeout = commandTimeout.Add(SupervisorConstants.EnsureRunningTerminalResponseGrace);
+        var deadline = ExecutionDeadline.Start(commandTimeout, timeProvider);
         var resultTask = client.EnsureRunningAsync(
                 SupervisorClientTestSupport.CreateManifest(),
                 Guid.NewGuid(),
                 SupervisorClientTestSupport.CreateUnityProject(),
-                ExecutionDeadline.Start(TimeSpan.FromMilliseconds(1), TimeProvider.System),
+                deadline,
                 editorMode: DaemonEditorMode.Gui,
                 onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
                 cancellationToken: CancellationToken.None)
             .AsTask();
+        await TestAwaiter.WaitAsync(
+            requestObserved.Task,
+            "supervisor ensure-running request",
+            SignalWaitTimeout);
+        await TestAwaiter.WaitAsync(
+            timeProvider.WaitForTimerDueWithinAsync(terminalTimeout),
+            "supervisor ensure-running terminal deadline timer",
+            SignalWaitTimeout);
 
-        DaemonStartResult result;
         try
         {
-            result = await resultTask.WaitAsync(
-                SupervisorConstants.EnsureRunningTerminalResponseGrace + TimeSpan.FromSeconds(3));
+            timeProvider.Advance(terminalTimeout);
+            var result = await TestAwaiter.WaitAsync(
+                resultTask,
+                "supervisor ensure-running timeout result",
+                SignalWaitTimeout);
+
+            Assert.False(result.IsSuccess);
+            Assert.Equal(ExecutionErrorKind.Timeout, result.Error!.Kind);
+            Assert.Contains("terminal response", result.Error.Message, StringComparison.Ordinal);
+            await TestAwaiter.WaitAsync(
+                cancellationObserved.Task,
+                "supervisor ensure-running transport cancellation",
+                SignalWaitTimeout);
         }
         finally
         {
             terminalResponseSource.TrySetException(new TimeoutException("Release non-cooperative single response."));
-            _ = await resultTask.WaitAsync(TimeSpan.FromSeconds(5));
         }
-
-        Assert.False(result.IsSuccess);
-        Assert.Equal(ExecutionErrorKind.Timeout, result.Error!.Kind);
-        Assert.Contains("terminal response", result.Error.Message, StringComparison.Ordinal);
-        await cancellationObserved.Task.WaitAsync(TimeSpan.FromSeconds(5));
     }
 
     [Fact]
