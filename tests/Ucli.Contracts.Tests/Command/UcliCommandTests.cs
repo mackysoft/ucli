@@ -140,12 +140,6 @@ public sealed class UcliCommandTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void ConstructionModel_UsesPrivateValidatedValueConstructor ()
-    {
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
     public void UcliCommandIds_ExposeExpectedLiterals ()
     {
         foreach (var testCase in CommandLiteralCases)
