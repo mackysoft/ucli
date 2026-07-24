@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Launch;
@@ -14,6 +15,6 @@ internal interface IUnityDaemonProcessLauncher
     ValueTask<UnityDaemonLaunchResult> LaunchAsync (
         ResolvedUnityProjectContext unityProject,
         DaemonSession session,
-        string unityLogPath,
+        AbsolutePath unityLogPath,
         CancellationToken cancellationToken = default);
 }

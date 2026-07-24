@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Contracts;
@@ -13,7 +14,6 @@ using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.Authorization;
 using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Infrastructure.Ipc;
-using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Infrastructure.Project;
 
 namespace MackySoft.Ucli.Features.Daemon.Supervisor.Host;
@@ -586,50 +586,34 @@ internal sealed class SupervisorRequestDispatcher
         string unityProjectRoot,
         ProjectFingerprint projectFingerprint)
     {
-        if (string.IsNullOrWhiteSpace(unityProjectRoot))
-        {
-            return ProjectContextResult.Failure(ExecutionError.InvalidArgument(
-                "Unity project root must not be empty."));
-        }
-
         if (projectFingerprint == null)
         {
             return ProjectContextResult.Failure(ExecutionError.InvalidArgument(
                 "Project fingerprint must not be null."));
         }
 
-        try
-        {
-            var projectRootResult = PathNormalizer.TryNormalizeFullPath(unityProjectRoot);
-            if (!projectRootResult.IsSuccess)
-            {
-                return ProjectContextResult.Failure(ExecutionError.InvalidArgument(
-                    $"Unity project root path is invalid. {projectRootResult.DiagnosticMessage}"));
-            }
-
-            var normalizedUnityProjectRoot = projectRootResult.FullPath!;
-            var expectedFingerprint = UnityProjectFingerprintCalculator.Create(
-                runtimeContext.StorageRoot,
-                normalizedUnityProjectRoot);
-            if (expectedFingerprint != projectFingerprint)
-            {
-                return ProjectContextResult.Failure(ExecutionError.InvalidArgument(
-                    "Project fingerprint does not match the specified Unity project root."));
-            }
-
-            return ProjectContextResult.Success(ResolvedUnityProjectContext.Create(
-                unityProjectRoot: normalizedUnityProjectRoot,
-                repositoryRoot: runtimeContext.StorageRoot,
-                projectFingerprint: projectFingerprint,
-                pathSource: UnityProjectPathSource.CommandOption,
-                pathSourceLabel: null,
-                unityVersion: ProjectIdentityDefaults.UnknownUnityVersion));
-        }
-        catch (Exception exception) when (exception is ArgumentException or NotSupportedException or PathTooLongException)
+        if (!AbsolutePath.TryParse(unityProjectRoot, out var normalizedUnityProjectRoot, out var projectRootFailure))
         {
             return ProjectContextResult.Failure(ExecutionError.InvalidArgument(
-                $"Unity project root path is invalid. {exception.Message}"));
+                $"Unity project root path is invalid. {projectRootFailure.Message}"));
         }
+
+        var expectedFingerprint = UnityProjectFingerprintCalculator.Create(
+            runtimeContext.StorageRoot,
+            normalizedUnityProjectRoot);
+        if (expectedFingerprint != projectFingerprint)
+        {
+            return ProjectContextResult.Failure(ExecutionError.InvalidArgument(
+                "Project fingerprint does not match the specified Unity project root."));
+        }
+
+        return ProjectContextResult.Success(ResolvedUnityProjectContext.Create(
+            unityProjectRoot: normalizedUnityProjectRoot,
+            repositoryRoot: runtimeContext.StorageRoot,
+            projectFingerprint: projectFingerprint,
+            pathSource: UnityProjectPathSource.CommandOption,
+            pathSourceLabel: null,
+            unityVersion: ProjectIdentityDefaults.UnknownUnityVersion));
     }
 
     private static IpcResponse CreateExecutionErrorResponse (
@@ -653,7 +637,7 @@ internal sealed class SupervisorRequestDispatcher
             request,
             ExecutionErrorCodeMapper.ToCode(error),
             error.Message,
-            IpcPayloadCodec.SerializeToElement(new SupervisorIpcContracts.EnsureRunningFailureResponse(
+            IpcPayloadCodec.SerializeToElement(SupervisorEnsureRunningFailurePayloadMapper.ToContract(
                 daemonStatus,
                 diagnosis,
                 startup)));

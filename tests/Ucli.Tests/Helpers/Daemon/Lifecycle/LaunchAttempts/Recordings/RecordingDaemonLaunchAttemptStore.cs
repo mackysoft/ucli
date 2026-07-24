@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.LaunchAttempts;
 
 namespace MackySoft.Ucli.Tests.Helpers.Daemon;
@@ -21,9 +22,9 @@ internal sealed class RecordingDaemonLaunchAttemptStore : IDaemonLaunchAttemptSt
 
     public Action<DaemonLaunchAttempt>? OnWrite { get; set; }
 
-    public Func<string, ProjectFingerprint, DaemonLaunchAttempt, CancellationToken, ValueTask<DaemonLaunchAttemptStoreOperationResult>>? WriteAsyncHandler { get; set; }
+    public Func<AbsolutePath, ProjectFingerprint, DaemonLaunchAttempt, CancellationToken, ValueTask<DaemonLaunchAttemptStoreOperationResult>>? WriteAsyncHandler { get; set; }
 
-    public Func<string, ProjectFingerprint, int, CancellationToken, ValueTask<DaemonLaunchAttemptStoreOperationResult>>? PruneAsyncHandler { get; set; }
+    public Func<AbsolutePath, ProjectFingerprint, int, CancellationToken, ValueTask<DaemonLaunchAttemptStoreOperationResult>>? PruneAsyncHandler { get; set; }
 
     public IReadOnlyList<ReadInvocation> ReadInvocations => readInvocations;
 
@@ -32,7 +33,7 @@ internal sealed class RecordingDaemonLaunchAttemptStore : IDaemonLaunchAttemptSt
     public IReadOnlyList<PruneInvocation> PruneInvocations => pruneInvocations;
 
     public ValueTask<DaemonLaunchAttemptStoreOperationResult> WriteFailureAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         ProjectFingerprint projectFingerprint,
         DaemonLaunchAttempt launchAttempt,
         CancellationToken cancellationToken = default)
@@ -52,7 +53,7 @@ internal sealed class RecordingDaemonLaunchAttemptStore : IDaemonLaunchAttemptSt
     }
 
     public ValueTask<DaemonLaunchAttemptReadResult> ReadLastFailureAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         ProjectFingerprint projectFingerprint,
         CancellationToken cancellationToken = default)
     {
@@ -64,7 +65,7 @@ internal sealed class RecordingDaemonLaunchAttemptStore : IDaemonLaunchAttemptSt
     }
 
     public ValueTask<DaemonLaunchAttemptStoreOperationResult> PruneAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         ProjectFingerprint projectFingerprint,
         int keepCount,
         CancellationToken cancellationToken = default)
@@ -82,18 +83,18 @@ internal sealed class RecordingDaemonLaunchAttemptStore : IDaemonLaunchAttemptSt
     }
 
     internal readonly record struct ReadInvocation (
-        string StorageRoot,
+        AbsolutePath StorageRoot,
         ProjectFingerprint ProjectFingerprint,
         CancellationToken CancellationToken);
 
     internal readonly record struct WriteInvocation (
-        string StorageRoot,
+        AbsolutePath StorageRoot,
         ProjectFingerprint ProjectFingerprint,
         DaemonLaunchAttempt LaunchAttempt,
         CancellationToken CancellationToken);
 
     internal readonly record struct PruneInvocation (
-        string StorageRoot,
+        AbsolutePath StorageRoot,
         ProjectFingerprint ProjectFingerprint,
         int KeepCount,
         CancellationToken CancellationToken);

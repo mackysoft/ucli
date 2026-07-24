@@ -37,12 +37,12 @@ public sealed class UnityResultsConverterTests
 
         Assert.True(result.IsSuccess);
         Assert.True(result.HasFailedTests);
-        Assert.True(File.Exists(session.Paths.ResultsJsonPath));
-        Assert.True(File.Exists(session.Paths.SummaryJsonPath));
+        Assert.True(File.Exists(session.Paths.ResultsJsonPath.Value));
+        Assert.True(File.Exists(session.Paths.SummaryJsonPath.Value));
 
-        using var resultsDocument = JsonDocument.Parse(File.ReadAllText(session.Paths.ResultsJsonPath));
+        using var resultsDocument = JsonDocument.Parse(File.ReadAllText(session.Paths.ResultsJsonPath.Value));
         Assert.Equal(RunIdTestValues.TestText, resultsDocument.RootElement.GetProperty("runId").GetString());
-        using var summaryDocument = JsonDocument.Parse(File.ReadAllText(session.Paths.SummaryJsonPath));
+        using var summaryDocument = JsonDocument.Parse(File.ReadAllText(session.Paths.SummaryJsonPath.Value));
         Assert.Equal(RunIdTestValues.TestText, summaryDocument.RootElement.GetProperty("runId").GetString());
         Assert.Equal("fail", summaryDocument.RootElement.GetProperty("status").GetString());
         Assert.Equal(1, summaryDocument.RootElement.GetProperty("counts").GetProperty("failed").GetInt32());
@@ -63,7 +63,7 @@ public sealed class UnityResultsConverterTests
         Assert.False(result.HasFailedTests);
         Assert.Equal(0, result.ReportedTestCaseCount);
 
-        using var summaryDocument = JsonDocument.Parse(File.ReadAllText(session.Paths.SummaryJsonPath));
+        using var summaryDocument = JsonDocument.Parse(File.ReadAllText(session.Paths.SummaryJsonPath.Value));
         Assert.Equal("pass", summaryDocument.RootElement.GetProperty("status").GetString());
         Assert.Equal(0, summaryDocument.RootElement.GetProperty("counts").GetProperty("passed").GetInt32());
         Assert.Equal(0, summaryDocument.RootElement.GetProperty("counts").GetProperty("failed").GetInt32());
@@ -131,7 +131,7 @@ public sealed class UnityResultsConverterTests
         Assert.True(result.IsSuccess);
         Assert.True(result.HasFailedTests);
 
-        using var summaryDocument = JsonDocument.Parse(File.ReadAllText(session.Paths.SummaryJsonPath));
+        using var summaryDocument = JsonDocument.Parse(File.ReadAllText(session.Paths.SummaryJsonPath.Value));
         Assert.Equal("fail", summaryDocument.RootElement.GetProperty("status").GetString());
         Assert.Equal(0, summaryDocument.RootElement.GetProperty("counts").GetProperty("failed").GetInt32());
     }

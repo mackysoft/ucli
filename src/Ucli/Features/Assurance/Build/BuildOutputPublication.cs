@@ -1,4 +1,5 @@
 using System.Text;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Artifacts;
 using MackySoft.Ucli.Infrastructure.Storage;
 
@@ -18,18 +19,18 @@ internal sealed class BuildOutputPublication : IDisposable
 
     private static readonly UTF8Encoding Utf8NoBom = new(encoderShouldEmitUTF8Identifier: false);
 
-    private readonly string commitMarkerPath;
-    private readonly string finalOutputDirectory;
+    private readonly AbsolutePath commitMarkerPath;
+    private readonly AbsolutePath finalOutputDirectory;
 
     private bool commitMarkerOwned;
-    private string? commitMarkerTemporaryPath;
+    private AbsolutePath? commitMarkerTemporaryPath;
     private bool finalOutputOwned;
     private bool stagingOwned;
 
     private BuildOutputPublication (
-        string stagingDirectory,
-        string finalOutputDirectory,
-        string commitMarkerPath)
+        AbsolutePath stagingDirectory,
+        AbsolutePath finalOutputDirectory,
+        AbsolutePath commitMarkerPath)
     {
         StagingDirectory = stagingDirectory;
         this.finalOutputDirectory = finalOutputDirectory;
@@ -37,7 +38,7 @@ internal sealed class BuildOutputPublication : IDisposable
         stagingOwned = true;
     }
 
-    public string StagingDirectory { get; }
+    public AbsolutePath StagingDirectory { get; }
 
     /// <summary>
     /// Reserves the run-scoped staging directory after recovering an uncommitted tree owned by the artifact store.
@@ -50,7 +51,7 @@ internal sealed class BuildOutputPublication : IDisposable
     {
         ArgumentNullException.ThrowIfNull(paths);
 
-        if (File.Exists(paths.OutputManifestJsonPath))
+        if (File.Exists(paths.OutputManifestJsonPath.Value))
         {
             FileUtilities.EnsureRegularFile(paths.OutputManifestJsonPath, "Build output manifest commit marker");
             EnsureOwnedOutputDirectory(
@@ -60,7 +61,9 @@ internal sealed class BuildOutputPublication : IDisposable
                 $"Build output artifacts have already been committed: {paths.OutputManifestJsonPath}");
         }
 
-        var stagingDirectory = Path.Combine(paths.ArtifactsDirectory, StagingDirectoryName);
+        var stagingDirectory = ContainedPath.Create(
+            paths.ArtifactsDirectory,
+            RootRelativePath.Parse(StagingDirectoryName)).Target;
         DeleteOwnedOutputDirectoryIfExists(
             stagingDirectory,
             "Uncommitted build output staging directory");
@@ -80,7 +83,7 @@ internal sealed class BuildOutputPublication : IDisposable
     /// <param name="contents"> The complete manifest JSON to publish without an encoding preamble. </param>
     /// <param name="cancellationToken"> The token observed while writing the temporary file. </param>
     /// <returns> The temporary file path retained by this publication owner. </returns>
-    public async ValueTask<string> PrepareCommitMarkerAsync (
+    public async ValueTask<AbsolutePath> PrepareCommitMarkerAsync (
         string contents,
         CancellationToken cancellationToken)
     {
@@ -91,9 +94,12 @@ internal sealed class BuildOutputPublication : IDisposable
         }
 
         cancellationToken.ThrowIfCancellationRequested();
-        var directoryPath = Path.GetDirectoryName(commitMarkerPath)
-            ?? throw new InvalidOperationException(
-                $"Build output commit marker directory could not be resolved: {commitMarkerPath}");
+        if (!commitMarkerPath.TryGetParent(out var directoryPath))
+        {
+            throw new InvalidOperationException(
+                $"Build output commit marker directory could not be resolved: {commitMarkerPath.Value}");
+        }
+
         FileSystemAccessBoundary.EnsureSecureDirectory(directoryPath);
         var temporaryStream = FileUtilities.OpenAtomicWriteTemporaryFileInDirectory(
             directoryPath,
@@ -119,12 +125,12 @@ internal sealed class BuildOutputPublication : IDisposable
             throw new InvalidOperationException("Build output staging is not available for publication.");
         }
 
-        if (File.Exists(finalOutputDirectory) || Directory.Exists(finalOutputDirectory))
+        if (File.Exists(finalOutputDirectory.Value) || Directory.Exists(finalOutputDirectory.Value))
         {
-            throw new IOException($"Build output publication target already exists: {finalOutputDirectory}");
+            throw new IOException($"Build output publication target already exists: {finalOutputDirectory.Value}");
         }
 
-        Directory.Move(StagingDirectory, finalOutputDirectory);
+        Directory.Move(StagingDirectory.Value, finalOutputDirectory.Value);
         stagingOwned = false;
         finalOutputOwned = true;
         FileSystemAccessBoundary.EnsureSecureDirectory(finalOutputDirectory);
@@ -155,7 +161,7 @@ internal sealed class BuildOutputPublication : IDisposable
         }
         catch
         {
-            if (!File.Exists(temporaryPath) && File.Exists(commitMarkerPath))
+            if (!File.Exists(temporaryPath.Value) && File.Exists(commitMarkerPath.Value))
             {
                 commitMarkerTemporaryPath = null;
                 commitMarkerOwned = true;
@@ -212,44 +218,50 @@ internal sealed class BuildOutputPublication : IDisposable
     }
 
     private static void DeleteOwnedOutputDirectoryIfExists (
-        string path,
+        AbsolutePath path,
         string subject)
     {
-        if (!File.Exists(path) && !Directory.Exists(path))
+        if (!File.Exists(path.Value) && !Directory.Exists(path.Value))
         {
             return;
         }
 
         EnsureOwnedOutputDirectory(path, subject);
-        Directory.Delete(path, recursive: true);
+        Directory.Delete(path.Value, recursive: true);
     }
 
     private static void EnsureOwnedOutputDirectory (
-        string path,
+        AbsolutePath path,
         string subject)
     {
-        if (!File.Exists(path) && !Directory.Exists(path))
+        if (!File.Exists(path.Value) && !Directory.Exists(path.Value))
         {
-            throw new IOException($"{subject} was not found: {path}");
+            throw new IOException($"{subject} was not found: {path.Value}");
         }
 
-        var attributes = File.GetAttributes(path);
+        var attributes = File.GetAttributes(path.Value);
         if ((attributes & FileAttributes.ReparsePoint) != 0)
         {
-            throw new IOException($"{subject} must not be a reparse point: {path}");
+            throw new IOException($"{subject} must not be a reparse point: {path.Value}");
         }
 
         if ((attributes & FileAttributes.Directory) == 0)
         {
-            throw new IOException($"{subject} must be a directory: {path}");
+            throw new IOException($"{subject} must be a directory: {path.Value}");
         }
 
-        foreach (var entryPath in Directory.EnumerateFileSystemEntries(path))
+        foreach (var entryPathText in Directory.EnumerateFileSystemEntries(path.Value))
         {
-            var entryAttributes = File.GetAttributes(entryPath);
+            var entryPath = AbsolutePath.Parse(entryPathText);
+            if (!path.IsSameOrAncestorOf(entryPath))
+            {
+                throw new IOException($"{subject} contained a path outside its directory: {entryPath.Value}");
+            }
+
+            var entryAttributes = File.GetAttributes(entryPath.Value);
             if ((entryAttributes & FileAttributes.ReparsePoint) != 0)
             {
-                throw new IOException($"{subject} must not contain a reparse point: {entryPath}");
+                throw new IOException($"{subject} must not contain a reparse point: {entryPath.Value}");
             }
 
             if ((entryAttributes & FileAttributes.Directory) != 0)
@@ -260,20 +272,20 @@ internal sealed class BuildOutputPublication : IDisposable
 
             if (!FileSystemNodeClassifier.IsRegularFile(entryPath, entryAttributes))
             {
-                throw new IOException($"{subject} must contain only regular files: {entryPath}");
+                throw new IOException($"{subject} must contain only regular files: {entryPath.Value}");
             }
         }
     }
 
-    private static void DeleteOwnedCommitMarkerIfExists (string path)
+    private static void DeleteOwnedCommitMarkerIfExists (AbsolutePath path)
     {
-        if (!File.Exists(path) && !Directory.Exists(path))
+        if (!File.Exists(path.Value) && !Directory.Exists(path.Value))
         {
             return;
         }
 
         FileUtilities.EnsureRegularFile(path, "Build output manifest commit marker");
-        File.Delete(path);
+        File.Delete(path.Value);
     }
 
     private static bool TryCleanup (

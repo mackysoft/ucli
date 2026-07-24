@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Globalization;
 using System.Text.Json;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Testing.Run.Artifacts;
 using MackySoft.Ucli.Application.Features.Testing.Run.Configuration;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
@@ -35,18 +36,18 @@ public sealed class TestRunArtifactsServiceTests
         Assert.NotEqual(Guid.Empty, session.RunId);
         Assert.Equal(
             StoragePathSegmentCodec.EncodeGuid(session.RunId, nameof(session.RunId)),
-            Path.GetFileName(session.Paths.ArtifactsDir));
+            Path.GetFileName(session.Paths.ArtifactsDir.Value));
         Assert.StartsWith(
             UcliStoragePathResolver.ResolveTestArtifactsDirectory(
-                scope.FullPath,
-                configuration.UnityProject.ProjectFingerprint),
-            session.Paths.ArtifactsDir,
+                AbsolutePath.Parse(scope.FullPath),
+                configuration.UnityProject.ProjectFingerprint).Value,
+            session.Paths.ArtifactsDir.Value,
             StringComparison.Ordinal);
-        Assert.True(File.Exists(session.Paths.MetaJsonPath));
-        Assert.Equal(Path.Combine(session.Paths.ArtifactsDir, "results.xml"), session.Paths.ResultsXmlPath);
-        Assert.Equal(Path.Combine(session.Paths.ArtifactsDir, "editor.log"), session.Paths.EditorLogPath);
-        Assert.Equal(Path.Combine(session.Paths.ArtifactsDir, "results.json"), session.Paths.ResultsJsonPath);
-        Assert.Equal(Path.Combine(session.Paths.ArtifactsDir, "summary.json"), session.Paths.SummaryJsonPath);
+        Assert.True(File.Exists(session.Paths.MetaJsonPath.Value));
+        Assert.Equal(Path.Combine(session.Paths.ArtifactsDir.Value, "results.xml"), session.Paths.ResultsXmlPath.Value);
+        Assert.Equal(Path.Combine(session.Paths.ArtifactsDir.Value, "editor.log"), session.Paths.EditorLogPath.Value);
+        Assert.Equal(Path.Combine(session.Paths.ArtifactsDir.Value, "results.json"), session.Paths.ResultsJsonPath.Value);
+        Assert.Equal(Path.Combine(session.Paths.ArtifactsDir.Value, "summary.json"), session.Paths.SummaryJsonPath.Value);
         AssertMetaJsonContract(session);
         FileSystemAssert.ForFile(gitIgnorePath).Exists();
         Assert.Equal(UcliContractConstants.LocalDirectoryIgnoreEntry + Environment.NewLine, File.ReadAllText(gitIgnorePath));
@@ -86,7 +87,7 @@ public sealed class TestRunArtifactsServiceTests
         var prepareResult = await service.PrepareAsync(configuration);
         var session = Assert.IsType<ArtifactsSession>(prepareResult.Session);
         var interruptedExportPath = CreateOwnedTemporaryPath(session.Paths.EditorLogPath, int.MaxValue);
-        var unrelatedPath = Path.Combine(session.Paths.ArtifactsDir, ".tmp2147483647-0123456789abcdef");
+        var unrelatedPath = Path.Combine(session.Paths.ArtifactsDir.Value, ".tmp2147483647-0123456789abcdef");
         File.WriteAllText(interruptedExportPath, "partial");
         File.WriteAllText(unrelatedPath, "keep");
 
@@ -143,7 +144,7 @@ public sealed class TestRunArtifactsServiceTests
         var service = new TestRunArtifactsService(new TestRunMetaStore(), RunIdGenerator, TimeProvider.System);
         var prepareResult = await service.PrepareAsync(configuration);
         var session = Assert.IsType<ArtifactsSession>(prepareResult.Session);
-        var unownedExportPath = Path.Combine(session.Paths.ArtifactsDir, ".tmp--0123456789abcd");
+        var unownedExportPath = Path.Combine(session.Paths.ArtifactsDir.Value, ".tmp--0123456789abcd");
         File.WriteAllText(unownedExportPath, "unknown owner");
 
         var completeResult = await service.CompleteAsync(configuration, session, UnityExecutionTarget.Oneshot);
@@ -152,9 +153,9 @@ public sealed class TestRunArtifactsServiceTests
         Assert.True(File.Exists(unownedExportPath));
     }
 
-    private static string CreateOwnedTemporaryPath (string destinationPath, int processId)
+    private static string CreateOwnedTemporaryPath (AbsolutePath destinationPath, int processId)
     {
-        var directoryPath = Path.GetDirectoryName(destinationPath)
+        var directoryPath = Path.GetDirectoryName(destinationPath.Value)
             ?? throw new InvalidOperationException($"Destination directory path could not be resolved: {destinationPath}");
         var fileName = string.Concat(
             ".tmp-",
@@ -175,7 +176,7 @@ public sealed class TestRunArtifactsServiceTests
                 projectFingerprint: ProjectFingerprintTestFactory.Create("abc123")),
             Mode: UnityExecutionMode.Oneshot,
             UnityVersion: "6000.1.4f1",
-            UnityEditorPath: scope.GetPath("Editors/6000.1.4f1/Editor/Unity"),
+            UnityEditorPath: AbsolutePath.Parse(scope.GetPath("Editors/6000.1.4f1/Editor/Unity")),
             TestPlatform: TestRunPlatform.Player("StandaloneWindows64"),
             TestFilter: "Category=Smoke",
             TestCategories: ["smoke", "quick"],
@@ -185,7 +186,7 @@ public sealed class TestRunArtifactsServiceTests
 
     private static void AssertMetaJsonContract (ArtifactsSession session)
     {
-        using var document = JsonDocument.Parse(File.ReadAllText(session.Paths.MetaJsonPath));
+        using var document = JsonDocument.Parse(File.ReadAllText(session.Paths.MetaJsonPath.Value));
         JsonAssert.For(document.RootElement)
             .HasInt32("schemaVersion", 1)
             .HasString("runId", session.RunId.ToString("D"))
@@ -194,9 +195,9 @@ public sealed class TestRunArtifactsServiceTests
         Assert.False(document.RootElement.TryGetProperty("testSettingsPath", out _));
     }
 
-    private static (DateTimeOffset StartedAt, DateTimeOffset FinishedAt) ReadMetaJson (string metaJsonPath)
+    private static (DateTimeOffset StartedAt, DateTimeOffset FinishedAt) ReadMetaJson (AbsolutePath metaJsonPath)
     {
-        using var document = JsonDocument.Parse(File.ReadAllText(metaJsonPath));
+        using var document = JsonDocument.Parse(File.ReadAllText(metaJsonPath.Value));
         var root = document.RootElement;
         var startedAt = DateTimeOffset.Parse(
             root.GetProperty("startedAt").GetString()!,

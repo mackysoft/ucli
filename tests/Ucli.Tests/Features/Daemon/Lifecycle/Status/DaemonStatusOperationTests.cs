@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.LaunchAttempts;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
@@ -790,8 +791,8 @@ public sealed class DaemonStatusOperationTests
             EditorMode: DaemonEditorMode.Gui,
             ProcessId: null,
             ProcessStartedAtUtc: null,
-            UnityLogPath: "/tmp/unity.log",
-            ArtifactPath: "/tmp/startup-diagnosis.json",
+            UnityLogPath: AbsolutePath.Parse(Path.Combine(Path.GetTempPath(), "unity.log")),
+            ArtifactPath: AbsolutePath.Parse(Path.Combine(Path.GetTempPath(), "startup-diagnosis.json")),
             Diagnosis: diagnosis);
     }
 
@@ -830,7 +831,7 @@ public sealed class DaemonStatusOperationTests
         public Task ReadStarted => readStarted.Task;
 
         public async ValueTask<DaemonDiagnosisReadResult> ReadAsync (
-            string storageRoot,
+            AbsolutePath storageRoot,
             ProjectFingerprint projectFingerprint,
             CancellationToken cancellationToken = default)
         {
@@ -841,7 +842,7 @@ public sealed class DaemonStatusOperationTests
         }
 
         public ValueTask<DaemonDiagnosisStoreOperationResult> WriteAsync (
-            string storageRoot,
+            AbsolutePath storageRoot,
             ProjectFingerprint projectFingerprint,
             DaemonDiagnosis diagnosis,
             CancellationToken cancellationToken = default)
@@ -850,7 +851,7 @@ public sealed class DaemonStatusOperationTests
         }
 
         public ValueTask<DaemonDiagnosisStoreOperationResult> DeleteAsync (
-            string storageRoot,
+            AbsolutePath storageRoot,
             ProjectFingerprint projectFingerprint,
             CancellationToken cancellationToken = default)
         {
@@ -865,7 +866,7 @@ public sealed class DaemonStatusOperationTests
         public Task WriteStarted => writeStarted.Task;
 
         public ValueTask<DaemonDiagnosisReadResult> ReadAsync (
-            string storageRoot,
+            AbsolutePath storageRoot,
             ProjectFingerprint projectFingerprint,
             CancellationToken cancellationToken = default)
         {
@@ -874,7 +875,7 @@ public sealed class DaemonStatusOperationTests
         }
 
         public async ValueTask<DaemonDiagnosisStoreOperationResult> WriteAsync (
-            string storageRoot,
+            AbsolutePath storageRoot,
             ProjectFingerprint projectFingerprint,
             DaemonDiagnosis diagnosis,
             CancellationToken cancellationToken = default)
@@ -886,7 +887,7 @@ public sealed class DaemonStatusOperationTests
         }
 
         public ValueTask<DaemonDiagnosisStoreOperationResult> DeleteAsync (
-            string storageRoot,
+            AbsolutePath storageRoot,
             ProjectFingerprint projectFingerprint,
             CancellationToken cancellationToken = default)
         {
@@ -901,7 +902,7 @@ public sealed class DaemonStatusOperationTests
         public Task ReadStarted => readStarted.Task;
 
         public ValueTask<DaemonLaunchAttemptStoreOperationResult> WriteFailureAsync (
-            string storageRoot,
+            AbsolutePath storageRoot,
             ProjectFingerprint projectFingerprint,
             DaemonLaunchAttempt launchAttempt,
             CancellationToken cancellationToken = default)
@@ -910,7 +911,7 @@ public sealed class DaemonStatusOperationTests
         }
 
         public async ValueTask<DaemonLaunchAttemptReadResult> ReadLastFailureAsync (
-            string storageRoot,
+            AbsolutePath storageRoot,
             ProjectFingerprint projectFingerprint,
             CancellationToken cancellationToken = default)
         {
@@ -921,7 +922,7 @@ public sealed class DaemonStatusOperationTests
         }
 
         public ValueTask<DaemonLaunchAttemptStoreOperationResult> PruneAsync (
-            string storageRoot,
+            AbsolutePath storageRoot,
             ProjectFingerprint projectFingerprint,
             int keepCount,
             CancellationToken cancellationToken = default)

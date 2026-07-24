@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts.Storage;
 
 namespace MackySoft.Ucli.Features.Daemon.Lifecycle.Start.GuiAttach;
@@ -7,7 +8,7 @@ internal interface IGuiSupervisorManifestStore
 {
     /// <summary> Reads the manifest after any in-progress endpoint publication has completed. </summary>
     ValueTask<GuiSupervisorManifestJsonContract?> ReadAfterEndpointPublicationAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         ProjectFingerprint projectFingerprint,
         TimeSpan timeout,
         CancellationToken cancellationToken);

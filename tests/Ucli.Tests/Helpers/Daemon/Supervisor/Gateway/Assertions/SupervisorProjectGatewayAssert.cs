@@ -1,3 +1,5 @@
+using MackySoft.FileSystem;
+
 namespace MackySoft.Ucli.Tests.Helpers.Daemon;
 
 internal static class SupervisorProjectGatewayAssert
@@ -6,7 +8,7 @@ internal static class SupervisorProjectGatewayAssert
         DaemonStartResult result,
         RecordingSupervisorProcessManager processManager,
         CollectingCommandProgressSink progressSink,
-        string expectedStorageRoot,
+        AbsolutePath expectedStorageRoot,
         UcliCode expectedErrorCode)
     {
         Assert.False(result.IsSuccess);

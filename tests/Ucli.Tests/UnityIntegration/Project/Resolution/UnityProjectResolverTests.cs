@@ -20,8 +20,8 @@ public sealed class UnityProjectResolverTests
         Assert.True(result.IsSuccess);
         Assert.Null(result.Error);
         var context = Assert.IsType<ResolvedUnityProjectContext>(result.Context);
-        Assert.Equal(unityProjectPath, context.UnityProjectRoot);
-        Assert.Equal(unityProjectPath, context.RepositoryRoot);
+        Assert.Equal(unityProjectPath, context.UnityProjectRoot.Value);
+        Assert.Equal(unityProjectPath, context.RepositoryRoot.Value);
         Assert.Equal(UnityProjectPathSource.CommandOption, context.PathSource);
         Assert.Equal("6000.1.4f1", context.UnityVersion);
         Assert.Matches("^[0-9a-f]{64}$", context.ProjectFingerprint.ToString());
@@ -61,10 +61,10 @@ public sealed class UnityProjectResolverTests
 
         Assert.True(result.IsSuccess);
         var context = Assert.IsType<ResolvedUnityProjectContext>(result.Context);
-        FileSystemAssert.ForPath(context.UnityProjectRoot)
+        FileSystemAssert.ForPath(context.UnityProjectRoot.Value)
             .IsRooted()
             .EqualsNormalized(unityProjectPath);
-        FileSystemAssert.ForPath(context.RepositoryRoot)
+        FileSystemAssert.ForPath(context.RepositoryRoot.Value)
             .IsRooted()
             .EqualsNormalized(unityProjectPath);
     }
@@ -84,7 +84,7 @@ public sealed class UnityProjectResolverTests
 
         Assert.True(result.IsSuccess);
         var context = Assert.IsType<ResolvedUnityProjectContext>(result.Context);
-        Assert.Equal(unityProjectPath, context.UnityProjectRoot);
+        Assert.Equal(unityProjectPath, context.UnityProjectRoot.Value);
         Assert.Equal(UnityProjectPathSource.EnvironmentVariable, context.PathSource);
         Assert.Equal("UCLI_PROJECT_PATH", context.PathSourceLabel);
     }
@@ -174,8 +174,8 @@ public sealed class UnityProjectResolverTests
 
         Assert.True(result.IsSuccess);
         var context = Assert.IsType<ResolvedUnityProjectContext>(result.Context);
-        Assert.Equal(unityProjectPath, context.UnityProjectRoot);
-        Assert.Equal(repositoryRoot, context.RepositoryRoot);
+        Assert.Equal(unityProjectPath, context.UnityProjectRoot.Value);
+        Assert.Equal(repositoryRoot, context.RepositoryRoot.Value);
         Assert.Matches("^[0-9a-f]{64}$", context.ProjectFingerprint.ToString());
     }
 
@@ -195,8 +195,8 @@ public sealed class UnityProjectResolverTests
 
         Assert.True(primary.IsSuccess);
         Assert.True(secondary.IsSuccess);
-        Assert.Equal(repositoryRoot, primary.Context!.RepositoryRoot);
-        Assert.Equal(repositoryRoot, secondary.Context!.RepositoryRoot);
+        Assert.Equal(repositoryRoot, primary.Context!.RepositoryRoot.Value);
+        Assert.Equal(repositoryRoot, secondary.Context!.RepositoryRoot.Value);
         Assert.NotEqual(primary.Context!.ProjectFingerprint, secondary.Context!.ProjectFingerprint);
     }
 

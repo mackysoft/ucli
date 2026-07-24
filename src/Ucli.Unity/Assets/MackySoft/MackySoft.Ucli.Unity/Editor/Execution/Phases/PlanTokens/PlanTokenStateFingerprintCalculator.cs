@@ -4,13 +4,14 @@ using System.Globalization;
 using System.IO;
 using System.Text.Json;
 using System.Threading;
+using MackySoft.FileSystem;
 using MackySoft.Text.Vocabularies;
 using TextVocabulary = MackySoft.Text.Vocabularies.Vocabulary;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Text;
-using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Unity.Execution.PlanToken;
+using MackySoft.Ucli.Unity.Project;
 
 #nullable enable
 
@@ -71,7 +72,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="cancellationToken"> The cancellation token propagated by phase execution. </param>
         /// <returns> The lowercase hexadecimal digest string, or <c>na</c> when unavailable. </returns>
         private static string ComputeConfigDigest (
-            string repositoryRoot,
+            AbsolutePath repositoryRoot,
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -104,7 +105,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="cancellationToken"> The cancellation token propagated by phase execution. </param>
         /// <returns> The lowercase hexadecimal digest string. </returns>
         private static string ComputeTouchedDigest (
-            string projectRoot,
+            AbsolutePath projectRoot,
             IReadOnlyList<OperationPhaseTrace> operationTraces,
             CancellationToken cancellationToken)
         {
@@ -169,11 +170,12 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="touched"> The touched operation output. </param>
         /// <returns> The digest entry. </returns>
         private static PlanTokenTouchedDigestEntry CreateTouchedDigestEntry (
-            string projectRoot,
+            AbsolutePath projectRoot,
             OperationTouch touched)
         {
-            var normalizedPath = PathStringNormalizer.ToPlatformSeparated(touched.Path);
-            var absolutePath = Path.Combine(projectRoot, normalizedPath);
+            var projectRelativePath = RootRelativePath.Parse(
+                UnityAssetPathUtility.NormalizeProjectRelativeSeparators(touched.Path));
+            var absolutePath = ContainedPath.Create(projectRoot, projectRelativePath).Target.Value;
 
             var exists = File.Exists(absolutePath) || Directory.Exists(absolutePath);
             long size;

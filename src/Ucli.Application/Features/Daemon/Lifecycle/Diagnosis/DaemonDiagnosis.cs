@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Contracts.Text;
 
@@ -26,10 +27,10 @@ internal sealed record DaemonDiagnosis
         bool IsInferred,
         DateTimeOffset UpdatedAtUtc,
         int? ProcessId,
-        string? EditorInstancePath,
+        AbsolutePath? EditorInstancePath,
         DateTimeOffset SessionIssuedAtUtc,
         DateTimeOffset? ProcessStartedAtUtc,
-        string? UnityLogPath,
+        AbsolutePath? UnityLogPath,
         DaemonDiagnosisStartupPhase? StartupPhase,
         DaemonDiagnosisActionRequired? ActionRequired,
         DaemonPrimaryDiagnostic? PrimaryDiagnostic)
@@ -93,13 +94,13 @@ internal sealed record DaemonDiagnosis
 
     public int? ProcessId { get; }
 
-    public string? EditorInstancePath { get; }
+    public AbsolutePath? EditorInstancePath { get; }
 
     public DateTimeOffset SessionIssuedAtUtc { get; }
 
     public DateTimeOffset? ProcessStartedAtUtc { get; }
 
-    public string? UnityLogPath { get; }
+    public AbsolutePath? UnityLogPath { get; }
 
     public DaemonDiagnosisStartupPhase? StartupPhase { get; }
 

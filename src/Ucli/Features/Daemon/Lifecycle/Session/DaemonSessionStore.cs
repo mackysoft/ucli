@@ -1,9 +1,10 @@
 using System.Text;
 using System.Text.Json;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Storage;
-using MackySoft.Ucli.Infrastructure.Paths;
+using MackySoft.Ucli.Features.Daemon.Common.Ipc;
 using MackySoft.Ucli.Infrastructure.Storage;
 
 namespace MackySoft.Ucli.Features.Daemon.Lifecycle.Session;
@@ -23,23 +24,13 @@ internal sealed class DaemonSessionStore : IDaemonSessionStore
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The daemon session read result. </returns>
     public async ValueTask<DaemonSessionReadResult> ReadAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         ProjectFingerprint projectFingerprint,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        string sessionPath;
-        try
-        {
-            sessionPath = UcliStoragePathResolver.ResolveSessionPath(storageRoot, projectFingerprint);
-        }
-        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
-        {
-            return DaemonSessionReadResult.Failure(ExecutionError.InvalidArgument(
-                $"Daemon session path is invalid. {exception.Message}"),
-                DaemonSessionReadFailureKind.PathInvalid);
-        }
+        var sessionPath = UcliStoragePathResolver.ResolveSessionPath(storageRoot, projectFingerprint);
 
         ReadOnlyMemory<byte>? serializedContent;
         try
@@ -49,12 +40,6 @@ internal sealed class DaemonSessionStore : IDaemonSessionStore
                     DaemonSessionStorageContract.MaximumFileSizeBytes,
                     cancellationToken)
                 .ConfigureAwait(false);
-        }
-        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
-        {
-            return DaemonSessionReadResult.Failure(ExecutionError.InvalidArgument(
-                $"Daemon session path is invalid: {sessionPath}. {exception.Message}"),
-                DaemonSessionReadFailureKind.PathInvalid);
         }
         catch (Exception exception) when (IsIoFailure(exception))
         {
@@ -106,10 +91,10 @@ internal sealed class DaemonSessionStore : IDaemonSessionStore
                 artifactIdentity);
         }
 
-        if (!DaemonSessionContractMapper.TryCreate(
+        if (!DaemonSessionIpcTransportEndpointAdapter.TryCreate(
                 contract,
                 projectFingerprint,
-                sessionPath,
+                sessionPath.Value,
                 out var session,
                 out var validationError))
         {
@@ -128,27 +113,19 @@ internal sealed class DaemonSessionStore : IDaemonSessionStore
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The daemon session storage operation result. </returns>
     public async ValueTask<DaemonSessionStoreOperationResult> WriteAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         DaemonSession session,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(session);
 
-        string sessionPath;
-        string sessionLockPath;
-        try
-        {
-            sessionPath = UcliStoragePathResolver.ResolveSessionPath(storageRoot, session.ProjectFingerprint);
-            sessionLockPath = UcliStoragePathResolver.ResolveDaemonSessionLockPath(
-                storageRoot,
-                session.ProjectFingerprint);
-        }
-        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
-        {
-            return DaemonSessionStoreOperationResult.Failure(ExecutionError.InvalidArgument(
-                $"Daemon session path is invalid. {exception.Message}"));
-        }
+        var sessionPath = UcliStoragePathResolver.ResolveSessionPath(
+            storageRoot,
+            session.ProjectFingerprint);
+        var sessionLockPath = UcliStoragePathResolver.ResolveDaemonSessionLockPath(
+            storageRoot,
+            session.ProjectFingerprint);
 
         string json;
         try
@@ -170,17 +147,13 @@ internal sealed class DaemonSessionStore : IDaemonSessionStore
                     SessionLockAcquireTimeout,
                     cancellationToken)
                 .ConfigureAwait(false);
-            var sessionDirectoryPath = Path.GetDirectoryName(sessionPath)
-                ?? throw new InvalidOperationException($"Daemon session directory path could not be resolved: {sessionPath}");
+            var sessionDirectoryPath = UcliStoragePathResolver.ResolveProjectDirectory(
+                storageRoot,
+                session.ProjectFingerprint);
             FileSystemAccessBoundary.EnsureSecureDirectory(sessionDirectoryPath);
             await FileUtilities.WriteAllTextAtomicallyAsync(sessionPath, json, cancellationToken).ConfigureAwait(false);
             FileSystemAccessBoundary.EnsureSecureFile(sessionPath);
             return DaemonSessionStoreOperationResult.Success();
-        }
-        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
-        {
-            return DaemonSessionStoreOperationResult.Failure(ExecutionError.InvalidArgument(
-                $"Daemon session path is invalid: {sessionPath}. {exception.Message}"));
         }
         catch (Exception exception) when (IsIoFailure(exception))
         {
@@ -195,26 +168,16 @@ internal sealed class DaemonSessionStore : IDaemonSessionStore
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The daemon session storage operation result. </returns>
     public async ValueTask<DaemonSessionStoreOperationResult> DeleteAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         ProjectFingerprint projectFingerprint,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        string sessionPath;
-        string sessionLockPath;
-        try
-        {
-            sessionPath = UcliStoragePathResolver.ResolveSessionPath(storageRoot, projectFingerprint);
-            sessionLockPath = UcliStoragePathResolver.ResolveDaemonSessionLockPath(
-                storageRoot,
-                projectFingerprint);
-        }
-        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
-        {
-            return DaemonSessionStoreOperationResult.Failure(ExecutionError.InvalidArgument(
-                $"Daemon session path is invalid. {exception.Message}"));
-        }
+        var sessionPath = UcliStoragePathResolver.ResolveSessionPath(storageRoot, projectFingerprint);
+        var sessionLockPath = UcliStoragePathResolver.ResolveDaemonSessionLockPath(
+            storageRoot,
+            projectFingerprint);
 
         try
         {
@@ -226,11 +189,6 @@ internal sealed class DaemonSessionStore : IDaemonSessionStore
                 .ConfigureAwait(false);
             FileUtilities.DeleteIfExists(sessionPath);
             return DaemonSessionStoreOperationResult.Success();
-        }
-        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
-        {
-            return DaemonSessionStoreOperationResult.Failure(ExecutionError.InvalidArgument(
-                $"Daemon session path is invalid: {sessionPath}. {exception.Message}"));
         }
         catch (Exception exception) when (IsIoFailure(exception))
         {

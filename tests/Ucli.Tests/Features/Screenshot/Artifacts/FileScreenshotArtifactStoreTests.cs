@@ -1,4 +1,5 @@
 using System.Globalization;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Screenshot.Artifacts;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -84,7 +85,7 @@ public sealed class FileScreenshotArtifactStoreTests
             new ManualTimeProvider(CreatedAtUtc),
             ensureSecureStagingDirectory: path =>
             {
-                Directory.CreateDirectory(path);
+                Directory.CreateDirectory(path.Value);
                 throw new IOException("Expected secure staging failure.");
             });
 
@@ -112,10 +113,10 @@ public sealed class FileScreenshotArtifactStoreTests
         Assert.Equal("captureId", exception.ParamName);
         Assert.False(Directory.Exists(UcliStoragePathResolver.ResolveScreenshotArtifactsDirectory(
             project.RepositoryRoot,
-            project.ProjectFingerprint)));
+            project.ProjectFingerprint).Value));
         Assert.False(Directory.Exists(UcliStoragePathResolver.ResolveScreenshotWorkDirectory(
             project.RepositoryRoot,
-            project.ProjectFingerprint)));
+            project.ProjectFingerprint).Value));
     }
 
     [Fact]
@@ -132,7 +133,7 @@ public sealed class FileScreenshotArtifactStoreTests
             new ManualTimeProvider(CreatedAtUtc),
             ensureSecureStagingDirectory: path =>
             {
-                Directory.CreateDirectory(path);
+                Directory.CreateDirectory(path.Value);
                 File.WriteAllText(unexpectedPath, "unexpected");
                 throw new IOException("Expected secure staging failure.");
             });
@@ -278,13 +279,13 @@ public sealed class FileScreenshotArtifactStoreTests
             new ThrowingTimeProvider(new InvalidOperationException("Expected timestamp failure.")),
             path =>
             {
-                deletionAttempts.Add(path);
-                if (string.Equals(path, expectedPaths.PngPath, StringComparison.Ordinal))
+                deletionAttempts.Add(path.Value);
+                if (string.Equals(path.Value, expectedPaths.PngPath, StringComparison.Ordinal))
                 {
                     throw new IOException("Expected final PNG deletion failure.");
                 }
 
-                File.Delete(path);
+                File.Delete(path.Value);
             });
         var paths = Prepare(store, scope);
         await File.WriteAllBytesAsync(paths.RawStagingPath, CreateTwoByTwoRawBytes(), CancellationToken.None);
@@ -309,8 +310,8 @@ public sealed class FileScreenshotArtifactStoreTests
             new ManualTimeProvider(CreatedAtUtc),
             path =>
             {
-                deletionAttempts.Add(path);
-                File.Delete(path);
+                deletionAttempts.Add(path.Value);
+                File.Delete(path.Value);
             });
         var paths = Prepare(store, scope);
         await File.WriteAllBytesAsync(paths.RawStagingPath, CreateTwoByTwoRawBytes(), CancellationToken.None);
@@ -353,20 +354,20 @@ public sealed class FileScreenshotArtifactStoreTests
             new Rgba8SrgbPngValidator(),
             new ManualTimeProvider(CreatedAtUtc),
             FileSystemAccessBoundary.EnsureSecureDirectory,
-            File.Delete);
+            static path => File.Delete(path.Value));
     }
 
     private static FileScreenshotArtifactStore CreateStore (
         TimeProvider timeProvider,
-        Action<string>? deleteOwnedFile = null,
-        Action<string>? ensureSecureStagingDirectory = null)
+        Action<AbsolutePath>? deleteOwnedFile = null,
+        Action<AbsolutePath>? ensureSecureStagingDirectory = null)
     {
         return new FileScreenshotArtifactStore(
             new Rgba8SrgbPngEncoder(),
             new Rgba8SrgbPngValidator(),
             timeProvider,
             ensureSecureStagingDirectory ?? FileSystemAccessBoundary.EnsureSecureDirectory,
-            deleteOwnedFile ?? File.Delete);
+            deleteOwnedFile ?? (static path => File.Delete(path.Value)));
     }
 
     private static PreparedCapture Prepare (
@@ -413,19 +414,19 @@ public sealed class FileScreenshotArtifactStoreTests
             UcliStoragePathResolver.ResolveScreenshotCaptureArtifactsDirectory(
                 project.RepositoryRoot,
                 project.ProjectFingerprint,
-                CaptureId),
+                CaptureId).Value,
             UcliStoragePathResolver.ResolveScreenshotCaptureArtifactPath(
                 project.RepositoryRoot,
                 project.ProjectFingerprint,
-                CaptureId),
+                CaptureId).Value,
             UcliStoragePathResolver.ResolveScreenshotCaptureStagingDirectory(
                 project.RepositoryRoot,
                 project.ProjectFingerprint,
-                CaptureId),
+                CaptureId).Value,
             UcliStoragePathResolver.ResolveScreenshotCaptureRawStagingPath(
                 project.RepositoryRoot,
                 project.ProjectFingerprint,
-                CaptureId));
+                CaptureId).Value);
     }
 
     private static byte[] CreateTwoByTwoRawBytes ()

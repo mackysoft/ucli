@@ -172,8 +172,8 @@ public sealed class TestRunServiceOneshotExecutionTests
                 complete: (_, _, _) => ArtifactsCompletionResult.Success()),
             unityTestExecutor: new StubUnityTestExecutor((_, artifactPaths, _, _) =>
             {
-                Directory.CreateDirectory(artifactPaths.ArtifactsDir);
-                File.WriteAllText(artifactPaths.EditorLogPath, string.Empty);
+                Directory.CreateDirectory(artifactPaths.ArtifactsDir.Value);
+                File.WriteAllText(artifactPaths.EditorLogPath.Value, string.Empty);
                 return ValueTask.FromResult(UnityTestExecutionResult.Failure(
                     UnityTestExecutionFailureKind.IpcTransportInterrupted,
                     "Failed to execute Unity oneshot IPC request. Pipe is broken.",
@@ -214,9 +214,9 @@ public sealed class TestRunServiceOneshotExecutionTests
                 complete: (_, _, _) => ArtifactsCompletionResult.Success()),
             unityTestExecutor: new StubUnityTestExecutor((_, artifactPaths, _, _) =>
             {
-                Directory.CreateDirectory(artifactPaths.ArtifactsDir);
-                File.WriteAllText(artifactPaths.ResultsXmlPath, "not xml");
-                File.WriteAllText(artifactPaths.EditorLogPath, string.Empty);
+                Directory.CreateDirectory(artifactPaths.ArtifactsDir.Value);
+                File.WriteAllText(artifactPaths.ResultsXmlPath.Value, "not xml");
+                File.WriteAllText(artifactPaths.EditorLogPath.Value, string.Empty);
                 return ValueTask.FromResult(UnityTestExecutionResult.Failure(
                     UnityTestExecutionFailureKind.IpcTransportInterrupted,
                     "Failed to execute Unity oneshot IPC request. Pipe is broken.",
@@ -272,14 +272,14 @@ public sealed class TestRunServiceOneshotExecutionTests
 
     private static void WriteGeneratedTestArtifacts (ArtifactPaths artifactPaths)
     {
-        Directory.CreateDirectory(artifactPaths.ArtifactsDir);
+        Directory.CreateDirectory(artifactPaths.ArtifactsDir.Value);
         File.WriteAllText(
-            artifactPaths.ResultsXmlPath,
+            artifactPaths.ResultsXmlPath.Value,
             """
             <test-run>
               <test-case fullname="MackySoft.Ucli.Unity.Tests.Sample.Pass" result="Passed" duration="0.001" />
             </test-run>
             """);
-        File.WriteAllText(artifactPaths.EditorLogPath, string.Empty);
+        File.WriteAllText(artifactPaths.EditorLogPath.Value, string.Empty);
     }
 }

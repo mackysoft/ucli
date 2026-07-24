@@ -1,11 +1,12 @@
-using MackySoft.Ucli.Infrastructure.Storage;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.Infrastructure.Storage;
 
 #nullable enable
 
@@ -30,9 +31,9 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
         /// <summary> Resolves one normalized configuration snapshot. </summary>
         /// <param name="repositoryRoot"> The repository root path. </param>
         /// <returns> The resolved configuration snapshot. </returns>
-        public static PlanTokenConfigSnapshot Resolve (string repositoryRoot)
+        public static PlanTokenConfigSnapshot Resolve (AbsolutePath repositoryRoot)
         {
-            if (string.IsNullOrWhiteSpace(repositoryRoot))
+            if (repositoryRoot == null)
             {
                 return FallbackSnapshot;
             }
@@ -40,12 +41,12 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
             try
             {
                 var configPath = UcliStoragePathResolver.ResolveConfigPath(repositoryRoot);
-                if (!File.Exists(configPath))
+                if (!File.Exists(configPath.Value))
                 {
                     return FallbackSnapshot;
                 }
 
-                using var document = JsonDocument.Parse(File.ReadAllText(configPath));
+                using var document = JsonDocument.Parse(File.ReadAllText(configPath.Value));
                 var root = document.RootElement;
                 if (!UcliConfigJsonContractReader.TryReadPlanTokenLoose(root, out var config))
                 {

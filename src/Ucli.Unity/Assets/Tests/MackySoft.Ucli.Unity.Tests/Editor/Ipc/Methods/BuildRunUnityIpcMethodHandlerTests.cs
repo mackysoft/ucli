@@ -7,6 +7,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
+using MackySoft.FileSystem;
 using MackySoft.Text.Vocabularies;
 using TextVocabulary = MackySoft.Text.Vocabularies.Vocabulary;
 using MackySoft.Ucli.Contracts;
@@ -18,9 +19,11 @@ using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Infrastructure.Ipc;
+using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Unity.Build;
 using MackySoft.Ucli.Unity.Ipc;
+using MackySoft.Ucli.Unity.Project;
 using MackySoft.Ucli.Unity.Runtime;
 using NUnit.Framework;
 using UnityEditor;
@@ -163,7 +166,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [TestCase("report")]
         [TestCase("log")]
         [Category("Size.Small")]
-        public void TryValidateRequest_WithRelativeArtifactPath_ReturnsFalse (string artifact)
+        public void CreateExecutionRequest_WithRelativeArtifactPath_ThrowsPathValidationException (string artifact)
         {
             using (var scope = TemporaryDirectoryScope.Create())
             {
@@ -176,13 +179,12 @@ namespace MackySoft.Ucli.Unity.Tests
                     buildReportPath: artifact == "report" ? relativeArtifactPath : null,
                     buildLogPath: artifact == "log" ? relativeArtifactPath : null);
 
-                var result = BuildRunUnityIpcMethodHandler.TryValidateRequest(
-                    BuildRunExecutionRequest.Create(request),
-                    identity,
-                    out var errorMessage);
+                var exception = Assert.Throws<PathValidationException>(
+                    () => BuildRunExecutionRequest.Create(request));
 
-                Assert.That(result, Is.False);
-                Assert.That(errorMessage, Does.Contain("expected uCLI build artifact layout"));
+                Assert.That(
+                    exception!.Failure.Kind,
+                    Is.EqualTo(PathValidationFailureKind.ExpectedAbsolutePath));
             }
         }
 
@@ -213,11 +215,16 @@ namespace MackySoft.Ucli.Unity.Tests
             }
         }
 
-        [TestCase("output")]
-        [TestCase("report")]
-        [TestCase("log")]
+        [TestCase("output", "outside")]
+        [TestCase("report", "outside")]
+        [TestCase("log", "outside")]
+        [TestCase("output", "relative")]
+        [TestCase("report", "relative")]
+        [TestCase("log", "relative")]
         [Category("Size.Small")]
-        public async Task HandleAsync_WithArtifactPathOutsideExpectedLayout_ReturnsInvalidArgumentWithoutSideEffects (string artifact)
+        public async Task HandleAsync_WithInvalidArtifactPath_ReturnsInvalidArgumentWithoutSideEffects (
+            string artifact,
+            string invalidPathKind)
         {
             using (var scope = TemporaryDirectoryScope.Create())
             {
@@ -228,7 +235,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 var handler = new BuildRunUnityIpcMethodHandler(
                     new UnityBuildPreconditionProbe(
                         readinessGate,
-                        identity,
+                        identity.IpcIdentity,
                         new StubServerVersionProvider("1.2.3"),
                         new CountingBuildTargetSupportProbe()),
                     new UnsupportedUnityBuildProfileInputResolver(),
@@ -242,13 +249,15 @@ namespace MackySoft.Ucli.Unity.Tests
                     new UnityLogRingBuffer(),
                     new ImmediateUnityMutationLaneControl(),
                     new ImmediateUnityEditorUpdateAwaiter());
-                var outsidePath = Path.Combine(scope.RootPath, "outside", artifact);
+                var invalidPath = invalidPathKind == "relative"
+                    ? Path.Combine("relative", artifact)
+                    : Path.Combine(scope.RootPath, "outside", artifact);
                 var payload = CreateRequest(
                     scope.ProjectPath,
                     identity,
-                    outputPath: artifact == "output" ? outsidePath : null,
-                    buildReportPath: artifact == "report" ? outsidePath : null,
-                    buildLogPath: artifact == "log" ? outsidePath : null);
+                    outputPath: artifact == "output" ? invalidPath : null,
+                    buildReportPath: artifact == "report" ? invalidPath : null,
+                    buildLogPath: artifact == "log" ? invalidPath : null);
                 var ipcRequest = CreateIpcRequest(payload);
 
                 var response = await UnityIpcMethodHandlerTestInvoker.HandleAsync(handler, ipcRequest, CancellationToken.None);
@@ -277,7 +286,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 var handler = new BuildRunUnityIpcMethodHandler(
                     new UnityBuildPreconditionProbe(
                         readinessGate,
-                        identity,
+                        identity.IpcIdentity,
                         new StubServerVersionProvider("1.2.3"),
                         new CountingBuildTargetSupportProbe()),
                     new UnsupportedUnityBuildProfileInputResolver(),
@@ -329,7 +338,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 var handler = new BuildRunUnityIpcMethodHandler(
                     new UnityBuildPreconditionProbe(
                         new CountingReadinessGate(),
-                        identity,
+                        identity.IpcIdentity,
                         new StubServerVersionProvider("1.2.3"),
                         new CountingBuildTargetSupportProbe()),
                     buildProfileInputResolver,
@@ -381,7 +390,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 var handler = new BuildRunUnityIpcMethodHandler(
                     new UnityBuildPreconditionProbe(
                         new CountingReadinessGate(),
-                        identity,
+                        identity.IpcIdentity,
                         new StubServerVersionProvider("1.2.3"),
                         new CountingBuildTargetSupportProbe()),
                     buildProfileInputResolver,
@@ -456,7 +465,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 var handler = new BuildRunUnityIpcMethodHandler(
                     new UnityBuildPreconditionProbe(
                         new CountingReadinessGate(),
-                        identity,
+                        identity.IpcIdentity,
                         new StubServerVersionProvider("1.2.3"),
                         new CountingBuildTargetSupportProbe()),
                     new UnsupportedUnityBuildProfileInputResolver(),
@@ -854,7 +863,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 var handler = new BuildRunUnityIpcMethodHandler(
                     new UnityBuildPreconditionProbe(
                         new CountingReadinessGate(),
-                        identity,
+                        identity.IpcIdentity,
                         new StubServerVersionProvider("1.2.3"),
                         new CountingBuildTargetSupportProbe()),
                     new UnsupportedUnityBuildProfileInputResolver(),
@@ -934,7 +943,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 var handler = new BuildRunUnityIpcMethodHandler(
                     new UnityBuildPreconditionProbe(
                         new CountingReadinessGate(),
-                        identity,
+                        identity.IpcIdentity,
                         new StubServerVersionProvider("1.2.3"),
                         new CountingBuildTargetSupportProbe()),
                     new UnsupportedUnityBuildProfileInputResolver(),
@@ -1041,7 +1050,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 var handler = new BuildRunUnityIpcMethodHandler(
                     new UnityBuildPreconditionProbe(
                         new CountingReadinessGate(),
-                        identity,
+                        identity.IpcIdentity,
                         new StubServerVersionProvider("1.2.3"),
                         new CountingBuildTargetSupportProbe()),
                     new UnsupportedUnityBuildProfileInputResolver(),
@@ -1101,7 +1110,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 var handler = new BuildRunUnityIpcMethodHandler(
                     new UnityBuildPreconditionProbe(
                         new CountingReadinessGate(),
-                        identity,
+                        identity.IpcIdentity,
                         new StubServerVersionProvider("1.2.3"),
                         new CountingBuildTargetSupportProbe()),
                     new UnsupportedUnityBuildProfileInputResolver(),
@@ -1199,7 +1208,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 var handler = new BuildRunUnityIpcMethodHandler(
                     new UnityBuildPreconditionProbe(
                         new CountingReadinessGate(),
-                        identity,
+                        identity.IpcIdentity,
                         new StubServerVersionProvider("1.2.3"),
                         new CountingBuildTargetSupportProbe()),
                     new UnsupportedUnityBuildProfileInputResolver(),
@@ -1271,7 +1280,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     var handler = new BuildRunUnityIpcMethodHandler(
                         new UnityBuildPreconditionProbe(
                             new CountingReadinessGate(),
-                            identity,
+                            identity.IpcIdentity,
                             new StubServerVersionProvider("1.2.3"),
                             new CountingBuildTargetSupportProbe()),
                         new UnsupportedUnityBuildProfileInputResolver(),
@@ -1346,7 +1355,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 var handler = new BuildRunUnityIpcMethodHandler(
                     new UnityBuildPreconditionProbe(
                         new CountingReadinessGate(),
-                        identity,
+                        identity.IpcIdentity,
                         new StubServerVersionProvider("1.2.3"),
                         new CountingBuildTargetSupportProbe()),
                     new UnsupportedUnityBuildProfileInputResolver(),
@@ -1402,7 +1411,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 var handler = new BuildRunUnityIpcMethodHandler(
                     new UnityBuildPreconditionProbe(
                         new CountingReadinessGate(),
-                        identity,
+                        identity.IpcIdentity,
                         new StubServerVersionProvider("1.2.3"),
                         new CountingBuildTargetSupportProbe()),
                     new UnsupportedUnityBuildProfileInputResolver(),
@@ -1436,16 +1445,16 @@ namespace MackySoft.Ucli.Unity.Tests
             }
         }
 
-        private static IpcProjectIdentity CreateProjectIdentity (string projectPath)
+        private static UnityHostProjectIdentity CreateProjectIdentity (string projectPath)
         {
-            return new IpcProjectIdentity(
-                projectPath: projectPath,
-                projectFingerprint: ProjectFingerprint,
-                unityVersion: "6000.1.4f1");
+            return new UnityHostProjectIdentity(
+                AbsolutePath.Parse(projectPath),
+                ProjectFingerprint,
+                "6000.1.4f1");
         }
 
         private static BuildRunUnityIpcMethodHandler CreateCheckpointTestHandler (
-            IpcProjectIdentity projectIdentity,
+            UnityHostProjectIdentity projectIdentity,
             IUnityEditorReadinessGate readinessGate,
             IUnityBuildPipelineRunner buildPipelineRunner,
             IUnityMutationLaneControl mutationLaneControl,
@@ -1454,7 +1463,7 @@ namespace MackySoft.Ucli.Unity.Tests
             return new BuildRunUnityIpcMethodHandler(
                 new UnityBuildPreconditionProbe(
                     readinessGate,
-                    projectIdentity,
+                    projectIdentity.IpcIdentity,
                     new StubServerVersionProvider("1.2.3"),
                     new CountingBuildTargetSupportProbe()),
                 new UnsupportedUnityBuildProfileInputResolver(),
@@ -1482,7 +1491,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private static IpcBuildRunRequest CreateRequest (
             string projectPath,
-            IpcProjectIdentity identity,
+            UnityHostProjectIdentity identity,
             BuildProfileProjectMutationMode projectMutationMode = BuildProfileProjectMutationMode.Forbid,
             IReadOnlyList<SceneAssetPath>? scenePaths = null,
             BuildTargetStableName buildTarget = BuildTargetStableName.StandaloneLinux64,
@@ -1492,15 +1501,10 @@ namespace MackySoft.Ucli.Unity.Tests
             string? buildLogPath = null)
         {
             var paths = ResolveRequestArtifactPaths(projectPath);
-            if (!IpcBuildOutputLayoutResolver.TryResolve(
-                paths.OutputPath,
+            var defaultOutputLayout = ResolveOutputLayout(
+                AbsolutePath.Parse(paths.OutputPath),
                 BuildTargetStableName.StandaloneLinux64,
-                androidAppBundle: false,
-                out var defaultOutputLayout)
-                || defaultOutputLayout is null)
-            {
-                throw new InvalidOperationException("Test build target must resolve a BuildPipeline output layout.");
-            }
+                androidAppBundle: false);
 
             return new IpcBuildRunRequest(
                 RunId: RunId,
@@ -1527,9 +1531,36 @@ namespace MackySoft.Ucli.Unity.Tests
                 RunnerEnvironmentSecretValues: new Dictionary<string, string>(StringComparer.Ordinal));
         }
 
+        private static IpcBuildOutputLayout ResolveOutputLayout (
+            AbsolutePath outputPath,
+            BuildTargetStableName buildTarget,
+            bool androidAppBundle)
+        {
+            return ResolveGuardedOutputLayout(outputPath, buildTarget, androidAppBundle).ToContract();
+        }
+
+        private static ResolvedBuildPipelineOutputLayout ResolveGuardedOutputLayout (
+            AbsolutePath outputPath,
+            BuildTargetStableName buildTarget,
+            bool androidAppBundle)
+        {
+            if (!BuildPipelineOutputLayoutPolicy.TryResolve(
+                    buildTarget,
+                    androidAppBundle,
+                    out var definition))
+            {
+                throw new InvalidOperationException("Test build target must resolve a BuildPipeline output layout.");
+            }
+
+            var location = ContainedPath.Create(
+                outputPath,
+                BuildRunnerOutputPathAdapter.ToRootRelativePath(definition.RunnerOutputPath));
+            return new ResolvedBuildPipelineOutputLayout(definition.Shape, location.Target);
+        }
+
         private static IpcBuildRunRequest CreateExecuteMethodRequest (
             string projectPath,
-            IpcProjectIdentity identity,
+            UnityHostProjectIdentity identity,
             string method)
         {
             var paths = ResolveRequestArtifactPaths(projectPath);
@@ -1621,7 +1652,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private static IpcBuildRunRequest CreateUnityBuildProfileRequest (
             string projectPath,
-            IpcProjectIdentity identity)
+            UnityHostProjectIdentity identity)
         {
             var paths = ResolveRequestArtifactPaths(projectPath);
             return new IpcBuildRunRequest(
@@ -1655,14 +1686,14 @@ namespace MackySoft.Ucli.Unity.Tests
         private static (string OutputPath, string BuildReportPath, string BuildLogPath) ResolveRequestArtifactPaths (
             string projectPath)
         {
-            var storageRoot = UcliStoragePathResolver.ResolveStorageRoot(projectPath);
+            var storageRoot = UcliStoragePathResolver.ResolveStorageRoot(AbsolutePath.Parse(projectPath));
             var artifactsDirectory = UcliStoragePathResolver.ResolveBuildRunArtifactsDirectory(
                 storageRoot,
                 RunId);
             return (
-                UcliStoragePathResolver.ResolveBuildRunOutputDirectory(storageRoot, RunId),
-                Path.Combine(artifactsDirectory, UcliStoragePathNames.BuildReportFileName),
-                Path.Combine(artifactsDirectory, UcliStoragePathNames.BuildLogFileName));
+                UcliStoragePathResolver.ResolveBuildRunOutputDirectory(storageRoot, RunId).Value,
+                Path.Combine(artifactsDirectory.Value, UcliStoragePathNames.BuildReportFileName),
+                Path.Combine(artifactsDirectory.Value, UcliStoragePathNames.BuildLogFileName));
         }
 
         private static IpcUnityBuildProfileInput CreateAppliedUnityBuildProfileInput (string path)
@@ -1904,14 +1935,10 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 CallCount++;
-                if (!IpcBuildOutputLayoutResolver.TryResolve(
+                var outputLayout = ResolveGuardedOutputLayout(
                     request.OutputPath,
                     BuildTargetStableName.StandaloneLinux64,
-                    androidAppBundle: false,
-                    out var outputLayout))
-                {
-                    throw new InvalidOperationException("Test output layout must resolve.");
-                }
+                    androidAppBundle: false);
 
                 var preconditionInput = new UnityBuildPreconditionInput(
                     InputKind: BuildProfileInputsKind.UnityBuildProfile,
@@ -1924,7 +1951,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
                 return Task.FromResult(UnityBuildProfileInputResolutionResult.Success(
                     preconditionInput,
-                    outputLayout!,
+                    outputLayout,
                     unityBuildProfile));
             }
         }
@@ -1945,14 +1972,10 @@ namespace MackySoft.Ucli.Unity.Tests
                 CancellationToken cancellationToken)
             {
                 CallCount++;
-                if (!IpcBuildOutputLayoutResolver.TryResolve(
+                var outputLayout = ResolveGuardedOutputLayout(
                     request.OutputPath,
                     BuildTargetStableName.StandaloneLinux64,
-                    androidAppBundle: false,
-                    out var outputLayout))
-                {
-                    throw new InvalidOperationException("Test output layout must resolve.");
-                }
+                    androidAppBundle: false);
 
                 var preconditionInput = new UnityBuildPreconditionInput(
                     InputKind: BuildProfileInputsKind.UnityBuildProfile,
@@ -1965,7 +1988,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 cancelExecutionDeadline();
                 return Task.FromResult(UnityBuildProfileInputResolutionResult.Success(
                     preconditionInput,
-                    outputLayout!,
+                    outputLayout,
                     unityBuildProfile));
             }
         }
@@ -1977,7 +2000,7 @@ namespace MackySoft.Ucli.Unity.Tests
             public IpcBuildReportArtifact? Run (
                 IpcUnityBuildProfileInput unityBuildProfile,
                 UnityBuildResolvedInput resolvedInput,
-                IpcBuildOutputLayout outputLayout)
+                ResolvedBuildPipelineOutputLayout outputLayout)
             {
                 CallCount++;
                 throw new UnityBuildProfileInputException("Unity Build Profile asset could not be used.");
@@ -2028,8 +2051,8 @@ namespace MackySoft.Ucli.Unity.Tests
             public int CallCount { get; private set; }
 
             public Task<EditorLogRangeExportResult> ExportRangeAsync (
-                string sourcePath,
-                string destinationPath,
+                AbsolutePath sourcePath,
+                AbsolutePath destinationPath,
                 long startOffset,
                 long endOffset,
                 IEnumerable<string>? redactionValues = null,
@@ -2042,13 +2065,13 @@ namespace MackySoft.Ucli.Unity.Tests
                     throw new InvalidOperationException("Log export must not run for an invalid build.run request.");
                 }
 
-                var directoryPath = Path.GetDirectoryName(destinationPath);
+                var directoryPath = Path.GetDirectoryName(destinationPath.Value);
                 if (!string.IsNullOrWhiteSpace(directoryPath))
                 {
                     Directory.CreateDirectory(directoryPath);
                 }
 
-                File.WriteAllText(destinationPath, Redact(contents, redactionValues));
+                File.WriteAllText(destinationPath.Value, Redact(contents, redactionValues));
                 return Task.FromResult(summary);
             }
 

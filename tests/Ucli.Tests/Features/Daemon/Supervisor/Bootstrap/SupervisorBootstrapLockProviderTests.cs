@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 namespace MackySoft.Ucli.Tests.Supervisor;
 
 public sealed class SupervisorBootstrapLockProviderTests
@@ -10,12 +11,12 @@ public sealed class SupervisorBootstrapLockProviderTests
         var timeProvider = new ManualTimeProvider();
         var provider = new SupervisorBootstrapLockProvider(timeProvider);
         await using var heldLock = await provider.AcquireAsync(
-            scope.FullPath,
+            AbsolutePath.Parse(scope.FullPath),
             TimeSpan.FromSeconds(1),
             CancellationToken.None);
 
         var acquisitionTask = provider.AcquireAsync(
-                scope.FullPath,
+                AbsolutePath.Parse(scope.FullPath),
                 TimeSpan.FromMilliseconds(100),
                 CancellationToken.None)
             .AsTask();

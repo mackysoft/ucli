@@ -103,7 +103,9 @@ public sealed class BuildServiceInputProjectionTests
             sceneSource: BuildProfileSceneSource.EditorBuildSettings,
             scenes: [new SceneAssetPath("Assets/Scenes/FromSettings.unity")]);
         var service = CreateService(
-            profileFileReader: new StubBuildProfileFileReader(BuildProfileFileReadResult.Success(profileJson, "/workspace/build.ucli.json")),
+            profileFileReader: new StubBuildProfileFileReader(BuildProfileFileReadResult.Success(
+                profileJson,
+                DefaultBuildProfilePath)),
             requestExecutor: requestExecutor,
             artifactStore: artifactStore);
 

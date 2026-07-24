@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Tests;
 using MackySoft.Ucli.Infrastructure.Index;
 
@@ -12,13 +13,14 @@ public sealed class FileSystemIndexInputFingerprintCalculatorTests
         using var scope = TestDirectories.CreateTempScope("infrastructure-index-fingerprint", "core-asset-content");
         UnityIndexInputTestFactory.WriteRequiredInputsWithSampleAsset(scope);
         var calculator = new FileSystemIndexInputFingerprintCalculator();
+        var projectRoot = AbsolutePath.Parse(scope.FullPath);
 
-        var before = await calculator.TryComputeCoreAsync(scope.FullPath, CancellationToken.None);
+        var before = await calculator.TryComputeCoreAsync(projectRoot, CancellationToken.None);
         Assert.NotNull(before);
 
         UnityIndexInputTestFactory.WriteSampleAsset(scope, "changed");
 
-        var after = await calculator.TryComputeCoreAsync(scope.FullPath, CancellationToken.None);
+        var after = await calculator.TryComputeCoreAsync(projectRoot, CancellationToken.None);
         Assert.NotNull(after);
 
         Assert.Equal(before!.ScriptAssembliesHash, after!.ScriptAssembliesHash);
@@ -35,13 +37,14 @@ public sealed class FileSystemIndexInputFingerprintCalculatorTests
         using var scope = TestDirectories.CreateTempScope("infrastructure-index-fingerprint", "asset-content");
         UnityIndexInputTestFactory.WriteRequiredInputsWithSampleAsset(scope);
         var calculator = new FileSystemIndexInputFingerprintCalculator();
+        var projectRoot = AbsolutePath.Parse(scope.FullPath);
 
-        var before = await calculator.TryComputeAsync(scope.FullPath, CancellationToken.None);
+        var before = await calculator.TryComputeAsync(projectRoot, CancellationToken.None);
         Assert.NotNull(before);
 
         UnityIndexInputTestFactory.WriteSampleAsset(scope, "changed");
 
-        var after = await calculator.TryComputeAsync(scope.FullPath, CancellationToken.None);
+        var after = await calculator.TryComputeAsync(projectRoot, CancellationToken.None);
         Assert.NotNull(after);
 
         Assert.NotEqual(before!.AssetsContentHash, after!.AssetsContentHash);
@@ -60,8 +63,9 @@ public sealed class FileSystemIndexInputFingerprintCalculatorTests
         using var scope = TestDirectories.CreateTempScope("infrastructure-index-fingerprint", changeKind);
         UnityIndexInputTestFactory.WriteRequiredInputsWithSampleAsset(scope);
         var calculator = new FileSystemIndexInputFingerprintCalculator();
+        var projectRoot = AbsolutePath.Parse(scope.FullPath);
 
-        var before = await calculator.TryComputeAsync(scope.FullPath, CancellationToken.None);
+        var before = await calculator.TryComputeAsync(projectRoot, CancellationToken.None);
         Assert.NotNull(before);
 
         switch (changeKind)
@@ -102,7 +106,7 @@ public sealed class FileSystemIndexInputFingerprintCalculatorTests
                 throw new InvalidOperationException($"Unsupported change kind: {changeKind}");
         }
 
-        var after = await calculator.TryComputeAsync(scope.FullPath, CancellationToken.None);
+        var after = await calculator.TryComputeAsync(projectRoot, CancellationToken.None);
         Assert.NotNull(after);
 
         Assert.NotEqual(before!.AssetsContentHash, after!.AssetsContentHash);

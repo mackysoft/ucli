@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Features.Daemon.Lifecycle.Start.GuiAttach;
 using MackySoft.Ucli.Infrastructure.Storage;
@@ -18,9 +19,10 @@ public sealed class GuiSupervisorManifestStoreTests
             "gui-supervisor-manifest-store",
             "consistent-publication-read");
         var projectFingerprint = ProjectFingerprintTestFactory.Create("fingerprint");
+        var storageRoot = AbsolutePath.Parse(scope.FullPath);
         var manifest = CreateManifest();
         var manifestLockPath = UcliStoragePathResolver.ResolveGuiSupervisorManifestLockPath(
-            scope.FullPath,
+            storageRoot,
             projectFingerprint);
         using var publicationLock = FileExclusiveLock.Acquire(
             manifestLockPath,
@@ -29,7 +31,7 @@ public sealed class GuiSupervisorManifestStoreTests
         var store = new GuiSupervisorManifestStore();
 
         var readTask = store.ReadAfterEndpointPublicationAsync(
-                scope.FullPath,
+                storageRoot,
                 projectFingerprint,
                 AsyncTestTimeout,
                 CancellationToken.None)
@@ -51,8 +53,9 @@ public sealed class GuiSupervisorManifestStoreTests
             "gui-supervisor-manifest-store",
             "publication-read-timeout");
         var projectFingerprint = ProjectFingerprintTestFactory.Create("fingerprint");
+        var storageRoot = AbsolutePath.Parse(scope.FullPath);
         var manifestLockPath = UcliStoragePathResolver.ResolveGuiSupervisorManifestLockPath(
-            scope.FullPath,
+            storageRoot,
             projectFingerprint);
         using var publicationLock = FileExclusiveLock.Acquire(
             manifestLockPath,
@@ -61,7 +64,7 @@ public sealed class GuiSupervisorManifestStoreTests
         var store = new GuiSupervisorManifestStore();
 
         await Assert.ThrowsAsync<TimeoutException>(() => store.ReadAfterEndpointPublicationAsync(
-                scope.FullPath,
+                storageRoot,
                 projectFingerprint,
                 TimeSpan.FromMilliseconds(50),
                 CancellationToken.None)
@@ -76,8 +79,9 @@ public sealed class GuiSupervisorManifestStoreTests
             "gui-supervisor-manifest-store",
             "publication-read-cancellation");
         var projectFingerprint = ProjectFingerprintTestFactory.Create("fingerprint");
+        var storageRoot = AbsolutePath.Parse(scope.FullPath);
         var manifestLockPath = UcliStoragePathResolver.ResolveGuiSupervisorManifestLockPath(
-            scope.FullPath,
+            storageRoot,
             projectFingerprint);
         using var publicationLock = FileExclusiveLock.Acquire(
             manifestLockPath,
@@ -87,7 +91,7 @@ public sealed class GuiSupervisorManifestStoreTests
         var store = new GuiSupervisorManifestStore();
 
         var readTask = store.ReadAfterEndpointPublicationAsync(
-                scope.FullPath,
+                storageRoot,
                 projectFingerprint,
                 TimeSpan.FromSeconds(1),
                 cancellationTokenSource.Token)
@@ -105,8 +109,9 @@ public sealed class GuiSupervisorManifestStoreTests
             "gui-supervisor-manifest-store",
             "rebootstrap-publication-timeout");
         var projectFingerprint = ProjectFingerprintTestFactory.Create("fingerprint");
+        var storageRoot = AbsolutePath.Parse(scope.FullPath);
         var manifestLockPath = UcliStoragePathResolver.ResolveGuiSupervisorManifestLockPath(
-            scope.FullPath,
+            storageRoot,
             projectFingerprint);
         using var publicationLock = FileExclusiveLock.Acquire(
             manifestLockPath,

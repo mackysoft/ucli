@@ -1,3 +1,5 @@
+using MackySoft.FileSystem;
+
 namespace MackySoft.Ucli.Tests.Helpers.Unity;
 
 internal sealed class UnexpectedUnityVersionResolver : IUnityVersionResolver
@@ -10,7 +12,7 @@ internal sealed class UnexpectedUnityVersionResolver : IUnityVersionResolver
     }
 
     public UnityVersionResolutionResult Resolve (
-        string projectPath,
+        AbsolutePath projectPath,
         string? preferredUnityVersion)
     {
         throw new InvalidOperationException(reason);

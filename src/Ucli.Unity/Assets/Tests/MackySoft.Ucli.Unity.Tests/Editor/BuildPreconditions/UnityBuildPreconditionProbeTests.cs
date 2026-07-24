@@ -4,6 +4,7 @@ using System.IO;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Assurance;
 using MackySoft.Ucli.Contracts.Assurance.Build;
@@ -15,9 +16,11 @@ using MackySoft.Ucli.Unity.Ipc;
 using MackySoft.Ucli.Unity.Runtime;
 using NUnit.Framework;
 using UnityEditor;
+using UnityEditor.PackageManager;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using PackageManagerPackageInfo = UnityEditor.PackageManager.PackageInfo;
 
 #nullable enable
 
@@ -187,6 +190,44 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(result, Is.EqualTo(expected));
             Assert.That(auditPath?.Value, Is.EqualTo(expected ? path : null));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void TryResolvePersistentDirtyObjectAuditPath_WhenUrpPackageAssetIsDirty_ExcludesNonOwnedPackageState ()
+        {
+            const string path = "Packages/com.unity.render-pipelines.universal/Shaders/Unlit.shader";
+            var packageInfo = PackageManagerPackageInfo.FindForAssetPath(path);
+
+            Assert.That(packageInfo, Is.Not.Null);
+            Assert.That(
+                UnityBuildPreconditionProbe.IsProjectOwnedPackageSource(packageInfo.source),
+                Is.False);
+
+            var result = UnityBuildPreconditionProbe.TryResolvePersistentDirtyObjectAuditPath(
+                path,
+                out var auditPath);
+
+            Assert.That(result, Is.False);
+            Assert.That(auditPath, Is.Null);
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        [TestCase(PackageSource.Unknown, false)]
+        [TestCase(PackageSource.Registry, false)]
+        [TestCase(PackageSource.BuiltIn, false)]
+        [TestCase(PackageSource.Embedded, true)]
+        [TestCase(PackageSource.Local, false)]
+        [TestCase(PackageSource.Git, false)]
+        [TestCase(PackageSource.LocalTarball, false)]
+        public void IsProjectOwnedPackageSource_ReturnsExpected (
+            PackageSource source,
+            bool expected)
+        {
+            Assert.That(
+                UnityBuildPreconditionProbe.IsProjectOwnedPackageSource(source),
+                Is.EqualTo(expected));
         }
 
         [Test]
@@ -498,7 +539,8 @@ namespace MackySoft.Ucli.Unity.Tests
             AssetDatabase.ImportAsset(modifiedPath);
             AssetDatabase.ImportAsset(deletedPath);
             var probe = new UnityProjectMutationAuditProbe();
-            var baseline = probe.CaptureBaseline(projectRootPath!);
+            var guardedProjectRootPath = AbsolutePath.Parse(projectRootPath!);
+            var baseline = probe.CaptureBaseline(guardedProjectRootPath);
 
             WriteProjectFile(projectRootPath!, addedPath, "added");
             WriteProjectFile(projectRootPath!, modifiedPath, "after");
@@ -507,7 +549,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(AssetDatabase.DeleteAsset(deletedPath), Is.True);
 
             var audit = probe.Complete(
-                projectRootPath!,
+                guardedProjectRootPath,
                 BuildProfileProjectMutationMode.Audit,
                 baseline);
 
@@ -550,7 +592,8 @@ namespace MackySoft.Ucli.Unity.Tests
 
             try
             {
-                var snapshot = new UnityProjectMutationAuditProbe().CaptureBaseline(projectRootPath);
+                var snapshot = new UnityProjectMutationAuditProbe().CaptureBaseline(
+                    AbsolutePath.Parse(projectRootPath));
                 var assetDigest = Sha256Digest.Compute(assetContents);
                 var projectSettingsDigest = Sha256Digest.Compute(projectSettingsContents);
                 var expectedDigest = Sha256Digest.Compute(Encoding.UTF8.GetBytes(
@@ -558,6 +601,39 @@ namespace MackySoft.Ucli.Unity.Tests
 
                 Assert.That(snapshot.Coverage, Is.EqualTo(IpcBuildProjectMutationAuditCoverage.Full));
                 Assert.That(snapshot.Digest, Is.EqualTo(expectedDigest));
+            }
+            finally
+            {
+                Directory.Delete(projectRootPath, recursive: true);
+            }
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void ProjectMutationAuditProbe_OnUnixWithLiteralBackslashFile_ReportsPartialCoverage ()
+        {
+            if (Path.DirectorySeparatorChar == '\\')
+            {
+                return;
+            }
+
+            var projectRootPath = Path.Combine(
+                Path.GetTempPath(),
+                "ucli-project-mutation-literal-backslash-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(Path.Combine(projectRootPath, "Assets"));
+            Directory.CreateDirectory(Path.Combine(projectRootPath, "ProjectSettings"));
+            Directory.CreateDirectory(Path.Combine(projectRootPath, "Packages"));
+            File.WriteAllText(
+                Path.Combine(projectRootPath, @"Assets/literal\name.txt"),
+                "unrepresentable portable audit path");
+
+            try
+            {
+                var snapshot = new UnityProjectMutationAuditProbe().CaptureBaseline(
+                    AbsolutePath.Parse(projectRootPath));
+
+                Assert.That(snapshot.Coverage, Is.EqualTo(IpcBuildProjectMutationAuditCoverage.Partial));
+                Assert.That(snapshot.FilesByPath, Is.Empty);
             }
             finally
             {

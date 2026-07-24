@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts.Assurance;
 using MackySoft.Ucli.Contracts.Assurance.Build;
 using MackySoft.Ucli.Contracts.Cryptography;
@@ -21,9 +22,9 @@ namespace MackySoft.Ucli.Unity.Build
             }
 
             RunId = request.RunId;
-            OutputPath = request.OutputPath;
-            BuildReportPath = request.BuildReportPath;
-            BuildLogPath = request.BuildLogPath;
+            OutputPath = AbsolutePath.Parse(request.OutputPath);
+            BuildReportPath = AbsolutePath.Parse(request.BuildReportPath);
+            BuildLogPath = AbsolutePath.Parse(request.BuildLogPath);
             AllowedEditorModes = request.AllowedEditorModes;
             ProjectMutationMode = request.ProjectMutationMode;
             ProfileDigest = request.ProfileDigest;
@@ -35,11 +36,11 @@ namespace MackySoft.Ucli.Unity.Build
 
         public abstract BuildRunnerKind RunnerKind { get; }
 
-        public string OutputPath { get; }
+        public AbsolutePath OutputPath { get; }
 
-        public string BuildReportPath { get; }
+        public AbsolutePath BuildReportPath { get; }
 
-        public string BuildLogPath { get; }
+        public AbsolutePath BuildLogPath { get; }
 
         public IReadOnlyList<DaemonEditorMode> AllowedEditorModes { get; }
 
@@ -79,7 +80,7 @@ namespace MackySoft.Ucli.Unity.Build
                 request.SceneSource!.Value,
                 request.ScenePaths,
                 request.Development,
-                request.ProfilePath!,
+                AbsolutePath.Parse(request.ProfilePath!),
                 request.RunnerMethod!,
                 request.RunnerArguments,
                 request.RunnerEnvironmentVariableValues,
@@ -102,7 +103,9 @@ namespace MackySoft.Ucli.Unity.Build
                 SceneSource = sceneSource;
                 ScenePaths = scenePaths;
                 Development = development;
-                OutputLayout = outputLayout;
+                OutputLayout = new ResolvedBuildPipelineOutputLayout(
+                    outputLayout.Shape,
+                    AbsolutePath.Parse(outputLayout.LocationPathName));
             }
 
             public override BuildProfileInputsKind InputKind => BuildProfileInputsKind.Explicit;
@@ -117,7 +120,7 @@ namespace MackySoft.Ucli.Unity.Build
 
             public bool Development { get; }
 
-            public IpcBuildOutputLayout OutputLayout { get; }
+            public ResolvedBuildPipelineOutputLayout OutputLayout { get; }
         }
 
         /// <summary> Represents explicit inputs executed through the uCLI executeMethod bridge. </summary>
@@ -129,7 +132,7 @@ namespace MackySoft.Ucli.Unity.Build
                 BuildProfileSceneSource sceneSource,
                 IReadOnlyList<SceneAssetPath> scenePaths,
                 bool development,
-                string profilePath,
+                AbsolutePath profilePath,
                 string runnerMethod,
                 IReadOnlyDictionary<string, string> runnerArguments,
                 IReadOnlyDictionary<string, string> runnerEnvironmentVariableValues,
@@ -159,7 +162,7 @@ namespace MackySoft.Ucli.Unity.Build
 
             public bool Development { get; }
 
-            public string ProfilePath { get; }
+            public AbsolutePath ProfilePath { get; }
 
             public string RunnerMethod { get; }
 

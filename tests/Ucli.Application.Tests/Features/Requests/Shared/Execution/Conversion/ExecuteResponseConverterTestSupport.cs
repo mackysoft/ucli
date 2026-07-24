@@ -1,5 +1,5 @@
 using System.Text.Json;
-
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Tests.Requests.Shared.Execution.Conversion;
@@ -10,14 +10,14 @@ internal static class ExecuteResponseConverterTestSupport
         ProjectFingerprintTestFactory.Create("project-fingerprint");
 
     public static ResolvedUnityProjectContext ExpectedProject { get; } = ResolvedUnityProjectContext.Create(
-        unityProjectRoot: ProjectPathTestValues.RepositoryUnityProject,
-        repositoryRoot: ProjectPathTestValues.RepositoryRoot,
+        unityProjectRoot: AbsolutePath.Parse(ProjectPathTestValues.RepositoryUnityProject),
+        repositoryRoot: AbsolutePath.Parse(ProjectPathTestValues.RepositoryRoot),
         projectFingerprint: ExpectedProjectFingerprint,
         pathSource: UnityProjectPathSource.CommandOption,
         pathSourceLabel: null,
         unityVersion: "6000.1.4f1");
 
-    public static string ExpectedProjectPathJson { get; } = JsonSerializer.Serialize(ExpectedProject.UnityProjectRoot);
+    public static string ExpectedProjectPathJson { get; } = JsonSerializer.Serialize(ExpectedProject.UnityProjectRoot.Value);
 
     public static UnityRequestResponse CreateResponse (IpcExecuteResponse payload)
     {
@@ -54,7 +54,7 @@ internal static class ExecuteResponseConverterTestSupport
     public static IpcProjectIdentity CreateProjectIdentity ()
     {
         return new IpcProjectIdentity(
-            projectPath: ExpectedProject.UnityProjectRoot,
+            projectPath: ExpectedProject.UnityProjectRoot.Value,
             projectFingerprint: ExpectedProjectFingerprint,
             unityVersion: "6000.1.4f1");
     }

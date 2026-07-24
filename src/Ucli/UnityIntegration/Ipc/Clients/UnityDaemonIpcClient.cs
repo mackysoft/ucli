@@ -7,6 +7,8 @@ using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Execution.UnityRequest;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.Features.Daemon.Common.Ipc;
+using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.UnityIntegration.Ipc.Dispatch;
 using MackySoft.Ucli.UnityIntegration.Ipc.Failures;
 using MackySoft.Ucli.UnityIntegration.Ipc.Recovery;
@@ -96,7 +98,7 @@ internal sealed class UnityDaemonIpcClient : IUnityIpcClient
         UnityIpcDispatchRequest dispatchRequest,
         ExecutionDeadline deadline,
         IpcResponseMode responseMode,
-        Func<IpcEndpoint, IpcRequestEnvelope, TimeSpan, CancellationToken, ValueTask<IpcResponse>> sendAttempt,
+        Func<IpcTransportEndpoint, IpcRequestEnvelope, TimeSpan, CancellationToken, ValueTask<IpcResponse>> sendAttempt,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -197,7 +199,7 @@ internal sealed class UnityDaemonIpcClient : IUnityIpcClient
             try
             {
                 var response = await sendAttempt(
-                        session.Endpoint,
+                        DaemonSessionIpcTransportEndpointAdapter.Adapt(session),
                         UnityIpcRequestFactory.Create(
                             session.SessionToken,
                             dispatchRequest.Method,

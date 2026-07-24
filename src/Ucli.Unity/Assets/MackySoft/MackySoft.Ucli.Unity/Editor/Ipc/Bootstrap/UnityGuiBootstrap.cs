@@ -1,6 +1,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
@@ -231,11 +232,12 @@ namespace MackySoft.Ucli.Unity.Ipc
                 var storageRoot = UcliStoragePathResolver.ResolveStorageRoot(projectRoot);
                 var projectFingerprint = UnityProjectFingerprintCalculator.Create(storageRoot, projectRoot);
                 var endpoint = UcliIpcEndpointResolver.ResolveDaemonEndpoint(storageRoot, projectFingerprint);
+                var endpointBinding = UnityIpcEndpointBinding.Create(endpoint);
                 var sessionOptions = UnityGuiBootstrapSessionOptions.Create(bootstrapArguments);
                 preparedSession = await UnityGuiSessionPersistence.PrepareAsync(
                     storageRoot,
                     projectFingerprint,
-                    endpoint,
+                    endpointBinding,
                     sessionOptions,
                     state.EditorInstanceId,
                     sessionReplacementScope: sessionReplacementScope,
@@ -249,13 +251,13 @@ namespace MackySoft.Ucli.Unity.Ipc
 
                 registration = preparedSession.Registration;
 
-                var daemonBootstrapArguments = new IpcDaemonBootstrapArguments(
-                    RepositoryRoot: storageRoot,
-                    ProjectFingerprint: projectFingerprint,
-                    SessionPath: preparedSession.SessionPath,
-                    SessionGenerationId: preparedSession.Registration.SessionGenerationId,
-                    SessionIssuedAtUtc: preparedSession.Registration.IssuedAtUtc,
-                    Endpoint: endpoint);
+                var daemonBootstrapContext = new UnityDaemonBootstrapContext(
+                    storageRoot,
+                    projectFingerprint,
+                    preparedSession.SessionPath,
+                    preparedSession.Registration.SessionGenerationId,
+                    preparedSession.Registration.IssuedAtUtc,
+                    endpointBinding);
                 var services = new ServiceCollection();
                 services
                     .AddUnityIpcApplicationServices(
@@ -264,8 +266,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                         daemonLogger,
                         DaemonEditorMode.Gui)
                     .AddUnityIpcDaemonHostServices(
-                        daemonBootstrapArguments,
-                        endpoint,
+                        daemonBootstrapContext,
                         daemonLogStream,
                         state.EditorInstanceId);
 
@@ -346,7 +347,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
                 var startResult = await StartServerAndPublishSessionAsync(
                     server,
-                    endpoint,
+                    endpointBinding,
                     state.CancellationToken,
                     () => EnsureStartingGenerationOwnership(state),
                     () => BeginTrackedSessionPublication(state, preparedSession));
@@ -379,7 +380,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 state.ReleasePreparedSessionAfterSuccessfulPublication();
                 LogInfoBestEffort(
                     daemonLogger,
-                    $"uCLI GUI daemon registered. storageRoot={storageRoot}, fingerprint={projectFingerprint}, endpoint={endpoint.Address}");
+                    $"uCLI GUI daemon registered. storageRoot={storageRoot}, fingerprint={projectFingerprint}, endpoint={endpointBinding.Endpoint.Address}");
                 _ = MonitorAsync(nextState);
                 return startedResult;
             }
@@ -831,7 +832,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         internal static async Task<(UnityGuiSessionRegistration Registration, IUnityIpcServerPublicationFence PublicationFence)> StartServerAndPublishSessionAsync (
             IUnityIpcServer server,
-            IpcEndpoint endpoint,
+            UnityIpcEndpointBinding endpointBinding,
             CancellationToken cancellationToken,
             Action validateGenerationOwnership,
             Func<Task<UnityGuiSessionRegistration>> publishSession)
@@ -841,9 +842,9 @@ namespace MackySoft.Ucli.Unity.Ipc
                 throw new ArgumentNullException(nameof(server));
             }
 
-            if (endpoint == null)
+            if (endpointBinding == null)
             {
-                throw new ArgumentNullException(nameof(endpoint));
+                throw new ArgumentNullException(nameof(endpointBinding));
             }
 
             if (validateGenerationOwnership == null)
@@ -858,7 +859,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             cancellationToken.ThrowIfCancellationRequested();
             validateGenerationOwnership();
-            var publicationFence = await server.StartAsync(endpoint, cancellationToken);
+            var publicationFence = await server.StartAsync(endpointBinding, cancellationToken);
             try
             {
                 publicationFence.ThrowIfGenerationTerminated();

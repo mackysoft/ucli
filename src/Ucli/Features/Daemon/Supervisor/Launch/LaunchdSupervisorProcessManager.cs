@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Infrastructure.Storage;
 
@@ -25,7 +26,7 @@ internal sealed class LaunchdSupervisorProcessManager
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The launch outcome, including any generation lease whose cleanup ownership remains with the caller. </returns>
     public async ValueTask<SupervisorProcessLaunchResult> LaunchAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         SupervisorLaunchCommand launchCommand,
         CancellationToken cancellationToken)
     {
@@ -61,19 +62,20 @@ internal sealed class LaunchdSupervisorProcessManager
                     CreateProcessError("remove stale supervisor LaunchAgent", bootoutResult));
             }
 
-            var plistDirectoryPath = Path.GetDirectoryName(plistPath);
-            if (!string.IsNullOrWhiteSpace(plistDirectoryPath))
+            if (!plistPath.TryGetParent(out var plistDirectoryPath))
             {
-                FileSystemAccessBoundary.EnsureSecureDirectory(plistDirectoryPath);
+                throw new InvalidOperationException(
+                    $"Supervisor LaunchAgent plist directory could not be resolved: {plistPath.Value}");
             }
 
+            FileSystemAccessBoundary.EnsureSecureDirectory(plistDirectoryPath);
             var plistContents = LaunchAgentPlistDocumentFactory.Build(label, launchCommand, normalizedStorageRoot, logPath);
             await FileUtilities.WriteAllTextAtomicallyAsync(plistPath, plistContents + Environment.NewLine, cancellationToken).ConfigureAwait(false);
 
             launchLease = new LaunchdSupervisorProcessLaunchLease(this, serviceTarget);
             var bootstrapResult = await RunProcessAsync(
                     LaunchctlExecutablePath,
-                    ["bootstrap", userDomain, plistPath],
+                    ["bootstrap", userDomain, plistPath.Value],
                     captureStandardOutput: false,
                     cancellationToken)
                 .ConfigureAwait(false);
@@ -120,7 +122,7 @@ internal sealed class LaunchdSupervisorProcessManager
     /// <param name="cancellationToken"> The cancellation token propagated by supervisor retirement. </param>
     /// <returns> One structured error when release fails; otherwise <see langword="null" />. </returns>
     public async ValueTask<ExecutionError?> ReleaseCurrentProcessRegistrationAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();

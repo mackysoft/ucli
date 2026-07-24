@@ -1,4 +1,3 @@
-using System.IO;
 using MackySoft.Ucli.Infrastructure.Project;
 using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Unity.Project;
@@ -13,7 +12,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public void Create_WithCurrentProjectFingerprint_ReturnsCurrentSessionIdentity ()
         {
-            var projectPath = Path.GetFullPath(UnityProjectPathResolver.ResolveProjectRootPath());
+            var projectPath = UnityProjectPathResolver.ResolveProjectRootPath();
             var storageRoot = UcliStoragePathResolver.ResolveStorageRoot(projectPath);
             var projectFingerprint = UnityProjectFingerprintCalculator.Create(storageRoot, projectPath);
 
@@ -21,7 +20,8 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(identity.ProjectPath, Is.EqualTo(projectPath));
             Assert.That(identity.ProjectFingerprint, Is.EqualTo(projectFingerprint));
-            Assert.That(identity.UnityVersion, Is.EqualTo(Application.unityVersion));
+            Assert.That(identity.IpcIdentity.ProjectPath, Is.EqualTo(projectPath.Value));
+            Assert.That(identity.IpcIdentity.UnityVersion, Is.EqualTo(Application.unityVersion));
         }
 
         [Test]

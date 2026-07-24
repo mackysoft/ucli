@@ -35,7 +35,9 @@ public sealed class BuildServiceExecuteMethodRunnerResultValidationTests
             environment: string.Empty);
         using var tempDirectory = CreateArtifactDirectoryScope();
         var service = CreateService(
-            profileFileReader: new StubBuildProfileFileReader(BuildProfileFileReadResult.Success(profileJson, "/workspace/build.ucli.json")),
+            profileFileReader: new StubBuildProfileFileReader(BuildProfileFileReadResult.Success(
+                profileJson,
+                DefaultBuildProfilePath)),
             requestExecutor: CreateBuildResponseExecutor(
                 IpcBuildReportResult.Succeeded,
                 IpcBuildLogCompletionReason.Completed,
@@ -65,7 +67,9 @@ public sealed class BuildServiceExecuteMethodRunnerResultValidationTests
             environment: string.Empty);
         using var tempDirectory = CreateArtifactDirectoryScope();
         var service = CreateService(
-            profileFileReader: new StubBuildProfileFileReader(BuildProfileFileReadResult.Success(profileJson, "/workspace/build.ucli.json")),
+            profileFileReader: new StubBuildProfileFileReader(BuildProfileFileReadResult.Success(
+                profileJson,
+                DefaultBuildProfilePath)),
             requestExecutor: CreateBuildResponseExecutor(
                 IpcBuildReportResult.Succeeded,
                 IpcBuildLogCompletionReason.Completed,

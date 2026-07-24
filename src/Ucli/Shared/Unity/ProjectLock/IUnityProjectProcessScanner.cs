@@ -1,3 +1,5 @@
+using MackySoft.FileSystem;
+
 namespace MackySoft.Ucli.Shared.Unity.ProjectLock;
 
 /// <summary> Scans operating-system processes for Unity processes targeting one project path. </summary>
@@ -8,6 +10,6 @@ internal interface IUnityProjectProcessScanner
     /// <param name="cancellationToken"> The cancellation token propagated by the caller. </param>
     /// <returns> The scan result. </returns>
     ValueTask<UnityProjectProcessScanResult> FindProcessesForProjectAsync (
-        string unityProjectRoot,
+        AbsolutePath unityProjectRoot,
         CancellationToken cancellationToken = default);
 }

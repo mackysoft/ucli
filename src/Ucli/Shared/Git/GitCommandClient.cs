@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Shared.Foundation;
 
 namespace MackySoft.Ucli.Shared.Git;
@@ -22,7 +23,7 @@ internal sealed class GitCommandClient : IGitCommandClient
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The Git command text result. </returns>
     public async ValueTask<GitCommandTextResult> GetCurrentWorktreeRootAsync (
-        string path,
+        AbsolutePath path,
         TimeSpan timeout,
         CancellationToken cancellationToken = default)
     {
@@ -40,7 +41,7 @@ internal sealed class GitCommandClient : IGitCommandClient
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The Git command text result. </returns>
     public async ValueTask<GitCommandTextResult> GetCurrentProjectRelativePathAsync (
-        string path,
+        AbsolutePath path,
         TimeSpan timeout,
         CancellationToken cancellationToken = default)
     {
@@ -58,7 +59,7 @@ internal sealed class GitCommandClient : IGitCommandClient
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The Git command text result. </returns>
     public async ValueTask<GitCommandTextResult> GetWorktreeListPorcelainAsync (
-        string path,
+        AbsolutePath path,
         TimeSpan timeout,
         CancellationToken cancellationToken = default)
     {
@@ -78,7 +79,7 @@ internal sealed class GitCommandClient : IGitCommandClient
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The Git command text result. </returns>
     private async ValueTask<GitCommandTextResult> RunRevParseAsync (
-        string path,
+        AbsolutePath path,
         string option,
         TimeSpan timeout,
         CancellationToken cancellationToken)
@@ -99,20 +100,19 @@ internal sealed class GitCommandClient : IGitCommandClient
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The raw process execution result. </returns>
     private async ValueTask<ProcessRunResult> RunGitCommandAsync (
-        string path,
+        AbsolutePath path,
         IReadOnlyList<string> arguments,
         TimeSpan timeout,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        ArgumentException.ThrowIfNullOrWhiteSpace(path);
         ArgumentNullException.ThrowIfNull(arguments);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
 
         var gitArguments = new List<string>(arguments.Count + 2)
         {
             "-C",
-            path,
+            path.Value,
         };
         gitArguments.AddRange(arguments);
 

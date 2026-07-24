@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Shared.Execution.ReadPostcondition;
 using MackySoft.Ucli.Contracts.Ipc;
 
@@ -19,7 +20,7 @@ internal sealed class TestMutationReadPostconditionStore : IMutationReadPostcond
     public IReadOnlyList<WriteInvocation> WriteInvocations => writeInvocations;
 
     public ValueTask<MutationReadPostconditionReadResult> ReadOrNullAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         ProjectFingerprint projectFingerprint,
         CancellationToken cancellationToken = default)
     {
@@ -29,7 +30,7 @@ internal sealed class TestMutationReadPostconditionStore : IMutationReadPostcond
     }
 
     public ValueTask<MutationReadPostconditionStoreOperationResult> WriteMergedAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         ProjectFingerprint projectFingerprint,
         IpcExecuteReadPostcondition readPostcondition,
         CancellationToken cancellationToken = default)
@@ -41,12 +42,12 @@ internal sealed class TestMutationReadPostconditionStore : IMutationReadPostcond
     }
 
     internal readonly record struct ReadInvocation (
-        string StorageRoot,
+        AbsolutePath StorageRoot,
         ProjectFingerprint ProjectFingerprint,
         CancellationToken CancellationToken);
 
     internal readonly record struct WriteInvocation (
-        string StorageRoot,
+        AbsolutePath StorageRoot,
         ProjectFingerprint ProjectFingerprint,
         IpcExecuteReadPostcondition ReadPostcondition,
         CancellationToken CancellationToken);

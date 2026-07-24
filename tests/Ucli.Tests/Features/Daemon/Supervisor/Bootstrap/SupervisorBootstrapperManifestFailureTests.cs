@@ -1,4 +1,5 @@
 using System.Net.Sockets;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.Authorization;
@@ -17,19 +18,20 @@ public sealed class SupervisorBootstrapperManifestFailureTests
         using var scope = TestDirectories.CreateTempScope("supervisor-bootstrapper", "owned-valid-runtime");
         var endpointResolver = new SupervisorEndpointResolver();
         var endpoint = endpointResolver.ResolveRuntimeEndpoint(
-            scope.FullPath,
+            AbsolutePath.Parse(scope.FullPath),
             IpcSessionTokenTestFactory.CreateFromDiscriminator(1));
         var manifestStore = SupervisorManifestStoreTestSupport.CreateFileBacked(TimeProvider.System);
         var manifest = SupervisorBootstrapperTestSupport.CreateManifest(endpoint: endpoint);
-        await manifestStore.WriteAsync(scope.FullPath, manifest, CancellationToken.None);
-        if (endpoint.TransportKind == IpcTransportKind.UnixDomainSocket)
+        await manifestStore.WriteAsync(AbsolutePath.Parse(scope.FullPath), manifest, CancellationToken.None);
+        var unixSocketPath = endpoint.UnixSocketPath;
+        if (unixSocketPath is not null)
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(endpoint.Address)!);
-            await File.WriteAllTextAsync(endpoint.Address, "owned endpoint", CancellationToken.None);
+            Directory.CreateDirectory(Path.GetDirectoryName(unixSocketPath.Value)!);
+            await File.WriteAllTextAsync(unixSocketPath.Value, "owned endpoint", CancellationToken.None);
         }
 
         using var runtimeOwnership = await FileExclusiveLock.AcquireAsync(
-            UcliStoragePathResolver.ResolveSupervisorRuntimeOwnershipLockPath(scope.FullPath),
+            UcliStoragePathResolver.ResolveSupervisorRuntimeOwnershipLockPath(AbsolutePath.Parse(scope.FullPath)),
             TimeSpan.FromSeconds(1),
             CancellationToken.None);
         var transportClient = new StubIpcTransportClient
@@ -49,18 +51,18 @@ public sealed class SupervisorBootstrapperManifestFailureTests
             TimeProvider.System);
 
         var result = await bootstrapper.EnsureReadyAsync(
-            scope.FullPath,
+            AbsolutePath.Parse(scope.FullPath),
             TimeSpan.FromSeconds(1),
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(ExecutionErrorKind.Timeout, result.Error?.Kind);
-        Assert.Equal(manifest, await manifestStore.ReadOrNullAsync(scope.FullPath, CancellationToken.None));
+        Assert.Equal(manifest, await manifestStore.ReadOrNullAsync(AbsolutePath.Parse(scope.FullPath), CancellationToken.None));
         Assert.Empty(processManager.Invocations);
         Assert.NotEmpty(transportClient.Invocations);
-        if (endpoint.TransportKind == IpcTransportKind.UnixDomainSocket)
+        if (unixSocketPath is not null)
         {
-            Assert.True(File.Exists(endpoint.Address));
+            Assert.True(File.Exists(unixSocketPath.Value));
         }
     }
 
@@ -69,11 +71,11 @@ public sealed class SupervisorBootstrapperManifestFailureTests
     public async Task EnsureReady_WhenMalformedRuntimeOwnershipIsHeld_PreservesArtifactWithoutRelaunch ()
     {
         using var scope = TestDirectories.CreateTempScope("supervisor-bootstrapper", "owned-malformed-runtime");
-        var manifestPath = UcliStoragePathResolver.ResolveSupervisorManifestPath(scope.FullPath);
-        Directory.CreateDirectory(Path.GetDirectoryName(manifestPath)!);
-        await File.WriteAllTextAsync(manifestPath, "{ malformed json", CancellationToken.None);
+        var manifestPath = UcliStoragePathResolver.ResolveSupervisorManifestPath(AbsolutePath.Parse(scope.FullPath));
+        Directory.CreateDirectory(Path.GetDirectoryName(manifestPath.Value)!);
+        await File.WriteAllTextAsync(manifestPath.Value, "{ malformed json", CancellationToken.None);
         using var runtimeOwnership = await FileExclusiveLock.AcquireAsync(
-            UcliStoragePathResolver.ResolveSupervisorRuntimeOwnershipLockPath(scope.FullPath),
+            UcliStoragePathResolver.ResolveSupervisorRuntimeOwnershipLockPath(AbsolutePath.Parse(scope.FullPath)),
             TimeSpan.FromSeconds(1),
             CancellationToken.None);
         var transportClient = new StubIpcTransportClient
@@ -94,13 +96,13 @@ public sealed class SupervisorBootstrapperManifestFailureTests
             TimeProvider.System);
 
         var result = await bootstrapper.EnsureReadyAsync(
-            scope.FullPath,
+            AbsolutePath.Parse(scope.FullPath),
             TimeSpan.FromMilliseconds(200),
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(ExecutionErrorKind.Timeout, result.Error?.Kind);
-        Assert.True(File.Exists(manifestPath));
+        Assert.True(File.Exists(manifestPath.Value));
         Assert.Empty(processManager.Invocations);
         Assert.Empty(transportClient.Invocations);
     }
@@ -129,7 +131,7 @@ public sealed class SupervisorBootstrapperManifestFailureTests
             timeProvider);
 
         var result = await bootstrapper.EnsureReadyAsync(
-            scope.FullPath,
+            AbsolutePath.Parse(scope.FullPath),
             TimeSpan.FromMilliseconds(150),
             CancellationToken.None);
 
@@ -147,29 +149,29 @@ public sealed class SupervisorBootstrapperManifestFailureTests
         using var testTimeoutSource = new CancellationTokenSource(SupervisorBootstrapperTestSupport.SignalWaitTimeout);
         var timeProvider = new ManualTimeProvider();
         var endpointResolver = new SupervisorEndpointResolver();
-        var cleanupTarget = endpointResolver.ResolveUnixSocketCleanupTargetOrNull(scope.FullPath);
+        var cleanupTarget = endpointResolver.ResolveUnixSocketCleanupTargetOrNull(AbsolutePath.Parse(scope.FullPath));
         if (cleanupTarget is not null)
         {
-            var resolvedEndpointDirectoryPath = Path.GetDirectoryName(cleanupTarget.SocketPath);
+            var resolvedEndpointDirectoryPath = Path.GetDirectoryName(cleanupTarget.SocketPath.Value);
             if (!string.IsNullOrWhiteSpace(resolvedEndpointDirectoryPath))
             {
                 Directory.CreateDirectory(resolvedEndpointDirectoryPath);
             }
 
-            File.WriteAllText(cleanupTarget.SocketPath, "stale supervisor socket placeholder");
+            File.WriteAllText(cleanupTarget.SocketPath.Value, "stale supervisor socket placeholder");
         }
 
         var maliciousPath = cleanupTarget is not null
-            ? Path.Combine(Path.GetDirectoryName(cleanupTarget.SocketPath)!, "x.sock")
+            ? Path.Combine(Path.GetDirectoryName(cleanupTarget.SocketPath.Value)!, "x.sock")
             : scope.GetPath("do-not-delete.txt");
         File.WriteAllText(maliciousPath, "must remain");
         var manifestEndpoint = cleanupTarget is not null
             ? new IpcEndpoint(IpcTransportKind.UnixDomainSocket, maliciousPath)
             : new IpcEndpoint(IpcTransportKind.NamedPipe, $"ucli-do-not-delete-{Guid.NewGuid():N}");
         var manifest = SupervisorBootstrapperTestSupport.CreateManifest(
-            endpoint: manifestEndpoint);
+            endpoint: SupervisorTransportEndpoint.FromContract(manifestEndpoint));
         var manifestStore = SupervisorManifestStoreTestSupport.CreateFileBacked(timeProvider);
-        await manifestStore.WriteAsync(scope.FullPath, manifest, CancellationToken.None);
+        await manifestStore.WriteAsync(AbsolutePath.Parse(scope.FullPath), manifest, CancellationToken.None);
         var transportClient = new StubIpcTransportClient
         {
             SendHandler = static (_, _, _, _) => throw new SocketException((int)SocketError.ConnectionRefused),
@@ -189,7 +191,7 @@ public sealed class SupervisorBootstrapperManifestFailureTests
             timeProvider);
 
         var result = await bootstrapper.EnsureReadyAsync(
-            scope.FullPath,
+            AbsolutePath.Parse(scope.FullPath),
             TimeSpan.FromSeconds(1),
             testTimeoutSource.Token);
 
@@ -198,11 +200,11 @@ public sealed class SupervisorBootstrapperManifestFailureTests
         Assert.Equal(ExecutionErrorKind.InternalError, result.Error.Kind);
         Assert.Contains("stop after cleanup", result.Error.Message, StringComparison.Ordinal);
         Assert.Single(processManager.Invocations);
-        Assert.Null(await manifestStore.ReadOrNullAsync(scope.FullPath, CancellationToken.None));
+        Assert.Null(await manifestStore.ReadOrNullAsync(AbsolutePath.Parse(scope.FullPath), CancellationToken.None));
         Assert.True(File.Exists(maliciousPath));
         if (cleanupTarget is not null)
         {
-            Assert.False(File.Exists(cleanupTarget.SocketPath));
+            Assert.False(File.Exists(cleanupTarget.SocketPath.Value));
         }
     }
 
@@ -213,7 +215,7 @@ public sealed class SupervisorBootstrapperManifestFailureTests
         using var scope = TestDirectories.CreateTempScope("supervisor-bootstrapper", "manifest-generation-rotation");
         var endpointResolver = new SupervisorEndpointResolver();
         var endpoint = endpointResolver.ResolveRuntimeEndpoint(
-            scope.FullPath,
+            AbsolutePath.Parse(scope.FullPath),
             IpcSessionTokenTestFactory.CreateFromDiscriminator(1));
         var manifestStore = SupervisorManifestStoreTestSupport.CreateFileBacked(TimeProvider.System);
         var firstManifest = SupervisorBootstrapperTestSupport.CreateManifest(
@@ -221,14 +223,15 @@ public sealed class SupervisorBootstrapperManifestFailureTests
         var successorManifest = SupervisorBootstrapperTestSupport.CreateManifest(
             sessionTokenDiscriminator: 2,
             processId: firstManifest.ProcessId,
-            endpoint: firstManifest.Endpoint,
+            endpoint: firstManifest.TransportEndpoint,
             issuedAtUtc: firstManifest.IssuedAtUtc.AddSeconds(1));
-        await manifestStore.WriteAsync(scope.FullPath, firstManifest, CancellationToken.None);
-        if (endpoint.TransportKind == IpcTransportKind.UnixDomainSocket)
+        await manifestStore.WriteAsync(AbsolutePath.Parse(scope.FullPath), firstManifest, CancellationToken.None);
+        var unixSocketPath = endpoint.UnixSocketPath;
+        if (unixSocketPath is not null)
         {
-            var endpointDirectory = Path.GetDirectoryName(endpoint.Address)!;
+            var endpointDirectory = Path.GetDirectoryName(unixSocketPath.Value)!;
             Directory.CreateDirectory(endpointDirectory);
-            await File.WriteAllTextAsync(endpoint.Address, "successor endpoint", CancellationToken.None);
+            await File.WriteAllTextAsync(unixSocketPath.Value, "successor endpoint", CancellationToken.None);
         }
 
         var transportClient = new StubIpcTransportClient
@@ -238,7 +241,7 @@ public sealed class SupervisorBootstrapperManifestFailureTests
                 Assert.True(IpcSessionToken.TryParse(request.SessionToken, out var requestSessionToken));
                 if (firstManifest.SessionToken == requestSessionToken)
                 {
-                    await manifestStore.WriteAsync(scope.FullPath, successorManifest, cancellationToken);
+                    await manifestStore.WriteAsync(AbsolutePath.Parse(scope.FullPath), successorManifest, cancellationToken);
                     return CreateSessionTokenInvalidResponse(request.RequestId);
                 }
 
@@ -259,7 +262,7 @@ public sealed class SupervisorBootstrapperManifestFailureTests
             TimeProvider.System);
 
         var result = await bootstrapper.EnsureReadyAsync(
-            scope.FullPath,
+            AbsolutePath.Parse(scope.FullPath),
             TimeSpan.FromSeconds(2),
             CancellationToken.None);
 
@@ -268,10 +271,10 @@ public sealed class SupervisorBootstrapperManifestFailureTests
         Assert.Empty(processManager.Invocations);
         Assert.Equal(
             successorManifest,
-            await manifestStore.ReadOrNullAsync(scope.FullPath, CancellationToken.None));
-        if (endpoint.TransportKind == IpcTransportKind.UnixDomainSocket)
+            await manifestStore.ReadOrNullAsync(AbsolutePath.Parse(scope.FullPath), CancellationToken.None));
+        if (unixSocketPath is not null)
         {
-            Assert.True(File.Exists(endpoint.Address));
+            Assert.True(File.Exists(unixSocketPath.Value));
         }
     }
 

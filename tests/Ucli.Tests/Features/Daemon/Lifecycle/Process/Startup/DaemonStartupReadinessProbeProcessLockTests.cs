@@ -1,6 +1,7 @@
 namespace MackySoft.Ucli.Tests.Daemon;
 
 using System.Net.Sockets;
+using MackySoft.FileSystem;
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Shared.Unity.ProjectLock;
@@ -53,7 +54,7 @@ public sealed class DaemonStartupReadinessProbeProcessLockTests
         finally
         {
             cleanupCompletion.TrySetResult(UnityProjectLockPreflightResult.Unlocked(
-                "/tmp/unity-project/Temp/UnityLockfile"));
+                AbsolutePath.Parse(Path.Combine(Path.GetTempPath(), "unity-project", "Temp", "UnityLockfile"))));
         }
     }
 
@@ -75,7 +76,7 @@ public sealed class DaemonStartupReadinessProbeProcessLockTests
         var probe = CreateProbe(
             pingClient,
             logReader,
-            UnityProjectLockFileProbeResult.Locked("/tmp/unity-project/Temp/UnityLockfile"));
+            UnityProjectLockFileProbeResult.Locked(AbsolutePath.Parse(Path.Combine(Path.GetTempPath(), "unity-project", "Temp", "UnityLockfile"))));
         var unityProject = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-readiness-lock-during-startup"));
 
         var result = await probe.WaitUntilReadyAsync(
@@ -106,7 +107,7 @@ public sealed class DaemonStartupReadinessProbeProcessLockTests
         var probe = CreateProbe(
             pingClient,
             logReader,
-            UnityProjectLockFileProbeResult.Locked("/tmp/unity-project/Temp/UnityLockfile"));
+            UnityProjectLockFileProbeResult.Locked(AbsolutePath.Parse(Path.Combine(Path.GetTempPath(), "unity-project", "Temp", "UnityLockfile"))));
 
         var result = await probe.WaitUntilReadyAsync(
             ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-readiness-already-open")),
@@ -165,7 +166,7 @@ public sealed class DaemonStartupReadinessProbeProcessLockTests
         var probe = CreateProbe(
             new UnexpectedDaemonPingInfoClient("Exited daemon process with stale lock must be classified before pinging the daemon endpoint."),
             logReader,
-            UnityProjectLockFileProbeResult.Locked("/tmp/unity-project/Temp/UnityLockfile"));
+            UnityProjectLockFileProbeResult.Locked(AbsolutePath.Parse(Path.Combine(Path.GetTempPath(), "unity-project", "Temp", "UnityLockfile"))));
 
         var result = await probe.WaitUntilReadyAsync(
             ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-readiness-exited-lock-file")),

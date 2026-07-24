@@ -1,8 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ "$#" -ne 2 ]]; then
+print_usage() {
   echo "Usage: $0 <package-dir> <expected-version>" >&2
+}
+
+if [[ "$#" -ne 2 ]]; then
+  print_usage
   exit 2
 fi
 
@@ -27,12 +31,16 @@ if [[ ! -f "${package_path}" ]]; then
   exit 1
 fi
 
+filesystem_package_id="MackySoft.FileSystem"
+filesystem_package_version="0.1.0"
+
 for required_tool in cmp dotnet unzip; do
   if ! command -v "${required_tool}" >/dev/null 2>&1; then
     echo "Required tool is missing: ${required_tool}" >&2
     exit 1
   fi
 done
+require_python3
 
 text_package_version="0.1.0"
 text_package_ids=(
@@ -83,6 +91,7 @@ cat > "${tool_nuget_config}" <<EOF
     <packageSource key="nuget.org">
       <package pattern="ConsoleAppFramework*" />
       <package pattern="MackySoft.AgentSkills*" />
+      <package pattern="MackySoft.FileSystem" />
       <package pattern="MackySoft.Text.Vocabularies" />
       <package pattern="MackySoft.Text.Vocabularies.Json" />
       <package pattern="Microsoft.*" />
@@ -101,6 +110,7 @@ cat > "${provider_restore_project}" <<EOF
     <TargetFramework>net8.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="${filesystem_package_id}" Version="[${filesystem_package_version}]" />
     <PackageReference Include="MackySoft.Text.Vocabularies" Version="[${text_package_version}]" />
     <PackageReference Include="MackySoft.Text.Vocabularies.Json" Version="[${text_package_version}]" />
   </ItemGroup>
@@ -111,14 +121,23 @@ export DOTNET_CLI_HOME="${tool_dotnet_home}"
 export NUGET_HTTP_CACHE_PATH="${tool_http_cache}"
 export NUGET_PACKAGES="${tool_packages_root}"
 
-# Restore the fixed provider packages from nuget.org into an empty cache. The
-# package source mapping prevents local artifacts or user-level sources from
-# satisfying the public dependency contract.
 dotnet restore "${provider_restore_project}" \
   --configfile "${tool_nuget_config}" \
   --no-cache \
   --force-evaluate \
   --verbosity minimal
+
+filesystem_package_root="${tool_packages_root}/mackysoft.filesystem/${filesystem_package_version}"
+filesystem_provider_assembly="${filesystem_package_root}/lib/net8.0/${filesystem_package_id}.dll"
+filesystem_provider_license="${filesystem_package_root}/LICENSE"
+for restored_entry in \
+  "${filesystem_provider_assembly}" \
+  "${filesystem_provider_license}"; do
+  if [[ ! -f "${restored_entry}" ]]; then
+    echo "Restored filesystem package is missing required entry: ${restored_entry}" >&2
+    exit 1
+  fi
+done
 
 # Resolve the tool from the inspected package directory and the same empty
 # cache so a previously installed package cannot satisfy the smoke test.
@@ -146,10 +165,13 @@ if ! "${tool_path}/ucli" query --help | grep -F "asset schema" >/dev/null; then
 fi
 
 package_entries="$(unzip -Z1 "${package_path}")"
+filesystem_license_entry="tools/net8.0/any/third-party/${filesystem_package_id}/${filesystem_package_version}/LICENSE"
 required_package_entries=(
   "README.md"
   "LICENSE"
   "tools/net8.0/any/DotnetToolSettings.xml"
+  "tools/net8.0/any/${filesystem_package_id}.dll"
+  "${filesystem_license_entry}"
   "tools/net8.0/any/MackySoft.Text.Vocabularies.dll"
   "tools/net8.0/any/MackySoft.Text.Vocabularies.Json.dll"
   "tools/net8.0/any/MackySoft.Ucli.deps.json"
@@ -170,6 +192,22 @@ for entry in "${required_package_entries[@]}"; do
   fi
 done
 
+if grep -Ei '(^|/)MackySoft[.]FileSystem[.][^/]+[.]nupkg$' <<< "${package_entries}" >/dev/null; then
+  echo "CLI package must redistribute only the filesystem runtime closure, not the standalone provider nupkg." >&2
+  exit 1
+fi
+
+if ! unzip -p "${package_path}" "tools/net8.0/any/${filesystem_package_id}.dll" \
+  | cmp -s - "${filesystem_provider_assembly}"; then
+  echo "CLI package filesystem assembly differs from the restored ${filesystem_package_version} package." >&2
+  exit 1
+fi
+if ! unzip -p "${package_path}" "${filesystem_license_entry}" \
+  | cmp -s - "${filesystem_provider_license}"; then
+  echo "CLI package filesystem license differs from the restored ${filesystem_package_version} package." >&2
+  exit 1
+fi
+
 if grep -Ei '(^|/)MackySoft[.]Text[.]Vocabularies([.]Json)?[.][^/]+[.]nupkg$' <<< "${package_entries}" >/dev/null; then
   echo "CLI package must redistribute only the text vocabulary runtime closure, not standalone provider nupkgs." >&2
   exit 1
@@ -178,6 +216,11 @@ fi
 dependency_manifest="$(
   unzip -p "${package_path}" tools/net8.0/any/MackySoft.Ucli.deps.json
 )"
+if ! grep -F "\"${filesystem_package_id}/${filesystem_package_version}\"" <<< "${dependency_manifest}" >/dev/null; then
+  echo "CLI package dependency manifest does not reference ${filesystem_package_id} ${filesystem_package_version}." >&2
+  exit 1
+fi
+
 for package_id in "${text_package_ids[@]}"; do
   if ! grep -F "\"${package_id}/${text_package_version}\"" <<< "${dependency_manifest}" >/dev/null; then
     echo "CLI package dependency manifest does not reference ${package_id} ${text_package_version}." >&2
@@ -264,6 +307,57 @@ if ! unzip -p "${package_path}" tools/net8.0/any/THIRD-PARTY-NOTICES \
   echo "CLI package third-party notice differs from src/Ucli/THIRD-PARTY-NOTICES." >&2
   exit 1
 fi
+if ! grep -F "${filesystem_package_id} ${filesystem_package_version}" <<< "${cli_notice}" >/dev/null \
+  || ! grep -F "third-party/${filesystem_package_id}/${filesystem_package_version}/LICENSE" <<< "${cli_notice}" >/dev/null; then
+  echo "CLI package third-party notice does not identify the redistributed filesystem provider license." >&2
+  exit 1
+fi
+
+installed_filesystem_assembly_count="$(
+  find "${tool_path}" -path "*/tools/net8.0/any/${filesystem_package_id}.dll" -type f \
+    | wc -l \
+    | tr -d '[:space:]'
+)"
+if [[ "${installed_filesystem_assembly_count}" != "1" ]]; then
+  echo "Installed CLI tool must contain exactly one ${filesystem_package_id}.dll; found ${installed_filesystem_assembly_count}." >&2
+  exit 1
+fi
+installed_filesystem_assembly="$(
+  find "${tool_path}" -path "*/tools/net8.0/any/${filesystem_package_id}.dll" -type f -print -quit
+)"
+if ! cmp -s "${filesystem_provider_assembly}" "${installed_filesystem_assembly}"; then
+  echo "Installed CLI tool filesystem assembly differs from the restored ${filesystem_package_version} package." >&2
+  exit 1
+fi
+
+installed_filesystem_license_count="$(
+  find "${tool_path}" \
+    -path "*/third-party/${filesystem_package_id}/${filesystem_package_version}/LICENSE" \
+    -type f \
+    | wc -l \
+    | tr -d '[:space:]'
+)"
+if [[ "${installed_filesystem_license_count}" != "1" ]]; then
+  echo "Installed CLI tool must contain exactly one filesystem provider license; found ${installed_filesystem_license_count}." >&2
+  exit 1
+fi
+installed_filesystem_license="$(
+  find "${tool_path}" \
+    -path "*/third-party/${filesystem_package_id}/${filesystem_package_version}/LICENSE" \
+    -type f \
+    -print \
+    -quit
+)"
+if ! cmp -s "${filesystem_provider_license}" "${installed_filesystem_license}"; then
+  echo "Installed CLI tool filesystem license differs from the restored ${filesystem_package_version} package." >&2
+  exit 1
+fi
+
+if find "${tool_path}" -type f -iname "${filesystem_package_id}.*.nupkg" -print -quit | grep -q .; then
+  echo "Installed CLI tool contains the standalone filesystem provider nupkg." >&2
+  exit 1
+fi
+
 for package_id in "${text_package_ids[@]}"; do
   if ! grep -F "${package_id} ${text_package_version}" <<< "${cli_notice}" >/dev/null \
     || ! grep -F "third-party/${package_id}/${text_package_version}/LICENSE" <<< "${cli_notice}" >/dev/null; then

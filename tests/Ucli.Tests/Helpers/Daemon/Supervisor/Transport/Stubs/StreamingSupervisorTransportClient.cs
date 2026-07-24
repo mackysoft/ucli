@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 
 namespace MackySoft.Ucli.Tests.Helpers.Daemon;
@@ -27,7 +28,7 @@ internal sealed class StreamingSupervisorTransportClient : IIpcTransportClient
     }
 
     public ValueTask<IpcResponse> SendAsync (
-        IpcEndpoint endpoint,
+        IpcTransportEndpoint endpoint,
         IpcRequestEnvelope request,
         TimeSpan timeout,
         CancellationToken cancellationToken = default)
@@ -36,7 +37,7 @@ internal sealed class StreamingSupervisorTransportClient : IIpcTransportClient
     }
 
     public ValueTask<IpcResponse> SendWithUnboundedResponseWaitAsync (
-        IpcEndpoint endpoint,
+        IpcTransportEndpoint endpoint,
         IpcRequestEnvelope request,
         TimeSpan sendTimeout,
         CancellationToken cancellationToken = default)
@@ -45,7 +46,7 @@ internal sealed class StreamingSupervisorTransportClient : IIpcTransportClient
     }
 
     public ValueTask<IpcResponse> SendStreamingAsync (
-        IpcEndpoint endpoint,
+        IpcTransportEndpoint endpoint,
         IpcRequestEnvelope request,
         TimeSpan timeout,
         Func<IpcStreamFrame, CancellationToken, ValueTask> onProgressFrame,
@@ -55,7 +56,7 @@ internal sealed class StreamingSupervisorTransportClient : IIpcTransportClient
     }
 
     public ValueTask<IpcResponse> SendStreamingWithUnboundedResponseWaitAsync (
-        IpcEndpoint endpoint,
+        IpcTransportEndpoint endpoint,
         IpcRequestEnvelope request,
         TimeSpan sendTimeout,
         Func<IpcStreamFrame, CancellationToken, ValueTask> onProgressFrame,

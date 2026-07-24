@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandExecution;
 using MackySoft.Ucli.Application.Features.Daemon.Common.Projection;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Preflight;
@@ -185,7 +186,7 @@ internal sealed class DaemonStartService : IDaemonStartService
     }
 
     private async ValueTask<ExecutionError?> VerifyUnityPluginWithinBudgetAsync (
-        string unityProjectRoot,
+        AbsolutePath unityProjectRoot,
         TimeSpan pluginLocateTimeout,
         CancellationToken cancellationToken)
     {

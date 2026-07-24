@@ -2,7 +2,7 @@ using System.Collections.Concurrent;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
-using MackySoft.Ucli.Infrastructure.Paths;
+using MackySoft.FileSystem;
 using Microsoft.Win32.SafeHandles;
 
 namespace MackySoft.Ucli.Infrastructure.Storage;
@@ -36,10 +36,7 @@ public sealed class FileExclusiveLock : IDisposable
     private static readonly bool UseNativeMacRegionLock = RuntimeInformation.IsOSPlatform(OSPlatform.OSX)
         && Type.GetType("Mono.Runtime") == null;
 
-    private static readonly ConcurrentDictionary<string, SemaphoreSlim> ProcessLocks = new(
-        RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
-            ? StringComparer.OrdinalIgnoreCase
-            : StringComparer.Ordinal);
+    private static readonly ConcurrentDictionary<AbsolutePath, SemaphoreSlim> ProcessLocks = new();
 
     private FileStream? lockStream;
 
@@ -57,17 +54,9 @@ public sealed class FileExclusiveLock : IDisposable
         this.processLock = processLock ?? throw new ArgumentNullException(nameof(processLock));
     }
 
-    /// <summary> Acquires one exclusive file lock with a bounded wait. </summary>
-    /// <param name="lockPath"> The stable lock file path shared by all cooperating processes. </param>
-    /// <param name="timeout"> The maximum time to wait for ownership. </param>
-    /// <param name="cancellationToken"> The cancellation token propagated by the caller. </param>
-    /// <returns> The acquired lock, which must be disposed to release ownership. </returns>
-    /// <exception cref="ArgumentException"> Thrown when <paramref name="lockPath" /> is invalid. </exception>
-    /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="timeout" /> is not positive. </exception>
-    /// <exception cref="OperationCanceledException"> Thrown when <paramref name="cancellationToken" /> is canceled before ownership is acquired. </exception>
-    /// <exception cref="TimeoutException"> Thrown when another process retains the lock beyond the bounded wait. </exception>
-    public static FileExclusiveLock Acquire (
-        string lockPath,
+    /// <summary> Acquires one exclusive file lock for a guarded path with a bounded wait. </summary>
+    internal static FileExclusiveLock Acquire (
+        AbsolutePath lockPath,
         TimeSpan timeout,
         CancellationToken cancellationToken)
     {
@@ -107,17 +96,9 @@ public sealed class FileExclusiveLock : IDisposable
         }
     }
 
-    /// <summary> Acquires one exclusive file lock asynchronously with a bounded wait. </summary>
-    /// <param name="lockPath"> The stable lock file path shared by all cooperating processes. </param>
-    /// <param name="timeout"> The maximum time to wait for ownership. </param>
-    /// <param name="cancellationToken"> The cancellation token propagated by the caller. </param>
-    /// <returns> The acquired lock, which must be disposed to release ownership. </returns>
-    /// <exception cref="ArgumentException"> Thrown when <paramref name="lockPath" /> is invalid. </exception>
-    /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="timeout" /> is not positive. </exception>
-    /// <exception cref="OperationCanceledException"> Thrown when <paramref name="cancellationToken" /> is canceled before ownership is acquired. </exception>
-    /// <exception cref="TimeoutException"> Thrown when another process retains the lock beyond the bounded wait. </exception>
-    public static async ValueTask<FileExclusiveLock> AcquireAsync (
-        string lockPath,
+    /// <summary> Acquires one exclusive file lock asynchronously for a guarded path with a bounded wait. </summary>
+    internal static async ValueTask<FileExclusiveLock> AcquireAsync (
+        AbsolutePath lockPath,
         TimeSpan timeout,
         CancellationToken cancellationToken)
     {
@@ -192,36 +173,28 @@ public sealed class FileExclusiveLock : IDisposable
         }
     }
 
-    private static string PrepareLockPath (
-        string lockPath,
+    private static AbsolutePath PrepareLockPath (
+        AbsolutePath lockPath,
         TimeSpan timeout,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        if (string.IsNullOrWhiteSpace(lockPath))
-        {
-            throw new ArgumentException("Lock path must not be empty.", nameof(lockPath));
-        }
 
         if (timeout <= TimeSpan.Zero)
         {
             throw new ArgumentOutOfRangeException(nameof(timeout), timeout, "Timeout must be greater than zero.");
         }
 
-        var pathResult = PathNormalizer.TryNormalizeFullPath(lockPath);
-        if (!pathResult.IsSuccess)
+        if (!lockPath.TryGetParent(out var directoryPath))
         {
-            throw new ArgumentException(pathResult.DiagnosticMessage, nameof(lockPath));
+            throw new InvalidOperationException($"Lock directory path could not be resolved: {lockPath.Value}");
         }
-
-        var directoryPath = Path.GetDirectoryName(pathResult.FullPath!)
-            ?? throw new InvalidOperationException($"Lock directory path could not be resolved: {lockPath}");
         FileSystemAccessBoundary.EnsureSecureDirectory(directoryPath);
-        return pathResult.FullPath!;
+        return lockPath;
     }
 
     private static FileExclusiveLock OpenLock (
-        string lockPath,
+        AbsolutePath lockPath,
         SemaphoreSlim processLock)
     {
         try
@@ -235,7 +208,7 @@ public sealed class FileExclusiveLock : IDisposable
         var stream = UseNativeMacRegionLock
             ? OpenNativeMacStream(lockPath)
             : new FileStream(
-                lockPath,
+                lockPath.Value,
                 FileMode.OpenOrCreate,
                 FileAccess.ReadWrite,
                 FileShare.None);
@@ -307,10 +280,10 @@ public sealed class FileExclusiveLock : IDisposable
         throw exception;
     }
 
-    private static FileStream OpenNativeMacStream (string lockPath)
+    private static FileStream OpenNativeMacStream (AbsolutePath lockPath)
     {
         using (new FileStream(
-            lockPath,
+            lockPath.Value,
             FileMode.OpenOrCreate,
             FileAccess.ReadWrite,
             FileShare.ReadWrite | FileShare.Delete))
@@ -318,7 +291,7 @@ public sealed class FileExclusiveLock : IDisposable
         }
 
         FileSystemAccessBoundary.EnsureSecureFile(lockPath);
-        var fileDescriptor = NativeOpen(lockPath, MacOpenReadWrite | MacOpenCloseOnExec);
+        var fileDescriptor = NativeOpen(lockPath.Value, MacOpenReadWrite | MacOpenCloseOnExec);
         if (fileDescriptor < 0)
         {
             var error = Marshal.GetLastWin32Error();
@@ -361,11 +334,11 @@ public sealed class FileExclusiveLock : IDisposable
     }
 
     private static TimeoutException CreateTimeoutException (
-        string lockPath,
+        AbsolutePath lockPath,
         TimeSpan timeout)
     {
         return new TimeoutException(
-            $"Timed out while waiting to acquire an exclusive file lock. Timeout={timeout.TotalMilliseconds:0}ms. Path={lockPath}");
+            $"Timed out while waiting to acquire an exclusive file lock. Timeout={timeout.TotalMilliseconds:0}ms. Path={lockPath.Value}");
     }
 
     private sealed class FileLockContentionException : IOException

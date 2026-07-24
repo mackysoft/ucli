@@ -1,10 +1,12 @@
+using MackySoft.FileSystem;
+
 namespace MackySoft.Ucli.Tests.Helpers.Unity;
 
 internal static class UnityVersionResolverAssert
 {
     public static RecordingUnityVersionResolver.Invocation ResolvedOnceFor (
         RecordingUnityVersionResolver unityVersionResolver,
-        string expectedUnityProjectRoot,
+        AbsolutePath expectedUnityProjectRoot,
         string? expectedPreferredUnityVersion = null)
     {
         var invocation = Assert.Single(unityVersionResolver.Invocations);

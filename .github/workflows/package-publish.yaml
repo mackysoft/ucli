@@ -1,5 +1,8 @@
 name: package-publish
 
+env:
+  NUGET_PACKAGES: ${{ github.workspace }}/src/Ucli.Unity/.nuget-packages
+
 on:
   push:
     tags:
@@ -124,7 +127,7 @@ jobs:
       - name: Cache NuGet packages
         uses: actions/cache@v5
         with:
-          path: ~/.nuget/packages
+          path: src/Ucli.Unity/.nuget-packages
           key: ${{ runner.os }}-nuget-${{ hashFiles('Ucli.slnx', '**/*.csproj') }}
 
       - name: Sync release package versions

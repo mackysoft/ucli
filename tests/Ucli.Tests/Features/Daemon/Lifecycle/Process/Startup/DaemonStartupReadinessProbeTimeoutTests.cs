@@ -1,6 +1,7 @@
 namespace MackySoft.Ucli.Tests.Daemon;
 
 using System.Net.Sockets;
+using MackySoft.FileSystem;
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -125,7 +126,7 @@ public sealed class DaemonStartupReadinessProbeTimeoutTests
         finally
         {
             preflightCompletion.TrySetResult(UnityProjectLockPreflightResult.Unlocked(
-                "/tmp/unity-project/Temp/UnityLockfile"));
+                AbsolutePath.Parse(Path.Combine(Path.GetTempPath(), "unity-project", "Temp", "UnityLockfile"))));
         }
     }
 

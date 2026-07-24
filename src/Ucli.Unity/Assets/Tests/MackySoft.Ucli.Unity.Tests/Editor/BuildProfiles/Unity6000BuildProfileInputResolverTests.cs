@@ -75,14 +75,20 @@ namespace MackySoft.Ucli.Unity.Tests
                 Assert.That(preconditionInput.SceneSource, Is.EqualTo(BuildProfileSceneSource.UnityBuildProfile));
                 Assert.That(preconditionInput.ScenePaths, Is.EqualTo(new[] { new SceneAssetPath(requestedScenePath) }));
 
-                Assert.That(IpcBuildOutputLayoutResolver.TryResolve(
-                    outputScope.OutputPath,
+                Assert.That(BuildPipelineOutputLayoutPolicy.TryResolve(
                     stableBuildTarget,
                     stableBuildTarget == BuildTargetStableName.Android
                         && EditorUserBuildSettings.buildAppBundle,
-                    out var expectedOutputLayout), Is.True);
-                Assert.That(result.OutputLayout!.Shape, Is.EqualTo(expectedOutputLayout!.Shape));
-                Assert.That(result.OutputLayout.LocationPathName, Is.EqualTo(expectedOutputLayout.LocationPathName));
+                    out var expectedOutputLayoutDefinition), Is.True);
+                var expectedDefinition = expectedOutputLayoutDefinition
+                    ?? throw new AssertionException("Expected the build target to have an output layout.");
+                var expectedOutputLocation = Path.GetFullPath(Path.Combine(
+                    outputScope.OutputPath,
+                    expectedDefinition.RunnerOutputPath.Value));
+                Assert.That(result.OutputLayout!.Shape, Is.EqualTo(expectedDefinition.Shape));
+                Assert.That(
+                    result.OutputLayout.LocationPath.Value,
+                    Is.EqualTo(expectedOutputLocation));
 
                 var unityBuildProfile = result.UnityBuildProfile!;
                 Assert.That(unityBuildProfile.Path.Value, Is.EqualTo(requestedProfilePath));
@@ -187,7 +193,7 @@ namespace MackySoft.Ucli.Unity.Tests
         private static IpcProjectIdentity CreateProjectIdentity ()
         {
             return new IpcProjectIdentity(
-                projectPath: UnityProjectPathResolver.ResolveProjectRootPath(),
+                projectPath: UnityProjectPathResolver.ResolveProjectRootPath().Value,
                 projectFingerprint: ProjectFingerprint,
                 unityVersion: Application.unityVersion);
         }
@@ -303,7 +309,8 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private static Sha256Digest ComputeAssetDigest (string assetPath)
         {
-            return Sha256Digest.Compute(File.ReadAllBytes(UnityAssetPathUtility.ToAbsolutePath(assetPath)));
+            return Sha256Digest.Compute(
+                File.ReadAllBytes(UnityAssetPathUtility.ResolveProjectRelativePath(assetPath).Value));
         }
 
         private static UnityEditorObservation CreateObservation (int captureIndex)

@@ -1,5 +1,4 @@
 using MackySoft.Ucli.Contracts.Cryptography;
-using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Tests;
 
@@ -31,16 +30,14 @@ internal sealed class RecordingReadIndexFreshnessEvaluator : IReadIndexFreshness
     }
 
     public ValueTask<IndexFreshnessEvaluationResult> ObserveSceneTreeLiteAsync (
-        ResolvedUnityProjectContext unityProject,
-        SceneAssetPath scenePath,
+        SceneTreeLiteSourcePaths sourcePaths,
         Sha256Digest persistedSourceInputsHash,
         CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(scenePath);
+        ArgumentNullException.ThrowIfNull(sourcePaths);
         cancellationToken.ThrowIfCancellationRequested();
         sceneTreeLiteObserveInvocations.Add(new SceneTreeLiteObserveInvocation(
-            unityProject,
-            scenePath,
+            sourcePaths,
             persistedSourceInputsHash,
             cancellationToken));
         return ValueTask.FromResult(Result);
@@ -53,8 +50,7 @@ internal sealed class RecordingReadIndexFreshnessEvaluator : IReadIndexFreshness
         CancellationToken CancellationToken);
 
     internal readonly record struct SceneTreeLiteObserveInvocation (
-        ResolvedUnityProjectContext UnityProject,
-        SceneAssetPath ScenePath,
+        SceneTreeLiteSourcePaths SourcePaths,
         Sha256Digest PersistedSourceInputsHash,
         CancellationToken CancellationToken);
 }

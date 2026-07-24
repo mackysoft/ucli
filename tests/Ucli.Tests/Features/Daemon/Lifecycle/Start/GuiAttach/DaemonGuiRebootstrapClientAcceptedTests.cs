@@ -1,5 +1,6 @@
 namespace MackySoft.Ucli.Tests.Daemon;
 
+using MackySoft.FileSystem;
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -418,12 +419,12 @@ public sealed class DaemonGuiRebootstrapClientAcceptedTests
         }
 
         public ValueTask<GuiSupervisorManifestJsonContract?> ReadAfterEndpointPublicationAsync (
-            string storageRoot,
+            AbsolutePath storageRoot,
             ProjectFingerprint projectFingerprint,
             TimeSpan timeout,
             CancellationToken cancellationToken)
         {
-            ArgumentException.ThrowIfNullOrWhiteSpace(storageRoot);
+            ArgumentNullException.ThrowIfNull(storageRoot);
             ArgumentNullException.ThrowIfNull(projectFingerprint);
             ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
             return read(cancellationToken);

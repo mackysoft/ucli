@@ -1,3 +1,5 @@
+using MackySoft.FileSystem;
+
 namespace MackySoft.Ucli.Application.Shared.Unity.Resolution;
 
 /// <summary> Resolves one Unity editor version string from preferred input and project metadata. </summary>
@@ -8,6 +10,6 @@ internal interface IUnityVersionResolver
     /// <param name="preferredUnityVersion"> The preferred Unity version value. </param>
     /// <returns> The Unity-version resolution result. </returns>
     UnityVersionResolutionResult Resolve (
-        string projectPath,
+        AbsolutePath projectPath,
         string? preferredUnityVersion);
 }

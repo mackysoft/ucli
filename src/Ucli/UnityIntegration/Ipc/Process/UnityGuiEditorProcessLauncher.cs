@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Launch;
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Foundation;
@@ -36,13 +37,13 @@ internal sealed class UnityGuiEditorProcessLauncher : IUnityGuiEditorProcessLaun
     /// <inheritdoc />
     public async ValueTask<UnityDaemonLaunchResult> LaunchAsync (
         ResolvedUnityProjectContext unityProject,
-        string unityLogPath,
+        AbsolutePath unityLogPath,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(unityProject);
 
-        if (string.IsNullOrWhiteSpace(unityLogPath))
+        if (unityLogPath is null)
         {
             return UnityDaemonLaunchResult.Failure(ExecutionError.InvalidArgument(
                 "Unity log path must not be empty."));
@@ -81,8 +82,7 @@ internal sealed class UnityGuiEditorProcessLauncher : IUnityGuiEditorProcessLaun
 
         try
         {
-            var unityLogDirectoryPath = Path.GetDirectoryName(unityLogPath);
-            if (!string.IsNullOrWhiteSpace(unityLogDirectoryPath))
+            if (unityLogPath.TryGetParent(out var unityLogDirectoryPath))
             {
                 FileSystemAccessBoundary.EnsureSecureDirectory(unityLogDirectoryPath);
             }
@@ -94,7 +94,7 @@ internal sealed class UnityGuiEditorProcessLauncher : IUnityGuiEditorProcessLaun
 
             var processStartInfo = new System.Diagnostics.ProcessStartInfo
             {
-                FileName = unityEditorPathResult.UnityEditorPath!,
+                FileName = unityEditorPathResult.UnityEditorPath!.Value,
                 UseShellExecute = false,
                 CreateNoWindow = false,
                 RedirectStandardOutput = false,
@@ -149,11 +149,6 @@ internal sealed class UnityGuiEditorProcessLauncher : IUnityGuiEditorProcessLaun
 
             return launchResult;
         }
-        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
-        {
-            return UnityDaemonLaunchResult.Failure(ExecutionError.InvalidArgument(
-                $"Unity GUI Editor launch path is invalid. {exception.Message}"));
-        }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             throw;
@@ -178,20 +173,20 @@ internal sealed class UnityGuiEditorProcessLauncher : IUnityGuiEditorProcessLaun
 
     /// <summary> Builds Unity editor command-line argument tokens for GUI daemon bootstrap. </summary>
     internal static IReadOnlyList<string> BuildArgumentTokens (
-        string unityProjectRoot,
-        string unityLogPath,
+        AbsolutePath unityProjectRoot,
+        AbsolutePath unityLogPath,
         IpcGuiBootstrapArguments bootstrapArguments)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(unityProjectRoot);
-        ArgumentException.ThrowIfNullOrWhiteSpace(unityLogPath);
+        ArgumentNullException.ThrowIfNull(unityProjectRoot);
+        ArgumentNullException.ThrowIfNull(unityLogPath);
         ArgumentNullException.ThrowIfNull(bootstrapArguments);
 
         var tokens = new List<string>
         {
             "-projectPath",
-            unityProjectRoot,
+            unityProjectRoot.Value,
             "-logFile",
-            unityLogPath,
+            unityLogPath.Value,
         };
         IpcGuiBootstrapArgumentsCodec.AppendTokens(tokens, bootstrapArguments);
         return tokens;

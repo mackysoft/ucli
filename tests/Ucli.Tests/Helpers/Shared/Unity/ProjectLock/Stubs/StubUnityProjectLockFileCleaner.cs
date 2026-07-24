@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Shared.Unity.ProjectLock;
 
 namespace MackySoft.Ucli.Tests.Helpers.Unity;
@@ -11,7 +12,7 @@ internal sealed class StubUnityProjectLockFileCleaner : IUnityProjectLockFileCle
         this.result = result;
     }
 
-    public UnityProjectLockFileCleanupResult Delete (string lockFilePath)
+    public UnityProjectLockFileCleanupResult Delete (AbsolutePath lockFilePath)
     {
         return result;
     }

@@ -26,7 +26,7 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var listener = new DelayedStartupCancellationTransportListener();
             var server = CreateServer(listener);
-            var endpoint = new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-generation-start-cancellation");
+            var endpoint = CreateEndpointBinding("ucli-generation-start-cancellation");
             var firstStartTask = server.StartAsync(endpoint);
 
             try
@@ -77,7 +77,7 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var listener = new DelayedReleasedGenerationStartupTransportListener();
             var server = CreateServer(listener);
-            var endpoint = new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-generation-delayed-startup");
+            var endpoint = CreateEndpointBinding("ucli-generation-delayed-startup");
             var releasedStartTask = server.StartAsync(endpoint);
 
             try
@@ -127,7 +127,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var listener = new StartupReleaseCancellationOwnershipTransportListener();
             var server = CreateServer(listener);
             listener.ReleaseAfterStartup = server.ReleaseForEditorLifecycleEvent;
-            var endpoint = new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-generation-startup-cancellation-ownership");
+            var endpoint = CreateEndpointBinding("ucli-generation-startup-cancellation-ownership");
             var releasedStartTask = server.StartAsync(endpoint);
 
             try
@@ -195,7 +195,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var listener = new DelayedFaultTransportListener();
             var daemonLogger = new ExceptionObservingDaemonLogger();
             var server = CreateServer(listener, daemonLogger);
-            var endpoint = new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-generation-delayed-fault");
+            var endpoint = CreateEndpointBinding("ucli-generation-delayed-fault");
 
             try
             {
@@ -234,7 +234,7 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var listener = new BlockingFailedStartCleanupTransportListener();
             var server = CreateServer(listener);
-            var endpoint = new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-generation-cleanup-release");
+            var endpoint = CreateEndpointBinding("ucli-generation-cleanup-release");
             using var firstStartCancellationTokenSource = new CancellationTokenSource();
             var firstStartTask = Task.Run(() => server.StartAsync(
                 endpoint,
@@ -295,7 +295,7 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var listener = new BlockingStopReleaseTransportListener();
             var server = CreateServer(listener);
-            var endpoint = new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-generation-stop-release");
+            var endpoint = CreateEndpointBinding("ucli-generation-stop-release");
             Task stopTask = null;
 
             try
@@ -351,7 +351,7 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var listener = new BlockingStopReleaseTransportListener();
             var server = CreateServer(listener);
-            var endpoint = new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-generation-lifecycle-during-stop");
+            var endpoint = CreateEndpointBinding("ucli-generation-lifecycle-during-stop");
             Task stopTask = null;
 
             try
@@ -389,7 +389,7 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var listener = new LifecycleReleaseBarrierTransportListener();
             var server = CreateServer(listener);
-            var endpoint = new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-generation-lifecycle-release-barrier");
+            var endpoint = CreateEndpointBinding("ucli-generation-lifecycle-release-barrier");
             Task stopTask = null;
             Task lifecycleReleaseTask = null;
             Task successorStartTask = null;
@@ -477,7 +477,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var listener = new DelayedFaultTransportListener();
             var daemonLogger = new BlockingExceptionDaemonLogger();
             var server = CreateServer(listener, daemonLogger);
-            var endpoint = new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-generation-running-fault");
+            var endpoint = CreateEndpointBinding("ucli-generation-running-fault");
             Task firstTerminationTask = null;
 
             try
@@ -551,7 +551,7 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var listener = new UnexpectedReturnTransportListener();
             var server = CreateServer(listener);
-            var endpoint = new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-generation-unexpected-return");
+            var endpoint = CreateEndpointBinding("ucli-generation-unexpected-return");
 
             try
             {
@@ -625,8 +625,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var listener = new ImmediateTerminationTransportListener(throwAfterStartup: false);
             var server = CreateServer(listener);
             listener.AfterStartup = server.ReleaseForEditorLifecycleEvent;
-            var endpoint = new IpcEndpoint(
-                IpcTransportKind.NamedPipe,
+            var endpoint = CreateEndpointBinding(
                 "ucli-generation-release-before-immediate-return");
 
             await AsyncExceptionCapture.CaptureAsync<OperationCanceledException>(async () =>
@@ -646,7 +645,7 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var listener = new UnexpectedReturnTransportListener();
             var server = CreateServer(listener);
-            var endpoint = new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-generation-duplicate-start");
+            var endpoint = CreateEndpointBinding("ucli-generation-duplicate-start");
             using var publicationFence = await TestAwaiter.WaitAsync(
                 server.StartAsync(endpoint),
                 "Initial listener generation startup",
@@ -681,7 +680,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var server = CreateServer(
                 listener,
                 daemonShutdownSignal: shutdownSignal);
-            var endpoint = new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-generation-stale-completion");
+            var endpoint = CreateEndpointBinding("ucli-generation-stale-completion");
 
             try
             {
@@ -777,7 +776,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 new NoOpDaemonShutdownSignal(),
                 NoOpDaemonLogger.Instance,
                 TimeSpan.FromMilliseconds(25));
-            var endpoint = new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-generation-stop-deadline");
+            var endpoint = CreateEndpointBinding("ucli-generation-stop-deadline");
             await TestAwaiter.WaitAsync(
                 server.StartAsync(endpoint),
                 "Cancellation-ignoring listener startup",
@@ -833,7 +832,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 new NoOpDaemonShutdownSignal(),
                 NoOpDaemonLogger.Instance,
                 TimeSpan.FromMilliseconds(25));
-            var endpoint = new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-generation-release-failure-deadline");
+            var endpoint = CreateEndpointBinding("ucli-generation-release-failure-deadline");
             await TestAwaiter.WaitAsync(
                 server.StartAsync(endpoint),
                 "Release-failing listener startup",
@@ -879,7 +878,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 new NoOpDaemonShutdownSignal(),
                 NoOpDaemonLogger.Instance,
                 TimeSpan.FromMilliseconds(25));
-            var endpoint = new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-generation-failed-start-deadline");
+            var endpoint = CreateEndpointBinding("ucli-generation-failed-start-deadline");
             using var startupCancellationTokenSource = new CancellationTokenSource();
             var startTask = server.StartAsync(endpoint, startupCancellationTokenSource.Token);
 
@@ -937,13 +936,18 @@ namespace MackySoft.Ucli.Unity.Tests
                 UnityIpcServer.DefaultListenerStopTimeout);
         }
 
+        private static UnityIpcEndpointBinding CreateEndpointBinding (string pipeName)
+        {
+            return UnityIpcEndpointBinding.Create(
+                new IpcEndpoint(IpcTransportKind.NamedPipe, pipeName));
+        }
+
         private static async UniTask AssertImmediateListenerTerminationCannotCommitAsync (
             bool throwAfterStartup)
         {
             var listener = new ImmediateTerminationTransportListener(throwAfterStartup);
             var server = CreateServer(listener);
-            var endpoint = new IpcEndpoint(
-                IpcTransportKind.NamedPipe,
+            var endpoint = CreateEndpointBinding(
                 throwAfterStartup
                     ? "ucli-generation-immediate-startup-throw"
                     : "ucli-generation-immediate-startup-return");
@@ -1040,7 +1044,7 @@ namespace MackySoft.Ucli.Unity.Tests
             }
 
             public async Task RunAsync (
-                string address,
+                UnityIpcEndpointBinding endpointBinding,
                 IUnityIpcConnectionHandler connectionHandler,
                 Action onStarted,
                 Action<UnityIpcConnectionHandleResult> onConnectionCompleted,
@@ -1091,7 +1095,7 @@ namespace MackySoft.Ucli.Unity.Tests
             }
 
             public async Task RunAsync (
-                string address,
+                UnityIpcEndpointBinding endpointBinding,
                 IUnityIpcConnectionHandler connectionHandler,
                 Action onStarted,
                 Action<UnityIpcConnectionHandleResult> onConnectionCompleted,
@@ -1145,7 +1149,7 @@ namespace MackySoft.Ucli.Unity.Tests
             }
 
             public async Task RunAsync (
-                string address,
+                UnityIpcEndpointBinding endpointBinding,
                 IUnityIpcConnectionHandler connectionHandler,
                 Action onStarted,
                 Action<UnityIpcConnectionHandleResult> onConnectionCompleted,
@@ -1183,7 +1187,7 @@ namespace MackySoft.Ucli.Unity.Tests
             public Action AfterStartup { private get; set; }
 
             public Task RunAsync (
-                string address,
+                UnityIpcEndpointBinding endpointBinding,
                 IUnityIpcConnectionHandler connectionHandler,
                 Action onStarted,
                 Action<UnityIpcConnectionHandleResult> onConnectionCompleted,
@@ -1233,7 +1237,7 @@ namespace MackySoft.Ucli.Unity.Tests
             }
 
             public async Task RunAsync (
-                string address,
+                UnityIpcEndpointBinding endpointBinding,
                 IUnityIpcConnectionHandler connectionHandler,
                 Action onStarted,
                 Action<UnityIpcConnectionHandleResult> onConnectionCompleted,
@@ -1291,7 +1295,7 @@ namespace MackySoft.Ucli.Unity.Tests
             }
 
             public async Task RunAsync (
-                string address,
+                UnityIpcEndpointBinding endpointBinding,
                 IUnityIpcConnectionHandler connectionHandler,
                 Action onStarted,
                 Action<UnityIpcConnectionHandleResult> onConnectionCompleted,
@@ -1342,7 +1346,7 @@ namespace MackySoft.Ucli.Unity.Tests
             }
 
             public async Task RunAsync (
-                string address,
+                UnityIpcEndpointBinding endpointBinding,
                 IUnityIpcConnectionHandler connectionHandler,
                 Action onStarted,
                 Action<UnityIpcConnectionHandleResult> onConnectionCompleted,
@@ -1402,7 +1406,7 @@ namespace MackySoft.Ucli.Unity.Tests
             }
 
             public async Task RunAsync (
-                string address,
+                UnityIpcEndpointBinding endpointBinding,
                 IUnityIpcConnectionHandler connectionHandler,
                 Action onStarted,
                 Action<UnityIpcConnectionHandleResult> onConnectionCompleted,
@@ -1459,7 +1463,7 @@ namespace MackySoft.Ucli.Unity.Tests
             }
 
             public async Task RunAsync (
-                string address,
+                UnityIpcEndpointBinding endpointBinding,
                 IUnityIpcConnectionHandler connectionHandler,
                 Action onStarted,
                 Action<UnityIpcConnectionHandleResult> onConnectionCompleted,
@@ -1517,7 +1521,7 @@ namespace MackySoft.Ucli.Unity.Tests
             }
 
             public async Task RunAsync (
-                string address,
+                UnityIpcEndpointBinding endpointBinding,
                 IUnityIpcConnectionHandler connectionHandler,
                 Action onStarted,
                 Action<UnityIpcConnectionHandleResult> onConnectionCompleted,
@@ -1603,7 +1607,7 @@ namespace MackySoft.Ucli.Unity.Tests
             }
 
             public async Task RunAsync (
-                string address,
+                UnityIpcEndpointBinding endpointBinding,
                 IUnityIpcConnectionHandler connectionHandler,
                 Action onStarted,
                 Action<UnityIpcConnectionHandleResult> onConnectionCompleted,
@@ -1684,7 +1688,7 @@ namespace MackySoft.Ucli.Unity.Tests
             }
 
             public async Task RunAsync (
-                string address,
+                UnityIpcEndpointBinding endpointBinding,
                 IUnityIpcConnectionHandler connectionHandler,
                 Action onStarted,
                 Action<UnityIpcConnectionHandleResult> onConnectionCompleted,

@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts.Storage;
 
 namespace MackySoft.Ucli.Infrastructure.Storage;
@@ -10,13 +11,8 @@ public static class UcliLocalStorageBootstrapper
 
     /// <summary> Ensures shared local-storage metadata exists when the target directory is under <c>.ucli/local</c>. </summary>
     /// <param name="directoryPath"> The target directory path. </param>
-    public static void EnsureInitialized (string directoryPath)
+    public static void EnsureInitialized (AbsolutePath directoryPath)
     {
-        if (string.IsNullOrWhiteSpace(directoryPath))
-        {
-            throw new ArgumentException("directoryPath must not be empty.", nameof(directoryPath));
-        }
-
         if (!UcliStoragePathResolver.TryResolveLocalStorageRootDirectories(
                 directoryPath,
                 out var ucliDirectoryPath,
@@ -26,46 +22,52 @@ public static class UcliLocalStorageBootstrapper
         }
 
         EnsureDirectoryIsNotReparsePointIfExists(ucliDirectoryPath!);
-        Directory.CreateDirectory(ucliDirectoryPath!);
+        Directory.CreateDirectory(ucliDirectoryPath!.Value);
         EnsureDirectoryIsNotReparsePointIfExists(ucliDirectoryPath!);
 
         EnsureLocalGitIgnoreExists(ucliDirectoryPath!);
 
         EnsureDirectoryIsNotReparsePointIfExists(localDirectoryPath!);
-        Directory.CreateDirectory(localDirectoryPath!);
+        Directory.CreateDirectory(localDirectoryPath!.Value);
         EnsureDirectoryIsNotReparsePointIfExists(localDirectoryPath!);
     }
 
-    private static void EnsureDirectoryIsNotReparsePointIfExists (string directoryPath)
+    private static void EnsureDirectoryIsNotReparsePointIfExists (AbsolutePath directoryPath)
     {
-        if (!Directory.Exists(directoryPath))
+        if (!Directory.Exists(directoryPath.Value))
         {
             return;
         }
 
-        var attributes = File.GetAttributes(directoryPath);
+        var attributes = File.GetAttributes(directoryPath.Value);
         if ((attributes & FileAttributes.ReparsePoint) != 0)
         {
             throw new IOException($"Local storage directory must not be a reparse point: {directoryPath}");
         }
     }
 
-    private static void EnsureLocalGitIgnoreExists (string ucliDirectoryPath)
+    private static void EnsureLocalGitIgnoreExists (AbsolutePath ucliDirectoryPath)
     {
-        var gitIgnorePath = Path.Combine(ucliDirectoryPath, UcliStoragePathNames.GitIgnoreFileName);
-        if (File.Exists(gitIgnorePath))
+        var gitIgnorePath = ContainedPath.Create(
+            ucliDirectoryPath,
+            RootRelativePath.Parse(UcliStoragePathNames.GitIgnoreFileName)).Target;
+        if (File.Exists(gitIgnorePath.Value))
         {
             return;
         }
 
         try
         {
-            using var stream = new FileStream(gitIgnorePath, FileMode.CreateNew, FileAccess.Write, FileShare.Read);
+            using var stream = new FileStream(
+                gitIgnorePath.Value,
+                FileMode.CreateNew,
+                FileAccess.Write,
+                FileShare.Read);
             using var writer = new StreamWriter(stream);
             writer.Write(LocalDirectoryIgnoreEntry);
             writer.Write(Environment.NewLine);
         }
-        catch (IOException) when (File.Exists(gitIgnorePath))
+        catch (IOException) when (File.Exists(gitIgnorePath.Value))
         {
         }
     }

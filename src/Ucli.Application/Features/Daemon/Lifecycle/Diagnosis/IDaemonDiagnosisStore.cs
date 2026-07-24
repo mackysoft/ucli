@@ -1,3 +1,5 @@
+using MackySoft.FileSystem;
+
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 
 /// <summary> Provides persistence access for daemon diagnosis metadata. </summary>
@@ -9,7 +11,7 @@ internal interface IDaemonDiagnosisStore
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The daemon diagnosis read result. </returns>
     ValueTask<DaemonDiagnosisReadResult> ReadAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         ProjectFingerprint projectFingerprint,
         CancellationToken cancellationToken = default);
 
@@ -20,7 +22,7 @@ internal interface IDaemonDiagnosisStore
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The daemon diagnosis storage operation result. </returns>
     ValueTask<DaemonDiagnosisStoreOperationResult> WriteAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         ProjectFingerprint projectFingerprint,
         DaemonDiagnosis diagnosis,
         CancellationToken cancellationToken = default);
@@ -31,7 +33,7 @@ internal interface IDaemonDiagnosisStore
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The daemon diagnosis storage operation result. </returns>
     ValueTask<DaemonDiagnosisStoreOperationResult> DeleteAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         ProjectFingerprint projectFingerprint,
         CancellationToken cancellationToken = default);
 }

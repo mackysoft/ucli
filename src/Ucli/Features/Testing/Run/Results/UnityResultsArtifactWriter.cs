@@ -1,4 +1,5 @@
 using System.Text.Json;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Testing.Run.Artifacts;
 using MackySoft.Ucli.Application.Features.Testing.Run.Results;
 
@@ -52,12 +53,12 @@ internal sealed class UnityResultsArtifactWriter : IUnityResultsArtifactWriter
     /// <param name="payload"> The output payload. </param>
     /// <param name="cancellationToken"> A cancellation token propagated by caller. </param>
     private static Task WriteJsonAsync<TPayload> (
-        string path,
+        AbsolutePath path,
         TPayload payload,
         CancellationToken cancellationToken)
     {
         var json = JsonSerializer.Serialize(payload, SerializerOptions);
-        return File.WriteAllTextAsync(path, json, cancellationToken);
+        return File.WriteAllTextAsync(path.Value, json, cancellationToken);
     }
 
     /// <summary> Represents schema-compliant <c>results.json</c> payload values. </summary>

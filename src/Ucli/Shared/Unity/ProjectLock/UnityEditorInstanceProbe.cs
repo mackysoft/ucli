@@ -1,4 +1,5 @@
 using System.Text.Json;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Infrastructure.Execution;
 using MackySoft.Ucli.Infrastructure.Paths;
 
@@ -9,42 +10,30 @@ internal sealed class UnityEditorInstanceProbe : IUnityEditorInstanceProbe
 {
     /// <inheritdoc />
     public async ValueTask<UnityEditorInstanceProbeResult> ProbeAsync (
-        string unityProjectRoot,
+        AbsolutePath unityProjectRoot,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        ArgumentException.ThrowIfNullOrWhiteSpace(unityProjectRoot);
+        ArgumentNullException.ThrowIfNull(unityProjectRoot);
 
-        string editorInstancePath;
-        try
-        {
-            editorInstancePath = Path.Combine(unityProjectRoot, "Library", "EditorInstance.json");
-        }
-        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
-        {
-            return UnityEditorInstanceProbeResult.Ambiguous(
-                $"EditorInstance path could not be resolved. Path=Library/EditorInstance.json. {exception.Message}");
-        }
+        var editorInstancePath = ContainedPath.Create(
+            unityProjectRoot,
+            RootRelativePath.Parse("Library/EditorInstance.json")).Target;
 
         string json;
         try
         {
-            if (!File.Exists(editorInstancePath))
+            if (!File.Exists(editorInstancePath.Value))
             {
                 return UnityEditorInstanceProbeResult.NotFound();
             }
 
-            json = await File.ReadAllTextAsync(editorInstancePath, cancellationToken).ConfigureAwait(false);
-        }
-        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
-        {
-            return UnityEditorInstanceProbeResult.Ambiguous(
-                $"EditorInstance path is invalid. Path={editorInstancePath}. {exception.Message}");
+            json = await File.ReadAllTextAsync(editorInstancePath.Value, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
             return UnityEditorInstanceProbeResult.Ambiguous(
-                $"EditorInstance marker could not be read. Path={editorInstancePath}. {exception.Message}");
+                $"EditorInstance marker could not be read. Path={editorInstancePath.Value}. {exception.Message}");
         }
 
         int processId;
@@ -56,13 +45,13 @@ internal sealed class UnityEditorInstanceProbe : IUnityEditorInstanceProbe
                 || processId <= 0)
             {
                 return UnityEditorInstanceProbeResult.Ambiguous(
-                    $"EditorInstance marker does not contain a positive process_id. Path={editorInstancePath}.");
+                    $"EditorInstance marker does not contain a positive process_id. Path={editorInstancePath.Value}.");
             }
         }
         catch (JsonException exception)
         {
             return UnityEditorInstanceProbeResult.Ambiguous(
-                $"EditorInstance JSON is invalid. Path={editorInstancePath}. {exception.Message}");
+                $"EditorInstance JSON is invalid. Path={editorInstancePath.Value}. {exception.Message}");
         }
 
         return ProcessLivenessProbe.IsAlive(processId)

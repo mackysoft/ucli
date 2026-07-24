@@ -64,7 +64,7 @@ internal static class UnityOneshotLaunchAssert
         var expectedEndpoint = UcliIpcEndpointResolver.ResolveDaemonEndpoint(
             expectedUnityProject.RepositoryRoot,
             expectedUnityProject.ProjectFingerprint);
-        Assert.Equal(expectedEndpoint, bootstrapEnvelope.Endpoint);
+        Assert.Equal(expectedEndpoint.Contract, bootstrapEnvelope.Endpoint);
         return bootstrapEnvelope;
     }
 }

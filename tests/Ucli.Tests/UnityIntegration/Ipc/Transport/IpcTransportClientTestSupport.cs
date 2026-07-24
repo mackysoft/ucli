@@ -7,10 +7,6 @@ internal static class IpcTransportClientTestSupport
 {
     public static readonly TimeSpan DefaultTimeout = TimeSpan.FromSeconds(1);
 
-    public static readonly TimeSpan UnboundedSendTimeout = TimeSpan.FromMilliseconds(25);
-
-    public static readonly TimeSpan DelayedTerminalFrameWait = TimeSpan.FromMilliseconds(60);
-
     public static readonly TimeSpan WaitTimeout = TimeSpan.FromSeconds(5);
 
     public static IpcTransportClient CreateClient (TimeProvider timeProvider)
@@ -53,22 +49,6 @@ internal static class IpcTransportClientTestSupport
             stream,
             CreateProgressFrame(request),
             cancellationToken);
-        await IpcTransportTestHarness.WriteStreamFrameAsync(
-            stream,
-            CreateTerminalFrame(request),
-            cancellationToken);
-    }
-
-    public static async Task WriteProgressThenDelayedTerminalAsync (
-        IpcRequestEnvelope request,
-        Stream stream,
-        CancellationToken cancellationToken)
-    {
-        await IpcTransportTestHarness.WriteStreamFrameAsync(
-            stream,
-            CreateProgressFrame(request),
-            cancellationToken);
-        await Task.Delay(DelayedTerminalFrameWait, cancellationToken);
         await IpcTransportTestHarness.WriteStreamFrameAsync(
             stream,
             CreateTerminalFrame(request),

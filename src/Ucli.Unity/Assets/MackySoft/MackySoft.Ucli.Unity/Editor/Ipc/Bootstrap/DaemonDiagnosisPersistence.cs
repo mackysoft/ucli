@@ -1,4 +1,3 @@
-using MackySoft.Ucli.Infrastructure.Storage;
 using System;
 using System.Diagnostics;
 using System.IO;
@@ -6,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Infrastructure.Storage;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
@@ -13,20 +13,20 @@ namespace MackySoft.Ucli.Unity.Ipc
     internal static class DaemonDiagnosisPersistence
     {
         /// <summary> Writes one daemon diagnosis snapshot to fingerprint-scoped shared storage. </summary>
-        /// <param name="bootstrapArguments"> The daemon bootstrap arguments that define storage scope. </param>
+        /// <param name="bootstrapContext"> The guarded daemon bootstrap context that defines storage scope. </param>
         /// <param name="reason"> The normalized daemon diagnosis reason. </param>
         /// <param name="message"> The human-readable daemon diagnosis message. </param>
         internal static async Task WriteAsync (
-            IpcDaemonBootstrapArguments bootstrapArguments,
+            UnityDaemonBootstrapContext bootstrapContext,
             DaemonDiagnosisReason reason,
             string message,
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            if (bootstrapArguments == null)
+            if (bootstrapContext == null)
             {
-                throw new ArgumentNullException(nameof(bootstrapArguments));
+                throw new ArgumentNullException(nameof(bootstrapContext));
             }
 
             if (string.IsNullOrWhiteSpace(message))
@@ -35,8 +35,8 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             var diagnosisPath = UcliStoragePathResolver.ResolveDaemonDiagnosisPath(
-                bootstrapArguments.RepositoryRoot,
-                bootstrapArguments.ProjectFingerprint);
+                bootstrapContext.RepositoryRoot,
+                bootstrapContext.ProjectFingerprint);
             using var currentProcess = Process.GetCurrentProcess();
             var diagnosisContract = new DaemonDiagnosisJsonContract(
                 Reason: reason,
@@ -46,17 +46,20 @@ namespace MackySoft.Ucli.Unity.Ipc
                 UpdatedAtUtc: DateTimeOffset.UtcNow,
                 ProcessId: currentProcess.Id,
                 EditorInstancePath: null,
-                SessionIssuedAtUtc: bootstrapArguments.SessionIssuedAtUtc,
+                SessionIssuedAtUtc: bootstrapContext.SessionIssuedAtUtc,
                 ProcessStartedAtUtc: new DateTimeOffset(currentProcess.StartTime.ToUniversalTime()),
                 UnityLogPath: null,
                 StartupPhase: null,
                 ActionRequired: null,
                 PrimaryDiagnostic: null);
             var json = DaemonDiagnosisJsonContractSerializer.Serialize(diagnosisContract) + Environment.NewLine;
-            var diagnosisDirectoryPath = Path.GetDirectoryName(diagnosisPath)
-                ?? throw new InvalidOperationException($"Daemon diagnosis directory path could not be resolved: {diagnosisPath}");
+            if (!diagnosisPath.TryGetParent(out var diagnosisDirectoryPath))
+            {
+                throw new InvalidOperationException(
+                    $"Daemon diagnosis directory path could not be resolved: {diagnosisPath}");
+            }
             UcliLocalStorageBootstrapper.EnsureInitialized(diagnosisDirectoryPath);
-            Directory.CreateDirectory(diagnosisDirectoryPath);
+            Directory.CreateDirectory(diagnosisDirectoryPath.Value);
             await FileUtilities.WriteAllTextAtomicallyAsync(diagnosisPath, json, cancellationToken).ConfigureAwait(false);
         }
     }

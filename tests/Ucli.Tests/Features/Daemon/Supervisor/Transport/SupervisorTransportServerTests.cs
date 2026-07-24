@@ -1,4 +1,5 @@
 using System.Runtime.Versioning;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.Tests.Helpers;
@@ -15,7 +16,7 @@ public sealed class SupervisorTransportServerTests
     public async Task Run_WhenOneConnectionBlocks_StillAcceptsAnotherConnection ()
     {
         using var scope = TestDirectories.CreateTempScope("supervisor-transport-server", "parallel-accept");
-        var endpoint = CreateEndpoint(scope.FullPath);
+        var endpoint = CreateEndpoint(AbsolutePath.Parse(scope.FullPath));
         var server = new SupervisorTransportServer(TimeProvider.System);
         var startedTaskSource = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var slowRequestEnteredTaskSource = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -23,7 +24,7 @@ public sealed class SupervisorTransportServerTests
         using var cancellationTokenSource = new CancellationTokenSource();
 
         var serverTask = server.RunAsync(
-            endpoint,
+            SupervisorTransportEndpoint.FromContract(endpoint),
             async (stream, cancellationToken) =>
             {
                 var readResult = await IpcFrameCodec.TryReadModelAsync<IpcRequestEnvelope>(
@@ -70,7 +71,7 @@ public sealed class SupervisorTransportServerTests
                 new IpcTransportConnector(),
                 TimeProvider.System);
             var slowRequestTask = client.SendAsync(
-                    endpoint,
+                    IpcTransportEndpoint.FromContract(endpoint),
                     CreateRequest("slow"),
                     TimeSpan.FromSeconds(5))
                 .AsTask();
@@ -78,7 +79,7 @@ public sealed class SupervisorTransportServerTests
             await TestAwaiter.WaitAsync(slowRequestEnteredTaskSource.Task, "Slow supervisor request entry", SignalWaitTimeout);
 
             var fastRequestTask = client.SendAsync(
-                    endpoint,
+                    IpcTransportEndpoint.FromContract(endpoint),
                     CreateRequest("fast"),
                     TimeSpan.FromSeconds(5))
                 .AsTask();
@@ -117,7 +118,7 @@ public sealed class SupervisorTransportServerTests
     public async Task Run_WhenConnectionHandlerBlocksBeforeReturningTask_StillAcceptsAnotherConnection ()
     {
         using var scope = TestDirectories.CreateTempScope("supervisor-transport-server", "synchronous-handler-block");
-        var endpoint = CreateEndpoint(scope.FullPath);
+        var endpoint = CreateEndpoint(AbsolutePath.Parse(scope.FullPath));
         var server = new SupervisorTransportServer(TimeProvider.System);
         var startedTaskSource = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var firstHandlerEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -126,7 +127,7 @@ public sealed class SupervisorTransportServerTests
         var handlerCallCount = 0;
 
         var serverTask = server.RunAsync(
-            endpoint,
+            SupervisorTransportEndpoint.FromContract(endpoint),
             (stream, cancellationToken) =>
             {
                 if (Interlocked.Increment(ref handlerCallCount) == 1)
@@ -155,12 +156,12 @@ public sealed class SupervisorTransportServerTests
         {
             await TestAwaiter.WaitAsync(startedTaskSource.Task, "Supervisor transport start", SignalWaitTimeout);
             firstRequestTask = client
-                .SendAsync(endpoint, CreateRequest("first"), SignalWaitTimeout)
+                .SendAsync(IpcTransportEndpoint.FromContract(endpoint), CreateRequest("first"), SignalWaitTimeout)
                 .AsTask();
             await TestAwaiter.WaitAsync(firstHandlerEntered.Task, "Synchronous supervisor handler entry", SignalWaitTimeout);
 
             secondRequestTask = client
-                .SendAsync(endpoint, CreateRequest("second"), SignalWaitTimeout)
+                .SendAsync(IpcTransportEndpoint.FromContract(endpoint), CreateRequest("second"), SignalWaitTimeout)
                 .AsTask();
             var secondResponse = await TestAwaiter.WaitAsync(
                 secondRequestTask,
@@ -206,7 +207,7 @@ public sealed class SupervisorTransportServerTests
         using var cancellationTokenSource = new CancellationTokenSource();
         var startupCallbackInvocations = 0;
         var serverTask = server.RunAsync(
-            endpoint,
+            SupervisorTransportEndpoint.FromContract(endpoint),
             static (_, _) => Task.CompletedTask,
             async _ =>
             {
@@ -249,7 +250,7 @@ public sealed class SupervisorTransportServerTests
         }
 
         using var scope = TestDirectories.CreateTempScope("supervisor-transport-server", "successor-socket-ownership");
-        var endpoint = CreateEndpoint(scope.FullPath);
+        var endpoint = CreateEndpoint(AbsolutePath.Parse(scope.FullPath));
         var originalServer = new SupervisorTransportServer(TimeProvider.System);
         var successorServer = new SupervisorTransportServer(TimeProvider.System);
         var originalBound = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -259,7 +260,7 @@ public sealed class SupervisorTransportServerTests
         using var successorCancellationTokenSource = new CancellationTokenSource();
 
         var originalServerTask = originalServer.RunAsync(
-            endpoint,
+            SupervisorTransportEndpoint.FromContract(endpoint),
             EchoRequestAsync,
             async _ =>
             {
@@ -275,7 +276,7 @@ public sealed class SupervisorTransportServerTests
         {
             await TestAwaiter.WaitAsync(originalBound.Task, "Original supervisor socket bind", SignalWaitTimeout);
             successorServerTask = successorServer.RunAsync(
-                endpoint,
+                SupervisorTransportEndpoint.FromContract(endpoint),
                 EchoRequestAsync,
                 _ =>
                 {
@@ -298,7 +299,7 @@ public sealed class SupervisorTransportServerTests
                     new IpcTransportConnector(),
                     TimeProvider.System)
                 .SendAsync(
-                endpoint,
+                IpcTransportEndpoint.FromContract(endpoint),
                 CreateRequest("successor"),
                 SignalWaitTimeout);
             Assert.Equal(IpcResponseStatus.Ok, response.Status);
@@ -329,15 +330,15 @@ public sealed class SupervisorTransportServerTests
         var endpoint = new IpcEndpoint(
             IpcTransportKind.UnixDomainSocket,
             new UnixSocketFallbackPath(
-                Path.GetTempPath(),
+                AbsolutePath.Parse(Path.GetTempPath()),
                 UnixSocketFallbackPurpose.Supervisor,
-                Guid.NewGuid().ToString("N")).SocketPath);
+                Guid.NewGuid().ToString("N")).SocketPath.Value);
         var originalServer = new SupervisorTransportServer(TimeProvider.System);
         var successorServer = new SupervisorTransportServer(TimeProvider.System);
         var originalStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         using var originalCancellationTokenSource = new CancellationTokenSource();
         var originalTask = originalServer.RunAsync(
-            endpoint,
+            SupervisorTransportEndpoint.FromContract(endpoint),
             EchoRequestAsync,
             _ =>
             {
@@ -352,11 +353,11 @@ public sealed class SupervisorTransportServerTests
         {
             await TestAwaiter.WaitAsync(originalStarted.Task, "Original supervisor start", SignalWaitTimeout);
             Assert.True(SupervisorUnixSocketEndpointOwnership.TryResolvePublishedGenerationAddress(
-                endpoint.Address,
+                AbsolutePath.Parse(endpoint.Address),
                 out var originalGenerationAddress));
 
             var startupException = await Assert.ThrowsAsync<InvalidOperationException>(() => successorServer.RunAsync(
-                endpoint,
+                SupervisorTransportEndpoint.FromContract(endpoint),
                 EchoRequestAsync,
                 static _ => throw new InvalidOperationException("Successor manifest publication failed."),
                 SupervisorConstants.MaximumActiveConnections,
@@ -365,14 +366,14 @@ public sealed class SupervisorTransportServerTests
 
             Assert.Contains("manifest publication failed", startupException.Message, StringComparison.Ordinal);
             Assert.True(SupervisorUnixSocketEndpointOwnership.TryResolvePublishedGenerationAddress(
-                endpoint.Address,
+                AbsolutePath.Parse(endpoint.Address),
                 out var restoredGenerationAddress));
             Assert.Equal(originalGenerationAddress, restoredGenerationAddress);
             var response = await new IpcTransportClient(
                     new IpcTransportConnector(),
                     TimeProvider.System)
                 .SendAsync(
-                endpoint,
+                IpcTransportEndpoint.FromContract(endpoint),
                 CreateRequest("restored-original"),
                 SignalWaitTimeout);
             Assert.Equal(IpcResponseStatus.Ok, response.Status);
@@ -400,20 +401,20 @@ public sealed class SupervisorTransportServerTests
         var endpoint = new IpcEndpoint(
             IpcTransportKind.UnixDomainSocket,
             new UnixSocketFallbackPath(
-                Path.GetTempPath(),
+                AbsolutePath.Parse(Path.GetTempPath()),
                 UnixSocketFallbackPurpose.Supervisor,
-                Guid.NewGuid().ToString("N")).SocketPath);
+                Guid.NewGuid().ToString("N")).SocketPath.Value);
         var server = new SupervisorTransportServer(TimeProvider.System);
         using var cancellationTokenSource = new CancellationTokenSource();
-        var generationAddress = string.Empty;
+        AbsolutePath? generationAddress = null;
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => server.RunAsync(
-            endpoint,
+            SupervisorTransportEndpoint.FromContract(endpoint),
             EchoRequestAsync,
             cancellationToken =>
             {
                 Assert.True(SupervisorUnixSocketEndpointOwnership.TryResolvePublishedGenerationAddress(
-                    endpoint.Address,
+                    AbsolutePath.Parse(endpoint.Address),
                     out generationAddress));
                 cancellationTokenSource.Cancel();
                 cancellationToken.ThrowIfCancellationRequested();
@@ -423,9 +424,10 @@ public sealed class SupervisorTransportServerTests
             SupervisorConstants.ConnectionDrainTimeout,
             cancellationTokenSource.Token));
 
+        Assert.NotNull(generationAddress);
         Assert.Null(new FileInfo(endpoint.Address).LinkTarget);
-        Assert.False(File.Exists(generationAddress));
-        Assert.False(Directory.Exists(Path.GetDirectoryName(generationAddress)));
+        Assert.False(File.Exists(generationAddress.Value));
+        Assert.False(Directory.Exists(Path.GetDirectoryName(generationAddress.Value)));
     }
 
     [Fact]
@@ -452,7 +454,7 @@ public sealed class SupervisorTransportServerTests
             {
                 await TestAwaiter.WaitAsync(
                     server.RunAsync(
-                        endpoint,
+                        SupervisorTransportEndpoint.FromContract(endpoint),
                         static (_, _) => Task.CompletedTask,
                         static _ => Task.CompletedTask,
                         SupervisorConstants.MaximumActiveConnections,
@@ -484,15 +486,15 @@ public sealed class SupervisorTransportServerTests
         var endpoint = new IpcEndpoint(
             IpcTransportKind.UnixDomainSocket,
             new UnixSocketFallbackPath(
-                Path.GetTempPath(),
+                AbsolutePath.Parse(Path.GetTempPath()),
                 UnixSocketFallbackPurpose.Supervisor,
-                Guid.NewGuid().ToString("N")).SocketPath);
+                Guid.NewGuid().ToString("N")).SocketPath.Value);
         var server = new SupervisorTransportServer(TimeProvider.System);
         var startedTaskSource = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         using var cancellationTokenSource = new CancellationTokenSource();
 
         var serverTask = server.RunAsync(
-            endpoint,
+            SupervisorTransportEndpoint.FromContract(endpoint),
             static (_, _) => Task.CompletedTask,
             cancellationToken =>
             {
@@ -538,16 +540,16 @@ public sealed class SupervisorTransportServerTests
         var endpoint = new IpcEndpoint(
             IpcTransportKind.UnixDomainSocket,
             new UnixSocketFallbackPath(
-                Path.GetTempPath(),
+                AbsolutePath.Parse(Path.GetTempPath()),
                 UnixSocketFallbackPurpose.Supervisor,
-                Guid.NewGuid().ToString("N")).SocketPath);
+                Guid.NewGuid().ToString("N")).SocketPath.Value);
         var socketDirectoryPath = Path.GetDirectoryName(endpoint.Address)!;
         var server = new SupervisorTransportServer(TimeProvider.System);
         var startedTaskSource = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         using var cancellationTokenSource = new CancellationTokenSource();
 
         var serverTask = server.RunAsync(
-            endpoint,
+            SupervisorTransportEndpoint.FromContract(endpoint),
             static (_, _) => Task.CompletedTask,
             cancellationToken =>
             {
@@ -596,7 +598,7 @@ public sealed class SupervisorTransportServerTests
     public async Task Run_WhenActiveConnectionLimitIsReached_RejectsExcessConnectionWithoutInvokingHandler ()
     {
         using var scope = TestDirectories.CreateTempScope("supervisor-transport-server", "connection-limit");
-        var endpoint = CreateEndpoint(scope.FullPath);
+        var endpoint = CreateEndpoint(AbsolutePath.Parse(scope.FullPath));
         var server = new SupervisorTransportServer(TimeProvider.System);
         var startedTaskSource = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var firstHandlerEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -605,7 +607,7 @@ public sealed class SupervisorTransportServerTests
         var handlerCallCount = 0;
 
         var serverTask = server.RunAsync(
-            endpoint,
+            SupervisorTransportEndpoint.FromContract(endpoint),
             async (stream, cancellationToken) =>
             {
                 Interlocked.Increment(ref handlerCallCount);
@@ -648,12 +650,12 @@ public sealed class SupervisorTransportServerTests
         {
             await TestAwaiter.WaitAsync(startedTaskSource.Task, "Supervisor transport start", SignalWaitTimeout);
             firstRequestTask = client
-                .SendAsync(endpoint, CreateRequest("first"), SignalWaitTimeout)
+                .SendAsync(IpcTransportEndpoint.FromContract(endpoint), CreateRequest("first"), SignalWaitTimeout)
                 .AsTask();
             await TestAwaiter.WaitAsync(firstHandlerEntered.Task, "First supervisor connection", SignalWaitTimeout);
 
             var secondRequestTask = client
-                .SendAsync(endpoint, CreateRequest("overflow"), SignalWaitTimeout)
+                .SendAsync(IpcTransportEndpoint.FromContract(endpoint), CreateRequest("overflow"), SignalWaitTimeout)
                 .AsTask();
             var rejectionException = await Record.ExceptionAsync(async () =>
                 await TestAwaiter.WaitAsync(
@@ -688,7 +690,7 @@ public sealed class SupervisorTransportServerTests
     public async Task Run_WhenConnectionHandlerIgnoresShutdownCancellation_ReturnsAtConnectionDrainDeadline ()
     {
         using var scope = TestDirectories.CreateTempScope("supervisor-transport-server", "bounded-drain");
-        var endpoint = CreateEndpoint(scope.FullPath);
+        var endpoint = CreateEndpoint(AbsolutePath.Parse(scope.FullPath));
         var timeProvider = new ManualTimeProvider();
         var server = new SupervisorTransportServer(timeProvider);
         var startedTaskSource = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -697,7 +699,7 @@ public sealed class SupervisorTransportServerTests
         using var cancellationTokenSource = new CancellationTokenSource();
 
         var serverTask = server.RunAsync(
-            endpoint,
+            SupervisorTransportEndpoint.FromContract(endpoint),
             async (_, _) =>
             {
                 handlerEntered.TrySetResult();
@@ -721,7 +723,7 @@ public sealed class SupervisorTransportServerTests
         {
             await TestAwaiter.WaitAsync(startedTaskSource.Task, "Supervisor transport start", SignalWaitTimeout);
             requestTask = client
-                .SendAsync(endpoint, CreateRequest("non-cooperative"), SignalWaitTimeout)
+                .SendAsync(IpcTransportEndpoint.FromContract(endpoint), CreateRequest("non-cooperative"), SignalWaitTimeout)
                 .AsTask();
             await TestAwaiter.WaitAsync(handlerEntered.Task, "Non-cooperative supervisor handler", SignalWaitTimeout);
 
@@ -783,7 +785,7 @@ public sealed class SupervisorTransportServerTests
             .ConfigureAwait(false);
     }
 
-    private static IpcEndpoint CreateEndpoint (string storageRoot)
+    private static IpcEndpoint CreateEndpoint (AbsolutePath storageRoot)
     {
         if (OperatingSystem.IsWindows())
         {
@@ -795,9 +797,9 @@ public sealed class SupervisorTransportServerTests
         return new IpcEndpoint(
             IpcTransportKind.UnixDomainSocket,
             new UnixSocketFallbackPath(
-                Path.GetTempPath(),
+                AbsolutePath.Parse(Path.GetTempPath()),
                 UnixSocketFallbackPurpose.Supervisor,
-                storageRoot).SocketPath);
+                storageRoot.Value).SocketPath.Value);
     }
 
     private static IpcRequestEnvelope CreateRequest (string method)

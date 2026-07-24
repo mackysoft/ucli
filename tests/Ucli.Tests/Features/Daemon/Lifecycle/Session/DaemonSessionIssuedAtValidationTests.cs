@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Tests.Helpers.Daemon;
@@ -15,7 +16,7 @@ public sealed class DaemonSessionIssuedAtValidationTests
         var sessionToken = IpcSessionTokenTestFactory.Create("missing-issued-at").GetEncodedValue();
         var projectFingerprint = ProjectFingerprintTestFactory.Create("fingerprint-missing-issued-at");
         await DaemonSessionStorageTestSupport.WriteJsonAsync(
-            scope.FullPath,
+            AbsolutePath.Parse(scope.FullPath),
             projectFingerprint,
             $$"""
             {
@@ -35,7 +36,7 @@ public sealed class DaemonSessionIssuedAtValidationTests
             """,
             CancellationToken.None);
 
-        var readResult = await store.ReadAsync(scope.FullPath, projectFingerprint, CancellationToken.None);
+        var readResult = await store.ReadAsync(AbsolutePath.Parse(scope.FullPath), projectFingerprint, CancellationToken.None);
 
         Assert.False(readResult.IsSuccess);
         Assert.False(readResult.Exists);

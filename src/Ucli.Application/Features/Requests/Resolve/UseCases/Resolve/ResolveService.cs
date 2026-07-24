@@ -133,7 +133,7 @@ internal sealed class ResolveService : IResolveService
                 executionMode,
                 timeout,
                 readIndexMode,
-                new UnityScenePath(selector.Scene.Value),
+                selector.Scene,
                 depth: null,
                 failFast: input.FailFast,
                 cancellationToken: cancellationToken)

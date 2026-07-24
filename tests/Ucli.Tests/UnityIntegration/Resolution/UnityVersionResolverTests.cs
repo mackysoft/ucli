@@ -1,5 +1,6 @@
 namespace MackySoft.Ucli.Tests;
 
+using MackySoft.FileSystem;
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.UnityIntegration.Resolution;
@@ -15,14 +16,6 @@ public sealed class UnityVersionResolverTests
     }
 
     [Fact]
-    [Trait("Size", "Small")]
-    public void ReadResultPathInvalid_WhenDiagnosticIsEmpty_ThrowsArgumentException ()
-    {
-        Assert.Throws<ArgumentException>(
-            static () => UnityProjectVersionFileReader.ReadResult.PathInvalid(string.Empty));
-    }
-
-    [Fact]
     [Trait("Size", "Medium")]
     public void Resolve_WithPreferredUnityVersion_ReturnsPreferredValue ()
     {
@@ -33,7 +26,7 @@ public sealed class UnityVersionResolverTests
             "m_EditorVersion: 6000.1.4f1");
         var resolver = new UnityVersionResolver();
 
-        var result = resolver.Resolve(projectPath, "6000.1.8f1");
+        var result = resolver.Resolve(AbsolutePath.Parse(projectPath), "6000.1.8f1");
 
         Assert.True(result.IsSuccess);
         Assert.Equal("6000.1.8f1", result.UnityVersion);
@@ -51,7 +44,7 @@ public sealed class UnityVersionResolverTests
             "m_EditorVersion: 2022.3.5f1");
         var resolver = new UnityVersionResolver();
 
-        var result = resolver.Resolve(projectPath, null);
+        var result = resolver.Resolve(AbsolutePath.Parse(projectPath), null);
 
         Assert.True(result.IsSuccess);
         Assert.Equal("2022.3.5f1", result.UnityVersion);
@@ -66,7 +59,7 @@ public sealed class UnityVersionResolverTests
         var projectPath = scope.CreateDirectory("UnityProject");
         var resolver = new UnityVersionResolver();
 
-        var result = resolver.Resolve(projectPath, null);
+        var result = resolver.Resolve(AbsolutePath.Parse(projectPath), null);
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.UnityVersion);
@@ -86,7 +79,7 @@ public sealed class UnityVersionResolverTests
             "m_EditorVersionWithRevision: 6000.1.4f1");
         var resolver = new UnityVersionResolver();
 
-        var result = resolver.Resolve(projectPath, null);
+        var result = resolver.Resolve(AbsolutePath.Parse(projectPath), null);
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.UnityVersion);
@@ -95,21 +88,4 @@ public sealed class UnityVersionResolverTests
         Assert.Contains("m_EditorVersion is missing or invalid", error.Message, StringComparison.Ordinal);
     }
 
-    [Theory]
-    [Trait("Size", "Small")]
-    [InlineData(null)]
-    [InlineData("")]
-    [InlineData(" ")]
-    public void Resolve_WhenProjectPathIsInvalid_ReturnsInvalidArgumentError (string? projectPath)
-    {
-        var resolver = new UnityVersionResolver();
-
-        var result = resolver.Resolve(projectPath!, null);
-
-        Assert.False(result.IsSuccess);
-        Assert.Null(result.UnityVersion);
-        var error = Assert.IsType<ExecutionError>(result.Error);
-        Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
-        Assert.Contains("Unity project path must not be", error.Message, StringComparison.Ordinal);
-    }
 }

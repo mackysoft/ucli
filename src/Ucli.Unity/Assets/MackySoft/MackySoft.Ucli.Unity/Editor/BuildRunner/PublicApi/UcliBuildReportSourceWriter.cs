@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Text;
 using System.Text.Json;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Build;
 using UnityEditor.Build.Reporting;
@@ -70,20 +71,24 @@ namespace MackySoft.Ucli.Unity
                 throw new ArgumentNullException(nameof(sourceArtifact));
             }
 
-            if (!BuildRunnerOutputSourcePathResolver.TryResolve(context.OutputDir, relativePath, out _, out var sourcePath))
+            var outputDirectory = AbsolutePath.Parse(context.OutputDir);
+            if (!BuildRunnerOutputSourcePathResolver.TryResolve(
+                    outputDirectory,
+                    relativePath,
+                    out _,
+                    out var sourcePath))
             {
                 throw new ArgumentException("BuildReport source path must be a valid OutputDir-relative file path.", nameof(relativePath));
             }
 
             var json = JsonSerializer.Serialize(sourceArtifact, IpcJsonSerializerOptions.Default);
-            var directoryPath = Path.GetDirectoryName(sourcePath);
-            if (string.IsNullOrWhiteSpace(directoryPath))
+            if (!sourcePath.TryGetParent(out var directoryPath))
             {
                 throw new InvalidOperationException($"BuildReport source directory could not be resolved: {sourcePath}");
             }
 
-            Directory.CreateDirectory(directoryPath);
-            File.WriteAllText(sourcePath, json, Utf8NoBomEncoding);
+            Directory.CreateDirectory(directoryPath.Value);
+            File.WriteAllText(sourcePath.Value, json, Utf8NoBomEncoding);
             return new UcliBuildRunnerBuildReport(relativePath);
         }
 

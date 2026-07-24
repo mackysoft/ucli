@@ -1,4 +1,5 @@
 using System.Xml.Linq;
+using MackySoft.FileSystem;
 
 namespace MackySoft.Ucli.Tests.Supervisor;
 
@@ -9,11 +10,17 @@ public sealed class LaunchAgentPlistDocumentFactoryTests
     public void Build_WritesLaunchAgentPlistWithSupervisorInvocationArguments ()
     {
         const string label = "dev.mackysoft.ucli.supervisor.test";
-        const string storageRoot = "/repo";
-        const string logPath = "/repo/supervisor.log";
+        var storageRoot = ProjectPathTestValues.RepositoryRoot;
+        var logPath = Path.Combine(storageRoot, "supervisor.log");
         var launchCommand = new SupervisorLaunchCommand("ucli", ["--base"]);
 
-        var plist = LaunchAgentPlistDocumentFactory.Build(label, launchCommand, storageRoot, logPath);
+        var absoluteStorageRoot = AbsolutePath.Parse(storageRoot);
+        var absoluteLogPath = AbsolutePath.Parse(logPath);
+        var plist = LaunchAgentPlistDocumentFactory.Build(
+            label,
+            launchCommand,
+            absoluteStorageRoot,
+            absoluteLogPath);
         var document = XDocument.Parse(plist);
 
         Assert.Contains("<!DOCTYPE plist PUBLIC", plist, StringComparison.Ordinal);
@@ -27,7 +34,7 @@ public sealed class LaunchAgentPlistDocumentFactoryTests
             [
                 "ucli",
                 "--base",
-                ..SupervisorInvocationArguments.Build(storageRoot),
+                ..SupervisorInvocationArguments.Build(absoluteStorageRoot),
             ],
             GetArrayStrings(document, "ProgramArguments"));
         Assert.Equal("true", GetValueElement(document, "RunAtLoad").Name.LocalName);
@@ -38,11 +45,16 @@ public sealed class LaunchAgentPlistDocumentFactoryTests
     public void Build_EscapesXmlSpecialCharactersAsStructuredValues ()
     {
         const string label = "label<&>";
-        const string storageRoot = "/repo<&>";
-        const string logPath = "/repo/log<&>.txt";
+        var storageRoot = ProjectPathTestValues.RepositoryRoot + "&";
+        var logPath = Path.Combine(storageRoot, "log&.txt");
         var launchCommand = new SupervisorLaunchCommand("ucli<&>", ["--arg<&>"]);
 
-        var plist = LaunchAgentPlistDocumentFactory.Build(label, launchCommand, storageRoot, logPath);
+        var absoluteStorageRoot = AbsolutePath.Parse(storageRoot);
+        var plist = LaunchAgentPlistDocumentFactory.Build(
+            label,
+            launchCommand,
+            absoluteStorageRoot,
+            AbsolutePath.Parse(logPath));
         var document = XDocument.Parse(plist);
 
         Assert.Equal(label, GetString(document, "Label"));
@@ -52,7 +64,7 @@ public sealed class LaunchAgentPlistDocumentFactoryTests
             [
                 "ucli<&>",
                 "--arg<&>",
-                ..SupervisorInvocationArguments.Build(storageRoot),
+                ..SupervisorInvocationArguments.Build(absoluteStorageRoot),
             ],
             GetArrayStrings(document, "ProgramArguments"));
     }

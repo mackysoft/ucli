@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Xml.Linq;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Testing.Run.Results;
 
 namespace MackySoft.Ucli.Features.Testing.Run.Results;
@@ -36,10 +37,12 @@ internal sealed class UnityResultsXmlParser : IUnityResultsXmlParser
     /// <param name="cancellationToken"> A cancellation token propagated by caller. </param>
     /// <returns> A task that resolves to parsed XML result values. </returns>
     public async ValueTask<UnityResultsXmlParseResult> ParseAsync (
-        string resultsXmlPath,
+        AbsolutePath resultsXmlPath,
         CancellationToken cancellationToken = default)
     {
-        var xml = await File.ReadAllTextAsync(resultsXmlPath, cancellationToken).ConfigureAwait(false);
+        ArgumentNullException.ThrowIfNull(resultsXmlPath);
+
+        var xml = await File.ReadAllTextAsync(resultsXmlPath.Value, cancellationToken).ConfigureAwait(false);
         var document = XDocument.Parse(xml);
 
         var root = document.Root;

@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using MackySoft.FileSystem;
 using Microsoft.CodeAnalysis;
 
 #nullable enable
@@ -15,7 +17,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
         public CsEvalReferenceSet Resolve ()
         {
             var assemblies = AppDomain.CurrentDomain.GetAssemblies();
-            var assembliesByPath = new SortedDictionary<string, Assembly>(StringComparer.OrdinalIgnoreCase);
+            var assembliesByPath = new Dictionary<AbsolutePath, Assembly>();
             for (var i = 0; i < assemblies.Length; i++)
             {
                 if (TryGetAssemblyLocation(assemblies[i], out var path))
@@ -24,52 +26,65 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
                 }
             }
 
-            var references = assembliesByPath.Keys
-                .Select(static path => MetadataReference.CreateFromFile(path))
+            var orderedAssembliesByPath = assembliesByPath
+                .OrderBy(static pair => pair.Key.Value, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+            var references = orderedAssembliesByPath
+                .Select(static pair => MetadataReference.CreateFromFile(pair.Key.Value))
                 .Cast<MetadataReference>()
                 .ToArray();
             var identity = string.Join(
                 "\n",
-                assembliesByPath.Select(static pair => CreateReferenceIdentity(pair.Value, pair.Key)).OrderBy(static value => value, StringComparer.Ordinal));
+                orderedAssembliesByPath
+                    .Select(static pair => CreateReferenceIdentity(pair.Value, pair.Key))
+                    .OrderBy(static value => value, StringComparer.Ordinal));
             return new CsEvalReferenceSet(references, identity);
         }
 
         private static bool TryGetAssemblyLocation (
             Assembly assembly,
-            out string path)
+            [NotNullWhen(true)] out AbsolutePath? path)
         {
-            path = string.Empty;
+            path = null;
             if (assembly.IsDynamic)
             {
                 return false;
             }
 
+            string location;
             try
             {
-                path = assembly.Location;
+                location = assembly.Location;
             }
             catch (NotSupportedException)
             {
                 return false;
             }
 
-            return !string.IsNullOrWhiteSpace(path) && File.Exists(path);
+            if (!AbsolutePath.TryParse(location, out var guardedLocation, out _)
+                || !File.Exists(guardedLocation.Value))
+            {
+                return false;
+            }
+
+            path = guardedLocation;
+            return true;
         }
 
         private static string CreateReferenceIdentity (
             Assembly assembly,
-            string path)
+            AbsolutePath path)
         {
-            var fileInfo = new FileInfo(path);
+            var fileInfo = new FileInfo(path.Value);
             try
             {
-                var assemblyName = AssemblyName.GetAssemblyName(path);
+                var assemblyName = AssemblyName.GetAssemblyName(path.Value);
                 var moduleVersionId = assembly.ManifestModule.ModuleVersionId.ToString("D");
                 return $"{assemblyName.Name}/{assemblyName.Version}/{moduleVersionId}/{fileInfo.Length}/{fileInfo.LastWriteTimeUtc.Ticks}";
             }
             catch (Exception exception) when (exception is BadImageFormatException or FileLoadException or FileNotFoundException)
             {
-                return $"{Path.GetFileName(path)}/{fileInfo.Length}/{fileInfo.LastWriteTimeUtc.Ticks}";
+                return $"{Path.GetFileName(path.Value)}/{fileInfo.Length}/{fileInfo.LastWriteTimeUtc.Ticks}";
             }
         }
     }

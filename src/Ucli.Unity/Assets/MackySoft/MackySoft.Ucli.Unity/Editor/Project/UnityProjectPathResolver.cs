@@ -1,4 +1,6 @@
+using System;
 using System.IO;
+using MackySoft.FileSystem;
 using UnityEngine;
 
 #nullable enable
@@ -10,18 +12,27 @@ namespace MackySoft.Ucli.Unity.Project
     {
         /// <summary> Resolves the current Unity project root path. </summary>
         /// <returns> The absolute Unity project root path. </returns>
-        public static string ResolveProjectRootPath ()
+        public static AbsolutePath ResolveProjectRootPath ()
         {
             var dataPath = Application.dataPath;
-            if (string.IsNullOrWhiteSpace(dataPath))
+            if (!AbsolutePath.TryParse(
+                    dataPath,
+                    out var assetsDirectory,
+                    out var failure))
             {
-                return Directory.GetCurrentDirectory();
+                if (failure.Kind == PathValidationFailureKind.EmptyPath)
+                {
+                    return AbsolutePath.Parse(Directory.GetCurrentDirectory());
+                }
+
+                throw new ArgumentException(
+                    $"Application.dataPath is invalid. {failure.Message}",
+                    nameof(dataPath));
             }
 
-            var projectRoot = Path.GetDirectoryName(Path.GetFullPath(dataPath));
-            if (string.IsNullOrWhiteSpace(projectRoot))
+            if (!assetsDirectory.TryGetParent(out var projectRoot))
             {
-                return Directory.GetCurrentDirectory();
+                return AbsolutePath.Parse(Directory.GetCurrentDirectory());
             }
 
             return projectRoot;

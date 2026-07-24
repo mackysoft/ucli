@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Infrastructure.Xml;
 
 namespace MackySoft.Ucli.Features.Daemon.Supervisor.Launch;
@@ -16,29 +17,29 @@ internal static class LaunchAgentPlistDocumentFactory
     public static string Build (
         string label,
         SupervisorLaunchCommand launchCommand,
-        string storageRoot,
-        string logPath)
+        AbsolutePath storageRoot,
+        AbsolutePath logPath)
     {
         ThrowIfNullOrWhiteSpace(label, nameof(label));
         ArgumentNullException.ThrowIfNull(launchCommand);
-        ThrowIfNullOrWhiteSpace(storageRoot, nameof(storageRoot));
-        ThrowIfNullOrWhiteSpace(logPath, nameof(logPath));
+        ArgumentNullException.ThrowIfNull(storageRoot);
+        ArgumentNullException.ThrowIfNull(logPath);
 
         var programArguments = BuildProgramArguments(launchCommand, storageRoot);
         return PropertyListXmlBuilder.BuildRootDictionary(builder =>
         {
             builder.WriteString("Label", label);
             builder.WriteStringArray("ProgramArguments", programArguments);
-            builder.WriteString("WorkingDirectory", storageRoot);
+            builder.WriteString("WorkingDirectory", storageRoot.Value);
             builder.WriteBoolean("RunAtLoad", true);
-            builder.WriteString("StandardOutPath", logPath);
-            builder.WriteString("StandardErrorPath", logPath);
+            builder.WriteString("StandardOutPath", logPath.Value);
+            builder.WriteString("StandardErrorPath", logPath.Value);
         });
     }
 
     private static string[] BuildProgramArguments (
         SupervisorLaunchCommand launchCommand,
-        string storageRoot)
+        AbsolutePath storageRoot)
     {
         var supervisorArguments = SupervisorInvocationArguments.Build(storageRoot);
         var arguments = new string[1 + launchCommand.Arguments.Count + supervisorArguments.Length];

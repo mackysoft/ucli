@@ -32,64 +32,17 @@ public sealed class IpcExecuteContractSerializationTests
     [Theory]
     [InlineData("")]
     [InlineData(" ")]
+    [InlineData("relative/UnityProject")]
+    [InlineData("project/../UnityProject/")]
     [Trait("Size", "Small")]
-    public void IpcProjectIdentity_Constructor_WithEmptyProjectPath_ThrowsArgumentException (string projectPath)
+    public void IpcProjectIdentity_Constructor_PreservesProjectPathWireText (string projectPath)
     {
-        var exception = Assert.Throws<ArgumentException>(() => new IpcProjectIdentity(
-            projectPath,
-            new ProjectFingerprint(ProjectFingerprintText),
-            "6000.1.4f1"));
-
-        Assert.Equal("projectPath", exception.ParamName);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void IpcProjectIdentity_Constructor_WithRelativeProjectPath_ThrowsArgumentException ()
-    {
-        var exception = Assert.Throws<ArgumentException>(() => new IpcProjectIdentity(
-            "relative/UnityProject",
-            new ProjectFingerprint(ProjectFingerprintText),
-            "6000.1.4f1"));
-
-        Assert.Equal("projectPath", exception.ParamName);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void IpcProjectIdentity_Constructor_WithWindowsRootRelativeProjectPath_ThrowsArgumentException ()
-    {
-        if (!OperatingSystem.IsWindows())
-        {
-            return;
-        }
-
-        const string projectPath = @"\repo\UnityProject";
-        Assert.True(Path.IsPathRooted(projectPath));
-        Assert.False(Path.IsPathFullyQualified(projectPath));
-
-        var exception = Assert.Throws<ArgumentException>(() => new IpcProjectIdentity(
-            projectPath,
-            new ProjectFingerprint(ProjectFingerprintText),
-            "6000.1.4f1"));
-
-        Assert.Equal("projectPath", exception.ParamName);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void IpcProjectIdentity_Constructor_NormalizesAbsoluteProjectPath ()
-    {
-        var input = Path.Combine(Path.GetTempPath(), "ucli-project", "nested", "..") + Path.DirectorySeparatorChar;
-
         var identity = new IpcProjectIdentity(
-            input,
+            projectPath,
             new ProjectFingerprint(ProjectFingerprintText),
             "6000.1.4f1");
 
-        Assert.Equal(
-            Path.TrimEndingDirectorySeparator(Path.GetFullPath(input)),
-            identity.ProjectPath);
+        Assert.Equal(projectPath, identity.ProjectPath);
     }
 
     [Fact]

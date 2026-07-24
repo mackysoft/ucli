@@ -1,3 +1,5 @@
+using MackySoft.FileSystem;
+
 namespace MackySoft.Ucli.Tests;
 
 internal static class ResolvedUnityProjectContextTestFactory
@@ -32,8 +34,8 @@ internal static class ResolvedUnityProjectContextTestFactory
         string unityVersion = ProjectIdentityDefaults.UnknownUnityVersion)
     {
         return ResolvedUnityProjectContext.Create(
-            unityProjectRoot: unityProjectRoot,
-            repositoryRoot: repositoryRoot,
+            unityProjectRoot: AbsolutePath.Parse(unityProjectRoot),
+            repositoryRoot: AbsolutePath.Parse(repositoryRoot),
             projectFingerprint: projectFingerprint ?? ProjectFingerprint,
             pathSource: pathSource,
             pathSourceLabel: pathSourceLabel,

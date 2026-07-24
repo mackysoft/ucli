@@ -1,4 +1,5 @@
 using System.Text.Json;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts.Testing;
 using MackySoft.Ucli.Hosting.Cli.Testing;
 using MackySoft.Ucli.Tests.Hosting.Cli.Common.Execution;
@@ -11,8 +12,8 @@ public sealed class TestRunCommandProgressOutputTests
     [Trait("Size", "Medium")]
     public async Task Run_WhenServiceReturnsPass_MatchesSuccessGolden ()
     {
-        var artifactsDir = Path.Combine(Path.GetTempPath(), "ucli-test-run-artifacts");
-        var summaryJsonPath = Path.Combine(artifactsDir, "summary.json");
+        var artifactsDir = AbsolutePath.Parse(Path.Combine(Path.GetTempPath(), "ucli-test-run-artifacts"));
+        var summaryJsonPath = AbsolutePath.Resolve(artifactsDir, "summary.json");
         var service = new RecordingTestRunService(
             (_, _, _) => ValueTask.FromResult(TestRunServiceResult.Pass(
                 message: "Unity test execution completed.",
@@ -27,15 +28,15 @@ public sealed class TestRunCommandProgressOutputTests
         JsonGoldenFileAssert.Matches(
             CliOutputGoldenFiles.GetPath("test-run", "success.json"),
             result.StdOut,
-            new JsonGoldenFileNormalization().NormalizePathPrefix(artifactsDir, "<artifacts>"));
+            new JsonGoldenFileNormalization().NormalizePathPrefix(artifactsDir.Value, "<artifacts>"));
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public async Task Run_WithJsonFormat_WritesProgressEntriesToStandardErrorAndFinalResultToStandardOutput ()
     {
-        var artifactsDir = Path.Combine(Path.GetTempPath(), "ucli-test-run-artifacts");
-        var summaryJsonPath = Path.Combine(artifactsDir, "summary.json");
+        var artifactsDir = AbsolutePath.Parse(Path.Combine(Path.GetTempPath(), "ucli-test-run-artifacts"));
+        var summaryJsonPath = AbsolutePath.Resolve(artifactsDir, "summary.json");
         var service = new RecordingTestRunService(async (_, progressSink, cancellationToken) =>
         {
             Assert.NotNull(progressSink);
@@ -118,8 +119,8 @@ public sealed class TestRunCommandProgressOutputTests
     [Trait("Size", "Small")]
     public async Task Run_WithJsonFormatAndServiceError_WritesProgressEntryThenFinalErrorResult ()
     {
-        var artifactsDir = Path.Combine(Path.GetTempPath(), "ucli-test-run-artifacts");
-        var summaryJsonPath = Path.Combine(artifactsDir, "summary.json");
+        var artifactsDir = AbsolutePath.Parse(Path.Combine(Path.GetTempPath(), "ucli-test-run-artifacts"));
+        var summaryJsonPath = AbsolutePath.Resolve(artifactsDir, "summary.json");
         var service = new RecordingTestRunService(async (_, progressSink, cancellationToken) =>
         {
             Assert.NotNull(progressSink);
@@ -163,14 +164,15 @@ public sealed class TestRunCommandProgressOutputTests
                 .IsNull("result")
                 .HasString("errorKind", "infraError")
                 .HasString("runId", RunIdTestValues.TestText)
-                .HasString("artifactsDir", artifactsDir)
-                .HasString("summaryJsonPath", summaryJsonPath));
+                .HasString("artifactsDir", artifactsDir.Value)
+                .HasString("summaryJsonPath", summaryJsonPath.Value));
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public async Task Run_WithDefaultFormat_WritesTextProgressToStandardError ()
     {
+        var artifactsDir = AbsolutePath.Parse(Path.Combine(Path.GetTempPath(), "ucli-test-run-artifacts"));
         var service = new RecordingTestRunService(async (_, progressSink, cancellationToken) =>
         {
             Assert.NotNull(progressSink);
@@ -185,8 +187,8 @@ public sealed class TestRunCommandProgressOutputTests
             return TestRunServiceResult.Pass(
                 message: "Unity test execution completed.",
                 runId: RunIdTestValues.Test,
-                artifactsDir: "/tmp/ucli-test-run-artifacts",
-                summaryJsonPath: "/tmp/ucli-test-run-artifacts/summary.json");
+                artifactsDir: artifactsDir,
+                summaryJsonPath: AbsolutePath.Resolve(artifactsDir, "summary.json"));
         });
         var command = new TestRunCommand(service, CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
 
@@ -207,6 +209,7 @@ public sealed class TestRunCommandProgressOutputTests
     [Trait("Size", "Small")]
     public async Task Run_WithTextFormat_WritesDotnetStyleCompletedCasesToStandardError ()
     {
+        var artifactsDir = AbsolutePath.Parse(Path.Combine(Path.GetTempPath(), "ucli-test-run-artifacts"));
         var service = new RecordingTestRunService(async (_, progressSink, cancellationToken) =>
         {
             Assert.NotNull(progressSink);
@@ -260,8 +263,8 @@ public sealed class TestRunCommandProgressOutputTests
             return TestRunServiceResult.Fail(
                 message: "Unity test execution completed with failures.",
                 runId: RunIdTestValues.Test,
-                artifactsDir: "/tmp/ucli-test-run-artifacts",
-                summaryJsonPath: "/tmp/ucli-test-run-artifacts/summary.json");
+                artifactsDir: artifactsDir,
+                summaryJsonPath: AbsolutePath.Resolve(artifactsDir, "summary.json"));
         });
         var command = new TestRunCommand(service, CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
 

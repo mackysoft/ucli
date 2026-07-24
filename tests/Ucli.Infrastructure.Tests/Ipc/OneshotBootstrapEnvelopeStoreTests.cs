@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Tests;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -18,13 +19,14 @@ public sealed class OneshotBootstrapEnvelopeStoreTests
     public void Create_ThenRead_ReturnsCompleteImmutableEnvelope ()
     {
         using var scope = TestDirectories.CreateTempScope("oneshot-bootstrap-envelope", "roundtrip");
+        var storageRoot = AbsolutePath.Parse(scope.FullPath);
         var nowUtc = DateTimeOffset.UtcNow;
-        var envelope = CreateEnvelope(scope.FullPath, Guid.NewGuid(), nowUtc, nowUtc.AddMinutes(1));
+        var envelope = CreateEnvelope(storageRoot, Guid.NewGuid(), nowUtc, nowUtc.AddMinutes(1));
 
-        OneshotBootstrapEnvelopeStore.Create(scope.FullPath, envelope);
+        OneshotBootstrapEnvelopeStore.Create(storageRoot, envelope);
 
         var actual = OneshotBootstrapEnvelopeStore.Read(
-            scope.FullPath,
+            storageRoot,
             ProjectFingerprint,
             envelope.BootstrapId,
             nowUtc);
@@ -41,18 +43,19 @@ public sealed class OneshotBootstrapEnvelopeStoreTests
         }
 
         using var scope = TestDirectories.CreateTempScope("oneshot-bootstrap-envelope", "owner-only");
+        var storageRoot = AbsolutePath.Parse(scope.FullPath);
         var nowUtc = DateTimeOffset.UtcNow;
-        var envelope = CreateEnvelope(scope.FullPath, Guid.NewGuid(), nowUtc, nowUtc.AddMinutes(1));
+        var envelope = CreateEnvelope(storageRoot, Guid.NewGuid(), nowUtc, nowUtc.AddMinutes(1));
 
-        OneshotBootstrapEnvelopeStore.Create(scope.FullPath, envelope);
+        OneshotBootstrapEnvelopeStore.Create(storageRoot, envelope);
 
         var path = UcliStoragePathResolver.ResolveOneshotBootstrapPath(
-            scope.FullPath,
+            storageRoot,
             ProjectFingerprint,
             envelope.BootstrapId);
         Assert.Equal(
             UnixFileMode.UserRead | UnixFileMode.UserWrite,
-            File.GetUnixFileMode(path));
+            File.GetUnixFileMode(path.Value));
     }
 
     [Theory]
@@ -63,26 +66,27 @@ public sealed class OneshotBootstrapEnvelopeStoreTests
         MalformedEnvelopeContent malformedContent)
     {
         using var scope = TestDirectories.CreateTempScope("oneshot-bootstrap-envelope", "malformed-maintenance");
+        var storageRoot = AbsolutePath.Parse(scope.FullPath);
         var nowUtc = DateTimeOffset.UtcNow;
-        var seedEnvelope = CreateEnvelope(scope.FullPath, Guid.NewGuid(), nowUtc, nowUtc.AddMinutes(1));
-        OneshotBootstrapEnvelopeStore.Create(scope.FullPath, seedEnvelope);
+        var seedEnvelope = CreateEnvelope(storageRoot, Guid.NewGuid(), nowUtc, nowUtc.AddMinutes(1));
+        OneshotBootstrapEnvelopeStore.Create(storageRoot, seedEnvelope);
         var malformedPath = UcliStoragePathResolver.ResolveOneshotBootstrapPath(
-            scope.FullPath,
+            storageRoot,
             ProjectFingerprint,
             Guid.NewGuid());
         WriteMalformedEnvelope(malformedPath, malformedContent);
-        var expected = CreateEnvelope(scope.FullPath, Guid.NewGuid(), nowUtc, nowUtc.AddMinutes(1));
+        var expected = CreateEnvelope(storageRoot, Guid.NewGuid(), nowUtc, nowUtc.AddMinutes(1));
 
-        OneshotBootstrapEnvelopeStore.Create(scope.FullPath, expected);
+        OneshotBootstrapEnvelopeStore.Create(storageRoot, expected);
 
         Assert.Equal(
             expected,
             OneshotBootstrapEnvelopeStore.Read(
-                scope.FullPath,
+                storageRoot,
                 ProjectFingerprint,
                 expected.BootstrapId,
                 nowUtc));
-        Assert.True(File.Exists(malformedPath));
+        Assert.True(File.Exists(malformedPath.Value));
     }
 
     [Fact]
@@ -90,16 +94,17 @@ public sealed class OneshotBootstrapEnvelopeStoreTests
     public void Read_WhenEnvelopeHasExpired_ThrowsInvalidDataException ()
     {
         using var scope = TestDirectories.CreateTempScope("oneshot-bootstrap-envelope", "expired");
+        var storageRoot = AbsolutePath.Parse(scope.FullPath);
         var nowUtc = DateTimeOffset.UtcNow;
         var envelope = CreateEnvelope(
-            scope.FullPath,
+            storageRoot,
             Guid.NewGuid(),
             nowUtc.AddMinutes(-2),
             nowUtc.AddMinutes(-1));
-        OneshotBootstrapEnvelopeStore.Create(scope.FullPath, envelope);
+        OneshotBootstrapEnvelopeStore.Create(storageRoot, envelope);
 
         var exception = Assert.Throws<InvalidDataException>(() => OneshotBootstrapEnvelopeStore.Read(
-            scope.FullPath,
+            storageRoot,
             ProjectFingerprint,
             envelope.BootstrapId,
             nowUtc));
@@ -112,23 +117,24 @@ public sealed class OneshotBootstrapEnvelopeStoreTests
     public void Read_WhenStoredIdentifierWasTampered_ThrowsInvalidDataException ()
     {
         using var scope = TestDirectories.CreateTempScope("oneshot-bootstrap-envelope", "tampered-id");
+        var storageRoot = AbsolutePath.Parse(scope.FullPath);
         var nowUtc = DateTimeOffset.UtcNow;
-        var envelope = CreateEnvelope(scope.FullPath, Guid.NewGuid(), nowUtc, nowUtc.AddMinutes(1));
-        OneshotBootstrapEnvelopeStore.Create(scope.FullPath, envelope);
+        var envelope = CreateEnvelope(storageRoot, Guid.NewGuid(), nowUtc, nowUtc.AddMinutes(1));
+        OneshotBootstrapEnvelopeStore.Create(storageRoot, envelope);
         var path = UcliStoragePathResolver.ResolveOneshotBootstrapPath(
-            scope.FullPath,
+            storageRoot,
             ProjectFingerprint,
             envelope.BootstrapId);
         var tamperedId = Guid.NewGuid();
         File.WriteAllText(
-            path,
-            File.ReadAllText(path).Replace(
+            path.Value,
+            File.ReadAllText(path.Value).Replace(
                 envelope.BootstrapId.ToString("D"),
                 tamperedId.ToString("D"),
                 StringComparison.Ordinal));
 
         var exception = Assert.Throws<InvalidDataException>(() => OneshotBootstrapEnvelopeStore.Read(
-            scope.FullPath,
+            storageRoot,
             ProjectFingerprint,
             envelope.BootstrapId,
             nowUtc));
@@ -141,22 +147,23 @@ public sealed class OneshotBootstrapEnvelopeStoreTests
     public void Read_WhenStoredParentGenerationWasTampered_ThrowsInvalidDataException ()
     {
         using var scope = TestDirectories.CreateTempScope("oneshot-bootstrap-envelope", "tampered-parent-generation");
+        var storageRoot = AbsolutePath.Parse(scope.FullPath);
         var nowUtc = DateTimeOffset.UtcNow;
-        var envelope = CreateEnvelope(scope.FullPath, Guid.NewGuid(), nowUtc, nowUtc.AddMinutes(1));
-        OneshotBootstrapEnvelopeStore.Create(scope.FullPath, envelope);
+        var envelope = CreateEnvelope(storageRoot, Guid.NewGuid(), nowUtc, nowUtc.AddMinutes(1));
+        OneshotBootstrapEnvelopeStore.Create(storageRoot, envelope);
         var path = UcliStoragePathResolver.ResolveOneshotBootstrapPath(
-            scope.FullPath,
+            storageRoot,
             ProjectFingerprint,
             envelope.BootstrapId);
         File.WriteAllText(
-            path,
-            File.ReadAllText(path).Replace(
+            path.Value,
+            File.ReadAllText(path.Value).Replace(
                 $"\"generation\": {envelope.ParentProcess.Generation}",
                 $"\"generation\": {envelope.ParentProcess.Generation + 1}",
                 StringComparison.Ordinal));
 
         var exception = Assert.Throws<InvalidDataException>(() => OneshotBootstrapEnvelopeStore.Read(
-            scope.FullPath,
+            storageRoot,
             ProjectFingerprint,
             envelope.BootstrapId,
             nowUtc));
@@ -169,12 +176,13 @@ public sealed class OneshotBootstrapEnvelopeStoreTests
     public void Read_WhenDifferentIdentifierIsRequested_ThrowsFileNotFoundException ()
     {
         using var scope = TestDirectories.CreateTempScope("oneshot-bootstrap-envelope", "different-id");
+        var storageRoot = AbsolutePath.Parse(scope.FullPath);
         var nowUtc = DateTimeOffset.UtcNow;
-        var envelope = CreateEnvelope(scope.FullPath, Guid.NewGuid(), nowUtc, nowUtc.AddMinutes(1));
-        OneshotBootstrapEnvelopeStore.Create(scope.FullPath, envelope);
+        var envelope = CreateEnvelope(storageRoot, Guid.NewGuid(), nowUtc, nowUtc.AddMinutes(1));
+        OneshotBootstrapEnvelopeStore.Create(storageRoot, envelope);
 
         Assert.Throws<FileNotFoundException>(() => OneshotBootstrapEnvelopeStore.Read(
-            scope.FullPath,
+            storageRoot,
             ProjectFingerprint,
             Guid.NewGuid(),
             nowUtc));
@@ -185,17 +193,18 @@ public sealed class OneshotBootstrapEnvelopeStoreTests
     public void TryDeleteIfOwned_WhenGenerationDiffers_PreservesCurrentEnvelope ()
     {
         using var scope = TestDirectories.CreateTempScope("oneshot-bootstrap-envelope", "ownership");
+        var storageRoot = AbsolutePath.Parse(scope.FullPath);
         var nowUtc = DateTimeOffset.UtcNow;
-        var envelope = CreateEnvelope(scope.FullPath, Guid.NewGuid(), nowUtc, nowUtc.AddMinutes(1));
-        OneshotBootstrapEnvelopeStore.Create(scope.FullPath, envelope);
+        var envelope = CreateEnvelope(storageRoot, Guid.NewGuid(), nowUtc, nowUtc.AddMinutes(1));
+        OneshotBootstrapEnvelopeStore.Create(storageRoot, envelope);
         var differentGeneration = CreateEnvelope(
-            scope.FullPath,
+            storageRoot,
             envelope.BootstrapId,
             nowUtc,
             nowUtc.AddMinutes(2));
 
-        Assert.False(OneshotBootstrapEnvelopeStore.TryDeleteIfOwned(scope.FullPath, differentGeneration));
-        Assert.True(OneshotBootstrapEnvelopeStore.TryDeleteIfOwned(scope.FullPath, envelope));
+        Assert.False(OneshotBootstrapEnvelopeStore.TryDeleteIfOwned(storageRoot, differentGeneration));
+        Assert.True(OneshotBootstrapEnvelopeStore.TryDeleteIfOwned(storageRoot, envelope));
     }
 
     [Theory]
@@ -206,19 +215,20 @@ public sealed class OneshotBootstrapEnvelopeStoreTests
         MalformedEnvelopeContent malformedContent)
     {
         using var scope = TestDirectories.CreateTempScope("oneshot-bootstrap-envelope", "malformed-ownership");
+        var storageRoot = AbsolutePath.Parse(scope.FullPath);
         var nowUtc = DateTimeOffset.UtcNow;
-        var envelope = CreateEnvelope(scope.FullPath, Guid.NewGuid(), nowUtc, nowUtc.AddMinutes(1));
-        OneshotBootstrapEnvelopeStore.Create(scope.FullPath, envelope);
+        var envelope = CreateEnvelope(storageRoot, Guid.NewGuid(), nowUtc, nowUtc.AddMinutes(1));
+        OneshotBootstrapEnvelopeStore.Create(storageRoot, envelope);
         var path = UcliStoragePathResolver.ResolveOneshotBootstrapPath(
-            scope.FullPath,
+            storageRoot,
             ProjectFingerprint,
             envelope.BootstrapId);
         WriteMalformedEnvelope(path, malformedContent);
 
-        var deleted = OneshotBootstrapEnvelopeStore.TryDeleteIfOwned(scope.FullPath, envelope);
+        var deleted = OneshotBootstrapEnvelopeStore.TryDeleteIfOwned(storageRoot, envelope);
 
         Assert.False(deleted);
-        Assert.True(File.Exists(path));
+        Assert.True(File.Exists(path.Value));
     }
 
     [Fact]
@@ -226,17 +236,18 @@ public sealed class OneshotBootstrapEnvelopeStoreTests
     public void Create_WhenIdentifierAlreadyExists_DoesNotReplaceGeneration ()
     {
         using var scope = TestDirectories.CreateTempScope("oneshot-bootstrap-envelope", "duplicate");
+        var storageRoot = AbsolutePath.Parse(scope.FullPath);
         var nowUtc = DateTimeOffset.UtcNow;
-        var envelope = CreateEnvelope(scope.FullPath, Guid.NewGuid(), nowUtc, nowUtc.AddMinutes(1));
-        OneshotBootstrapEnvelopeStore.Create(scope.FullPath, envelope);
+        var envelope = CreateEnvelope(storageRoot, Guid.NewGuid(), nowUtc, nowUtc.AddMinutes(1));
+        OneshotBootstrapEnvelopeStore.Create(storageRoot, envelope);
 
         Assert.Throws<IOException>(() => OneshotBootstrapEnvelopeStore.Create(
-            scope.FullPath,
-            CreateEnvelope(scope.FullPath, envelope.BootstrapId, nowUtc, nowUtc.AddMinutes(2))));
+            storageRoot,
+            CreateEnvelope(storageRoot, envelope.BootstrapId, nowUtc, nowUtc.AddMinutes(2))));
         Assert.Equal(
             envelope,
             OneshotBootstrapEnvelopeStore.Read(
-                scope.FullPath,
+                storageRoot,
                 ProjectFingerprint,
                 envelope.BootstrapId,
                 nowUtc));
@@ -247,23 +258,24 @@ public sealed class OneshotBootstrapEnvelopeStoreTests
     public void Create_WhenExpiredEnvelopeUsesForeignFileName_PreservesForeignFile ()
     {
         using var scope = TestDirectories.CreateTempScope("oneshot-bootstrap-envelope", "foreign-maintenance-name");
+        var storageRoot = AbsolutePath.Parse(scope.FullPath);
         var nowUtc = DateTimeOffset.UtcNow;
         var expiredEnvelope = CreateEnvelope(
-            scope.FullPath,
+            storageRoot,
             Guid.NewGuid(),
             nowUtc.AddMinutes(-2),
             nowUtc.AddMinutes(-1));
-        OneshotBootstrapEnvelopeStore.Create(scope.FullPath, expiredEnvelope);
+        OneshotBootstrapEnvelopeStore.Create(storageRoot, expiredEnvelope);
         var ownedPath = UcliStoragePathResolver.ResolveOneshotBootstrapPath(
-            scope.FullPath,
+            storageRoot,
             ProjectFingerprint,
             expiredEnvelope.BootstrapId);
-        var foreignPath = Path.Combine(Path.GetDirectoryName(ownedPath)!, "foreign.json");
-        File.Move(ownedPath, foreignPath);
+        var foreignPath = Path.Combine(Path.GetDirectoryName(ownedPath.Value)!, "foreign.json");
+        File.Move(ownedPath.Value, foreignPath);
 
         OneshotBootstrapEnvelopeStore.Create(
-            scope.FullPath,
-            CreateEnvelope(scope.FullPath, Guid.NewGuid(), nowUtc, nowUtc.AddMinutes(1)));
+            storageRoot,
+            CreateEnvelope(storageRoot, Guid.NewGuid(), nowUtc, nowUtc.AddMinutes(1)));
 
         Assert.True(File.Exists(foreignPath));
     }
@@ -273,9 +285,10 @@ public sealed class OneshotBootstrapEnvelopeStoreTests
     public void Create_WhenMaintenanceBudgetIsConsumedByForeignFiles_DoesNotScanPastBudget ()
     {
         using var scope = TestDirectories.CreateTempScope("oneshot-bootstrap-envelope", "bounded-maintenance");
+        var storageRoot = AbsolutePath.Parse(scope.FullPath);
         var nowUtc = DateTimeOffset.UtcNow;
         var directoryPath = UcliStoragePathResolver.ResolveOneshotBootstrapDirectory(
-            scope.FullPath,
+            storageRoot,
             ProjectFingerprint);
         FileSystemAccessBoundary.EnsureSecureDirectory(directoryPath);
         WriteForeignMaintenanceFiles(directoryPath);
@@ -286,21 +299,21 @@ public sealed class OneshotBootstrapEnvelopeStoreTests
         {
             var candidateBootstrapId = Guid.Parse($"00000000-0000-0000-0000-{attempt:x12}");
             var candidatePath = UcliStoragePathResolver.ResolveOneshotBootstrapPath(
-                scope.FullPath,
+                storageRoot,
                 ProjectFingerprint,
                 candidateBootstrapId);
-            File.WriteAllText(candidatePath, "{}");
+            File.WriteAllText(candidatePath.Value, "{}");
             var candidateIndex = Array.IndexOf(
-                Directory.EnumerateFiles(directoryPath, "*.json", SearchOption.TopDirectoryOnly).ToArray(),
-                candidatePath);
+                Directory.EnumerateFiles(directoryPath.Value, "*.json", SearchOption.TopDirectoryOnly).ToArray(),
+                candidatePath.Value);
             if (candidateIndex >= 128)
             {
                 expiredBootstrapId = candidateBootstrapId;
-                expiredPath = candidatePath;
+                expiredPath = candidatePath.Value;
                 break;
             }
 
-            File.Delete(candidatePath);
+            File.Delete(candidatePath.Value);
         }
 
         Assert.NotEqual(Guid.Empty, expiredBootstrapId);
@@ -308,23 +321,24 @@ public sealed class OneshotBootstrapEnvelopeStoreTests
                    "oneshot-bootstrap-envelope",
                    "bounded-maintenance-envelope"))
         {
+            var envelopeStorageRoot = AbsolutePath.Parse(envelopeScope.FullPath);
             var expiredEnvelope = CreateEnvelope(
-                envelopeScope.FullPath,
+                envelopeStorageRoot,
                 expiredBootstrapId,
                 nowUtc.AddMinutes(-2),
                 nowUtc.AddMinutes(-1));
-            OneshotBootstrapEnvelopeStore.Create(envelopeScope.FullPath, expiredEnvelope);
+            OneshotBootstrapEnvelopeStore.Create(envelopeStorageRoot, expiredEnvelope);
             File.WriteAllBytes(
                 expiredPath,
                 File.ReadAllBytes(UcliStoragePathResolver.ResolveOneshotBootstrapPath(
-                    envelopeScope.FullPath,
+                    envelopeStorageRoot,
                     ProjectFingerprint,
-                    expiredBootstrapId)));
+                    expiredBootstrapId).Value));
         }
 
         OneshotBootstrapEnvelopeStore.Create(
-            scope.FullPath,
-            CreateEnvelope(scope.FullPath, Guid.NewGuid(), nowUtc, nowUtc.AddMinutes(1)));
+            storageRoot,
+            CreateEnvelope(storageRoot, Guid.NewGuid(), nowUtc, nowUtc.AddMinutes(1)));
 
         Assert.True(File.Exists(expiredPath));
     }
@@ -334,33 +348,34 @@ public sealed class OneshotBootstrapEnvelopeStoreTests
     public void Create_WhenExpiredEnvelopeIdentifierDoesNotMatchFileName_PreservesUnprovenFile ()
     {
         using var scope = TestDirectories.CreateTempScope("oneshot-bootstrap-envelope", "mismatched-maintenance-id");
+        var storageRoot = AbsolutePath.Parse(scope.FullPath);
         var nowUtc = DateTimeOffset.UtcNow;
         var expiredEnvelope = CreateEnvelope(
-            scope.FullPath,
+            storageRoot,
             Guid.NewGuid(),
             nowUtc.AddMinutes(-2),
             nowUtc.AddMinutes(-1));
-        OneshotBootstrapEnvelopeStore.Create(scope.FullPath, expiredEnvelope);
+        OneshotBootstrapEnvelopeStore.Create(storageRoot, expiredEnvelope);
         var path = UcliStoragePathResolver.ResolveOneshotBootstrapPath(
-            scope.FullPath,
+            storageRoot,
             ProjectFingerprint,
             expiredEnvelope.BootstrapId);
         File.WriteAllText(
-            path,
-            File.ReadAllText(path).Replace(
+            path.Value,
+            File.ReadAllText(path.Value).Replace(
                 expiredEnvelope.BootstrapId.ToString("D"),
                 Guid.NewGuid().ToString("D"),
                 StringComparison.Ordinal));
 
         OneshotBootstrapEnvelopeStore.Create(
-            scope.FullPath,
-            CreateEnvelope(scope.FullPath, Guid.NewGuid(), nowUtc, nowUtc.AddMinutes(1)));
+            storageRoot,
+            CreateEnvelope(storageRoot, Guid.NewGuid(), nowUtc, nowUtc.AddMinutes(1)));
 
-        Assert.True(File.Exists(path));
+        Assert.True(File.Exists(path.Value));
     }
 
     private static IpcOneshotBootstrapEnvelope CreateEnvelope (
-        string storageRoot,
+        AbsolutePath storageRoot,
         Guid bootstrapId,
         DateTimeOffset createdAtUtc,
         DateTimeOffset exitDeadlineUtc)
@@ -372,30 +387,30 @@ public sealed class OneshotBootstrapEnvelopeStoreTests
             SessionToken: IpcSessionToken.CreateRandom(),
             CreatedAtUtc: createdAtUtc,
             ExitDeadlineUtc: exitDeadlineUtc,
-            Endpoint: UcliIpcEndpointResolver.ResolveDaemonEndpoint(storageRoot, ProjectFingerprint));
+            Endpoint: UcliIpcEndpointResolver.ResolveDaemonEndpoint(storageRoot, ProjectFingerprint).Contract);
     }
 
-    private static void WriteForeignMaintenanceFiles (string directoryPath)
+    private static void WriteForeignMaintenanceFiles (AbsolutePath directoryPath)
     {
         for (var index = 0; index < 128; index++)
         {
             File.WriteAllText(
-                Path.Combine(directoryPath, $"000-invalid-{index:D3}.json"),
+                Path.Combine(directoryPath.Value, $"000-invalid-{index:D3}.json"),
                 "{}");
         }
     }
 
     private static void WriteMalformedEnvelope (
-        string path,
+        AbsolutePath path,
         MalformedEnvelopeContent malformedContent)
     {
         switch (malformedContent)
         {
             case MalformedEnvelopeContent.InvalidJson:
-                File.WriteAllText(path, "{");
+                File.WriteAllText(path.Value, "{");
                 break;
             case MalformedEnvelopeContent.InvalidUtf8:
-                File.WriteAllBytes(path, new byte[] { 0xC3, 0x28 });
+                File.WriteAllBytes(path.Value, new byte[] { 0xC3, 0x28 });
                 break;
             default:
                 throw new ArgumentOutOfRangeException(nameof(malformedContent), malformedContent, null);

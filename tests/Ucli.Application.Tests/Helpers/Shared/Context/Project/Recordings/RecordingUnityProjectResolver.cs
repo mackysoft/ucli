@@ -1,10 +1,11 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Shared.Foundation;
 
 namespace MackySoft.Ucli.Application.Tests;
 
 internal sealed class RecordingUnityProjectResolver : IUnityProjectResolver
 {
-    private readonly Dictionary<string, UnityProjectResolutionResult>? resultsByPath;
+    private readonly Dictionary<AbsolutePath, UnityProjectResolutionResult>? resultsByPath;
     private readonly UnityProjectResolutionResult? result;
     private readonly Func<ProjectPathCandidate, UnityProjectResolutionResult>? handler;
 
@@ -20,9 +21,8 @@ internal sealed class RecordingUnityProjectResolver : IUnityProjectResolver
         ArgumentNullException.ThrowIfNull(contexts);
 
         resultsByPath = contexts.ToDictionary(
-            static context => Path.GetFullPath(context.UnityProjectRoot),
-            static context => UnityProjectResolutionResult.Success(context),
-            StringComparer.Ordinal);
+            static context => context.UnityProjectRoot,
+            static context => UnityProjectResolutionResult.Success(context));
     }
 
     private RecordingUnityProjectResolver (Func<ProjectPathCandidate, UnityProjectResolutionResult> handler)
@@ -55,14 +55,52 @@ internal sealed class RecordingUnityProjectResolver : IUnityProjectResolver
 
         if (resultsByPath is not null)
         {
-            var normalizedPath = Path.GetFullPath(projectPathCandidate.Path);
-            if (resultsByPath.TryGetValue(normalizedPath, out var mappedResult))
+            var currentDirectory = AbsolutePath.Parse(Environment.CurrentDirectory);
+            if (AbsolutePath.TryResolve(
+                    currentDirectory,
+                    projectPathCandidate.Path,
+                    out var guardedPath,
+                    out _)
+                && resultsByPath.TryGetValue(guardedPath, out var mappedResult))
             {
                 return mappedResult;
             }
 
             return UnityProjectResolutionResult.Failure(ExecutionError.InvalidArgument(
                 $"UnityProject path does not exist: {projectPathCandidate.Path}",
+                ProjectContextErrorCodes.ProjectPathNotFound));
+        }
+
+        return result!;
+    }
+
+    public UnityProjectResolutionResult Resolve (
+        AbsolutePath unityProjectRoot,
+        UnityProjectPathSource source,
+        string? sourceLabel = null)
+    {
+        ArgumentNullException.ThrowIfNull(unityProjectRoot);
+
+        var projectPathCandidate = new ProjectPathCandidate(
+            unityProjectRoot.Value,
+            source,
+            sourceLabel);
+        invocations.Add(new Invocation(projectPathCandidate));
+
+        if (handler is not null)
+        {
+            return handler(projectPathCandidate);
+        }
+
+        if (resultsByPath is not null)
+        {
+            if (resultsByPath.TryGetValue(unityProjectRoot, out var mappedResult))
+            {
+                return mappedResult;
+            }
+
+            return UnityProjectResolutionResult.Failure(ExecutionError.InvalidArgument(
+                $"UnityProject path does not exist: {unityProjectRoot.Value}",
                 ProjectContextErrorCodes.ProjectPathNotFound));
         }
 

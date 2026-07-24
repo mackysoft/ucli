@@ -1,5 +1,6 @@
 using System.Buffers;
 using System.Security.Cryptography;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Screenshot.Artifacts;
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Foundation;
@@ -18,16 +19,16 @@ internal sealed class FileScreenshotArtifactStore : IScreenshotArtifactStore
     private readonly Rgba8SrgbPngEncoder pngEncoder;
     private readonly Rgba8SrgbPngValidator pngValidator;
     private readonly TimeProvider timeProvider;
-    private readonly Action<string> ensureSecureStagingDirectory;
-    private readonly Action<string> deleteOwnedFile;
+    private readonly Action<AbsolutePath> ensureSecureStagingDirectory;
+    private readonly Action<AbsolutePath> deleteOwnedFile;
 
     /// <summary> Initializes a new screenshot artifact store. </summary>
     public FileScreenshotArtifactStore (
         Rgba8SrgbPngEncoder pngEncoder,
         Rgba8SrgbPngValidator pngValidator,
         TimeProvider timeProvider,
-        Action<string> ensureSecureStagingDirectory,
-        Action<string> deleteOwnedFile)
+        Action<AbsolutePath> ensureSecureStagingDirectory,
+        Action<AbsolutePath> deleteOwnedFile)
     {
         this.pngEncoder = pngEncoder ?? throw new ArgumentNullException(nameof(pngEncoder));
         this.pngValidator = pngValidator ?? throw new ArgumentNullException(nameof(pngValidator));
@@ -52,11 +53,6 @@ internal sealed class FileScreenshotArtifactStore : IScreenshotArtifactStore
         try
         {
             paths = ResolvePaths(unityProject, captureId);
-        }
-        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
-        {
-            return ScreenshotArtifactPreparationResult.Failure(ExecutionError.InvalidArgument(
-                $"Screenshot artifact path is invalid. {exception.Message}"));
         }
         catch (InvalidOperationException exception)
         {
@@ -96,7 +92,7 @@ internal sealed class FileScreenshotArtifactStore : IScreenshotArtifactStore
     {
         ArgumentNullException.ThrowIfNull(staging);
 
-        string? temporaryPngPath = null;
+        AbsolutePath? temporaryPngPath = null;
         var finalArtifactCreated = false;
         ScreenshotArtifact? artifact = null;
         ExecutionError? error = null;
@@ -126,15 +122,23 @@ internal sealed class FileScreenshotArtifactStore : IScreenshotArtifactStore
             FileSystemAccessBoundary.EnsureSecureFile(temporaryPngPath);
             await ValidatePngAgainstRawAsync(paths, staging, temporaryPngPath, cancellationToken).ConfigureAwait(false);
 
-            File.Move(temporaryPngPath, paths.PngPath);
+            File.Move(temporaryPngPath.Value, paths.PngPath.Value);
             temporaryPngPath = null;
             finalArtifactCreated = true;
             FileSystemAccessBoundary.EnsureSecureFile(paths.PngPath);
             await ValidatePngAgainstRawAsync(paths, staging, paths.PngPath, cancellationToken).ConfigureAwait(false);
 
             var committedFile = await ComputeCommittedFileAsync(paths.PngPath, cancellationToken).ConfigureAwait(false);
+            if (!UcliPortablePathAdapter.TryFormat(
+                    paths.RepositoryRelativeArtifactPath,
+                    out var portableArtifactPath))
+            {
+                throw new InvalidOperationException(
+                    $"Screenshot artifact path cannot be represented by the portable result contract: {paths.RepositoryRelativeArtifactPath.Value}");
+            }
+
             artifact = new ScreenshotArtifact(
-                paths.RepositoryRelativeArtifactPath,
+                portableArtifactPath,
                 committedFile.Digest,
                 committedFile.SizeBytes,
                 timeProvider.GetUtcNow());
@@ -144,10 +148,6 @@ internal sealed class FileScreenshotArtifactStore : IScreenshotArtifactStore
             error = ExecutionError.InternalError(
                 $"Screenshot staging contract is unsupported. {exception.Message}",
                 ScreenshotErrorCodes.ScreenshotCaptureUnsupported);
-        }
-        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
-        {
-            error = ExecutionError.InvalidArgument($"Screenshot artifact path is invalid. {exception.Message}");
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException or InvalidDataException)
         {
@@ -222,13 +222,13 @@ internal sealed class FileScreenshotArtifactStore : IScreenshotArtifactStore
     private async ValueTask ValidatePngAgainstRawAsync (
         CapturePaths paths,
         IpcScreenshotStagingImage staging,
-        string pngPath,
+        AbsolutePath pngPath,
         CancellationToken cancellationToken)
     {
         EnsureReadablePngFile(pngPath);
         EnsureReadableRawStagingFile(paths.RawStagingPath, staging.SizeBytes);
         await using var pngStream = new FileStream(
-            pngPath,
+            pngPath.Value,
             FileMode.Open,
             FileAccess.Read,
             FileShare.Read,
@@ -245,10 +245,10 @@ internal sealed class FileScreenshotArtifactStore : IScreenshotArtifactStore
             .ConfigureAwait(false);
     }
 
-    private static FileStream OpenRawStagingFile (string path)
+    private static FileStream OpenRawStagingFile (AbsolutePath path)
     {
         return new FileStream(
-            path,
+            path.Value,
             FileMode.Open,
             FileAccess.Read,
             FileShare.Read,
@@ -261,37 +261,40 @@ internal sealed class FileScreenshotArtifactStore : IScreenshotArtifactStore
         Guid captureId)
     {
         var repositoryRoot = unityProject.RepositoryRoot;
-        var localStorageDirectory = Path.GetFullPath(
-            UcliStoragePathResolver.ResolveLocalDirectoryPath(repositoryRoot));
-        var artifactDirectory = Path.GetFullPath(
-            UcliStoragePathResolver.ResolveScreenshotCaptureArtifactsDirectory(
-                repositoryRoot,
-                unityProject.ProjectFingerprint,
-                captureId));
-        var pngPath = Path.GetFullPath(
-            UcliStoragePathResolver.ResolveScreenshotCaptureArtifactPath(
-                repositoryRoot,
-                unityProject.ProjectFingerprint,
-                captureId));
-        var stagingDirectory = Path.GetFullPath(
-            UcliStoragePathResolver.ResolveScreenshotCaptureStagingDirectory(
-                repositoryRoot,
-                unityProject.ProjectFingerprint,
-                captureId));
-        var rawStagingPath = Path.GetFullPath(
-            UcliStoragePathResolver.ResolveScreenshotCaptureRawStagingPath(
-                repositoryRoot,
-                unityProject.ProjectFingerprint,
-                captureId));
+        var localStorageDirectory = UcliStoragePathResolver.ResolveLocalDirectoryPath(repositoryRoot);
+        var artifactDirectory = UcliStoragePathResolver.ResolveScreenshotCaptureArtifactsDirectory(
+            repositoryRoot,
+            unityProject.ProjectFingerprint,
+            captureId);
+        var pngPath = UcliStoragePathResolver.ResolveScreenshotCaptureArtifactPath(
+            repositoryRoot,
+            unityProject.ProjectFingerprint,
+            captureId);
+        var stagingDirectory = UcliStoragePathResolver.ResolveScreenshotCaptureStagingDirectory(
+            repositoryRoot,
+            unityProject.ProjectFingerprint,
+            captureId);
+        var rawStagingPath = UcliStoragePathResolver.ResolveScreenshotCaptureRawStagingPath(
+            repositoryRoot,
+            unityProject.ProjectFingerprint,
+            captureId);
 
-        EnsureContainedPath(repositoryRoot, localStorageDirectory, "local storage directory");
-        EnsureContainedPath(localStorageDirectory, artifactDirectory, "artifact directory");
-        EnsureContainedPath(localStorageDirectory, stagingDirectory, "staging directory");
-        EnsureContainedPath(artifactDirectory, pngPath, "PNG artifact");
-        EnsureContainedPath(stagingDirectory, rawStagingPath, "raw staging file");
+        var localStorageRelation = ContainedPath.Create(repositoryRoot, localStorageDirectory);
+        var artifactDirectoryRelation = ContainedPath.Create(localStorageDirectory, artifactDirectory);
+        var stagingDirectoryRelation = ContainedPath.Create(localStorageDirectory, stagingDirectory);
+        var pngRelation = ContainedPath.Create(artifactDirectory, pngPath);
+        var rawStagingRelation = ContainedPath.Create(stagingDirectory, rawStagingPath);
+        if (localStorageRelation.RelativePath.IsRoot
+            || artifactDirectoryRelation.RelativePath.IsRoot
+            || stagingDirectoryRelation.RelativePath.IsRoot
+            || pngRelation.RelativePath.IsRoot
+            || rawStagingRelation.RelativePath.IsRoot)
+        {
+            throw new InvalidOperationException("Screenshot storage layout paths must be descendants of their owned directories.");
+        }
 
         return new CapturePaths(
-            ResolveRepositoryRelativeArtifactPath(repositoryRoot, pngPath),
+            ContainedPath.Create(repositoryRoot, pngPath).RelativePath,
             localStorageDirectory,
             artifactDirectory,
             pngPath,
@@ -299,52 +302,26 @@ internal sealed class FileScreenshotArtifactStore : IScreenshotArtifactStore
             rawStagingPath);
     }
 
-    private static void EnsureContainedPath (
-        string boundaryPath,
-        string candidatePath,
-        string pathKind)
-    {
-        if (!PathIdentity.IsChildPath(boundaryPath, candidatePath))
-        {
-            throw new InvalidOperationException(
-                $"Screenshot {pathKind} path must remain under its owned directory. Boundary={boundaryPath}, Target={candidatePath}");
-        }
-    }
-
-    private static string ResolveRepositoryRelativeArtifactPath (
-        string repositoryRoot,
-        string pngPath)
-    {
-        var result = RepositoryPathNormalizer.TryNormalize(repositoryRoot, pngPath);
-        if (!result.IsSuccess || string.Equals(result.RepositoryRelativeSlashPath, ".", StringComparison.Ordinal))
-        {
-            throw new InvalidOperationException(
-                $"Screenshot artifact path must resolve inside the repository root: {pngPath}");
-        }
-
-        return result.RepositoryRelativeSlashPath!;
-    }
-
     private static void EnsureCapturePathDoesNotExist (
-        string path,
+        AbsolutePath path,
         string description)
     {
-        if (File.Exists(path) || Directory.Exists(path))
+        if (File.Exists(path.Value) || Directory.Exists(path.Value))
         {
             throw new IOException($"{description} already exists: {path}");
         }
     }
 
     private static void EnsureWritableNewFilePath (
-        string path,
+        AbsolutePath path,
         string description)
     {
-        if (!File.Exists(path) && !Directory.Exists(path))
+        if (!File.Exists(path.Value) && !Directory.Exists(path.Value))
         {
             return;
         }
 
-        var attributes = File.GetAttributes(path);
+        var attributes = File.GetAttributes(path.Value);
         if ((attributes & FileAttributes.ReparsePoint) != 0)
         {
             throw new IOException($"{description} must not be a reparse point: {path}");
@@ -354,11 +331,11 @@ internal sealed class FileScreenshotArtifactStore : IScreenshotArtifactStore
     }
 
     private static void EnsureReadableRawStagingFile (
-        string path,
+        AbsolutePath path,
         long expectedSizeBytes)
     {
         EnsureReadableRegularFile(path, "Raw screenshot staging file");
-        var actualSizeBytes = new FileInfo(path).Length;
+        var actualSizeBytes = new FileInfo(path.Value).Length;
         if (actualSizeBytes != expectedSizeBytes)
         {
             throw new ScreenshotCaptureContractException(
@@ -366,21 +343,21 @@ internal sealed class FileScreenshotArtifactStore : IScreenshotArtifactStore
         }
     }
 
-    private static void EnsureReadablePngFile (string path)
+    private static void EnsureReadablePngFile (AbsolutePath path)
     {
         EnsureReadableRegularFile(path, "Screenshot PNG artifact");
     }
 
     private static void EnsureReadableRegularFile (
-        string path,
+        AbsolutePath path,
         string description)
     {
-        if (!File.Exists(path) && !Directory.Exists(path))
+        if (!File.Exists(path.Value) && !Directory.Exists(path.Value))
         {
-            throw new FileNotFoundException($"{description} was not found: {path}", path);
+            throw new FileNotFoundException($"{description} was not found: {path}", path.Value);
         }
 
-        var attributes = File.GetAttributes(path);
+        var attributes = File.GetAttributes(path.Value);
         if ((attributes & FileAttributes.ReparsePoint) != 0)
         {
             throw new IOException($"{description} must not be a reparse point: {path}");
@@ -398,12 +375,12 @@ internal sealed class FileScreenshotArtifactStore : IScreenshotArtifactStore
     }
 
     private static async ValueTask<CommittedFile> ComputeCommittedFileAsync (
-        string path,
+        AbsolutePath path,
         CancellationToken cancellationToken)
     {
         EnsureReadablePngFile(path);
         await using var stream = new FileStream(
-            path,
+            path.Value,
             FileMode.Open,
             FileAccess.Read,
             FileShare.Read,
@@ -460,7 +437,7 @@ internal sealed class FileScreenshotArtifactStore : IScreenshotArtifactStore
 
     private static void RollbackPreparedStagingDirectory (CapturePaths paths)
     {
-        if (!Directory.Exists(paths.StagingDirectory) && !File.Exists(paths.StagingDirectory))
+        if (!Directory.Exists(paths.StagingDirectory.Value) && !File.Exists(paths.StagingDirectory.Value))
         {
             return;
         }
@@ -469,29 +446,29 @@ internal sealed class FileScreenshotArtifactStore : IScreenshotArtifactStore
             paths.LocalStorageDirectory,
             paths.StagingDirectory);
 
-        if (Directory.Exists(paths.StagingDirectory))
+        if (Directory.Exists(paths.StagingDirectory.Value))
         {
-            var attributes = File.GetAttributes(paths.StagingDirectory);
+            var attributes = File.GetAttributes(paths.StagingDirectory.Value);
             if ((attributes & FileAttributes.ReparsePoint) != 0)
             {
-                Directory.Delete(paths.StagingDirectory);
+                Directory.Delete(paths.StagingDirectory.Value);
                 return;
             }
 
-            if (Directory.EnumerateFileSystemEntries(paths.StagingDirectory).Any())
+            if (Directory.EnumerateFileSystemEntries(paths.StagingDirectory.Value).Any())
             {
                 throw new IOException(
                     $"Prepared screenshot staging directory contains unexpected entries: {paths.StagingDirectory}");
             }
 
-            Directory.Delete(paths.StagingDirectory);
+            Directory.Delete(paths.StagingDirectory.Value);
             return;
         }
 
-        var fileAttributes = File.GetAttributes(paths.StagingDirectory);
+        var fileAttributes = File.GetAttributes(paths.StagingDirectory.Value);
         if ((fileAttributes & FileAttributes.ReparsePoint) != 0)
         {
-            File.Delete(paths.StagingDirectory);
+            File.Delete(paths.StagingDirectory.Value);
             return;
         }
 
@@ -500,32 +477,39 @@ internal sealed class FileScreenshotArtifactStore : IScreenshotArtifactStore
     }
 
     private static void EnsureExistingDirectoryAncestorsAreNotReparsePoints (
-        string boundaryDirectory,
-        string targetDirectory)
+        AbsolutePath boundaryDirectory,
+        AbsolutePath targetDirectory)
     {
-        var targetParentDirectory = Path.GetDirectoryName(targetDirectory)
-            ?? throw new InvalidOperationException($"Screenshot staging parent directory could not be resolved: {targetDirectory}");
-        var pendingDirectories = new Stack<string>();
+        if (!targetDirectory.TryGetParent(out var targetParentDirectory))
+        {
+            throw new InvalidOperationException(
+                $"Screenshot staging parent directory could not be resolved: {targetDirectory.Value}");
+        }
+        var pendingDirectories = new Stack<AbsolutePath>();
         var currentDirectory = targetParentDirectory;
         while (true)
         {
             pendingDirectories.Push(currentDirectory);
-            if (PathIdentity.IsSamePath(currentDirectory, boundaryDirectory))
+            if (currentDirectory == boundaryDirectory)
             {
                 break;
             }
 
-            currentDirectory = Path.GetDirectoryName(currentDirectory)
-                ?? throw new InvalidOperationException(
-                    $"Screenshot staging directory escaped its local storage boundary: {targetDirectory}");
+            if (!currentDirectory.TryGetParent(out var parentDirectory))
+            {
+                throw new InvalidOperationException(
+                    $"Screenshot staging directory escaped its local storage boundary: {targetDirectory.Value}");
+            }
+
+            currentDirectory = parentDirectory;
         }
 
         while (pendingDirectories.Count != 0)
         {
             var directory = pendingDirectories.Pop();
-            if (!Directory.Exists(directory))
+            if (!Directory.Exists(directory.Value))
             {
-                if (File.Exists(directory))
+                if (File.Exists(directory.Value))
                 {
                     throw new IOException($"Screenshot staging ancestor is not a directory: {directory}");
                 }
@@ -533,7 +517,7 @@ internal sealed class FileScreenshotArtifactStore : IScreenshotArtifactStore
                 throw new IOException($"Screenshot staging ancestor disappeared during rollback: {directory}");
             }
 
-            var attributes = File.GetAttributes(directory);
+            var attributes = File.GetAttributes(directory.Value);
             if ((attributes & FileAttributes.ReparsePoint) != 0)
             {
                 throw new IOException($"Screenshot staging ancestor must not be a reparse point: {directory}");
@@ -546,7 +530,7 @@ internal sealed class FileScreenshotArtifactStore : IScreenshotArtifactStore
         try
         {
             DeleteStagingLayout(paths);
-            if (!File.Exists(paths.PngPath))
+            if (!File.Exists(paths.PngPath.Value))
             {
                 DeleteDirectoryWhenEmptyOrReparsePoint(paths.ArtifactDirectory, "Screenshot artifact directory");
             }
@@ -562,12 +546,12 @@ internal sealed class FileScreenshotArtifactStore : IScreenshotArtifactStore
 
     private static void DeleteStagingLayout (CapturePaths paths)
     {
-        if (Directory.Exists(paths.StagingDirectory))
+        if (Directory.Exists(paths.StagingDirectory.Value))
         {
-            var attributes = File.GetAttributes(paths.StagingDirectory);
+            var attributes = File.GetAttributes(paths.StagingDirectory.Value);
             if ((attributes & FileAttributes.ReparsePoint) != 0)
             {
-                Directory.Delete(paths.StagingDirectory);
+                Directory.Delete(paths.StagingDirectory.Value);
                 return;
             }
 
@@ -577,30 +561,30 @@ internal sealed class FileScreenshotArtifactStore : IScreenshotArtifactStore
             return;
         }
 
-        if (!File.Exists(paths.StagingDirectory))
+        if (!File.Exists(paths.StagingDirectory.Value))
         {
             return;
         }
 
-        var stagingAttributes = File.GetAttributes(paths.StagingDirectory);
+        var stagingAttributes = File.GetAttributes(paths.StagingDirectory.Value);
         if ((stagingAttributes & FileAttributes.ReparsePoint) == 0)
         {
             throw new IOException($"Screenshot staging directory path is occupied by a file: {paths.StagingDirectory}");
         }
 
-        File.Delete(paths.StagingDirectory);
+        File.Delete(paths.StagingDirectory.Value);
     }
 
-    private static void DeleteExpectedStagingFile (string path)
+    private static void DeleteExpectedStagingFile (AbsolutePath path)
     {
-        if (Directory.Exists(path))
+        if (Directory.Exists(path.Value))
         {
             throw new IOException($"Screenshot raw staging path must not be a directory: {path}");
         }
 
         try
         {
-            File.Delete(path);
+            File.Delete(path.Value);
         }
         catch (FileNotFoundException)
         {
@@ -611,32 +595,32 @@ internal sealed class FileScreenshotArtifactStore : IScreenshotArtifactStore
     }
 
     private static void DeleteDirectoryWhenEmptyOrReparsePoint (
-        string path,
+        AbsolutePath path,
         string description)
     {
-        if (!Directory.Exists(path))
+        if (!Directory.Exists(path.Value))
         {
             return;
         }
 
-        var attributes = File.GetAttributes(path);
+        var attributes = File.GetAttributes(path.Value);
         if ((attributes & FileAttributes.ReparsePoint) != 0)
         {
-            Directory.Delete(path);
+            Directory.Delete(path.Value);
             return;
         }
 
         FileSystemAccessBoundary.EnsureSecureDirectory(path);
-        if (Directory.EnumerateFileSystemEntries(path).Any())
+        if (Directory.EnumerateFileSystemEntries(path.Value).Any())
         {
             throw new IOException($"{description} contains unexpected files and cannot be removed safely: {path}");
         }
 
-        Directory.Delete(path);
+        Directory.Delete(path.Value);
     }
 
     private void TryDeleteOwnedFileIfExists (
-        string path,
+        AbsolutePath path,
         string description,
         ICollection<string> cleanupFailures)
     {
@@ -660,7 +644,7 @@ internal sealed class FileScreenshotArtifactStore : IScreenshotArtifactStore
         CapturePaths paths,
         ICollection<string> cleanupFailures)
     {
-        if (File.Exists(paths.PngPath))
+        if (File.Exists(paths.PngPath.Value))
         {
             return;
         }
@@ -712,12 +696,12 @@ internal sealed class FileScreenshotArtifactStore : IScreenshotArtifactStore
     }
 
     private sealed record CapturePaths (
-        string RepositoryRelativeArtifactPath,
-        string LocalStorageDirectory,
-        string ArtifactDirectory,
-        string PngPath,
-        string StagingDirectory,
-        string RawStagingPath);
+        RootRelativePath RepositoryRelativeArtifactPath,
+        AbsolutePath LocalStorageDirectory,
+        AbsolutePath ArtifactDirectory,
+        AbsolutePath PngPath,
+        AbsolutePath StagingDirectory,
+        AbsolutePath RawStagingPath);
 
     private readonly record struct CommittedFile (
         long SizeBytes,

@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Storage;
@@ -16,7 +17,7 @@ public sealed class DaemonSessionProcessIdValidationTests
         var projectFingerprint = ProjectFingerprintTestFactory.Create("fingerprint-invalid-process-id-read");
         var sessionToken = IpcSessionTokenTestFactory.Create("invalid-process-id-read").GetEncodedValue();
         await DaemonSessionStorageTestSupport.WriteJsonAsync(
-            scope.FullPath,
+            AbsolutePath.Parse(scope.FullPath),
             projectFingerprint,
             $$"""
             {
@@ -36,7 +37,7 @@ public sealed class DaemonSessionProcessIdValidationTests
             """,
             CancellationToken.None);
 
-        var readResult = await store.ReadAsync(scope.FullPath, projectFingerprint, CancellationToken.None);
+        var readResult = await store.ReadAsync(AbsolutePath.Parse(scope.FullPath), projectFingerprint, CancellationToken.None);
 
         Assert.False(readResult.IsSuccess);
         Assert.False(readResult.Exists);
@@ -55,7 +56,7 @@ public sealed class DaemonSessionProcessIdValidationTests
         var projectFingerprint = ProjectFingerprintTestFactory.Create("fingerprint-missing-process-started-at-read");
         var sessionToken = IpcSessionTokenTestFactory.Create("missing-process-started-at-read").GetEncodedValue();
         await DaemonSessionStorageTestSupport.WriteJsonAsync(
-            scope.FullPath,
+            AbsolutePath.Parse(scope.FullPath),
             projectFingerprint,
             $$"""
             {
@@ -75,7 +76,7 @@ public sealed class DaemonSessionProcessIdValidationTests
             """,
             CancellationToken.None);
 
-        var readResult = await store.ReadAsync(scope.FullPath, projectFingerprint, CancellationToken.None);
+        var readResult = await store.ReadAsync(AbsolutePath.Parse(scope.FullPath), projectFingerprint, CancellationToken.None);
 
         Assert.False(readResult.IsSuccess);
         Assert.False(readResult.Exists);
@@ -110,7 +111,8 @@ public sealed class DaemonSessionProcessIdValidationTests
             validSession.EditorMode,
             validSession.OwnerKind,
             validSession.CanShutdownProcess,
-            validSession.Endpoint,
+            validSession.EndpointContract,
+            validSession.UnixSocketEndpointPath,
             processId: 1234,
             processStartedAtUtc: null,
             ownerProcessId: validSession.OwnerProcessId,

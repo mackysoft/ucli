@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Features.Assurance.Build.Artifacts;
@@ -7,7 +8,7 @@ internal sealed record BuildReportSourceEntry
 {
     private BuildReportSourceEntry (
         IpcBuildReportArtifact? artifact,
-        BuildRunnerOutputPath? runnerOutputRelativePath)
+        RootRelativePath? runnerOutputRelativePath)
     {
         Artifact = artifact;
         RunnerOutputRelativePath = runnerOutputRelativePath;
@@ -17,7 +18,7 @@ internal sealed record BuildReportSourceEntry
     public IpcBuildReportArtifact? Artifact { get; }
 
     /// <summary> Gets the BuildReport source path relative to <c>RunnerOutputDirectory</c>. </summary>
-    public BuildRunnerOutputPath? RunnerOutputRelativePath { get; }
+    public RootRelativePath? RunnerOutputRelativePath { get; }
 
     /// <summary> Creates a BuildReport source from an already normalized artifact. </summary>
     public static BuildReportSourceEntry FromArtifact (IpcBuildReportArtifact artifact)
@@ -30,6 +31,8 @@ internal sealed record BuildReportSourceEntry
     public static BuildReportSourceEntry FromRunnerOutputRelativePath (BuildRunnerOutputPath path)
     {
         ArgumentNullException.ThrowIfNull(path);
-        return new BuildReportSourceEntry(null, path);
+        return new BuildReportSourceEntry(
+            null,
+            BuildRunnerOutputPathAdapter.ToRootRelativePath(path));
     }
 }

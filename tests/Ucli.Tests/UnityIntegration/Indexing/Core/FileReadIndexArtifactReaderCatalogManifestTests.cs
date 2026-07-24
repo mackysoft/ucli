@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Infrastructure.Storage;
 
 namespace MackySoft.Ucli.Tests.Index;
@@ -11,9 +12,9 @@ public sealed class FileReadIndexArtifactReaderCatalogManifestTests
         using var scope = TestDirectories.CreateTempScope("index-catalog-reader", "inputs-incomplete-contract");
         var reader = FileReadIndexArtifactReaderTestSupport.CreateReader();
         var fingerprint = ProjectFingerprintTestFactory.Create("fingerprint");
-        var generationId = FileReadIndexArtifactReaderTestSupport.EnsureCurrentGeneration(scope.FullPath, fingerprint);
+        var generationId = FileReadIndexArtifactReaderTestSupport.EnsureCurrentGeneration(AbsolutePath.Parse(scope.FullPath), fingerprint);
         var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, fingerprint);
-        var manifestPath = UcliStoragePathResolver.ResolveIndexInputsManifestPath(scope.FullPath, fingerprint, generationId);
+        var manifestPath = UcliStoragePathResolver.ResolveIndexInputsManifestPath(AbsolutePath.Parse(scope.FullPath), fingerprint, generationId);
         FileReadIndexArtifactReaderTestSupport.WriteText(
             manifestPath,
             """

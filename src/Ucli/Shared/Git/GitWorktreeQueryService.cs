@@ -1,8 +1,8 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Application.Shared.Git;
 using MackySoft.Ucli.Contracts.Text;
-using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Infrastructure.Storage;
 
 namespace MackySoft.Ucli.Shared.Git;
@@ -36,26 +36,17 @@ internal sealed class GitWorktreeQueryService : IGitWorktreeQueryService
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The Git worktree query result. </returns>
     public async ValueTask<GitWorktreeQueryResult> GetWorktreeInfoAsync (
-        string path,
+        AbsolutePath path,
         TimeSpan timeout,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        ArgumentException.ThrowIfNullOrWhiteSpace(path);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
 
-        try
-        {
-            if (UcliStoragePathResolver.TryResolveRepositoryRoot(path) == null)
-            {
-                return GitWorktreeQueryResult.Failure(ExecutionError.InvalidArgument(
-                    "daemon list requires the target Unity project to be inside a Git worktree."));
-            }
-        }
-        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
+        if (UcliStoragePathResolver.TryResolveRepositoryRoot(path) == null)
         {
             return GitWorktreeQueryResult.Failure(ExecutionError.InvalidArgument(
-                $"Git worktree path is invalid. {exception.Message}"));
+                "daemon list requires the target Unity project to be inside a Git worktree."));
         }
 
         var deadline = ExecutionDeadline.Start(timeout, timeProvider);
@@ -87,6 +78,11 @@ internal sealed class GitWorktreeQueryService : IGitWorktreeQueryService
         }
 
         var normalizedProjectRelativePath = NormalizeCurrentProjectRelativePath(projectRelativePathResult.Text);
+        if (!normalizedProjectRelativePath.IsSuccess)
+        {
+            return GitWorktreeQueryResult.Failure(normalizedProjectRelativePath.Error!);
+        }
+
         if (!TryGetRemainingTimeout(
                 deadline,
                 "Timed out before git worktree list could begin.",
@@ -110,7 +106,7 @@ internal sealed class GitWorktreeQueryService : IGitWorktreeQueryService
 
         return GitWorktreeQueryResult.Success(new GitWorktreeQueryOutput(
             CurrentWorktreeRoot: normalizedWorktreeRootResult.WorktreeRoot!,
-            ProjectRelativePath: normalizedProjectRelativePath,
+            ProjectRelativePath: normalizedProjectRelativePath.RelativePath!,
             Worktrees: worktreeListParseResult.Worktrees!));
     }
 
@@ -147,36 +143,38 @@ internal sealed class GitWorktreeQueryService : IGitWorktreeQueryService
                 "Git rev-parse returned an empty worktree root."));
         }
 
-        try
-        {
-            return GitWorktreeRootNormalizationResult.Success(Path.GetFullPath(worktreeRoot));
-        }
-        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
+        if (!AbsolutePath.TryParse(worktreeRoot, out var absolutePath, out var failure))
         {
             return GitWorktreeRootNormalizationResult.Failure(ExecutionError.InternalError(
-                $"Git rev-parse returned an invalid worktree root path. {exception.Message}"));
+                $"Git rev-parse returned an invalid worktree root path. {failure.Message}"));
         }
+
+        return GitWorktreeRootNormalizationResult.Success(absolutePath);
     }
 
     /// <summary> Normalizes current-project-relative-path text. </summary>
     /// <param name="text"> The current-project-relative-path text returned from Git. </param>
     /// <returns> The normalized project-relative path. </returns>
-    private static string NormalizeCurrentProjectRelativePath (string? text)
+    private static GitProjectRelativePathNormalizationResult NormalizeCurrentProjectRelativePath (string? text)
     {
         if (!StringValueNormalizer.TryTrimToNonEmpty(text, out var projectRelativePath))
         {
-            return ".";
+            return GitProjectRelativePathNormalizationResult.Success(RootRelativePath.Parse("."));
         }
 
-        projectRelativePath = PathStringNormalizer.TrimTrailingDirectorySeparators(
-            PathStringNormalizer.ReplaceAltSeparatorWithPlatformSeparator(projectRelativePath));
-        return projectRelativePath.Length == 0 ? "." : projectRelativePath;
+        if (!RootRelativePath.TryParse(projectRelativePath, out var relativePath, out var failure))
+        {
+            return GitProjectRelativePathNormalizationResult.Failure(ExecutionError.InternalError(
+                $"Git rev-parse returned an invalid project-relative path. {failure.Message}"));
+        }
+
+        return GitProjectRelativePathNormalizationResult.Success(relativePath);
     }
 
     /// <summary> Represents the result of normalizing current-worktree-root text. </summary>
     private sealed class GitWorktreeRootNormalizationResult
     {
-        private GitWorktreeRootNormalizationResult (string worktreeRoot)
+        private GitWorktreeRootNormalizationResult (AbsolutePath worktreeRoot)
         {
             WorktreeRoot = worktreeRoot;
         }
@@ -190,7 +188,7 @@ internal sealed class GitWorktreeQueryService : IGitWorktreeQueryService
         public bool IsSuccess => WorktreeRoot is not null;
 
         /// <summary> Gets the normalized current worktree root on success; otherwise <see langword="null" />. </summary>
-        public string? WorktreeRoot { get; }
+        public AbsolutePath? WorktreeRoot { get; }
 
         /// <summary> Gets the structured error on failure; otherwise <see langword="null" />. </summary>
         public ExecutionError? Error { get; }
@@ -198,9 +196,9 @@ internal sealed class GitWorktreeQueryService : IGitWorktreeQueryService
         /// <summary> Creates a successful current-worktree-root normalization result. </summary>
         /// <param name="worktreeRoot"> The normalized current worktree root. </param>
         /// <returns> The successful result. </returns>
-        public static GitWorktreeRootNormalizationResult Success (string worktreeRoot)
+        public static GitWorktreeRootNormalizationResult Success (AbsolutePath worktreeRoot)
         {
-            ArgumentException.ThrowIfNullOrWhiteSpace(worktreeRoot);
+            ArgumentNullException.ThrowIfNull(worktreeRoot);
             return new GitWorktreeRootNormalizationResult(worktreeRoot);
         }
 
@@ -211,6 +209,38 @@ internal sealed class GitWorktreeQueryService : IGitWorktreeQueryService
         {
             ArgumentNullException.ThrowIfNull(error);
             return new GitWorktreeRootNormalizationResult(error);
+        }
+    }
+
+    /// <summary> Represents guarded normalization of Git project-relative path output. </summary>
+    private sealed class GitProjectRelativePathNormalizationResult
+    {
+        private GitProjectRelativePathNormalizationResult (RootRelativePath relativePath)
+        {
+            RelativePath = relativePath;
+        }
+
+        private GitProjectRelativePathNormalizationResult (ExecutionError error)
+        {
+            Error = error;
+        }
+
+        public bool IsSuccess => RelativePath is not null;
+
+        public RootRelativePath? RelativePath { get; }
+
+        public ExecutionError? Error { get; }
+
+        public static GitProjectRelativePathNormalizationResult Success (RootRelativePath relativePath)
+        {
+            ArgumentNullException.ThrowIfNull(relativePath);
+            return new GitProjectRelativePathNormalizationResult(relativePath);
+        }
+
+        public static GitProjectRelativePathNormalizationResult Failure (ExecutionError error)
+        {
+            ArgumentNullException.ThrowIfNull(error);
+            return new GitProjectRelativePathNormalizationResult(error);
         }
     }
 }

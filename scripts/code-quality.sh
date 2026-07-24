@@ -126,7 +126,7 @@ diagnostics=(
 
 run_restore() {
   if [ "$restore" = true ]; then
-    dotnet restore "$solution"
+    dotnet_restore_with_local_packages "$solution"
   fi
 }
 

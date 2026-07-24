@@ -1,8 +1,9 @@
 using System.Text;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Contracts.Cryptography;
-using MackySoft.Ucli.Infrastructure.Paths;
+using MackySoft.Ucli.Infrastructure.Cryptography;
 using MackySoft.Ucli.Infrastructure.Storage;
 
 namespace MackySoft.Ucli.Shared.Execution.Lifecycle;
@@ -22,9 +23,9 @@ internal sealed class FileSystemProjectLifecycleLockProvider : IProjectLifecycle
 
     private const int PosixNoLocksAvailableHResult = 35;
 
-    private readonly string lockStorageBoundaryRoot;
+    private readonly AbsolutePath lockStorageBoundaryRoot;
 
-    private readonly string lockStorageRoot;
+    private readonly AbsolutePath lockStorageRoot;
 
     private readonly TimeProvider timeProvider;
 
@@ -33,9 +34,9 @@ internal sealed class FileSystemProjectLifecycleLockProvider : IProjectLifecycle
     /// <param name="lockStorageRoot"> The optional root used to store lock files. Intended for tests. </param>
     public FileSystemProjectLifecycleLockProvider (
         TimeProvider timeProvider,
-        string? lockStorageRoot = null)
+        AbsolutePath? lockStorageRoot = null)
     {
-        if (string.IsNullOrWhiteSpace(lockStorageRoot))
+        if (lockStorageRoot is null)
         {
             var defaultStoragePaths = ResolveDefaultLockStoragePaths();
             this.lockStorageBoundaryRoot = defaultStoragePaths.BoundaryRoot;
@@ -43,8 +44,8 @@ internal sealed class FileSystemProjectLifecycleLockProvider : IProjectLifecycle
         }
         else
         {
-            this.lockStorageRoot = NormalizePathArgument(lockStorageRoot, nameof(lockStorageRoot));
-            this.lockStorageBoundaryRoot = this.lockStorageRoot;
+            this.lockStorageRoot = lockStorageRoot;
+            this.lockStorageBoundaryRoot = lockStorageRoot;
         }
 
         this.timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
@@ -56,7 +57,6 @@ internal sealed class FileSystemProjectLifecycleLockProvider : IProjectLifecycle
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The async-disposable lock handle that must be disposed to release lock. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="request" /> is <see langword="null" />. </exception>
-    /// <exception cref="ArgumentException"> Thrown when the project root is empty or has an invalid path format. </exception>
     /// <exception cref="DirectoryNotFoundException"> Thrown when the project root no longer exists. </exception>
     /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="timeout" /> is less than or equal to <see cref="TimeSpan.Zero" />. </exception>
     /// <exception cref="TimeoutException"> Thrown when lock acquisition exceeds <paramref name="timeout" />. </exception>
@@ -69,10 +69,10 @@ internal sealed class FileSystemProjectLifecycleLockProvider : IProjectLifecycle
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
 
         var lockFilePath = ResolveLockFilePath(request.UnityProjectRoot);
-        var lockDirectoryPath = Path.GetDirectoryName(lockFilePath);
-        if (!string.IsNullOrWhiteSpace(lockDirectoryPath))
+        if (lockFilePath.TryGetParent(out var lockDirectoryPath))
         {
-            FileSystemAccessBoundary.EnsureSecureDirectoryChain(lockStorageBoundaryRoot, lockDirectoryPath);
+            FileSystemAccessBoundary.EnsureSecureDirectoryChain(
+                ContainedPath.Create(lockStorageBoundaryRoot, lockDirectoryPath));
         }
 
         var deadline = ExecutionDeadline.Start(timeout, timeProvider);
@@ -82,7 +82,7 @@ internal sealed class FileSystemProjectLifecycleLockProvider : IProjectLifecycle
             try
             {
                 var stream = new FileStream(
-                    lockFilePath,
+                    lockFilePath.Value,
                     FileMode.OpenOrCreate,
                     FileAccess.ReadWrite,
                     FileShare.None);
@@ -110,37 +110,33 @@ internal sealed class FileSystemProjectLifecycleLockProvider : IProjectLifecycle
         }
     }
 
-    private string ResolveLockFilePath (string unityProjectRoot)
+    private AbsolutePath ResolveLockFilePath (AbsolutePath unityProjectRoot)
     {
         var physicalProjectRoot = ResolvePhysicalProjectRoot(unityProjectRoot);
-        var lockKey = Sha256LowerHex.Compute(Encoding.UTF8.GetBytes(physicalProjectRoot));
-        return Path.Combine(lockStorageRoot, lockKey, LockFileName);
+        var identityText = DeterministicPathText.ForIdentity(physicalProjectRoot);
+        var lockKey = Sha256LowerHex.Compute(Encoding.UTF8.GetBytes(identityText));
+        return ContainedPath.Create(
+            lockStorageRoot,
+            RootRelativePath.Parse($"{lockKey}/{LockFileName}")).Target;
     }
 
-    private static string ResolvePhysicalProjectRoot (string unityProjectRoot)
+    private static AbsolutePath ResolvePhysicalProjectRoot (AbsolutePath unityProjectRoot)
     {
-        if (string.IsNullOrWhiteSpace(unityProjectRoot))
+        if (!Directory.Exists(unityProjectRoot.Value))
         {
-            throw new ArgumentException("Unity project root must not be empty.", nameof(unityProjectRoot));
+            throw new DirectoryNotFoundException($"Unity project root was not found: {unityProjectRoot.Value}");
         }
 
-        var normalizedProjectRoot = NormalizePathArgument(unityProjectRoot, nameof(unityProjectRoot));
-        if (!Directory.Exists(normalizedProjectRoot))
-        {
-            throw new DirectoryNotFoundException($"Unity project root was not found: {normalizedProjectRoot}");
-        }
-
-        var resolvedPath = ResolveSymbolicLinksUntilStable(normalizedProjectRoot);
-        return PathStringNormalizer.NormalizeAbsolutePathForStableIdentity(resolvedPath);
+        return ResolveSymbolicLinksUntilStable(unityProjectRoot);
     }
 
-    private static string ResolveSymbolicLinksUntilStable (string fullPath)
+    private static AbsolutePath ResolveSymbolicLinksUntilStable (AbsolutePath fullPath)
     {
         var currentPath = fullPath;
         for (var i = 0; i < 8; i++)
         {
             var resolvedPath = ResolveSymbolicLinks(currentPath);
-            if (PathIdentity.IsSamePath(resolvedPath, currentPath))
+            if (resolvedPath == currentPath)
             {
                 return resolvedPath;
             }
@@ -151,66 +147,71 @@ internal sealed class FileSystemProjectLifecycleLockProvider : IProjectLifecycle
         return currentPath;
     }
 
-    private static string ResolveSymbolicLinks (string fullPath)
+    private static AbsolutePath ResolveSymbolicLinks (AbsolutePath fullPath)
     {
-        var root = Path.GetPathRoot(fullPath);
-        if (string.IsNullOrEmpty(root))
-        {
-            return fullPath;
-        }
-
-        var relativePath = fullPath[root.Length..];
-        if (string.IsNullOrWhiteSpace(relativePath))
+        var root = fullPath.GetRoot();
+        if (root.IsSameAs(fullPath))
         {
             return root;
         }
 
-        var pathSegments = relativePath.Split(
-            [Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar],
-            StringSplitOptions.RemoveEmptyEntries);
-        var currentPath = root;
-
-        for (var i = 0; i < pathSegments.Length; i++)
+        var pathSegments = new Stack<RootRelativePath>();
+        var lexicalPath = fullPath;
+        while (lexicalPath.TryGetParent(out var lexicalParent))
         {
-            var candidatePath = ResolveExistingPathSegment(currentPath, pathSegments[i]);
+            pathSegments.Push(
+                ContainedPath.Create(lexicalParent, lexicalPath).RelativePath);
+            lexicalPath = lexicalParent;
+        }
+
+        var currentPath = root;
+        while (pathSegments.TryPop(out var pathSegment))
+        {
+            var candidatePath = ResolveExistingPathSegment(currentPath, pathSegment);
             currentPath = ResolveSymbolicLinkTarget(candidatePath);
         }
 
         return currentPath;
     }
 
-    private static string ResolveExistingPathSegment (
-        string parentPath,
-        string pathSegment)
+    private static AbsolutePath ResolveExistingPathSegment (
+        AbsolutePath parentPath,
+        RootRelativePath pathSegment)
     {
-        string? ignoreCaseMatch = null;
-        foreach (var entryPath in Directory.EnumerateFileSystemEntries(parentPath))
+        AbsolutePath? ignoreCaseMatch = null;
+        foreach (var entryPathValue in Directory.EnumerateFileSystemEntries(parentPath.Value))
         {
-            var entryName = Path.GetFileName(entryPath);
-            if (string.Equals(entryName, pathSegment, StringComparison.Ordinal))
+            var entryPath = AbsolutePath.Parse(entryPathValue);
+            var entryName = ContainedPath.Create(parentPath, entryPath).RelativePath;
+            if (string.Equals(entryName.Value, pathSegment.Value, StringComparison.Ordinal))
             {
                 return entryPath;
             }
 
-            if (ignoreCaseMatch == null && string.Equals(entryName, pathSegment, StringComparison.OrdinalIgnoreCase))
+            if (ignoreCaseMatch == null
+                && string.Equals(
+                    entryName.Value,
+                    pathSegment.Value,
+                    StringComparison.OrdinalIgnoreCase))
             {
                 ignoreCaseMatch = entryPath;
             }
         }
 
-        return ignoreCaseMatch ?? Path.Combine(parentPath, pathSegment);
+        return ignoreCaseMatch
+            ?? ContainedPath.Create(parentPath, pathSegment).Target;
     }
 
-    private static string ResolveSymbolicLinkTarget (string path)
+    private static AbsolutePath ResolveSymbolicLinkTarget (AbsolutePath path)
     {
         FileSystemInfo fileSystemInfo;
-        if (Directory.Exists(path))
+        if (Directory.Exists(path.Value))
         {
-            fileSystemInfo = new DirectoryInfo(path);
+            fileSystemInfo = new DirectoryInfo(path.Value);
         }
-        else if (File.Exists(path))
+        else if (File.Exists(path.Value))
         {
-            fileSystemInfo = new FileInfo(path);
+            fileSystemInfo = new FileInfo(path.Value);
         }
         else
         {
@@ -225,39 +226,24 @@ internal sealed class FileSystemProjectLifecycleLockProvider : IProjectLifecycle
         var finalTarget = fileSystemInfo.ResolveLinkTarget(returnFinalTarget: true);
         return finalTarget == null
             ? path
-            : Path.GetFullPath(finalTarget.FullName);
+            : AbsolutePath.Parse(finalTarget.FullName);
     }
 
-    private static (string BoundaryRoot, string StorageRoot) ResolveDefaultLockStoragePaths ()
+    private static (AbsolutePath BoundaryRoot, AbsolutePath StorageRoot) ResolveDefaultLockStoragePaths ()
     {
         var localApplicationDataPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        if (string.IsNullOrWhiteSpace(localApplicationDataPath))
+        if (!AbsolutePath.TryParse(localApplicationDataPath, out var localApplicationDataRoot, out _))
         {
             throw new InvalidOperationException("OS local application data path could not be resolved.");
         }
 
-        var boundaryRoot = Path.Combine(
-            NormalizePathArgument(localApplicationDataPath, nameof(localApplicationDataPath)),
-            "MackySoft");
-        var storageRoot = Path.Combine(
+        var boundaryRoot = ContainedPath.Create(
+            localApplicationDataRoot,
+            RootRelativePath.Parse("MackySoft")).Target;
+        var storageRoot = ContainedPath.Create(
             boundaryRoot,
-            "ucli",
-            "lifecycle-locks",
-            "unity-projects");
+            RootRelativePath.Parse("ucli/lifecycle-locks/unity-projects")).Target;
         return (boundaryRoot, storageRoot);
-    }
-
-    private static string NormalizePathArgument (
-        string pathValue,
-        string parameterName)
-    {
-        var pathResult = PathNormalizer.TryNormalizeFullPath(pathValue);
-        if (!pathResult.IsSuccess)
-        {
-            throw new ArgumentException(pathResult.DiagnosticMessage, parameterName);
-        }
-
-        return pathResult.FullPath!;
     }
 
     private static bool IsLockContentionException (IOException exception)

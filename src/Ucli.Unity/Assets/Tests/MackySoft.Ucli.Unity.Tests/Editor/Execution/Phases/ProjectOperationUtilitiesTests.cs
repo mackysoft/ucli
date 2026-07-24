@@ -1,5 +1,8 @@
+using System;
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
 using System.Text.Json;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Unity.Execution.Phases;
 using NUnit.Framework;
@@ -39,8 +42,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 },
                 new[]
                 {
-                    "ProjectSettings/TagManager.asset",
-                    "./ProjectSettings/TagManager.asset",
+                    RootRelativePath.Parse("ProjectSettings/TagManager.asset"),
                 });
 
             Assert.That(touched.Count, Is.EqualTo(4));
@@ -58,15 +60,15 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public void GetChangedProjectSettingsPaths_WhenSnapshotsDiffer_ReturnsStableUnion ()
         {
-            var before = new Dictionary<string, ProjectOperationFileSnapshot>(System.StringComparer.Ordinal)
+            var before = new Dictionary<RootRelativePath, ProjectOperationFileSnapshot>
             {
-                ["ProjectSettings/A.asset"] = new ProjectOperationFileSnapshot(10, 100),
-                ["ProjectSettings/B.asset"] = new ProjectOperationFileSnapshot(20, 200),
+                [RootRelativePath.Parse("ProjectSettings/A.asset")] = new ProjectOperationFileSnapshot(10, 100),
+                [RootRelativePath.Parse("ProjectSettings/B.asset")] = new ProjectOperationFileSnapshot(20, 200),
             };
-            var after = new Dictionary<string, ProjectOperationFileSnapshot>(System.StringComparer.Ordinal)
+            var after = new Dictionary<RootRelativePath, ProjectOperationFileSnapshot>
             {
-                ["ProjectSettings/B.asset"] = new ProjectOperationFileSnapshot(21, 201),
-                ["ProjectSettings/C.asset"] = new ProjectOperationFileSnapshot(30, 300),
+                [RootRelativePath.Parse("ProjectSettings/B.asset")] = new ProjectOperationFileSnapshot(21, 201),
+                [RootRelativePath.Parse("ProjectSettings/C.asset")] = new ProjectOperationFileSnapshot(30, 300),
             };
 
             var changedPaths = ProjectOperationUtilities.GetChangedProjectSettingsPaths(before, after);
@@ -74,11 +76,32 @@ namespace MackySoft.Ucli.Unity.Tests
             CollectionAssert.AreEqual(
                 new[]
                 {
-                    "ProjectSettings/A.asset",
-                    "ProjectSettings/B.asset",
-                    "ProjectSettings/C.asset",
+                    RootRelativePath.Parse("ProjectSettings/A.asset"),
+                    RootRelativePath.Parse("ProjectSettings/B.asset"),
+                    RootRelativePath.Parse("ProjectSettings/C.asset"),
                 },
                 changedPaths);
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void CreateTouchedResources_OnUnixWithLiteralBackslashProjectSettingsPath_FailsClosed ()
+        {
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                return;
+            }
+
+            var path = RootRelativePath.Parse(@"ProjectSettings/Foo\Bar.asset");
+
+            var exception = Assert.Throws<InvalidOperationException>(() =>
+                ProjectOperationUtilities.CreateTouchedResources(
+                    System.Array.Empty<string>(),
+                    new[] { path }));
+
+            Assert.That(
+                exception!.Message,
+                Does.Contain("cannot be represented by the portable operation contract"));
         }
     }
 }

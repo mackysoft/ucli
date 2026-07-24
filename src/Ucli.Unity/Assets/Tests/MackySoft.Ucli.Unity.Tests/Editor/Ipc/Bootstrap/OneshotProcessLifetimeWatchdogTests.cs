@@ -1,6 +1,8 @@
 using System;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Execution;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -12,7 +14,8 @@ namespace MackySoft.Ucli.Unity.Tests
 {
     public sealed class OneshotProcessLifetimeWatchdogTests
     {
-        private const string StorageRoot = "watchdog-storage-root";
+        private static readonly AbsolutePath StorageRoot = AbsolutePath.Parse(
+            Path.Combine(Path.GetTempPath(), "watchdog-storage-root"));
 
         private static readonly DateTimeOffset ObservedUtc =
             new DateTimeOffset(2026, 7, 14, 0, 0, 0, TimeSpan.Zero);
@@ -432,7 +435,7 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var expectedEnvelope = CreateBootstrapEnvelope(ObservedUtc);
             var exitObserved = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-            string observedStorageRoot = null;
+            AbsolutePath observedStorageRoot = null;
             IpcOneshotBootstrapEnvelope observedEnvelope = null;
             var sequence = 0;
             var cleanupSequence = 0;

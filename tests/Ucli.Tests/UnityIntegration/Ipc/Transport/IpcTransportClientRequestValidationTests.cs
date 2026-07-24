@@ -1,4 +1,6 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 
 namespace MackySoft.Ucli.Tests.Ipc;
@@ -21,9 +23,7 @@ public sealed class IpcTransportClientRequestValidationTests
     [InlineData(-1)]
     public async Task SendAsync_WithNonPositiveTimeout_ThrowsArgumentOutOfRangeException (int timeoutMilliseconds)
     {
-        var endpoint = new IpcEndpoint(
-            IpcTransportKind.NamedPipe,
-            "ucli-invalid-timeout");
+        var endpoint = IpcTransportEndpoint.FromNamedPipeAddress("ucli-invalid-timeout");
         var client = IpcTransportClientTestSupport.CreateClient(TimeProvider.System);
         var timeout = TimeSpan.FromMilliseconds(timeoutMilliseconds);
 
@@ -35,6 +35,19 @@ public sealed class IpcTransportClientRequestValidationTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void RuntimeAdapter_WithRelativeUnixSocketWireAddress_RejectsBeforeConnection ()
+    {
+        var endpoint = new IpcEndpoint(
+            IpcTransportKind.UnixDomainSocket,
+            "relative.sock");
+        var exception = Assert.Throws<PathValidationException>(() =>
+            IpcTransportEndpoint.FromContract(endpoint));
+
+        Assert.Equal(PathValidationFailureKind.ExpectedAbsolutePath, exception.Failure.Kind);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task SendAsync_WithStreamResponseMode_ThrowsInvalidOperationException ()
     {
         var client = IpcTransportClientTestSupport.CreateClient(TimeProvider.System);
@@ -42,7 +55,7 @@ public sealed class IpcTransportClientRequestValidationTests
         await Assert.ThrowsAsync<InvalidOperationException>(async () =>
         {
             await client.SendAsync(
-                    new IpcEndpoint(IpcTransportKind.NamedPipe, $"ucli-stream-mode-{Guid.NewGuid():N}"),
+                    IpcTransportEndpoint.FromNamedPipeAddress($"ucli-stream-mode-{Guid.NewGuid():N}"),
                     IpcTransportTestHarness.CreateStreamingRequest(),
                     IpcTransportClientTestSupport.DefaultTimeout)
                 .AsTask();
@@ -58,7 +71,7 @@ public sealed class IpcTransportClientRequestValidationTests
         await Assert.ThrowsAsync<InvalidOperationException>(async () =>
         {
             await client.SendStreamingAsync(
-                    new IpcEndpoint(IpcTransportKind.NamedPipe, $"ucli-single-mode-{Guid.NewGuid():N}"),
+                    IpcTransportEndpoint.FromNamedPipeAddress($"ucli-single-mode-{Guid.NewGuid():N}"),
                     IpcTransportTestHarness.CreateSingleRequest(),
                     IpcTransportClientTestSupport.DefaultTimeout,
                     (_, _) => ValueTask.CompletedTask)

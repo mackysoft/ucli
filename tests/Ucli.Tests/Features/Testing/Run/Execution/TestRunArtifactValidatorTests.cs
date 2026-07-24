@@ -9,30 +9,6 @@ public sealed class TestRunArtifactValidatorTests
     ];
 
     [Fact]
-    [Trait("Size", "Small")]
-    public void TryValidateOutputPaths_WhenPathsAreAbsolute_ReturnsTrue ()
-    {
-        var artifactPaths = TestArtifactPaths.Create(Path.GetFullPath(Path.Combine("artifacts-validator", "run")));
-
-        var success = TestRunArtifactValidator.TryValidateOutputPaths(artifactPaths, out var errorMessage);
-
-        Assert.True(success);
-        Assert.Null(errorMessage);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void TryValidateOutputPaths_WhenPathsAreRelative_ReturnsFalse ()
-    {
-        var artifactPaths = TestArtifactPaths.Create("run");
-
-        var success = TestRunArtifactValidator.TryValidateOutputPaths(artifactPaths, out var errorMessage);
-
-        Assert.False(success);
-        Assert.Contains("path must be absolute", errorMessage, StringComparison.Ordinal);
-    }
-
-    [Fact]
     [Trait("Size", "Medium")]
     public void TryValidateGeneratedFiles_WhenResultsAndEditorLogExist_ReturnsTrue ()
     {

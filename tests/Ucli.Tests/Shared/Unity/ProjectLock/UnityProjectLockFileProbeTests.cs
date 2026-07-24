@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Shared.Unity.ProjectLock;
 
 namespace MackySoft.Ucli.Tests;
@@ -12,11 +13,11 @@ public sealed class UnityProjectLockFileProbeTests
         var projectPath = scope.CreateDirectory("UnityProject");
         var probe = new UnityProjectLockFileProbe();
 
-        var result = probe.Probe(projectPath);
+        var result = probe.Probe(AbsolutePath.Parse(projectPath));
 
         Assert.True(result.IsSuccess);
         Assert.False(result.IsLocked);
-        Assert.EndsWith(Path.Combine("Temp", "UnityLockfile"), result.LockFilePath, StringComparison.Ordinal);
+        Assert.EndsWith(Path.Combine("Temp", "UnityLockfile"), result.LockFilePath!.Value, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -28,11 +29,11 @@ public sealed class UnityProjectLockFileProbeTests
         var lockFilePath = scope.WriteFile(Path.Combine("UnityProject", "Temp", "UnityLockfile"), string.Empty);
         var probe = new UnityProjectLockFileProbe();
 
-        var result = probe.Probe(projectPath);
+        var result = probe.Probe(AbsolutePath.Parse(projectPath));
 
         Assert.True(result.IsSuccess);
         Assert.True(result.IsLocked);
-        Assert.Equal(lockFilePath, result.LockFilePath);
+        Assert.Equal(AbsolutePath.Parse(lockFilePath), result.LockFilePath);
     }
 
     [Fact]
@@ -44,23 +45,21 @@ public sealed class UnityProjectLockFileProbeTests
         var lockFilePath = scope.CreateDirectory(Path.Combine("UnityProject", "Temp", "UnityLockfile"));
         var probe = new UnityProjectLockFileProbe();
 
-        var result = probe.Probe(projectPath);
+        var result = probe.Probe(AbsolutePath.Parse(projectPath));
 
         Assert.True(result.IsSuccess);
         Assert.True(result.IsLocked);
-        Assert.Equal(lockFilePath, result.LockFilePath);
+        Assert.Equal(AbsolutePath.Parse(lockFilePath), result.LockFilePath);
     }
 
     [Fact]
     [Trait("Size", "Medium")]
-    public void Probe_WhenUnityProjectRootPathIsInvalid_ReturnsFailure ()
+    public void Probe_WhenUnityProjectRootIsNull_ThrowsArgumentNullException ()
     {
         var probe = new UnityProjectLockFileProbe();
 
-        var result = probe.Probe("invalid\0project");
+        var exception = Assert.Throws<ArgumentNullException>(() => probe.Probe(null!));
 
-        Assert.False(result.IsSuccess);
-        Assert.False(result.IsLocked);
-        Assert.Contains("invalid", result.ErrorMessage, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal("unityProjectRoot", exception.ParamName);
     }
 }

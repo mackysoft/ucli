@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Assurance;
 using MackySoft.Ucli.Contracts.Cryptography;
@@ -249,7 +250,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return CreateCompileSuccessResponse(request, completedSummary);
             }
 
-            if (!File.Exists(paths.RequestJsonPath))
+            if (!File.Exists(paths.RequestJsonPath.Value))
             {
                 WriteJsonAtomically(paths.RequestJsonPath, pendingSummary);
             }
@@ -333,12 +334,12 @@ namespace MackySoft.Ucli.Unity.Ipc
         }
 
         private static bool TryReadPendingSummary (
-            string requestPath,
+            AbsolutePath requestPath,
             IDaemonLogger daemonLogger,
             out IpcCompileSummary pendingSummary)
         {
             pendingSummary = null;
-            if (!File.Exists(requestPath) && !Directory.Exists(requestPath))
+            if (!File.Exists(requestPath.Value) && !Directory.Exists(requestPath.Value))
             {
                 return false;
             }
@@ -363,12 +364,12 @@ namespace MackySoft.Ucli.Unity.Ipc
         }
 
         private static string ReadAllTextBounded (
-            string path,
+            AbsolutePath path,
             long maxBytes,
             string artifactDescription)
         {
             EnsureReadableArtifactPath(path, maxBytes, artifactDescription);
-            using (var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read))
+            using (var stream = new FileStream(path.Value, FileMode.Open, FileAccess.Read, FileShare.Read))
             using (var memoryStream = new MemoryStream())
             {
                 if (stream.Length > maxBytes)
@@ -400,16 +401,16 @@ namespace MackySoft.Ucli.Unity.Ipc
         }
 
         private static void EnsureReadableArtifactPath (
-            string path,
+            AbsolutePath path,
             long maxBytes,
             string artifactDescription)
         {
-            if (!File.Exists(path) && !Directory.Exists(path))
+            if (!File.Exists(path.Value) && !Directory.Exists(path.Value))
             {
-                throw new FileNotFoundException($"{artifactDescription} was not found: {path}", path);
+                throw new FileNotFoundException($"{artifactDescription} was not found: {path}", path.Value);
             }
 
-            var attributes = File.GetAttributes(path);
+            var attributes = File.GetAttributes(path.Value);
             if ((attributes & FileAttributes.ReparsePoint) != 0)
             {
                 throw new IOException($"{artifactDescription} source must not be a reparse point: {path}");
@@ -420,7 +421,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 throw new IOException($"{artifactDescription} source must not be a directory: {path}");
             }
 
-            var fileInfo = new FileInfo(path);
+            var fileInfo = new FileInfo(path.Value);
             if (fileInfo.Length > maxBytes)
             {
                 throw new IOException($"{artifactDescription} exceeded {maxBytes} bytes: {path}");
@@ -665,7 +666,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         }
 
         private static void WriteDiagnostics (
-            string path,
+            AbsolutePath path,
             IpcCompileSummary summary)
         {
             WriteJsonAtomically(path, new
@@ -678,11 +679,10 @@ namespace MackySoft.Ucli.Unity.Ipc
         }
 
         private static void WriteJsonAtomically<T> (
-            string path,
+            AbsolutePath path,
             T value)
         {
-            var directoryPath = Path.GetDirectoryName(path);
-            if (string.IsNullOrWhiteSpace(directoryPath))
+            if (!path.TryGetParent(out var directoryPath))
             {
                 throw new InvalidOperationException($"Artifact directory path could not be resolved: {path}");
             }
@@ -1025,10 +1025,10 @@ namespace MackySoft.Ucli.Unity.Ipc
         }
 
         private sealed record CompileArtifactPaths (
-            string ArtifactsDir,
-            string RequestJsonPath,
-            string SummaryJsonPath,
-            string DiagnosticsJsonPath)
+            AbsolutePath ArtifactsDir,
+            AbsolutePath RequestJsonPath,
+            AbsolutePath SummaryJsonPath,
+            AbsolutePath DiagnosticsJsonPath)
         {
             public static CompileArtifactPaths Resolve (
                 ProjectFingerprint projectFingerprint,
@@ -1040,14 +1040,21 @@ namespace MackySoft.Ucli.Unity.Ipc
                     runId);
                 return new CompileArtifactPaths(
                     ArtifactsDir: artifactsDir,
-                    RequestJsonPath: Path.Combine(artifactsDir, UcliStoragePathNames.CompileRequestFileName),
-                    SummaryJsonPath: Path.Combine(artifactsDir, UcliStoragePathNames.CompileSummaryFileName),
-                    DiagnosticsJsonPath: Path.Combine(artifactsDir, UcliStoragePathNames.CompileDiagnosticsFileName));
+                    RequestJsonPath: ContainedPath.Create(
+                        artifactsDir,
+                        RootRelativePath.Parse(UcliStoragePathNames.CompileRequestFileName)).Target,
+                    SummaryJsonPath: ContainedPath.Create(
+                        artifactsDir,
+                        RootRelativePath.Parse(UcliStoragePathNames.CompileSummaryFileName)).Target,
+                    DiagnosticsJsonPath: ContainedPath.Create(
+                        artifactsDir,
+                        RootRelativePath.Parse(UcliStoragePathNames.CompileDiagnosticsFileName)).Target);
             }
 
-            private static string ResolveStorageRoot ()
+            private static AbsolutePath ResolveStorageRoot ()
             {
-                return UcliStoragePathResolver.ResolveStorageRoot(UnityProjectPathResolver.ResolveProjectRootPath());
+                return UcliStoragePathResolver.ResolveStorageRoot(
+                    UnityProjectPathResolver.ResolveProjectRootPath());
             }
         }
     }

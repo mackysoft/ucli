@@ -1,13 +1,10 @@
-using MackySoft.Ucli.Contracts.Ipc;
-
 namespace MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Scenes;
 
-/// <summary> Probes whether a scene-tree-lite source can be used without exposing filesystem details to application policy. </summary>
+/// <summary> Observes whether a guarded scene source file currently exists. </summary>
 internal interface ISceneTreeLiteSourceProbe
 {
-    /// <summary> Ensures the current project source contains the specified assets scene. </summary>
+    /// <summary> Observes the current filesystem state for the guarded scene file. </summary>
     ValueTask<SceneTreeLiteSourceProbeResult> EnsureCurrentAssetsSceneExistsAsync (
-        ResolvedUnityProjectContext project,
-        SceneAssetPath scenePath,
+        SceneTreeLiteSourcePaths sourcePaths,
         CancellationToken cancellationToken = default);
 }

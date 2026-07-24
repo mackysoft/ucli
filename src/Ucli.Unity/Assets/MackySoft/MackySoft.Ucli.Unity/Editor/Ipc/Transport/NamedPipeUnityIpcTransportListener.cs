@@ -9,6 +9,7 @@ using System.Security.Principal;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Storage;
@@ -73,21 +74,27 @@ namespace MackySoft.Ucli.Unity.Ipc
         public IpcTransportKind TransportKind => IpcTransportKind.NamedPipe;
 
         /// <summary> Runs transport-specific accept loop until cancellation is requested. </summary>
-        /// <param name="address"> The pipe name value. </param>
+        /// <param name="endpointBinding"> The guarded runtime endpoint binding for this listener generation. </param>
         /// <param name="connectionHandler"> The connection handler dependency. </param>
         /// <param name="cancellationToken"> The cancellation token for listener lifecycle. </param>
-        /// <exception cref="ArgumentException"> Thrown when <paramref name="address" /> is empty. </exception>
-        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="connectionHandler" /> is <see langword="null" />. </exception>
+        /// <exception cref="ArgumentNullException"> Thrown when a required dependency is <see langword="null" />. </exception>
+        /// <exception cref="InvalidOperationException"> Thrown when the endpoint binding does not represent a named pipe. </exception>
         public async Task RunAsync (
-            string address,
+            UnityIpcEndpointBinding endpointBinding,
             IUnityIpcConnectionHandler connectionHandler,
             Action onStarted,
             Action<UnityIpcConnectionHandleResult> onConnectionCompleted,
             CancellationToken cancellationToken)
         {
-            if (string.IsNullOrWhiteSpace(address))
+            if (endpointBinding == null)
             {
-                throw new ArgumentException("Pipe address must not be empty or whitespace.", nameof(address));
+                throw new ArgumentNullException(nameof(endpointBinding));
+            }
+
+            if (endpointBinding.Endpoint.TransportKind != IpcTransportKind.NamedPipe)
+            {
+                throw new InvalidOperationException(
+                    $"Named pipe listener cannot bind transport kind '{endpointBinding.Endpoint.TransportKind}'.");
             }
 
             if (connectionHandler == null)
@@ -123,7 +130,9 @@ namespace MackySoft.Ucli.Unity.Ipc
                 CancellationTokenRegistration cancellationRegistration = default;
                 try
                 {
-                    var ownershipLease = await AcquireEndpointOwnershipAsync(address, cancellationToken);
+                    var ownershipLease = await AcquireEndpointOwnershipAsync(
+                        endpointBinding,
+                        cancellationToken);
                     listenerGeneration = new ListenerGeneration(
                         ownershipLease,
                         connectionGroup);
@@ -143,7 +152,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                         // generation-fatal; retrying in this loop would keep StartAsync pending or leave a published
                         // generation unreachable while spinning indefinitely.
                         var serverStream = listenerGeneration.TryCreateServerStream(
-                            () => PipeServerStreamFactory.Create(address, daemonLogger));
+                            () => PipeServerStreamFactory.Create(endpointBinding, daemonLogger));
                         if (serverStream == null)
                         {
                             return;
@@ -375,10 +384,10 @@ namespace MackySoft.Ucli.Unity.Ipc
         }
 
         private static async ValueTask<FileExclusiveLock> AcquireEndpointOwnershipAsync (
-            string address,
+            UnityIpcEndpointBinding endpointBinding,
             CancellationToken cancellationToken)
         {
-            var lockPath = ResolveEndpointOwnershipLockPath(address);
+            var lockPath = ResolveEndpointOwnershipLockPath(endpointBinding);
             try
             {
                 return await FileExclusiveLock.AcquireAsync(
@@ -390,35 +399,46 @@ namespace MackySoft.Ucli.Unity.Ipc
             catch (TimeoutException exception)
             {
                 throw new TimeoutException(
-                    $"Named pipe endpoint is already owned by another listener generation. Address={address}",
+                    "Named pipe endpoint is already owned by another listener generation. " +
+                    $"Address={endpointBinding.Endpoint.Address}",
                     exception);
             }
         }
 
-        internal static string ResolveEndpointOwnershipLockPath (string address)
+        internal static AbsolutePath ResolveEndpointOwnershipLockPath (
+            UnityIpcEndpointBinding endpointBinding)
         {
-            if (string.IsNullOrWhiteSpace(address))
+            if (endpointBinding == null)
             {
-                throw new ArgumentException("Pipe address must not be empty or whitespace.", nameof(address));
+                throw new ArgumentNullException(nameof(endpointBinding));
+            }
+
+            if (endpointBinding.Endpoint.TransportKind != IpcTransportKind.NamedPipe)
+            {
+                throw new InvalidOperationException(
+                    $"Named pipe ownership cannot resolve transport kind '{endpointBinding.Endpoint.TransportKind}'.");
             }
 
             var localApplicationDataPath = Environment.GetFolderPath(
                 Environment.SpecialFolder.LocalApplicationData);
-            if (string.IsNullOrWhiteSpace(localApplicationDataPath))
+            if (!AbsolutePath.TryParse(
+                    localApplicationDataPath,
+                    out var localApplicationDataRoot,
+                    out var localApplicationDataPathFailure))
             {
                 throw new InvalidOperationException(
-                    "Current-user local application data path could not be resolved for named pipe endpoint ownership.");
+                    "Current-user local application data path could not be resolved for named pipe endpoint ownership. " +
+                    localApplicationDataPathFailure.Message);
             }
 
+            var pipeName = endpointBinding.Endpoint.Address;
             var normalizedAddress = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
-                ? address.ToUpperInvariant()
-                : address;
+                ? pipeName.ToUpperInvariant()
+                : pipeName;
             var addressHash = Sha256LowerHex.Compute(Encoding.UTF8.GetBytes(normalizedAddress));
-            return Path.Combine(
-                Path.GetFullPath(localApplicationDataPath),
-                "ucli",
-                EndpointOwnershipLockDirectoryName,
-                addressHash + ".lock");
+            var lockRelativePath = RootRelativePath.Parse(
+                $"ucli/{EndpointOwnershipLockDirectoryName}/{addressHash}.lock");
+            return ContainedPath.Create(localApplicationDataRoot, lockRelativePath).Target;
         }
 
         private sealed class ListenerGeneration
@@ -643,13 +663,14 @@ namespace MackySoft.Ucli.Unity.Ipc
         private static class PipeServerStreamFactory
         {
             public static NamedPipeServerStream Create (
-                string address,
+                UnityIpcEndpointBinding endpointBinding,
                 IDaemonLogger daemonLogger)
             {
+                var pipeName = endpointBinding.Endpoint.Address;
                 if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
                 {
                     return new NamedPipeServerStream(
-                        address,
+                        pipeName,
                         PipeDirection.InOut,
                         NamedPipeServerStream.MaxAllowedServerInstances,
                         PipeTransmissionMode.Byte,
@@ -667,7 +688,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 }
 
                 return new NamedPipeServerStream(
-                    address,
+                    pipeName,
                     PipeDirection.InOut,
                     NamedPipeServerStream.MaxAllowedServerInstances,
                     PipeTransmissionMode.Byte,

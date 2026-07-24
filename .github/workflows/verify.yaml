@@ -2,6 +2,7 @@ name: verify
 
 env:
   DOTNET_SOLUTION: Ucli.slnx
+  NUGET_PACKAGES: ${{ github.workspace }}/src/Ucli.Unity/.nuget-packages
 
 on:
   pull_request:
@@ -148,7 +149,7 @@ jobs:
       - name: Cache NuGet packages
         uses: actions/cache@v5
         with:
-          path: ~/.nuget/packages
+          path: src/Ucli.Unity/.nuget-packages
           key: ${{ runner.os }}-nuget-${{ hashFiles('Ucli.slnx', '**/*.csproj') }}
 
       - name: Restore
@@ -202,7 +203,7 @@ jobs:
       - name: Cache NuGet packages
         uses: actions/cache@v5
         with:
-          path: ~/.nuget/packages
+          path: src/Ucli.Unity/.nuget-packages
           key: ${{ runner.os }}-nuget-${{ hashFiles('Ucli.slnx', '**/*.csproj') }}
 
       - name: Setup NuGet CLI on Linux or macOS
@@ -364,11 +365,14 @@ jobs:
       - name: Cache NuGet packages
         uses: actions/cache@v5
         with:
-          path: ~/.nuget/packages
+          path: src/Ucli.Unity/.nuget-packages
           key: ${{ runner.os }}-nuget-${{ hashFiles('Ucli.slnx', '**/*.csproj') }}
 
       - name: Restore shared packages
-        run: dotnet restore src/Ucli.Infrastructure/Ucli.Infrastructure.csproj
+        run: >-
+          dotnet restore src/Ucli.Infrastructure/Ucli.Infrastructure.csproj
+          -p:Version=0.0.0-ci
+          -p:PackageVersion=0.0.0-ci
 
       - name: Build shared packages
         run: dotnet build src/Ucli.Infrastructure/Ucli.Infrastructure.csproj --configuration Release --no-restore -p:Version=0.0.0-ci -p:PackageVersion=0.0.0-ci
@@ -411,11 +415,14 @@ jobs:
       - name: Cache NuGet packages
         uses: actions/cache@v5
         with:
-          path: ~/.nuget/packages
+          path: src/Ucli.Unity/.nuget-packages
           key: ${{ runner.os }}-nuget-${{ hashFiles('Ucli.slnx', '**/*.csproj') }}
 
       - name: Restore CLI
-        run: dotnet restore src/Ucli/Ucli.csproj
+        run: >-
+          dotnet restore src/Ucli/Ucli.csproj
+          -p:Version=0.0.0-ci
+          -p:PackageVersion=0.0.0-ci
 
       - name: Verify generated skills
         run: bash scripts/verify-skills.sh
@@ -471,34 +478,8 @@ jobs:
       - name: Setup NuGet CLI
         run: ./scripts/setup-nuget-cli.sh
 
-      - name: Restore Unity shared package projects
-        run: dotnet restore src/Ucli.Infrastructure/Ucli.Infrastructure.csproj
-
-      - name: Pack Unity shared package dependencies
-        run: |
-          shared_package_version="$(
-            sed -nE \
-              's#.*<package id="MackySoft.Ucli.Contracts" version="([^"]+)".*#\1#p' \
-              src/Ucli.Unity/Assets/packages.config \
-              | head -n 1
-          )"
-          if [[ -z "${shared_package_version}" ]]; then
-            echo "Failed to read MackySoft.Ucli.Contracts version from Unity packages.config." >&2
-            exit 1
-          fi
-
-          dotnet pack src/Ucli.Contracts/Ucli.Contracts.csproj \
-            --configuration Release \
-            --no-restore \
-            -p:Version="${shared_package_version}" \
-            -p:PackageVersion="${shared_package_version}" \
-            --output artifacts/packages
-          dotnet pack src/Ucli.Infrastructure/Ucli.Infrastructure.csproj \
-            --configuration Release \
-            --no-restore \
-            -p:Version="${shared_package_version}" \
-            -p:PackageVersion="${shared_package_version}" \
-            --output artifacts/packages
+      - name: Pack Unity plugin dependency artifacts
+        run: ./scripts/update-local-shared-packages.sh --shared-package-output artifacts/packages
 
       - name: Pack Unity plugin
         run: ./scripts/pack-unity-plugin.sh --version 0.0.0-ci --output artifacts/packages
@@ -539,7 +520,7 @@ jobs:
       - name: Cache NuGet packages
         uses: actions/cache@v5
         with:
-          path: ~/.nuget/packages
+          path: src/Ucli.Unity/.nuget-packages
           key: ${{ runner.os }}-nuget-${{ hashFiles('Ucli.slnx', '**/*.csproj') }}
 
       - name: Sync release package versions
@@ -581,17 +562,14 @@ jobs:
       - name: Pack Unity plugin
         run: ./scripts/pack-unity-plugin.sh --version 0.0.1 --output artifacts/packages
 
-      - name: Verify shared packages
-        run: ./scripts/verify-shared-packages.sh artifacts/packages 0.0.1
-
-      - name: Smoke test CLI tool package
-        run: ./scripts/verify-cli-package.sh artifacts/packages 0.0.1
+      - name: Verify package dependency closures
+        run: |
+          ./scripts/verify-shared-packages.sh artifacts/packages 0.0.1
+          ./scripts/verify-unity-plugin-package.sh artifacts/packages 0.0.1
+          ./scripts/verify-cli-package.sh artifacts/packages 0.0.1
 
       - name: Verify schema artifacts
         run: ./scripts/verify-schema-artifacts.sh artifacts/packages 0.0.1
-
-      - name: Verify Unity plugin package
-        run: ./scripts/verify-unity-plugin-package.sh artifacts/packages 0.0.1
 
       - name: Verify release artifact set
         run: ./scripts/verify-release-package-artifacts.sh artifacts/packages 0.0.1

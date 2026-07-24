@@ -4,12 +4,14 @@ using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Assurance;
 using MackySoft.Ucli.Contracts.Assurance.Build;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Unity.Project;
 using UnityEditor;
 using UnityEditor.Build.Profile;
@@ -199,17 +201,26 @@ namespace MackySoft.Ucli.Unity.Build
         }
 
         private static bool TryResolveOutputLayout (
-            string outputPath,
+            AbsolutePath outputPath,
             BuildTargetStableName stableBuildTarget,
-            out IpcBuildOutputLayout? outputLayout)
+            out ResolvedBuildPipelineOutputLayout? outputLayout)
         {
             var androidAppBundle = stableBuildTarget == BuildTargetStableName.Android
                 && EditorUserBuildSettings.buildAppBundle;
-            return IpcBuildOutputLayoutResolver.TryResolve(
+            outputLayout = null;
+            if (!BuildPipelineOutputLayoutPolicy.TryResolve(
+                    stableBuildTarget,
+                    androidAppBundle,
+                    out var definition))
+            {
+                return false;
+            }
+
+            var location = ContainedPath.Create(
                 outputPath,
-                stableBuildTarget,
-                androidAppBundle,
-                out outputLayout);
+                BuildRunnerOutputPathAdapter.ToRootRelativePath(definition.RunnerOutputPath));
+            outputLayout = new ResolvedBuildPipelineOutputLayout(definition.Shape, location.Target);
+            return true;
         }
 
         private IpcUnityBuildProfileInput CreateAppliedUnityBuildProfile (
@@ -235,8 +246,8 @@ namespace MackySoft.Ucli.Unity.Build
 
         private static Sha256Digest ComputeAssetDigest (UnityBuildProfileAssetPath profilePath)
         {
-            var absolutePath = UnityAssetPathUtility.ToAbsolutePath(profilePath.Value);
-            return Sha256Digest.Compute(File.ReadAllBytes(absolutePath));
+            var absolutePath = UnityAssetPathUtility.ResolveProjectRelativePath(profilePath.Value);
+            return Sha256Digest.Compute(File.ReadAllBytes(absolutePath.Value));
         }
 
         private static IpcError CreateInvalidProfileError (string message)

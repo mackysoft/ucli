@@ -1,35 +1,36 @@
 namespace MackySoft.Ucli.Tests;
 
+using MackySoft.FileSystem;
 using MackySoft.Ucli.UnityIntegration.Resolution;
 
 public sealed class UnityEditorSearchRootBuilderTests
 {
     [Fact]
     [Trait("Size", "Small")]
-    public void Add_WhenRootPathIsNullOrWhitespace_ThrowsArgumentException ()
+    public void Add_WhenRootPathIsNull_ThrowsArgumentNullException ()
     {
-        var builder = new UnityEditorSearchRootBuilder(StringComparer.Ordinal);
+        var builder = new UnityEditorSearchRootBuilder();
 
-        Assert.ThrowsAny<ArgumentException>(() => builder.Add(null));
-        Assert.ThrowsAny<ArgumentException>(() => builder.Add(string.Empty));
-        Assert.ThrowsAny<ArgumentException>(() => builder.Add(" "));
+        Assert.Throws<ArgumentNullException>(() => builder.Add(null!));
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public void Add_WhenRootPathIsDuplicated_KeepsFirstOccurrence ()
     {
-        var builder = new UnityEditorSearchRootBuilder(StringComparer.Ordinal);
+        var builder = new UnityEditorSearchRootBuilder();
 
-        builder.Add("/Root");
-        builder.Add("/Another");
-        builder.Add("/Root");
+        var root = AbsolutePath.Parse(Path.GetFullPath("Root"));
+        var another = AbsolutePath.Parse(Path.GetFullPath("Another"));
+        builder.Add(root);
+        builder.Add(another);
+        builder.Add(root);
 
         Assert.Equal(
             new[]
             {
-                "/Root",
-                "/Another",
+                root,
+                another,
             },
             builder.ToArray());
     }

@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Threading;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Unity.Build;
 using MackySoft.Ucli.Unity.Execution.Phases;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -337,7 +338,9 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private static bool IsProjectPersistentAssetPath (string assetPath)
         {
-            return ProjectMutationAuditPath.TryParse(assetPath, out _);
+            return UnityBuildPreconditionProbe.TryResolvePersistentDirtyObjectAuditPath(
+                assetPath,
+                out _);
         }
 
         private void DisposeTrackedResources ()

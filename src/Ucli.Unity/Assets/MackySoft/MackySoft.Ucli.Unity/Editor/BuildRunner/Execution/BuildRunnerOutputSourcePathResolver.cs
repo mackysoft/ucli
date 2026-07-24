@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Paths;
 
@@ -11,26 +12,28 @@ namespace MackySoft.Ucli.Unity.Build
     {
         /// <summary> Attempts to resolve one output-directory-relative source path to a full path. </summary>
         public static bool TryResolve (
-            string outputDirectory,
+            AbsolutePath outputDirectory,
             string relativePath,
             [NotNullWhen(true)] out BuildRunnerOutputPath? outputPath,
-            out string sourcePath)
+            [NotNullWhen(true)] out AbsolutePath? sourcePath)
         {
             outputPath = null;
-            sourcePath = string.Empty;
+            sourcePath = null;
             if (!BuildRunnerOutputPath.TryParse(relativePath, out var normalizedOutputPath))
             {
                 return false;
             }
 
-            var result = RepositoryPathNormalizer.TryNormalize(outputDirectory, normalizedOutputPath.Value);
-            if (!result.IsSuccess)
+            if (outputDirectory == null)
             {
                 return false;
             }
 
+            var containedPath = ContainedPath.Create(
+                outputDirectory,
+                BuildRunnerOutputPathAdapter.ToRootRelativePath(normalizedOutputPath));
             outputPath = normalizedOutputPath;
-            sourcePath = result.FullPath!;
+            sourcePath = containedPath.Target;
             return true;
         }
     }

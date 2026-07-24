@@ -1,3 +1,5 @@
+using MackySoft.FileSystem;
+
 namespace MackySoft.Ucli.TestSupport;
 
 internal static class ProjectLifecycleLockProviderAssert
@@ -18,7 +20,7 @@ internal static class ProjectLifecycleLockProviderAssert
 
     public static StubProjectLifecycleLockProvider.Invocation AcquiredOnceFor (
         StubProjectLifecycleLockProvider lockProvider,
-        string expectedUnityProjectRoot)
+        AbsolutePath expectedUnityProjectRoot)
     {
         var invocation = Assert.Single(lockProvider.Invocations);
         Assert.Equal(expectedUnityProjectRoot, invocation.Request.UnityProjectRoot);

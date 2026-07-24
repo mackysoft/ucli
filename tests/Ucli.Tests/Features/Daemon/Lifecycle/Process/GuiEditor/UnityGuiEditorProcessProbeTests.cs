@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Tests.Helpers.Daemon;
+using MackySoft.FileSystem;
 
 namespace MackySoft.Ucli.Tests.Daemon;
 
@@ -118,8 +119,8 @@ public sealed class UnityGuiEditorProcessProbeTests
     public async Task Probe_WhenMarkerApplicationPathIsRoot_ReturnsNotUnityEditor ()
     {
         var result = await ProbeAsync(
-            CreateInspection(executablePath: "/Applications/Unity/Hub/Editor/6000.1.4f1/Unity.app/Contents/MacOS/Unity"),
-            CreateMarker("/", null));
+            CreateInspection(executablePath: UnityExecutablePath),
+            CreateMarker(Path.GetPathRoot(UnityExecutablePath), null));
 
         Assert.Equal(UnityGuiEditorProcessProbeStatus.NotUnityEditor, result.Status);
     }
@@ -129,8 +130,12 @@ public sealed class UnityGuiEditorProcessProbeTests
     public async Task Probe_WhenMarkerApplicationPathIsBroadParentDirectory_ReturnsNotUnityEditor ()
     {
         var result = await ProbeAsync(
-            CreateInspection(executablePath: "/Applications/Unity/Hub/Editor/6000.1.4f1/Unity.app/Contents/MacOS/Unity"),
-            CreateMarker("/Applications", null));
+            CreateInspection(executablePath: UnityExecutablePath),
+            CreateMarker(
+                OperatingSystem.IsWindows()
+                    ? @"C:\Program Files"
+                    : "/Applications",
+                null));
 
         Assert.Equal(UnityGuiEditorProcessProbeStatus.NotUnityEditor, result.Status);
     }
@@ -212,11 +217,14 @@ public sealed class UnityGuiEditorProcessProbeTests
         string? appContentsPath)
     {
         return new UnityEditorInstanceMarker(
-            MarkerPath: "/project/Library/EditorInstance.json",
+            MarkerPath: AbsolutePath.Parse(Path.Combine(
+                ProjectPathTestValues.WorkspaceUnityProject,
+                "Library",
+                "EditorInstance.json")),
             ProcessId: 1234,
             UpdatedAtUtc: MarkerUpdatedAtUtc,
-            AppPath: appPath,
-            AppContentsPath: appContentsPath);
+            AppPath: ParseOptionalAbsolutePath(appPath),
+            AppContentsPath: ParseOptionalAbsolutePath(appContentsPath));
     }
 
     private static UnityGuiEditorProcessInspection CreateInspection (
@@ -237,10 +245,18 @@ public sealed class UnityGuiEditorProcessProbeTests
             CommandLine: string.Equals(commandLine, DefaultInspectionCommandLine, StringComparison.Ordinal)
                 ? UnityCommandLine
                 : commandLine,
-            ExecutablePath: string.Equals(executablePath, DefaultInspectionExecutablePath, StringComparison.Ordinal)
-                ? UnityExecutablePath
-                : executablePath,
+            ExecutablePath: ParseOptionalAbsolutePath(
+                string.Equals(executablePath, DefaultInspectionExecutablePath, StringComparison.Ordinal)
+                    ? UnityExecutablePath
+                    : executablePath),
             IsOwnedByCurrentUser: isOwnedByCurrentUser);
+    }
+
+    private static AbsolutePath? ParseOptionalAbsolutePath (string? path)
+    {
+        return path is null
+            ? null
+            : AbsolutePath.Parse(path);
     }
 
 }

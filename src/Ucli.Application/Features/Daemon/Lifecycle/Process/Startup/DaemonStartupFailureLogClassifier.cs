@@ -567,12 +567,13 @@ internal static class DaemonStartupFailureLogClassifier
 
     private static bool IsUcliPluginDependencyMissingLine (string line)
     {
-        var mentionsUcliDependency = line.Contains("MackySoft.Ucli.Contracts", StringComparison.Ordinal)
+        var mentionsPluginDependency = line.Contains("MackySoft.FileSystem", StringComparison.Ordinal)
+            || line.Contains("MackySoft.Ucli.Contracts", StringComparison.Ordinal)
             || line.Contains("MackySoft.Ucli.Infrastructure", StringComparison.Ordinal)
             || (line.Contains("MackySoft.Ucli", StringComparison.Ordinal)
                 && (line.Contains("Contracts", StringComparison.Ordinal)
                     || line.Contains("Infrastructure", StringComparison.Ordinal)));
-        if (!mentionsUcliDependency)
+        if (!mentionsPluginDependency)
         {
             return false;
         }

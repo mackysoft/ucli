@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Infrastructure.Storage;
 
 namespace MackySoft.Ucli.UnityIntegration.Indexing.Core;
@@ -7,7 +8,7 @@ internal sealed class FileReadIndexGenerationPointerStore : IReadIndexGeneration
 {
     /// <inheritdoc />
     public async ValueTask<Guid?> ReadAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         ProjectFingerprint projectFingerprint,
         CancellationToken cancellationToken)
     {
@@ -32,7 +33,7 @@ internal sealed class FileReadIndexGenerationPointerStore : IReadIndexGeneration
 
     /// <inheritdoc />
     public ValueTask PublishAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         ProjectFingerprint projectFingerprint,
         Guid generationId,
         CancellationToken cancellationToken)

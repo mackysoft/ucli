@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
 using MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Assets;
 using MackySoft.Ucli.Contracts.Cryptography;
@@ -7,7 +8,6 @@ using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Json;
 using MackySoft.Ucli.Contracts.Storage;
-using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Infrastructure.Storage;
 
 namespace MackySoft.Ucli.UnityIntegration.Indexing.Core;
@@ -56,7 +56,7 @@ internal sealed class FileReadIndexArtifactWriter : IReadIndexArtifactWriter
 
     /// <inheritdoc />
     public async ValueTask WriteOpsCatalogAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         ProjectFingerprint projectFingerprint,
         DateTimeOffset generatedAtUtc,
         IReadOnlyList<ValidatedOpsOperation> operations,
@@ -64,7 +64,7 @@ internal sealed class FileReadIndexArtifactWriter : IReadIndexArtifactWriter
         ReadIndexInputHashSnapshot? manifestInputSnapshot,
         CancellationToken cancellationToken = default)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(storageRoot);
+        ArgumentNullException.ThrowIfNull(storageRoot);
         ArgumentNullException.ThrowIfNull(projectFingerprint);
         ArgumentNullException.ThrowIfNull(operations);
         ArgumentNullException.ThrowIfNull(sourceInputsHash);
@@ -84,7 +84,7 @@ internal sealed class FileReadIndexArtifactWriter : IReadIndexArtifactWriter
                 .ConfigureAwait(false);
         }
 
-        var opsCatalogPath = Path.Combine(
+        var opsCatalogPath = ResolveChild(
             generation.StagingDirectoryPath,
             UcliStoragePathNames.OpsCatalogFileName);
         var opsDescribeDirectoryPath = UcliStoragePathResolver.ResolveOpsDescribeDirectory(storageRoot, projectFingerprint);
@@ -98,7 +98,7 @@ internal sealed class FileReadIndexArtifactWriter : IReadIndexArtifactWriter
 
         var orderedOperations = IndexJsonOrderingPolicy.OrderOpsEntries(operationContracts);
         var catalogEntries = new List<IndexOpsCatalogEntryJsonContract>(orderedOperations.Count);
-        var referencedDescribePaths = new HashSet<string>(PathStringNormalizer.CurrentPlatformPathComparer);
+        var referencedDescribePaths = new HashSet<AbsolutePath>();
         for (var i = 0; i < orderedOperations.Count; i++)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -173,7 +173,7 @@ internal sealed class FileReadIndexArtifactWriter : IReadIndexArtifactWriter
 
     /// <inheritdoc />
     public async ValueTask WriteAssetLookupsAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         ProjectFingerprint projectFingerprint,
         DateTimeOffset generatedAtUtc,
         IReadOnlyList<IndexAssetSearchEntryJsonContract> assetSearchEntries,
@@ -181,7 +181,7 @@ internal sealed class FileReadIndexArtifactWriter : IReadIndexArtifactWriter
         ReadIndexInputHashSnapshot inputSnapshot,
         CancellationToken cancellationToken = default)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(storageRoot);
+        ArgumentNullException.ThrowIfNull(storageRoot);
         ArgumentNullException.ThrowIfNull(assetSearchEntries);
         ArgumentNullException.ThrowIfNull(guidPathEntries);
         ArgumentNullException.ThrowIfNull(inputSnapshot);
@@ -198,10 +198,10 @@ internal sealed class FileReadIndexArtifactWriter : IReadIndexArtifactWriter
                 cancellationToken)
             .ConfigureAwait(false);
 
-        var assetSearchLookupPath = Path.Combine(
+        var assetSearchLookupPath = ResolveChild(
             generation.StagingDirectoryPath,
             UcliStoragePathNames.AssetSearchLookupFileName);
-        var guidPathLookupPath = Path.Combine(
+        var guidPathLookupPath = ResolveChild(
             generation.StagingDirectoryPath,
             UcliStoragePathNames.GuidPathLookupFileName);
 
@@ -243,7 +243,7 @@ internal sealed class FileReadIndexArtifactWriter : IReadIndexArtifactWriter
 
     /// <inheritdoc />
     public async ValueTask WriteSceneTreeLiteAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         ProjectFingerprint projectFingerprint,
         DateTimeOffset generatedAtUtc,
         SceneAssetPath scenePath,
@@ -251,7 +251,7 @@ internal sealed class FileReadIndexArtifactWriter : IReadIndexArtifactWriter
         Sha256Digest sourceInputsHash,
         CancellationToken cancellationToken = default)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(storageRoot);
+        ArgumentNullException.ThrowIfNull(storageRoot);
         ArgumentNullException.ThrowIfNull(projectFingerprint);
         ArgumentNullException.ThrowIfNull(scenePath);
         ArgumentNullException.ThrowIfNull(roots);
@@ -264,7 +264,7 @@ internal sealed class FileReadIndexArtifactWriter : IReadIndexArtifactWriter
                 cancellationToken)
             .ConfigureAwait(false);
 
-        var lookupPath = UcliStoragePathResolver.ResolveSceneTreeLiteLookupPath(storageRoot, projectFingerprint, scenePath.Value);
+        var lookupPath = UcliStoragePathResolver.ResolveSceneTreeLiteLookupPath(storageRoot, projectFingerprint, scenePath);
         EnsureParentDirectory(lookupPath);
 
         var lookup = new IndexSceneTreeLiteLookupJsonContract(
@@ -282,17 +282,23 @@ internal sealed class FileReadIndexArtifactWriter : IReadIndexArtifactWriter
     }
 
     private static void PruneOpsDescribeArtifacts (
-        string describeDirectoryPath,
-        HashSet<string> referencedPaths)
+        AbsolutePath describeDirectoryPath,
+        HashSet<AbsolutePath> referencedPaths)
     {
         try
         {
+            if (!IsRegularDirectory(describeDirectoryPath))
+            {
+                return;
+            }
+
             var unreferencedArtifacts = Directory
-                .EnumerateFiles(describeDirectoryPath, "*.json", SearchOption.TopDirectoryOnly)
-                .Where(path => !referencedPaths.Contains(path))
-                .Where(IsOwnedOpsDescribeArtifact)
-                .Select(path => new FileInfo(path))
-                .OrderByDescending(static file => file.LastWriteTimeUtc)
+                .EnumerateFiles(describeDirectoryPath.Value, "*.json", SearchOption.TopDirectoryOnly)
+                .Select(path => TryGetOwnedOpsDescribeArtifact(describeDirectoryPath, path))
+                .Where(static artifact => artifact.HasValue)
+                .Select(static artifact => artifact!.Value)
+                .Where(artifact => !referencedPaths.Contains(artifact.Path))
+                .OrderByDescending(static artifact => artifact.LastWriteTimeUtc)
                 .Skip(MaxUnreferencedOpsDescribeArtifactCount)
                 .ToArray();
 
@@ -300,9 +306,9 @@ internal sealed class FileReadIndexArtifactWriter : IReadIndexArtifactWriter
             {
                 try
                 {
-                    if (IsOwnedOpsDescribeArtifact(artifact.FullName))
+                    if (IsOwnedOpsDescribeArtifact(artifact.Path))
                     {
-                        File.Delete(artifact.FullName);
+                        File.Delete(artifact.Path.Value);
                     }
                 }
                 catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
@@ -318,19 +324,35 @@ internal sealed class FileReadIndexArtifactWriter : IReadIndexArtifactWriter
         }
     }
 
-    private static bool IsOwnedOpsDescribeArtifact (string path)
+    private static OpsDescribeArtifact? TryGetOwnedOpsDescribeArtifact (
+        AbsolutePath describeDirectoryPath,
+        string rawPath)
+    {
+        if (!AbsolutePath.TryParse(rawPath, out var path, out _)
+            || !ContainedPath.TryCreate(describeDirectoryPath, path, out var containedPath, out _)
+            || !IsOwnedOpsDescribeArtifact(containedPath.Target))
+        {
+            return null;
+        }
+
+        return new OpsDescribeArtifact(
+            containedPath.Target,
+            new FileInfo(containedPath.Target.Value).LastWriteTimeUtc);
+    }
+
+    private static bool IsOwnedOpsDescribeArtifact (AbsolutePath path)
     {
         try
         {
             if (!string.Equals(
-                    Path.GetExtension(path),
+                    Path.GetExtension(path.Value),
                     UcliStoragePathNames.OpsDescribeFileExtension,
                     StringComparison.Ordinal))
             {
                 return false;
             }
 
-            var fileName = Path.GetFileNameWithoutExtension(path);
+            var fileName = Path.GetFileNameWithoutExtension(path.Value);
             if (!StoragePathSegmentCodec.IsEncodedSha256Digest(fileName))
             {
                 return false;
@@ -346,22 +368,29 @@ internal sealed class FileReadIndexArtifactWriter : IReadIndexArtifactWriter
     }
 
     private static bool TryAddRetainedGenerationDescribePaths (
-        string storageRoot,
+        AbsolutePath storageRoot,
         ProjectFingerprint projectFingerprint,
-        HashSet<string> referencedPaths)
+        HashSet<AbsolutePath> referencedPaths)
     {
         try
         {
             var generationRoot = UcliStoragePathResolver.ResolveReadIndexGenerationsDirectory(
                 storageRoot,
                 projectFingerprint);
-            foreach (var generationDirectoryPath in Directory.EnumerateDirectories(
-                         generationRoot,
+            foreach (var rawGenerationDirectoryPath in Directory.EnumerateDirectories(
+                         generationRoot.Value,
                          "*",
                          SearchOption.TopDirectoryOnly))
             {
+                if (!AbsolutePath.TryParse(rawGenerationDirectoryPath, out var generationDirectoryPath, out _)
+                    || !ContainedPath.TryCreate(generationRoot, generationDirectoryPath, out var containedGenerationDirectoryPath, out _)
+                    || !IsRegularDirectory(containedGenerationDirectoryPath.Target))
+                {
+                    return false;
+                }
+
                 var catalogJson = FileUtilities.ReadAllTextOrNull(
-                    Path.Combine(generationDirectoryPath, UcliStoragePathNames.OpsCatalogFileName));
+                    ResolveChild(containedGenerationDirectoryPath.Target, UcliStoragePathNames.OpsCatalogFileName));
                 if (catalogJson == null)
                 {
                     continue;
@@ -393,7 +422,7 @@ internal sealed class FileReadIndexArtifactWriter : IReadIndexArtifactWriter
     }
 
     private static async ValueTask<ReadIndexInputHashSnapshot> PreserveCurrentAssetHashesAsync (
-        string generationDirectoryPath,
+        AbsolutePath generationDirectoryPath,
         ReadIndexInputHashSnapshot suppliedSnapshot,
         CancellationToken cancellationToken)
     {
@@ -415,7 +444,7 @@ internal sealed class FileReadIndexArtifactWriter : IReadIndexArtifactWriter
     }
 
     private static async ValueTask<ReadIndexInputHashSnapshot> PreserveCurrentCoreHashesAsync (
-        string generationDirectoryPath,
+        AbsolutePath generationDirectoryPath,
         ReadIndexInputHashSnapshot suppliedSnapshot,
         CancellationToken cancellationToken)
     {
@@ -434,10 +463,10 @@ internal sealed class FileReadIndexArtifactWriter : IReadIndexArtifactWriter
     }
 
     private static async ValueTask<ReadIndexInputHashSnapshot?> TryReadCurrentInputsManifestAsync (
-        string generationDirectoryPath,
+        AbsolutePath generationDirectoryPath,
         CancellationToken cancellationToken)
     {
-        var inputsManifestPath = Path.Combine(
+        var inputsManifestPath = ResolveChild(
             generationDirectoryPath,
             UcliStoragePathNames.IndexInputsManifestFileName);
         string? json;
@@ -474,12 +503,12 @@ internal sealed class FileReadIndexArtifactWriter : IReadIndexArtifactWriter
     }
 
     private async ValueTask WriteInputsManifestAsync (
-        string generationDirectoryPath,
+        AbsolutePath generationDirectoryPath,
         DateTimeOffset generatedAtUtc,
         ReadIndexInputHashSnapshot inputSnapshot,
         CancellationToken cancellationToken)
     {
-        var inputsManifestPath = Path.Combine(
+        var inputsManifestPath = ResolveChild(
             generationDirectoryPath,
             UcliStoragePathNames.IndexInputsManifestFileName);
 
@@ -503,13 +532,13 @@ internal sealed class FileReadIndexArtifactWriter : IReadIndexArtifactWriter
     }
 
     private static async ValueTask ValidateGenerationAsync (
-        string generationDirectoryPath,
-        string storageRoot,
+        AbsolutePath generationDirectoryPath,
+        AbsolutePath storageRoot,
         ProjectFingerprint projectFingerprint,
         CancellationToken cancellationToken)
     {
         var manifestJson = await FileUtilities.ReadAllTextOrNullAsync(
-                Path.Combine(generationDirectoryPath, UcliStoragePathNames.IndexInputsManifestFileName),
+                ResolveChild(generationDirectoryPath, UcliStoragePathNames.IndexInputsManifestFileName),
                 cancellationToken)
             .ConfigureAwait(false);
         ReadIndexInputsManifestSnapshot? manifest = null;
@@ -522,7 +551,7 @@ internal sealed class FileReadIndexArtifactWriter : IReadIndexArtifactWriter
         }
 
         var catalogJson = await FileUtilities.ReadAllTextOrNullAsync(
-                Path.Combine(generationDirectoryPath, UcliStoragePathNames.OpsCatalogFileName),
+                ResolveChild(generationDirectoryPath, UcliStoragePathNames.OpsCatalogFileName),
                 cancellationToken)
             .ConfigureAwait(false);
         OpsCatalogDescriptorSnapshot? catalog = null;
@@ -548,11 +577,11 @@ internal sealed class FileReadIndexArtifactWriter : IReadIndexArtifactWriter
         }
 
         var assetSearchJson = await FileUtilities.ReadAllTextOrNullAsync(
-                Path.Combine(generationDirectoryPath, UcliStoragePathNames.AssetSearchLookupFileName),
+                ResolveChild(generationDirectoryPath, UcliStoragePathNames.AssetSearchLookupFileName),
                 cancellationToken)
             .ConfigureAwait(false);
         var guidPathJson = await FileUtilities.ReadAllTextOrNullAsync(
-                Path.Combine(generationDirectoryPath, UcliStoragePathNames.GuidPathLookupFileName),
+                ResolveChild(generationDirectoryPath, UcliStoragePathNames.GuidPathLookupFileName),
                 cancellationToken)
             .ConfigureAwait(false);
         if ((assetSearchJson == null) != (guidPathJson == null))
@@ -596,7 +625,7 @@ internal sealed class FileReadIndexArtifactWriter : IReadIndexArtifactWriter
     }
 
     private static async ValueTask ValidateDescribeAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         ProjectFingerprint projectFingerprint,
         OpsCatalogDescriptorSnapshot catalog,
         ValidatedOpsCatalogEntry entry,
@@ -623,10 +652,38 @@ internal sealed class FileReadIndexArtifactWriter : IReadIndexArtifactWriter
         }
     }
 
-    private static void EnsureParentDirectory (string filePath)
+    private static void EnsureParentDirectory (AbsolutePath filePath)
     {
-        var directoryPath = Path.GetDirectoryName(filePath)
-            ?? throw new InvalidOperationException($"Directory path could not be resolved: {filePath}");
+        if (!filePath.TryGetParent(out var directoryPath))
+        {
+            throw new InvalidOperationException($"Directory path could not be resolved: {filePath.Value}");
+        }
+
         FileSystemAccessBoundary.EnsureSecureDirectory(directoryPath);
     }
+
+    private static AbsolutePath ResolveChild (
+        AbsolutePath directoryPath,
+        string fileName)
+    {
+        return ContainedPath.Create(
+            directoryPath,
+            RootRelativePath.Parse(fileName)).Target;
+    }
+
+    private static bool IsRegularDirectory (AbsolutePath directoryPath)
+    {
+        if (!Directory.Exists(directoryPath.Value))
+        {
+            return false;
+        }
+
+        var attributes = File.GetAttributes(directoryPath.Value);
+        return (attributes & FileAttributes.Directory) != 0
+            && (attributes & FileAttributes.ReparsePoint) == 0;
+    }
+
+    private readonly record struct OpsDescribeArtifact (
+        AbsolutePath Path,
+        DateTime LastWriteTimeUtc);
 }

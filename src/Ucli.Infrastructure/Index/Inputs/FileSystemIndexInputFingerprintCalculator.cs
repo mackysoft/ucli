@@ -1,51 +1,46 @@
-using MackySoft.Ucli.Infrastructure.Paths;
+using MackySoft.FileSystem;
 
 namespace MackySoft.Ucli.Infrastructure.Index;
 
 /// <summary> Computes deterministic input fingerprints from filesystem sources. </summary>
 internal sealed class FileSystemIndexInputFingerprintCalculator : IIndexInputFingerprintCalculator
 {
-    private const string ProjectRootPathEmptyMessage = "Project root path must not be empty.";
-
     /// <summary> Tries to compute one core input fingerprint snapshot without asset lookup hashes. </summary>
     /// <param name="projectRootPath"> The Unity project root path. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by the caller. </param>
     /// <returns> The computed snapshot when successful; otherwise <see langword="null" />. </returns>
-    /// <exception cref="ArgumentException"> Thrown when <paramref name="projectRootPath" /> is <see langword="null" />, empty, or whitespace. </exception>
+    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="projectRootPath" /> is <see langword="null" />. </exception>
     public ValueTask<IndexCoreInputHashSnapshot?> TryComputeCoreAsync (
-        string projectRootPath,
+        AbsolutePath projectRootPath,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        ThrowIfProjectRootPathInvalid(projectRootPath);
-
-        var sourcePaths = TryCreateSourcePaths(projectRootPath);
-        if (sourcePaths is null)
+        if (projectRootPath is null)
         {
-            return new ValueTask<IndexCoreInputHashSnapshot?>((IndexCoreInputHashSnapshot?)null);
+            throw new ArgumentNullException(nameof(projectRootPath));
         }
 
-        return TryComputeCoreInternalAsync(sourcePaths, cancellationToken);
+        return TryComputeCoreInternalAsync(
+            IndexInputSourcePaths.FromProjectRoot(projectRootPath),
+            cancellationToken);
     }
 
     /// <summary> Tries to compute one input fingerprint snapshot from project files. </summary>
     /// <param name="projectRootPath"> The Unity project root path. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by the caller. </param>
     /// <returns> The computed snapshot when successful; otherwise <see langword="null" />. </returns>
-    /// <exception cref="ArgumentException"> Thrown when <paramref name="projectRootPath" /> is <see langword="null" />, empty, or whitespace. </exception>
+    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="projectRootPath" /> is <see langword="null" />. </exception>
     public async ValueTask<IndexInputHashSnapshot?> TryComputeAsync (
-        string projectRootPath,
+        AbsolutePath projectRootPath,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        ThrowIfProjectRootPathInvalid(projectRootPath);
-
-        var sourcePaths = TryCreateSourcePaths(projectRootPath);
-        if (sourcePaths is null)
+        if (projectRootPath is null)
         {
-            return null;
+            throw new ArgumentNullException(nameof(projectRootPath));
         }
 
+        var sourcePaths = IndexInputSourcePaths.FromProjectRoot(projectRootPath);
         var coreSnapshot = await TryComputeCoreInternalAsync(sourcePaths, cancellationToken).ConfigureAwait(false);
         if (coreSnapshot == null)
         {
@@ -68,21 +63,5 @@ internal sealed class FileSystemIndexInputFingerprintCalculator : IIndexInputFin
         cancellationToken.ThrowIfCancellationRequested();
         var hashes = await IndexInputFileHasher.TryHashCoreInputsAsync(sourcePaths, cancellationToken).ConfigureAwait(false);
         return hashes == null ? null : IndexInputHashSnapshotFactory.CreateCore(hashes);
-    }
-
-    private static IndexInputSourcePaths? TryCreateSourcePaths (string projectRootPath)
-    {
-        var pathResult = PathNormalizer.TryNormalizeFullPath(projectRootPath);
-        return pathResult.IsSuccess
-            ? IndexInputSourcePaths.FromNormalizedProjectRoot(pathResult.FullPath!)
-            : null;
-    }
-
-    private static void ThrowIfProjectRootPathInvalid (string projectRootPath)
-    {
-        if (string.IsNullOrWhiteSpace(projectRootPath))
-        {
-            throw new ArgumentException(ProjectRootPathEmptyMessage, nameof(projectRootPath));
-        }
     }
 }

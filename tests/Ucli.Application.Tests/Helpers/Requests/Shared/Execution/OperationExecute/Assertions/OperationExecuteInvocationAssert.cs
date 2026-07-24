@@ -33,7 +33,7 @@ internal static class OperationExecuteInvocationAssert
 
         Assert.Equal(expectedMode, execution.Invocation.Mode);
         Assert.Equal(expectedTimeout, execution.Invocation.Timeout);
-        Assert.Equal(expectedRepositoryRoot, execution.Invocation.UnityProject.RepositoryRoot);
+        Assert.Equal(expectedRepositoryRoot, execution.Invocation.UnityProject.RepositoryRoot.Value);
         Assert.Equal(expectedFailFast, execution.Request.FailFast);
         Assert.Equal(expectedOperationId, execution.Request.OperationId.Value);
         Assert.Equal(expectedOperationName, execution.Request.OperationName);

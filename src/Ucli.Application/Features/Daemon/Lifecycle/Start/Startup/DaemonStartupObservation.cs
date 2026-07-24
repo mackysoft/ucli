@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Startup;
 
@@ -17,7 +18,7 @@ internal sealed record DaemonStartupObservation
         int? ProcessId,
         DateTimeOffset? StartedAtUtc,
         int? ElapsedMilliseconds,
-        string? ArtifactPath)
+        AbsolutePath? ArtifactPath)
     {
         if (StartupStatus is not (DaemonStartupStatus.Blocked
             or DaemonStartupStatus.Timeout
@@ -125,5 +126,5 @@ internal sealed record DaemonStartupObservation
 
     public int? ElapsedMilliseconds { get; }
 
-    public string? ArtifactPath { get; }
+    public AbsolutePath? ArtifactPath { get; }
 }

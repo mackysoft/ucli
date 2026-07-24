@@ -3,7 +3,6 @@ using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Unity.Project;
 using UnityEditor;
 using UnityEngine;
@@ -55,7 +54,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            if (AssetDatabase.LoadMainAssetAtPath(validatedAssetPath) != null || File.Exists(UnityAssetPathUtility.ToAbsolutePath(validatedAssetPath)))
+            if (AssetDatabase.LoadMainAssetAtPath(validatedAssetPath) != null
+                || File.Exists(UnityAssetPathUtility.ResolveProjectRelativePath(validatedAssetPath).Value))
             {
                 errorMessage = $"Asset path already exists: {validatedAssetPath}.";
                 return false;
@@ -336,7 +336,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            assetPath = PathStringNormalizer.ToSlashSeparated(assetPath);
+            assetPath = UnityAssetPathUtility.NormalizeProjectRelativeSeparators(assetPath);
             if (IsProjectSettingsAssetPath(assetPath))
             {
                 return TryValidatePersistentMainAssetIdentity(unityObject, assetPath, out errorMessage);

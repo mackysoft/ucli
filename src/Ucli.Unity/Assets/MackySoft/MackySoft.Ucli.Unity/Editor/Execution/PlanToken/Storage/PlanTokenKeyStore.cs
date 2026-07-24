@@ -1,9 +1,10 @@
-using MackySoft.Ucli.Infrastructure.Storage;
 using System;
 using System.IO;
 using System.Security.Cryptography;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.Infrastructure.Storage;
 
 #nullable enable
 
@@ -25,8 +26,7 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
             try
             {
                 var keyFilePath = UcliStoragePathResolver.ResolvePlanTokenKeyPath(snapshot.RepositoryRoot, snapshot.ProjectFingerprint);
-                var parentDirectory = Path.GetDirectoryName(keyFilePath);
-                if (string.IsNullOrWhiteSpace(parentDirectory))
+                if (!keyFilePath.TryGetParent(out var parentDirectory))
                 {
                     key = Array.Empty<byte>();
                     errorMessage = "Failed to resolve plan-token key directory.";
@@ -34,11 +34,11 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
                 }
 
                 UcliLocalStorageBootstrapper.EnsureInitialized(parentDirectory);
-                Directory.CreateDirectory(parentDirectory);
+                Directory.CreateDirectory(parentDirectory.Value);
 
-                if (File.Exists(keyFilePath))
+                if (File.Exists(keyFilePath.Value))
                 {
-                    var encodedKey = StringValueNormalizer.TrimOrEmpty(File.ReadAllText(keyFilePath));
+                    var encodedKey = StringValueNormalizer.TrimOrEmpty(File.ReadAllText(keyFilePath.Value));
                     if (TryDecodeKey(encodedKey, out key))
                     {
                         errorMessage = null;
@@ -48,7 +48,7 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
 
                 key = CreateRandomKey();
                 var encoded = Convert.ToBase64String(key);
-                File.WriteAllText(keyFilePath, encoded);
+                File.WriteAllText(keyFilePath.Value, encoded);
                 errorMessage = null;
                 return true;
             }

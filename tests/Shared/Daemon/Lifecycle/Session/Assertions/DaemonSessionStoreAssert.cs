@@ -44,7 +44,8 @@ internal static class DaemonSessionStoreAssert
         Assert.Equal(expectedBaseSession.EditorMode, session.EditorMode);
         Assert.Equal(expectedBaseSession.OwnerKind, session.OwnerKind);
         Assert.Equal(expectedBaseSession.CanShutdownProcess, session.CanShutdownProcess);
-        Assert.Equal(expectedBaseSession.Endpoint, session.Endpoint);
+        Assert.Equal(expectedBaseSession.EndpointContract, session.EndpointContract);
+        Assert.Equal(expectedBaseSession.UnixSocketEndpointPath, session.UnixSocketEndpointPath);
         Assert.Equal(expectedProcessId, session.ProcessId);
         Assert.Equal(expectedProcessStartedAtUtc, session.ProcessStartedAtUtc);
         Assert.Equal(expectedBaseSession.OwnerProcessId, session.OwnerProcessId);

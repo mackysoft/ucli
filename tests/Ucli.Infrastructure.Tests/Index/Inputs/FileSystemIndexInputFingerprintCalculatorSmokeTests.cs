@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Tests;
 using MackySoft.Ucli.Infrastructure.Index;
 
@@ -11,10 +12,11 @@ public sealed class FileSystemIndexInputFingerprintCalculatorSmokeTests
     {
         using var scope = TestDirectories.CreateTempScope("infrastructure-index-fingerprint", "missing-inputs");
         var calculator = new FileSystemIndexInputFingerprintCalculator();
+        var projectRoot = AbsolutePath.Parse(scope.FullPath);
         scope.CreateDirectory("Assets");
         scope.CreateDirectory("Packages");
 
-        var snapshot = await calculator.TryComputeAsync(scope.FullPath, CancellationToken.None);
+        var snapshot = await calculator.TryComputeAsync(projectRoot, CancellationToken.None);
 
         Assert.Null(snapshot);
     }
@@ -26,8 +28,9 @@ public sealed class FileSystemIndexInputFingerprintCalculatorSmokeTests
         using var scope = TestDirectories.CreateTempScope("infrastructure-index-fingerprint", "success");
         UnityIndexInputTestFactory.WriteRequiredCoreInputs(scope);
         var calculator = new FileSystemIndexInputFingerprintCalculator();
+        var projectRoot = AbsolutePath.Parse(scope.FullPath);
 
-        var snapshot = await calculator.TryComputeAsync(scope.FullPath, CancellationToken.None);
+        var snapshot = await calculator.TryComputeAsync(projectRoot, CancellationToken.None);
 
         Assert.NotNull(snapshot);
     }
@@ -39,10 +42,11 @@ public sealed class FileSystemIndexInputFingerprintCalculatorSmokeTests
         using var scope = TestDirectories.CreateTempScope("infrastructure-index-fingerprint", "change-detection");
         UnityIndexInputTestFactory.WriteRequiredCoreInputs(scope);
         var calculator = new FileSystemIndexInputFingerprintCalculator();
+        var projectRoot = AbsolutePath.Parse(scope.FullPath);
 
-        var before = await calculator.TryComputeAsync(scope.FullPath, CancellationToken.None);
+        var before = await calculator.TryComputeAsync(projectRoot, CancellationToken.None);
         UnityIndexInputTestFactory.WriteScriptAssembly(scope, "updated");
-        var after = await calculator.TryComputeAsync(scope.FullPath, CancellationToken.None);
+        var after = await calculator.TryComputeAsync(projectRoot, CancellationToken.None);
 
         Assert.NotNull(before);
         Assert.NotNull(after);

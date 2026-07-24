@@ -1,11 +1,11 @@
 using System.Text;
 using System.Text.Json;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Artifacts;
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
-using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Infrastructure.Storage;
 
 namespace MackySoft.Ucli.Features.Assurance.Compile;
@@ -23,19 +23,15 @@ internal sealed class FileCompileRunArtifactReader : ICompileRunArtifactStore
     {
         ArgumentNullException.ThrowIfNull(unityProject);
         cancellationToken.ThrowIfCancellationRequested();
-
-        string summaryPath;
-        try
+        if (runId == Guid.Empty)
         {
-            summaryPath = ResolveSummaryPath(unityProject, runId);
-        }
-        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
-        {
-            return CompileRunArtifactReadResult.Failure(ExecutionError.InvalidArgument(
-                $"Compile summary path is invalid. {exception.Message}"));
+            return CompileRunArtifactReadResult.Failure(
+                ExecutionError.InvalidArgument("Run id must not be empty."));
         }
 
-        if (!File.Exists(summaryPath) && !Directory.Exists(summaryPath))
+        var summaryPath = ResolveSummaryAbsolutePath(unityProject, runId);
+
+        if (!File.Exists(summaryPath.Value) && !Directory.Exists(summaryPath.Value))
         {
             return CompileRunArtifactReadResult.Missing();
         }
@@ -85,21 +81,13 @@ internal sealed class FileCompileRunArtifactReader : ICompileRunArtifactStore
                 "Compile summary run identifier must match its artifact path run identifier."));
         }
 
-        string diagnosticsPath;
-        string summaryPath;
-        try
-        {
-            diagnosticsPath = ResolveDiagnosticsPath(unityProject, runId);
-            summaryPath = ResolveSummaryPath(unityProject, runId);
-        }
-        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
-        {
-            return ValueTask.FromResult<ExecutionError?>(ExecutionError.InvalidArgument(
-                $"Compile artifact path is invalid. {exception.Message}"));
-        }
+        var runDirectory = ResolveRunDirectory(unityProject, runId);
+        var diagnosticsPath = ResolveDiagnosticsAbsolutePath(runDirectory);
+        var summaryPath = ResolveSummaryAbsolutePath(runDirectory);
 
         try
         {
+            FileSystemAccessBoundary.EnsureSecureDirectory(runDirectory);
             WriteJsonAtomically(
                 diagnosticsPath,
                 new CompileDiagnosticsArtifact(
@@ -111,11 +99,6 @@ internal sealed class FileCompileRunArtifactReader : ICompileRunArtifactStore
 
             WriteJsonAtomically(summaryPath, summary);
             return ValueTask.FromResult<ExecutionError?>(null);
-        }
-        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
-        {
-            return ValueTask.FromResult<ExecutionError?>(ExecutionError.InvalidArgument(
-                $"Compile artifact path is invalid. {exception.Message}"));
         }
         catch (JsonException exception)
         {
@@ -130,28 +113,24 @@ internal sealed class FileCompileRunArtifactReader : ICompileRunArtifactStore
     }
 
     /// <inheritdoc />
-    public string ResolveSummaryPath (
+    public AbsolutePath ResolveSummaryPath (
         ResolvedUnityProjectContext unityProject,
         Guid runId)
     {
         ArgumentNullException.ThrowIfNull(unityProject);
-        return Path.Combine(
-            ResolveRunDirectory(unityProject, runId),
-            UcliStoragePathNames.CompileSummaryFileName);
+        return ResolveSummaryAbsolutePath(unityProject, runId);
     }
 
     /// <inheritdoc />
-    public string ResolveDiagnosticsPath (
+    public AbsolutePath ResolveDiagnosticsPath (
         ResolvedUnityProjectContext unityProject,
         Guid runId)
     {
         ArgumentNullException.ThrowIfNull(unityProject);
-        return Path.Combine(
-            ResolveRunDirectory(unityProject, runId),
-            UcliStoragePathNames.CompileDiagnosticsFileName);
+        return ResolveDiagnosticsAbsolutePath(ResolveRunDirectory(unityProject, runId));
     }
 
-    private static string ResolveRunDirectory (
+    private static AbsolutePath ResolveRunDirectory (
         ResolvedUnityProjectContext unityProject,
         Guid runId)
     {
@@ -162,51 +141,50 @@ internal sealed class FileCompileRunArtifactReader : ICompileRunArtifactStore
             runId);
     }
 
+    private static AbsolutePath ResolveSummaryAbsolutePath (
+        ResolvedUnityProjectContext unityProject,
+        Guid runId)
+    {
+        return ResolveSummaryAbsolutePath(ResolveRunDirectory(unityProject, runId));
+    }
+
+    private static AbsolutePath ResolveSummaryAbsolutePath (AbsolutePath runDirectory)
+    {
+        return ContainedPath.Create(
+            runDirectory,
+            RootRelativePath.Parse(UcliStoragePathNames.CompileSummaryFileName)).Target;
+    }
+
+    private static AbsolutePath ResolveDiagnosticsAbsolutePath (AbsolutePath runDirectory)
+    {
+        return ContainedPath.Create(
+            runDirectory,
+            RootRelativePath.Parse(UcliStoragePathNames.CompileDiagnosticsFileName)).Target;
+    }
+
     private static void WriteJsonAtomically<T> (
-        string path,
+        AbsolutePath path,
         T value)
     {
-        var directoryPath = Path.GetDirectoryName(path);
-        if (string.IsNullOrWhiteSpace(directoryPath))
-        {
-            throw new InvalidOperationException($"Artifact directory path could not be resolved: {path}");
-        }
-
-        FileSystemAccessBoundary.EnsureSecureDirectory(directoryPath);
-        var temporaryStream = FileUtilities.OpenAtomicWriteTemporaryFileInDirectory(directoryPath, out var tempPath);
-        var temporaryFileOwned = true;
-
-        try
-        {
-            using (temporaryStream)
-            using (var writer = new StreamWriter(
-                       temporaryStream,
-                       new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)))
-            {
-                writer.Write(JsonSerializer.Serialize(value, IpcJsonSerializerOptions.Default));
-            }
-
-            FileSystemAccessBoundary.EnsureSecureFile(tempPath);
-            FileUtilities.PublishAtomicWriteTemporaryFile(tempPath, path);
-            temporaryFileOwned = false;
-            FileSystemAccessBoundary.EnsureSecureFile(path);
-        }
-        finally
-        {
-            if (temporaryFileOwned)
-            {
-                FileUtilities.DeleteIfExists(tempPath);
-            }
-        }
+        FileUtilities.WriteAllTextAtomically(
+            path,
+            JsonSerializer.Serialize(value, IpcJsonSerializerOptions.Default));
+        FileSystemAccessBoundary.EnsureSecureFile(path);
     }
 
     private static async ValueTask<string> ReadAllTextBoundedAsync (
-        string path,
+        AbsolutePath path,
         long maxBytes,
         CancellationToken cancellationToken)
     {
         EnsureReadableArtifactPath(path, maxBytes);
-        using (var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 8192, useAsync: true))
+        using (var stream = new FileStream(
+                   path.Value,
+                   FileMode.Open,
+                   FileAccess.Read,
+                   FileShare.Read,
+                   8192,
+                   useAsync: true))
         using (var memoryStream = new MemoryStream())
         {
             if (stream.Length > maxBytes)
@@ -238,15 +216,15 @@ internal sealed class FileCompileRunArtifactReader : ICompileRunArtifactStore
     }
 
     private static void EnsureReadableArtifactPath (
-        string path,
+        AbsolutePath path,
         long maxBytes)
     {
-        if (!File.Exists(path) && !Directory.Exists(path))
+        if (!File.Exists(path.Value) && !Directory.Exists(path.Value))
         {
-            throw new FileNotFoundException($"Compile artifact was not found: {path}", path);
+            throw new FileNotFoundException($"Compile artifact was not found: {path}", path.Value);
         }
 
-        var attributes = File.GetAttributes(path);
+        var attributes = File.GetAttributes(path.Value);
         if ((attributes & FileAttributes.ReparsePoint) != 0)
         {
             throw new IOException($"Compile artifact source must not be a reparse point: {path}");
@@ -257,7 +235,7 @@ internal sealed class FileCompileRunArtifactReader : ICompileRunArtifactStore
             throw new IOException($"Compile artifact source must not be a directory: {path}");
         }
 
-        var fileInfo = new FileInfo(path);
+        var fileInfo = new FileInfo(path.Value);
         if (fileInfo.Length > maxBytes)
         {
             throw new IOException($"Compile artifact exceeded {maxBytes} bytes: {path}");

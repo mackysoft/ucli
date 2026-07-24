@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Application.Shared.Git;
 using MackySoft.Ucli.Tests.Helpers.Git;
@@ -12,6 +13,7 @@ public sealed class GitWorktreeQueryServiceTests
     {
         using var scope = TestDirectories.CreateTempScope("git-worktree-query", "success");
         var currentProjectPath = CreateGitAnchoredProject(scope, "wt-current", "UnityProject");
+        var guardedCurrentProjectPath = AbsolutePath.Parse(currentProjectPath);
         var commandClient = new RecordingGitCommandClient
         {
             CurrentWorktreeRootResult = GitCommandTextResult.Success(Path.GetDirectoryName(currentProjectPath)! + Environment.NewLine),
@@ -22,25 +24,25 @@ public sealed class GitWorktreeQueryServiceTests
         {
             Result = GitWorktreeListParseResult.Success(
             [
-                new GitWorktreeInfo("/repo/wt-b", "bbbbbbbb", "refs/heads/feature/worktree-b"),
-                new GitWorktreeInfo("/repo/wt-a", "aaaaaaaa", null),
+                new GitWorktreeInfo(ResolveFixturePath("wt-b"), "bbbbbbbb", "refs/heads/feature/worktree-b"),
+                new GitWorktreeInfo(ResolveFixturePath("wt-a"), "aaaaaaaa", null),
             ]),
         };
         var service = new GitWorktreeQueryService(commandClient, parser, TimeProvider.System);
 
         var result = await service.GetWorktreeInfoAsync(
-            currentProjectPath,
+            guardedCurrentProjectPath,
             TimeSpan.FromSeconds(10),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         var output = Assert.IsType<GitWorktreeQueryOutput>(result.Output);
-        Assert.Equal(Path.GetDirectoryName(currentProjectPath), output.CurrentWorktreeRoot);
-        Assert.Equal("UnityProject", output.ProjectRelativePath);
+        Assert.Equal(AbsolutePath.Parse(Path.GetDirectoryName(currentProjectPath)!), output.CurrentWorktreeRoot);
+        Assert.Equal(RootRelativePath.Parse("UnityProject"), output.ProjectRelativePath);
         Assert.Equal(2, output.Worktrees.Count);
-        Assert.Equal([currentProjectPath], commandClient.CurrentWorktreeRootPaths);
-        Assert.Equal([currentProjectPath], commandClient.CurrentProjectRelativePathPaths);
-        Assert.Equal([currentProjectPath], commandClient.WorktreeListPorcelainPaths);
+        Assert.Equal([guardedCurrentProjectPath], commandClient.CurrentWorktreeRootPaths);
+        Assert.Equal([guardedCurrentProjectPath], commandClient.CurrentProjectRelativePathPaths);
+        Assert.Equal([guardedCurrentProjectPath], commandClient.WorktreeListPorcelainPaths);
         Assert.Equal(["porcelain-output"], parser.Inputs);
         Assert.Equal(TimeSpan.FromSeconds(10), commandClient.CurrentWorktreeRootTimeouts.Single());
     }
@@ -51,6 +53,7 @@ public sealed class GitWorktreeQueryServiceTests
     {
         using var scope = TestDirectories.CreateTempScope("git-worktree-query", "dot-relative-path");
         var currentProjectPath = CreateGitAnchoredProject(scope, "wt-current", projectRelativePath: null);
+        var guardedCurrentProjectPath = AbsolutePath.Parse(currentProjectPath);
         var service = new GitWorktreeQueryService(
             new RecordingGitCommandClient
             {
@@ -62,18 +65,18 @@ public sealed class GitWorktreeQueryServiceTests
             {
                 Result = GitWorktreeListParseResult.Success(
                 [
-                    new GitWorktreeInfo("/repo/wt-current", "cccccccc", "refs/heads/main"),
+                    new GitWorktreeInfo(ResolveFixturePath("wt-current"), "cccccccc", "refs/heads/main"),
                 ]),
             },
             TimeProvider.System);
 
         var result = await service.GetWorktreeInfoAsync(
-            currentProjectPath,
+            guardedCurrentProjectPath,
             TimeSpan.FromSeconds(10),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(".", result.Output!.ProjectRelativePath);
+        Assert.Equal(RootRelativePath.Parse("."), result.Output!.ProjectRelativePath);
     }
 
     [Fact]
@@ -82,6 +85,7 @@ public sealed class GitWorktreeQueryServiceTests
     {
         using var scope = TestDirectories.CreateTempScope("git-worktree-query", "parser-failure");
         var currentProjectPath = CreateGitAnchoredProject(scope, "wt-current", "UnityProject");
+        var guardedCurrentProjectPath = AbsolutePath.Parse(currentProjectPath);
         var service = new GitWorktreeQueryService(
             new RecordingGitCommandClient
             {
@@ -96,7 +100,7 @@ public sealed class GitWorktreeQueryServiceTests
             TimeProvider.System);
 
         var result = await service.GetWorktreeInfoAsync(
-            currentProjectPath,
+            guardedCurrentProjectPath,
             TimeSpan.FromSeconds(10),
             CancellationToken.None);
 
@@ -111,6 +115,7 @@ public sealed class GitWorktreeQueryServiceTests
     {
         using var scope = TestDirectories.CreateTempScope("git-worktree-query", "first-call-consumes-budget");
         var currentProjectPath = CreateGitAnchoredProject(scope, "wt-current", "UnityProject");
+        var guardedCurrentProjectPath = AbsolutePath.Parse(currentProjectPath);
         var timeProvider = new ManualTimeProvider();
         var commandClient = new RecordingGitCommandClient
         {
@@ -129,7 +134,7 @@ public sealed class GitWorktreeQueryServiceTests
             timeProvider);
 
         var result = await service.GetWorktreeInfoAsync(
-            currentProjectPath,
+            guardedCurrentProjectPath,
             TimeSpan.FromMilliseconds(10),
             CancellationToken.None);
 
@@ -147,6 +152,7 @@ public sealed class GitWorktreeQueryServiceTests
     {
         using var scope = TestDirectories.CreateTempScope("git-worktree-query", "outside-git-worktree");
         var projectPath = scope.CreateDirectory(Path.Combine("workspace", "UnityProject"));
+        var guardedProjectPath = AbsolutePath.Parse(projectPath);
         var commandClient = new RecordingGitCommandClient();
         var service = new GitWorktreeQueryService(
             commandClient,
@@ -154,7 +160,7 @@ public sealed class GitWorktreeQueryServiceTests
             TimeProvider.System);
 
         var result = await service.GetWorktreeInfoAsync(
-            projectPath,
+            guardedProjectPath,
             TimeSpan.FromSeconds(10),
             CancellationToken.None);
 
@@ -176,6 +182,13 @@ public sealed class GitWorktreeQueryServiceTests
         return projectRelativePath == null
             ? worktreeRoot
             : scope.CreateDirectory(Path.Combine(worktreeName, projectRelativePath));
+    }
+
+    private static AbsolutePath ResolveFixturePath (string worktreeName)
+    {
+        return AbsolutePath.Resolve(
+            AbsolutePath.Parse(Environment.CurrentDirectory),
+            Path.Combine("repository-fixtures", worktreeName));
     }
 
 }

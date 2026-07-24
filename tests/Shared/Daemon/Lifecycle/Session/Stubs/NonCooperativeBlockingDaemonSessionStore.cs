@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 
 namespace MackySoft.Ucli.TestSupport;
@@ -34,7 +35,7 @@ internal sealed class NonCooperativeBlockingDaemonSessionStore : ReadOnlyDaemonS
     public Task Blocked => blockedSource.Task;
 
     public override ValueTask<DaemonSessionReadResult> ReadAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         ProjectFingerprint projectFingerprint,
         CancellationToken cancellationToken = default)
     {

@@ -3,7 +3,7 @@ using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Contracts.Tests.Ipc;
 
-public sealed class IpcBuildOutputLayoutResolverTests
+public sealed class BuildPipelineOutputLayoutPolicyTests
 {
     private static readonly SupportedBuildOutputLayoutCase[] SupportedBuildOutputLayoutCases =
     [
@@ -25,14 +25,11 @@ public sealed class IpcBuildOutputLayoutResolverTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void TryResolve_WithSupportedTarget_ReturnsCommandDerivedPlayerLayout ()
+    public void TryResolve_WithSupportedTarget_ReturnsGuardedPortablePlayerLayout ()
     {
-        var outputDirectory = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "ucli", "output"));
-
         foreach (var testCase in SupportedBuildOutputLayoutCases)
         {
-            var resolved = IpcBuildOutputLayoutResolver.TryResolve(
-                outputDirectory,
+            var resolved = BuildPipelineOutputLayoutPolicy.TryResolve(
                 testCase.BuildTarget,
                 androidAppBundle: false,
                 out var layout);
@@ -40,9 +37,7 @@ public sealed class IpcBuildOutputLayoutResolverTests
             Assert.True(resolved);
             Assert.NotNull(layout);
             Assert.Equal(testCase.ExpectedShape, layout!.Shape);
-            Assert.Equal(
-                Path.GetFullPath(Path.Combine(outputDirectory, "player", testCase.ExpectedFileName)),
-                Path.GetFullPath(layout.LocationPathName));
+            Assert.Equal($"player/{testCase.ExpectedFileName}", layout.RunnerOutputPath.Value);
         }
     }
 
@@ -50,10 +45,7 @@ public sealed class IpcBuildOutputLayoutResolverTests
     [Trait("Size", "Small")]
     public void TryResolve_WithAndroidAppBundle_ReturnsAabPlayerLayout ()
     {
-        var outputDirectory = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "ucli", "output"));
-
-        var resolved = IpcBuildOutputLayoutResolver.TryResolve(
-            outputDirectory,
+        var resolved = BuildPipelineOutputLayoutPolicy.TryResolve(
             BuildTargetStableName.Android,
             androidAppBundle: true,
             out var layout);
@@ -61,21 +53,16 @@ public sealed class IpcBuildOutputLayoutResolverTests
         Assert.True(resolved);
         Assert.NotNull(layout);
         Assert.Equal(IpcBuildOutputLayoutShape.File, layout!.Shape);
-        Assert.Equal(
-            Path.GetFullPath(Path.Combine(outputDirectory, "player", "Player.aab")),
-            Path.GetFullPath(layout.LocationPathName));
+        Assert.Equal("player/Player.aab", layout.RunnerOutputPath.Value);
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public void TryResolve_WithUnsupportedTarget_ReturnsFalse ()
     {
-        var outputDirectory = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "ucli", "output"));
-
         foreach (var buildTarget in UnsupportedBuildTargets)
         {
-            var resolved = IpcBuildOutputLayoutResolver.TryResolve(
-                outputDirectory,
+            var resolved = BuildPipelineOutputLayoutPolicy.TryResolve(
                 buildTarget,
                 androidAppBundle: false,
                 out var layout);

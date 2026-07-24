@@ -301,6 +301,7 @@ cleanup_temporary_result_dir() {
   if [[ -n "${temporary_result_dir}" && -d "${temporary_result_dir}" ]]; then
     rm -rf "${temporary_result_dir}"
   fi
+
 }
 
 trap cleanup_temporary_result_dir EXIT
@@ -324,8 +325,36 @@ if [[ -n "${unity_editor_path}" ]]; then
   ensure_unity_hub_editor_path "${unity_editor_path}"
 fi
 
+repository_nuget_packages="${repository_root}/src/Ucli.Unity/.nuget-packages"
+
+dotnet_additional_package_sources="${RestoreAdditionalProjectSources:-}"
+dotnet_local_package_source="${repository_root}/src/Ucli.Unity/Packages/nuget-local-source"
+if [[ -d "${dotnet_local_package_source}" ]]; then
+  if command -v cygpath >/dev/null 2>&1; then
+    dotnet_local_package_source="$(cygpath -m "${dotnet_local_package_source}")"
+  fi
+
+  if [[ -n "${dotnet_additional_package_sources}" ]]; then
+    dotnet_additional_package_sources="${dotnet_additional_package_sources};${dotnet_local_package_source}"
+  else
+    dotnet_additional_package_sources="${dotnet_local_package_source}"
+  fi
+fi
+
+dotnet_nuget_packages="${repository_nuget_packages}"
+if command -v cygpath >/dev/null 2>&1; then
+  dotnet_nuget_packages="$(cygpath -m "${repository_nuget_packages}")"
+fi
+export NUGET_PACKAGES="${dotnet_nuget_packages}"
+
 if [[ "${restore}" == "true" ]]; then
-  dotnet restore "${ucli_project_path}"
+  if [[ -n "${dotnet_additional_package_sources}" ]]; then
+    dotnet restore \
+      "${ucli_project_path}" \
+      "-p:RestoreAdditionalProjectSources=${dotnet_additional_package_sources}"
+  else
+    dotnet restore "${ucli_project_path}"
+  fi
 fi
 
 if [[ "${build}" == "true" ]]; then

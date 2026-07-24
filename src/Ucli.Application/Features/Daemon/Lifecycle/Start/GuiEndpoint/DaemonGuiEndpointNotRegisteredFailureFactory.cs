@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Compensation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Shared.Foundation;
@@ -16,18 +17,18 @@ internal static class DaemonGuiEndpointNotRegisteredFailureFactory
         IDaemonDiagnosisStore daemonDiagnosisStore,
         TimeProvider timeProvider,
         string endpointOwnerDescription,
-        string editorInstancePath,
+        AbsolutePath editorInstancePath,
         int? processId,
         ExecutionError waitError,
         DateTimeOffset? processStartedAtUtc,
-        string? unityLogPath,
+        AbsolutePath? unityLogPath,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(unityProject);
         ArgumentNullException.ThrowIfNull(operationOwner);
         ArgumentNullException.ThrowIfNull(daemonDiagnosisStore);
         ArgumentNullException.ThrowIfNull(timeProvider);
-        ArgumentException.ThrowIfNullOrWhiteSpace(editorInstancePath);
+        ArgumentNullException.ThrowIfNull(editorInstancePath);
         cancellationToken.ThrowIfCancellationRequested();
 
         var timeoutError = CreateTimeoutError(endpointOwnerDescription, processId, waitError);
@@ -86,13 +87,13 @@ internal static class DaemonGuiEndpointNotRegisteredFailureFactory
     private static DaemonDiagnosis CreateDiagnosis (
         string message,
         int? processId,
-        string editorInstancePath,
+        AbsolutePath editorInstancePath,
         DateTimeOffset updatedAtUtc,
         DateTimeOffset? processStartedAtUtc,
-        string? unityLogPath)
+        AbsolutePath? unityLogPath)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(message);
-        ArgumentException.ThrowIfNullOrWhiteSpace(editorInstancePath);
+        ArgumentNullException.ThrowIfNull(editorInstancePath);
 
         return new DaemonDiagnosis(
             Reason: DaemonDiagnosisReason.GuiEndpointNotRegistered,

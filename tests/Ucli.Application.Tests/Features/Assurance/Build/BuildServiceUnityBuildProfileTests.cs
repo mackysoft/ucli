@@ -39,7 +39,9 @@ public sealed class BuildServiceUnityBuildProfileTests
                 unityBuildProfile: CreateUnityBuildProfileInput(unityBuildProfilePath, unityBuildProfileDigest));
         });
         var service = CreateService(
-            profileFileReader: new StubBuildProfileFileReader(BuildProfileFileReadResult.Success(UnityBuildProfileJson, "/workspace/build.ucli.json")),
+            profileFileReader: new StubBuildProfileFileReader(BuildProfileFileReadResult.Success(
+                UnityBuildProfileJson,
+                DefaultBuildProfilePath)),
             requestExecutor: requestExecutor,
             artifactStore: artifactStore);
 
@@ -81,7 +83,7 @@ public sealed class BuildServiceUnityBuildProfileTests
             metadataApplyAudit.GetProperty("lifecycleAfter").GetProperty("state").GetProperty("generations").GetProperty("assetRefreshGeneration").GetInt64());
         Assert.False(metadataApplyAudit.GetProperty("dirtyStateAfter").GetProperty("dirty").GetBoolean());
         Assert.Equal(
-            CreateExpectedPlayerLocationPathName(artifactStore.PreparedPaths!.RunnerOutputDirectory),
+            CreateExpectedPlayerLocationPathName(artifactStore.PreparedPaths!.RunnerOutputDirectory.Value),
             artifactStore.WrittenMetadata.Runner.GetProperty("outputLayout").GetProperty("locationPathName").GetString());
 
         var validator = CreateBuildSemanticInvariantValidator();
@@ -119,7 +121,9 @@ public sealed class BuildServiceUnityBuildProfileTests
                 unityBuildProfile: CreateUnityBuildProfileInput(unityBuildProfilePath, unityBuildProfileDigest));
         });
         var service = CreateService(
-            profileFileReader: new StubBuildProfileFileReader(BuildProfileFileReadResult.Success(UnityBuildProfileJson, "/workspace/build.ucli.json")),
+            profileFileReader: new StubBuildProfileFileReader(BuildProfileFileReadResult.Success(
+                UnityBuildProfileJson,
+                DefaultBuildProfilePath)),
             requestExecutor: requestExecutor,
             artifactStore: artifactStore);
 
@@ -129,7 +133,7 @@ public sealed class BuildServiceUnityBuildProfileTests
         Assert.Equal(BuildTargetStableName.Android, artifactStore.AccountingRequest!.BuildTarget);
         Assert.NotNull(artifactStore.WrittenMetadata);
         Assert.Equal(
-            CreateExpectedPlayerLocationPathName(artifactStore.PreparedPaths!.RunnerOutputDirectory, "Player.aab"),
+            CreateExpectedPlayerLocationPathName(artifactStore.PreparedPaths!.RunnerOutputDirectory.Value, "Player.aab"),
             artifactStore.WrittenMetadata!.Runner.GetProperty("outputLayout").GetProperty("locationPathName").GetString());
     }
 
@@ -191,7 +195,9 @@ public sealed class BuildServiceUnityBuildProfileTests
                     Sha256Digest.Parse(new string('f', 64))));
         });
         var service = CreateService(
-            profileFileReader: new StubBuildProfileFileReader(BuildProfileFileReadResult.Success(UnityBuildProfileJson, "/workspace/build.ucli.json")),
+            profileFileReader: new StubBuildProfileFileReader(BuildProfileFileReadResult.Success(
+                UnityBuildProfileJson,
+                DefaultBuildProfilePath)),
             requestExecutor: requestExecutor,
             artifactStore: artifactStore);
 

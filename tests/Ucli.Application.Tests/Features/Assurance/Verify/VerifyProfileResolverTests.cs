@@ -22,7 +22,9 @@ public sealed class VerifyProfileResolverTests
     [Trait("Size", "Small")]
     public void Resolve_WithUnknownOrExternalStep_ReturnsInvalidArgument (string json)
     {
-        var result = VerifyProfileResolver.ResolveFileProfileJson(json, "verify.json");
+        var result = VerifyProfileResolver.ResolveFileProfileJson(
+            json,
+            "verify.json");
 
         Assert.False(result.IsSuccess);
         Assert.Equal(ExecutionErrorKind.InvalidArgument, result.Error!.Kind);

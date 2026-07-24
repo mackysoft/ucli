@@ -31,12 +31,12 @@ internal static class VerifyServiceTestSupport
         TimeProvider? timeProvider = null)
     {
         var project = ProjectIdentityInfoTestFactory.CreateForRepositoryRoot(repositoryRoot);
-        var testRunArtifactsDirectory = Path.Combine(
+        var testRunArtifactsDirectory = AbsolutePath.Parse(Path.Combine(
             project.ProjectPath,
             ".ucli",
             "local",
             "test",
-            "test-run-1");
+            "test-run-1"));
         return new VerifyService(
             new StaticProjectContextResolver(ProjectContextResolutionResult.Success(ProjectContextTestFactory.CreateWithPaths(
                 unityProjectRoot: Path.Combine(repositoryRoot, "UnityProject"),
@@ -47,13 +47,17 @@ internal static class VerifyServiceTestSupport
                 "Tests passed.",
                 TestRunId,
                 testRunArtifactsDirectory,
-                Path.Combine(testRunArtifactsDirectory, "summary.json"))),
+                AbsolutePath.Resolve(testRunArtifactsDirectory, "summary.json"))),
             logsService ?? new RecordingVerifyLogsUnityService((_, _, _) => ValueTask.FromResult(LogsReadServiceResult.Completed(0, null))),
-            profileFileReader ?? new StubVerifyProfileFileReader((profilePath, root) => VerifyProfileFileReadResult.Success(
-                File.ReadAllText(Path.Combine(root, profilePath)),
-                profilePath.Replace('\\', '/'))),
+            profileFileReader ?? new StubVerifyProfileFileReader((profilePath, root) =>
+            {
+                var resolvedPath = ContainedPath.Resolve(root, profilePath);
+                return VerifyProfileFileReadResult.Success(
+                    File.ReadAllText(resolvedPath.Target.Value),
+                    profilePath);
+            }),
             fromInputFileReader ?? new StubVerifyFromInputFileReader((fromPath, root) => VerifyFromInputFileReadResult.Success(
-                File.ReadAllText(Path.Combine(root, fromPath)))),
+                File.ReadAllText(Path.Combine(root.Value, fromPath)))),
             timeProvider ?? TimeProvider.System);
     }
 

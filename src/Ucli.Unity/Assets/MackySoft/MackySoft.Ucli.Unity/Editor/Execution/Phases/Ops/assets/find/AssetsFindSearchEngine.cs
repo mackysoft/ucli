@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Infrastructure.Paths;
+using MackySoft.Ucli.Unity.Project;
 using MackySoft.Ucli.Unity.Index;
 using UnityEditor;
 using UnityEngine;
@@ -62,7 +62,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             var assetPaths = AssetDatabase.GetAllAssetPaths();
             for (var i = 0; i < assetPaths.Length; i++)
             {
-                var normalizedAssetPath = PathStringNormalizer.ToSlashSeparated(assetPaths[i]);
+                var normalizedAssetPath = UnityAssetPathUtility.NormalizeProjectRelativeSeparators(assetPaths[i]);
                 if (!IsSearchableAssetPath(normalizedAssetPath)
                     || !MatchesPathPrefix(criteria, normalizedAssetPath))
                 {
