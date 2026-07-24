@@ -148,5 +148,29 @@ namespace MackySoft.Ucli.Unity.Tests
                 Encoding.UTF8.GetString(secondPayload.ToArray()),
                 Does.Contain("\"args\":{\"value\":9007199254740993}"));
         }
+
+        [Test]
+        [Category("Size.Small")]
+        public void CompiledExecutionDigest_WhenArgumentExceedsInt64MaxValue_PreservesExactUInt64Token ()
+        {
+            using var document = JsonDocument.Parse("{\"value\":18446744073709551615}");
+            var operation = new NormalizedOperation(
+                OperationExecutionKey.ForRawStep(new IpcExecuteStepId("number")),
+                "ucli.tests.number",
+                document.RootElement.Clone(),
+                As: null,
+                Expect: null,
+                AliasReferences: OperationAliasReferenceMap.Empty,
+                PersistenceReportingPolicy: OperationPersistenceReportingPolicy.ReportAll,
+                AllowExplicitPrefabAssetMutation: false);
+
+            var payload = CompiledExecutionDigestWriter.WriteDigestPayload(
+                Array.Empty<NormalizedRequestStep>(),
+                new[] { operation });
+
+            Assert.That(
+                Encoding.UTF8.GetString(payload.ToArray()),
+                Does.Contain("\"args\":{\"value\":18446744073709551615}"));
+        }
     }
 }
