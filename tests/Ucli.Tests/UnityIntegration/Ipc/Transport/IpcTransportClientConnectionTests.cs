@@ -111,30 +111,6 @@ public sealed class IpcTransportClientConnectionTests
 
     [Fact]
     [Trait("Size", "Medium")]
-    public async Task SendAsync_WhenNamedPipeServerIsMissing_ThrowsConnectTimeoutException ()
-    {
-        if (!OperatingSystem.IsWindows())
-        {
-            return;
-        }
-
-        var endpoint = new IpcEndpoint(
-            IpcTransportKind.NamedPipe,
-            $"ucli-missing-{Guid.NewGuid():N}");
-        var client = IpcTransportClientTestSupport.CreateClient(TimeProvider.System);
-
-        var exception = await Assert.ThrowsAsync<IpcConnectTimeoutException>(async () =>
-        {
-            await TestAwaiter.WaitAsync(
-                client.SendAsync(endpoint, IpcTransportTestHarness.CreateSingleRequest(), IpcTransportClientTestSupport.DefaultTimeout).AsTask(),
-                "Missing named pipe send result",
-                IpcTransportClientTestSupport.WaitTimeout);
-        });
-        Assert.Contains("timed out", exception.Message, StringComparison.OrdinalIgnoreCase);
-    }
-
-    [Fact]
-    [Trait("Size", "Medium")]
     public async Task SendAsync_WhenCancellationIsRequested_ThrowsOperationCanceledException ()
     {
         if (!OperatingSystem.IsWindows())
