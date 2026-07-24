@@ -15,6 +15,7 @@ public sealed class GitCommandClientTests
             ProcessRunResult.Exited(0, standardOutput: "/repo/wt-current" + Environment.NewLine),
             ProcessRunResult.Exited(0, standardOutput: "/repo/wt-current" + Environment.NewLine));
         var client = new GitCommandClient(processRunner);
+        var unityProjectPath = GuardedPath("/repo/wt-current/UnityProject");
 
         foreach (var timeout in new[]
         {
@@ -23,7 +24,7 @@ public sealed class GitCommandClientTests
         })
         {
             var result = await client.GetCurrentWorktreeRootAsync(
-                GuardedPath("/repo/wt-current/UnityProject"),
+                unityProjectPath,
                 timeout,
                 CancellationToken.None);
 
@@ -33,6 +34,7 @@ public sealed class GitCommandClientTests
 
         GitCommandProcessAssert.WorktreeRootRequestedWithTimeouts(
             processRunner,
+            unityProjectPath,
             TimeSpan.FromSeconds(30),
             TimeSpan.FromMilliseconds(200));
     }
