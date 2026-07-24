@@ -16,9 +16,11 @@ using MackySoft.Ucli.Unity.Ipc;
 using MackySoft.Ucli.Unity.Runtime;
 using NUnit.Framework;
 using UnityEditor;
+using UnityEditor.PackageManager;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using PackageManagerPackageInfo = UnityEditor.PackageManager.PackageInfo;
 
 #nullable enable
 
@@ -188,6 +190,44 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(result, Is.EqualTo(expected));
             Assert.That(auditPath?.Value, Is.EqualTo(expected ? path : null));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void TryResolvePersistentDirtyObjectAuditPath_WhenUrpPackageAssetIsDirty_ExcludesNonOwnedPackageState ()
+        {
+            const string path = "Packages/com.unity.render-pipelines.universal/Shaders/Unlit.shader";
+            var packageInfo = PackageManagerPackageInfo.FindForAssetPath(path);
+
+            Assert.That(packageInfo, Is.Not.Null);
+            Assert.That(
+                UnityBuildPreconditionProbe.IsProjectOwnedPackageSource(packageInfo.source),
+                Is.False);
+
+            var result = UnityBuildPreconditionProbe.TryResolvePersistentDirtyObjectAuditPath(
+                path,
+                out var auditPath);
+
+            Assert.That(result, Is.False);
+            Assert.That(auditPath, Is.Null);
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        [TestCase(PackageSource.Unknown, false)]
+        [TestCase(PackageSource.Registry, false)]
+        [TestCase(PackageSource.BuiltIn, false)]
+        [TestCase(PackageSource.Embedded, true)]
+        [TestCase(PackageSource.Local, false)]
+        [TestCase(PackageSource.Git, false)]
+        [TestCase(PackageSource.LocalTarball, false)]
+        public void IsProjectOwnedPackageSource_ReturnsExpected (
+            PackageSource source,
+            bool expected)
+        {
+            Assert.That(
+                UnityBuildPreconditionProbe.IsProjectOwnedPackageSource(source),
+                Is.EqualTo(expected));
         }
 
         [Test]

@@ -1,10 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
-using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
-using MackySoft.FileSystem;
 using MackySoft.Text.Vocabularies;
 using TextVocabulary = MackySoft.Text.Vocabularies.Vocabulary;
 using MackySoft.Ucli.Contracts;
@@ -12,15 +10,15 @@ using MackySoft.Ucli.Contracts.Assurance;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
-using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Unity.Ipc;
-using MackySoft.Ucli.Unity.Project;
 using MackySoft.Ucli.Unity.Runtime;
 using UnityEditor;
+using UnityEditor.PackageManager;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using Object = UnityEngine.Object;
+using PackageManagerPackageInfo = UnityEditor.PackageManager.PackageInfo;
 
 #nullable enable
 
@@ -290,7 +288,7 @@ namespace MackySoft.Ucli.Unity.Build
                 return true;
             }
 
-            if (HasProjectLocalPackagePath(auditPath))
+            if (IsProjectOwnedPackageAssetPath(auditPath))
             {
                 return true;
             }
@@ -299,22 +297,15 @@ namespace MackySoft.Ucli.Unity.Build
             return false;
         }
 
-        private static bool HasProjectLocalPackagePath (ProjectMutationAuditPath path)
+        private static bool IsProjectOwnedPackageAssetPath (ProjectMutationAuditPath path)
         {
-            var projectRootPath = UnityProjectPathResolver.ResolveProjectRootPath();
-            var packagePath = ContainedPath.Create(
-                projectRootPath,
-                ProjectMutationAuditPathAdapter.ToRootRelativePath(path));
+            var packageInfo = PackageManagerPackageInfo.FindForAssetPath(path.Value);
+            return packageInfo != null && IsProjectOwnedPackageSource(packageInfo.source);
+        }
 
-            var packageRootPath = ContainedPath.Create(
-                projectRootPath,
-                RootRelativePath.Parse("Packages")).Target;
-            if (!packageRootPath.IsSameOrAncestorOf(packagePath.Target))
-            {
-                return false;
-            }
-
-            return File.Exists(packagePath.Target.Value) || Directory.Exists(packagePath.Target.Value);
+        internal static bool IsProjectOwnedPackageSource (PackageSource source)
+        {
+            return source == PackageSource.Embedded;
         }
 
         private static bool IsEditorModeAllowed (
