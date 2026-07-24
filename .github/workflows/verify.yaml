@@ -463,8 +463,42 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
       - name: Setup NuGet CLI
         run: ./scripts/setup-nuget-cli.sh
+
+      - name: Restore Unity shared package projects
+        run: dotnet restore src/Ucli.Infrastructure/Ucli.Infrastructure.csproj
+
+      - name: Pack Unity shared package dependencies
+        run: |
+          shared_package_version="$(
+            sed -nE \
+              's#.*<package id="MackySoft.Ucli.Contracts" version="([^"]+)".*#\1#p' \
+              src/Ucli.Unity/Assets/packages.config \
+              | head -n 1
+          )"
+          if [[ -z "${shared_package_version}" ]]; then
+            echo "Failed to read MackySoft.Ucli.Contracts version from Unity packages.config." >&2
+            exit 1
+          fi
+
+          dotnet pack src/Ucli.Contracts/Ucli.Contracts.csproj \
+            --configuration Release \
+            --no-restore \
+            -p:Version="${shared_package_version}" \
+            -p:PackageVersion="${shared_package_version}" \
+            --output artifacts/packages
+          dotnet pack src/Ucli.Infrastructure/Ucli.Infrastructure.csproj \
+            --configuration Release \
+            --no-restore \
+            -p:Version="${shared_package_version}" \
+            -p:PackageVersion="${shared_package_version}" \
+            --output artifacts/packages
 
       - name: Pack Unity plugin
         run: ./scripts/pack-unity-plugin.sh --version 0.0.0-ci --output artifacts/packages

@@ -121,18 +121,23 @@ cat > "${nuget_config_path}" <<EOF
       <package pattern="MackySoft.Text.Vocabularies" />
       <package pattern="MackySoft.Text.Vocabularies.Json" />
       <package pattern="Microsoft.*" />
+      <package pattern="NETStandard.Library" />
+      <package pattern="Newtonsoft.Json" />
       <package pattern="System.*" />
+      <package pattern="runtime.*" />
     </packageSource>
   </packageSourceMapping>
 </configuration>
 EOF
 
-cat > "${temp_dir}/packages.config" <<EOF
-<?xml version="1.0" encoding="utf-8"?>
-<packages>
-  <package id="${package_id}" version="${expected_version}" targetFramework="netstandard2.1" />
-</packages>
-EOF
+{
+  printf '%s\n' \
+    '<?xml version="1.0" encoding="utf-8"?>' \
+    '<packages>' \
+    "  <package id=\"${package_id}\" version=\"${expected_version}\" targetFramework=\"netstandard2.1\" />"
+  sed -nE '/^[[:space:]]*<package /p' "${unity_packages_config}"
+  printf '%s\n' '</packages>'
+} > "${temp_dir}/packages.config"
 
 nuget restore "${temp_dir}/packages.config" \
   -PackagesDirectory "${restore_root}/Assets/Packages" \
@@ -145,5 +150,16 @@ if [[ ! -f "${restored_marker_path}" ]]; then
   echo "Restored Unity package marker was not found: ${restored_marker_path}" >&2
   exit 1
 fi
+
+while IFS=$'\t' read -r restored_package_id restored_package_version; do
+  [[ -n "${restored_package_id}" ]] || continue
+  restored_package_path="${restore_root}/Assets/Packages/${restored_package_id}.${restored_package_version}"
+  if [[ ! -d "${restored_package_path}" ]]; then
+    echo "Unity package dependency was not restored: ${restored_package_id} ${restored_package_version}" >&2
+    exit 1
+  fi
+done < <(
+  sed -nE 's#.*<package id="([^"]+)" version="([^"]+)".*#\1\t\2#p' "${temp_dir}/packages.config"
+)
 
 echo "Unity package verification passed: ${package_path}"
