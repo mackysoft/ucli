@@ -25,8 +25,8 @@
     <PackageReference Include="MackySoft.AgentSkills" Version="1.0.0" />
     <PackageReference Include="MackySoft.AgentSkills.ConsoleAppFramework" Version="1.0.0" PrivateAssets="all" />
     <PackageReference Include="MackySoft.AgentSkills.Hosting" Version="1.0.0" />
-    <PackageReference Include="MackySoft.Text.Vocabularies" Version="[0.1.0]" />
-    <PackageReference Include="MackySoft.Text.Vocabularies.Json" Version="[0.1.0]" />
+    <PackageReference Include="MackySoft.Text.Vocabularies" Version="[0.1.0]" GeneratePathProperty="true" />
+    <PackageReference Include="MackySoft.Text.Vocabularies.Json" Version="[0.1.0]" GeneratePathProperty="true" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.3" />
   </ItemGroup>
 
@@ -61,6 +61,18 @@
     </None>
 
     <None Update="THIRD-PARTY-NOTICES">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </None>
+
+    <None Include="$(PkgMackySoft_Text_Vocabularies)/LICENSE"
+          Link="third-party/MackySoft.Text.Vocabularies/0.1.0/LICENSE">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </None>
+
+    <None Include="$(PkgMackySoft_Text_Vocabularies_Json)/LICENSE"
+          Link="third-party/MackySoft.Text.Vocabularies.Json/0.1.0/LICENSE">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </None>

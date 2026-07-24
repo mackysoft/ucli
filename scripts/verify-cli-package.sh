@@ -27,16 +27,105 @@ if [[ ! -f "${package_path}" ]]; then
   exit 1
 fi
 
+for required_tool in cmp dotnet unzip; do
+  if ! command -v "${required_tool}" >/dev/null 2>&1; then
+    echo "Required tool is missing: ${required_tool}" >&2
+    exit 1
+  fi
+done
+
+text_package_version="0.1.0"
+text_package_ids=(
+  "MackySoft.Text.Vocabularies"
+  "MackySoft.Text.Vocabularies.Json"
+)
+
 temp_root="${RUNNER_TEMP:-${TMPDIR:-/tmp}}"
 tool_path="$(mktemp -d "${temp_root%/}/ucli-tool.XXXXXX")"
+verification_root="$(mktemp -d "${temp_root%/}/ucli-tool-verification.XXXXXX")"
+tool_packages_root="$(mktemp -d "${temp_root%/}/ucli-tool-packages.XXXXXX")"
+tool_http_cache="$(mktemp -d "${temp_root%/}/ucli-tool-http-cache.XXXXXX")"
+tool_dotnet_home="$(mktemp -d "${temp_root%/}/ucli-tool-dotnet-home.XXXXXX")"
+tool_package_source="${verification_root}/tool-source"
+tool_nuget_config="${verification_root}/NuGet.config"
+provider_restore_project="${verification_root}/ProviderRestore.csproj"
 install_repo=""
-trap 'rm -rf "${tool_path}" "${install_repo}"' EXIT
 
-# The package directory must be available for the just-built CLI nupkg, while
-# configured feeds remain available for runtime package dependencies.
+cleanup() {
+  rm -rf \
+    "${tool_path}" \
+    "${verification_root}" \
+    "${tool_packages_root}" \
+    "${tool_http_cache}" \
+    "${tool_dotnet_home}"
+  if [[ -n "${install_repo}" ]]; then
+    rm -rf "${install_repo}"
+  fi
+}
+
+trap cleanup EXIT
+
+mkdir -p "${tool_package_source}"
+cp "${package_path}" "${tool_package_source}/"
+
+cat > "${tool_nuget_config}" <<EOF
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+  <packageSources>
+    <clear />
+    <add key="ToolPackage" value="./tool-source" />
+    <add key="nuget.org" value="https://api.nuget.org/v3/index.json" />
+  </packageSources>
+  <packageSourceMapping>
+    <packageSource key="ToolPackage">
+      <package pattern="MackySoft.Ucli" />
+    </packageSource>
+    <packageSource key="nuget.org">
+      <package pattern="ConsoleAppFramework*" />
+      <package pattern="MackySoft.AgentSkills*" />
+      <package pattern="MackySoft.Text.Vocabularies" />
+      <package pattern="MackySoft.Text.Vocabularies.Json" />
+      <package pattern="Microsoft.*" />
+      <package pattern="NETStandard.Library" />
+      <package pattern="Newtonsoft.Json" />
+      <package pattern="System.*" />
+      <package pattern="runtime.*" />
+    </packageSource>
+  </packageSourceMapping>
+</configuration>
+EOF
+
+cat > "${provider_restore_project}" <<EOF
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="MackySoft.Text.Vocabularies" Version="[${text_package_version}]" />
+    <PackageReference Include="MackySoft.Text.Vocabularies.Json" Version="[${text_package_version}]" />
+  </ItemGroup>
+</Project>
+EOF
+
+export DOTNET_CLI_HOME="${tool_dotnet_home}"
+export NUGET_HTTP_CACHE_PATH="${tool_http_cache}"
+export NUGET_PACKAGES="${tool_packages_root}"
+
+# Restore the fixed provider packages from nuget.org into an empty cache. The
+# package source mapping prevents local artifacts or user-level sources from
+# satisfying the public dependency contract.
+dotnet restore "${provider_restore_project}" \
+  --configfile "${tool_nuget_config}" \
+  --no-cache \
+  --force-evaluate \
+  --verbosity minimal
+
+# Resolve the tool from the inspected package directory and the same empty
+# cache so a previously installed package cannot satisfy the smoke test.
 dotnet tool install \
   --tool-path "${tool_path}" \
-  --add-source "${package_dir}" \
+  --configfile "${tool_nuget_config}" \
+  --no-http-cache \
   MackySoft.Ucli \
   --version "${expected_version}"
 
@@ -57,12 +146,144 @@ if ! "${tool_path}/ucli" query --help | grep -F "asset schema" >/dev/null; then
 fi
 
 package_entries="$(unzip -Z1 "${package_path}")"
-for entry in README.md LICENSE tools/net8.0/any/DotnetToolSettings.xml tools/net8.0/any/schemas/v1/schema-manifest.json tools/net8.0/any/skills/bundle.json; do
+required_package_entries=(
+  "README.md"
+  "LICENSE"
+  "tools/net8.0/any/DotnetToolSettings.xml"
+  "tools/net8.0/any/MackySoft.Text.Vocabularies.dll"
+  "tools/net8.0/any/MackySoft.Text.Vocabularies.Json.dll"
+  "tools/net8.0/any/MackySoft.Ucli.deps.json"
+  "tools/net8.0/any/THIRD-PARTY-NOTICES"
+  "tools/net8.0/any/schemas/v1/schema-manifest.json"
+  "tools/net8.0/any/skills/bundle.json"
+)
+for package_id in "${text_package_ids[@]}"; do
+  required_package_entries+=(
+    "tools/net8.0/any/third-party/${package_id}/${text_package_version}/LICENSE"
+  )
+done
+
+for entry in "${required_package_entries[@]}"; do
   if ! grep -Fx "${entry}" <<< "${package_entries}" >/dev/null; then
     echo "CLI package is missing required entry: ${entry}" >&2
     exit 1
   fi
 done
+
+if grep -Ei '(^|/)MackySoft[.]Text[.]Vocabularies([.]Json)?[.][^/]+[.]nupkg$' <<< "${package_entries}" >/dev/null; then
+  echo "CLI package must redistribute only the text vocabulary runtime closure, not standalone provider nupkgs." >&2
+  exit 1
+fi
+
+dependency_manifest="$(
+  unzip -p "${package_path}" tools/net8.0/any/MackySoft.Ucli.deps.json
+)"
+for package_id in "${text_package_ids[@]}"; do
+  if ! grep -F "\"${package_id}/${text_package_version}\"" <<< "${dependency_manifest}" >/dev/null; then
+    echo "CLI package dependency manifest does not reference ${package_id} ${text_package_version}." >&2
+    exit 1
+  fi
+
+  package_id_lower="$(tr '[:upper:]' '[:lower:]' <<< "${package_id}")"
+  package_root="${tool_packages_root}/${package_id_lower}/${text_package_version}"
+  provider_assembly="${package_root}/lib/netstandard2.1/${package_id}.dll"
+  provider_license="${package_root}/LICENSE"
+  for provider_entry in "${provider_assembly}" "${provider_license}"; do
+    if [[ ! -f "${provider_entry}" ]]; then
+      echo "Restored ${package_id} package is missing required entry: ${provider_entry}" >&2
+      exit 1
+    fi
+  done
+
+  package_assembly_entry="tools/net8.0/any/${package_id}.dll"
+  if ! unzip -p "${package_path}" "${package_assembly_entry}" \
+    | cmp -s - "${provider_assembly}"; then
+    echo "CLI package contains a ${package_id} assembly that differs from the public ${text_package_version} package." >&2
+    exit 1
+  fi
+
+  package_license_entry="tools/net8.0/any/third-party/${package_id}/${text_package_version}/LICENSE"
+  if ! unzip -p "${package_path}" "${package_license_entry}" \
+    | cmp -s - "${provider_license}"; then
+    echo "CLI package license differs from ${package_id} ${text_package_version}." >&2
+    exit 1
+  fi
+
+  installed_assembly_count="$(
+    find "${tool_path}" -type f -name "${package_id}.dll" | wc -l | tr -d '[:space:]'
+  )"
+  if [[ "${installed_assembly_count}" != "1" ]]; then
+    echo "Installed CLI must contain exactly one ${package_id}.dll. Actual: ${installed_assembly_count}" >&2
+    exit 1
+  fi
+  installed_assembly="$(find "${tool_path}" -type f -name "${package_id}.dll" -print -quit)"
+  if ! cmp -s "${installed_assembly}" "${provider_assembly}"; then
+    echo "Installed CLI ${package_id} assembly differs from the public ${text_package_version} package." >&2
+    exit 1
+  fi
+
+  installed_license_count="$(
+    find "${tool_path}" \
+      -type f \
+      -path "*/third-party/${package_id}/${text_package_version}/LICENSE" \
+      | wc -l \
+      | tr -d '[:space:]'
+  )"
+  if [[ "${installed_license_count}" != "1" ]]; then
+    echo "Installed CLI must contain exactly one license for ${package_id} ${text_package_version}. Actual: ${installed_license_count}" >&2
+    exit 1
+  fi
+  installed_license="$(
+    find "${tool_path}" \
+      -type f \
+      -path "*/third-party/${package_id}/${text_package_version}/LICENSE" \
+      -print \
+      -quit
+  )"
+  if ! cmp -s "${installed_license}" "${provider_license}"; then
+    echo "Installed CLI license differs from ${package_id} ${text_package_version}." >&2
+    exit 1
+  fi
+done
+
+if find "${tool_path}" \
+  -type f \
+  \( -iname 'MackySoft.Text.Vocabularies.*.nupkg' -o -iname 'MackySoft.Text.Vocabularies.Json.*.nupkg' \) \
+  -print \
+  -quit \
+  | grep -q .; then
+  echo "Installed CLI contains a standalone text vocabulary provider nupkg." >&2
+  exit 1
+fi
+
+cli_notice="$(
+  unzip -p "${package_path}" tools/net8.0/any/THIRD-PARTY-NOTICES
+)"
+if ! unzip -p "${package_path}" tools/net8.0/any/THIRD-PARTY-NOTICES \
+  | cmp -s - "${repo_root}/src/Ucli/THIRD-PARTY-NOTICES"; then
+  echo "CLI package third-party notice differs from src/Ucli/THIRD-PARTY-NOTICES." >&2
+  exit 1
+fi
+for package_id in "${text_package_ids[@]}"; do
+  if ! grep -F "${package_id} ${text_package_version}" <<< "${cli_notice}" >/dev/null \
+    || ! grep -F "third-party/${package_id}/${text_package_version}/LICENSE" <<< "${cli_notice}" >/dev/null; then
+    echo "CLI package third-party notice does not identify ${package_id} and its bundled license." >&2
+    exit 1
+  fi
+done
+
+installed_notice_count="$(
+  find "${tool_path}" -type f -name THIRD-PARTY-NOTICES | wc -l | tr -d '[:space:]'
+)"
+if [[ "${installed_notice_count}" != "1" ]]; then
+  echo "Installed CLI must contain exactly one THIRD-PARTY-NOTICES file. Actual: ${installed_notice_count}" >&2
+  exit 1
+fi
+installed_notice="$(find "${tool_path}" -type f -name THIRD-PARTY-NOTICES -print -quit)"
+if ! cmp -s "${installed_notice}" "${repo_root}/src/Ucli/THIRD-PARTY-NOTICES"; then
+  echo "Installed CLI third-party notice differs from src/Ucli/THIRD-PARTY-NOTICES." >&2
+  exit 1
+fi
 
 package_schema_manifest_path="${tool_path}/package-schema-manifest.json"
 unzip -p "${package_path}" tools/net8.0/any/schemas/v1/schema-manifest.json > "${package_schema_manifest_path}"
