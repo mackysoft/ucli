@@ -12,7 +12,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="MackySoft.Text.Vocabularies" Version="0.1.0" />
+    <PackageReference Include="MackySoft.Text.Vocabularies" Version="[0.1.0]" />
   </ItemGroup>
 
   <ItemGroup>

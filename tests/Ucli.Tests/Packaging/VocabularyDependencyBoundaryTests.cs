@@ -4,7 +4,7 @@ namespace MackySoft.Ucli.Tests.Packaging;
 
 public sealed class VocabularyDependencyBoundaryTests
 {
-    private const string VocabularyPackageVersion = "0.1.0";
+    private const string VocabularyPackageVersionRange = "[0.1.0]";
 
     private static readonly IReadOnlyDictionary<string, string[]> ExpectedVocabularyPackagesByProject =
         new Dictionary<string, string[]>(StringComparer.Ordinal)
@@ -49,7 +49,7 @@ public sealed class VocabularyDependencyBoundaryTests
 
     [Fact]
     [Trait("Size", "Medium")]
-    public void RepositoryProjects_UsePinnedExternalVocabularyPackages ()
+    public void RepositoryProjects_UseExactExternalVocabularyPackageRange ()
     {
         foreach ((string projectPath, string[] expectedPackageIds) in ExpectedVocabularyPackagesByProject)
         {
@@ -69,13 +69,36 @@ public sealed class VocabularyDependencyBoundaryTests
                 vocabularyReferences.Keys.Order(StringComparer.Ordinal));
             Assert.All(
                 vocabularyReferences,
-                reference => Assert.Equal(VocabularyPackageVersion, reference.Value));
+                reference => Assert.Equal(VocabularyPackageVersionRange, reference.Value));
             Assert.DoesNotContain(
                 project.Descendants("ProjectReference"),
                 static reference => reference.Attribute("Include")?.Value.Contains(
                     "MackySoft.Text.Vocabularies",
                     StringComparison.Ordinal) == true);
         }
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public void UnityNuGetConfig_RestoresExternalVocabulariesOnlyFromNugetOrg ()
+    {
+        XDocument configuration = XDocument.Load(TestRepositoryPaths.GetFullPath(
+            "src/Ucli.Unity/Assets/NuGet.config"));
+        XElement sourceMapping = configuration.Descendants("packageSourceMapping").Single();
+        IReadOnlyDictionary<string, string[]> patternsBySource = sourceMapping
+            .Elements("packageSource")
+            .ToDictionary(
+                static source => source.Attribute("key")!.Value,
+                static source => source
+                    .Elements("package")
+                    .Select(static package => package.Attribute("pattern")!.Value)
+                    .ToArray(),
+                StringComparer.Ordinal);
+
+        Assert.DoesNotContain("MackySoft.Text.Vocabularies", patternsBySource["LocalNuGet"]);
+        Assert.DoesNotContain("MackySoft.Text.Vocabularies.Json", patternsBySource["LocalNuGet"]);
+        Assert.Contains("MackySoft.Text.Vocabularies", patternsBySource["nuget.org"]);
+        Assert.Contains("MackySoft.Text.Vocabularies.Json", patternsBySource["nuget.org"]);
     }
 
     [Fact]

@@ -22,7 +22,7 @@ fi
 package_dir="$(cd "${package_dir}" && pwd)"
 temp_dir="$(mktemp -d)"
 trap 'rm -rf "${temp_dir}"' EXIT
-external_vocabulary_version="0.1.0"
+external_vocabulary_version_range="[0.1.0]"
 package_ids=(
   "MackySoft.Ucli.Contracts"
   "MackySoft.Ucli.Infrastructure"
@@ -113,7 +113,7 @@ for package_id in "${package_ids[@]}"; do
 
     case "${dependency_id}" in
       MackySoft.Text.Vocabularies|MackySoft.Text.Vocabularies.Json)
-        required_dependency_version="${external_vocabulary_version}"
+        required_dependency_version="${external_vocabulary_version_range}"
         ;;
       *)
         required_dependency_version="${expected_version}"

@@ -6,6 +6,7 @@ namespace MackySoft.Ucli.Tests.Packaging;
 public sealed class PackageMetadataManifestTests
 {
     private const string ExternalVocabularyVersion = "0.1.0";
+    private const string ExternalVocabularyVersionRange = "[0.1.0]";
 
     [Fact]
     [Trait("Size", "Medium")]
@@ -62,8 +63,8 @@ public sealed class PackageMetadataManifestTests
         Assert.Equal(ExternalVocabularyVersion, packageConfigVersions["MackySoft.Text.Vocabularies.Json"]);
         Assert.Equal(centralProperties["Version"], packageConfigVersions["MackySoft.Ucli.Contracts"]);
         Assert.Equal(centralProperties["Version"], packageConfigVersions["MackySoft.Ucli.Infrastructure"]);
-        Assert.Equal(packageConfigVersions["MackySoft.Text.Vocabularies"], nuspecDependencyVersions["MackySoft.Text.Vocabularies"]);
-        Assert.Equal(packageConfigVersions["MackySoft.Text.Vocabularies.Json"], nuspecDependencyVersions["MackySoft.Text.Vocabularies.Json"]);
+        Assert.Equal(ExternalVocabularyVersionRange, nuspecDependencyVersions["MackySoft.Text.Vocabularies"]);
+        Assert.Equal(ExternalVocabularyVersionRange, nuspecDependencyVersions["MackySoft.Text.Vocabularies.Json"]);
         Assert.Equal(packageConfigVersions["MackySoft.Ucli.Contracts"], nuspecDependencyVersions["MackySoft.Ucli.Contracts"]);
         Assert.Equal(packageConfigVersions["MackySoft.Ucli.Infrastructure"], nuspecDependencyVersions["MackySoft.Ucli.Infrastructure"]);
     }

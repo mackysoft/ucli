@@ -25,8 +25,8 @@
     <PackageReference Include="MackySoft.AgentSkills" Version="1.0.0" />
     <PackageReference Include="MackySoft.AgentSkills.ConsoleAppFramework" Version="1.0.0" PrivateAssets="all" />
     <PackageReference Include="MackySoft.AgentSkills.Hosting" Version="1.0.0" />
-    <PackageReference Include="MackySoft.Text.Vocabularies" Version="0.1.0" />
-    <PackageReference Include="MackySoft.Text.Vocabularies.Json" Version="0.1.0" />
+    <PackageReference Include="MackySoft.Text.Vocabularies" Version="[0.1.0]" />
+    <PackageReference Include="MackySoft.Text.Vocabularies.Json" Version="[0.1.0]" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.3" />
   </ItemGroup>
 
