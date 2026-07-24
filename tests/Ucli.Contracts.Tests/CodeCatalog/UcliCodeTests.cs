@@ -107,12 +107,6 @@ public sealed class UcliCodeTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void ConstructionModel_UsesPrivateValidatedValueConstructor ()
-    {
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
     public void InvalidCodeValues_AreRejectedByAllConstructionPaths ()
     {
         foreach (var value in InvalidCodeValues)
