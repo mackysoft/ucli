@@ -511,7 +511,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: unity-package-artifacts
-          path: artifacts/packages
+          path: artifacts/packages/MackySoft.Ucli.Unity.0.0.0-ci.nupkg
           if-no-files-found: warn
 
   release_pack:
