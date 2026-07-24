@@ -240,12 +240,15 @@ public sealed class DaemonStartupFailureLogClassifierTests
         Assert.Equal(DaemonDiagnosisPrimaryDiagnosticKind.PluginDependency, classification.PrimaryDiagnostic!.Kind);
     }
 
-    [Fact]
+    [Theory]
+    [InlineData("Assets/UserCode/Example.cs(1,1): error CS0234: The type or namespace name 'Json' does not exist in the namespace 'MackySoft'")]
+    [InlineData("Assets/UserCode/Example.cs(1,1): error CS0246: The type or namespace name 'Rfc8785JsonCanonicalizer' could not be found")]
     [Trait("Size", "Small")]
-    public void TryClassifyFailure_WhenUnrelatedSourceHasMackySoftJsonNamespaceError_ReturnsCompilerFailure ()
+    public void TryClassifyFailure_WhenJsonCompilerDiagnosticComesFromUnrelatedSource_ReturnsCompilerFailure (
+        string logLine)
     {
         var result = DaemonStartupFailureLogClassifier.TryClassifyFailure(
-            "Assets/UserCode/Example.cs(1,1): error CS0234: The type or namespace name 'Json' does not exist in the namespace 'MackySoft'",
+            logLine,
             DaemonStartupFailureClassificationContext.Batchmode,
             out var classification);
 
