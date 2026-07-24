@@ -292,7 +292,6 @@ if [[ ! -f "${ucli_project_path}" ]]; then
 fi
 
 repository_nuget_packages="${repository_root}/src/Ucli.Unity/.nuget-packages"
-dotnet_restore_args=()
 
 dotnet_additional_package_sources="${RestoreAdditionalProjectSources:-}"
 dotnet_local_package_source="${repository_root}/src/Ucli.Unity/Packages/nuget-local-source"
@@ -308,12 +307,6 @@ if [[ -d "${dotnet_local_package_source}" ]]; then
   fi
 fi
 
-if [[ -n "${dotnet_additional_package_sources}" ]]; then
-  dotnet_restore_args=(
-    "-p:RestoreAdditionalProjectSources=${dotnet_additional_package_sources}"
-  )
-fi
-
 dotnet_nuget_packages="${repository_nuget_packages}"
 if command -v cygpath >/dev/null 2>&1; then
   dotnet_nuget_packages="$(cygpath -m "${repository_nuget_packages}")"
@@ -321,7 +314,13 @@ fi
 export NUGET_PACKAGES="${dotnet_nuget_packages}"
 
 if [[ "${restore}" == "true" ]]; then
-  dotnet restore "${ucli_project_path}" "${dotnet_restore_args[@]}"
+  if [[ -n "${dotnet_additional_package_sources}" ]]; then
+    dotnet restore \
+      "${ucli_project_path}" \
+      "-p:RestoreAdditionalProjectSources=${dotnet_additional_package_sources}"
+  else
+    dotnet restore "${ucli_project_path}"
+  fi
 fi
 
 dotnet build "${ucli_project_path}" --configuration "${configuration}" --no-restore
