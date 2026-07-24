@@ -13,7 +13,7 @@ internal sealed record ReadyClaimValidityOutput
         ReadyValidityKind Kind,
         bool GuaranteesReusableSession)
     {
-        if (!ContractLiteralCodec.IsDefined(Kind))
+        if (!TextVocabulary.IsDefined(Kind))
         {
             throw new ArgumentOutOfRangeException(nameof(Kind), Kind, "Validity kind must be defined by the ready contract.");
         }

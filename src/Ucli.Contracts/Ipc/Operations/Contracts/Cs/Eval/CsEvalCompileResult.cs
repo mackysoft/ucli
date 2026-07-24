@@ -12,7 +12,7 @@ public sealed record CsEvalCompileResult
         CsEvalCompileStatus status,
         IReadOnlyList<CsEvalDiagnostic> diagnostics)
     {
-        if (!ContractLiteralCodec.IsDefined(status))
+        if (!TextVocabulary.IsDefined(status))
         {
             throw new ArgumentOutOfRangeException(nameof(status), status, "C# eval compile status must be specified.");
         }

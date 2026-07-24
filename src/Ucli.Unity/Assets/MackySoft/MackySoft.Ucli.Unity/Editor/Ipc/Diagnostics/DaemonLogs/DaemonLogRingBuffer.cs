@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using MackySoft.Text.Vocabularies;
+using TextVocabulary = MackySoft.Text.Vocabularies.Vocabulary;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Unity.Ipc
@@ -34,7 +36,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 throw new ArgumentException("category must not be empty.", nameof(category));
             }
 
-            if (!MackySoft.Ucli.Contracts.Text.ContractLiteralCodec.IsDefined(level))
+            if (!TextVocabulary.IsDefined(level))
             {
                 throw new ArgumentOutOfRangeException(nameof(level), level, "Daemon log level must be defined.");
             }

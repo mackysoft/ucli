@@ -38,8 +38,8 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
 
     private static readonly TimeSpan BuildRunAccountingLockTimeout = TimeSpan.FromSeconds(30);
     private static readonly TimeSpan BuildRunPreparationLockTimeout = TimeSpan.FromSeconds(1);
-    private static readonly string OutputEntryKindDirectory = ContractLiteralCodec.ToValue(BuildOutputManifestEntryKind.Directory);
-    private static readonly string OutputEntryKindFile = ContractLiteralCodec.ToValue(BuildOutputManifestEntryKind.File);
+    private static readonly string OutputEntryKindDirectory = TextVocabulary.GetText(BuildOutputManifestEntryKind.Directory);
+    private static readonly string OutputEntryKindFile = TextVocabulary.GetText(BuildOutputManifestEntryKind.File);
     private static readonly UTF8Encoding Utf8NoBom = new(encoderShouldEmitUTF8Identifier: false);
 
     private readonly BuildOutputManifestJsonContractWriter outputManifestWriter;
@@ -931,7 +931,7 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
             RootRelativePath.Parse(entryId)).Target;
         FileSystemAccessBoundary.EnsureSecureDirectory(entryOutputDirectory);
 
-        if (ContractLiteralCodec.Matches(sourceEntry.Kind, BuildOutputManifestEntryKind.File))
+        if (TextVocabulary.Matches(sourceEntry.Kind, BuildOutputManifestEntryKind.File))
         {
             if (!sourceEntry.SourcePath.TryGetParent(out var sourceDirectory))
             {

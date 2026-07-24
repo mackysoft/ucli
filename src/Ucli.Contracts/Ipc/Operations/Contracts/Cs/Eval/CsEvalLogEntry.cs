@@ -12,7 +12,7 @@ public sealed record CsEvalLogEntry
         CsEvalLogLevel level,
         string message)
     {
-        if (!ContractLiteralCodec.IsDefined(level))
+        if (!TextVocabulary.IsDefined(level))
         {
             throw new ArgumentOutOfRangeException(nameof(level), level, "C# eval log level must be specified.");
         }

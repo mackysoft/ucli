@@ -1,6 +1,8 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.Text.Vocabularies;
+using TextVocabulary = MackySoft.Text.Vocabularies.Vocabulary;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.Authorization;
@@ -46,7 +48,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 throw new ArgumentNullException(nameof(phaseScope));
             }
 
-            var hasResponseMode = ContractLiteralCodec.TryParse(
+            var hasResponseMode = TextVocabulary.TryGetValue(
                 request.ResponseMode,
                 out IpcResponseMode responseMode);
             var errorResponseMode = hasResponseMode
@@ -261,7 +263,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     IpcResponseMode.Single);
             }
 
-            if (!ContractLiteralCodec.TryParse(request.Method, out UnityIpcMethod method))
+            if (!TextVocabulary.TryGetValue(request.Method, out UnityIpcMethod method))
             {
                 daemonLogger.Warning(
                     DaemonLogCategories.Ipc,

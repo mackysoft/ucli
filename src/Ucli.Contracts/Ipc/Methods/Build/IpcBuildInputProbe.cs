@@ -29,17 +29,17 @@ public sealed record IpcBuildInputProbe
         IReadOnlyList<SceneAssetPath> Scenes,
         string BuildOptions)
     {
-        if (!ContractLiteralCodec.IsDefined(InputKind))
+        if (!TextVocabulary.IsDefined(InputKind))
         {
             throw new ArgumentOutOfRangeException(nameof(InputKind), InputKind, "Build input kind must be specified.");
         }
 
-        if (!ContractLiteralCodec.IsDefined(SceneSource))
+        if (!TextVocabulary.IsDefined(SceneSource))
         {
             throw new ArgumentOutOfRangeException(nameof(SceneSource), SceneSource, "Build scene source must be specified.");
         }
 
-        if (!ContractLiteralCodec.IsDefined(BuildTarget))
+        if (!TextVocabulary.IsDefined(BuildTarget))
         {
             throw new ArgumentOutOfRangeException(nameof(BuildTarget), BuildTarget, "Build target must be specified.");
         }

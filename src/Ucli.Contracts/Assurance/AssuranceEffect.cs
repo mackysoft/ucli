@@ -1,59 +1,59 @@
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Assurance;
 
 /// <summary> Identifies an observable effect computed by an assurance verifier. </summary>
+[VocabularyDefinition]
 public enum AssuranceEffect
 {
     /// <summary> Unity refreshed the AssetDatabase. </summary>
-    [UcliContractLiteral("assetDatabaseRefresh")]
+    [VocabularyText("assetDatabaseRefresh")]
     AssetDatabaseRefresh = 1,
 
     /// <summary> Unity compiled project scripts. </summary>
-    [UcliContractLiteral("scriptCompilation")]
+    [VocabularyText("scriptCompilation")]
     ScriptCompilation = 2,
 
     /// <summary> Unity completed or evaluated a domain reload. </summary>
-    [UcliContractLiteral("domainReload")]
+    [VocabularyText("domainReload")]
     DomainReload = 3,
 
     /// <summary> Unity Test Runner executed tests. </summary>
-    [UcliContractLiteral("unityTestRunner")]
+    [VocabularyText("unityTestRunner")]
     UnityTestRunner = 4,
 
     /// <summary> Reads Unity editor lifecycle telemetry. </summary>
-    [UcliContractLiteral("unityLifecycleRead")]
+    [VocabularyText("unityLifecycleRead")]
     UnityLifecycleRead = 5,
 
     /// <summary> Executes Unity BuildPipeline. </summary>
-    [UcliContractLiteral("unityBuildPipeline")]
+    [VocabularyText("unityBuildPipeline")]
     UnityBuildPipeline = 6,
 
     /// <summary> Reads the normalized Unity BuildReport. </summary>
-    [UcliContractLiteral("unityBuildReportRead")]
+    [VocabularyText("unityBuildReportRead")]
     UnityBuildReportRead = 7,
 
     /// <summary> Reads the Unity editor log window for the build interval. </summary>
-    [UcliContractLiteral("unityLogWindowRead")]
+    [VocabularyText("unityLogWindowRead")]
     UnityLogWindowRead = 8,
 
     /// <summary> Writes uCLI local artifacts. </summary>
-    [UcliContractLiteral("ucliArtifactWrite")]
+    [VocabularyText("ucliArtifactWrite")]
     UcliArtifactWrite = 9,
 
     /// <summary> Writes the build output manifest. </summary>
-    [UcliContractLiteral("outputManifestWrite")]
+    [VocabularyText("outputManifestWrite")]
     OutputManifestWrite = 10,
 
     /// <summary> Captures lifecycle generation snapshots. </summary>
-    [UcliContractLiteral("generationSnapshot")]
+    [VocabularyText("generationSnapshot")]
     GenerationSnapshot = 11,
 
     /// <summary> Audits project mutations around build runner invocation. </summary>
-    [UcliContractLiteral("projectMutationAudit")]
+    [VocabularyText("projectMutationAudit")]
     ProjectMutationAudit = 12,
 
     /// <summary> Invokes a uCLI executeMethod build runner. </summary>
-    [UcliContractLiteral("unityExecuteMethod")]
+    [VocabularyText("unityExecuteMethod")]
     UnityExecuteMethod = 13,
 }

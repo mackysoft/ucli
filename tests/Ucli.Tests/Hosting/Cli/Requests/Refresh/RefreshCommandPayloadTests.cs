@@ -42,11 +42,11 @@ public sealed class RefreshCommandPayloadTests
                 .HasArrayLength("steps", 1)
                 .HasProperty("steps", 0, step => step
                     .HasString("opId", "refresh")
-                    .HasString("sourceKind", ContractLiteralCodec.ToValue(IpcExecutePostReadSourceKind.Refresh))
+                    .HasString("sourceKind", TextVocabulary.GetText(IpcExecutePostReadSourceKind.Refresh))
                     .HasBoolean("playModeMutation", false)
                     .HasValueKind("commit", JsonValueKind.Null)
                     .HasBoolean("persistenceExpected", true)
-                    .HasString("expectedPostState", ContractLiteralCodec.ToValue(IpcExecuteExpectedPostState.Unavailable))));
+                    .HasString("expectedPostState", TextVocabulary.GetText(IpcExecuteExpectedPostState.Unavailable))));
     }
 
     [Fact]
@@ -75,7 +75,7 @@ public sealed class RefreshCommandPayloadTests
         CommandResultAssert.HasStandardEnvelope(
             outputJson.RootElement,
             UcliCommandNames.Refresh,
-            ContractLiteralCodec.ToValue(CommandResultStatus.Error),
+            TextVocabulary.GetText(CommandResultStatus.Error),
             (int)CliExitCode.ToolError);
         JsonAssert.For(outputJson.RootElement)
             .HasString("message", "Unity execution failed.")
@@ -108,6 +108,6 @@ public sealed class RefreshCommandPayloadTests
             .HasProperty("readPostcondition", readPostconditionElement => readPostconditionElement
                 .HasArrayLength("requirements", 1)
                 .HasProperty("requirements", 0, requirement => requirement
-                    .HasString("surface", ContractLiteralCodec.ToValue(IpcExecuteReadPostconditionSurface.AssetSearch))));
+                    .HasString("surface", TextVocabulary.GetText(IpcExecuteReadPostconditionSurface.AssetSearch))));
     }
 }

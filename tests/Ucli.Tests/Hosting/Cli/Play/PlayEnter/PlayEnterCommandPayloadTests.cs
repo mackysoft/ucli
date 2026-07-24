@@ -25,8 +25,8 @@ public sealed class PlayEnterCommandPayloadTests
                 .HasString("unityVersion", PlayCommandOutputTestData.UnityVersion))
             .HasString("daemonStatus", "running")
             .HasString("editorMode", "gui")
-            .HasString("lifecycleState", ContractLiteralCodec.ToValue(IpcEditorLifecycleState.PlayMode))
-            .HasString("blockingReason", ContractLiteralCodec.ToValue(IpcEditorBlockingReason.PlayMode))
+            .HasString("lifecycleState", TextVocabulary.GetText(IpcEditorLifecycleState.PlayMode))
+            .HasString("blockingReason", TextVocabulary.GetText(IpcEditorBlockingReason.PlayMode))
             .HasProperty("generations", generations => generations
                 .HasInt32("compileGeneration", 12)
                 .HasInt32("domainReloadGeneration", 7)
@@ -39,8 +39,8 @@ public sealed class PlayEnterCommandPayloadTests
                 .HasBoolean("isPlaying", true)
                 .HasBoolean("isPlayingOrWillChangePlaymode", true))
             .HasProperty("transition", transition => transition
-                .HasString("transition", ContractLiteralCodec.ToValue(IpcPlayTransitionCommand.Enter))
-                .HasString("result", ContractLiteralCodec.ToValue(IpcPlayTransitionOutcome.Entered))
+                .HasString("transition", TextVocabulary.GetText(IpcPlayTransitionCommand.Enter))
+                .HasString("result", TextVocabulary.GetText(IpcPlayTransitionOutcome.Entered))
                 .HasProperty("before", _ => { })
                 .HasProperty("after", _ => { }))
             .HasInt32("timeoutMilliseconds", 1000);
@@ -68,12 +68,12 @@ public sealed class PlayEnterCommandPayloadTests
         CommandResultAssert.HasStandardEnvelope(
             outputJson.RootElement,
             UcliCommandNames.PlayEnter,
-            ContractLiteralCodec.ToValue(CommandResultStatus.Error),
+            TextVocabulary.GetText(CommandResultStatus.Error),
             (int)CliExitCode.ToolError);
         CommandResultAssert.HasSingleError(outputJson.RootElement, PlayModeErrorCodes.PlayModeTransitionTimeout);
         JsonAssert.For(outputJson.RootElement.GetProperty("payload").GetProperty("transition"))
-            .HasString("result", ContractLiteralCodec.ToValue(IpcPlayTransitionOutcome.Timeout))
-            .HasString("applicationState", ContractLiteralCodec.ToValue(IpcApplicationState.Indeterminate))
+            .HasString("result", TextVocabulary.GetText(IpcPlayTransitionOutcome.Timeout))
+            .HasString("applicationState", TextVocabulary.GetText(IpcApplicationState.Indeterminate))
             .HasProperty("observed", _ => { });
         Assert.False(outputJson.RootElement.GetProperty("payload").GetProperty("transition").TryGetProperty("after", out _));
     }
@@ -97,12 +97,12 @@ public sealed class PlayEnterCommandPayloadTests
         CommandResultAssert.HasStandardEnvelope(
             outputJson.RootElement,
             UcliCommandNames.PlayEnter,
-            ContractLiteralCodec.ToValue(CommandResultStatus.Error),
+            TextVocabulary.GetText(CommandResultStatus.Error),
             (int)CliExitCode.ToolError);
         CommandResultAssert.HasSingleError(outputJson.RootElement, PlayModeErrorCodes.PlayModeTransitionBlocked);
         JsonAssert.For(outputJson.RootElement.GetProperty("payload").GetProperty("transition"))
-            .HasString("result", ContractLiteralCodec.ToValue(IpcPlayTransitionOutcome.Blocked))
-            .HasString("applicationState", ContractLiteralCodec.ToValue(IpcApplicationState.NotApplied))
+            .HasString("result", TextVocabulary.GetText(IpcPlayTransitionOutcome.Blocked))
+            .HasString("applicationState", TextVocabulary.GetText(IpcApplicationState.NotApplied))
             .HasProperty("observed", _ => { });
         Assert.False(outputJson.RootElement.GetProperty("payload").GetProperty("transition").TryGetProperty("after", out _));
         Assert.False(outputJson.RootElement.GetProperty("payload").TryGetProperty("opResults", out _));

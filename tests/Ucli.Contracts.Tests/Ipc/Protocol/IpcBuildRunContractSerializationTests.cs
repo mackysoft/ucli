@@ -128,9 +128,9 @@ public sealed class IpcBuildRunContractSerializationTests
 
         JsonAssert.For(request)
             .HasString("runId", RunIdText)
-            .HasString("inputKind", ContractLiteralCodec.ToValue(BuildProfileInputsKind.Explicit))
+            .HasString("inputKind", TextVocabulary.GetText(BuildProfileInputsKind.Explicit))
             .HasString("buildTarget", "standaloneLinux64")
-            .HasString("sceneSource", ContractLiteralCodec.ToValue(BuildProfileSceneSource.Explicit))
+            .HasString("sceneSource", TextVocabulary.GetText(BuildProfileSceneSource.Explicit))
             .HasArrayLength("scenePaths", 1)
             .HasProperty("scenePaths", 0, scene => scene
                 .HasString("Assets/Scenes/Main.unity"))
@@ -180,18 +180,18 @@ public sealed class IpcBuildRunContractSerializationTests
                         .HasInt32("playModeGeneration", 11))))
             .HasProperty("dirtyState", dirty => dirty
                 .HasBoolean("dirty", false)
-                .HasString("coverage", ContractLiteralCodec.ToValue(IpcBuildDirtyStateCoverage.Full))
+                .HasString("coverage", TextVocabulary.GetText(IpcBuildDirtyStateCoverage.Full))
                 .HasArrayLength("items", 0))
             .HasProperty("input", input => input
-                .HasString("inputKind", ContractLiteralCodec.ToValue(BuildProfileInputsKind.Explicit))
+                .HasString("inputKind", TextVocabulary.GetText(BuildProfileInputsKind.Explicit))
                 .HasString("buildTarget", "standaloneLinux64")
-                .HasString("sceneSource", ContractLiteralCodec.ToValue(BuildProfileSceneSource.Explicit)))
+                .HasString("sceneSource", TextVocabulary.GetText(BuildProfileSceneSource.Explicit)))
             .HasProperty("outputLayout", outputLayout => outputLayout
-                .HasString("shape", ContractLiteralCodec.ToValue(IpcBuildOutputLayoutShape.File))
+                .HasString("shape", TextVocabulary.GetText(IpcBuildOutputLayoutShape.File))
                 .HasString("locationPathName", "/tmp/ucli/output/player/Player"))
             .HasProperty("report", report => report
                 .HasInt32("schemaVersion", 1)
-                .HasString("result", ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded))
+                .HasString("result", TextVocabulary.GetText(IpcBuildReportResult.Succeeded))
                 .HasString("unityBuildTarget", "StandaloneLinux64")
                 .HasString("outputPath", "/tmp/ucli/output/build")
                 .HasInt32("durationMilliseconds", 2500)
@@ -212,15 +212,15 @@ public sealed class IpcBuildRunContractSerializationTests
                 .HasInt32("entryCount", 3)
                 .HasInt32("errorCount", 0)
                 .HasInt32("warningCount", 1)
-                .HasString("completionReason", ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed))
+                .HasString("completionReason", TextVocabulary.GetText(IpcBuildLogCompletionReason.Completed))
                 .HasProperty("window", window => window
                     .HasString("startedAtUtc", "2026-06-12T00:00:00+00:00")
                     .HasString("completedAtUtc", "2026-06-12T00:00:03+00:00")
                     .HasString("cursorStart", "abcdef0123456789abcdef0123456789:10")
                     .HasString("cursorEnd", "abcdef0123456789abcdef0123456789:20")))
             .HasProperty("runnerResult", runnerResult => runnerResult
-                .HasString("source", ContractLiteralCodec.ToValue(IpcBuildRunnerResultSource.UcliBuildRunnerResult))
-                .HasString("status", ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded))
+                .HasString("source", TextVocabulary.GetText(IpcBuildRunnerResultSource.UcliBuildRunnerResult))
+                .HasString("status", TextVocabulary.GetText(IpcBuildReportResult.Succeeded))
                 .HasInt32("durationMilliseconds", 2500)
                 .HasInt32("errorCount", 0)
                 .HasInt32("warningCount", 1)
@@ -236,14 +236,14 @@ public sealed class IpcBuildRunContractSerializationTests
                     .HasString("message", "Sample warning")))
             .HasProperty("projectMutation", mutation => mutation
                 .HasString("mode", "forbid")
-                .HasString("coverage", ContractLiteralCodec.ToValue(IpcBuildProjectMutationAuditCoverage.Full))
+                .HasString("coverage", TextVocabulary.GetText(IpcBuildProjectMutationAuditCoverage.Full))
                 .HasBoolean("mutated", true)
                 .HasString("beforeDigest", new string('a', 64))
                 .HasString("afterDigest", new string('b', 64))
                 .HasArrayLength("items", 1)
                 .HasProperty("items", 0, item => item
                     .HasString("path", "Assets/Generated.asset")
-                    .HasString("changeKind", ContractLiteralCodec.ToValue(IpcBuildProjectMutationChangeKind.Added))
+                    .HasString("changeKind", TextVocabulary.GetText(IpcBuildProjectMutationChangeKind.Added))
                     .HasValueKind("beforeSha256", JsonValueKind.Null)
                     .HasString("afterSha256", new string('b', 64))));
     }

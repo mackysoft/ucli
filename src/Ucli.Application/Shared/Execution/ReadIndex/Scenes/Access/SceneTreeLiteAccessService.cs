@@ -267,7 +267,7 @@ internal sealed class SceneTreeLiteAccessService : ISceneTreeLiteAccessService
                 scenePath,
                 indexSourcePaths,
                 depth,
-                $"Existing scene-tree-lite index freshness is '{ContractLiteralCodec.ToValue(freshnessResult.Freshness)}'.",
+                $"Existing scene-tree-lite index freshness is '{TextVocabulary.GetText(freshnessResult.Freshness)}'.",
                 failFast,
                 cancellationToken)
             .ConfigureAwait(false);

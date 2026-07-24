@@ -54,8 +54,8 @@ public sealed class DaemonShutdownClientTests
         var requests = transportClient.Requests;
         Assert.Collection(
             requests,
-            static request => Assert.Equal(ContractLiteralCodec.ToValue(UnityIpcMethod.Shutdown), request.Method),
-            static request => Assert.Equal(ContractLiteralCodec.ToValue(UnityIpcMethod.Shutdown), request.Method));
+            static request => Assert.Equal(TextVocabulary.GetText(UnityIpcMethod.Shutdown), request.Method),
+            static request => Assert.Equal(TextVocabulary.GetText(UnityIpcMethod.Shutdown), request.Method));
         IpcRequestAssert.SessionTokens(
             requests,
             IpcSessionTokenTestFactory.Create("daemon-token-1").GetEncodedValue(),

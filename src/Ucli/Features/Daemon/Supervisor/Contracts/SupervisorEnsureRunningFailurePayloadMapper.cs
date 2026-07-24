@@ -3,7 +3,6 @@ using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Startup;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Features.Daemon.Supervisor.Contracts;
 
@@ -78,7 +77,7 @@ internal static class SupervisorEnsureRunningFailurePayloadMapper
         ArgumentNullException.ThrowIfNull(contract);
 
         if (contract.DaemonStatus.HasValue
-            && !ContractLiteralCodec.IsDefined(contract.DaemonStatus.Value))
+            && !TextVocabulary.IsDefined(contract.DaemonStatus.Value))
         {
             metadata = null;
             return false;

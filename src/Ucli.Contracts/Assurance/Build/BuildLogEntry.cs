@@ -26,12 +26,12 @@ public sealed record BuildLogEntry
             throw new ArgumentException("Run id must not be empty.", nameof(RunId));
         }
 
-        if (!ContractLiteralCodec.IsDefined(Level))
+        if (!TextVocabulary.IsDefined(Level))
         {
             throw new ArgumentOutOfRangeException(nameof(Level), Level, "Build log level must be specified.");
         }
 
-        if (!ContractLiteralCodec.IsDefined(Source))
+        if (!TextVocabulary.IsDefined(Source))
         {
             throw new ArgumentOutOfRangeException(nameof(Source), Source, "Build log source must be specified.");
         }

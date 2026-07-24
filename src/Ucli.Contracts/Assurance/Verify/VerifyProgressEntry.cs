@@ -19,12 +19,12 @@ public sealed record VerifyProgressEntry
         int StepCount,
         AssuranceVerdict? Verdict)
     {
-        if (!ContractLiteralCodec.IsDefined(ProfileSource))
+        if (!TextVocabulary.IsDefined(ProfileSource))
         {
             throw new ArgumentOutOfRangeException(nameof(ProfileSource), ProfileSource, "Verify profile source must be defined.");
         }
 
-        if (Verdict.HasValue && !ContractLiteralCodec.IsDefined(Verdict.Value))
+        if (Verdict.HasValue && !TextVocabulary.IsDefined(Verdict.Value))
         {
             throw new ArgumentOutOfRangeException(nameof(Verdict), Verdict, "Verdict must be defined by the assurance contract.");
         }

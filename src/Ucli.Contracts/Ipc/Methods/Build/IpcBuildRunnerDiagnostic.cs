@@ -16,7 +16,7 @@ public sealed record IpcBuildRunnerDiagnostic
         UcliDiagnosticSeverity Severity,
         string Message)
     {
-        if (!ContractLiteralCodec.IsDefined(Severity))
+        if (!TextVocabulary.IsDefined(Severity))
         {
             throw new ArgumentOutOfRangeException(nameof(Severity), Severity, "Build diagnostic severity must be specified.");
         }

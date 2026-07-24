@@ -26,7 +26,7 @@ internal static class IpcRequestAssert
             requests,
             expectedMethods
                 .Select<UnityIpcMethod, Action<IpcRequestEnvelope>>(
-                    expectedMethod => request => Assert.Equal(ContractLiteralCodec.ToValue(expectedMethod), request.Method))
+                    expectedMethod => request => Assert.Equal(TextVocabulary.GetText(expectedMethod), request.Method))
                 .ToArray());
         return requests;
     }
@@ -63,7 +63,7 @@ internal static class IpcRequestAssert
         IReadOnlyList<IpcRequestEnvelope> requests,
         UnityIpcMethod expectedMethod)
     {
-        var expectedMethodLiteral = ContractLiteralCodec.ToValue(expectedMethod);
+        var expectedMethodLiteral = TextVocabulary.GetText(expectedMethod);
         var matchingRequests = requests
             .Where(request => string.Equals(request.Method, expectedMethodLiteral, StringComparison.Ordinal))
             .ToArray();
@@ -122,7 +122,7 @@ internal static class IpcRequestAssert
     public static UnityIpcMethod ParseMethod (IpcRequestEnvelope request)
     {
         Assert.True(
-            ContractLiteralCodec.TryParse(request.Method, out UnityIpcMethod method),
+            TextVocabulary.TryGetValue(request.Method, out UnityIpcMethod method),
             $"Expected a canonical Unity IPC method, but was '{request.Method ?? "<null>"}'.");
         return method;
     }

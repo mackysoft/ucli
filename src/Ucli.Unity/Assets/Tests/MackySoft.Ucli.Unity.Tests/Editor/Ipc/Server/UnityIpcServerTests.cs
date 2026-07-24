@@ -11,6 +11,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
 using MackySoft.FileSystem;
+using MackySoft.Text.Vocabularies;
+using TextVocabulary = MackySoft.Text.Vocabularies.Vocabulary;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -1022,7 +1024,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(
                 payload.State.CompileState is IpcCompileState.Ready or IpcCompileState.Compiling,
                 Is.True);
-            Assert.That(ContractLiteralCodec.IsDefined(payload.State.LifecycleState), Is.True);
+            Assert.That(TextVocabulary.IsDefined(payload.State.LifecycleState), Is.True);
             Assert.That(payload.State.Generations.CompileGeneration, Is.GreaterThanOrEqualTo(0));
             Assert.That(payload.State.Generations.DomainReloadGeneration, Is.GreaterThanOrEqualTo(0));
             Assert.That(
@@ -1127,7 +1129,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: Guid.NewGuid(),
                 sessionToken: CanonicalSessionToken,
-                method: ContractLiteralCodec.ToValue(UnityIpcMethod.TestRun),
+                method: TextVocabulary.GetText(UnityIpcMethod.TestRun),
                 payload: invalidPayload,
                 responseMode: "single",
                 requestDeadlineUtc: DateTimeOffset.UtcNow + TimeSpan.FromSeconds(30),
@@ -1224,7 +1226,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: Guid.NewGuid(),
                 sessionToken: sessionToken,
-                method: ContractLiteralCodec.ToValue(UnityIpcMethod.Ping),
+                method: TextVocabulary.GetText(UnityIpcMethod.Ping),
                 payload: JsonSerializer.SerializeToElement(new IpcPingRequest("tests"), SerializerOptions),
                 responseMode: "single",
                 requestDeadlineUtc: DateTimeOffset.UtcNow + TimeSpan.FromSeconds(30),
@@ -1249,7 +1251,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: requestId,
                 sessionToken: sessionToken,
-                method: ContractLiteralCodec.ToValue(UnityIpcMethod.Execute),
+                method: TextVocabulary.GetText(UnityIpcMethod.Execute),
                 payload: payload,
                 responseMode: "single",
                 requestDeadlineUtc: DateTimeOffset.UtcNow + TimeSpan.FromSeconds(30),
@@ -1267,7 +1269,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: requestId,
                 sessionToken: sessionToken,
-                method: ContractLiteralCodec.ToValue(UnityIpcMethod.Shutdown),
+                method: TextVocabulary.GetText(UnityIpcMethod.Shutdown),
                 payload: payload,
                 responseMode: "single",
                 requestDeadlineUtc: DateTimeOffset.UtcNow + TimeSpan.FromSeconds(30),
@@ -1292,7 +1294,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: requestId,
                 sessionToken: sessionToken,
-                method: ContractLiteralCodec.ToValue(UnityIpcMethod.TestRun),
+                method: TextVocabulary.GetText(UnityIpcMethod.TestRun),
                 payload: payload,
                 responseMode: "single",
                 requestDeadlineUtc: DateTimeOffset.UtcNow + TimeSpan.FromSeconds(30),
@@ -1318,7 +1320,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: requestId,
                 sessionToken: sessionToken,
-                method: ContractLiteralCodec.ToValue(UnityIpcMethod.DaemonLogsRead),
+                method: TextVocabulary.GetText(UnityIpcMethod.DaemonLogsRead),
                 payload: payload,
                 responseMode: "single",
                 requestDeadlineUtc: DateTimeOffset.UtcNow + TimeSpan.FromSeconds(30),
@@ -1347,7 +1349,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: requestId,
                 sessionToken: sessionToken,
-                method: ContractLiteralCodec.ToValue(UnityIpcMethod.UnityLogsRead),
+                method: TextVocabulary.GetText(UnityIpcMethod.UnityLogsRead),
                 payload: payload,
                 responseMode: "single",
                 requestDeadlineUtc: DateTimeOffset.UtcNow + TimeSpan.FromSeconds(30),
@@ -1365,7 +1367,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: requestId,
                 sessionToken: sessionToken,
-                method: ContractLiteralCodec.ToValue(UnityIpcMethod.UnityConsoleClear),
+                method: TextVocabulary.GetText(UnityIpcMethod.UnityConsoleClear),
                 payload: payload,
                 responseMode: "single",
                 requestDeadlineUtc: DateTimeOffset.UtcNow + TimeSpan.FromSeconds(30),

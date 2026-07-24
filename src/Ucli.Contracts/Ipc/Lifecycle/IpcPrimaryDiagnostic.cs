@@ -24,7 +24,7 @@ public sealed record IpcPrimaryDiagnostic
         int? Column,
         string? Message)
     {
-        if (Kind.HasValue && !ContractLiteralCodec.IsDefined(Kind.Value))
+        if (Kind.HasValue && !TextVocabulary.IsDefined(Kind.Value))
         {
             throw new ArgumentOutOfRangeException(nameof(Kind), Kind, "Unsupported primary diagnostic kind.");
         }

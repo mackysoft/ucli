@@ -12,8 +12,8 @@ public sealed class IndexSceneTreeLiteLookupJsonContractTests
     {
         Assert.Equal(
             ["complete", "notExpandedByDepth", "truncatedByWindow", "unknown"],
-            ContractLiteralCodec.GetLiterals<IndexSceneTreeLiteNodeChildrenState>());
-        Assert.False(ContractLiteralCodec.IsDefined(default(IndexSceneTreeLiteNodeChildrenState)));
+            TextVocabulary.GetTexts<IndexSceneTreeLiteNodeChildrenState>());
+        Assert.False(TextVocabulary.IsDefined(default(IndexSceneTreeLiteNodeChildrenState)));
     }
 
     [Fact]

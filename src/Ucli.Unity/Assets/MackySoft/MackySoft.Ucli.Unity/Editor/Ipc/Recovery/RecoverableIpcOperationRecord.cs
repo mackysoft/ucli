@@ -1,6 +1,8 @@
 using System;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using MackySoft.Text.Vocabularies;
+using TextVocabulary = MackySoft.Text.Vocabularies.Vocabulary;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -44,7 +46,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             get => state;
             set
             {
-                if (!ContractLiteralCodec.IsDefined(value))
+                if (!TextVocabulary.IsDefined(value))
                 {
                     throw new ArgumentOutOfRangeException(nameof(value), value, "Recoverable IPC operation state is unsupported.");
                 }
@@ -74,7 +76,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             {
                 if (HasState)
                 {
-                    return ContractLiteralCodec.ToValue(State);
+                    return TextVocabulary.GetText(State);
                 }
 
                 if (HasPersistedState)
@@ -87,7 +89,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             set
             {
                 hasPersistedState = true;
-                if (!ContractLiteralCodec.TryParse(value, out RecoverableIpcOperationState parsedState))
+                if (!TextVocabulary.TryGetValue(value, out RecoverableIpcOperationState parsedState))
                 {
                     unsupportedPersistedState = value;
                     hasState = false;

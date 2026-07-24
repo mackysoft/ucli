@@ -1,15 +1,15 @@
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Operations;
 
 /// <summary> Identifies the shape of a source-facing API member. </summary>
+[VocabularyDefinition]
 public enum UcliCodeApiMemberKind
 {
     /// <summary> Indicates a property member. </summary>
-    [UcliContractLiteral("property")]
+    [VocabularyText("property")]
     Property = 1,
 
     /// <summary> Indicates a method member. </summary>
-    [UcliContractLiteral("method")]
+    [VocabularyText("method")]
     Method = 2,
 }

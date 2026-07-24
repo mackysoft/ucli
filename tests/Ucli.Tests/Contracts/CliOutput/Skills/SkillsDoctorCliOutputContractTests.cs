@@ -54,7 +54,7 @@ public sealed class SkillsDoctorCliOutputContractTests
         CommandResultAssert.HasStandardEnvelope(
             outputJson.RootElement,
             command: UcliCommandNames.SkillsDoctor,
-            status: ContractLiteralCodec.ToValue(CommandResultStatus.Error),
+            status: TextVocabulary.GetText(CommandResultStatus.Error),
             exitCode: (int)CliExitCode.ToolError);
         CommandResultAssert.HasSingleError(outputJson.RootElement, InstallTargetContentDigestMismatchCode);
         JsonAssert.For(outputJson.RootElement)
@@ -106,7 +106,7 @@ public sealed class SkillsDoctorCliOutputContractTests
         CommandResultAssert.HasStandardEnvelope(
             outputJson.RootElement,
             command: UcliCommandNames.SkillsDoctor,
-            status: ContractLiteralCodec.ToValue(CommandResultStatus.Error),
+            status: TextVocabulary.GetText(CommandResultStatus.Error),
             exitCode: (int)CliExitCode.ToolError);
         CommandResultAssert.HasSingleError(outputJson.RootElement, InstallTargetUnmanagedCode);
         JsonAssert.For(outputJson.RootElement)

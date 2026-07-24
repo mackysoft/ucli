@@ -1,4 +1,3 @@
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
@@ -51,7 +50,7 @@ public static class UnityIpcMethodCapabilities
         IpcEditorLifecycleState lifecycleState)
     {
         EnsureDefined(method);
-        if (!ContractLiteralCodec.IsDefined(lifecycleState))
+        if (!TextVocabulary.IsDefined(lifecycleState))
         {
             throw new ArgumentOutOfRangeException(nameof(lifecycleState), lifecycleState, "Editor lifecycle state must be defined.");
         }
@@ -62,7 +61,7 @@ public static class UnityIpcMethodCapabilities
 
     private static void EnsureDefined (UnityIpcMethod method)
     {
-        if (!ContractLiteralCodec.IsDefined(method))
+        if (!TextVocabulary.IsDefined(method))
         {
             throw new ArgumentOutOfRangeException(nameof(method), method, "Unity IPC method must be defined.");
         }

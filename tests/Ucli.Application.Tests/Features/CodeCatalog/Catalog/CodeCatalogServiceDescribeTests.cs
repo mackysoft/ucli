@@ -68,7 +68,7 @@ public sealed class CodeCatalogServiceDescribeTests
             Assert.NotNull(result.Descriptor);
             Assert.Equal(futureCode, result.Descriptor!.Code);
             Assert.Equal(CodeCatalogKind.Unknown, result.Descriptor.Kind);
-            Assert.Equal(ContractLiteralCodec.ToValue(CodeCatalogKind.Unknown), result.Descriptor.Category);
+            Assert.Equal(TextVocabulary.GetText(CodeCatalogKind.Unknown), result.Descriptor.Category);
             Assert.Empty(result.Descriptor.AppearsIn);
         }
     }

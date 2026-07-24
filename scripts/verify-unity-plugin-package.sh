@@ -2,39 +2,16 @@
 set -euo pipefail
 
 print_usage() {
-  echo "Usage: $0 <package-dir> <expected-version> [--filesystem-package-source <dir>]" >&2
+  echo "Usage: $0 <package-dir> <expected-version>" >&2
 }
 
-if [[ "$#" -lt 2 ]]; then
+if [[ "$#" -ne 2 ]]; then
   print_usage
   exit 2
 fi
 
 package_dir="$1"
 expected_version="$2"
-filesystem_package_source="${FILESYSTEM_PACKAGE_SOURCE:-}"
-shift 2
-
-while [[ "$#" -gt 0 ]]; do
-  case "$1" in
-    --filesystem-package-source)
-      if [[ "$#" -lt 2 ]]; then
-        print_usage
-        exit 2
-      fi
-      filesystem_package_source="$2"
-      shift 2
-      ;;
-    --filesystem-package-source=*)
-      filesystem_package_source="${1#--filesystem-package-source=}"
-      shift
-      ;;
-    *)
-      print_usage
-      exit 2
-      ;;
-  esac
-done
 
 if [[ ! -d "${package_dir}" ]]; then
   echo "Unity package directory does not exist: ${package_dir}" >&2
@@ -51,7 +28,11 @@ unity_packages_config="${repository_root}/src/Ucli.Unity/Assets/packages.config"
 unity_editor_asmdef_entry="Editor/MackySoft.Ucli.Unity.Editor.asmdef"
 filesystem_package_id="MackySoft.FileSystem"
 filesystem_package_version="0.1.0"
-filesystem_package_file_name="${filesystem_package_id}.${filesystem_package_version}.nupkg"
+foundation_package_ids=(
+  "${filesystem_package_id}"
+  "MackySoft.Text.Vocabularies"
+  "MackySoft.Text.Vocabularies.Json"
+)
 ucli_dependency_package_ids=(
   "MackySoft.Ucli.Contracts"
   "MackySoft.Ucli.Infrastructure"
@@ -63,7 +44,7 @@ if [[ ! -f "${package_path}" ]]; then
   exit 1
 fi
 
-for required_tool in cmp dotnet jq nuget python3 unzip; do
+for required_tool in jq nuget unzip; do
   if ! command -v "${required_tool}" >/dev/null 2>&1; then
     echo "Required tool is missing: ${required_tool}" >&2
     exit 1
@@ -75,18 +56,17 @@ if [[ ! -f "${unity_packages_config}" ]]; then
   exit 1
 fi
 
-if [[ -n "${filesystem_package_source}" ]]; then
-  if [[ ! -d "${filesystem_package_source}" ]]; then
-    echo "Filesystem package source does not exist: ${filesystem_package_source}" >&2
+for foundation_package_id in "${foundation_package_ids[@]}"; do
+  foundation_package_version="$(
+    sed -nE "s#.*<package id=\"${foundation_package_id}\" version=\"([^\"]+)\".*#\\1#p" \
+      "${unity_packages_config}" |
+      head -n 1
+  )"
+  if [[ "${foundation_package_version}" != "${filesystem_package_version}" ]]; then
+    echo "${foundation_package_id} must use exact version ${filesystem_package_version}. Actual: ${foundation_package_version}" >&2
     exit 1
   fi
-
-  filesystem_package_source="$(cd "${filesystem_package_source}" && pwd)"
-  if [[ ! -f "${filesystem_package_source}/${filesystem_package_file_name}" ]]; then
-    echo "Filesystem package source is missing ${filesystem_package_file_name}: ${filesystem_package_source}" >&2
-    exit 1
-  fi
-fi
+done
 
 for dependency_package_id in "${ucli_dependency_package_ids[@]}"; do
   dependency_package_version="$(
@@ -136,7 +116,9 @@ for forbidden_pattern in \
   '^.*\.unitypackage$' \
   '^package\.json$' \
   '(^|/)MackySoft\.FileSystem\.dll$' \
-  '(^|/)MackySoft\.FileSystem\.[^/]*\.nupkg$'; do
+  '(^|/)MackySoft\.FileSystem\.[^/]*\.nupkg$' \
+  '(^|/)MackySoft\.Text\.Vocabularies(\.Json)?\.dll$' \
+  '(^|/)MackySoft\.Text\.Vocabularies(\.Json)?\.[^/]*\.nupkg$'; do
   if grep -Ei "${forbidden_pattern}" <<< "${package_entries}" >/dev/null; then
     echo "Unity package contains forbidden entry matching ${forbidden_pattern}." >&2
     grep -Ei "${forbidden_pattern}" <<< "${package_entries}" >&2
@@ -161,11 +143,15 @@ fi
 
 while IFS=$'\t' read -r dependency_id dependency_version; do
   [[ -n "${dependency_id}" ]] || continue
-  if [[ "${dependency_id}" == "MackySoft.FileSystem" ]]; then
-    dependency_version="[${dependency_version}]"
-  fi
-  if ! grep -F "<dependency id=\"${dependency_id}\" version=\"${dependency_version}\" />" "${nuspec_path}" >/dev/null; then
-    echo "Unity package nuspec is missing dependency ${dependency_id} ${dependency_version}." >&2
+  expected_nuspec_version="${dependency_version}"
+  case "${dependency_id}" in
+    MackySoft.FileSystem|MackySoft.Text.Vocabularies|MackySoft.Text.Vocabularies.Json)
+      expected_nuspec_version="[${dependency_version}]"
+      ;;
+  esac
+
+  if ! grep -F "<dependency id=\"${dependency_id}\" version=\"${expected_nuspec_version}\" />" "${nuspec_path}" >/dev/null; then
+    echo "Unity package nuspec is missing dependency ${dependency_id} ${expected_nuspec_version}." >&2
     exit 1
   fi
 done < <(
@@ -174,18 +160,15 @@ done < <(
 
 unity_package_source="${temp_dir}/unity-source"
 ucli_package_source="${temp_dir}/ucli-source"
-isolated_filesystem_package_source="${temp_dir}/filesystem-source"
 isolated_nuget_packages="${temp_dir}/global-packages"
 isolated_nuget_http_cache="${temp_dir}/http-cache"
-isolated_dotnet_home="${temp_dir}/dotnet-home"
 nuget_config="${temp_dir}/NuGet.config"
-filesystem_restore_project="${temp_dir}/FileSystemRestore.csproj"
 restore_root="${temp_dir}/UnityProject"
 restore_packages_directory="${restore_root}/Assets/Packages"
+restore_packages_config="${temp_dir}/packages.config"
 mkdir -p \
   "${unity_package_source}" \
   "${ucli_package_source}" \
-  "${isolated_dotnet_home}" \
   "${isolated_nuget_http_cache}" \
   "${isolated_nuget_packages}" \
   "${restore_packages_directory}"
@@ -197,32 +180,16 @@ for dependency_index in "${!ucli_dependency_package_ids[@]}"; do
     "${ucli_package_source}/"
 done
 
-filesystem_source_entry=""
-filesystem_source_mapping=""
-public_filesystem_mapping='<package pattern="MackySoft.FileSystem" />'
-if [[ -n "${filesystem_package_source}" ]]; then
-  mkdir -p "${isolated_filesystem_package_source}"
-  cp "${filesystem_package_source}/${filesystem_package_file_name}" \
-    "${isolated_filesystem_package_source}/${filesystem_package_file_name}"
-  filesystem_source_entry='<add key="FileSystemCandidate" value="./filesystem-source" />'
-  filesystem_source_mapping='
-    <packageSource key="FileSystemCandidate">
-      <package pattern="MackySoft.FileSystem" />
-    </packageSource>'
-  public_filesystem_mapping=""
-fi
-
 cat > "${nuget_config}" <<EOF
 <?xml version="1.0" encoding="utf-8"?>
 <configuration>
   <packageSources>
     <clear />
-    ${filesystem_source_entry}
     <add key="UnityPackage" value="./unity-source" />
     <add key="UcliPackages" value="./ucli-source" />
     <add key="nuget.org" value="https://api.nuget.org/v3/index.json" />
   </packageSources>
-  <packageSourceMapping>${filesystem_source_mapping}
+  <packageSourceMapping>
     <packageSource key="UnityPackage">
       <package pattern="${package_id}" />
     </packageSource>
@@ -231,9 +198,12 @@ cat > "${nuget_config}" <<EOF
       <package pattern="MackySoft.Ucli.Infrastructure" />
     </packageSource>
     <packageSource key="nuget.org">
-      ${public_filesystem_mapping}
+      <package pattern="MackySoft.FileSystem" />
+      <package pattern="MackySoft.Text.Vocabularies" />
+      <package pattern="MackySoft.Text.Vocabularies.Json" />
       <package pattern="Microsoft.*" />
       <package pattern="NETStandard.Library" />
+      <package pattern="Newtonsoft.Json" />
       <package pattern="System.*" />
       <package pattern="runtime.*" />
     </packageSource>
@@ -241,85 +211,22 @@ cat > "${nuget_config}" <<EOF
 </configuration>
 EOF
 
-if [[ -n "${filesystem_package_source}" ]]; then
-  cat > "${filesystem_restore_project}" <<EOF
-<Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
-  </PropertyGroup>
-  <ItemGroup>
-    <PackageReference Include="${filesystem_package_id}" Version="[${filesystem_package_version}]" />
-  </ItemGroup>
-</Project>
-EOF
-
-  DOTNET_CLI_HOME="${isolated_dotnet_home}" \
-    NUGET_HTTP_CACHE_PATH="${isolated_nuget_http_cache}" \
-    NUGET_PACKAGES="${isolated_nuget_packages}" \
-    dotnet restore "${filesystem_restore_project}" \
-    --configfile "${nuget_config}" \
-    --no-cache \
-    --force-evaluate \
-    --verbosity minimal
-
-  restored_global_filesystem_root="${isolated_nuget_packages}/mackysoft.filesystem/${filesystem_package_version}"
-  restored_global_filesystem_package="${restored_global_filesystem_root}/mackysoft.filesystem.${filesystem_package_version}.nupkg"
-  restored_global_filesystem_metadata="${restored_global_filesystem_root}/.nupkg.metadata"
-  if [[ ! -f "${restored_global_filesystem_package}" ]] \
-    || ! cmp -s \
-      "${filesystem_package_source}/${filesystem_package_file_name}" \
-      "${restored_global_filesystem_package}"; then
-    echo "Restored global filesystem package does not match the supplied prepublication package." >&2
-    exit 1
-  fi
-
-  FILESYSTEM_METADATA_PATH="${restored_global_filesystem_metadata}" \
-  EXPECTED_FILESYSTEM_SOURCE="${isolated_filesystem_package_source}" \
-    python3 - <<'PY'
-import json
-import os
-import sys
-
-metadata_path = os.environ["FILESYSTEM_METADATA_PATH"]
-expected_source = os.path.normcase(os.path.realpath(os.environ["EXPECTED_FILESYSTEM_SOURCE"]))
-if not os.path.isfile(metadata_path):
-    print(
-        f"Restored MackySoft.FileSystem metadata was not found: {metadata_path}",
-        file=sys.stderr,
-    )
-    sys.exit(1)
-
-with open(metadata_path, encoding="utf-8") as metadata_file:
-    actual_source_value = json.load(metadata_file).get("source")
-
-if not isinstance(actual_source_value, str):
-    print(
-        "Restored MackySoft.FileSystem metadata does not contain a source string.",
-        file=sys.stderr,
-    )
-    sys.exit(1)
-
-actual_source = os.path.normcase(os.path.realpath(actual_source_value))
-if actual_source != expected_source:
-    print(
-        "Restored MackySoft.FileSystem source differs from the isolated candidate source. "
-        f"Expected: {expected_source}. Actual: {actual_source}",
-        file=sys.stderr,
-    )
-    sys.exit(1)
-PY
-fi
+{
+  printf '%s\n' \
+    '<?xml version="1.0" encoding="utf-8"?>' \
+    '<packages>' \
+    "  <package id=\"${package_id}\" version=\"${expected_version}\" targetFramework=\"netstandard2.1\" />"
+  sed -nE '/^[[:space:]]*<package /p' "${unity_packages_config}"
+  printf '%s\n' '</packages>'
+} > "${restore_packages_config}"
 
 NUGET_HTTP_CACHE_PATH="${isolated_nuget_http_cache}" \
   NUGET_PACKAGES="${isolated_nuget_packages}" \
-  nuget install "${package_id}" \
-  -Version "${expected_version}" \
-  -Framework netstandard2.1 \
+  nuget restore "${restore_packages_config}" \
+  -PackagesDirectory "${restore_packages_directory}" \
   -ConfigFile "${nuget_config}" \
-  -OutputDirectory "${restore_packages_directory}" \
   -NoCache \
-  -DirectDownload \
-  -NonInteractive
+  -NonInteractive >/dev/null
 
 restored_plugin_root="${restore_packages_directory}/${package_id}.${expected_version}"
 restored_marker_path="${restored_plugin_root}/ucli-plugin.json"
@@ -331,57 +238,47 @@ fi
 restored_editor_asmdef="${restored_plugin_root}/${unity_editor_asmdef_entry}"
 if [[ ! -f "${restored_editor_asmdef}" ]] \
   || ! jq -e \
-    --arg dependency_assembly "${filesystem_package_id}" \
-    '(.references | type == "array") and (.references | index($dependency_assembly) != null)' \
+    --arg filesystem_assembly "${filesystem_package_id}" \
+    --arg text_assembly "MackySoft.Text.Vocabularies" \
+    '(.references | type == "array")
+      and (.references | index($filesystem_assembly) != null)
+      and (.references | index($text_assembly) != null)' \
     "${restored_editor_asmdef}" >/dev/null; then
-  echo "Restored Unity Editor asmdef does not reference ${filesystem_package_id}." >&2
+  echo "Restored Unity Editor asmdef does not reference the required foundation assemblies." >&2
   exit 1
 fi
 
-restored_plugin_package="${restored_plugin_root}/${package_id}.${expected_version}.nupkg"
-if [[ ! -f "${restored_plugin_package}" ]] \
-  || ! cmp -s "${package_path}" "${restored_plugin_package}"; then
-  echo "Restored Unity plugin package does not match the verified package artifact." >&2
-  exit 1
-fi
-
-restored_filesystem_root="${restore_packages_directory}/${filesystem_package_id}.${filesystem_package_version}"
-restored_filesystem_dll="${restored_filesystem_root}/lib/netstandard2.1/${filesystem_package_id}.dll"
-restored_filesystem_package="${restored_filesystem_root}/${filesystem_package_file_name}"
-for restored_filesystem_entry in \
-  "${restored_filesystem_dll}" \
-  "${restored_filesystem_package}"; do
-  if [[ ! -f "${restored_filesystem_entry}" ]]; then
-    echo "Restored Unity dependency layout is missing: ${restored_filesystem_entry}" >&2
+for foundation_package_id in "${foundation_package_ids[@]}"; do
+  foundation_package_root="${restore_packages_directory}/${foundation_package_id}.${filesystem_package_version}"
+  foundation_runtime_assembly="${foundation_package_root}/lib/netstandard2.1/${foundation_package_id}.dll"
+  if [[ ! -f "${foundation_runtime_assembly}" ]]; then
+    echo "Restored Unity dependency layout is missing: ${foundation_runtime_assembly}" >&2
     exit 1
   fi
 done
 
 if find "${restored_plugin_root}" -type f \
-  \( -iname "${filesystem_package_id}.dll" -o -iname "${filesystem_package_id}.*.nupkg" \) \
+  \( \
+    -iname "${filesystem_package_id}.dll" \
+    -o -iname "${filesystem_package_id}.*.nupkg" \
+    -o -iname "MackySoft.Text.Vocabularies.dll" \
+    -o -iname "MackySoft.Text.Vocabularies.Json.dll" \
+    -o -iname "MackySoft.Text.Vocabularies.*.nupkg" \
+    -o -iname "MackySoft.Text.Vocabularies.Json.*.nupkg" \
+  \) \
   -print -quit |
   grep -q .; then
-  echo "Restored Unity plugin directory contains the external filesystem provider." >&2
+  echo "Restored Unity plugin directory contains an external foundation provider." >&2
   find "${restored_plugin_root}" -type f \
-    \( -iname "${filesystem_package_id}.dll" -o -iname "${filesystem_package_id}.*.nupkg" \) \
+    \( \
+      -iname "${filesystem_package_id}.dll" \
+      -o -iname "${filesystem_package_id}.*.nupkg" \
+      -o -iname "MackySoft.Text.Vocabularies.dll" \
+      -o -iname "MackySoft.Text.Vocabularies.Json.dll" \
+      -o -iname "MackySoft.Text.Vocabularies.*.nupkg" \
+      -o -iname "MackySoft.Text.Vocabularies.Json.*.nupkg" \
+    \) \
     -print >&2
-  exit 1
-fi
-
-if [[ -n "${filesystem_package_source}" ]] \
-  && ! cmp -s \
-    "${filesystem_package_source}/${filesystem_package_file_name}" \
-    "${restored_filesystem_package}"; then
-  echo "Restored Unity filesystem package does not match the supplied prepublication package." >&2
-  exit 1
-fi
-
-if [[ -n "${filesystem_package_source}" ]] \
-  && ! unzip -p \
-    "${filesystem_package_source}/${filesystem_package_file_name}" \
-    "lib/netstandard2.1/${filesystem_package_id}.dll" \
-    | cmp -s - "${restored_filesystem_dll}"; then
-  echo "Restored Unity filesystem assembly does not match the supplied prepublication package." >&2
   exit 1
 fi
 
@@ -390,14 +287,21 @@ for dependency_index in "${!ucli_dependency_package_ids[@]}"; do
   dependency_package_version="${ucli_dependency_package_versions[${dependency_index}]}"
   dependency_root="${restore_packages_directory}/${dependency_package_id}.${dependency_package_version}"
   dependency_dll="${dependency_root}/lib/netstandard2.1/${dependency_package_id}.dll"
-  restored_dependency_package="${dependency_root}/${dependency_package_id}.${dependency_package_version}.nupkg"
-  source_dependency_package="${package_dir}/${dependency_package_id}.${dependency_package_version}.nupkg"
-  if [[ ! -f "${dependency_dll}" ]] \
-    || [[ ! -f "${restored_dependency_package}" ]] \
-    || ! cmp -s "${source_dependency_package}" "${restored_dependency_package}"; then
-    echo "Restored Unity dependency layout does not match ${source_dependency_package}." >&2
+  if [[ ! -f "${dependency_dll}" ]]; then
+    echo "Restored Unity dependency layout is missing: ${dependency_dll}" >&2
     exit 1
   fi
 done
+
+while IFS=$'\t' read -r restored_package_id restored_package_version; do
+  [[ -n "${restored_package_id}" ]] || continue
+  restored_package_path="${restore_root}/Assets/Packages/${restored_package_id}.${restored_package_version}"
+  if [[ ! -d "${restored_package_path}" ]]; then
+    echo "Unity package dependency was not restored: ${restored_package_id} ${restored_package_version}" >&2
+    exit 1
+  fi
+done < <(
+  sed -nE 's#.*<package id="([^"]+)" version="([^"]+)".*#\1\t\2#p' "${restore_packages_config}"
+)
 
 echo "Unity package verification passed: ${package_path}"

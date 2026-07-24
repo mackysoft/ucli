@@ -15,7 +15,7 @@ internal sealed record VerifyVerifierOutput
         IReadOnlyList<AssuranceEffect> Effects)
     {
         this.Id = Id ?? throw new ArgumentNullException(nameof(Id));
-        if (!ContractLiteralCodec.IsDefined(Kind))
+        if (!TextVocabulary.IsDefined(Kind))
         {
             throw new ArgumentOutOfRangeException(nameof(Kind), Kind, "Verifier kind must be defined by the assurance contract.");
         }
@@ -27,7 +27,7 @@ internal sealed record VerifyVerifierOutput
         }
 
         ArgumentNullException.ThrowIfNull(Effects);
-        if (Effects.Any(static effect => !ContractLiteralCodec.IsDefined(effect)))
+        if (Effects.Any(static effect => !TextVocabulary.IsDefined(effect)))
         {
             throw new ArgumentException("Effects must contain only defined assurance effects.", nameof(Effects));
         }

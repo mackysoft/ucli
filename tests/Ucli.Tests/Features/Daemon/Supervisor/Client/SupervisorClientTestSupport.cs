@@ -158,7 +158,7 @@ internal static class SupervisorClientTestSupport
 
         return CreateProgressFrame(
             request,
-            ContractLiteralCodec.ToValue(DaemonStartProgressEvent.WaitingForEndpoint),
+            TextVocabulary.GetText(DaemonStartProgressEvent.WaitingForEndpoint),
             progressPayload);
     }
 
@@ -181,7 +181,7 @@ internal static class SupervisorClientTestSupport
 
         return CreateProgressFrame(
             request,
-            ContractLiteralCodec.ToValue(DaemonStartProgressEvent.LifecycleObserved),
+            TextVocabulary.GetText(DaemonStartProgressEvent.LifecycleObserved),
             progressPayload);
     }
 }

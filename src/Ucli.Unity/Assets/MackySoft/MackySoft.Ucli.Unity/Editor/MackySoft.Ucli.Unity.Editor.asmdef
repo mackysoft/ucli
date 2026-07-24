@@ -3,6 +3,7 @@
     "rootNamespace": "MackySoft.Ucli.Unity",
     "references": [
         "MackySoft.FileSystem",
+        "MackySoft.Text.Vocabularies",
         "MackySoft.Ucli.Contracts",
         "MackySoft.Ucli.Infrastructure"
     ],

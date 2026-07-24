@@ -58,7 +58,7 @@ internal static class UnityIpcExecutionPathAssert
         UnityIpcMethod expectedMethod)
     {
         var request = Assert.Single(daemonTransportClient.Requests);
-        Assert.Equal(ContractLiteralCodec.ToValue(expectedMethod), request.Method);
+        Assert.Equal(TextVocabulary.GetText(expectedMethod), request.Method);
         OneshotExecutionWasNotStarted(oneshotTransportClient, launcher);
         return request;
     }
@@ -100,7 +100,7 @@ internal static class UnityIpcExecutionPathAssert
     {
         var request = Assert.Single(daemonTransportClient.StreamingRequests);
         Assert.Same(request, Assert.Single(daemonTransportClient.Requests));
-        Assert.Equal(ContractLiteralCodec.ToValue(expectedMethod), request.Method);
+        Assert.Equal(TextVocabulary.GetText(expectedMethod), request.Method);
         OneshotExecutionWasNotStarted(oneshotTransportClient, launcher);
         return request;
     }

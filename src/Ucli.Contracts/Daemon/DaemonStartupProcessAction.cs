@@ -1,23 +1,23 @@
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Daemon;
 
 /// <summary> Defines daemon startup process-action literals. </summary>
+[VocabularyDefinition]
 public enum DaemonStartupProcessAction
 {
     /// <summary> No Unity process action was required. </summary>
-    [UcliContractLiteral("none")]
+    [VocabularyText("none")]
     None = 0,
 
     /// <summary> The Unity process was preserved. </summary>
-    [UcliContractLiteral("kept")]
+    [VocabularyText("kept")]
     Kept = 1,
 
     /// <summary> The Unity process was terminated. </summary>
-    [UcliContractLiteral("terminated")]
+    [VocabularyText("terminated")]
     Terminated = 2,
 
     /// <summary> The process action outcome is unknown. </summary>
-    [UcliContractLiteral("unknown")]
+    [VocabularyText("unknown")]
     Unknown = 3,
 }

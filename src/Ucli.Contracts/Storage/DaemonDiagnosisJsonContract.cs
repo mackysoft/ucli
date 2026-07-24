@@ -36,22 +36,22 @@ internal sealed record DaemonDiagnosisJsonContract
         DaemonDiagnosisActionRequired? ActionRequired,
         DaemonDiagnosisPrimaryDiagnosticJsonContract? PrimaryDiagnostic)
     {
-        if (Reason.HasValue && !ContractLiteralCodec.IsDefined(Reason.Value))
+        if (Reason.HasValue && !TextVocabulary.IsDefined(Reason.Value))
         {
             throw new ArgumentOutOfRangeException(nameof(Reason), Reason, "Unsupported daemon diagnosis reason.");
         }
 
-        if (ReportedBy.HasValue && !ContractLiteralCodec.IsDefined(ReportedBy.Value))
+        if (ReportedBy.HasValue && !TextVocabulary.IsDefined(ReportedBy.Value))
         {
             throw new ArgumentOutOfRangeException(nameof(ReportedBy), ReportedBy, "Unsupported daemon diagnosis reporter.");
         }
 
-        if (StartupPhase.HasValue && !ContractLiteralCodec.IsDefined(StartupPhase.Value))
+        if (StartupPhase.HasValue && !TextVocabulary.IsDefined(StartupPhase.Value))
         {
             throw new ArgumentOutOfRangeException(nameof(StartupPhase), StartupPhase, "Unsupported daemon diagnosis startup phase.");
         }
 
-        if (ActionRequired.HasValue && !ContractLiteralCodec.IsDefined(ActionRequired.Value))
+        if (ActionRequired.HasValue && !TextVocabulary.IsDefined(ActionRequired.Value))
         {
             throw new ArgumentOutOfRangeException(nameof(ActionRequired), ActionRequired, "Unsupported daemon diagnosis action.");
         }

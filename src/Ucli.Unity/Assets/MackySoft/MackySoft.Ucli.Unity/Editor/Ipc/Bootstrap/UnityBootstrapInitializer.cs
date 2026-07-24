@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using MackySoft.FileSystem;
+using MackySoft.Text.Vocabularies;
+using TextVocabulary = MackySoft.Text.Vocabularies.Vocabulary;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Infrastructure.Ipc;
@@ -224,7 +226,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     new[] { IpcBatchmodeBootstrapArgumentNames.Target },
                     IpcBatchmodeBootstrapArgumentNames.Target,
                     out var target)
-                && ContractLiteralCodec.Matches(target, IpcBootstrapTarget.Oneshot);
+                && TextVocabulary.Matches(target, IpcBootstrapTarget.Oneshot);
         }
 
         private enum BootstrapStartupKind

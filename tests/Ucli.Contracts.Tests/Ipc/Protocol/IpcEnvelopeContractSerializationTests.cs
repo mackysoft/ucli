@@ -46,9 +46,9 @@ public sealed class IpcEnvelopeContractSerializationTests
             IpcProtocol.CurrentVersion,
             Guid.Parse("f73322e8-d990-4f84-b47f-98e6c79d6024"),
             SessionToken,
-            ContractLiteralCodec.ToValue(UnityIpcMethod.Ping),
+            TextVocabulary.GetText(UnityIpcMethod.Ping),
             IpcPayloadCodec.SerializeToElement(new { }),
-            ContractLiteralCodec.ToValue(IpcResponseMode.Single),
+            TextVocabulary.GetText(IpcResponseMode.Single),
             RequestDeadlineUtc,
             RequestDeadlineRemainingMilliseconds);
 
@@ -79,7 +79,7 @@ public sealed class IpcEnvelopeContractSerializationTests
             sessionToken: "token",
             method: "execute",
             payload: payload,
-            responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single),
+            responseMode: TextVocabulary.GetText(IpcResponseMode.Single),
             requestDeadlineUtc: RequestDeadlineUtc,
             requestDeadlineRemainingMilliseconds: RequestDeadlineRemainingMilliseconds);
 
@@ -91,7 +91,7 @@ public sealed class IpcEnvelopeContractSerializationTests
             .HasString("method", "execute")
             .HasString("requestDeadlineUtc", "2030-01-02T03:04:05+00:00")
             .HasInt32("requestDeadlineRemainingMilliseconds", RequestDeadlineRemainingMilliseconds)
-            .HasString("responseMode", ContractLiteralCodec.ToValue(IpcResponseMode.Single))
+            .HasString("responseMode", TextVocabulary.GetText(IpcResponseMode.Single))
             .HasValueKind("payload", JsonValueKind.Object);
     }
 
@@ -105,7 +105,7 @@ public sealed class IpcEnvelopeContractSerializationTests
             sessionToken: "token",
             method: "execute",
             payload: IpcPayloadCodec.SerializeToElement(new { }),
-            responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single),
+            responseMode: TextVocabulary.GetText(IpcResponseMode.Single),
             requestDeadlineUtc: default,
             requestDeadlineRemainingMilliseconds: RequestDeadlineRemainingMilliseconds));
 
@@ -122,7 +122,7 @@ public sealed class IpcEnvelopeContractSerializationTests
             sessionToken: "token",
             method: "execute",
             payload: IpcPayloadCodec.SerializeToElement(new { }),
-            responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single),
+            responseMode: TextVocabulary.GetText(IpcResponseMode.Single),
             requestDeadlineUtc: new DateTimeOffset(2030, 1, 2, 3, 4, 5, TimeSpan.FromHours(9)),
             requestDeadlineRemainingMilliseconds: RequestDeadlineRemainingMilliseconds));
 
@@ -139,7 +139,7 @@ public sealed class IpcEnvelopeContractSerializationTests
             sessionToken: "token",
             method: "execute",
             payload: IpcPayloadCodec.SerializeToElement(new { }),
-            responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single),
+            responseMode: TextVocabulary.GetText(IpcResponseMode.Single),
             requestDeadlineUtc: DateTimeOffset.UnixEpoch,
             requestDeadlineRemainingMilliseconds: RequestDeadlineRemainingMilliseconds);
 
@@ -336,7 +336,7 @@ public sealed class IpcEnvelopeContractSerializationTests
         JsonAssert.For(json)
             .HasInt32("protocolVersion", IpcProtocol.CurrentVersion)
             .HasString("requestId", requestId.ToString("D"))
-            .HasString("kind", ContractLiteralCodec.ToValue(IpcStreamFrameKind.Progress))
+            .HasString("kind", TextVocabulary.GetText(IpcStreamFrameKind.Progress))
             .HasString("event", TestRunProgressEventNames.RunStarted)
             .HasValueKind("payload", JsonValueKind.Object)
             .HasValueKind("response", JsonValueKind.Null);
@@ -369,12 +369,12 @@ public sealed class IpcEnvelopeContractSerializationTests
         var json = IpcPayloadCodec.SerializeToElement(frame);
 
         JsonAssert.For(json)
-            .HasString("kind", ContractLiteralCodec.ToValue(IpcStreamFrameKind.Terminal))
+            .HasString("kind", TextVocabulary.GetText(IpcStreamFrameKind.Terminal))
             .HasValueKind("event", JsonValueKind.Null)
             .HasValueKind("response", JsonValueKind.Object);
         JsonAssert.For(json.GetProperty("response"))
             .HasString("requestId", requestId.ToString("D"))
-            .HasString("status", ContractLiteralCodec.ToValue(IpcResponseStatus.Ok))
+            .HasString("status", TextVocabulary.GetText(IpcResponseStatus.Ok))
             .HasValueKind("payload", JsonValueKind.Object)
             .HasArrayLength("errors", 0);
     }
@@ -524,7 +524,7 @@ public sealed class IpcEnvelopeContractSerializationTests
             "token",
             "execute",
             payload,
-            ContractLiteralCodec.ToValue(IpcResponseMode.Single),
+            TextVocabulary.GetText(IpcResponseMode.Single),
             RequestDeadlineUtc,
             RequestDeadlineRemainingMilliseconds));
         Assert.Throws<ArgumentException>(() => new IpcResponse(

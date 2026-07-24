@@ -26,6 +26,8 @@
     <PackageReference Include="MackySoft.AgentSkills.ConsoleAppFramework" Version="1.0.0" PrivateAssets="all" />
     <PackageReference Include="MackySoft.AgentSkills.Hosting" Version="1.0.0" />
     <PackageReference Include="MackySoft.FileSystem" Version="[0.1.0]" GeneratePathProperty="true" />
+    <PackageReference Include="MackySoft.Text.Vocabularies" Version="[0.1.0]" GeneratePathProperty="true" />
+    <PackageReference Include="MackySoft.Text.Vocabularies.Json" Version="[0.1.0]" GeneratePathProperty="true" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.3" />
   </ItemGroup>
 
@@ -33,6 +35,12 @@
     <ProjectReference Include="../Ucli.Application/Ucli.Application.csproj" />
     <ProjectReference Include="../Ucli.Contracts/Ucli.Contracts.csproj" />
     <ProjectReference Include="../Ucli.Infrastructure/Ucli.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="MackySoft.Text.Vocabularies" />
+    <Using Include="MackySoft.Text.Vocabularies.Vocabulary" Alias="TextVocabulary" />
+    <Using Include="MackySoft.Text.Vocabularies.Json" />
   </ItemGroup>
 
   <ItemGroup>
@@ -59,6 +67,18 @@
     </None>
 
     <None Include="$(PkgMackySoft_FileSystem)/LICENSE" Link="third-party/MackySoft.FileSystem/0.1.0/LICENSE">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </None>
+
+    <None Include="$(PkgMackySoft_Text_Vocabularies)/LICENSE"
+          Link="third-party/MackySoft.Text.Vocabularies/0.1.0/LICENSE">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </None>
+
+    <None Include="$(PkgMackySoft_Text_Vocabularies_Json)/LICENSE"
+          Link="third-party/MackySoft.Text.Vocabularies.Json/0.1.0/LICENSE">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </None>

@@ -12,7 +12,7 @@ public sealed record CsEvalTouchedResources
         CsEvalTouchedResourceState state,
         IReadOnlyList<CsEvalTouchedResourceDeclaration>? declared)
     {
-        if (!ContractLiteralCodec.IsDefined(state))
+        if (!TextVocabulary.IsDefined(state))
         {
             throw new ArgumentOutOfRangeException(nameof(state), state, "C# eval touched-resource state must be specified.");
         }

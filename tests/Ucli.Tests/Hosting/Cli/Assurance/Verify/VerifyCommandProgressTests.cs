@@ -45,7 +45,7 @@ public sealed class VerifyCommandProgressTests
         AssertVerifyStreamEnvelope(startedEntry.RootElement, sequence: 1, VerifyProgressEventNames.StepStarted);
         AssertVerifyStreamEnvelope(completedEntry.RootElement, sequence: 2, VerifyProgressEventNames.StepCompleted);
         Assert.Equal(
-            ContractLiteralCodec.ToValue(VerifyStepKind.Ready),
+            TextVocabulary.GetText(VerifyStepKind.Ready),
             startedEntry.RootElement.GetProperty("payload").GetProperty("kind").GetString());
         Assert.True(startedEntry.RootElement.GetProperty("payload").GetProperty("required").GetBoolean());
     }

@@ -1,15 +1,15 @@
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Daemon;
 
 /// <summary> Defines supported daemon Editor modes. </summary>
+[VocabularyDefinition]
 public enum DaemonEditorMode
 {
     /// <summary> Unity Editor running in batchmode. </summary>
-    [UcliContractLiteral("batchmode")]
+    [VocabularyText("batchmode")]
     Batchmode = 1,
 
     /// <summary> Unity Editor running with the graphical user interface. </summary>
-    [UcliContractLiteral("gui")]
+    [VocabularyText("gui")]
     Gui = 2,
 }

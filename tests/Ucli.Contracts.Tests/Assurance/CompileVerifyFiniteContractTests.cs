@@ -15,12 +15,12 @@ public sealed class CompileVerifyFiniteContractTests
     [Trait("Size", "Small")]
     public void FiniteValues_UseCanonicalContractLiterals ()
     {
-        Assert.Equal("builtIn", ContractLiteralCodec.ToValue(VerifyProfileSource.BuiltIn));
-        Assert.Equal("postRead", ContractLiteralCodec.ToValue(VerifyStepKind.PostRead));
-        Assert.Equal("unityTestRunner", ContractLiteralCodec.ToValue(AssuranceEffect.UnityTestRunner));
-        Assert.Equal("error", ContractLiteralCodec.ToValue(VerifyDiagnosticImpact.Error));
-        Assert.Equal("diagnosticsRead", ContractLiteralCodec.ToValue(CompileRefreshOrigin.DiagnosticsRead));
-        Assert.Equal("lifecycleSnapshot", ContractLiteralCodec.ToValue(CompileEvidenceKind.LifecycleSnapshot));
+        Assert.Equal("builtIn", TextVocabulary.GetText(VerifyProfileSource.BuiltIn));
+        Assert.Equal("postRead", TextVocabulary.GetText(VerifyStepKind.PostRead));
+        Assert.Equal("unityTestRunner", TextVocabulary.GetText(AssuranceEffect.UnityTestRunner));
+        Assert.Equal("error", TextVocabulary.GetText(VerifyDiagnosticImpact.Error));
+        Assert.Equal("diagnosticsRead", TextVocabulary.GetText(CompileRefreshOrigin.DiagnosticsRead));
+        Assert.Equal("lifecycleSnapshot", TextVocabulary.GetText(CompileEvidenceKind.LifecycleSnapshot));
     }
 
     [Fact]

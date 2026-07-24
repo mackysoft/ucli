@@ -1,4 +1,3 @@
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Operations;
 
@@ -17,7 +16,7 @@ public sealed class UcliInputConstraintAttribute : Attribute
     /// <param name="kind"> The input constraint kind. </param>
     public UcliInputConstraintAttribute (UcliOperationInputConstraintKind kind)
     {
-        if (!ContractLiteralCodec.IsDefined(kind))
+        if (!TextVocabulary.IsDefined(kind))
         {
             throw new ArgumentOutOfRangeException(nameof(kind), kind, "Input constraint kind must be defined by the operation contract.");
         }
@@ -35,7 +34,7 @@ public sealed class UcliInputConstraintAttribute : Attribute
         get => assetKind;
         set
         {
-            if (!ContractLiteralCodec.IsDefined(value))
+            if (!TextVocabulary.IsDefined(value))
             {
                 throw new ArgumentOutOfRangeException(nameof(AssetKind), value, "Asset kind must be defined by the operation contract.");
             }
@@ -52,7 +51,7 @@ public sealed class UcliInputConstraintAttribute : Attribute
         get => targetKind;
         set
         {
-            if (!ContractLiteralCodec.IsDefined(value))
+            if (!TextVocabulary.IsDefined(value))
             {
                 throw new ArgumentOutOfRangeException(nameof(TargetKind), value, "Reference target kind must be defined by the operation contract.");
             }
@@ -69,7 +68,7 @@ public sealed class UcliInputConstraintAttribute : Attribute
         get => typeKind;
         set
         {
-            if (!ContractLiteralCodec.IsDefined(value))
+            if (!TextVocabulary.IsDefined(value))
             {
                 throw new ArgumentOutOfRangeException(nameof(TypeKind), value, "Type kind must be defined by the operation contract.");
             }
@@ -86,7 +85,7 @@ public sealed class UcliInputConstraintAttribute : Attribute
         get => access;
         set
         {
-            if (!ContractLiteralCodec.IsDefined(value))
+            if (!TextVocabulary.IsDefined(value))
             {
                 throw new ArgumentOutOfRangeException(nameof(Access), value, "Serialized property access must be defined by the operation contract.");
             }

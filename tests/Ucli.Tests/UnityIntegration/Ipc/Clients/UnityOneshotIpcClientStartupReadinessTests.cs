@@ -53,7 +53,7 @@ public sealed class UnityOneshotIpcClientStartupReadinessTests
     {
         using var scope = TestDirectories.CreateTempScope(
             "unity-oneshot-ipc-client",
-            $"startup-retry-{ContractLiteralCodec.ToValue(lifecycleState)}");
+            $"startup-retry-{TextVocabulary.GetText(lifecycleState)}");
         var unityProject = ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(scope.FullPath);
         var timeProvider = new ManualTimeProvider(DateTimeOffset.UtcNow);
         var processHandle = new StubUnityBatchmodeProcessHandle();
@@ -111,7 +111,7 @@ public sealed class UnityOneshotIpcClientStartupReadinessTests
     {
         using var scope = TestDirectories.CreateTempScope(
             "unity-oneshot-ipc-client",
-            $"startup-allowed-{ContractLiteralCodec.ToValue(lifecycleState)}");
+            $"startup-allowed-{TextVocabulary.GetText(lifecycleState)}");
         var unityProject = ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(scope.FullPath);
         var processHandle = new StubUnityBatchmodeProcessHandle();
         var launcher = new RecordingUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));

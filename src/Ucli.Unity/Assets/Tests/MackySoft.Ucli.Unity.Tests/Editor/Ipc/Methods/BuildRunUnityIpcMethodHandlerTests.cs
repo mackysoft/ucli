@@ -8,6 +8,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
 using MackySoft.FileSystem;
+using MackySoft.Text.Vocabularies;
+using TextVocabulary = MackySoft.Text.Vocabularies.Vocabulary;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Assurance;
 using MackySoft.Ucli.Contracts.Assurance.Build;
@@ -1718,7 +1720,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: Guid.NewGuid(),
                 sessionToken: "session-token",
-                method: ContractLiteralCodec.ToValue(UnityIpcMethod.BuildRun),
+                method: TextVocabulary.GetText(UnityIpcMethod.BuildRun),
                 payload: IpcPayloadCodec.SerializeToElement(payload),
                 responseMode: "single",
                 requestDeadlineUtc: DateTimeOffset.UtcNow
@@ -1734,7 +1736,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: Guid.NewGuid(),
                 sessionToken: "session-token",
-                method: ContractLiteralCodec.ToValue(UnityIpcMethod.BuildRun),
+                method: TextVocabulary.GetText(UnityIpcMethod.BuildRun),
                 payload: IpcPayloadCodec.SerializeToElement(payload),
                 responseMode: "stream",
                 requestDeadlineUtc: DateTimeOffset.UtcNow

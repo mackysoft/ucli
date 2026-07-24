@@ -75,7 +75,7 @@ public sealed class IpcPingContractSerializationTests
             .HasString("observedAtUtc", "2026-05-21T00:00:00+00:00")
             .HasProperty("state", state => state
                 .HasString("editorMode", "batchmode")
-                .HasString("lifecycleState", ContractLiteralCodec.ToValue(IpcEditorLifecycleState.PlayMode))
+                .HasString("lifecycleState", TextVocabulary.GetText(IpcEditorLifecycleState.PlayMode))
                 .HasString("compileState", "ready")
                 .HasProperty("generations", generations => generations
                     .HasInt32("compileGeneration", 12)

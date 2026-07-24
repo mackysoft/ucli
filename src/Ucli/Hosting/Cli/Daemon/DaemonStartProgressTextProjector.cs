@@ -1,4 +1,3 @@
-using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Hosting.Cli.Common.Streaming;
 using MackySoft.Ucli.Infrastructure.Text;
 
@@ -60,7 +59,7 @@ internal sealed class DaemonStartProgressTextProjector : ICliCommandProgressText
         string eventName,
         DaemonStartProgressEntry entry)
     {
-        var progressEvent = ContractLiteralCodec.TryParse<DaemonStartProgressEvent>(eventName, out var parsedProgressEvent)
+        var progressEvent = TextVocabulary.TryGetValue<DaemonStartProgressEvent>(eventName, out var parsedProgressEvent)
             ? parsedProgressEvent
             : (DaemonStartProgressEvent?)null;
         var step = progressEvent switch
@@ -116,7 +115,7 @@ internal sealed class DaemonStartProgressTextProjector : ICliCommandProgressText
         string eventName,
         DaemonStartStartupObservationProgressEntry entry)
     {
-        var progressEvent = ContractLiteralCodec.TryParse<DaemonStartProgressEvent>(eventName, out var parsedProgressEvent)
+        var progressEvent = TextVocabulary.TryGetValue<DaemonStartProgressEvent>(eventName, out var parsedProgressEvent)
             ? parsedProgressEvent
             : (DaemonStartProgressEvent?)null;
         var step = progressEvent switch
@@ -205,14 +204,14 @@ internal sealed class DaemonStartProgressTextProjector : ICliCommandProgressText
         string eventName,
         DaemonStartLifecycleSnapshotProgressEntry entry)
     {
-        var step = ContractLiteralCodec.TryParse<DaemonStartProgressEvent>(eventName, out var progressEvent)
+        var step = TextVocabulary.TryGetValue<DaemonStartProgressEvent>(eventName, out var progressEvent)
             && progressEvent == DaemonStartProgressEvent.LifecycleObserved
             ? "lifecycle"
             : eventName;
         const string status = "observed";
         var projectFingerprint = entry.ProjectFingerprint.ToString();
         var editorMode = ToOptionalLiteral(entry.EditorMode);
-        var lifecycleState = ContractLiteralCodec.ToValue(entry.LifecycleState);
+        var lifecycleState = TextVocabulary.GetText(entry.LifecycleState);
         var blockingReason = ToOptionalLiteral(entry.BlockingReason);
         var length = checked(
             Prefix.Length
@@ -265,7 +264,7 @@ internal sealed class DaemonStartProgressTextProjector : ICliCommandProgressText
         where TEnum : struct, Enum
     {
         return value.HasValue
-            ? ContractLiteralCodec.ToValue(value.Value)
+            ? TextVocabulary.GetText(value.Value)
             : null;
     }
 }

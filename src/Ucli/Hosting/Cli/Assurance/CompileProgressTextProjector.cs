@@ -1,4 +1,3 @@
-using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Hosting.Cli.Common.Streaming;
 using MackySoft.Ucli.Infrastructure.Text;
 
@@ -46,9 +45,9 @@ internal sealed class CompileProgressTextProjector : ICliCommandProgressTextProj
         const string TimeoutLabel = " timeoutMs=";
         const string Status = " started";
 
-        var requestedMode = ContractLiteralCodec.ToValue(entry.RequestedMode);
-        var resolvedMode = ContractLiteralCodec.ToValue(entry.ResolvedMode);
-        var sessionKind = ContractLiteralCodec.ToValue(entry.SessionKind);
+        var requestedMode = TextVocabulary.GetText(entry.RequestedMode);
+        var resolvedMode = TextVocabulary.GetText(entry.ResolvedMode);
+        var sessionKind = TextVocabulary.GetText(entry.SessionKind);
         var timeoutLength = SpanTextLength.GetInvariantInt64Length(entry.TimeoutMilliseconds);
         var length = checked(Prefix.Length
             + SpanTextLength.GuidDLength
@@ -88,7 +87,7 @@ internal sealed class CompileProgressTextProjector : ICliCommandProgressTextProj
         const string SourceLabel = " observationSource=";
         const string Status = " started";
 
-        var refreshOrigin = ContractLiteralCodec.ToValue(entry.RefreshOrigin);
+        var refreshOrigin = TextVocabulary.GetText(entry.RefreshOrigin);
         var length = checked(Prefix.Length
             + SpanTextLength.GuidDLength
             + OriginLabel.Length
@@ -149,7 +148,7 @@ internal sealed class CompileProgressTextProjector : ICliCommandProgressTextProj
         const string OriginLabel = " refreshOrigin=";
         const string Separator = ": ";
 
-        var refreshOrigin = ContractLiteralCodec.ToValue(entry.RefreshOrigin);
+        var refreshOrigin = TextVocabulary.GetText(entry.RefreshOrigin);
         var diagnostic = entry.PrimaryDiagnostic;
         if (diagnostic is null)
         {
@@ -169,7 +168,7 @@ internal sealed class CompileProgressTextProjector : ICliCommandProgressTextProj
 
         var code = string.IsNullOrWhiteSpace(diagnostic.Code) ? "compiler" : diagnostic.Code;
         var kind = diagnostic.Kind.HasValue
-            ? ContractLiteralCodec.ToValue(diagnostic.Kind.Value)
+            ? TextVocabulary.GetText(diagnostic.Kind.Value)
             : "compiler";
         var message = string.IsNullOrWhiteSpace(diagnostic.Message) ? "diagnostics-read summary created" : diagnostic.Message;
         var diagnosticLength = checked(
@@ -210,7 +209,7 @@ internal sealed class CompileProgressTextProjector : ICliCommandProgressTextProj
         const string WarningsLabel = " warningCount=";
         const string Status = " completed";
 
-        var verdict = ContractLiteralCodec.ToValue(entry.Verdict);
+        var verdict = TextVocabulary.GetText(entry.Verdict);
         var errorCountLength = SpanTextLength.GetInvariantInt64Length(entry.ErrorCount);
         var warningCountLength = SpanTextLength.GetInvariantInt64Length(entry.WarningCount);
         var length = checked(Prefix.Length

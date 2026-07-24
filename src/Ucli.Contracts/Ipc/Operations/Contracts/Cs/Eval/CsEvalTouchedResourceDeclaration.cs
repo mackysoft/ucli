@@ -17,7 +17,7 @@ public sealed record CsEvalTouchedResourceDeclaration
         UcliTouchedResourceKind kind,
         string path)
     {
-        if (!ContractLiteralCodec.IsDefined(kind))
+        if (!TextVocabulary.IsDefined(kind))
         {
             throw new ArgumentOutOfRangeException(nameof(kind), kind, "Touched-resource kind must be specified.");
         }

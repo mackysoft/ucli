@@ -25,7 +25,7 @@ public sealed class CodesCliOutputListContractTests
         Assert.Contains(IpcTransportErrorCodes.IpcTimeout.Value, codes);
         Assert.All(codeItems, AssertListCodeItemShape);
         var ipcTimeout = codeItems.Single(static code => code.GetProperty("code").GetString() == IpcTransportErrorCodes.IpcTimeout.Value);
-        Assert.Equal(ContractLiteralCodec.ToValue(CodeCatalogKind.Error), ipcTimeout.GetProperty("kind").GetString());
+        Assert.Equal(TextVocabulary.GetText(CodeCatalogKind.Error), ipcTimeout.GetProperty("kind").GetString());
         Assert.Equal("transport", ipcTimeout.GetProperty("category").GetString());
         Assert.Equal("The command timeout budget was exhausted.", ipcTimeout.GetProperty("summary").GetString());
         JsonAssert.For(outputJson.RootElement)
@@ -40,7 +40,7 @@ public sealed class CodesCliOutputListContractTests
     [Trait("Size", "Small")]
     public async Task CodesList_WithKindFilter_ReturnsOnlyKindMatches ()
     {
-        var result = await RunCodesListCommandAsync(kind: ContractLiteralCodec.ToValue(CodeCatalogKind.Error));
+        var result = await RunCodesListCommandAsync(kind: TextVocabulary.GetText(CodeCatalogKind.Error));
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
@@ -51,7 +51,7 @@ public sealed class CodesCliOutputListContractTests
         var payload = outputJson.RootElement.GetProperty("payload");
         var codes = payload.GetProperty("codes").EnumerateArray().ToArray();
         Assert.NotEmpty(codes);
-        Assert.All(codes, static code => Assert.Equal(ContractLiteralCodec.ToValue(CodeCatalogKind.Error), code.GetProperty("kind").GetString()));
+        Assert.All(codes, static code => Assert.Equal(TextVocabulary.GetText(CodeCatalogKind.Error), code.GetProperty("kind").GetString()));
         Assert.Contains(codes, static code => code.GetProperty("code").GetString() == IpcTransportErrorCodes.IpcTimeout.Value);
     }
 
@@ -70,7 +70,7 @@ public sealed class CodesCliOutputListContractTests
     public async Task CodesList_WithKindAndCommandFilter_MatchesGolden ()
     {
         var result = await RunCodesListCommandAsync(
-            kind: ContractLiteralCodec.ToValue(CodeCatalogKind.Error),
+            kind: TextVocabulary.GetText(CodeCatalogKind.Error),
             command: "query.assets.find");
 
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);

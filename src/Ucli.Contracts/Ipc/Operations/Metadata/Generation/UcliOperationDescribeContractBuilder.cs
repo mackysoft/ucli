@@ -266,7 +266,7 @@ public static class UcliOperationDescribeContractBuilder
 
         if (actualType.IsEnum)
         {
-            ContractLiteralCodec.Validate(actualType);
+            TextVocabulary.Validate(actualType);
             return "string";
         }
 
@@ -295,7 +295,7 @@ public static class UcliOperationDescribeContractBuilder
             var actualElementType = Nullable.GetUnderlyingType(elementType!) ?? elementType!;
             if (actualElementType.IsEnum)
             {
-                ContractLiteralCodec.Validate(actualElementType);
+                TextVocabulary.Validate(actualElementType);
             }
 
             return "array";

@@ -1,4 +1,3 @@
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Features.Assurance.Ready;
 
@@ -9,7 +8,7 @@ internal sealed record ReadyReadIndexOutput
         ReadyReadIndexMode Mode,
         IReadOnlyList<ReadyReadIndexArtifactOutput> Artifacts)
     {
-        if (!ContractLiteralCodec.IsDefined(Mode))
+        if (!TextVocabulary.IsDefined(Mode))
         {
             throw new ArgumentOutOfRangeException(nameof(Mode), Mode, "Read-index mode must be defined by the configuration contract.");
         }

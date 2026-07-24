@@ -56,7 +56,7 @@ internal sealed class TestRunProgressTextProjector : ICliCommandProgressTextProj
 
     private static string CreateDiagnosticTextLine (TestRunDiagnosticEntry entry)
     {
-        var severity = ContractLiteralCodec.ToValue(entry.Severity);
+        var severity = TextVocabulary.GetText(entry.Severity);
         var length = checked(severity.Length + 1 + entry.Code.Value.Length + 2 + entry.Message.Length);
         return string.Create(
             length,

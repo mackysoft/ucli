@@ -1,7 +1,8 @@
 using System;
 using MackySoft.FileSystem;
+using MackySoft.Text.Vocabularies;
+using TextVocabulary = MackySoft.Text.Vocabularies.Vocabulary;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Contracts.Text;
 
 #nullable enable
 
@@ -21,7 +22,7 @@ namespace MackySoft.Ucli.Unity.Build
             IpcBuildOutputLayoutShape shape,
             AbsolutePath locationPath)
         {
-            if (!ContractLiteralCodec.IsDefined(shape))
+            if (!TextVocabulary.IsDefined(shape))
             {
                 throw new ArgumentOutOfRangeException(nameof(shape), shape, "Build output layout shape must be specified.");
             }

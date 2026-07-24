@@ -1,19 +1,19 @@
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Configuration;
 
 /// <summary> Defines allowed operation safety levels configured in <c>.ucli/config.json</c>. </summary>
+[VocabularyDefinition]
 public enum OperationPolicy
 {
     /// <summary> Allows only safe operations. </summary>
-    [UcliContractLiteral("safe")]
+    [VocabularyText("safe")]
     Safe = 0,
 
     /// <summary> Allows safe and advanced operations. </summary>
-    [UcliContractLiteral("advanced")]
+    [VocabularyText("advanced")]
     Advanced = 1,
 
     /// <summary> Allows safe, advanced, and dangerous operations. </summary>
-    [UcliContractLiteral("dangerous")]
+    [VocabularyText("dangerous")]
     Dangerous = 2,
 }

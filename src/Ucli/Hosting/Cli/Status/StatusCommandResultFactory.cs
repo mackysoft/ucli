@@ -23,7 +23,7 @@ internal static class StatusCommandResultFactory
                 message: "uCLI status retrieval completed.",
                 payload: new
                 {
-                    daemonStatus = ContractLiteralCodec.ToValue(output.DaemonStatus),
+                    daemonStatus = TextVocabulary.GetText(output.DaemonStatus),
                     unityVersion = output.UnityVersion,
                     serverVersion = output.ServerVersion,
                     lifecycleState = output.LifecycleState,

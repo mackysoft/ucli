@@ -1,4 +1,6 @@
 using System;
+using MackySoft.Text.Vocabularies;
+using TextVocabulary = MackySoft.Text.Vocabularies.Vocabulary;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Unity.Ipc;
@@ -15,12 +17,12 @@ namespace MackySoft.Ucli.Unity.Tests
                 throw new ArgumentNullException(nameof(envelope));
             }
 
-            if (!ContractLiteralCodec.TryParse(envelope.Method, out UnityIpcMethod method))
+            if (!TextVocabulary.TryGetValue(envelope.Method, out UnityIpcMethod method))
             {
                 throw new ArgumentException("The test envelope must contain a defined Unity IPC method.", nameof(envelope));
             }
 
-            if (!ContractLiteralCodec.TryParse(envelope.ResponseMode, out IpcResponseMode responseMode))
+            if (!TextVocabulary.TryGetValue(envelope.ResponseMode, out IpcResponseMode responseMode))
             {
                 throw new ArgumentException("The test envelope must contain a defined IPC response mode.", nameof(envelope));
             }

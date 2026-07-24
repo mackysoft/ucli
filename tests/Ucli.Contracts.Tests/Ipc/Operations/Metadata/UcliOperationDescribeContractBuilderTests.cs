@@ -1,5 +1,4 @@
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Tests.Ipc;
 
@@ -159,7 +158,10 @@ public sealed class UcliOperationDescribeContractBuilderTests
                 "Accepts one incomplete contract literal.",
                 CreateSafeAssurance()));
 
-        Assert.Contains("missing UcliContractLiteralAttribute", exception.Message, StringComparison.Ordinal);
+        Assert.Contains(
+            "must declare exactly one VocabularyTextAttribute",
+            exception.Message,
+            StringComparison.Ordinal);
     }
 
     private static UcliOperationAssuranceContract CreateSafeAssurance ()
@@ -195,15 +197,17 @@ public sealed class UcliOperationDescribeContractBuilderTests
         public InvalidContractLiteralMode Mode { get; init; }
     }
 
+    [VocabularyDefinition]
     private enum ContractLiteralMode
     {
-        [UcliContractLiteral("enabled")]
+        [VocabularyText("enabled")]
         Enabled,
     }
 
+    [VocabularyDefinition]
     private enum InvalidContractLiteralMode
     {
-        [UcliContractLiteral("enabled")]
+        [VocabularyText("enabled")]
         Enabled,
 
         Disabled,

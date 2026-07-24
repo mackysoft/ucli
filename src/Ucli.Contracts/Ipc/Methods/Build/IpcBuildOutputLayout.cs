@@ -12,7 +12,7 @@ public sealed record IpcBuildOutputLayout
         IpcBuildOutputLayoutShape Shape,
         string LocationPathName)
     {
-        if (!ContractLiteralCodec.IsDefined(Shape))
+        if (!TextVocabulary.IsDefined(Shape))
         {
             throw new ArgumentOutOfRangeException(nameof(Shape), Shape, "Build output layout shape must be specified.");
         }

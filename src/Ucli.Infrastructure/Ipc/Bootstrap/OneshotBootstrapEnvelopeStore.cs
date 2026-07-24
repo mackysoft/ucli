@@ -333,7 +333,7 @@ internal static class OneshotBootstrapEnvelopeStore
         {
             Converters =
             {
-                new ContractLiteralJsonConverterFactory(),
+                new VocabularyJsonConverterFactory(),
             },
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
             PropertyNameCaseInsensitive = false,

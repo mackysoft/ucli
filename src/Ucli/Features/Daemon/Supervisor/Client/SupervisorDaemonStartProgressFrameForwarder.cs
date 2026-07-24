@@ -46,7 +46,7 @@ internal sealed class SupervisorDaemonStartProgressFrameForwarder
                 return;
             }
 
-            if (!ContractLiteralCodec.TryParse<DaemonStartProgressEvent>(frame.Event, out var progressEvent))
+            if (!TextVocabulary.TryGetValue<DaemonStartProgressEvent>(frame.Event, out var progressEvent))
             {
                 return;
             }

@@ -25,7 +25,7 @@ internal sealed record ReadyTargetOptionNormalizationResult
     /// <summary> Creates a successful normalization result. </summary>
     public static ReadyTargetOptionNormalizationResult Success (ReadyTarget target)
     {
-        if (!ContractLiteralCodec.IsDefined(target))
+        if (!TextVocabulary.IsDefined(target))
         {
             throw new ArgumentOutOfRangeException(nameof(target), target, "Ready target must be defined.");
         }

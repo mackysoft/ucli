@@ -24,9 +24,9 @@ internal static class UnityIpcRequestFactory
             protocolVersion: IpcProtocol.CurrentVersion,
             requestId: requestId,
             sessionToken: string.Empty,
-            method: ContractLiteralCodec.ToValue(UnityIpcMethod.Ping),
+            method: TextVocabulary.GetText(UnityIpcMethod.Ping),
             payload: payload,
-            responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single),
+            responseMode: TextVocabulary.GetText(IpcResponseMode.Single),
             requestDeadlineUtc: requestDeadlineUtc,
             requestDeadlineRemainingMilliseconds: requestDeadlineRemainingMilliseconds);
     }
@@ -54,9 +54,9 @@ internal static class UnityIpcRequestFactory
             protocolVersion: IpcProtocol.CurrentVersion,
             requestId: requestId,
             sessionToken: sessionToken.GetEncodedValue(),
-            method: ContractLiteralCodec.ToValue(method),
+            method: TextVocabulary.GetText(method),
             payload: payload,
-            responseMode: ContractLiteralCodec.ToValue(responseMode),
+            responseMode: TextVocabulary.GetText(responseMode),
             requestDeadlineUtc: requestDeadlineUtc,
             requestDeadlineRemainingMilliseconds: requestDeadlineRemainingMilliseconds);
     }

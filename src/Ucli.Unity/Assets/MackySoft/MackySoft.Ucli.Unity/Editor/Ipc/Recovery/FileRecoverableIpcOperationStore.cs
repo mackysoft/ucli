@@ -7,6 +7,8 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.FileSystem;
+using MackySoft.Text.Vocabularies;
+using TextVocabulary = MackySoft.Text.Vocabularies.Vocabulary;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -107,7 +109,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             Sha256Digest requestPayloadHash,
             CancellationToken cancellationToken)
         {
-            if (!ContractLiteralCodec.IsDefined(method))
+            if (!TextVocabulary.IsDefined(method))
             {
                 throw new ArgumentOutOfRangeException(nameof(method), method, "Unity IPC method must be defined.");
             }
@@ -138,7 +140,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             JsonElement recoveryPayload,
             CancellationToken cancellationToken)
         {
-            if (!ContractLiteralCodec.IsDefined(method))
+            if (!TextVocabulary.IsDefined(method))
             {
                 throw new ArgumentOutOfRangeException(nameof(method), method, "Unity IPC method must be defined.");
             }
@@ -178,7 +180,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             IpcResponse response,
             CancellationToken cancellationToken)
         {
-            if (!ContractLiteralCodec.IsDefined(method))
+            if (!TextVocabulary.IsDefined(method))
             {
                 throw new ArgumentOutOfRangeException(nameof(method), method, "Unity IPC method must be defined.");
             }
@@ -727,7 +729,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             if (record == null
                 || record.SchemaVersion != SchemaVersion
                 || record.ProjectFingerprint != projectFingerprint
-                || !ContractLiteralCodec.IsDefined(record.Method)
+                || !TextVocabulary.IsDefined(record.Method)
                 || record.RequestId != requestId
                 || record.RequestPayloadHash == null
                 || record.HostProcessId != hostProcessId

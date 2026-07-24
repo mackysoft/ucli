@@ -42,8 +42,8 @@ public sealed class IpcProtocolVocabularyTests
     public void IpcProtocol_ExposesStableLiterals ()
     {
         Assert.Equal(1, IpcProtocol.CurrentVersion);
-        Assert.Equal("ok", ContractLiteralCodec.ToValue(IpcResponseStatus.Ok));
-        Assert.Equal("error", ContractLiteralCodec.ToValue(IpcResponseStatus.Error));
+        Assert.Equal("ok", TextVocabulary.GetText(IpcResponseStatus.Ok));
+        Assert.Equal("error", TextVocabulary.GetText(IpcResponseStatus.Error));
     }
 
     [Theory]
@@ -53,11 +53,11 @@ public sealed class IpcProtocolVocabularyTests
         UnityIpcMethod method,
         string expectedLiteral)
     {
-        var result = ContractLiteralCodec.TryParse(expectedLiteral, out UnityIpcMethod parsedMethod);
+        var result = TextVocabulary.TryGetValue(expectedLiteral, out UnityIpcMethod parsedMethod);
 
         Assert.True(result);
         Assert.Equal(method, parsedMethod);
-        Assert.Equal(expectedLiteral, ContractLiteralCodec.ToValue(method));
+        Assert.Equal(expectedLiteral, TextVocabulary.GetText(method));
     }
 
     [Fact]
@@ -66,8 +66,8 @@ public sealed class IpcProtocolVocabularyTests
     {
         const UnityIpcMethod method = (UnityIpcMethod)0;
 
-        Assert.False(ContractLiteralCodec.IsDefined(method));
-        Assert.False(ContractLiteralCodec.TryToValue(method, out var literal));
+        Assert.False(TextVocabulary.IsDefined(method));
+        Assert.False(TextVocabulary.TryGetText(method, out var literal));
         Assert.Null(literal);
     }
 
@@ -77,8 +77,8 @@ public sealed class IpcProtocolVocabularyTests
     {
         var method = (UnityIpcMethod)999;
 
-        Assert.False(ContractLiteralCodec.IsDefined(method));
-        Assert.False(ContractLiteralCodec.TryToValue(method, out var literal));
+        Assert.False(TextVocabulary.IsDefined(method));
+        Assert.False(TextVocabulary.TryGetText(method, out var literal));
         Assert.Null(literal);
     }
 
@@ -87,7 +87,7 @@ public sealed class IpcProtocolVocabularyTests
     [MemberData(nameof(InvalidUnityIpcMethodLiterals))]
     public void UnityIpcMethod_WhenLiteralIsNotCanonical_IsRejected (string? literal)
     {
-        var result = ContractLiteralCodec.TryParse(literal, out UnityIpcMethod method);
+        var result = TextVocabulary.TryGetValue(literal, out UnityIpcMethod method);
 
         Assert.False(result);
         Assert.Equal(default, method);
@@ -113,10 +113,10 @@ public sealed class IpcProtocolVocabularyTests
                 "shuttingDown",
                 "unavailable",
             ],
-            ContractLiteralCodec.GetLiterals<IpcEditorLifecycleState>());
+            TextVocabulary.GetTexts<IpcEditorLifecycleState>());
         Assert.Equal(
             ["ready", "compiling", "failed"],
-            ContractLiteralCodec.GetLiterals<IpcCompileState>());
+            TextVocabulary.GetTexts<IpcCompileState>());
         Assert.Equal(
             [
                 "startup",
@@ -132,20 +132,20 @@ public sealed class IpcProtocolVocabularyTests
                 "shutdown",
                 "unavailable",
             ],
-            ContractLiteralCodec.GetLiterals<IpcEditorBlockingReason>());
+            TextVocabulary.GetTexts<IpcEditorBlockingReason>());
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public void IpcScreenshotLiteralContracts_ExposeExpectedLiterals ()
     {
-        Assert.Equal(["game", "scene"], ContractLiteralCodec.GetLiterals<IpcScreenshotTarget>());
+        Assert.Equal(["game", "scene"], TextVocabulary.GetTexts<IpcScreenshotTarget>());
         Assert.Equal(
             ["currentSurface", "requestedResolution"],
-            ContractLiteralCodec.GetLiterals<IpcScreenshotSizeMode>());
-        Assert.Equal(["gamma", "linear"], ContractLiteralCodec.GetLiterals<IpcScreenshotColorSpace>());
-        Assert.Equal(["rgba8Srgb"], ContractLiteralCodec.GetLiterals<IpcScreenshotPixelFormat>());
-        Assert.Equal(["topDown"], ContractLiteralCodec.GetLiterals<IpcScreenshotRowOrder>());
+            TextVocabulary.GetTexts<IpcScreenshotSizeMode>());
+        Assert.Equal(["gamma", "linear"], TextVocabulary.GetTexts<IpcScreenshotColorSpace>());
+        Assert.Equal(["rgba8Srgb"], TextVocabulary.GetTexts<IpcScreenshotPixelFormat>());
+        Assert.Equal(["topDown"], TextVocabulary.GetTexts<IpcScreenshotRowOrder>());
     }
 
     [Fact]
@@ -160,36 +160,36 @@ public sealed class IpcProtocolVocabularyTests
         Assert.Equal(0, (int)IpcPlayModeTransition.None);
         Assert.Equal(1, (int)IpcPlayModeTransition.Entering);
         Assert.Equal(2, (int)IpcPlayModeTransition.Exiting);
-        Assert.Equal(["enter", "exit"], ContractLiteralCodec.GetLiterals<IpcPlayTransitionCommand>());
+        Assert.Equal(["enter", "exit"], TextVocabulary.GetTexts<IpcPlayTransitionCommand>());
         Assert.Equal(
             ["entered", "alreadyEntered", "exited", "alreadyExited", "timeout", "blocked"],
-            ContractLiteralCodec.GetLiterals<IpcPlayTransitionOutcome>());
+            TextVocabulary.GetTexts<IpcPlayTransitionOutcome>());
         Assert.Equal(
             ["notApplied", "applied", "indeterminate", "unknown"],
-            ContractLiteralCodec.GetLiterals<IpcApplicationState>());
-        Assert.False(ContractLiteralCodec.IsDefined((IpcPlayTransitionCommand)0));
-        Assert.False(ContractLiteralCodec.IsDefined((IpcPlayTransitionOutcome)0));
-        Assert.False(ContractLiteralCodec.IsDefined((IpcApplicationState)0));
+            TextVocabulary.GetTexts<IpcApplicationState>());
+        Assert.False(TextVocabulary.IsDefined((IpcPlayTransitionCommand)0));
+        Assert.False(TextVocabulary.IsDefined((IpcPlayTransitionOutcome)0));
+        Assert.False(TextVocabulary.IsDefined((IpcApplicationState)0));
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public void IpcExecuteLiteralEnums_ExposeExpectedLiterals ()
     {
-        Assert.Equal(["info", "warning", "error"], ContractLiteralCodec.GetLiterals<UcliDiagnosticSeverity>());
-        Assert.Equal(["none", "partial", "indeterminate"], ContractLiteralCodec.GetLiterals<IpcExecuteDiagnosticCoverageImpact>());
-        Assert.Equal(["validate", "plan", "call", "skipped"], ContractLiteralCodec.GetLiterals<IpcExecuteOperationPhase>());
-        Assert.Equal(["assetSearch", "guidPath", "sceneTreeLite"], ContractLiteralCodec.GetLiterals<IpcExecuteReadPostconditionSurface>());
-        Assert.Equal(["edit", "operation", "refresh"], ContractLiteralCodec.GetLiterals<IpcExecutePostReadSourceKind>());
-        Assert.Equal(["none", "context", "project"], ContractLiteralCodec.GetLiterals<IpcExecutePostReadCommit>());
-        Assert.Equal(["deterministic", "unavailable"], ContractLiteralCodec.GetLiterals<IpcExecuteExpectedPostState>());
+        Assert.Equal(["info", "warning", "error"], TextVocabulary.GetTexts<UcliDiagnosticSeverity>());
+        Assert.Equal(["none", "partial", "indeterminate"], TextVocabulary.GetTexts<IpcExecuteDiagnosticCoverageImpact>());
+        Assert.Equal(["validate", "plan", "call", "skipped"], TextVocabulary.GetTexts<IpcExecuteOperationPhase>());
+        Assert.Equal(["assetSearch", "guidPath", "sceneTreeLite"], TextVocabulary.GetTexts<IpcExecuteReadPostconditionSurface>());
+        Assert.Equal(["edit", "operation", "refresh"], TextVocabulary.GetTexts<IpcExecutePostReadSourceKind>());
+        Assert.Equal(["none", "context", "project"], TextVocabulary.GetTexts<IpcExecutePostReadCommit>());
+        Assert.Equal(["deterministic", "unavailable"], TextVocabulary.GetTexts<IpcExecuteExpectedPostState>());
 
-        Assert.False(ContractLiteralCodec.IsDefined((UcliDiagnosticSeverity)0));
-        Assert.False(ContractLiteralCodec.IsDefined((IpcExecuteDiagnosticCoverageImpact)0));
-        Assert.False(ContractLiteralCodec.IsDefined((IpcExecuteOperationPhase)0));
-        Assert.False(ContractLiteralCodec.IsDefined((IpcExecuteReadPostconditionSurface)0));
-        Assert.False(ContractLiteralCodec.IsDefined((IpcExecutePostReadSourceKind)0));
-        Assert.False(ContractLiteralCodec.IsDefined((IpcExecutePostReadCommit)0));
-        Assert.False(ContractLiteralCodec.IsDefined((IpcExecuteExpectedPostState)0));
+        Assert.False(TextVocabulary.IsDefined((UcliDiagnosticSeverity)0));
+        Assert.False(TextVocabulary.IsDefined((IpcExecuteDiagnosticCoverageImpact)0));
+        Assert.False(TextVocabulary.IsDefined((IpcExecuteOperationPhase)0));
+        Assert.False(TextVocabulary.IsDefined((IpcExecuteReadPostconditionSurface)0));
+        Assert.False(TextVocabulary.IsDefined((IpcExecutePostReadSourceKind)0));
+        Assert.False(TextVocabulary.IsDefined((IpcExecutePostReadCommit)0));
+        Assert.False(TextVocabulary.IsDefined((IpcExecuteExpectedPostState)0));
     }
 }

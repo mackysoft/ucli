@@ -351,8 +351,8 @@ internal sealed class DaemonExistingSessionGateService : IDaemonExistingSessionG
             return null;
         }
 
-        var requestedEditorMode = ContractLiteralCodec.ToValue(editorMode.Value);
-        var runningEditorMode = ContractLiteralCodec.ToValue(session.EditorMode);
+        var requestedEditorMode = TextVocabulary.GetText(editorMode.Value);
+        var runningEditorMode = TextVocabulary.GetText(session.EditorMode);
         return DaemonStartResult.Failure(ExecutionError.InvalidArgument(
             $"Requested daemon editorMode '{requestedEditorMode}' does not match running daemon editorMode '{runningEditorMode}'.",
             DaemonErrorCodes.DaemonEditorModeMismatch));

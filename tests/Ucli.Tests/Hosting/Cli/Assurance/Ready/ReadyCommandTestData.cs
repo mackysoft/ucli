@@ -202,9 +202,9 @@ internal static class ReadyCommandTestData
         return new Dictionary<string, object?>(StringComparer.Ordinal)
         {
             ["kind"] = "unityReady",
-            ["target"] = ContractLiteralCodec.ToValue(target),
-            ["requestedMode"] = ContractLiteralCodec.ToValue(requestedMode),
-            ["resolvedMode"] = ContractLiteralCodec.ToValue(resolvedMode),
+            ["target"] = TextVocabulary.GetText(target),
+            ["requestedMode"] = TextVocabulary.GetText(requestedMode),
+            ["resolvedMode"] = TextVocabulary.GetText(resolvedMode),
             ["sessionKind"] = sessionKind,
         };
     }

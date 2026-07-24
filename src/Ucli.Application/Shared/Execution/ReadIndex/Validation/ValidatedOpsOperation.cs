@@ -22,22 +22,22 @@ internal sealed class ValidatedOpsOperation
         ArgumentNullException.ThrowIfNull(contract.Inputs);
         ArgumentNullException.ThrowIfNull(contract.ResultContract);
         ArgumentNullException.ThrowIfNull(contract.Assurance);
-        if (!ContractLiteralCodec.IsDefined(kind))
+        if (!TextVocabulary.IsDefined(kind))
         {
             throw new ArgumentOutOfRangeException(nameof(kind), kind, "Operation kind must have a contract literal.");
         }
 
-        if (!ContractLiteralCodec.IsDefined(policy))
+        if (!TextVocabulary.IsDefined(policy))
         {
             throw new ArgumentOutOfRangeException(nameof(policy), policy, "Operation policy must have a contract literal.");
         }
 
-        if (!ContractLiteralCodec.IsDefined(exposure))
+        if (!TextVocabulary.IsDefined(exposure))
         {
             throw new ArgumentOutOfRangeException(nameof(exposure), exposure, "Operation exposure must have a contract literal.");
         }
 
-        if (!ContractLiteralCodec.IsDefined(playModeSupport))
+        if (!TextVocabulary.IsDefined(playModeSupport))
         {
             throw new ArgumentOutOfRangeException(
                 nameof(playModeSupport),
@@ -110,12 +110,12 @@ internal sealed class ValidatedOpsOperation
     {
         return new IndexOpEntryJsonContract(
             Name,
-            ContractLiteralCodec.ToValue(Kind),
-            ContractLiteralCodec.ToValue(Policy),
+            TextVocabulary.GetText(Kind),
+            TextVocabulary.GetText(Policy),
             ArgsSchema.GetRawText(),
             ResultSchema?.GetRawText(),
-            ContractLiteralCodec.ToValue(Exposure),
-            ContractLiteralCodec.ToValue(PlayModeSupport))
+            TextVocabulary.GetText(Exposure),
+            TextVocabulary.GetText(PlayModeSupport))
         {
             Description = Description,
             Inputs = Inputs,

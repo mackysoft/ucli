@@ -27,12 +27,12 @@ public sealed record IpcBuildProjectMutationAudit
         Sha256Digest AfterDigest,
         IReadOnlyList<IpcBuildProjectMutationAuditItem> Items)
     {
-        if (!ContractLiteralCodec.IsDefined(Mode))
+        if (!TextVocabulary.IsDefined(Mode))
         {
             throw new ArgumentOutOfRangeException(nameof(Mode), Mode, "Project mutation mode must be specified.");
         }
 
-        if (!ContractLiteralCodec.IsDefined(Coverage))
+        if (!TextVocabulary.IsDefined(Coverage))
         {
             throw new ArgumentOutOfRangeException(nameof(Coverage), Coverage, "Project mutation audit coverage must be specified.");
         }

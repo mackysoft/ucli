@@ -26,7 +26,7 @@ public sealed class SupervisorRequestDispatcherRequestValidationTests
                 method: "unknown",
                 payload: IpcPayloadCodec.SerializeToElement(
                     new SupervisorIpcContracts.PingRequest(SupervisorConstants.PingClientVersion)),
-                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single),
+                responseMode: TextVocabulary.GetText(IpcResponseMode.Single),
                 requestDeadlineUtc: DateTimeOffset.MaxValue,
                 requestDeadlineRemainingMilliseconds: int.MaxValue));
 
@@ -52,7 +52,7 @@ public sealed class SupervisorRequestDispatcherRequestValidationTests
                 method: "unknown",
                 payload: IpcPayloadCodec.SerializeToElement(
                     new SupervisorIpcContracts.PingRequest(SupervisorConstants.PingClientVersion)),
-                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single),
+                responseMode: TextVocabulary.GetText(IpcResponseMode.Single),
                 requestDeadlineUtc: DateTimeOffset.MaxValue,
                 requestDeadlineRemainingMilliseconds: int.MaxValue));
 
@@ -78,7 +78,7 @@ public sealed class SupervisorRequestDispatcherRequestValidationTests
                 method: "unknown",
                 payload: IpcPayloadCodec.SerializeToElement(
                     new SupervisorIpcContracts.PingRequest(SupervisorConstants.PingClientVersion)),
-                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single),
+                responseMode: TextVocabulary.GetText(IpcResponseMode.Single),
                 requestDeadlineUtc: DateTimeOffset.MaxValue,
                 requestDeadlineRemainingMilliseconds: int.MaxValue));
 
@@ -102,10 +102,10 @@ public sealed class SupervisorRequestDispatcherRequestValidationTests
                 protocolVersion: IpcProtocol.CurrentVersion + 1,
                 requestId: requestId,
                 sessionToken: runtimeContext.Manifest.SessionToken.GetEncodedValue(),
-                method: ContractLiteralCodec.ToValue(SupervisorIpcMethod.Ping),
+                method: TextVocabulary.GetText(SupervisorIpcMethod.Ping),
                 payload: IpcPayloadCodec.SerializeToElement(
                     new SupervisorIpcContracts.PingRequest(SupervisorConstants.PingClientVersion)),
-                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Stream),
+                responseMode: TextVocabulary.GetText(IpcResponseMode.Stream),
                 requestDeadlineUtc: DateTimeOffset.MaxValue,
                 requestDeadlineRemainingMilliseconds: int.MaxValue));
 
@@ -132,10 +132,10 @@ public sealed class SupervisorRequestDispatcherRequestValidationTests
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: Guid.NewGuid(),
                 sessionToken: runtimeContext.Manifest.SessionToken.GetEncodedValue(),
-                method: ContractLiteralCodec.ToValue(SupervisorIpcMethod.Ping),
+                method: TextVocabulary.GetText(SupervisorIpcMethod.Ping),
                 payload: IpcPayloadCodec.SerializeToElement(
                     new SupervisorIpcContracts.PingRequest(SupervisorConstants.PingClientVersion)),
-                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single),
+                responseMode: TextVocabulary.GetText(IpcResponseMode.Single),
                 requestDeadlineUtc: DateTimeOffset.UnixEpoch,
                 requestDeadlineRemainingMilliseconds: 1000));
 
@@ -167,7 +167,7 @@ public sealed class SupervisorRequestDispatcherRequestValidationTests
                 method: method!,
                 payload: IpcPayloadCodec.SerializeToElement(
                     new SupervisorIpcContracts.PingRequest(SupervisorConstants.PingClientVersion)),
-                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single),
+                responseMode: TextVocabulary.GetText(IpcResponseMode.Single),
                 requestDeadlineUtc: DateTimeOffset.MaxValue,
                 requestDeadlineRemainingMilliseconds: int.MaxValue));
 
@@ -195,7 +195,7 @@ public sealed class SupervisorRequestDispatcherRequestValidationTests
                 sessionToken: runtimeContext.Manifest.SessionToken.GetEncodedValue(),
                 method: method,
                 payload: IpcPayloadCodec.SerializeToElement(new UcliEmptyArgs()),
-                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single),
+                responseMode: TextVocabulary.GetText(IpcResponseMode.Single),
                 requestDeadlineUtc: DateTimeOffset.MaxValue,
                 requestDeadlineRemainingMilliseconds: int.MaxValue));
 
@@ -220,7 +220,7 @@ public sealed class SupervisorRequestDispatcherRequestValidationTests
                 SessionToken = runtimeContext.Manifest.SessionToken.GetEncodedValue(),
                 Payload = IpcPayloadCodec.SerializeToElement(
                     new SupervisorIpcContracts.PingRequest(SupervisorConstants.PingClientVersion)),
-                ResponseMode = ContractLiteralCodec.ToValue(IpcResponseMode.Single),
+                ResponseMode = TextVocabulary.GetText(IpcResponseMode.Single),
                 RequestDeadlineUtc = DateTimeOffset.MaxValue,
                 RequestDeadlineRemainingMilliseconds = int.MaxValue,
             },
@@ -251,7 +251,7 @@ public sealed class SupervisorRequestDispatcherRequestValidationTests
                 method: "unknown",
                 payload: IpcPayloadCodec.SerializeToElement(
                     new SupervisorIpcContracts.PingRequest(SupervisorConstants.PingClientVersion)),
-                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Stream),
+                responseMode: TextVocabulary.GetText(IpcResponseMode.Stream),
                 requestDeadlineUtc: DateTimeOffset.MaxValue,
                 requestDeadlineRemainingMilliseconds: int.MaxValue));
 
@@ -279,7 +279,7 @@ public sealed class SupervisorRequestDispatcherRequestValidationTests
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: Guid.NewGuid(),
                 sessionToken: runtimeContext.Manifest.SessionToken.GetEncodedValue(),
-                method: ContractLiteralCodec.ToValue(SupervisorIpcMethod.EnsureRunning),
+                method: TextVocabulary.GetText(SupervisorIpcMethod.EnsureRunning),
                 payload: IpcPayloadCodec.SerializeToElement(
                     new SupervisorIpcContracts.EnsureRunningRequest(
                         UnityProjectRoot: unityProjectRoot.Value,
@@ -313,7 +313,7 @@ public sealed class SupervisorRequestDispatcherRequestValidationTests
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: Guid.NewGuid(),
                 sessionToken: runtimeContext.Manifest.SessionToken.GetEncodedValue(),
-                method: ContractLiteralCodec.ToValue(SupervisorIpcMethod.Ping),
+                method: TextVocabulary.GetText(SupervisorIpcMethod.Ping),
                 payload: IpcPayloadCodec.SerializeToElement(
                     new SupervisorIpcContracts.PingRequest(SupervisorConstants.PingClientVersion)),
                 responseMode: responseMode,
@@ -343,7 +343,7 @@ public sealed class SupervisorRequestDispatcherRequestValidationTests
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: Guid.NewGuid(),
                 sessionToken: runtimeContext.Manifest.SessionToken.GetEncodedValue(),
-                method: ContractLiteralCodec.ToValue(SupervisorIpcMethod.EnsureRunning),
+                method: TextVocabulary.GetText(SupervisorIpcMethod.EnsureRunning),
                 payload: IpcPayloadCodec.SerializeToElement(
                     new SupervisorIpcContracts.EnsureRunningRequest(
                         UnityProjectRoot: unityProjectRoot.Value,
@@ -382,7 +382,7 @@ public sealed class SupervisorRequestDispatcherRequestValidationTests
                 ProtocolVersion = IpcProtocol.CurrentVersion,
                 RequestId = Guid.NewGuid(),
                 SessionToken = runtimeContext.Manifest.SessionToken.GetEncodedValue(),
-                Method = ContractLiteralCodec.ToValue(SupervisorIpcMethod.EnsureRunning),
+                Method = TextVocabulary.GetText(SupervisorIpcMethod.EnsureRunning),
                 Payload = payload,
                 RequestDeadlineUtc = CreateEnsureRunningDeadline(1000),
                 RequestDeadlineRemainingMilliseconds = 1000,
@@ -412,10 +412,10 @@ public sealed class SupervisorRequestDispatcherRequestValidationTests
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: Guid.NewGuid(),
                 sessionToken: runtimeContext.Manifest.SessionToken.GetEncodedValue(),
-                method: ContractLiteralCodec.ToValue(SupervisorIpcMethod.Ping),
+                method: TextVocabulary.GetText(SupervisorIpcMethod.Ping),
                 payload: IpcPayloadCodec.SerializeToElement(
                     new SupervisorIpcContracts.PingRequest(SupervisorConstants.PingClientVersion)),
-                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Stream),
+                responseMode: TextVocabulary.GetText(IpcResponseMode.Stream),
                 requestDeadlineUtc: DateTimeOffset.MaxValue,
                 requestDeadlineRemainingMilliseconds: int.MaxValue));
 
@@ -425,7 +425,7 @@ public sealed class SupervisorRequestDispatcherRequestValidationTests
         Assert.Equal(IpcResponseStatus.Error, response.Status);
         var error = Assert.Single(response.Errors);
         Assert.Equal(UcliCoreErrorCodes.InvalidArgument, error.Code);
-        Assert.Contains(ContractLiteralCodec.ToValue(SupervisorIpcMethod.EnsureRunning), error.Message, StringComparison.Ordinal);
+        Assert.Contains(TextVocabulary.GetText(SupervisorIpcMethod.EnsureRunning), error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -442,14 +442,14 @@ public sealed class SupervisorRequestDispatcherRequestValidationTests
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: Guid.NewGuid(),
                 sessionToken: runtimeContext.Manifest.SessionToken.GetEncodedValue(),
-                method: ContractLiteralCodec.ToValue(SupervisorIpcMethod.EnsureRunning),
+                method: TextVocabulary.GetText(SupervisorIpcMethod.EnsureRunning),
                 payload: IpcPayloadCodec.SerializeToElement(
                     new SupervisorIpcContracts.EnsureRunningRequest(
                         UnityProjectRoot: "bad\u0000path",
                         ProjectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint"),
                         EditorMode: null,
                         OnStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto)),
-                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single),
+                responseMode: TextVocabulary.GetText(IpcResponseMode.Single),
                 requestDeadlineUtc: CreateEnsureRunningDeadline(1000),
                 requestDeadlineRemainingMilliseconds: 1000));
 
@@ -464,10 +464,10 @@ public sealed class SupervisorRequestDispatcherRequestValidationTests
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: Guid.NewGuid(),
                 sessionToken: runtimeContext.Manifest.SessionToken.GetEncodedValue(),
-                method: ContractLiteralCodec.ToValue(SupervisorIpcMethod.Ping),
+                method: TextVocabulary.GetText(SupervisorIpcMethod.Ping),
                 payload: IpcPayloadCodec.SerializeToElement(
                     new SupervisorIpcContracts.PingRequest(SupervisorConstants.PingClientVersion)),
-                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single),
+                responseMode: TextVocabulary.GetText(IpcResponseMode.Single),
                 requestDeadlineUtc: DateTimeOffset.MaxValue,
                 requestDeadlineRemainingMilliseconds: int.MaxValue));
 
@@ -490,14 +490,14 @@ public sealed class SupervisorRequestDispatcherRequestValidationTests
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: Guid.NewGuid(),
                 sessionToken: runtimeContext.Manifest.SessionToken.GetEncodedValue(),
-                method: ContractLiteralCodec.ToValue(SupervisorIpcMethod.EnsureRunning),
+                method: TextVocabulary.GetText(SupervisorIpcMethod.EnsureRunning),
                 payload: IpcPayloadCodec.SerializeToElement(
                     new SupervisorIpcContracts.EnsureRunningRequest(
                         UnityProjectRoot: unityProjectRoot.Value,
                         ProjectFingerprint: ProjectFingerprintTestFactory.Create("mismatched-fingerprint"),
                         EditorMode: null,
                         OnStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto)),
-                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single),
+                responseMode: TextVocabulary.GetText(IpcResponseMode.Single),
                 requestDeadlineUtc: CreateEnsureRunningDeadline(1000),
                 requestDeadlineRemainingMilliseconds: 1000));
 
@@ -524,7 +524,7 @@ public sealed class SupervisorRequestDispatcherRequestValidationTests
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: Guid.NewGuid(),
                 sessionToken: runtimeContext.Manifest.SessionToken.GetEncodedValue(),
-                method: ContractLiteralCodec.ToValue(SupervisorIpcMethod.EnsureRunning),
+                method: TextVocabulary.GetText(SupervisorIpcMethod.EnsureRunning),
                 payload: JsonSerializer.SerializeToElement(
                     new
                     {
@@ -534,7 +534,7 @@ public sealed class SupervisorRequestDispatcherRequestValidationTests
                         OnStartupBlocked = "auto",
                     },
                     IpcJsonSerializerOptions.Default),
-                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single),
+                responseMode: TextVocabulary.GetText(IpcResponseMode.Single),
                 requestDeadlineUtc: CreateEnsureRunningDeadline(1000),
                 requestDeadlineRemainingMilliseconds: 1000));
 
@@ -561,7 +561,7 @@ public sealed class SupervisorRequestDispatcherRequestValidationTests
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: Guid.NewGuid(),
                 sessionToken: runtimeContext.Manifest.SessionToken.GetEncodedValue(),
-                method: ContractLiteralCodec.ToValue(SupervisorIpcMethod.EnsureRunning),
+                method: TextVocabulary.GetText(SupervisorIpcMethod.EnsureRunning),
                 payload: JsonSerializer.SerializeToElement(
                     new
                     {
@@ -571,7 +571,7 @@ public sealed class SupervisorRequestDispatcherRequestValidationTests
                         OnStartupBlocked = "unsupported",
                     },
                     IpcJsonSerializerOptions.Default),
-                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single),
+                responseMode: TextVocabulary.GetText(IpcResponseMode.Single),
                 requestDeadlineUtc: CreateEnsureRunningDeadline(1000),
                 requestDeadlineRemainingMilliseconds: 1000));
 

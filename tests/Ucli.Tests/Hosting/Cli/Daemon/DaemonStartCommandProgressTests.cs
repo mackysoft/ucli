@@ -34,7 +34,7 @@ public sealed class DaemonStartCommandProgressTests
         using var completedEntry = JsonDocument.Parse(lines[1]);
         JsonAssert.For(startedEntry.RootElement)
             .HasString("command", UcliCommandNames.DaemonStart)
-            .HasString("event", ContractLiteralCodec.ToValue(DaemonStartProgressEvent.Started))
+            .HasString("event", TextVocabulary.GetText(DaemonStartProgressEvent.Started))
             .HasInt32("sequence", 1);
         JsonAssert.For(startedEntry.RootElement.GetProperty("payload"))
             .HasString("projectFingerprint", expectedProjectFingerprint)
@@ -47,10 +47,10 @@ public sealed class DaemonStartCommandProgressTests
             .IsNull("errorCode");
         JsonAssert.For(completedEntry.RootElement)
             .HasString("command", UcliCommandNames.DaemonStart)
-            .HasString("event", ContractLiteralCodec.ToValue(DaemonStartProgressEvent.Completed))
+            .HasString("event", TextVocabulary.GetText(DaemonStartProgressEvent.Completed))
             .HasInt32("sequence", 2);
         JsonAssert.For(completedEntry.RootElement.GetProperty("payload"))
-            .HasString("result", ContractLiteralCodec.ToValue(CommandProgressResult.Succeeded))
+            .HasString("result", TextVocabulary.GetText(CommandProgressResult.Succeeded))
             .HasString("startStatus", "started")
             .HasString("daemonStatus", "running")
             .IsNull("errorCode");
@@ -83,7 +83,7 @@ public sealed class DaemonStartCommandProgressTests
         using var endpointEntry = JsonDocument.Parse(lines[2]);
         using var lifecycleEntry = JsonDocument.Parse(lines[3]);
         JsonAssert.For(waitingEntry.RootElement)
-            .HasString("event", ContractLiteralCodec.ToValue(DaemonStartProgressEvent.WaitingForEndpoint))
+            .HasString("event", TextVocabulary.GetText(DaemonStartProgressEvent.WaitingForEndpoint))
             .HasInt32("sequence", 1);
         JsonAssert.For(waitingEntry.RootElement.GetProperty("payload"))
             .HasString("payloadKind", "startupObservation")
@@ -94,27 +94,27 @@ public sealed class DaemonStartCommandProgressTests
         Assert.False(waitingEntry.RootElement.GetProperty("payload").TryGetProperty("blockingReason", out _));
         Assert.False(waitingEntry.RootElement.GetProperty("payload").TryGetProperty("canAcceptExecutionRequests", out _));
         JsonAssert.For(blockerEntry.RootElement)
-            .HasString("event", ContractLiteralCodec.ToValue(DaemonStartProgressEvent.BlockerDetected))
+            .HasString("event", TextVocabulary.GetText(DaemonStartProgressEvent.BlockerDetected))
             .HasInt32("sequence", 2);
         JsonAssert.For(blockerEntry.RootElement.GetProperty("payload"))
             .HasString("payloadKind", "startupObservation")
-            .HasString("startupStatus", ContractLiteralCodec.ToValue(DaemonStartupStatus.Blocked))
-            .HasString("startupBlockingReason", ContractLiteralCodec.ToValue(DaemonStartupBlockingReason.Compile))
-            .HasString("retryDisposition", ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.RetryAfterFix));
+            .HasString("startupStatus", TextVocabulary.GetText(DaemonStartupStatus.Blocked))
+            .HasString("startupBlockingReason", TextVocabulary.GetText(DaemonStartupBlockingReason.Compile))
+            .HasString("retryDisposition", TextVocabulary.GetText(DaemonStartupRetryDisposition.RetryAfterFix));
         JsonAssert.For(endpointEntry.RootElement)
-            .HasString("event", ContractLiteralCodec.ToValue(DaemonStartProgressEvent.EndpointRegistered))
+            .HasString("event", TextVocabulary.GetText(DaemonStartProgressEvent.EndpointRegistered))
             .HasInt32("sequence", 3);
         JsonAssert.For(endpointEntry.RootElement.GetProperty("payload"))
             .HasString("payloadKind", "startupObservation")
             .HasString("projectFingerprint", expectedProjectFingerprint)
             .HasInt32("processId", 1234);
         JsonAssert.For(lifecycleEntry.RootElement)
-            .HasString("event", ContractLiteralCodec.ToValue(DaemonStartProgressEvent.LifecycleObserved))
+            .HasString("event", TextVocabulary.GetText(DaemonStartProgressEvent.LifecycleObserved))
             .HasInt32("sequence", 4);
         JsonAssert.For(lifecycleEntry.RootElement.GetProperty("payload"))
             .HasString("payloadKind", "lifecycleSnapshot")
-            .HasString("lifecycleState", ContractLiteralCodec.ToValue(IpcEditorLifecycleState.Compiling))
-            .HasString("blockingReason", ContractLiteralCodec.ToValue(IpcEditorBlockingReason.Compile))
+            .HasString("lifecycleState", TextVocabulary.GetText(IpcEditorLifecycleState.Compiling))
+            .HasString("blockingReason", TextVocabulary.GetText(IpcEditorBlockingReason.Compile))
             .HasBoolean("canAcceptExecutionRequests", false);
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);

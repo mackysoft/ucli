@@ -3,6 +3,8 @@ using System.Collections;
 using System.Threading;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
+using MackySoft.Text.Vocabularies;
+using TextVocabulary = MackySoft.Text.Vocabularies.Vocabulary;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Daemon;
@@ -464,7 +466,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: requestId,
                 sessionToken: "session-token",
-                method: ContractLiteralCodec.ToValue(UnityIpcMethod.PlayEnter),
+                method: TextVocabulary.GetText(UnityIpcMethod.PlayEnter),
                 payload: IpcPayloadCodec.SerializeToElement(payload),
                 responseMode: "single",
                 requestDeadlineUtc: DateTimeOffset.UtcNow

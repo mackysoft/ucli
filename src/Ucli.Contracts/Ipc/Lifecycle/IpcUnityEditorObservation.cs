@@ -38,7 +38,7 @@ public sealed record IpcUnityEditorObservation
             throw new ArgumentException("Unity version must not be empty.", nameof(unityVersion));
         }
 
-        if (actionRequired.HasValue && !ContractLiteralCodec.IsDefined(actionRequired.Value))
+        if (actionRequired.HasValue && !TextVocabulary.IsDefined(actionRequired.Value))
         {
             throw new ArgumentOutOfRangeException(nameof(actionRequired), actionRequired, "Unsupported daemon diagnosis action.");
         }

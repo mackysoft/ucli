@@ -22,7 +22,7 @@ public sealed record IpcBuildLogSummary
         IpcBuildLogCompletionReason CompletionReason,
         IpcBuildLogWindow Window)
     {
-        if (!ContractLiteralCodec.IsDefined(CompletionReason))
+        if (!TextVocabulary.IsDefined(CompletionReason))
         {
             throw new ArgumentOutOfRangeException(nameof(CompletionReason), CompletionReason, "Build log completion reason must be specified.");
         }

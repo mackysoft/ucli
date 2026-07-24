@@ -43,14 +43,14 @@ public sealed class DaemonStartServiceProgressTests
         DaemonProjectLifecycleGatewayAssert.EnsureRunningRequestedWithProgressSink(supervisorProjectGateway, progressSink);
         EventSequenceAssert.EmittedEventsInOrder(
             progressSink.Entries,
-            ContractLiteralCodec.ToValue(DaemonStartProgressEvent.Started),
-            ContractLiteralCodec.ToValue(DaemonStartProgressEvent.PluginVerificationStarted),
-            ContractLiteralCodec.ToValue(DaemonStartProgressEvent.PluginVerificationCompleted),
-            ContractLiteralCodec.ToValue(DaemonStartProgressEvent.SupervisorBootstrapStarted),
-            ContractLiteralCodec.ToValue(DaemonStartProgressEvent.SupervisorBootstrapCompleted),
-            ContractLiteralCodec.ToValue(DaemonStartProgressEvent.EnsureRunningStarted),
-            ContractLiteralCodec.ToValue(DaemonStartProgressEvent.EnsureRunningCompleted),
-            ContractLiteralCodec.ToValue(DaemonStartProgressEvent.Completed));
+            TextVocabulary.GetText(DaemonStartProgressEvent.Started),
+            TextVocabulary.GetText(DaemonStartProgressEvent.PluginVerificationStarted),
+            TextVocabulary.GetText(DaemonStartProgressEvent.PluginVerificationCompleted),
+            TextVocabulary.GetText(DaemonStartProgressEvent.SupervisorBootstrapStarted),
+            TextVocabulary.GetText(DaemonStartProgressEvent.SupervisorBootstrapCompleted),
+            TextVocabulary.GetText(DaemonStartProgressEvent.EnsureRunningStarted),
+            TextVocabulary.GetText(DaemonStartProgressEvent.EnsureRunningCompleted),
+            TextVocabulary.GetText(DaemonStartProgressEvent.Completed));
         DaemonStartProgressAssert.BatchmodeStartCompletedSuccessfully(
             progressSink,
             expectedProjectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint"),

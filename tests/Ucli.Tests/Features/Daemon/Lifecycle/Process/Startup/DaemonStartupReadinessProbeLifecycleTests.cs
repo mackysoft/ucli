@@ -107,7 +107,7 @@ public sealed class DaemonStartupReadinessProbeLifecycleTests
         var result = await probe.WaitUntilReadyAsync(
             ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(
                 ProjectFingerprintTestFactory.Create(
-                    $"fingerprint-readiness-{ContractLiteralCodec.ToValue(lifecycleState)}")),
+                    $"fingerprint-readiness-{TextVocabulary.GetText(lifecycleState)}")),
             ExecutionDeadline.Start(TimeSpan.FromSeconds(5), TimeProvider.System),
             cancellationToken: CancellationToken.None);
 

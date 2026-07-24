@@ -139,9 +139,9 @@ internal static class IpcTransportTestHarness
             IpcProtocol.CurrentVersion,
             Guid.NewGuid(),
             "token",
-            ContractLiteralCodec.ToValue(UnityIpcMethod.Ping),
+            TextVocabulary.GetText(UnityIpcMethod.Ping),
             Json("{}"),
-            ContractLiteralCodec.ToValue(IpcResponseMode.Stream),
+            TextVocabulary.GetText(IpcResponseMode.Stream),
             DateTimeOffset.MaxValue,
             int.MaxValue);
     }
@@ -152,9 +152,9 @@ internal static class IpcTransportTestHarness
             IpcProtocol.CurrentVersion,
             Guid.NewGuid(),
             "token",
-            ContractLiteralCodec.ToValue(UnityIpcMethod.Ping),
+            TextVocabulary.GetText(UnityIpcMethod.Ping),
             Json("{}"),
-            ContractLiteralCodec.ToValue(IpcResponseMode.Single),
+            TextVocabulary.GetText(IpcResponseMode.Single),
             DateTimeOffset.MaxValue,
             int.MaxValue);
     }
