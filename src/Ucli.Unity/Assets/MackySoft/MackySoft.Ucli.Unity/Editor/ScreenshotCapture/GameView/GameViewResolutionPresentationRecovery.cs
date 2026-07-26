@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using MackySoft.Ucli.Unity.Runtime;
 using MackySoft.Ucli.Unity.ScreenshotCapture.GameView.Resolution;
 using UnityEditor;
 using UnityEngine;
@@ -11,11 +12,11 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.GameView
     {
         private const int DeferredRecoveryUpdateInterval = 30;
 
-        private static readonly Dictionary<int, GameViewResolutionPresentationRecovery> ActiveRecoveries = new();
+        private static readonly Dictionary<UnityObjectSessionId, GameViewResolutionPresentationRecovery> ActiveRecoveries = new();
 
         private readonly EditorWindow gameView;
 
-        private readonly int gameViewInstanceId;
+        private readonly UnityObjectSessionId gameViewSessionId;
 
         private readonly IGameViewPresentationAdapter presentationAdapter;
 
@@ -48,7 +49,7 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.GameView
             }
 
             gameView = originalSource.View;
-            gameViewInstanceId = gameView.GetInstanceID();
+            gameViewSessionId = UnityObjectSessionId.Create(gameView);
             this.presentationAdapter = presentationAdapter
                 ?? throw new ArgumentNullException(nameof(presentationAdapter));
             freshnessTracker = new UnityGameViewPresentationFreshnessTracker(
@@ -88,14 +89,14 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.GameView
                 return false;
             }
 
-            if (ActiveRecoveries.TryGetValue(gameViewInstanceId, out var existing)
+            if (ActiveRecoveries.TryGetValue(gameViewSessionId, out var existing)
                 && !ReferenceEquals(existing, this))
             {
                 errorMessage = "Another recovery already owns the target GameView presentation.";
                 return false;
             }
 
-            ActiveRecoveries[gameViewInstanceId] = this;
+            ActiveRecoveries[gameViewSessionId] = this;
             isReserved = true;
             errorMessage = null;
             return true;
@@ -257,7 +258,7 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.GameView
                 return false;
             }
 
-            return ActiveRecoveries.TryGetValue(target.GetInstanceID(), out var recovery)
+            return ActiveRecoveries.TryGetValue(UnityObjectSessionId.Create(target), out var recovery)
                 && recovery.isReserved
                 && recovery.gameView == target;
         }
@@ -294,10 +295,10 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.GameView
             isTerminal = true;
             if (isReserved)
             {
-                if (ActiveRecoveries.TryGetValue(gameViewInstanceId, out var active)
+                if (ActiveRecoveries.TryGetValue(gameViewSessionId, out var active)
                     && ReferenceEquals(active, this))
                 {
-                    ActiveRecoveries.Remove(gameViewInstanceId);
+                    ActiveRecoveries.Remove(gameViewSessionId);
                 }
             }
 

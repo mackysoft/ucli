@@ -152,19 +152,15 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.GameView.Resolution
             var isCustomSize = UnityEditorReflection.FindMethod(groupType, "IsCustomSize", new[] { typeof(int) });
             var removeCustomSize = UnityEditorReflection.FindMethod(groupType, "RemoveCustomSize", new[] { typeof(int) });
             var liveGameViews = UnityGameViewResolutionAdapter.FindLiveExactGameViews(gameViewType);
-            var liveInstanceIds = liveGameViews
-                .Select(view => view.GetInstanceID())
-                .ToArray();
             EditorWindow gameView = null;
             int? selectedIndex = null;
             PropertyInfo selectedSizeIndexProperty = null;
             if (UnityGameViewWindowSetPolicy.TryResolveExclusive(
-                liveInstanceIds,
-                out var exclusiveInstanceId,
+                liveGameViews,
+                out var exclusiveGameView,
                 out _))
             {
-                gameView = liveGameViews.Single(view =>
-                    view.GetInstanceID() == exclusiveInstanceId);
+                gameView = exclusiveGameView;
                 selectedSizeIndexProperty = UnityEditorReflection.FindProperty(
                     gameViewType,
                     "selectedSizeIndex");
@@ -282,13 +278,9 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.GameView.Resolution
                 return false;
             }
 
-            var liveInstanceIds = UnityGameViewResolutionAdapter
-                .FindLiveExactGameViews(context.GameViewType)
-                .Select(view => view.GetInstanceID())
-                .ToArray();
             if (!UnityGameViewWindowSetPolicy.TryValidateExclusiveTarget(
-                context.GameView.GetInstanceID(),
-                liveInstanceIds,
+                context.GameView,
+                UnityGameViewResolutionAdapter.FindLiveExactGameViews(context.GameViewType),
                 out errorMessage))
             {
                 return false;

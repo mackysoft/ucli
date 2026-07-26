@@ -16,6 +16,8 @@ namespace MackySoft.Ucli.Tests.Ipc;
 
 public sealed class UnityDaemonIpcClientDispatchTests
 {
+    private static readonly TimeSpan SignalWaitTimeout = TimeSpan.FromSeconds(5);
+
     [Fact]
     [Trait("Size", "Small")]
     public async Task SendAsync_WhenSuccessful_ReadsSessionAndDelegatesToTransport ()
@@ -739,17 +741,24 @@ public sealed class UnityDaemonIpcClientDispatchTests
                     cleanupCancellationTokenSource.Token)
                 .AsTask();
         await sessionStore.Started;
-        await timeProvider
-            .WaitForTimerDueWithinAsync(TimeSpan.FromSeconds(5))
-            .WaitAsync(TimeSpan.FromSeconds(1));
+        await TestAwaiter.WaitAsync(
+            timeProvider.WaitForTimerDueWithinAsync(TimeSpan.FromSeconds(5)),
+            "Unity daemon dispatch session resolution deadline timer",
+            SignalWaitTimeout);
 
         try
         {
             timeProvider.Advance(TimeSpan.FromSeconds(5));
-            var result = await sendTask.WaitAsync(TimeSpan.FromSeconds(1));
+            var result = await TestAwaiter.WaitAsync(
+                sendTask,
+                "Unity daemon dispatch session resolution timeout result",
+                SignalWaitTimeout);
             Assert.False(result.IsSuccess);
             Assert.Equal(ExecutionErrorCodes.IpcTimeout, result.ErrorCode);
-            await sessionStore.CancellationObserved.WaitAsync(TimeSpan.FromSeconds(1));
+            await TestAwaiter.WaitAsync(
+                sessionStore.CancellationObserved,
+                "Unity daemon dispatch session resolution cancellation",
+                SignalWaitTimeout);
             DaemonIpcDispatchAssert.NoDispatchWasSent(transportClient);
         }
         finally

@@ -1131,7 +1131,7 @@ try {
     $variantA = Run-GameVariant -Name "game-a" -Action "prepareWindowsGameA"
     Write-Host "Capturing passive GameView variant B in the same window..."
     $variantB = Run-GameVariant -Name "game-b" -Action "prepareWindowsGameB"
-    if (([int] $variantA.Fixture.windowInstanceId -ne [int] $variantB.Fixture.windowInstanceId) -or
+    if (([string] $variantA.Fixture.windowInstanceId -ne [string] $variantB.Fixture.windowInstanceId) -or
         ([int] $variantA.Fixture.processId -ne [int] $variantB.Fixture.processId) -or
         ([string] $variantA.Fixture.windowTitle -ne [string] $variantB.Fixture.windowTitle)) {
         throw "Variants A and B were not observed in the same GameView window. See cases\game-a\fixture.json and cases\game-b\fixture.json."

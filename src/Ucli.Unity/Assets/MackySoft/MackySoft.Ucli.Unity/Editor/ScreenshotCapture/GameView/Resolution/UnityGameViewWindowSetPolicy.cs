@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using UnityEditor;
 
 namespace MackySoft.Ucli.Unity.ScreenshotCapture.GameView.Resolution
 {
@@ -8,19 +9,26 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.GameView.Resolution
     {
         /// <summary> Requires exactly one live GameView and proves that it is the expected mutation target. </summary>
         public static bool TryValidateExclusiveTarget (
-            int expectedTargetInstanceId,
-            IReadOnlyList<int> liveGameViewInstanceIds,
+            EditorWindow expectedTarget,
+            IReadOnlyList<EditorWindow> liveGameViews,
             out string errorMessage)
         {
+            if (expectedTarget == null)
+            {
+                errorMessage =
+                    "The requested-resolution mutation target is not a live GameView.";
+                return false;
+            }
+
             if (!TryResolveExclusive(
-                liveGameViewInstanceIds,
-                out var resolvedInstanceId,
+                liveGameViews,
+                out var resolvedTarget,
                 out errorMessage))
             {
                 return false;
             }
 
-            if (resolvedInstanceId != expectedTargetInstanceId)
+            if (resolvedTarget != expectedTarget)
             {
                 errorMessage =
                     "The only live GameView is not the requested-resolution mutation target.";
@@ -31,26 +39,34 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.GameView.Resolution
             return true;
         }
 
-        /// <summary> Resolves the only live GameView identity eligible for a global size-group mutation. </summary>
+        /// <summary> Resolves the only live GameView eligible for a global size-group mutation. </summary>
         public static bool TryResolveExclusive (
-            IReadOnlyList<int> liveGameViewInstanceIds,
-            out int resolvedInstanceId,
+            IReadOnlyList<EditorWindow> liveGameViews,
+            out EditorWindow resolvedTarget,
             out string errorMessage)
         {
-            if (liveGameViewInstanceIds == null)
+            if (liveGameViews == null)
             {
-                throw new ArgumentNullException(nameof(liveGameViewInstanceIds));
+                throw new ArgumentNullException(nameof(liveGameViews));
             }
 
-            resolvedInstanceId = default;
-            if (liveGameViewInstanceIds.Count != 1)
+            resolvedTarget = null;
+            if (liveGameViews.Count != 1)
             {
                 errorMessage =
                     "Requested-resolution capture requires exactly one live GameView before modifying the global size group.";
                 return false;
             }
 
-            resolvedInstanceId = liveGameViewInstanceIds[0];
+            resolvedTarget = liveGameViews[0];
+            if (resolvedTarget == null)
+            {
+                resolvedTarget = null;
+                errorMessage =
+                    "Requested-resolution capture requires one live GameView before modifying the global size group.";
+                return false;
+            }
+
             errorMessage = null;
             return true;
         }
