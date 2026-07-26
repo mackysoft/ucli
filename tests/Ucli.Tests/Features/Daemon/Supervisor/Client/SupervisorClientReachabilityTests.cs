@@ -6,6 +6,8 @@ namespace MackySoft.Ucli.Tests.Supervisor;
 
 public sealed class SupervisorClientReachabilityTests
 {
+    private static readonly TimeSpan SignalWaitTimeout = TimeSpan.FromSeconds(5);
+
     [Fact]
     [Trait("Size", "Small")]
     public async Task ProbeReachability_WhenManifestTokenIsRejected_ReturnsSessionTokenRejected ()
@@ -122,16 +124,25 @@ public sealed class SupervisorClientReachabilityTests
                 timeout,
                 CancellationToken.None)
             .AsTask();
-        await timeProvider.WaitForTimerDueWithinAsync(timeout).WaitAsync(TimeSpan.FromSeconds(1));
+        await TestAwaiter.WaitAsync(
+            timeProvider.WaitForTimerDueWithinAsync(timeout),
+            "supervisor reachability deadline timer",
+            SignalWaitTimeout);
 
         try
         {
             timeProvider.Advance(timeout);
 
-            var result = await resultTask.WaitAsync(TimeSpan.FromSeconds(1));
+            var result = await TestAwaiter.WaitAsync(
+                resultTask,
+                "supervisor reachability timeout result",
+                SignalWaitTimeout);
 
             Assert.Equal(SupervisorReachabilityProbeStatus.TimedOut, result);
-            await cancellationObserved.Task.WaitAsync(TimeSpan.FromSeconds(1));
+            await TestAwaiter.WaitAsync(
+                cancellationObserved.Task,
+                "supervisor reachability transport cancellation",
+                SignalWaitTimeout);
         }
         finally
         {
