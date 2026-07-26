@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Reflection;
 using UnityEditor;
@@ -471,6 +472,15 @@ namespace MackySoft.Ucli.ScreenshotFidelity
             }
         }
 
+        private static string GetWindowSessionIdText (EditorWindow window)
+        {
+#if UNITY_6000_5_OR_NEWER
+            return window.GetEntityId().ToString();
+#else
+            return window.GetInstanceID().ToString(CultureInfo.InvariantCulture);
+#endif
+        }
+
         private static ControlResponse CreateControlResponse (ControlRequest request)
         {
             var response = new ControlResponse
@@ -488,7 +498,7 @@ namespace MackySoft.Ucli.ScreenshotFidelity
             if (window != null)
             {
                 response.windowTitle = window.titleContent.text;
-                response.windowInstanceId = window.GetInstanceID();
+                response.windowInstanceId = GetWindowSessionIdText(window);
                 response.windowX = window.position.x;
                 response.windowY = window.position.y;
                 response.windowWidth = window.position.width;
@@ -751,7 +761,7 @@ namespace MackySoft.Ucli.ScreenshotFidelity
 
             public string windowTitle;
 
-            public int windowInstanceId;
+            public string windowInstanceId;
 
             public float windowX;
 

@@ -278,7 +278,6 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.GameView.Resolution
             return Resources.FindObjectsOfTypeAll(gameViewType)
                 .OfType<EditorWindow>()
                 .Where(view => view != null && view.GetType() == gameViewType)
-                .OrderBy(view => view.GetInstanceID())
                 .ToArray();
         }
 
@@ -324,12 +323,9 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.GameView.Resolution
                 return false;
             }
 
-            var liveInstanceIds = FindLiveExactGameViews(gameViewType)
-                .Select(view => view.GetInstanceID())
-                .ToArray();
             return UnityGameViewWindowSetPolicy.TryValidateExclusiveTarget(
-                expectedTarget.GetInstanceID(),
-                liveInstanceIds,
+                expectedTarget,
+                FindLiveExactGameViews(gameViewType),
                 out errorMessage);
         }
 

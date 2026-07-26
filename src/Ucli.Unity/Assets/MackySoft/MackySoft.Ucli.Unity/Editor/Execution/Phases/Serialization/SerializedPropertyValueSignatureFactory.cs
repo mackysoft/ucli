@@ -1,5 +1,6 @@
 using System;
 using System.Globalization;
+using MackySoft.Ucli.Unity.Runtime;
 using UnityEditor;
 using UnityEngine;
 
@@ -113,7 +114,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return $"object:global:{globalObjectId.Value}";
             }
 
-            return $"object:transient:{unityObject.GetInstanceID()}";
+            return $"object:transient:{UnityObjectSessionId.Create(unityObject)}";
         }
 
         private static string CreateObjectIdentitySignature (RequestLocalObjectIdentity identity)
@@ -129,7 +130,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 throw new InvalidOperationException("Object-reference signature creation requires a stable GlobalObjectId or live transient Unity object.");
             }
 
-            return $"object:transient:{unityObject.GetInstanceID()}";
+            return $"object:transient:{UnityObjectSessionId.Create(unityObject)}";
         }
 
         private static string FormatSingle (float value)
