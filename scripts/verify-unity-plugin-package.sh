@@ -29,6 +29,8 @@ unity_editor_asmdef_entry="Editor/MackySoft.Ucli.Unity.Editor.asmdef"
 filesystem_package_id="MackySoft.FileSystem"
 filesystem_package_version="0.1.0"
 canonicalization_package_id="MackySoft.Json.Canonicalization"
+json_schema_package_id="MackySoft.JsonSchema.Generation"
+json_schema_package_version="0.3.0"
 foundation_package_ids=(
   "${filesystem_package_id}"
   "${canonicalization_package_id}"
@@ -40,6 +42,18 @@ ucli_dependency_package_ids=(
   "MackySoft.Ucli.Infrastructure"
 )
 ucli_dependency_package_versions=()
+schema_validation_package_ids=(
+  "JsonSchema.Net"
+  "JsonPointer.Net"
+  "Json.More.Net"
+  "Humanizer.Core"
+)
+schema_validation_assembly_names=(
+  "JsonSchema.Net.dll"
+  "JsonPointer.Net.dll"
+  "Json.More.dll"
+  "Humanizer.dll"
+)
 
 if [[ ! -f "${package_path}" ]]; then
   echo "Unity package was not created: ${package_path}" >&2
@@ -58,6 +72,13 @@ if [[ ! -f "${unity_packages_config}" ]]; then
   exit 1
 fi
 
+for schema_validation_package_id in "${schema_validation_package_ids[@]}"; do
+  if grep -Fi "<package id=\"${schema_validation_package_id}\"" "${unity_packages_config}" >/dev/null; then
+    echo "Unity packages.config must not reference ${schema_validation_package_id}." >&2
+    exit 1
+  fi
+done
+
 for foundation_package_id in "${foundation_package_ids[@]}"; do
   foundation_package_version="$(
     sed -nE "s#.*<package id=\"${foundation_package_id}\" version=\"([^\"]+)\".*#\\1#p" \
@@ -69,6 +90,16 @@ for foundation_package_id in "${foundation_package_ids[@]}"; do
     exit 1
   fi
 done
+
+configured_json_schema_package_version="$(
+  sed -nE "s#.*<package id=\"${json_schema_package_id}\" version=\"([^\"]+)\".*#\\1#p" \
+    "${unity_packages_config}" |
+    head -n 1
+)"
+if [[ "${configured_json_schema_package_version}" != "${json_schema_package_version}" ]]; then
+  echo "${json_schema_package_id} must use exact version ${json_schema_package_version}. Actual: ${configured_json_schema_package_version}" >&2
+  exit 1
+fi
 
 for dependency_package_id in "${ucli_dependency_package_ids[@]}"; do
   dependency_package_version="$(
@@ -121,8 +152,18 @@ for forbidden_pattern in \
   '(^|/)MackySoft\.FileSystem\.[^/]*\.nupkg$' \
   '(^|/)MackySoft\.Json\.Canonicalization\.dll$' \
   '(^|/)MackySoft\.Json\.Canonicalization\.[^/]*\.nupkg$' \
+  '(^|/)MackySoft\.JsonSchema\.Generation\.dll$' \
+  '(^|/)MackySoft\.JsonSchema\.Generation\.[^/]*\.nupkg$' \
   '(^|/)MackySoft\.Text\.Vocabularies(\.Json)?\.dll$' \
   '(^|/)MackySoft\.Text\.Vocabularies(\.Json)?\.[^/]*\.nupkg$' \
+  '(^|/)JsonSchema\.Net\.dll$' \
+  '(^|/)JsonSchema\.Net\.[^/]*\.nupkg$' \
+  '(^|/)JsonPointer\.Net\.dll$' \
+  '(^|/)JsonPointer\.Net\.[^/]*\.nupkg$' \
+  '(^|/)Json\.More\.dll$' \
+  '(^|/)Json\.More\.Net\.[^/]*\.nupkg$' \
+  '(^|/)Humanizer\.dll$' \
+  '(^|/)Humanizer\.Core\.[^/]*\.nupkg$' \
   'es6numberserializer'; do
   if grep -Ei "${forbidden_pattern}" <<< "${package_entries}" >/dev/null; then
     echo "Unity package contains forbidden entry matching ${forbidden_pattern}." >&2
@@ -151,11 +192,18 @@ if grep -Fi "es6numberserializer" "${nuspec_path}" >/dev/null; then
   exit 1
 fi
 
+for schema_validation_package_id in "${schema_validation_package_ids[@]}"; do
+  if grep -Fi "<dependency id=\"${schema_validation_package_id}\"" "${nuspec_path}" >/dev/null; then
+    echo "Unity package nuspec must not depend on ${schema_validation_package_id}." >&2
+    exit 1
+  fi
+done
+
 while IFS=$'\t' read -r dependency_id dependency_version; do
   [[ -n "${dependency_id}" ]] || continue
   expected_nuspec_version="${dependency_version}"
   case "${dependency_id}" in
-    MackySoft.FileSystem|MackySoft.Json.Canonicalization|MackySoft.Text.Vocabularies|MackySoft.Text.Vocabularies.Json)
+    MackySoft.FileSystem|MackySoft.Json.Canonicalization|MackySoft.JsonSchema.Generation|MackySoft.Text.Vocabularies|MackySoft.Text.Vocabularies.Json)
       expected_nuspec_version="[${dependency_version}]"
       ;;
   esac
@@ -210,6 +258,7 @@ cat > "${nuget_config}" <<EOF
     <packageSource key="nuget.org">
       <package pattern="MackySoft.FileSystem" />
       <package pattern="MackySoft.Json.Canonicalization" />
+      <package pattern="MackySoft.JsonSchema.Generation" />
       <package pattern="MackySoft.Text.Vocabularies" />
       <package pattern="MackySoft.Text.Vocabularies.Json" />
       <package pattern="Microsoft.*" />
@@ -244,6 +293,29 @@ if find "${restore_packages_directory}" -iname "*es6numberserializer*" -print -q
   exit 1
 fi
 
+for schema_validation_package_id in "${schema_validation_package_ids[@]}"; do
+  if find "${restore_packages_directory}" \
+    -mindepth 1 \
+    -maxdepth 1 \
+    -type d \
+    -iname "${schema_validation_package_id}.*" \
+    -print -quit |
+    grep -q .; then
+    echo "Restored Unity dependency closure contains ${schema_validation_package_id}." >&2
+    exit 1
+  fi
+done
+for schema_validation_assembly_name in "${schema_validation_assembly_names[@]}"; do
+  if find "${restore_packages_directory}" \
+    -type f \
+    -iname "${schema_validation_assembly_name}" \
+    -print -quit |
+    grep -q .; then
+    echo "Restored Unity dependency closure contains ${schema_validation_assembly_name}." >&2
+    exit 1
+  fi
+done
+
 restored_plugin_root="${restore_packages_directory}/${package_id}.${expected_version}"
 restored_marker_path="${restored_plugin_root}/ucli-plugin.json"
 if [[ ! -f "${restored_marker_path}" ]]; then
@@ -255,9 +327,11 @@ restored_editor_asmdef="${restored_plugin_root}/${unity_editor_asmdef_entry}"
 if [[ ! -f "${restored_editor_asmdef}" ]] \
   || ! jq -e \
     --arg filesystem_assembly "${filesystem_package_id}" \
+    --arg json_schema_assembly "${json_schema_package_id}" \
     --arg text_assembly "MackySoft.Text.Vocabularies" \
     '(.references | type == "array")
       and (.references | index($filesystem_assembly) != null)
+      and (.references | index($json_schema_assembly) != null)
       and (.references | index($text_assembly) != null)' \
     "${restored_editor_asmdef}" >/dev/null; then
   echo "Restored Unity Editor asmdef does not reference the required foundation assemblies." >&2
@@ -273,12 +347,21 @@ for foundation_package_id in "${foundation_package_ids[@]}"; do
   fi
 done
 
+json_schema_package_root="${restore_packages_directory}/${json_schema_package_id}.${json_schema_package_version}"
+json_schema_runtime_assembly="${json_schema_package_root}/lib/netstandard2.1/${json_schema_package_id}.dll"
+if [[ ! -f "${json_schema_runtime_assembly}" ]]; then
+  echo "Restored Unity dependency layout is missing: ${json_schema_runtime_assembly}" >&2
+  exit 1
+fi
+
 if find "${restored_plugin_root}" -type f \
   \( \
     -iname "${filesystem_package_id}.dll" \
     -o -iname "${filesystem_package_id}.*.nupkg" \
     -o -iname "${canonicalization_package_id}.dll" \
     -o -iname "${canonicalization_package_id}.*.nupkg" \
+    -o -iname "${json_schema_package_id}.dll" \
+    -o -iname "${json_schema_package_id}.*.nupkg" \
     -o -iname "MackySoft.Text.Vocabularies.dll" \
     -o -iname "MackySoft.Text.Vocabularies.Json.dll" \
     -o -iname "MackySoft.Text.Vocabularies.*.nupkg" \
@@ -294,6 +377,8 @@ if find "${restored_plugin_root}" -type f \
       -o -iname "${filesystem_package_id}.*.nupkg" \
       -o -iname "${canonicalization_package_id}.dll" \
       -o -iname "${canonicalization_package_id}.*.nupkg" \
+      -o -iname "${json_schema_package_id}.dll" \
+      -o -iname "${json_schema_package_id}.*.nupkg" \
       -o -iname "MackySoft.Text.Vocabularies.dll" \
       -o -iname "MackySoft.Text.Vocabularies.Json.dll" \
       -o -iname "MackySoft.Text.Vocabularies.*.nupkg" \

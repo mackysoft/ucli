@@ -80,6 +80,7 @@ fi
 
 bash scripts/verify-skills.sh
 bash scripts/verify-schemas.sh
+bash scripts/verify-schema-generator-project-reference.sh
 bash scripts/code-quality.sh --no-restore --solution "$solution" verify
 dotnet build "$solution" --configuration "$configuration" --no-restore
 test_dotnet_args=(

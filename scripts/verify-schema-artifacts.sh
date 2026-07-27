@@ -80,7 +80,7 @@ with zipfile.ZipFile(archive_path) as archive:
             print(f"Schema artifact archive contains a path with a newline: {name!r}", file=sys.stderr)
             sys.exit(1)
 
-        if name.startswith("/") or name.endswith("/") or not name.startswith("schemas/v1/"):
+        if name.startswith("/") or name.endswith("/") or not name.startswith("schemas/"):
             print(f"Schema artifact archive contains an invalid entry path: {name}", file=sys.stderr)
             sys.exit(1)
 
@@ -94,7 +94,7 @@ with zipfile.ZipFile(archive_path) as archive:
             print(f"Schema artifact archive contains a non-regular entry: {name}", file=sys.stderr)
             sys.exit(1)
 
-    manifest_entry = "schemas/v1/schema-manifest.json"
+    manifest_entry = "schemas/schema-manifest.json"
     if manifest_entry not in actual_entry_set:
         print(f"Schema artifact archive is missing required entry: {manifest_entry}", file=sys.stderr)
         sys.exit(1)
