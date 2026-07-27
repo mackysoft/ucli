@@ -48,7 +48,6 @@ public sealed class OperationExecuteServiceDispatchTests
         Assert.Equal(ApplicationOutcome.Success, result.Outcome);
         Assert.Empty(result.Errors);
         var opResult = Assert.Single(result.OpResults);
-        Assert.Equal("refresh", opResult.OpId.Value);
         Assert.Equal(UcliPrimitiveOperationNames.ProjectRefresh, opResult.Op);
         Assert.Equal(IpcExecuteOperationPhase.Call, opResult.Phase);
         Assert.True(opResult.Applied);

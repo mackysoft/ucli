@@ -5,6 +5,7 @@
   "exitCode": 3,
   "message": "Build profile inputs.buildTarget is unsupported: unknownTarget.",
   "payload": {
+    "payloadKind": "detailed",
     "project": {
       "projectPath": "/workspace/UnityProject",
       "projectFingerprint": "6c997854157f1c37233ad17eacb2ee2357866912f2d6ac6d62f1ec477b95f262",
@@ -15,7 +16,7 @@
     {
       "code": "BUILD_TARGET_UNSUPPORTED",
       "message": "Build profile inputs.buildTarget is unsupported: unknownTarget.",
-      "opId": null
+      "instancePath": null
     }
   ]
 }

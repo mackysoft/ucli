@@ -31,10 +31,12 @@ public sealed class PlanCliOutputContractTests
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
         CommandResultAssert.HasInvalidArgumentError(outputJson.RootElement, UcliCommandNames.Plan);
         Assert.Contains(
-            "Request property 'steps' is required.",
+            "Request JSON does not satisfy the request contract.",
             outputJson.RootElement.GetProperty("message").GetString(),
             StringComparison.Ordinal);
-        Assert.False(outputJson.RootElement.GetProperty("payload").EnumerateObject().MoveNext());
+        Assert.Equal(
+            "empty",
+            outputJson.RootElement.GetProperty("payload").GetProperty("payloadKind").GetString());
     }
 
     [Fact]

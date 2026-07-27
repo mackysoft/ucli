@@ -9,7 +9,7 @@
     {
       "code": "PLAYMODE_SESSION_NOT_AVAILABLE",
       "message": "Registered GUI daemon session is not available for Play Mode status.",
-      "opId": null
+      "instancePath": null
     }
   ]
 }

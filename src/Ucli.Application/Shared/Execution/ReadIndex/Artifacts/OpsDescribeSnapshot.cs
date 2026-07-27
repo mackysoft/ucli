@@ -39,11 +39,10 @@ internal sealed record OpsDescribeSnapshot : IReadIndexArtifactSnapshot
             || contract.GeneratedAtUtc == default
             || contract.GeneratedAtUtc.Offset != TimeSpan.Zero
             || !Sha256Digest.TryParse(contract.SourceInputsHash, out var sourceInputsHash)
-            || !IndexCatalogContractValidator.TryProjectOpsEntry(
+            || !IndexOperationCatalogContractValidator.TryProjectOpsEntry(
                 contract.Operation,
                 index: 0,
                 allowEditLoweringOnlyEntries: false,
-                requireCanonicalLiterals: true,
                 out var operation,
                 out _))
         {

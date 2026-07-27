@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Json;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.OperationExecute;
 using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
@@ -9,6 +10,12 @@ namespace MackySoft.Ucli.Application.Features.Requests.Refresh.UseCases.Refresh;
 /// <summary> Executes the <c>refresh</c> workflow by dispatching the fixed <c>ucli.project.refresh</c> operation definition. </summary>
 internal sealed class RefreshService : IRefreshService
 {
+    private static readonly UcliOperationJsonContractGenerationResult RefreshContract =
+        UcliOperationJsonContractGenerator.Generate(
+            UcliPrimitiveOperationNames.ProjectRefresh,
+            IpcJsonSerializerOptions.PublicRawOperationContracts.GetTypeInfo(typeof(UcliEmptyArgs)),
+            resultTypeInfo: null);
+
     private static readonly OperationExecuteDefinition RefreshOperation = new(
         Command: UcliCommandIds.Refresh,
         OperationId: new IpcExecuteStepId("refresh"),
@@ -16,9 +23,12 @@ internal sealed class RefreshService : IRefreshService
             Name: UcliPrimitiveOperationNames.ProjectRefresh,
             Kind: UcliOperationKind.Command,
             Policy: OperationPolicy.Advanced,
-            ArgsSchemaJson: UcliOperationJsonSchemaGenerator.CreateArgsSchemaJson(typeof(UcliEmptyArgs)),
+            ArgsSchemaJson: Encoding.UTF8.GetString(
+                RefreshContract.GetArgsJsonSchemaUtf8()),
             ResultSchemaJson: null),
-        Args: JsonSerializer.SerializeToElement(new UcliEmptyArgs(), IpcJsonSerializerOptions.Default),
+        Args: JsonSerializer.SerializeToElement(
+            new UcliEmptyArgs(),
+            IpcJsonSerializerOptions.PublicRawOperationContracts),
         SuccessMessage: "uCLI refresh completed.",
         FailureMessage: "uCLI refresh failed.");
 

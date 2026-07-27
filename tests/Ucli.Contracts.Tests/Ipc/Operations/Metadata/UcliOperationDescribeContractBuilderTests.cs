@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Contracts.Tests.Ipc;
@@ -6,162 +8,64 @@ public sealed class UcliOperationDescribeContractBuilderTests
 {
     [Fact]
     [Trait("Size", "Small")]
-    public void Create_WhenOperationHasNoResult_ReturnsNoResultContract ()
+    public void Create_WithGeneratedAggregate_DeliversBothProviderProjectionsAndDigestWithoutReprojection ()
     {
-        var describe = UcliOperationDescribeContractBuilder.Create<ScenePathArgs, UcliNoResult>(
-            "Opens a Unity scene asset in the editor.",
-            CreateSafeAssurance());
+        const string operationName = "ucli.test.assets.find";
+        var serializerOptions = IpcJsonSerializerOptions.PublicRawOperationContracts;
+        var generationResult = UcliOperationJsonContractGenerator.Generate(
+            operationName,
+            serializerOptions.GetTypeInfo(typeof(AssetsFindArgs)),
+            serializerOptions.GetTypeInfo(typeof(AssetsFindResult)));
+        var codeContract = new UcliOperationCodeContract
+        {
+            Language = UcliCodeLanguage.CSharp,
+        };
 
-        Assert.NotNull(describe.ResultContract);
-        Assert.False(describe.ResultContract!.Emitted);
-        Assert.Equal(nameof(UcliNoResult), describe.ResultContract.ResultType);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void Create_WhenOperationEmitsResult_UsesResultTypeDescription ()
-    {
-        var describe = UcliOperationDescribeContractBuilder.Create<AssetsFindArgs, AssetsFindResult>(
+        var describe = UcliOperationDescribeContractBuilder.Create(
+            generationResult,
             "Finds project assets by type, path prefix, or name substring.",
-            CreateSafeAssurance());
+            CreateSafeAssurance(),
+            codeContract);
 
-        Assert.NotNull(describe.ResultContract);
-        Assert.True(describe.ResultContract!.Emitted);
-        Assert.Equal(nameof(AssetsFindResult), describe.ResultContract.ResultType);
-        Assert.Equal("Assets find operation result.", describe.ResultContract.Description);
+        Assert.Equal(generationResult.ArgsContract, describe.ArgsContract);
+        Assert.Equal(generationResult.ResultContract, describe.ResultContract);
+        Assert.Equal(UcliCodeLanguage.CSharp, describe.CodeContract!.Language);
+
+        var operationNameDigest = Convert.ToHexString(
+                SHA256.HashData(Encoding.UTF8.GetBytes(operationName)))
+            .ToLowerInvariant();
+        Assert.Equal(
+            $"ucli.operation/{operationNameDigest}/args",
+            describe.ArgsContract!.Value.TypeMetadata
+                .TryGetProperty("contractId", out var argsContractId)
+                ? argsContractId.GetString()
+                : null);
+        Assert.Equal(
+            $"ucli.operation/{operationNameDigest}/result",
+            describe.ResultContract!.Value.TypeMetadata
+                .TryGetProperty("contractId", out var resultContractId)
+                ? resultContractId.GetString()
+                : null);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void Create_WhenInputHasAttributes_ReturnsDescriptionsAndConstraints ()
+    public void Create_WhenOperationDeclaresNoResult_DoesNotGenerateOrPublishResultContract ()
     {
-        var describe = UcliOperationDescribeContractBuilder.Create<ScenePathArgs, UcliNoResult>(
+        const string operationName = "ucli.test.scene.open";
+        var generationResult = UcliOperationJsonContractGenerator.Generate(
+            operationName,
+            IpcJsonSerializerOptions.PublicRawOperationContracts.GetTypeInfo(typeof(ScenePathArgs)),
+            resultTypeInfo: null);
+
+        var describe = UcliOperationDescribeContractBuilder.Create(
+            generationResult,
             "Opens a Unity scene asset in the editor.",
             CreateSafeAssurance());
 
-        var input = Assert.Single(describe.Inputs!);
-        Assert.Equal("path", input.Name);
-        Assert.Equal("Project-relative path to a Unity scene asset.", input.Description);
-        Assert.Equal("string", input.ValueType);
-        Assert.Contains(input.Constraints!, constraint => constraint.Kind == "nonEmpty");
-        Assert.Contains(input.Constraints!, constraint =>
-            constraint.Kind == "assetExists"
-            && constraint.AssetKind == "scene");
-    }
-
-    [Theory]
-    [InlineData(false, "asset")]
-    [InlineData(true, "prefab")]
-    [Trait("Size", "Small")]
-    public void Create_WhenPathIsCreationTarget_PublishesCreatableConstraintWithoutExists (
-        bool prefab,
-        string expectedAssetKind)
-    {
-        var describe = prefab
-            ? UcliOperationDescribeContractBuilder.Create<PrefabCreateArgs, UcliNoResult>(
-                "Creates a prefab asset.",
-                CreateSafeAssurance())
-            : UcliOperationDescribeContractBuilder.Create<AssetCreateArgs, UcliNoResult>(
-                "Creates an asset.",
-                CreateSafeAssurance());
-
-        var input = Assert.Single(describe.Inputs!, candidate => candidate.Name == "path");
-        Assert.Equal(
-            new[] { "nonEmpty", "projectRelativePath", "assetCreatable" },
-            input.Constraints!.Select(static constraint => constraint.Kind));
-        var creatable = Assert.Single(input.Constraints!, constraint => constraint.Kind == "assetCreatable");
-        Assert.Equal(expectedAssetKind, creatable.AssetKind);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void Create_WhenInputHasReferenceType_ReturnsReferenceVariants ()
-    {
-        var describe = UcliOperationDescribeContractBuilder.Create<GoDescribeArgs, GameObjectDescriptionResult>(
-            "Returns a GameObject description including components and child hierarchy.",
-            CreateSafeAssurance());
-
-        var input = Assert.Single(describe.Inputs!, candidate => candidate.Name == "target");
-        Assert.NotNull(input.Variants);
-        var variant = Assert.Single(input.Variants!, candidate => candidate.Name == "byGlobalObjectId");
-        var field = Assert.Single(variant.Fields!);
-        Assert.Equal("globalObjectId", field.Name);
-        Assert.Equal("$.target.globalObjectId", field.ArgsPath);
-        Assert.Equal("Resolved Unity GlobalObjectId.", field.Description);
-        Assert.Contains(field.Constraints!, constraint => constraint.Kind == "globalObjectId");
-        var hierarchyVariant = Assert.Single(input.Variants!, candidate => candidate.Name == "bySceneHierarchyPath");
-        Assert.Equal(
-            "Use Scene asset path for a hierarchy selector and Unity hierarchy path inside the selected scene or prefab.",
-            hierarchyVariant.Description);
-        Assert.Equal(2, hierarchyVariant.Fields!.Count);
-        var sceneField = Assert.Single(hierarchyVariant.Fields!, candidate => candidate.Name == "scene");
-        Assert.Equal("$.target.scene", sceneField.ArgsPath);
-        Assert.Equal("Scene asset path for a hierarchy selector.", sceneField.Description);
-        Assert.Contains(sceneField.Constraints!, constraint =>
-            constraint.Kind == "assetExists"
-            && constraint.AssetKind == "scene");
-        var hierarchyPathField = Assert.Single(hierarchyVariant.Fields!, candidate => candidate.Name == "hierarchyPath");
-        Assert.Equal("$.target.hierarchyPath", hierarchyPathField.ArgsPath);
-        Assert.Equal("Unity hierarchy path inside the selected scene or prefab.", hierarchyPathField.Description);
-        Assert.Contains(hierarchyPathField.Constraints!, constraint => constraint.Kind == "hierarchyPath");
-        Assert.DoesNotContain(input.Variants!, candidate => candidate.Fields!.Any(candidateField => candidateField.ArgsPath!.EndsWith(".var", StringComparison.Ordinal)));
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void Create_WhenReferenceInputHasAssetGuidVariant_ReturnsAssetGuidConstraint ()
-    {
-        var describe = UcliOperationDescribeContractBuilder.Create<AssetSchemaArgs, UcliNoResult>(
-            "Returns serialized property schema for a Unity asset.",
-            CreateSafeAssurance());
-
-        var input = Assert.Single(describe.Inputs!, candidate => candidate.Name == "target");
-        var variant = Assert.Single(input.Variants!, candidate => candidate.Name == "byAssetGuid");
-        var field = Assert.Single(variant.Fields!);
-        Assert.Equal("assetGuid", field.Name);
-        Assert.Equal("$.target.assetGuid", field.ArgsPath);
-        Assert.Equal("Asset GUID selector.", field.Description);
-        Assert.Contains(field.Constraints!, constraint => constraint.Kind == "assetGuid");
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void Create_WhenInputIsGuid_ReportsJsonStringValueType ()
-    {
-        var describe = UcliOperationDescribeContractBuilder.Create<GuidArgs, UcliNoResult>(
-            "Accepts one GUID.",
-            CreateSafeAssurance());
-
-        var input = Assert.Single(describe.Inputs!);
-        Assert.Equal("string", input.ValueType);
-        Assert.Contains(input.Constraints!, constraint => constraint.Kind == "assetGuid");
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void Create_WhenInputIsContractLiteralEnum_ReportsJsonStringValueType ()
-    {
-        var describe = UcliOperationDescribeContractBuilder.Create<ContractLiteralArgs, UcliNoResult>(
-            "Accepts one finite contract literal.",
-            CreateSafeAssurance());
-
-        var input = Assert.Single(describe.Inputs!);
-        Assert.Equal("string", input.ValueType);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void Create_WhenInputEnumHasUnmappedMember_RejectsContractDuringDiscovery ()
-    {
-        var exception = Assert.Throws<InvalidOperationException>(() =>
-            UcliOperationDescribeContractBuilder.Create<InvalidContractLiteralArgs, UcliNoResult>(
-                "Accepts one incomplete contract literal.",
-                CreateSafeAssurance()));
-
-        Assert.Contains(
-            "must declare exactly one VocabularyTextAttribute",
-            exception.Message,
-            StringComparison.Ordinal);
+        Assert.Equal(generationResult.ArgsContract, describe.ArgsContract);
+        Assert.Null(generationResult.ResultContract);
+        Assert.Null(describe.ResultContract);
     }
 
     private static UcliOperationAssuranceContract CreateSafeAssurance ()
@@ -177,40 +81,4 @@ public sealed class UcliOperationDescribeContractBuilderTests
             failureSemantics: "Failure means the observation was not fully produced.",
             dangerousNotes: Array.Empty<string>());
     }
-
-    private sealed record GuidArgs
-    {
-        [UcliDescription("Non-empty asset GUID.")]
-        [UcliInputConstraint(UcliOperationInputConstraintKind.AssetGuid)]
-        public Guid AssetGuid { get; init; }
-    }
-
-    private sealed record ContractLiteralArgs
-    {
-        [UcliDescription("Finite operation mode.")]
-        public ContractLiteralMode Mode { get; init; }
-    }
-
-    private sealed record InvalidContractLiteralArgs
-    {
-        [UcliDescription("Incomplete finite operation mode.")]
-        public InvalidContractLiteralMode Mode { get; init; }
-    }
-
-    [VocabularyDefinition]
-    private enum ContractLiteralMode
-    {
-        [VocabularyText("enabled")]
-        Enabled,
-    }
-
-    [VocabularyDefinition]
-    private enum InvalidContractLiteralMode
-    {
-        [VocabularyText("enabled")]
-        Enabled,
-
-        Disabled,
-    }
-
 }

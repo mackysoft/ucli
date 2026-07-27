@@ -104,7 +104,7 @@ public sealed class IpcDaemonPingClientRequestTests
                 new IpcError(
                     IpcSessionErrorCodes.SessionTokenInvalid,
                     "The session token was replaced.",
-                    OpId: null),
+                    InstancePath: null),
             ]));
         var rejectedSession = DaemonSessionTestFactory.CreateForToken(
             "first-token",
@@ -174,7 +174,7 @@ public sealed class IpcDaemonPingClientRequestTests
                 new IpcError(
                     IpcSessionErrorCodes.SessionTokenInvalid,
                     "The initial session token was replaced.",
-                    OpId: null),
+                    InstancePath: null),
             ]));
         unityIpcClient.EnqueueResponse(request => CreateResponse(
             request,
@@ -183,7 +183,7 @@ public sealed class IpcDaemonPingClientRequestTests
                 new IpcError(
                     IpcSessionErrorCodes.SessionTokenInvalid,
                     "The successor session token was replaced.",
-                    OpId: null),
+                    InstancePath: null),
             ]));
         var initialSession = DaemonSessionTestFactory.CreateForToken(
             "initial-token",
@@ -238,7 +238,7 @@ public sealed class IpcDaemonPingClientRequestTests
                 new IpcError(
                     IpcSessionErrorCodes.SessionTokenInvalid,
                     "The initial session token was replaced.",
-                    OpId: null),
+                    InstancePath: null),
             ]));
         unityIpcClient.EnqueueResponse(static _ => throw new IpcConnectTimeoutException(
             "The successor endpoint timed out before the ping request was sent."));
@@ -296,7 +296,7 @@ public sealed class IpcDaemonPingClientRequestTests
                 new IpcError(
                     IpcSessionErrorCodes.SessionTokenInvalid,
                     "The session token was replaced.",
-                    OpId: null),
+                    InstancePath: null),
             ]));
         var rejectedSession = DaemonSessionTestFactory.CreateForToken(
             "first-token",
@@ -344,7 +344,7 @@ public sealed class IpcDaemonPingClientRequestTests
                 new IpcError(
                     IpcSessionErrorCodes.SessionTokenInvalid,
                     "The session token was replaced.",
-                    OpId: null),
+                    InstancePath: null),
             ]));
         var rejectedSession = DaemonSessionTestFactory.CreateForToken(
             "first-token",
@@ -428,7 +428,7 @@ public sealed class IpcDaemonPingClientRequestTests
                 new IpcError(
                     IpcSessionErrorCodes.SessionTokenInvalid,
                     "The session token was replaced.",
-                    OpId: null),
+                    InstancePath: null),
             ]));
         var rejectedSession = DaemonSessionTestFactory.CreateForToken(
             "first-token",

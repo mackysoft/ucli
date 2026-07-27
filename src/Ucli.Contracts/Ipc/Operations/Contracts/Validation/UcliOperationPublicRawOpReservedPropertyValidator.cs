@@ -1,152 +1,137 @@
-using System.Reflection;
-using System.Text.Json;
-using MackySoft.Ucli.Contracts.Operations;
+using MackySoft.JsonSchema.Generation.ContractModel;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
 internal static class UcliOperationPublicRawOpReservedPropertyValidator
 {
-    private static readonly Type JsonElementType = typeof(JsonElement);
-
     public static bool TryValidate (
-        Type contractType,
+        JsonContractModel contractModel,
         out string errorMessage)
     {
-        return TryValidate(contractType, "args", new HashSet<Type>(), out errorMessage);
-    }
-
-    private static bool TryValidate (
-        Type contractType,
-        string path,
-        HashSet<Type> visitedTypes,
-        out string errorMessage)
-    {
-        errorMessage = string.Empty;
-        var actualType = Nullable.GetUnderlyingType(contractType) ?? contractType;
-        if (IsAliasValueType(actualType, path, out errorMessage))
+        if (!TryValidateNode(contractModel.Root, "args", out errorMessage))
         {
             return false;
         }
 
-        return TryValidateBranch(actualType, path, visitedTypes, out errorMessage);
-    }
-
-    private static bool TryValidateBranch (
-        Type actualType,
-        string path,
-        HashSet<Type> visitedTypes,
-        out string errorMessage)
-    {
-        if (UcliOperationContractTypeFacts.IsScalar(actualType) || actualType == JsonElementType || actualType == typeof(object))
+        for (var i = 0; i < contractModel.Definitions.Count; i++)
         {
-            errorMessage = string.Empty;
-            return true;
-        }
-
-        if (UcliOperationContractTypeFacts.TryGetArrayElementType(actualType, out var elementType))
-        {
-            return TryValidate(elementType!, path + "[]", visitedTypes, out errorMessage);
-        }
-
-        return TryValidateObject(actualType, path, visitedTypes, out errorMessage);
-    }
-
-    private static bool TryValidateObject (
-        Type actualType,
-        string path,
-        HashSet<Type> visitedTypes,
-        out string errorMessage)
-    {
-        errorMessage = string.Empty;
-        if (!visitedTypes.Add(actualType))
-        {
-            return true;
-        }
-
-        foreach (var property in UcliOperationContractReflection.GetContractProperties(actualType))
-        {
-            if (!TryValidateProperty(property, path, visitedTypes, out errorMessage))
+            var definition = contractModel.Definitions[i];
+            var definitionPath = string.Equals(
+                contractModel.Root.ReferenceId,
+                definition.Id,
+                StringComparison.Ordinal)
+                ? "args"
+                : $"args.$defs[{definition.Id}]";
+            if (!TryValidateNode(
+                    definition.Value,
+                    definitionPath,
+                    out errorMessage))
             {
-                visitedTypes.Remove(actualType);
                 return false;
             }
         }
 
-        visitedTypes.Remove(actualType);
+        errorMessage = string.Empty;
         return true;
     }
 
-    private static bool TryValidateProperty (
-        PropertyInfo property,
+    private static bool TryValidateNode (
+        JsonContractNode node,
         string path,
-        HashSet<Type> visitedTypes,
         out string errorMessage)
     {
-        var propertyName = UcliOperationContractReflection.GetJsonPropertyName(property);
-        var propertyType = Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType;
-        if (UcliRequestLocalAliasContractPolicy.IsInternalRequestLocalAliasBranchProperty(property))
-        {
-            errorMessage = string.Empty;
-            return true;
-        }
-
-        return TryValidatePublicProperty(property, propertyType, $"{path}.{propertyName}", visitedTypes, out errorMessage);
-    }
-
-    private static bool TryValidatePublicProperty (
-        PropertyInfo property,
-        Type propertyType,
-        string path,
-        HashSet<Type> visitedTypes,
-        out string errorMessage)
-    {
-        if (IsAliasValueType(propertyType, path, out errorMessage)
-            || IsAliasPropertyName(path, out errorMessage))
+        if (!TryValidateDiscriminator(node, path, out errorMessage)
+            || !TryValidateProperties(node, path, out errorMessage)
+            || !TryValidateOptionalNode(node.Items, path + "[]", out errorMessage)
+            || !TryValidateOptionalNode(node.AdditionalProperties, path + ".*", out errorMessage)
+            || !TryValidateVariants(node, path, out errorMessage))
         {
             return false;
         }
 
-        return ShouldVisit(property)
-            ? TryValidate(property.PropertyType, path, visitedTypes, out errorMessage)
-            : Succeed(out errorMessage);
+        errorMessage = string.Empty;
+        return true;
     }
 
-    private static bool IsAliasValueType (
-        Type type,
+    private static bool TryValidateDiscriminator (
+        JsonContractNode node,
         string path,
         out string errorMessage)
     {
-        if (UcliRequestLocalAliasContractPolicy.IsRequestLocalAliasValueType(type))
+        if (node.Discriminator != null)
         {
-            errorMessage = $"Operation contract property '{path}' uses internal request-local alias type '{type.Name}'.";
-            return true;
+            return TryValidatePropertyName(node.Discriminator.PropertyName, path, out errorMessage);
         }
 
         errorMessage = string.Empty;
-        return false;
+        return true;
     }
 
-    private static bool IsAliasPropertyName (
+    private static bool TryValidateProperties (
+        JsonContractNode node,
         string path,
         out string errorMessage)
     {
-        if (path.EndsWith("." + UcliOperationContractPropertyNames.Alias, StringComparison.Ordinal))
+        for (var i = 0; i < node.Properties.Count; i++)
         {
-            errorMessage = $"Operation contract property '{path}' uses reserved public raw-op property name '{UcliOperationContractPropertyNames.Alias}'.";
-            return true;
+            var property = node.Properties[i];
+            if (!TryValidatePropertyName(property.Name, path, out errorMessage)
+                || !TryValidateNode(property.Value, $"{path}.{property.Name}", out errorMessage))
+            {
+                return false;
+            }
         }
 
         errorMessage = string.Empty;
-        return false;
+        return true;
     }
 
-    private static bool ShouldVisit (PropertyInfo property)
+    private static bool TryValidateOptionalNode (
+        JsonContractNode? node,
+        string path,
+        out string errorMessage)
     {
-        return property.GetCustomAttribute<UcliJsonAnyValueAttribute>() == null;
+        if (node != null)
+        {
+            return TryValidateNode(node, path, out errorMessage);
+        }
+
+        errorMessage = string.Empty;
+        return true;
     }
 
-    private static bool Succeed (out string errorMessage)
+    private static bool TryValidateVariants (
+        JsonContractNode node,
+        string path,
+        out string errorMessage)
     {
+        for (var i = 0; i < node.Variants.Count; i++)
+        {
+            if (!TryValidateNode(node.Variants[i].Value, path, out errorMessage))
+            {
+                return false;
+            }
+        }
+
+        errorMessage = string.Empty;
+        return true;
+    }
+
+    private static bool TryValidatePropertyName (
+        string propertyName,
+        string path,
+        out string errorMessage)
+    {
+        if (string.Equals(
+                propertyName,
+                UcliOperationContractPropertyNames.Alias,
+                StringComparison.Ordinal))
+        {
+            errorMessage =
+                $"Operation contract property '{path}.{propertyName}' uses reserved public raw-op property name '{UcliOperationContractPropertyNames.Alias}'.";
+            return false;
+        }
+
         errorMessage = string.Empty;
         return true;
     }

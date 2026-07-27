@@ -1,42 +1,6 @@
-using System.Text.Json.Serialization;
-using MackySoft.Ucli.Contracts.Operations;
-
 namespace MackySoft.Ucli.Contracts.Ipc;
 
-[UcliDescription("Scene GameObject reference accepted by prefab creation.")]
-[UcliExclusiveRequiredPropertySet(UcliOperationContractPropertyNames.Alias)]
-[UcliExclusiveRequiredPropertySet(IpcResolveSelectorPropertyNames.GlobalObjectId)]
-[UcliExclusiveRequiredPropertySet(IpcResolveSelectorPropertyNames.Scene, IpcResolveSelectorPropertyNames.HierarchyPath)]
-public sealed record SceneGameObjectReferenceArgs
+/// <summary> Identifies a selector that can reference a GameObject in a Unity scene. </summary>
+public interface SceneGameObjectReferenceArgs : UnityObjectReferenceArgs
 {
-    [JsonConstructor]
-    public SceneGameObjectReferenceArgs (
-        UcliPlanAlias? alias,
-        UnityGlobalObjectId? globalObjectId,
-        SceneAssetPath? scene,
-        UnityHierarchyPath? hierarchyPath)
-    {
-        Alias = alias;
-        GlobalObjectId = globalObjectId;
-        Scene = scene;
-        HierarchyPath = hierarchyPath;
-    }
-
-    [UcliDescription("Request-local alias produced by an earlier plan step.")]
-    [JsonPropertyName(UcliOperationContractPropertyNames.Alias)]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public UcliPlanAlias? Alias { get; }
-
-    [UcliDescription("Resolved Unity GlobalObjectId.")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public UnityGlobalObjectId? GlobalObjectId { get; }
-
-    [UcliDescription("Scene asset path for a hierarchy selector.")]
-    [UcliInputConstraint(UcliOperationInputConstraintKind.AssetExists, AssetKind = UcliOperationAssetKind.Scene)]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public SceneAssetPath? Scene { get; }
-
-    [UcliDescription("Unity hierarchy path inside the selected scene.")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public UnityHierarchyPath? HierarchyPath { get; }
 }

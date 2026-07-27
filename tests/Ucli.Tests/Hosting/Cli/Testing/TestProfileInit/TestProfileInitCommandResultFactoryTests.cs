@@ -21,7 +21,9 @@ public sealed class TestProfileInitCommandResultFactoryTests
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
         Assert.Empty(result.Errors);
 
-        var payload = JsonSerializer.SerializeToElement(result.Payload);
+        var payload = JsonSerializer.SerializeToElement(
+            result.Payload,
+            CliOutputJsonSerializerOptions.Default);
         JsonAssert.For(payload)
             .HasString("profilePath", "/repo/test.profile.json");
     }

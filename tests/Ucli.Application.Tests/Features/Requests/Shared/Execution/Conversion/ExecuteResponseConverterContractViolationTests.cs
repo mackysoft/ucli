@@ -6,8 +6,8 @@ namespace MackySoft.Ucli.Application.Tests.Requests.Shared.Execution.Conversion;
 
 public sealed class ExecuteResponseConverterContractViolationTests
 {
-    private static readonly IpcExecuteStepId StepOne = new("step-1");
-    private static readonly IpcExecuteStepId StepTwo = new("step-2");
+    private const string FirstResultPath = "/opResults/0";
+    private const string SecondResultPath = "/opResults/1";
     private const string ExpectedFact = "assurance.mayDirty=false";
     private const string ObservedResult = "opResults[].changed=true";
     private const string ContractViolationMessage = "Operation result violated declared assurance facts.";
@@ -34,7 +34,7 @@ public sealed class ExecuteResponseConverterContractViolationTests
 
         Assert.False(result.IsSuccess);
         var violation = Assert.Single(result.ContractViolations);
-        Assert.Equal(StepOne, violation.OpId);
+        Assert.Equal(FirstResultPath, violation.InstancePath);
         Assert.Equal(UcliPrimitiveOperationNames.ProjectRefresh, violation.Operation);
         Assert.Equal(ExpectedFact, violation.ExpectedFact);
         Assert.Equal(ObservedResult, violation.ObservedResult);
@@ -62,23 +62,23 @@ public sealed class ExecuteResponseConverterContractViolationTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void Convert_WhenContractViolationErrorOpIdDoesNotMatchPayload_ReturnsInternalError ()
+    public void Convert_WhenContractViolationErrorInstancePathDoesNotMatchPayload_ReturnsInternalError ()
     {
         var response = CreateContractViolationFailureResponse(
             CreateContractViolationPayload(),
-            [CreateContractViolationError(StepTwo)]);
+            [CreateContractViolationError(SecondResultPath)]);
 
         var result = ExecuteResponseConverter.Convert(response, ExpectedProject);
 
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
-        Assert.Contains(StepOne.Value, error.Message, StringComparison.Ordinal);
+        Assert.Contains(FirstResultPath, error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void Convert_WhenContractViolationErrorOpIdIsMissing_ReturnsInternalError ()
+    public void Convert_WhenContractViolationErrorInstancePathIsMissing_ReturnsInternalError ()
     {
         var response = CreateContractViolationFailureResponse(
             CreateContractViolationPayload(),
@@ -89,7 +89,7 @@ public sealed class ExecuteResponseConverterContractViolationTests
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
-        Assert.Contains("errors[0].opId", error.Message, StringComparison.Ordinal);
+        Assert.Contains("errors[0].instancePath", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -99,8 +99,8 @@ public sealed class ExecuteResponseConverterContractViolationTests
         var response = CreateContractViolationFailureResponse(
             CreateContractViolationPayload(),
             [
-                CreateContractViolationError(StepOne),
-                CreateContractViolationError(StepTwo),
+                CreateContractViolationError(FirstResultPath),
+                CreateContractViolationError(SecondResultPath),
             ]);
 
         var result = ExecuteResponseConverter.Convert(response, ExpectedProject);
@@ -108,7 +108,7 @@ public sealed class ExecuteResponseConverterContractViolationTests
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
-        Assert.Contains(StepTwo.Value, error.Message, StringComparison.Ordinal);
+        Assert.Contains(SecondResultPath, error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -126,7 +126,7 @@ public sealed class ExecuteResponseConverterContractViolationTests
               "opResults": [],
               "contractViolations": [
                 {
-                  "opId": "step-1",
+                  "instancePath": "/opResults/0",
                   "expectedFact": "assurance.mayDirty=false",
                   "observedResult": "opResults[].changed=true",
                   "applicationState": "indeterminate"
@@ -158,7 +158,7 @@ public sealed class ExecuteResponseConverterContractViolationTests
               "opResults": [],
               "contractViolations": [
                 {
-                  "opId": "step-1",
+                  "instancePath": "/opResults/0",
                   "operation": "ucli.project.refresh",
                   "expectedFact": "assurance.mayDirty=false",
                   "observedResult": "opResults[].changed=true",
@@ -204,7 +204,7 @@ public sealed class ExecuteResponseConverterContractViolationTests
     private static IpcExecuteContractViolation CreateContractViolation ()
     {
         return new IpcExecuteContractViolation(
-            OpId: StepOne,
+            InstancePath: FirstResultPath,
             Operation: UcliPrimitiveOperationNames.ProjectRefresh,
             ExpectedFact: ExpectedFact,
             ObservedResult: ObservedResult,
@@ -214,7 +214,6 @@ public sealed class ExecuteResponseConverterContractViolationTests
     private static IpcExecuteOperationResult CreateOperationResult ()
     {
         return new IpcExecuteOperationResult(
-            OpId: StepOne,
             Op: UcliPrimitiveOperationNames.ProjectRefresh,
             Phase: IpcExecuteOperationPhase.Call,
             Applied: true,
@@ -222,12 +221,12 @@ public sealed class ExecuteResponseConverterContractViolationTests
             Touched: []);
     }
 
-    private static OperationExecutionError CreateContractViolationError (IpcExecuteStepId? opId)
+    private static OperationExecutionError CreateContractViolationError (string? instancePath)
     {
         return new OperationExecutionError(
             ExecuteRequestErrorCodes.OperationContractViolation,
             ContractViolationMessage,
-            opId);
+            instancePath);
     }
 
     private static UnityRequestResponse CreateContractViolationFailureResponse (
@@ -236,6 +235,6 @@ public sealed class ExecuteResponseConverterContractViolationTests
     {
         return new UnityRequestResponse(
             Payload: IpcPayloadCodec.SerializeToElement(payload),
-            Errors: errors ?? [CreateContractViolationError(StepOne)]);
+            Errors: errors ?? [CreateContractViolationError(FirstResultPath)]);
     }
 }

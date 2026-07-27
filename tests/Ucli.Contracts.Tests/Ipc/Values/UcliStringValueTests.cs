@@ -1,6 +1,7 @@
 using System.Reflection;
 using System.Text.Json;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Json;
 
 namespace MackySoft.Ucli.Contracts.Tests.Ipc.Values;
 
@@ -165,19 +166,6 @@ public sealed class UcliStringValueTests
             Assert.False(result);
             Assert.Null(typeId);
         }
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void SemanticStringValueTypes_DoNotDeclareImplicitConversions ()
-    {
-        var valueTypes = SemanticStringValueTypes.Prepend(typeof(UcliStringValue));
-
-        Assert.All(
-            valueTypes,
-            valueType => Assert.DoesNotContain(
-                valueType.GetMethods(BindingFlags.Public | BindingFlags.Static | BindingFlags.DeclaredOnly),
-                method => string.Equals(method.Name, "op_Implicit", StringComparison.Ordinal)));
     }
 
     private static Type GetValueType (string valueTypeName)

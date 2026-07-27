@@ -39,7 +39,7 @@ public sealed class CommandResultJsonContractWriterTests
                     {
                       "code": "INVALID_ARGUMENT",
                       "message": "Failed.",
-                      "opId": null
+                      "instancePath": null
                     }
                   ]
                 }

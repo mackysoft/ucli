@@ -1,6 +1,4 @@
-using System.Text.Json;
 using MackySoft.Ucli.Contracts.Configuration;
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
 
@@ -9,27 +7,25 @@ internal sealed class ValidatedOpsOperation
 {
     internal ValidatedOpsOperation (
         IndexOpEntryJsonContract contract,
-        UcliOperationKind kind,
-        OperationPolicy policy,
-        UcliOperationExposure exposure,
-        UcliOperationPlayModeSupport playModeSupport,
-        JsonElement argsSchema,
-        JsonElement? resultSchema)
+        UcliOperationExposure exposure)
     {
         ArgumentNullException.ThrowIfNull(contract);
         ArgumentException.ThrowIfNullOrWhiteSpace(contract.Name);
         ArgumentException.ThrowIfNullOrWhiteSpace(contract.Description);
-        ArgumentNullException.ThrowIfNull(contract.Inputs);
-        ArgumentNullException.ThrowIfNull(contract.ResultContract);
-        ArgumentNullException.ThrowIfNull(contract.Assurance);
-        if (!TextVocabulary.IsDefined(kind))
+        if (!contract.ArgsContract.HasValue
+            || !contract.ArgsContract.Value.IsDefined)
         {
-            throw new ArgumentOutOfRangeException(nameof(kind), kind, "Operation kind must have a contract literal.");
+            throw new ArgumentException("Operation args contract must be defined.", nameof(contract));
+        }
+        ArgumentNullException.ThrowIfNull(contract.Assurance);
+        if (!contract.Kind.HasValue || !TextVocabulary.IsDefined(contract.Kind.Value))
+        {
+            throw new ArgumentException("Operation kind must have a contract value.", nameof(contract));
         }
 
-        if (!TextVocabulary.IsDefined(policy))
+        if (!contract.Policy.HasValue || !TextVocabulary.IsDefined(contract.Policy.Value))
         {
-            throw new ArgumentOutOfRangeException(nameof(policy), policy, "Operation policy must have a contract literal.");
+            throw new ArgumentException("Operation policy must have a contract value.", nameof(contract));
         }
 
         if (!TextVocabulary.IsDefined(exposure))
@@ -37,36 +33,22 @@ internal sealed class ValidatedOpsOperation
             throw new ArgumentOutOfRangeException(nameof(exposure), exposure, "Operation exposure must have a contract literal.");
         }
 
-        if (!TextVocabulary.IsDefined(playModeSupport))
+        if (!contract.PlayModeSupport.HasValue
+            || !TextVocabulary.IsDefined(contract.PlayModeSupport.Value))
         {
-            throw new ArgumentOutOfRangeException(
-                nameof(playModeSupport),
-                playModeSupport,
-                "Operation Play Mode support must have a contract literal.");
-        }
-
-        if (argsSchema.ValueKind != JsonValueKind.Object)
-        {
-            throw new ArgumentException("Operation argument schema must be a JSON object.", nameof(argsSchema));
-        }
-
-        if (resultSchema is { ValueKind: not JsonValueKind.Object })
-        {
-            throw new ArgumentException("Operation result schema must be a JSON object when specified.", nameof(resultSchema));
+            throw new ArgumentException("Operation Play Mode support must have a contract value.", nameof(contract));
         }
 
         Name = contract.Name;
-        Kind = kind;
-        Policy = policy;
+        Kind = contract.Kind.Value;
+        Policy = contract.Policy.Value;
         Exposure = exposure;
-        PlayModeSupport = playModeSupport;
+        PlayModeSupport = contract.PlayModeSupport.Value;
         Description = contract.Description;
-        Inputs = Array.AsReadOnly(contract.Inputs.ToArray());
+        ArgsContract = contract.ArgsContract.Value;
         ResultContract = contract.ResultContract;
         Assurance = contract.Assurance;
         CodeContract = contract.CodeContract;
-        ArgsSchema = argsSchema;
-        ResultSchema = resultSchema;
     }
 
     /// <summary> Gets the operation name. </summary>
@@ -87,17 +69,11 @@ internal sealed class ValidatedOpsOperation
     /// <summary> Gets the operation purpose description. </summary>
     public string Description { get; }
 
-    /// <summary> Gets the argument JSON schema. </summary>
-    public JsonElement ArgsSchema { get; }
+    /// <summary> Gets the generated operation argument contract. </summary>
+    public UcliOperationJsonContract ArgsContract { get; }
 
-    /// <summary> Gets the result JSON schema, or <see langword="null" /> when the operation emits no result. </summary>
-    public JsonElement? ResultSchema { get; }
-
-    /// <summary> Gets input contracts used to build operation arguments. </summary>
-    public IReadOnlyList<UcliOperationInputContract> Inputs { get; }
-
-    /// <summary> Gets the operation result contract. </summary>
-    public UcliOperationResultContract ResultContract { get; }
+    /// <summary> Gets the generated operation result contract, or <see langword="null" /> when no result is emitted. </summary>
+    public UcliOperationJsonContract? ResultContract { get; }
 
     /// <summary> Gets the operation assurance contract. </summary>
     public UcliOperationAssuranceContract Assurance { get; }
@@ -110,16 +86,14 @@ internal sealed class ValidatedOpsOperation
     {
         return new IndexOpEntryJsonContract(
             Name,
-            TextVocabulary.GetText(Kind),
-            TextVocabulary.GetText(Policy),
-            ArgsSchema.GetRawText(),
-            ResultSchema?.GetRawText(),
-            TextVocabulary.GetText(Exposure),
-            TextVocabulary.GetText(PlayModeSupport))
+            Kind,
+            Policy,
+            ArgsContract,
+            ResultContract,
+            Exposure,
+            PlayModeSupport)
         {
             Description = Description,
-            Inputs = Inputs,
-            ResultContract = ResultContract,
             Assurance = Assurance,
             CodeContract = CodeContract,
         };

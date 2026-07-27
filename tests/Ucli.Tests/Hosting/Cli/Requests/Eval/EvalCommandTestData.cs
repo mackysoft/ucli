@@ -47,14 +47,13 @@ internal static class EvalCommandTestData
                 ApplicationFailure.InvalidInput(
                     "Step 'eval' requires dangerous operation 'ucli.cs.eval'. Specify --allowDangerous to execute dangerous operations.",
                     OperationAuthorizationErrorCodes.OperationNotAllowed,
-                    new IpcExecuteStepId("eval")),
+                    "/steps/0"),
             ]);
     }
 
     private static OperationExecutionOperationResult CreateCallOperationResult ()
     {
         return new OperationExecutionOperationResult(
-            OpId: new IpcExecuteStepId("eval"),
             Op: UcliPrimitiveOperationNames.CsEval,
             Phase: IpcExecuteOperationPhase.Call,
             Applied: true,
@@ -87,7 +86,6 @@ internal static class EvalCommandTestData
     private static OperationExecutionOperationResult CreatePlanOperationResult ()
     {
         return new OperationExecutionOperationResult(
-            OpId: new IpcExecuteStepId("eval"),
             Op: UcliPrimitiveOperationNames.CsEval,
             Phase: IpcExecuteOperationPhase.Plan,
             Applied: false,

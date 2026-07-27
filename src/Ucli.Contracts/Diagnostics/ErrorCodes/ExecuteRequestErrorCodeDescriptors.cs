@@ -78,7 +78,7 @@ internal static class ExecuteRequestErrorCodeDescriptors
             inspect:
             [
                 "errors[].code",
-                "errors[].opId",
+                "errors[].instancePath",
                 "payload.contractViolations[]",
                 "payload.opResults[]",
             ],

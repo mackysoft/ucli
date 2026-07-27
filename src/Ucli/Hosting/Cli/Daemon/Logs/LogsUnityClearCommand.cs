@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization.Metadata;
 using ConsoleAppFramework;
 using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Unity;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
@@ -9,6 +10,14 @@ namespace MackySoft.Ucli.Hosting.Cli.Daemon.Logs;
 /// <summary> Provides the logs unity clear CLI command entry point. </summary>
 internal sealed class LogsUnityClearCommand
 {
+    /// <summary> Gets the serializer contract used by successful <c>logs unity clear</c> payloads. </summary>
+    public static JsonTypeInfo SuccessPayloadTypeInfo { get; } =
+        CliOutputJsonSerializerOptions.Default.GetTypeInfo(typeof(LogsUnityClearServiceOutput));
+
+    /// <summary> Gets the serializer contract used by failed <c>logs unity clear</c> payloads. </summary>
+    public static JsonTypeInfo ErrorPayloadTypeInfo { get; } =
+        CliOutputJsonSerializerOptions.Default.GetTypeInfo(typeof(EmptyCommandPayload));
+
     private readonly ILogsUnityClearService logsUnityClearService;
 
     private readonly ICommandResultWriter commandResultWriter;
@@ -68,14 +77,9 @@ internal sealed class LogsUnityClearCommand
             return CommandResultFactory.FromExecutionError(UcliCommandNames.LogsUnityClear, executionResult.Error!);
         }
 
-        var output = executionResult.Output!;
         return CommandResult.Success(
             command: UcliCommandNames.LogsUnityClear,
             message: "Unity Editor Console display cleared; retained logs remain available to logs unity read.",
-            payload: new
-            {
-                clearStatus = "cleared",
-                timeoutMilliseconds = output.TimeoutMilliseconds,
-            });
+            payload: executionResult.Output!);
     }
 }

@@ -23,7 +23,9 @@ public sealed class InitCommandResultFactoryTests
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
         Assert.Empty(result.Errors);
 
-        var payload = JsonSerializer.SerializeToElement(result.Payload);
+        var payload = JsonSerializer.SerializeToElement(
+            result.Payload,
+            CliOutputJsonSerializerOptions.Default);
         JsonAssert.For(payload)
             .HasString("configPath", "/repo/.ucli/config.json")
             .HasString("gitignorePath", "/repo/.ucli/.gitignore");

@@ -1,11 +1,10 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using MackySoft.Ucli.Contracts.Operations;
-using MackySoft.Ucli.Contracts.Text;
+
+using MackySoft.JsonSchema.Generation.Annotations;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
-[UcliDescription("C# eval return value.")]
 public sealed record CsEvalReturnValue
 {
     [JsonConstructor]
@@ -27,12 +26,12 @@ public sealed record CsEvalReturnValue
         Value = value;
     }
 
-    [UcliRequired]
-    [UcliDescription("Return value representation.")]
-    public CsEvalReturnValueKind Kind { get; }
+    [JsonInclude]
+    [JsonRequired]
+    [Description("Return value representation.")]
+    public CsEvalReturnValueKind Kind { get; private init; }
 
-    [UcliDescription("JSON return value when kind is json.")]
-    [UcliJsonAnyValue]
+    [Description("JSON return value when kind is json.")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public JsonElement? Value { get; }
 }

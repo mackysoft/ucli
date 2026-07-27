@@ -1,10 +1,9 @@
 using System.Text.Json.Serialization;
-using MackySoft.Ucli.Contracts.Operations;
-using MackySoft.Ucli.Contracts.Text;
+
+using MackySoft.JsonSchema.Generation.Annotations;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
-[UcliDescription("C# eval compile result.")]
 public sealed record CsEvalCompileResult
 {
     [JsonConstructor]
@@ -21,11 +20,13 @@ public sealed record CsEvalCompileResult
         Diagnostics = ContractArgumentGuard.RequireItems(diagnostics, nameof(diagnostics));
     }
 
-    [UcliRequired]
-    [UcliDescription("Compile status.")]
-    public CsEvalCompileStatus Status { get; }
+    [JsonInclude]
+    [JsonRequired]
+    [Description("Compile status.")]
+    public CsEvalCompileStatus Status { get; private init; }
 
-    [UcliRequired]
-    [UcliDescription("Compiler and entry point diagnostics.")]
-    public IReadOnlyList<CsEvalDiagnostic> Diagnostics { get; }
+    [JsonInclude]
+    [JsonRequired]
+    [Description("Compiler and entry point diagnostics.")]
+    public IReadOnlyList<CsEvalDiagnostic> Diagnostics { get; private init; }
 }

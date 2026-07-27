@@ -2,7 +2,6 @@ using MackySoft.Ucli.Application.Features.Requests.Query.UseCases.Query;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
-using MackySoft.Ucli.Hosting.Cli.Common.Projection;
 
 namespace MackySoft.Ucli.Hosting.Cli.Requests;
 
@@ -14,27 +13,17 @@ internal static class QueryCommandResultFactory
     {
         ArgumentNullException.ThrowIfNull(serviceResult);
 
-        var payload = new Dictionary<string, object?>
-        {
-            ["requestId"] = serviceResult.RequestId.ToString("D"),
-        };
-        if (serviceResult.Project != null)
-        {
-            payload["project"] = ProjectIdentityPayloadProjector.Create(serviceResult.Project);
-        }
-
-        payload["opResults"] = serviceResult.OpResults;
-        if (serviceResult.ContractViolations.Count != 0)
-        {
-            payload["contractViolations"] = serviceResult.ContractViolations;
-        }
-
-        payload["readIndex"] = ReadIndexInfoPayloadProjector.Create(serviceResult.ReadIndex);
-
-        if (!serviceResult.IsSuccess)
-        {
-            StartupFailurePayloadProjector.AppendFromFailures(payload, serviceResult.Errors);
-        }
+        var startupFailure = StartupFailureFinder.FindInFailures(serviceResult.Errors);
+        var payload = new ReadIndexRequestCommandPayload(
+            serviceResult.RequestId,
+            serviceResult.Project,
+            serviceResult.OpResults,
+            serviceResult.ContractViolations.Count == 0 ? null : serviceResult.ContractViolations,
+            serviceResult.ReadIndex,
+            startupFailure?.Startup,
+            startupFailure?.Diagnosis,
+            startupFailure?.RetryDisposition,
+            startupFailure?.SafeToRetryImmediately);
 
         if (serviceResult.IsSuccess)
         {
@@ -47,7 +36,7 @@ internal static class QueryCommandResultFactory
         return CommandFailureProjector.Create(
             serviceResult.CommandName,
             serviceResult.Message,
-            payload,
+            CommandErrorPayload.Detailed(payload),
             serviceResult.Errors);
     }
 

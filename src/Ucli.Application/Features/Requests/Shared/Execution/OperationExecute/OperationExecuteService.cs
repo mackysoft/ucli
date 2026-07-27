@@ -80,7 +80,7 @@ internal sealed class OperationExecuteService : IOperationExecuteService
         var executionMode = input.Mode ?? UnityExecutionMode.Auto;
 
         var authorizationResult = await operationAuthorizationService.AuthorizeAsync(
-                definition.Descriptor,
+                UcliOperationAuthorizationDescriptor.From(definition.Descriptor),
                 config,
                 cancellationToken)
             .ConfigureAwait(false);
@@ -92,7 +92,7 @@ internal sealed class OperationExecuteService : IOperationExecuteService
                     new ValidationError(
                         authorizationResult.ErrorCode ?? OperationAuthorizationErrorCodes.OperationNotAllowed,
                         authorizationResult.Message,
-                        definition.OperationId),
+                        InstancePath: null),
                 ],
                 definition.FailureMessage,
                 project);

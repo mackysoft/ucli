@@ -1,9 +1,11 @@
 using System.Text.Json.Serialization;
 using MackySoft.Ucli.Contracts.Operations;
 
+using MackySoft.JsonSchema.Generation.Annotations;
+
 namespace MackySoft.Ucli.Contracts.Ipc;
 
-[UcliDescription("Scene tree operation arguments.")]
+[Description("Scene tree operation arguments.")]
 public sealed record SceneTreeArgs
 {
     [JsonConstructor]
@@ -29,22 +31,23 @@ public sealed record SceneTreeArgs
         Cursor = cursor;
     }
 
-    [UcliRequired]
-    [UcliDescription("Scene asset path to inspect.")]
-    [UcliInputConstraint(UcliOperationInputConstraintKind.AssetExists, AssetKind = UcliOperationAssetKind.Scene)]
-    public UnityScenePath Path { get; }
+    [JsonInclude]
+    [JsonRequired]
+    [Description("Scene asset path to inspect.")]
+    [UcliAssetExists(UcliOperationAssetKind.Scene)]
+    public UnityScenePath Path { get; private init; }
 
-    [UcliDescription("Maximum hierarchy depth to include; null means unbounded.")]
-    [UcliInputConstraint(UcliOperationInputConstraintKind.Range, Min = 0)]
+    [Description("Maximum hierarchy depth to include; null means unbounded.")]
+    [UcliInt32Minimum(0)]
     public int? Depth { get; }
 
-    [UcliDescription("Maximum number of hierarchy nodes to include in the response window.")]
-    [UcliInputConstraint(UcliOperationInputConstraintKind.Range, Min = 1, Max = BoundedWindowConstants.MaxLimit)]
+    [Description("Maximum number of hierarchy nodes to include in the response window.")]
+    [UcliInt32Range(1, BoundedWindowConstants.MaxLimit)]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public int? Limit { get; }
 
-    [UcliDescription("Opaque cursor returned by the previous scene tree window.")]
-    [UcliInputConstraint(UcliOperationInputConstraintKind.Cursor)]
+    [Description("Opaque cursor returned by the previous scene tree window.")]
+    [UcliCursor]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Cursor { get; }
 }

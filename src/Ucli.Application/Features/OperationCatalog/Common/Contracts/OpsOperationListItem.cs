@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Contracts.Configuration;
+
 namespace MackySoft.Ucli.Application.Features.OperationCatalog.Common.Contracts;
 
 /// <summary> Represents one operation entry returned by <c>ops list</c>. </summary>
@@ -7,6 +9,6 @@ namespace MackySoft.Ucli.Application.Features.OperationCatalog.Common.Contracts;
 /// <param name="Description"> The operation purpose description. </param>
 internal sealed record OpsOperationListItem (
     string Name,
-    string Kind,
-    string Policy,
+    UcliOperationKind Kind,
+    OperationPolicy Policy,
     string Description);

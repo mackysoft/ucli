@@ -75,7 +75,6 @@ public sealed class ResolveServiceTests
         Assert.Equal(IndexFreshness.Fresh, result.ReadIndex.Freshness);
 
         var opResult = Assert.Single(result.OpResults);
-        Assert.Equal("resolve", opResult.OpId.Value);
         Assert.Equal(UcliPrimitiveOperationNames.Resolve, opResult.Op);
         Assert.Equal(IpcExecuteOperationPhase.Plan, opResult.Phase);
         Assert.False(opResult.Applied);
@@ -276,7 +275,6 @@ public sealed class ResolveServiceTests
             opResults:
             [
                 new IpcExecuteOperationResult(
-                    OpId: new IpcExecuteStepId("resolve"),
                     Op: UcliPrimitiveOperationNames.Resolve,
                     Phase: IpcExecuteOperationPhase.Plan,
                     Applied: false,

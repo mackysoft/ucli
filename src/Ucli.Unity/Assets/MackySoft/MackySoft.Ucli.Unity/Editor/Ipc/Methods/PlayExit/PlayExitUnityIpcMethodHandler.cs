@@ -99,7 +99,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 request,
                 result.Error.Code,
                 result.Error.Message,
-                result.Error.OpId,
+                result.Error.InstancePath,
                 result.Response);
         }
 

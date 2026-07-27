@@ -5,6 +5,7 @@
   "exitCode": 3,
   "message": "--profile and --profilePath cannot be specified together.",
   "payload": {
+    "payloadKind": "detailed",
     "project": {
       "projectPath": "<projectPath>",
       "projectFingerprint": "<projectFingerprint>",
@@ -15,7 +16,7 @@
     {
       "code": "INVALID_ARGUMENT",
       "message": "--profile and --profilePath cannot be specified together.",
-      "opId": null
+      "instancePath": null
     }
   ]
 }

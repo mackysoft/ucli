@@ -15,6 +15,7 @@
     <tags>ucli unity editor automation ipc nugetforunity</tags>
     <dependencies>
       <dependency id="MackySoft.Json.Canonicalization" version="[0.1.0]" />
+      <dependency id="MackySoft.JsonSchema.Generation" version="[0.3.0]" />
       <dependency id="MackySoft.FileSystem" version="[0.1.0]" />
       <dependency id="MackySoft.Text.Vocabularies" version="[0.1.0]" />
       <dependency id="MackySoft.Text.Vocabularies.Json" version="[0.1.0]" />

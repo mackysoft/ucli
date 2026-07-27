@@ -52,8 +52,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         public void AddSkippedStep (IpcExecuteStepContract sourceStep)
         {
             compiledSteps.Add(new NormalizedRequestStep(
-                Id: sourceStep.Id!,
-                Kind: sourceStep.Kind!.Value,
+                Id: sourceStep.Id,
+                Kind: sourceStep.Kind,
                 OperationName: sourceStep.Kind == IpcExecuteStepKind.Op ? sourceStep.OperationName! : "edit",
                 PrimitiveCount: 0));
         }
@@ -69,17 +69,17 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         {
             var operationName = sourceStep.Kind == IpcExecuteStepKind.Op ? sourceStep.OperationName! : "edit";
             compiledSteps.Add(new NormalizedRequestStep(
-                Id: sourceStep.Id!,
-                Kind: sourceStep.Kind!.Value,
+                Id: sourceStep.Id,
+                Kind: sourceStep.Kind,
                 OperationName: operationName,
                 PrimitiveCount: 1)
             {
                 Diagnostics = diagnostics,
             });
 
-            var failure = new OperationFailure(error.Code, error.Message, error.OpId);
+            var failure = new OperationFailure(error.Code, error.Message, sourceStep.Id);
             operationTraces.Add(new OperationPhaseTrace(
-                OpId: sourceStep.Id!,
+                OpId: sourceStep.Id,
                 Op: operationName,
                 Phase: OperationPhase.Validate,
                 Applied: false,

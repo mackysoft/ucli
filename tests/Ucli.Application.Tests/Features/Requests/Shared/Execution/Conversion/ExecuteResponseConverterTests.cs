@@ -161,7 +161,6 @@ public sealed class ExecuteResponseConverterTests
         var response = CreateResponse(CreatePayloadWithOperationResult(
             """
             {
-              "opId": "refresh",
               "op": "ucli.project.refresh",
               "phase": "call",
               "applied": true,
@@ -181,37 +180,11 @@ public sealed class ExecuteResponseConverterTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void Convert_WhenOpResultRequiredTextIsMissing_ReturnsInternalError ()
-    {
-        var response = CreateResponse(CreatePayloadWithOperationResult(
-            """
-            {
-              "opId": null,
-              "op": "ucli.project.refresh",
-              "phase": "call",
-              "applied": true,
-              "changed": true,
-              "touched": [],
-              "diagnostics": []
-            }
-            """));
-
-        var result = ExecuteResponseConverter.Convert(response, ExpectedProject);
-
-        Assert.False(result.IsSuccess);
-        var error = Assert.Single(result.Errors);
-        Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
-        Assert.Contains(nameof(IpcExecuteOperationResult.OpId), error.Message, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
     public void Convert_WhenTouchedResourceRequiredTextIsMissing_ReturnsInternalError ()
     {
         var response = CreateResponse(CreatePayloadWithOperationResult(
             """
             {
-              "opId": "refresh",
               "op": "ucli.project.refresh",
               "phase": "call",
               "applied": true,
@@ -294,7 +267,6 @@ public sealed class ExecuteResponseConverterTests
               },
               "opResults": [
                 {
-                  "opId": "refresh",
                   "op": "ucli.project.refresh",
                   "phase": "unknownPhase",
                   "applied": true,
@@ -322,7 +294,6 @@ public sealed class ExecuteResponseConverterTests
         var response = CreateResponse(CreatePayloadWithOperationResult(
             """
             {
-              "opId": "refresh",
               "op": "ucli.project.refresh",
               "phase": "call",
               "applied": true,

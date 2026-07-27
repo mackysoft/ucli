@@ -14,7 +14,8 @@ public sealed class AssuranceExecutionOutputCollectionContractTests
     {
         var project = ProjectIdentityInfoTestFactory.Create();
         var reports = new Dictionary<string, AssuranceReportReference>(StringComparer.Ordinal);
-        var buildReports = new Dictionary<BuildArtifactKind, AssuranceReportReference>();
+        var report = AssuranceReportReference.FromPath("report.json", digest: null);
+        var buildReports = new BuildReportsOutput(report, null, report, report);
         var constructors = new (Action Construct, string ParameterName)[]
         {
             (() => new BuildExecutionOutput(AssuranceVerdict.Pass, project, null!, [], [], buildReports, []), "Build"),
@@ -109,7 +110,8 @@ public sealed class AssuranceExecutionOutputCollectionContractTests
         var verifyClaims = new[] { verifyClaim };
         var verifyRisks = new[] { verifyRisk };
         var reports = new Dictionary<string, AssuranceReportReference>(StringComparer.Ordinal);
-        var buildReports = new Dictionary<BuildArtifactKind, AssuranceReportReference>();
+        var report = AssuranceReportReference.FromPath("report.json", digest: null);
+        var buildReports = new BuildReportsOutput(report, null, report, report);
         var project = ProjectIdentityInfoTestFactory.Create();
 
         var ready = new ReadyExecutionOutput(

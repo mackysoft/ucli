@@ -203,15 +203,15 @@ internal static class BuildRunTestData
             ResidualRisks: []);
     }
 
-    private static IReadOnlyDictionary<BuildArtifactKind, AssuranceReportReference> CreateReports ()
+    private static BuildReportsOutput CreateReports ()
     {
-        return new Dictionary<BuildArtifactKind, AssuranceReportReference>
-        {
-            [BuildArtifactKind.Build] = AssuranceReportReference.FromPath("build.json", Repeat('c')),
-            [BuildArtifactKind.BuildReport] = AssuranceReportReference.FromPath("build-report.json", Repeat('d')),
-            [BuildArtifactKind.BuildOutputManifest] = AssuranceReportReference.FromPath("output-manifest.json", Repeat('e')),
-            [BuildArtifactKind.BuildLog] = AssuranceReportReference.FromPath("build.log", Repeat('f')),
-        };
+        return new BuildReportsOutput(
+            Build: AssuranceReportReference.FromPath("build.json", Repeat('c')),
+            BuildReport: AssuranceReportReference.FromPath("build-report.json", Repeat('d')),
+            BuildOutputManifest: AssuranceReportReference.FromPath(
+                "output-manifest.json",
+                Repeat('e')),
+            BuildLog: AssuranceReportReference.FromPath("build.log", Repeat('f')));
     }
 
     private static Sha256Digest Repeat (char value)

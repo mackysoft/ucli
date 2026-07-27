@@ -41,9 +41,9 @@ internal sealed class PlayEnterCommand
         var timeoutNormalizationResult = TimeoutOptionNormalizer.Normalize(timeout);
         if (!timeoutNormalizationResult.IsSuccess)
         {
-            var invalidTimeoutResult = CommandResultFactory.FromExecutionError(
-                UcliCommandNames.PlayEnter,
-                timeoutNormalizationResult.Error!);
+            var invalidTimeoutResult =
+                PlayEnterCommandResultFactory.CreateExecutionError(
+                    timeoutNormalizationResult.Error!);
             commandResultWriter.WriteToStandardOutput(invalidTimeoutResult);
             return invalidTimeoutResult.ExitCode;
         }

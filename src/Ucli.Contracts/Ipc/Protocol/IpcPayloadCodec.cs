@@ -52,6 +52,73 @@ public static class IpcPayloadCodec
             out error);
     }
 
+    /// <summary>
+    /// Tries to deserialize public raw-operation args with the same effective serializer contract used to generate
+    /// their published contract.
+    /// </summary>
+    /// <typeparam name="T"> The operation args model type. </typeparam>
+    /// <param name="element"> The source args element. </param>
+    /// <param name="value"> The deserialized args value when operation succeeds. </param>
+    /// <param name="error"> The machine-readable payload read error when operation fails. </param>
+    /// <returns> <see langword="true" /> when args are valid and deserialized; otherwise <see langword="false" />. </returns>
+    public static bool TryDeserializePublicRawOperationArgs<T> (
+        JsonElement element,
+        out T value,
+        out IpcPayloadReadError error)
+    {
+        return TryDeserializeNonNullObject(
+            element,
+            IpcJsonSerializerOptions.PublicRawOperationContracts,
+            out value,
+            out error);
+    }
+
+    /// <summary> Tries to deserialize one operation args JSON object with exact property names. </summary>
+    internal static bool TryDeserializeStrictOperationArgs<T> (
+        JsonElement element,
+        out T value,
+        out IpcPayloadReadError error)
+    {
+        return TryDeserializeNonNullObject(
+            element,
+            IpcJsonSerializerOptions.StrictPropertyNames,
+            out value,
+            out error);
+    }
+
+    /// <summary>
+    /// Serializes one operation result through the same non-null object type boundary used by contract generation.
+    /// </summary>
+    internal static JsonElement SerializePublicRawOperationResultToElement<T> (T value)
+    {
+        var wrapped = new UcliNonNullJsonObject<T>(
+            value ?? throw new ArgumentNullException(nameof(value)));
+        var options = IpcJsonSerializerOptions.PublicRawOperationContracts;
+        return JsonSerializer.SerializeToElement(
+            wrapped,
+            options.GetTypeInfo(typeof(UcliNonNullJsonObject<T>)));
+    }
+
+    private static bool TryDeserializeNonNullObject<T> (
+        JsonElement element,
+        JsonSerializerOptions options,
+        out T value,
+        out IpcPayloadReadError error)
+    {
+        if (TryDeserialize(
+                element,
+                options,
+                out UcliNonNullJsonObject<T> wrapped,
+                out error))
+        {
+            value = wrapped.Value;
+            return true;
+        }
+
+        value = default!;
+        return false;
+    }
+
     private static bool TryDeserialize<T> (
         JsonElement element,
         JsonSerializerOptions options,
@@ -76,7 +143,16 @@ public static class IpcPayloadCodec
 
         try
         {
-            var parsedValue = element.Deserialize<T>(options);
+            T? parsedValue;
+            if (IpcJsonDiscriminatorOrderNormalizer.TryNormalize(element, out var normalizedUtf8))
+            {
+                parsedValue = JsonSerializer.Deserialize<T>(normalizedUtf8.AsSpan(), options);
+            }
+            else
+            {
+                parsedValue = element.Deserialize<T>(options);
+            }
+
             if (parsedValue is null)
             {
                 value = default!;

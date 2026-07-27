@@ -15,6 +15,7 @@ using MackySoft.Ucli.Application.Features.Assurance.Verify.Semantics;
 using MackySoft.Ucli.Application.Features.CodeCatalog.Catalog;
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandExecution;
 using MackySoft.Ucli.Application.Features.Daemon.Common.Projection;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Acquisition;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Cleanup;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Compensation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;

@@ -66,7 +66,7 @@ internal static class TestRunServiceTestFactory
             Payload: IpcPayloadCodec.SerializeToElement(new { }),
             Errors:
             [
-                new OperationExecutionError(code, message, OpId: null),
+                new OperationExecutionError(code, message, InstancePath: null),
             ]);
     }
 

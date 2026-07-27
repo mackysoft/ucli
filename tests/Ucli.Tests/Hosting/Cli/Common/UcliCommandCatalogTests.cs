@@ -1,9 +1,35 @@
+using System.Text.Json;
+using MackySoft.Ucli.Contracts.Json;
 using MackySoft.Ucli.Hosting.Cli.Common.Startup;
 
 namespace MackySoft.Ucli.Tests.Cli;
 
 public sealed class UcliCommandCatalogTests
 {
+    [Fact]
+    [Trait("Size", "Small")]
+    public void OutputContracts_DefaultErrorPayloadsSerializeThroughRegisteredContracts ()
+    {
+        foreach (var outputContract in UcliCommandCatalog.OutputContracts)
+        {
+            var payload = outputContract.CreateDefaultErrorPayload();
+            var result = CommandResult.InvalidArgument(
+                outputContract.Command,
+                "Invalid command arguments.",
+                payload: payload);
+            var runtimePayloadType = UcliNonNullJsonObject.MakeValueType(
+                outputContract.ErrorPayloadTypeInfo.Type);
+            var payloadTypeInfo = CliOutputJsonSerializerOptions.Default.GetTypeInfo(
+                runtimePayloadType);
+
+            var element = JsonSerializer.SerializeToElement(
+                result.Payload,
+                payloadTypeInfo);
+
+            Assert.Equal(JsonValueKind.Object, element.ValueKind);
+        }
+    }
+
     [Fact]
     [Trait("Size", "Small")]
     public void FilterableCommandNames_MatchPublicCommandCatalog ()
@@ -33,6 +59,9 @@ public sealed class UcliCommandCatalogTests
     [InlineData(UcliCommandNames.Screenshot, UcliCommandNames.SceneSubcommand, null, UcliCommandNames.ScreenshotScene)]
     [InlineData(UcliCommandNames.Ops, UcliCommandNames.ListSubcommand, null, UcliCommandNames.OpsList)]
     [InlineData(UcliCommandNames.Ops, UcliCommandNames.DescribeSubcommand, null, UcliCommandNames.OpsDescribe)]
+    [InlineData(UcliCommandNames.Schema, UcliCommandNames.ListSubcommand, null, UcliCommandNames.SchemaList)]
+    [InlineData(UcliCommandNames.Schema, UcliCommandNames.GetSubcommand, null, UcliCommandNames.SchemaGet)]
+    [InlineData(UcliCommandNames.Schema, UcliCommandNames.ExportSubcommand, null, UcliCommandNames.SchemaExport)]
     [InlineData(UcliCommandNames.Codes, UcliCommandNames.ListSubcommand, null, UcliCommandNames.CodesList)]
     [InlineData(UcliCommandNames.Codes, UcliCommandNames.DescribeSubcommand, null, UcliCommandNames.CodesDescribe)]
     [InlineData(UcliCommandNames.Build, UcliCommandNames.RunSubcommand, null, UcliCommandNames.BuildRun)]
@@ -85,6 +114,7 @@ public sealed class UcliCommandCatalogTests
     [InlineData(UcliCommandNames.Logs)]
     [InlineData(UcliCommandNames.Screenshot)]
     [InlineData(UcliCommandNames.Ops)]
+    [InlineData(UcliCommandNames.Schema)]
     [InlineData(UcliCommandNames.Codes)]
     [InlineData(UcliCommandNames.Build)]
     [InlineData(UcliCommandNames.Play)]

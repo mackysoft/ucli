@@ -6,7 +6,12 @@ internal static class UcliOperationDescribeContractValidatorTestData
 {
     public static UcliOperationDescribeContract CreateValidDescribeContract ()
     {
-        return UcliOperationDescribeContractBuilder.Create<ScenePathArgs, UcliNoResult>(
+        var generationResult = UcliOperationJsonContractGenerator.Generate(
+            "ucli.test.scene.open",
+            IpcJsonSerializerOptions.PublicRawOperationContracts.GetTypeInfo(typeof(ScenePathArgs)),
+            resultTypeInfo: null);
+        return UcliOperationDescribeContractBuilder.Create(
+            generationResult,
             "Opens a Unity scene asset in the editor.",
             CreateAssurance(
                 Array.Empty<UcliOperationSideEffect>(),

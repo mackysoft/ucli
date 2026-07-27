@@ -15,24 +15,18 @@ internal static class CallCommandResultFactory
     {
         ArgumentNullException.ThrowIfNull(serviceResult);
 
-        var payload = CallExecutionPayloadProjector.Create(serviceResult.Output);
-        if (!serviceResult.IsSuccess)
-        {
-            StartupFailurePayloadProjector.AppendFromFailures(payload, serviceResult.Errors);
-        }
-
         if (serviceResult.IsSuccess)
         {
             return CommandResult.Success(
                 command: UcliCommandNames.Call,
                 message: serviceResult.Message,
-                payload: payload);
+                payload: CallExecutionPayloadProjector.CreateSuccess(serviceResult.Output!));
         }
 
         return CommandFailureProjector.Create(
             UcliCommandNames.Call,
             serviceResult.Message,
-            payload,
+            CallExecutionPayloadProjector.CreateError(serviceResult.Output, serviceResult.Errors),
             serviceResult.Errors);
     }
 }

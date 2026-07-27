@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Tests;
@@ -5,20 +6,26 @@ namespace MackySoft.Tests;
 internal static class ReadIndexOperationTestFactory
 {
     public static IndexOpEntryJsonContract CreateGoDescribeEntry (
-        string argsSchemaJson = """{"type":"object"}""",
         IReadOnlyList<UcliOperationSideEffect>? sideEffects = null)
     {
+        var generationResult = UcliOperationJsonContractGenerator.Generate(
+            UcliPrimitiveOperationNames.GoDescribe,
+            IpcJsonSerializerOptions.PublicRawOperationContracts.GetTypeInfo(typeof(GoDescribeArgs)),
+            IpcJsonSerializerOptions.PublicRawOperationContracts.GetTypeInfo(typeof(GameObjectDescriptionResult)));
+        var describe = UcliOperationDescribeContractBuilder.Create(
+            generationResult,
+            "Returns a GameObject description including components and child hierarchy.",
+            CreateSafeQueryAssurance(sideEffects ?? Array.Empty<UcliOperationSideEffect>()));
+
         return new IndexOpEntryJsonContract(
             Name: UcliPrimitiveOperationNames.GoDescribe,
-            Kind: "query",
-            Policy: "safe",
-            ArgsSchemaJson: argsSchemaJson,
-            ResultSchemaJson: """{"type":"object"}""")
+            Kind: UcliOperationKind.Query,
+            Policy: OperationPolicy.Safe,
+            ArgsContract: describe.ArgsContract!,
+            ResultContract: describe.ResultContract)
         {
-            Description = "Returns a GameObject description including components and child hierarchy.",
-            Inputs = Array.Empty<UcliOperationInputContract>(),
-            ResultContract = UcliOperationResultContract.One<GameObjectDescriptionResult>("GameObject description result."),
-            Assurance = CreateSafeQueryAssurance(sideEffects ?? Array.Empty<UcliOperationSideEffect>()),
+            Description = describe.Description,
+            Assurance = describe.Assurance,
         };
     }
 

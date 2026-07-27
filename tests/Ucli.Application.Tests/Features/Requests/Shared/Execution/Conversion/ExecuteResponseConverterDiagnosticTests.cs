@@ -20,7 +20,6 @@ public sealed class ExecuteResponseConverterDiagnosticTests
               },
               "opResults": [
                 {
-                  "opId": "refresh",
                   "op": "ucli.project.refresh",
                   "phase": "call",
                   "applied": true,
@@ -54,7 +53,6 @@ public sealed class ExecuteResponseConverterDiagnosticTests
               },
               "opResults": [
                 {
-                  "opId": "refresh",
                   "op": "ucli.project.refresh",
                   "phase": "call",
                   "applied": true,
@@ -102,7 +100,6 @@ public sealed class ExecuteResponseConverterDiagnosticTests
               },
               "opResults": [
                 {
-                  "opId": "query",
                   "op": "ucli.scene.query",
                   "phase": "plan",
                   "applied": false,
@@ -150,7 +147,6 @@ public sealed class ExecuteResponseConverterDiagnosticTests
         var response = CreateResponse(CreateExecuteResponse(
         [
             new IpcExecuteOperationResult(
-                OpId: new IpcExecuteStepId("query"),
                 Op: UcliPrimitiveOperationNames.SceneQuery,
                 Phase: IpcExecuteOperationPhase.Plan,
                 Applied: false,
@@ -197,7 +193,6 @@ public sealed class ExecuteResponseConverterDiagnosticTests
               },
               "opResults": [
                 {
-                  "opId": "refresh",
                   "op": "ucli.project.refresh",
                   "phase": "call",
                   "applied": true,

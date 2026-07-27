@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace MackySoft.Ucli.Application.Features.Init.Common.Contracts;
 
 /// <summary> Represents output values produced by a successful init execution. </summary>
@@ -5,4 +7,5 @@ namespace MackySoft.Ucli.Application.Features.Init.Common.Contracts;
 /// <param name="GitIgnorePath"> The absolute path of the generated <c>.ucli/.gitignore</c> file. </param>
 internal sealed record InitExecutionOutput (
     string ConfigPath,
+    [property: JsonPropertyName("gitignorePath")]
     string GitIgnorePath);

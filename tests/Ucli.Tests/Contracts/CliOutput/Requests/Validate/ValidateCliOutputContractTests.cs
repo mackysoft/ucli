@@ -38,11 +38,19 @@ public sealed class ValidateCliOutputContractTests
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
         var requestJson = CreateRequestJson(
             operationName: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe,
-            argsJson: """{"path":"Root"}""");
+            argsJson:
+                """
+                {
+                  "target": {
+                    "kind": "globalObjectId",
+                    "globalObjectId": "GlobalObjectId_V1-2-0123456789abcdef0123456789abcdef-4-5"
+                  }
+                }
+                """);
         ReadIndexCatalogTestSeeder.SeedOpsCatalog(
             unityProjectPath,
             [
-                ReadIndexOperationTestFactory.CreateGoDescribeEntry("""{"type":"object","required":["path"],"additionalProperties":false,"properties":{"path":{"type":"string"}}}"""),
+                ReadIndexOperationTestFactory.CreateGoDescribeEntry(),
             ]);
 
         var result = await RunValidateCommandAsync(
@@ -69,7 +77,7 @@ public sealed class ValidateCliOutputContractTests
         ReadIndexCatalogTestSeeder.SeedOpsCatalog(
             unityProjectPath,
             [
-                ReadIndexOperationTestFactory.CreateGoDescribeEntry("""{"type":"object","required":["path"],"additionalProperties":false,"properties":{"path":{"type":"string"}}}"""),
+                ReadIndexOperationTestFactory.CreateGoDescribeEntry(),
             ]);
 
         var result = await RunValidateCommandAsync(
@@ -182,7 +190,6 @@ public sealed class ValidateCliOutputContractTests
               "steps": [
                 {
                   "kind": "op",
-                  "id": "step-1",
                   "op": "{{operationName}}",
                   "args": {{argsJson}}
                 }

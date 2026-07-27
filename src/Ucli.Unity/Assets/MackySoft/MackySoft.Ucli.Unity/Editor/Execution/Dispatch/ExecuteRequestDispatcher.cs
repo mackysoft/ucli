@@ -124,7 +124,7 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
                     context,
                     normalizationError.Code,
                     normalizationError.Message,
-                    normalizationError.OpId);
+                    normalizationError.InstancePath);
             }
 
             var readinessResult = await readinessGate.EnsureExecutionReadyAsync(request.FailFast, cancellationToken, request.AllowPlayMode);
@@ -135,7 +135,7 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
                     context,
                     lifecycleError.Code,
                     lifecycleError.Message,
-                    lifecycleError.OpId);
+                    lifecycleError.InstancePath);
             }
 
             try

@@ -17,24 +17,18 @@ internal static class EvalCommandResultFactory
     {
         ArgumentNullException.ThrowIfNull(serviceResult);
 
-        var payload = CallExecutionPayloadProjector.Create(serviceResult.Output);
-        if (!serviceResult.IsSuccess)
-        {
-            StartupFailurePayloadProjector.AppendFromFailures(payload, serviceResult.Errors);
-        }
-
         if (serviceResult.IsSuccess)
         {
             return CommandResult.Success(
                 command: UcliCommandNames.Eval,
                 message: SuccessMessage,
-                payload: payload);
+                payload: CallExecutionPayloadProjector.CreateSuccess(serviceResult.Output!));
         }
 
         return CommandFailureProjector.Create(
             UcliCommandNames.Eval,
             serviceResult.Message,
-            payload,
+            CallExecutionPayloadProjector.CreateError(serviceResult.Output, serviceResult.Errors),
             serviceResult.Errors);
     }
 }

@@ -1,28 +1,55 @@
 using MackySoft.Ucli.Application.Shared.Execution.ErrorCodes;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Json;
 
 namespace MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 
 /// <summary> Represents the JSON contract payload emitted by every CLI command execution. </summary>
-/// <param name="ProtocolVersion"> The protocol version of the emitted JSON payload. </param>
-/// <param name="Command"> The normalized command name associated with this result. </param>
-/// <param name="Status"> The execution status. </param>
-/// <param name="ExitCode"> The process exit code associated with this result. </param>
-/// <param name="Message"> The user-facing message that explains the execution outcome. </param>
-/// <param name="Payload"> The JSON-serializable payload object for additional command output. </param>
-/// <param name="Errors"> The machine-readable error list. Empty when <paramref name="Status" /> is <c>ok</c>. </param>
-internal sealed record CommandResult (
-    int ProtocolVersion,
-    string Command,
-    CommandResultStatus Status,
-    int ExitCode,
-    string Message,
-    object Payload,
-    IReadOnlyList<CommandError> Errors)
+internal readonly record struct CommandResult
 {
-    private static readonly object EmptyPayload = new();
-
     private static readonly IReadOnlyList<CommandError> EmptyErrors = Array.Empty<CommandError>();
+
+    /// <summary> Initializes one command result with a non-null object payload root. </summary>
+    public CommandResult (
+        int ProtocolVersion,
+        string Command,
+        CommandResultStatus Status,
+        int ExitCode,
+        string Message,
+        object Payload,
+        IReadOnlyList<CommandError> Errors)
+    {
+        this.ProtocolVersion = ProtocolVersion;
+        this.Command = Command ?? throw new ArgumentNullException(nameof(Command));
+        this.Status = Status;
+        this.ExitCode = ExitCode;
+        this.Message = Message ?? throw new ArgumentNullException(nameof(Message));
+        this.Payload = UcliNonNullJsonObject.Wrap(
+            Payload ?? throw new ArgumentNullException(nameof(Payload)),
+            CliOutputJsonSerializerOptions.Default);
+        this.Errors = Errors ?? throw new ArgumentNullException(nameof(Errors));
+    }
+
+    /// <summary> Gets the protocol version of the emitted JSON payload. </summary>
+    public int ProtocolVersion { get; }
+
+    /// <summary> Gets the normalized command name associated with this result. </summary>
+    public string Command { get; }
+
+    /// <summary> Gets the execution status. </summary>
+    public CommandResultStatus Status { get; }
+
+    /// <summary> Gets the process exit code associated with this result. </summary>
+    public int ExitCode { get; }
+
+    /// <summary> Gets the user-facing message that explains the execution outcome. </summary>
+    public string Message { get; }
+
+    /// <summary> Gets the actual non-null JSON object payload serialized by the CLI boundary. </summary>
+    public IUcliNonNullJsonObject Payload { get; }
+
+    /// <summary> Gets the machine-readable error list. </summary>
+    public IReadOnlyList<CommandError> Errors { get; }
 
     /// <summary> Creates a successful command result. </summary>
     /// <param name="command"> The command name written to the result. <see langword="null" />, empty, and whitespace values are normalized to <see cref="UcliCommandNames.Root" />. </param>
@@ -39,7 +66,7 @@ internal sealed record CommandResult (
             Status: CommandResultStatus.Ok,
             ExitCode: (int)CliExitCode.Success,
             Message: normalizedMessage,
-            Payload: payload ?? EmptyPayload,
+            Payload: payload ?? EmptyCommandPayload.Instance,
             Errors: EmptyErrors);
     }
 
@@ -66,13 +93,15 @@ internal sealed record CommandResult (
     public static CommandResult InvalidArgument (
         string command,
         string message,
-        UcliCode? errorCode = null)
+        UcliCode? errorCode = null,
+        object? payload = null)
     {
         return CreateError(
             command: command,
             message: message,
             exitCode: CliExitCode.InvalidArgument,
-            errorCode: errorCode ?? UcliCoreErrorCodes.InvalidArgument);
+            errorCode: errorCode ?? UcliCoreErrorCodes.InvalidArgument,
+            payload: payload);
     }
 
     /// <summary> Creates an error result for command cancellation. </summary>
@@ -132,7 +161,8 @@ internal sealed record CommandResult (
         string command,
         string message,
         CliExitCode exitCode,
-        UcliCode errorCode)
+        UcliCode errorCode,
+        object? payload = null)
     {
         var normalizedCommand = NormalizeCommand(command);
         var normalizedMessage = NormalizeMessage(message);
@@ -143,7 +173,7 @@ internal sealed record CommandResult (
             Status: CommandResultStatus.Error,
             ExitCode: (int)exitCode,
             Message: normalizedMessage,
-            Payload: EmptyPayload,
+            Payload: payload ?? EmptyCommandPayload.Instance,
             Errors:
             [
                 new CommandError(errorCode, normalizedMessage, null),

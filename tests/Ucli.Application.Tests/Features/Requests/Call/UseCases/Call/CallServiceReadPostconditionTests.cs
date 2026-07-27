@@ -27,7 +27,6 @@ public sealed class CallServiceReadPostconditionTests
                     opResults:
                     [
                         new IpcExecuteOperationResult(
-                            OpId: new IpcExecuteStepId("step-1"),
                             Op: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneSave,
                             Phase: IpcExecuteOperationPhase.Call,
                             Applied: true,
@@ -93,7 +92,6 @@ public sealed class CallServiceReadPostconditionTests
                     opResults:
                     [
                         new IpcExecuteOperationResult(
-                            OpId: new IpcExecuteStepId("step-1"),
                             Op: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneSave,
                             Phase: IpcExecuteOperationPhase.Call,
                             Applied: true,

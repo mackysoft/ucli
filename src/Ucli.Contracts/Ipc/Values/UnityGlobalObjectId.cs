@@ -1,14 +1,14 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Text.Json.Serialization;
+using MackySoft.Ucli.Contracts.Json;
 using MackySoft.Ucli.Contracts.Operations;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
 /// <summary> Represents a Unity GlobalObjectId string used for exact object resolution. </summary>
 [JsonConverter(typeof(UcliStringValueJsonConverterFactory))]
-[UcliDescription("Unity GlobalObjectId string used for exact object resolution.")]
-[UcliInputConstraint(UcliOperationInputConstraintKind.GlobalObjectId)]
+[UcliGlobalObjectId]
 public sealed class UnityGlobalObjectId : UcliStringValue
 {
     private const int AssetGuidTextLength = 32;

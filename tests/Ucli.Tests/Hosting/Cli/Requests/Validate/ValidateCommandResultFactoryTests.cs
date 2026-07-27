@@ -1,7 +1,6 @@
 using System.Text.Json;
 using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 using MackySoft.Ucli.Application.Features.Requests.Validate.Common.Contracts;
-using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Requests;
 
 namespace MackySoft.Ucli.Tests;
@@ -21,7 +20,9 @@ public sealed class ValidateCommandResultFactoryTests
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
         Assert.Empty(result.Errors);
 
-        var payload = JsonSerializer.SerializeToElement(result.Payload);
+        var payload = JsonSerializer.SerializeToElement(
+            result.Payload,
+            CliOutputJsonSerializerOptions.Default);
         JsonAssert.For(payload)
             .HasProperty("readIndex", readIndex => readIndex
                 .HasBoolean("used", true)
@@ -41,7 +42,7 @@ public sealed class ValidateCommandResultFactoryTests
                 new ValidationError(
                     ValidationErrorCodes.OperationArgsInvalid,
                     "Operation args are invalid.",
-                    new IpcExecuteStepId("step-1")),
+                    "/steps/0"),
             ]));
 
         Assert.Equal(UcliCommandNames.Validate, result.Command);
@@ -49,7 +50,7 @@ public sealed class ValidateCommandResultFactoryTests
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
         Assert.Single(result.Errors);
         Assert.Equal(ValidationErrorCodes.OperationArgsInvalid, result.Errors[0].Code);
-        Assert.Equal("step-1", result.Errors[0].OpId?.Value);
+        Assert.Equal("/steps/0", result.Errors[0].InstancePath);
     }
 
     [Fact]
@@ -67,7 +68,9 @@ public sealed class ValidateCommandResultFactoryTests
         Assert.Single(result.Errors);
         Assert.Equal(ReadIndexErrorCodes.ReadIndexFormatInvalid, result.Errors[0].Code);
 
-        var payload = JsonSerializer.SerializeToElement(result.Payload);
+        var payload = JsonSerializer.SerializeToElement(
+            result.Payload,
+            CliOutputJsonSerializerOptions.Default);
         JsonAssert.For(payload)
             .HasProperty("readIndex", readIndex => readIndex
                 .HasString("source", "index")

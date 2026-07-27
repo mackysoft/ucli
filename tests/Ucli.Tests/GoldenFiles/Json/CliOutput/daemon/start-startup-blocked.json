@@ -5,6 +5,7 @@
   "exitCode": 4,
   "message": "Unity startup is blocked.",
   "payload": {
+    "payloadKind": "detailed",
     "startStatus": "failed",
     "daemonStatus": "notRunning",
     "timeoutMilliseconds": 1234,
@@ -45,7 +46,7 @@
     {
       "code": "DAEMON_STARTUP_BLOCKED",
       "message": "Unity startup is blocked.",
-      "opId": null
+      "instancePath": null
     }
   ]
 }

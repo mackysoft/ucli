@@ -1,9 +1,11 @@
 using System.Text.Json.Serialization;
 using MackySoft.Ucli.Contracts.Operations;
 
+using MackySoft.JsonSchema.Generation.Annotations;
+
 namespace MackySoft.Ucli.Contracts.Ipc;
 
-[UcliDescription("GameObject describe operation arguments.")]
+[Description("GameObject describe operation arguments.")]
 public sealed record GoDescribeArgs
 {
     [JsonConstructor]
@@ -15,12 +17,13 @@ public sealed record GoDescribeArgs
         Depth = depth;
     }
 
-    [UcliRequired]
-    [UcliDescription("Target GameObject reference.")]
-    [UcliInputConstraint(UcliOperationInputConstraintKind.ReferenceResolvable, TargetKind = UcliOperationReferenceTargetKind.GameObject)]
-    public GameObjectReferenceArgs Target { get; }
+    [JsonInclude]
+    [JsonRequired]
+    [Description("Target GameObject reference.")]
+    [UcliReferenceResolvable(UcliOperationReferenceTargetKind.GameObject)]
+    public GameObjectReferenceArgs Target { get; private init; }
 
-    [UcliDescription("Maximum child hierarchy depth to include; null means unbounded.")]
-    [UcliInputConstraint(UcliOperationInputConstraintKind.Range, Min = 0)]
+    [Description("Maximum child hierarchy depth to include; null means unbounded.")]
+    [UcliInt32Minimum(0)]
     public int? Depth { get; }
 }

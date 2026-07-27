@@ -1,5 +1,6 @@
 using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Access;
 using MackySoft.Ucli.Application.Features.OperationCatalog.UseCases.Ops.Projection;
+using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Tests.Ops.Mapping;
@@ -8,26 +9,25 @@ public sealed class OpsDescribeResultMapperTests
 {
     [Fact]
     [Trait("Size", "Small")]
-    public void Map_WhenResultSchemaIsPresent_ReturnsArgsAndResultSchemas ()
+    public void Map_WhenResultContractIsPresent_ReturnsGeneratedContracts ()
     {
         var mapper = new OpsDescribeResultMapper(new OpsReadIndexInfoMapper());
-
-        var result = mapper.Map(CreateReadOutput(CreateDescribedEntry(
+        var entry = CreateDescribedEntry(
             name: UcliPrimitiveOperationNames.Resolve,
-            kind: "query",
-            policy: "safe",
-            argsSchemaJson: """{"type":"object"}""",
-            resultSchemaJson: """{"type":"object","properties":{"globalObjectId":{"type":"string"}}}""")));
+            kind: UcliOperationKind.Query,
+            policy: OperationPolicy.Safe);
+
+        var result = mapper.Map(CreateReadOutput(entry));
 
         Assert.True(result.IsSuccess);
-        Assert.Equal("object", result.Output!.Operation.ArgsSchema.GetProperty("type").GetString());
-        Assert.Equal("disallowed", result.Output.Operation.PlayModeSupport);
-        Assert.Equal("Resolves an asset, scene object, prefab object, or component reference to a Unity GlobalObjectId.", result.Output.Operation.Description);
-        Assert.Equal("IpcResolveOperationResult", result.Output.Operation.ResultContract.ResultType);
-        Assert.True(result.Output.Operation.ResultContract.Emitted);
-        Assert.Null(result.Output.Operation.GetType().GetProperty("Outputs"));
-        Assert.Equal("object", result.Output.Operation.ResultSchema!.Value.GetProperty("type").GetString());
-        Assert.True(result.Output.Operation.ResultSchema.Value.GetProperty("properties").TryGetProperty("globalObjectId", out _));
+        var operation = result.Output!.Operation;
+        var expectedArgsContract = Assert.IsType<UcliOperationJsonContract>(entry.ArgsContract);
+        var expectedResultContract = Assert.IsType<UcliOperationJsonContract>(entry.ResultContract);
+        var actualResultContract = Assert.IsType<UcliOperationJsonContract>(operation.ResultContract);
+        Assert.Equal(expectedArgsContract.ContractDigest, operation.ArgsContract.ContractDigest);
+        Assert.Equal(expectedResultContract.ContractDigest, actualResultContract.ContractDigest);
+        Assert.Equal(UcliOperationPlayModeSupport.Disallowed, operation.PlayModeSupport);
+        Assert.Equal("Resolves an asset, scene object, prefab object, or component reference to a Unity GlobalObjectId.", operation.Description);
     }
 
     [Fact]
@@ -37,10 +37,8 @@ public sealed class OpsDescribeResultMapperTests
         var mapper = new OpsDescribeResultMapper(new OpsReadIndexInfoMapper());
         var entry = CreateDescribedEntry(
             name: UcliPrimitiveOperationNames.CsEval,
-            kind: "mutation",
-            policy: "dangerous",
-            argsSchemaJson: """{"type":"object"}""",
-            resultSchemaJson: """{"type":"object"}""") with
+            kind: UcliOperationKind.Mutation,
+            policy: OperationPolicy.Dangerous) with
         {
             CodeContract = CreateCodeContract(),
         };
@@ -73,12 +71,16 @@ public sealed class OpsDescribeResultMapperTests
 
     private static IndexOpEntryJsonContract CreateDescribedEntry (
         string name,
-        string kind,
-        string policy,
-        string? argsSchemaJson,
-        string? resultSchemaJson = null)
+        UcliOperationKind kind,
+        OperationPolicy policy)
     {
-        var describe = UcliOperationDescribeContractBuilder.Create<ResolveSelectorArgs, IpcResolveOperationResult>(
+        var serializerOptions = IpcJsonSerializerOptions.PublicRawOperationContracts;
+        var generationResult = UcliOperationJsonContractGenerator.Generate(
+            name,
+            serializerOptions.GetTypeInfo(typeof(ResolveSelectorArgs)),
+            serializerOptions.GetTypeInfo(typeof(IpcResolveOperationResult)));
+        var describe = UcliOperationDescribeContractBuilder.Create(
+            generationResult,
             "Resolves an asset, scene object, prefab object, or component reference to a Unity GlobalObjectId.",
             new UcliOperationAssuranceContract(
                 sideEffects: Array.Empty<UcliOperationSideEffect>(),
@@ -91,26 +93,24 @@ public sealed class OpsDescribeResultMapperTests
                 failureSemantics: "Failure means the observation was not fully produced.",
                 dangerousNotes: Array.Empty<string>()));
         return new IndexOpEntryJsonContract(
-            name,
-            kind,
-            policy,
-            argsSchemaJson,
-            resultSchemaJson)
+            Name: name,
+            Kind: kind,
+            Policy: policy,
+            ArgsContract: describe.ArgsContract,
+            ResultContract: describe.ResultContract)
         {
             Description = describe.Description,
-            Inputs = describe.Inputs,
-            ResultContract = describe.ResultContract,
             Assurance = CreateAssurance(kind, policy),
         };
     }
 
     private static UcliOperationAssuranceContract CreateAssurance (
-        string kind,
-        string policy)
+        UcliOperationKind kind,
+        OperationPolicy policy)
     {
-        var isMutation = string.Equals(kind, "mutation", StringComparison.Ordinal);
-        var isDangerousPolicy = string.Equals(policy, "dangerous", StringComparison.Ordinal);
-        var isRiskyPolicy = !string.Equals(policy, "safe", StringComparison.Ordinal);
+        var isMutation = kind == UcliOperationKind.Mutation;
+        var isDangerousPolicy = policy == OperationPolicy.Dangerous;
+        var isRiskyPolicy = policy != OperationPolicy.Safe;
         return new UcliOperationAssuranceContract(
             sideEffects: isDangerousPolicy
                 ? [UcliOperationSideEffect.AssetSave, UcliOperationSideEffect.ArbitrarySourceExecution]

@@ -1,9 +1,11 @@
 using System.Text.Json.Serialization;
 using MackySoft.Ucli.Contracts.Operations;
 
+using MackySoft.JsonSchema.Generation.Annotations;
+
 namespace MackySoft.Ucli.Contracts.Ipc;
 
-[UcliDescription("Asset creation operation arguments.")]
+[Description("Asset creation operation arguments.")]
 public sealed record AssetCreateArgs
 {
     [JsonConstructor]
@@ -15,12 +17,14 @@ public sealed record AssetCreateArgs
         Path = ContractArgumentGuard.RequireNotNull(path, nameof(path));
     }
 
-    [UcliRequired]
-    [UcliDescription("Unity asset type identifier to create.")]
-    public UnityTypeId Type { get; }
+    [JsonInclude]
+    [JsonRequired]
+    [Description("Unity asset type identifier to create.")]
+    public UnityTypeId Type { get; private init; }
 
-    [UcliRequired]
-    [UcliDescription("Unity project relative asset path to create.")]
-    [UcliInputConstraint(UcliOperationInputConstraintKind.AssetCreatable, AssetKind = UcliOperationAssetKind.Asset)]
-    public UnityAssetPath Path { get; }
+    [JsonInclude]
+    [JsonRequired]
+    [Description("Unity project relative asset path to create.")]
+    [UcliAssetCreatable(UcliOperationAssetKind.Asset)]
+    public UnityAssetPath Path { get; private init; }
 }

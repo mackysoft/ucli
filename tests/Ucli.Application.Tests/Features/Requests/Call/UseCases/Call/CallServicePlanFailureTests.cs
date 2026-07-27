@@ -23,7 +23,6 @@ public sealed class CallServicePlanFailureTests
                     opResults:
                     [
                         new IpcExecuteOperationResult(
-                            OpId: new IpcExecuteStepId("step-1"),
                             Op: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe,
                             Phase: IpcExecuteOperationPhase.Plan,
                             Applied: false,
@@ -75,7 +74,6 @@ public sealed class CallServicePlanFailureTests
                     opResults:
                     [
                         new IpcExecuteOperationResult(
-                            OpId: new IpcExecuteStepId("step-1"),
                             Op: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe,
                             Phase: IpcExecuteOperationPhase.Plan,
                             Applied: false,
@@ -90,7 +88,6 @@ public sealed class CallServicePlanFailureTests
                     opResults:
                     [
                         new IpcExecuteOperationResult(
-                            OpId: new IpcExecuteStepId("step-1"),
                             Op: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe,
                             Phase: IpcExecuteOperationPhase.Plan,
                             Applied: false,

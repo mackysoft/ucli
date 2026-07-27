@@ -6,7 +6,13 @@ internal static class IndexOpsDescribeContractTestData
 {
     public static UcliOperationDescribeContract CreateGoDescribeContract ()
     {
-        return UcliOperationDescribeContractBuilder.Create<GoDescribeArgs, GameObjectDescriptionResult>(
+        var serializerOptions = IpcJsonSerializerOptions.PublicRawOperationContracts;
+        var generationResult = UcliOperationJsonContractGenerator.Generate(
+            UcliPrimitiveOperationNames.GoDescribe,
+            serializerOptions.GetTypeInfo(typeof(GoDescribeArgs)),
+            serializerOptions.GetTypeInfo(typeof(GameObjectDescriptionResult)));
+        return UcliOperationDescribeContractBuilder.Create(
+            generationResult,
             "Returns a GameObject description including components and child hierarchy.",
             new UcliOperationAssuranceContract(
                 sideEffects: Array.Empty<UcliOperationSideEffect>(),

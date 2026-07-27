@@ -20,7 +20,7 @@ public sealed class ValidateRequestJsonParserSuccessTests
         Assert.Equal(1, result.Request!.ProtocolVersion);
         var step = Assert.IsType<ValidateRequestStep>(Assert.Single(result.Request.Steps!));
         Assert.Equal(IpcExecuteStepKind.Op, step.Kind);
-        Assert.Equal("step-1", step.StepId?.Value);
+        Assert.Equal(0, step.StepIndex);
         Assert.Equal(UcliPrimitiveOperationNames.SceneOpen, step.Op);
         Assert.Null(result.Error);
     }
@@ -35,12 +35,13 @@ public sealed class ValidateRequestJsonParserSuccessTests
             [
               {
                 "kind": "edit",
-                "id": "edit-1",
                 "on": {
-                  "scene": "Assets/Scenes/Main.unity"
+                  "kind": "scene",
+                  "path": "Assets/Scenes/Main.unity"
                 },
                 "select": {
-                  "gameObject": "Root/Spawner",
+                  "kind": "gameObject",
+                  "path": "Root/Spawner",
                   "component": "Game.EnemySpawner, Assembly-CSharp",
                   "cardinality": "one"
                 },
@@ -62,7 +63,7 @@ public sealed class ValidateRequestJsonParserSuccessTests
         Assert.True(result.IsSuccess);
         var step = Assert.IsType<ValidateRequestStep>(Assert.Single(result.Request!.Steps!));
         Assert.Equal(IpcExecuteStepKind.Edit, step.Kind);
-        Assert.Equal("edit-1", step.StepId?.Value);
+        Assert.Equal(0, step.StepIndex);
     }
 
     [Fact]
@@ -75,12 +76,13 @@ public sealed class ValidateRequestJsonParserSuccessTests
             [
               {
                 "kind": "edit",
-                "id": "edit-1",
                 "on": {
-                  "scene": "Assets/Scenes/Main.unity"
+                  "kind": "scene",
+                  "path": "Assets/Scenes/Main.unity"
                 },
                 "select": {
-                  "gameObject": "Root/Spawner",
+                  "kind": "gameObject",
+                  "path": "Root/Spawner",
                   "cardinality": "one"
                 },
                 "actions": [
@@ -107,6 +109,6 @@ public sealed class ValidateRequestJsonParserSuccessTests
         Assert.True(result.IsSuccess);
         var step = Assert.IsType<ValidateRequestStep>(Assert.Single(result.Request!.Steps!));
         Assert.Equal(IpcExecuteStepKind.Edit, step.Kind);
-        Assert.Equal("edit-1", step.StepId?.Value);
+        Assert.Equal(0, step.StepIndex);
     }
 }

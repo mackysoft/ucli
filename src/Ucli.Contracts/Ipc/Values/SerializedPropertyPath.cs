@@ -1,12 +1,12 @@
 using System.Text.Json.Serialization;
-using MackySoft.Ucli.Contracts.Operations;
+using MackySoft.JsonSchema.Generation.Annotations;
+using MackySoft.Ucli.Contracts.Json;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
 /// <summary> Represents a Unity SerializedProperty path. </summary>
 [JsonConverter(typeof(UcliStringValueJsonConverterFactory))]
-[UcliDescription("Unity SerializedProperty path.")]
-[UcliInputConstraint(UcliOperationInputConstraintKind.NonEmpty)]
+[Length(1, int.MaxValue)]
 public sealed class SerializedPropertyPath : UcliStringValue
 {
     /// <summary> Initializes a new instance of the <see cref="SerializedPropertyPath" /> class. </summary>

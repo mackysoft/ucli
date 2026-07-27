@@ -62,10 +62,8 @@ public sealed class UnityIpcRequestBuilderExecuteTests
         Assert.False(payload.AllowPlayMode);
         Assert.Equal("plan-token", payload.PlanToken);
         Assert.Equal(IpcProtocol.CurrentVersion, payload.Arguments.GetProperty("protocolVersion").GetInt32());
-        Assert.False(payload.Arguments.TryGetProperty("requestId", out _));
         var step = payload.Arguments.GetProperty("steps")[0];
         Assert.Equal("op", step.GetProperty("kind").GetString());
-        Assert.Equal("op-1", step.GetProperty("id").GetString());
         Assert.Equal("asset.create", step.GetProperty("op").GetString());
         Assert.Equal(args.GetRawText(), step.GetProperty("args").GetRawText());
     }

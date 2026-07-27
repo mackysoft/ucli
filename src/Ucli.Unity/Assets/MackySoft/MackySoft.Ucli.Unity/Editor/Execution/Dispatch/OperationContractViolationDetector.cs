@@ -17,15 +17,27 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
     internal static class OperationContractViolationDetector
     {
         /// <summary> Detects contract violations from operation execution traces. </summary>
+        /// <param name="steps"> The normalized public steps in source order. </param>
         /// <param name="operationTraces"> The operation traces to inspect. </param>
         /// <returns> The detected contract violations in trace order. </returns>
         /// <exception cref="ArgumentNullException"> Thrown when <paramref name="operationTraces" /> is <see langword="null" />. </exception>
         public static IpcExecuteContractViolation[] Detect (
+            IReadOnlyList<NormalizedRequestStep> steps,
             IReadOnlyList<OperationPhaseTrace> operationTraces)
         {
+            if (steps == null)
+            {
+                throw new ArgumentNullException(nameof(steps));
+            }
             if (operationTraces == null)
             {
                 throw new ArgumentNullException(nameof(operationTraces));
+            }
+
+            var resultIndexByStepId = new Dictionary<IpcExecuteStepId, int>();
+            for (var stepIndex = 0; stepIndex < steps.Count; stepIndex++)
+            {
+                resultIndexByStepId.Add(steps[stepIndex].Id, stepIndex);
             }
 
             var violations = new List<IpcExecuteContractViolation>();
@@ -37,12 +49,17 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
                 {
                     continue;
                 }
+                if (!resultIndexByStepId.TryGetValue(trace.OpId, out var resultIndex))
+                {
+                    throw new InvalidOperationException("Operation trace does not correspond to a normalized request step.");
+                }
 
                 if (trace.Changed && !contracts.MayDirty && !contracts.MayPersist)
                 {
                     AddContractViolation(
                         violations,
                         trace,
+                        resultIndex,
                         expectedFact: "assurance.mayDirty=false",
                         observedResult: "opResults[].changed=true");
                 }
@@ -52,12 +69,13 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
                     AddContractViolation(
                         violations,
                         trace,
+                        resultIndex,
                         expectedFact: "assurance.mayPersist=false",
                         observedResult: "executionTrace.persisted=true");
                 }
 
-                AddTouchedKindViolations(violations, trace, contracts);
-                AddQueryKindViolations(violations, trace, contracts);
+                AddTouchedKindViolations(violations, trace, resultIndex, contracts);
+                AddQueryKindViolations(violations, trace, resultIndex, contracts);
             }
 
             return violations.ToArray();
@@ -66,6 +84,7 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
         private static void AddTouchedKindViolations (
             List<IpcExecuteContractViolation> violations,
             OperationPhaseTrace trace,
+            int resultIndex,
             OperationPhaseTrace.ContractFacts contracts)
         {
             var allowedTouchedKinds = new HashSet<UcliTouchedResourceKind>(contracts.TouchedKinds);
@@ -80,6 +99,7 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
                 AddContractViolation(
                     violations,
                     trace,
+                    resultIndex,
                     expectedFact: "assurance.touchedKinds=[" + string.Join(",", contracts.TouchedKinds.Select(static kind => TextVocabulary.GetText(kind))) + "]",
                     observedResult: "opResults[].touched[].kind=" + TextVocabulary.GetText(touchedKind));
             }
@@ -88,6 +108,7 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
         private static void AddQueryKindViolations (
             List<IpcExecuteContractViolation> violations,
             OperationPhaseTrace trace,
+            int resultIndex,
             OperationPhaseTrace.ContractFacts contracts)
         {
             if (contracts.OperationKind != UcliOperationKind.Query)
@@ -100,6 +121,7 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
                 AddContractViolation(
                     violations,
                     trace,
+                    resultIndex,
                     expectedFact: "operation.kind=query",
                     observedResult: "opResults[].applied=true");
             }
@@ -109,6 +131,7 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
                 AddContractViolation(
                     violations,
                     trace,
+                    resultIndex,
                     expectedFact: "operation.kind=query",
                     observedResult: "opResults[].changed=true");
             }
@@ -118,6 +141,7 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
                 AddContractViolation(
                     violations,
                     trace,
+                    resultIndex,
                     expectedFact: "operation.kind=query",
                     observedResult: "opResults[].touched.length=" + trace.Touched.Count);
             }
@@ -126,11 +150,12 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
         private static void AddContractViolation (
             List<IpcExecuteContractViolation> violations,
             OperationPhaseTrace trace,
+            int resultIndex,
             string expectedFact,
             string observedResult)
         {
             violations.Add(new IpcExecuteContractViolation(
-                OpId: trace.OpId,
+                InstancePath: "/opResults/" + resultIndex,
                 Operation: trace.Op,
                 ExpectedFact: expectedFact,
                 ObservedResult: observedResult,

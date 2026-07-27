@@ -1,6 +1,5 @@
 using System.Text.Json;
 using MackySoft.Ucli.Contracts.Operations;
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Index;
 
@@ -13,17 +12,40 @@ internal static class IndexOpEntryJsonContractWriter
     {
         writer.WriteStartObject();
         WriteNullableString(writer, "name", entry.Name);
-        WriteNullableString(writer, "kind", entry.Kind);
-        WriteNullableString(writer, "policy", entry.Policy);
-        WriteNullableString(writer, "playModeSupport", entry.PlayModeSupport);
+        WriteNullableVocabulary(writer, "kind", entry.Kind);
+        WriteNullableVocabulary(writer, "policy", entry.Policy);
+        WriteNullableVocabulary(writer, "playModeSupport", entry.PlayModeSupport);
         WriteNullableString(writer, "description", entry.Description);
-        WriteArray(writer, "inputs", entry.Inputs, WriteOperationInput);
-        WriteOperationResultContract(writer, entry.ResultContract);
+        WriteGeneratedContract(writer, "argsContract", entry.ArgsContract);
+        WriteGeneratedContract(writer, "resultContract", entry.ResultContract);
         writer.WritePropertyName("assurance");
-        JsonSerializer.Serialize(writer, entry.Assurance);
+        JsonSerializer.Serialize(
+            writer,
+            entry.Assurance,
+            IndexJsonContractSerializerOptions.Deserialize);
         WriteOperationCodeContract(writer, entry.CodeContract);
-        WriteSchema(writer, "argsSchema", entry.ArgsSchemaJson);
-        WriteOptionalSchema(writer, "resultSchema", entry.ResultSchemaJson);
+        writer.WriteEndObject();
+    }
+
+    private static void WriteGeneratedContract (
+        Utf8JsonWriter writer,
+        string propertyName,
+        UcliOperationJsonContract? contract)
+    {
+        writer.WritePropertyName(propertyName);
+        if (contract == null)
+        {
+            writer.WriteNullValue();
+            return;
+        }
+
+        var generatedContract = contract.Value;
+        writer.WriteStartObject();
+        writer.WriteString("contractDigest", generatedContract.ContractDigest.ToString());
+        writer.WritePropertyName("typeMetadata");
+        generatedContract.TypeMetadata.WriteTo(writer);
+        writer.WritePropertyName("schema");
+        generatedContract.Schema.WriteTo(writer);
         writer.WriteEndObject();
     }
 
@@ -39,6 +61,19 @@ internal static class IndexOpEntryJsonContractWriter
         }
 
         writer.WriteString(propertyName, value);
+    }
+
+    private static void WriteNullableVocabulary<T> (
+        Utf8JsonWriter writer,
+        string propertyName,
+        T? value)
+        where T : struct, Enum
+    {
+        writer.WritePropertyName(propertyName);
+        JsonSerializer.Serialize(
+            writer,
+            value,
+            IndexJsonContractSerializerOptions.Deserialize);
     }
 
     private static void WriteArray<TItem> (
@@ -82,160 +117,6 @@ internal static class IndexOpEntryJsonContractWriter
         }
 
         writer.WriteEndArray();
-    }
-
-    private static void WriteContractLiteralArray<TEnum> (
-        Utf8JsonWriter writer,
-        string propertyName,
-        IReadOnlyList<TEnum>? values)
-        where TEnum : struct, Enum
-    {
-        writer.WritePropertyName(propertyName);
-        if (values == null)
-        {
-            writer.WriteNullValue();
-            return;
-        }
-
-        writer.WriteStartArray();
-        for (var i = 0; i < values.Count; i++)
-        {
-            writer.WriteStringValue(TextVocabulary.GetText(values[i]));
-        }
-
-        writer.WriteEndArray();
-    }
-
-    private static void WriteOperationInput (
-        Utf8JsonWriter writer,
-        UcliOperationInputContract input)
-    {
-        writer.WriteStartObject();
-        WriteNullableString(writer, "name", input.Name);
-        WriteNullableString(writer, "description", input.Description);
-        WriteNullableString(writer, "valueType", input.ValueType);
-        WriteArray(writer, "constraints", input.Constraints, WriteOperationInputConstraint);
-        if (input.ArgsPath != null)
-        {
-            writer.WriteString("argsPath", input.ArgsPath);
-        }
-
-        if (input.Variants != null)
-        {
-            WriteArray(writer, "variants", input.Variants, WriteOperationInputVariant);
-        }
-
-        writer.WriteEndObject();
-    }
-
-    private static void WriteOperationInputVariant (
-        Utf8JsonWriter writer,
-        UcliOperationInputVariantContract variant)
-    {
-        writer.WriteStartObject();
-        WriteNullableString(writer, "name", variant.Name);
-        WriteNullableString(writer, "description", variant.Description);
-        WriteArray(writer, "fields", variant.Fields, WriteOperationInputVariantField);
-        writer.WriteEndObject();
-    }
-
-    private static void WriteOperationInputVariantField (
-        Utf8JsonWriter writer,
-        UcliOperationInputVariantFieldContract field)
-    {
-        writer.WriteStartObject();
-        WriteNullableString(writer, "name", field.Name);
-        WriteNullableString(writer, "argsPath", field.ArgsPath);
-        WriteNullableString(writer, "description", field.Description);
-        WriteArray(writer, "constraints", field.Constraints, WriteOperationInputConstraint);
-        writer.WriteEndObject();
-    }
-
-    private static void WriteOperationInputConstraint (
-        Utf8JsonWriter writer,
-        UcliOperationInputConstraintContract constraint)
-    {
-        writer.WriteStartObject();
-        WriteNullableString(writer, "kind", constraint.Kind);
-        if (constraint.AssetKind != null)
-        {
-            writer.WriteString("assetKind", constraint.AssetKind);
-        }
-
-        if (constraint.TargetKind != null)
-        {
-            writer.WriteString("targetKind", constraint.TargetKind);
-        }
-
-        if (constraint.TypeKind != null)
-        {
-            writer.WriteString("typeKind", constraint.TypeKind);
-        }
-
-        if (constraint.Access != null)
-        {
-            writer.WriteString("access", constraint.Access);
-        }
-
-        if (constraint.Min.HasValue)
-        {
-            writer.WriteNumber("min", constraint.Min.Value);
-        }
-
-        if (constraint.Max.HasValue)
-        {
-            writer.WriteNumber("max", constraint.Max.Value);
-        }
-
-        writer.WriteEndObject();
-    }
-
-    private static void WriteOperationResultContract (
-        Utf8JsonWriter writer,
-        UcliOperationResultContract? resultContract)
-    {
-        writer.WritePropertyName("resultContract");
-        if (resultContract == null)
-        {
-            writer.WriteNullValue();
-            return;
-        }
-
-        writer.WriteStartObject();
-        writer.WriteBoolean("emitted", resultContract.Emitted);
-        WriteNullableString(writer, "resultType", resultContract.ResultType);
-        WriteNullableString(writer, "description", resultContract.Description);
-        writer.WriteEndObject();
-    }
-
-    private static void WriteSchema (
-        Utf8JsonWriter writer,
-        string propertyName,
-        string? schemaJson)
-    {
-        writer.WritePropertyName(propertyName);
-        if (schemaJson == null)
-        {
-            writer.WriteNullValue();
-            return;
-        }
-
-        using var document = JsonDocument.Parse(schemaJson);
-        document.RootElement.WriteTo(writer);
-    }
-
-    private static void WriteOptionalSchema (
-        Utf8JsonWriter writer,
-        string propertyName,
-        string? schemaJson)
-    {
-        if (schemaJson == null)
-        {
-            writer.WriteNull(propertyName);
-            return;
-        }
-
-        WriteSchema(writer, propertyName, schemaJson);
     }
 
     private static void WriteOperationCodeContract (

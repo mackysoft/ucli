@@ -1,14 +1,15 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Serialization;
+using MackySoft.JsonSchema.Generation.Annotations;
+using MackySoft.Ucli.Contracts.Json;
 using MackySoft.Ucli.Contracts.Operations;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
 /// <summary> Represents a Unity type identifier that must resolve in the project. </summary>
 [JsonConverter(typeof(UcliStringValueJsonConverterFactory))]
-[UcliDescription("Unity type identifier that must resolve in the project.")]
-[UcliInputConstraint(UcliOperationInputConstraintKind.NonEmpty)]
-[UcliInputConstraint(UcliOperationInputConstraintKind.TypeExists)]
+[Length(1, int.MaxValue)]
+[UcliTypeExists]
 public sealed class UnityTypeId : UcliStringValue
 {
     /// <summary> Initializes a new instance of the <see cref="UnityTypeId" /> class. </summary>

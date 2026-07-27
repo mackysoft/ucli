@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Features.OperationCatalog.Common.Contracts;
+using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Ops;
 using MackySoft.Ucli.Tests.Hosting.Cli.Common.Execution;
@@ -16,13 +17,13 @@ public sealed class OpsCommandListOutputTests
         service.ListResult = CreateListSuccess(
             new OpsOperationListItem(
                 UcliPrimitiveOperationNames.GoDescribe,
-                "query",
-                "safe",
+                UcliOperationKind.Query,
+                OperationPolicy.Safe,
                 "Returns a GameObject description including components and child hierarchy."),
             new OpsOperationListItem(
                 UcliPrimitiveOperationNames.SceneSave,
-                "mutation",
-                "advanced",
+                UcliOperationKind.Mutation,
+                OperationPolicy.Advanced,
                 "Saves a Unity scene asset."));
         var command = new OpsListCommand(service, CommandResultTestWriter.Create());
 
@@ -43,8 +44,8 @@ public sealed class OpsCommandListOutputTests
         service.ListResult = CreateListSuccess(
             new OpsOperationListItem(
                 UcliPrimitiveOperationNames.SceneOpen,
-                "command",
-                "advanced",
+                UcliOperationKind.Command,
+                OperationPolicy.Advanced,
                 "Opens a Unity scene asset in the editor."));
         var command = new OpsListCommand(service, CommandResultTestWriter.Create());
 

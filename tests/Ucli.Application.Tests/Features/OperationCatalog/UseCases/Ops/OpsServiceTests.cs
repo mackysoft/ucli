@@ -3,6 +3,7 @@ using MackySoft.Ucli.Application.Features.OperationCatalog.Common.Contracts;
 using MackySoft.Ucli.Application.Features.OperationCatalog.UseCases.Ops;
 using MackySoft.Ucli.Application.Features.OperationCatalog.UseCases.Ops.Preflight;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
+using MackySoft.Ucli.Contracts.Configuration;
 using static MackySoft.Ucli.Application.Tests.Helpers.ApplicationCommandInputTestHelper;
 using static MackySoft.Ucli.TestSupport.OperationCatalogTestFixtures;
 
@@ -85,8 +86,8 @@ public sealed class OpsServiceTests
                 [
                     new OpsOperationListItem(
                         MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneSave,
-                        "mutation",
-                        "advanced",
+                        UcliOperationKind.Mutation,
+                        OperationPolicy.Advanced,
                         "Saves a Unity scene asset."),
                 ],
                 ReadIndex: new ReadIndexInfo(

@@ -1,10 +1,10 @@
 namespace MackySoft.Ucli.Application.Tests.Daemon;
 
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Acquisition;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Observation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Identity;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Recovery;
-using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Contracts.Ipc;
 
 internal static class DaemonExistingSessionGateServiceTestSupport

@@ -114,7 +114,6 @@ public sealed class VerifyFromInputReaderPostReadInvalidInputTests
                 },
                 "opResults": [
                   {
-                    "opId": "op-1",
                     "op": "Scene.Touch",
                     "phase": "call",
                     "applied": true,
@@ -138,7 +137,6 @@ public sealed class VerifyFromInputReaderPostReadInvalidInputTests
                   "schemaVersion": 1,
                   "steps": [
                     {
-                      "opId": "op-1",
                       "sourceKind": "edit",
                       "playModeMutation": false,
                       "commit": "invalid",
@@ -159,7 +157,6 @@ public sealed class VerifyFromInputReaderPostReadInvalidInputTests
                   "schemaVersion": 1,
                   "steps": [
                     {
-                      "opId": "op-1",
                       "sourceKind": "operation",
                       "playModeMutation": false,
                       "commit": null,
@@ -180,7 +177,6 @@ public sealed class VerifyFromInputReaderPostReadInvalidInputTests
                   "schemaVersion": 1,
                   "steps": [
                     {
-                      "opId": "op-1",
                       "sourceKind": "edit",
                       "playModeMutation": false,
                       "commit": "context",
@@ -201,7 +197,6 @@ public sealed class VerifyFromInputReaderPostReadInvalidInputTests
                   "schemaVersion": 1,
                   "steps": [
                     {
-                      "opId": "op-1",
                       "sourceKind": "edit",
                       "playModeMutation": false,
                       "commit": "context",
@@ -222,7 +217,6 @@ public sealed class VerifyFromInputReaderPostReadInvalidInputTests
                   "schemaVersion": 1,
                   "steps": [
                     {
-                      "opId": "op-1",
                       "sourceKind": "unknown",
                       "playModeMutation": false,
                       "commit": null,
@@ -243,7 +237,6 @@ public sealed class VerifyFromInputReaderPostReadInvalidInputTests
                   "schemaVersion": 1,
                   "steps": [
                     {
-                      "opId": "other-op",
                       "sourceKind": "operation",
                       "playModeMutation": false,
                       "commit": null,

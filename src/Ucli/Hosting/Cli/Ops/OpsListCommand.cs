@@ -55,7 +55,7 @@ internal sealed class OpsListCommand
         var normalizedReadIndexModeResult = ReadIndexModeOptionNormalizer.Normalize(readIndexMode);
         if (!normalizedReadIndexModeResult.IsSuccess)
         {
-            var errorResult = CommandResultFactory.FromExecutionError(
+            var errorResult = OpsCommandResultFactory.CreateExecutionError(
                 UcliCommandNames.OpsList,
                 normalizedReadIndexModeResult.Error!);
             commandResultWriter.WriteToStandardOutput(errorResult);
@@ -65,7 +65,7 @@ internal sealed class OpsListCommand
         var normalizedModeResult = ExecutionModeOptionNormalizer.Normalize(mode);
         if (!normalizedModeResult.IsSuccess)
         {
-            var errorResult = CommandResultFactory.FromExecutionError(
+            var errorResult = OpsCommandResultFactory.CreateExecutionError(
                 UcliCommandNames.OpsList,
                 normalizedModeResult.Error!);
             commandResultWriter.WriteToStandardOutput(errorResult);
@@ -75,7 +75,7 @@ internal sealed class OpsListCommand
         var normalizedTimeoutResult = TimeoutOptionNormalizer.Normalize(timeout);
         if (!normalizedTimeoutResult.IsSuccess)
         {
-            var errorResult = CommandResultFactory.FromExecutionError(
+            var errorResult = OpsCommandResultFactory.CreateExecutionError(
                 UcliCommandNames.OpsList,
                 normalizedTimeoutResult.Error!);
             commandResultWriter.WriteToStandardOutput(errorResult);
@@ -85,7 +85,7 @@ internal sealed class OpsListCommand
         var normalizedKindResult = OperationKindOptionNormalizer.Normalize(operationKind);
         if (!normalizedKindResult.IsSuccess)
         {
-            var errorResult = CommandResultFactory.FromExecutionError(
+            var errorResult = OpsCommandResultFactory.CreateExecutionError(
                 UcliCommandNames.OpsList,
                 normalizedKindResult.Error!);
             commandResultWriter.WriteToStandardOutput(errorResult);
@@ -95,7 +95,7 @@ internal sealed class OpsListCommand
         var normalizedMaxPolicyResult = OperationMaxPolicyOptionNormalizer.Normalize(maxPolicy);
         if (!normalizedMaxPolicyResult.IsSuccess)
         {
-            var errorResult = CommandResultFactory.FromExecutionError(
+            var errorResult = OpsCommandResultFactory.CreateExecutionError(
                 UcliCommandNames.OpsList,
                 normalizedMaxPolicyResult.Error!);
             commandResultWriter.WriteToStandardOutput(errorResult);

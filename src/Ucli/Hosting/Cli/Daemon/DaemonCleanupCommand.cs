@@ -1,6 +1,6 @@
+using System.Text.Json.Serialization.Metadata;
 using ConsoleAppFramework;
 using MackySoft.Ucli.Application.Features.Daemon.UseCases.Cleanup;
-using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 using MackySoft.Ucli.Hosting.Cli.Options;
@@ -10,6 +10,14 @@ namespace MackySoft.Ucli.Hosting.Cli.Daemon;
 /// <summary> Provides the daemon cleanup CLI command entry point. </summary>
 internal sealed class DaemonCleanupCommand
 {
+    /// <summary> Gets the serializer contract used by successful <c>daemon cleanup</c> payloads. </summary>
+    public static JsonTypeInfo SuccessPayloadTypeInfo { get; } =
+        CliOutputJsonSerializerOptions.Default.GetTypeInfo(typeof(DaemonCleanupExecutionOutput));
+
+    /// <summary> Gets the serializer contract used by failed <c>daemon cleanup</c> payloads. </summary>
+    public static JsonTypeInfo ErrorPayloadTypeInfo { get; } =
+        CliOutputJsonSerializerOptions.Default.GetTypeInfo(typeof(EmptyCommandPayload));
+
     private readonly IDaemonCleanupService daemonCleanupService;
 
     private readonly ICommandResultWriter commandResultWriter;
@@ -70,19 +78,10 @@ internal sealed class DaemonCleanupCommand
 
         if (executionResult.IsSuccess)
         {
-            var output = executionResult.Output!;
             return CommandResult.Success(
                 command: UcliCommandNames.DaemonCleanup,
                 message: "uCLI daemon cleanup completed.",
-                payload: new
-                {
-                    cleanupStatus = TextVocabulary.GetText(output.CleanupStatus),
-                    skipReason = output.SkipReason.HasValue
-                        ? TextVocabulary.GetText(output.SkipReason.Value)
-                        : null,
-                    deletedLaunchAttemptCount = output.DeletedLaunchAttemptCount,
-                    timeoutMilliseconds = output.TimeoutMilliseconds,
-                });
+                payload: executionResult.Output!);
         }
 
         return CommandResultFactory.FromExecutionError(UcliCommandNames.DaemonCleanup, executionResult.Error!);

@@ -1,9 +1,10 @@
 using System.Text.Json.Serialization;
-using MackySoft.Ucli.Contracts.Operations;
+
+using MackySoft.JsonSchema.Generation.Annotations;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
-[UcliDescription("Component entry in a GameObject description.")]
+[Description("Component entry in a GameObject description.")]
 public sealed record GameObjectComponentDescriptionResult
 {
     /// <summary> Initializes a component description. </summary>
@@ -14,7 +15,6 @@ public sealed record GameObjectComponentDescriptionResult
         TypeName = typeName;
     }
 
-    [UcliDescription("Component type name, or null when the component script is missing.")]
-    [UcliJsonAllowNull]
+    [Description("Component type name, or null when the component script is missing.")]
     public UnityComponentTypeId? TypeName { get; }
 }

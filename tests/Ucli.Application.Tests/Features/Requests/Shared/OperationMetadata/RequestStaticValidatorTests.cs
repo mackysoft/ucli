@@ -24,28 +24,10 @@ public sealed class RequestStaticValidatorTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Validate_AddsRequiredErrors_WhenStepsContainsNullElement ()
-    {
-        var validator = CreateValidator();
-        var request = CreateRequest(
-            steps:
-            [
-                null,
-            ]);
-
-        var result = await validator.ValidateAsync(request, ValidationUnityProject, CreateConfig(OperationPolicy.Safe, "^ucli\\."), CancellationToken.None);
-
-        Assert.False(result.IsValid);
-        AssertContainsError(result, ValidationErrorCodes.StepIdRequired);
-        AssertContainsError(result, ValidationErrorCodes.StepKindRequired);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
     public async Task Validate_AllowsEmptyStepsAsNoOpRequest ()
     {
         var validator = CreateValidator();
-        var request = CreateRequest(steps: Array.Empty<ValidateRequestStep?>());
+        var request = CreateRequest(steps: Array.Empty<ValidateRequestStep>());
 
         var result = await validator.ValidateAsync(request, ValidationUnityProject, CreateConfig(OperationPolicy.Safe, "^ucli\\."), CancellationToken.None);
 
@@ -62,7 +44,7 @@ public sealed class RequestStaticValidatorTests
         var request = CreateRequest(
             steps:
             [
-                CreateOpStep("step-1", "ucli.unknown", new
+                CreateOpStep(0, "ucli.unknown", new
                 {
                 }),
             ]);
@@ -85,7 +67,7 @@ public sealed class RequestStaticValidatorTests
         var validator = CreateValidator();
         var request = CreateRequest(
             protocolVersion: IpcProtocol.CurrentVersion + 1,
-            steps: Array.Empty<ValidateRequestStep?>());
+            steps: Array.Empty<ValidateRequestStep>());
 
         var result = await validator.ValidateAsync(request, ValidationUnityProject, CreateConfig(OperationPolicy.Safe, "^ucli\\."), CancellationToken.None);
 
@@ -102,11 +84,11 @@ public sealed class RequestStaticValidatorTests
         var request = CreateRequest(
             steps:
             [
-                CreateOpStep("step-1", UcliPrimitiveOperationNames.SceneOpen, new
+                CreateOpStep(0, UcliPrimitiveOperationNames.SceneOpen, new
                 {
                     path = "Assets/Scenes/Main.unity",
                 }),
-                CreateOpStep("step-2", UcliPrimitiveOperationNames.SceneTree, new
+                CreateOpStep(1, UcliPrimitiveOperationNames.SceneTree, new
                 {
                     path = "Assets/Scenes/Main.unity",
                 }),

@@ -16,15 +16,10 @@ internal static class InitCommandResultFactory
 
         if (executionResult.IsSuccess)
         {
-            var output = executionResult.Output!;
             return CommandResult.Success(
                 command: UcliCommandNames.Init,
                 message: "uCLI config template generation completed.",
-                payload: new
-                {
-                    configPath = output.ConfigPath,
-                    gitignorePath = output.GitIgnorePath,
-                });
+                payload: executionResult.Output!);
         }
 
         return CommandResultFactory.FromExecutionError(UcliCommandNames.Init, executionResult.Error!);

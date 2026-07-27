@@ -6,6 +6,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
+using MackySoft.Text.Vocabularies;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Phases;
 using MackySoft.Ucli.Unity.Execution.Requests;
@@ -34,11 +35,9 @@ namespace MackySoft.Ucli.Unity.Tests
             var requestOperation = CreateOperation(
                 opId: "op-create",
                 opName: UcliPrimitiveOperationNames.GoCreate,
-                args: new
-                {
-                    name = "CreatedRoot",
-                    scene = scenePath,
-                },
+                args: new GoCreateInSceneArgs(
+                    "CreatedRoot",
+                    new SceneAssetPath(scenePath)),
                 alias: "created",
                 sourceKind: NormalizedOperation.SourceStepKind.Edit);
             var context = scope.CreateExecutionContext();
@@ -72,14 +71,9 @@ namespace MackySoft.Ucli.Unity.Tests
             var requestOperation = CreateOperation(
                 opId: "op-create",
                 opName: UcliPrimitiveOperationNames.GoCreate,
-                args: new
-                {
-                    name = "CreatedChild",
-                    parent = new
-                    {
-                        @var = "parent",
-                    },
-                },
+                args: new GoCreateUnderParentArgs(
+                    "CreatedChild",
+                    new UcliAliasReferenceArgs(new UcliPlanAlias("parent"))),
                 alias: "created",
                 sourceKind: NormalizedOperation.SourceStepKind.Edit);
 
@@ -138,15 +132,11 @@ namespace MackySoft.Ucli.Unity.Tests
             var requestOperation = CreateOperation(
                 opId: "op-create",
                 opName: UcliPrimitiveOperationNames.GoCreate,
-                args: new
-                {
-                    name = "CreatedChild",
-                    parent = new
-                    {
-                        scene = scenePath,
-                        hierarchyPath = "Parent",
-                    },
-                });
+                args: new GoCreateUnderParentArgs(
+                    "CreatedChild",
+                    new SceneHierarchyReferenceArgs(
+                        new SceneAssetPath(scenePath),
+                        new UnityHierarchyPath("Parent"))));
 
             var result = await operation.CallAsync(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
 
@@ -171,14 +161,10 @@ namespace MackySoft.Ucli.Unity.Tests
             var requestOperation = CreateOperation(
                 opId: "op-delete",
                 opName: UcliPrimitiveOperationNames.GoDelete,
-                args: new
-                {
-                    target = new
-                    {
-                        scene = scenePath,
-                        hierarchyPath = "Root/Child",
-                    },
-                });
+                args: new GoTargetArgs(
+                    new SceneHierarchyReferenceArgs(
+                        new SceneAssetPath(scenePath),
+                        new UnityHierarchyPath("Root/Child"))));
 
             var result = await operation.CallAsync(requestOperation, context, CancellationToken.None);
 
@@ -207,19 +193,13 @@ namespace MackySoft.Ucli.Unity.Tests
             var requestOperation = CreateOperation(
                 opId: "op-reparent",
                 opName: UcliPrimitiveOperationNames.GoReparent,
-                args: new
-                {
-                    target = new
-                    {
-                        scene = scenePath,
-                        hierarchyPath = "Root/Child",
-                    },
-                    parent = new
-                    {
-                        scene = scenePath,
-                        hierarchyPath = "Container",
-                    },
-                });
+                args: new GoReparentArgs(
+                    new SceneHierarchyReferenceArgs(
+                        new SceneAssetPath(scenePath),
+                        new UnityHierarchyPath("Root/Child")),
+                    new SceneHierarchyReferenceArgs(
+                        new SceneAssetPath(scenePath),
+                        new UnityHierarchyPath("Container"))));
 
             var result = await operation.CallAsync(requestOperation, context, CancellationToken.None);
 
@@ -246,10 +226,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var openRequest = CreateOperation(
                 opId: "op-open",
                 opName: UcliPrimitiveOperationNames.SceneOpen,
-                args: new
-                {
-                    path = scenePath,
-                },
+                args: new ScenePathArgs(new SceneAssetPath(scenePath)),
                 sourceKind: NormalizedOperation.SourceStepKind.Edit);
             var openResult = await openOperation.PlanAsync(openRequest, context, CancellationToken.None);
 
@@ -257,11 +234,9 @@ namespace MackySoft.Ucli.Unity.Tests
             var requestOperation = CreateOperation(
                 opId: "op-create",
                 opName: UcliPrimitiveOperationNames.GoCreate,
-                args: new
-                {
-                    name = "CreatedRoot",
-                    scene = scenePath,
-                },
+                args: new GoCreateInSceneArgs(
+                    "CreatedRoot",
+                    new SceneAssetPath(scenePath)),
                 alias: "created",
                 sourceKind: NormalizedOperation.SourceStepKind.Edit);
 
@@ -285,12 +260,11 @@ namespace MackySoft.Ucli.Unity.Tests
                 opName: UcliPrimitiveOperationNames.GoCreate,
                 args: new
                 {
+                    kind = Vocabulary.GetText(GoCreatePlacementKind.Scene),
                     name = "CreatedRoot",
                     scene = "Assets/Scenes/Main.unity",
-                    parent = new
-                    {
-                        @var = "parent",
-                    },
+                    parent = IpcPayloadCodec.SerializeToElement<GameObjectReferenceArgs>(
+                        new UcliAliasReferenceArgs(new UcliPlanAlias("parent"))),
                 },
                 sourceKind: NormalizedOperation.SourceStepKind.Edit);
 
@@ -310,6 +284,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 opName: UcliPrimitiveOperationNames.GoCreate,
                 args: new
                 {
+                    kind = Vocabulary.GetText(GoCreatePlacementKind.Scene),
                     name = "CreatedRoot",
                 });
 
@@ -331,11 +306,10 @@ namespace MackySoft.Ucli.Unity.Tests
                 opName: UcliPrimitiveOperationNames.GoCreate,
                 args: new
                 {
+                    kind = Vocabulary.GetText(GoCreatePlacementKind.Parent),
                     name = "CreatedChild",
-                    parent = new
-                    {
-                        assetPath,
-                    },
+                    parent = IpcPayloadCodec.SerializeToElement<UnityObjectReferenceArgs>(
+                        new AssetPathReferenceArgs(new UnityAssetPath(assetPath))),
                 });
 
             var result = await operation.ValidateAsync(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
@@ -359,14 +333,9 @@ namespace MackySoft.Ucli.Unity.Tests
             var requestOperation = CreateOperation(
                 opId: "op-describe",
                 opName: UcliPrimitiveOperationNames.GoDescribe,
-                args: new
-                {
-                    target = new
-                    {
-                        @var = "target",
-                    },
-                    depth = 1,
-                },
+                args: new GoDescribeArgs(
+                    new UcliAliasReferenceArgs(new UcliPlanAlias("target")),
+                    depth: 1),
                 sourceKind: NormalizedOperation.SourceStepKind.Edit);
 
             var result = await operation.PlanAsync(requestOperation, context, CancellationToken.None);
@@ -389,14 +358,11 @@ namespace MackySoft.Ucli.Unity.Tests
             var requestOperation = CreateOperation(
                 opId: "op-describe",
                 opName: UcliPrimitiveOperationNames.GoDescribe,
-                args: new
-                {
-                    target = new
-                    {
-                        scene = scenePath,
-                        hierarchyPath = "Root/Child",
-                    },
-                });
+                args: new GoDescribeArgs(
+                    new SceneHierarchyReferenceArgs(
+                        new SceneAssetPath(scenePath),
+                        new UnityHierarchyPath("Root/Child")),
+                    depth: null));
 
             var result = await operation.PlanAsync(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
 
@@ -422,29 +388,22 @@ namespace MackySoft.Ucli.Unity.Tests
             var ensureRequest = CreateOperation(
                 opId: "op-ensure",
                 opName: UcliPrimitiveOperationNames.CompEnsure,
-                args: new
-                {
-                    target = new
-                    {
-                        scene = scenePath,
-                        hierarchyPath = "Root",
-                    },
-                    type = "UnityEngine.BoxCollider, UnityEngine.PhysicsModule",
-                });
+                args: new ComponentEnsureArgs(
+                    new SceneHierarchyReferenceArgs(
+                        new SceneAssetPath(scenePath),
+                        new UnityHierarchyPath("Root")),
+                    new UnityComponentTypeId("UnityEngine.BoxCollider, UnityEngine.PhysicsModule")));
             var ensureResult = await ensureOperation.PlanAsync(ensureRequest, context, CancellationToken.None);
             AssertSuccess(ensureResult, applied: false, changed: true);
 
             var describeRequest = CreateOperation(
                 opId: "op-describe",
                 opName: UcliPrimitiveOperationNames.GoDescribe,
-                args: new
-                {
-                    target = new
-                    {
-                        scene = scenePath,
-                        hierarchyPath = "Root",
-                    },
-                });
+                args: new GoDescribeArgs(
+                    new SceneHierarchyReferenceArgs(
+                        new SceneAssetPath(scenePath),
+                        new UnityHierarchyPath("Root")),
+                    depth: null));
 
             var describeResult = await describeOperation.PlanAsync(describeRequest, context, CancellationToken.None);
 
@@ -482,14 +441,11 @@ namespace MackySoft.Ucli.Unity.Tests
             var requestOperation = CreateOperation(
                 opId: "op-describe",
                 opName: UcliPrimitiveOperationNames.GoDescribe,
-                args: new
-                {
-                    target = new
-                    {
-                        prefab = prefabPath,
-                        hierarchyPath = $"{temporaryRoot.name}/Renamed",
-                    },
-                });
+                args: new GoDescribeArgs(
+                    new PrefabHierarchyReferenceArgs(
+                        new PrefabAssetPath(prefabPath),
+                        new UnityHierarchyPath($"{temporaryRoot.name}/Renamed")),
+                    depth: null));
 
             var result = await operation.PlanAsync(requestOperation, context, CancellationToken.None);
 
@@ -525,14 +481,11 @@ namespace MackySoft.Ucli.Unity.Tests
             var requestOperation = CreateOperation(
                 opId: "op-describe",
                 opName: UcliPrimitiveOperationNames.GoDescribe,
-                args: new
-                {
-                    target = new
-                    {
-                        scene = scenePath,
-                        hierarchyPath = "Root/Child",
-                    },
-                });
+                args: new GoDescribeArgs(
+                    new SceneHierarchyReferenceArgs(
+                        new SceneAssetPath(scenePath),
+                        new UnityHierarchyPath("Root/Child")),
+                    depth: null));
 
             var result = await operation.PlanAsync(requestOperation, context, CancellationToken.None);
 
@@ -579,14 +532,11 @@ namespace MackySoft.Ucli.Unity.Tests
             var requestOperation = CreateOperation(
                 opId: "op-describe",
                 opName: UcliPrimitiveOperationNames.GoDescribe,
-                args: new
-                {
-                    target = new
-                    {
-                        prefab = prefabPath,
-                        hierarchyPath = $"{temporaryRoot.name}/Child",
-                    },
-                });
+                args: new GoDescribeArgs(
+                    new PrefabHierarchyReferenceArgs(
+                        new PrefabAssetPath(prefabPath),
+                        new UnityHierarchyPath($"{temporaryRoot.name}/Child")),
+                    depth: null));
 
             var result = await operation.PlanAsync(requestOperation, context, CancellationToken.None);
 
@@ -603,14 +553,9 @@ namespace MackySoft.Ucli.Unity.Tests
             var requestOperation = CreateOperation(
                 opId: "op-describe",
                 opName: UcliPrimitiveOperationNames.GoDescribe,
-                args: new
-                {
-                    target = new
-                    {
-                        @var = "target",
-                    },
-                    depth = -1,
-                },
+                args: new GoDescribeArgs(
+                    new UcliAliasReferenceArgs(new UcliPlanAlias("target")),
+                    depth: -1),
                 sourceKind: NormalizedOperation.SourceStepKind.Edit);
 
             using var executionContext = new OperationExecutionContext();
@@ -631,10 +576,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 opName: UcliPrimitiveOperationNames.GoDescribe,
                 args: new
                 {
-                    target = new
-                    {
-                        assetPath,
-                    },
+                    target = IpcPayloadCodec.SerializeToElement<UnityObjectReferenceArgs>(
+                        new AssetPathReferenceArgs(new UnityAssetPath(assetPath))),
                 });
 
             var result = await operation.ValidateAsync(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
@@ -655,11 +598,9 @@ namespace MackySoft.Ucli.Unity.Tests
             var requestOperation = CreateOperation(
                 opId: "op-create",
                 opName: UcliPrimitiveOperationNames.GoCreate,
-                args: new
-                {
-                    name = "CreatedRoot",
-                    scene = scenePath,
-                },
+                args: new GoCreateInSceneArgs(
+                    "CreatedRoot",
+                    new SceneAssetPath(scenePath)),
                 sourceKind: NormalizedOperation.SourceStepKind.Edit);
 
             var result = await operation.PlanAsync(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
@@ -680,11 +621,9 @@ namespace MackySoft.Ucli.Unity.Tests
             var requestOperation = CreateOperation(
                 opId: "op-create",
                 opName: UcliPrimitiveOperationNames.GoCreate,
-                args: new
-                {
-                    name = "CreatedRoot",
-                    scene = scenePath,
-                },
+                args: new GoCreateInSceneArgs(
+                    "CreatedRoot",
+                    new SceneAssetPath(scenePath)),
                 sourceKind: NormalizedOperation.SourceStepKind.Edit);
             var context = scope.CreateExecutionContext();
 
@@ -709,15 +648,11 @@ namespace MackySoft.Ucli.Unity.Tests
             var requestOperation = CreateOperation(
                 opId: "op-create",
                 opName: UcliPrimitiveOperationNames.GoCreate,
-                args: new
-                {
-                    name = "CreatedChild",
-                    parent = new
-                    {
-                        scene = scenePath,
-                        hierarchyPath = parent.name,
-                    },
-                },
+                args: new GoCreateUnderParentArgs(
+                    "CreatedChild",
+                    new SceneHierarchyReferenceArgs(
+                        new SceneAssetPath(scenePath),
+                        new UnityHierarchyPath(parent.name))),
                 sourceKind: NormalizedOperation.SourceStepKind.Edit);
             var context = scope.CreateExecutionContext();
 
@@ -746,10 +681,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var openRequest = CreateOperation(
                 opId: "op-open",
                 opName: UcliPrimitiveOperationNames.SceneOpen,
-                args: new
-                {
-                    path = scenePath,
-                },
+                args: new ScenePathArgs(new SceneAssetPath(scenePath)),
                 sourceKind: NormalizedOperation.SourceStepKind.Edit);
             var openResult = await openOperation.PlanAsync(openRequest, context, CancellationToken.None);
 
@@ -758,11 +690,9 @@ namespace MackySoft.Ucli.Unity.Tests
             var createRequest = CreateOperation(
                 opId: "op-create",
                 opName: UcliPrimitiveOperationNames.GoCreate,
-                args: new
-                {
-                    name = "CreatedRoot",
-                    scene = scenePath,
-                });
+                args: new GoCreateInSceneArgs(
+                    "CreatedRoot",
+                    new SceneAssetPath(scenePath)));
 
             var createResult = await createOperation.CallAsync(createRequest, context, CancellationToken.None);
 
@@ -788,10 +718,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var openRequest = CreateOperation(
                 opId: "op-open",
                 opName: UcliPrimitiveOperationNames.SceneOpen,
-                args: new
-                {
-                    path = scenePath,
-                },
+                args: new ScenePathArgs(new SceneAssetPath(scenePath)),
                 sourceKind: NormalizedOperation.SourceStepKind.Edit);
             var openResult = await openOperation.PlanAsync(openRequest, context, CancellationToken.None);
 
@@ -800,14 +727,10 @@ namespace MackySoft.Ucli.Unity.Tests
             var deleteRequest = CreateOperation(
                 opId: "op-delete",
                 opName: UcliPrimitiveOperationNames.GoDelete,
-                args: new
-                {
-                    target = new
-                    {
-                        scene = scenePath,
-                        hierarchyPath = "Root/Child",
-                    },
-                },
+                args: new GoTargetArgs(
+                    new SceneHierarchyReferenceArgs(
+                        new SceneAssetPath(scenePath),
+                        new UnityHierarchyPath("Root/Child"))),
                 sourceKind: NormalizedOperation.SourceStepKind.Edit);
             var deleteResult = await deleteOperation.PlanAsync(deleteRequest, context, CancellationToken.None);
 
@@ -816,14 +739,11 @@ namespace MackySoft.Ucli.Unity.Tests
             var describeRequest = CreateOperation(
                 opId: "op-describe",
                 opName: UcliPrimitiveOperationNames.GoDescribe,
-                args: new
-                {
-                    target = new
-                    {
-                        scene = scenePath,
-                        hierarchyPath = "Root/Child",
-                    },
-                });
+                args: new GoDescribeArgs(
+                    new SceneHierarchyReferenceArgs(
+                        new SceneAssetPath(scenePath),
+                        new UnityHierarchyPath("Root/Child")),
+                    depth: null));
 
             var describeResult = await describeOperation.PlanAsync(describeRequest, context, CancellationToken.None);
 
@@ -845,14 +765,10 @@ namespace MackySoft.Ucli.Unity.Tests
             var deleteRequest = CreateOperation(
                 opId: "op-delete",
                 opName: UcliPrimitiveOperationNames.GoDelete,
-                args: new
-                {
-                    target = new
-                    {
-                        scene = scenePath,
-                        hierarchyPath = "Root/Child",
-                    },
-                });
+                args: new GoTargetArgs(
+                    new SceneHierarchyReferenceArgs(
+                        new SceneAssetPath(scenePath),
+                        new UnityHierarchyPath("Root/Child"))));
             var context = scope.CreateExecutionContext();
 
             var deleteResult = await deleteOperation.PlanAsync(deleteRequest, context, CancellationToken.None);
@@ -878,10 +794,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var openRequest = CreateOperation(
                 opId: "op-open",
                 opName: UcliPrimitiveOperationNames.SceneOpen,
-                args: new
-                {
-                    path = scenePath,
-                },
+                args: new ScenePathArgs(new SceneAssetPath(scenePath)),
                 sourceKind: NormalizedOperation.SourceStepKind.Edit);
             var openResult = await openOperation.PlanAsync(openRequest, context, CancellationToken.None);
 
@@ -890,14 +803,10 @@ namespace MackySoft.Ucli.Unity.Tests
             var deleteRequest = CreateOperation(
                 opId: "op-delete",
                 opName: UcliPrimitiveOperationNames.GoDelete,
-                args: new
-                {
-                    target = new
-                    {
-                        scene = scenePath,
-                        hierarchyPath = "Root",
-                    },
-                });
+                args: new GoTargetArgs(
+                    new SceneHierarchyReferenceArgs(
+                        new SceneAssetPath(scenePath),
+                        new UnityHierarchyPath("Root"))));
 
             var deleteResult = await deleteOperation.CallAsync(deleteRequest, context, CancellationToken.None);
 
@@ -918,10 +827,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var openRequest = CreateOperation(
                 opId: "op-open",
                 opName: UcliPrimitiveOperationNames.PrefabOpen,
-                args: new
-                {
-                    path = prefabPath,
-                },
+                args: new PrefabPathArgs(new PrefabAssetPath(prefabPath)),
                 sourceKind: NormalizedOperation.SourceStepKind.Edit);
             var openResult = await openOperation.PlanAsync(openRequest, context, CancellationToken.None);
 
@@ -930,14 +836,10 @@ namespace MackySoft.Ucli.Unity.Tests
             var deleteRequest = CreateOperation(
                 opId: "op-delete",
                 opName: UcliPrimitiveOperationNames.GoDelete,
-                args: new
-                {
-                    target = new
-                    {
-                        prefab = prefabPath,
-                        hierarchyPath = prefabRootName,
-                    },
-                },
+                args: new GoTargetArgs(
+                    new PrefabHierarchyReferenceArgs(
+                        new PrefabAssetPath(prefabPath),
+                        new UnityHierarchyPath(prefabRootName))),
                 sourceKind: NormalizedOperation.SourceStepKind.Edit);
 
             var deleteResult = await deleteOperation.PlanAsync(deleteRequest, context, CancellationToken.None);
@@ -960,10 +862,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var openRequest = CreateOperation(
                 opId: "op-open",
                 opName: UcliPrimitiveOperationNames.PrefabOpen,
-                args: new
-                {
-                    path = prefabPath,
-                });
+                args: new PrefabPathArgs(new PrefabAssetPath(prefabPath)));
             var openResult = await openOperation.CallAsync(openRequest, context, CancellationToken.None);
 
             Assert.That(openResult.IsSuccess, Is.True);
@@ -971,14 +870,10 @@ namespace MackySoft.Ucli.Unity.Tests
             var deleteRequest = CreateOperation(
                 opId: "op-delete",
                 opName: UcliPrimitiveOperationNames.GoDelete,
-                args: new
-                {
-                    target = new
-                    {
-                        prefab = prefabPath,
-                        hierarchyPath = prefabRootName,
-                    },
-                });
+                args: new GoTargetArgs(
+                    new PrefabHierarchyReferenceArgs(
+                        new PrefabAssetPath(prefabPath),
+                        new UnityHierarchyPath(prefabRootName))));
 
             var deleteResult = await deleteOperation.CallAsync(deleteRequest, context, CancellationToken.None);
 
@@ -1002,19 +897,13 @@ namespace MackySoft.Ucli.Unity.Tests
             var reparentRequest = CreateOperation(
                 opId: "op-reparent",
                 opName: UcliPrimitiveOperationNames.GoReparent,
-                args: new
-                {
-                    target = new
-                    {
-                        scene = scenePath,
-                        hierarchyPath = "Root/Child",
-                    },
-                    parent = new
-                    {
-                        scene = scenePath,
-                        hierarchyPath = "Container",
-                    },
-                });
+                args: new GoReparentArgs(
+                    new SceneHierarchyReferenceArgs(
+                        new SceneAssetPath(scenePath),
+                        new UnityHierarchyPath("Root/Child")),
+                    new SceneHierarchyReferenceArgs(
+                        new SceneAssetPath(scenePath),
+                        new UnityHierarchyPath("Container"))));
             var context = scope.CreateExecutionContext();
 
             var reparentResult = await reparentOperation.PlanAsync(reparentRequest, context, CancellationToken.None);
@@ -1044,10 +933,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var openRequest = CreateOperation(
                 opId: "op-open",
                 opName: UcliPrimitiveOperationNames.SceneOpen,
-                args: new
-                {
-                    path = scenePath,
-                },
+                args: new ScenePathArgs(new SceneAssetPath(scenePath)),
                 sourceKind: NormalizedOperation.SourceStepKind.Edit);
             var openResult = await openOperation.PlanAsync(openRequest, context, CancellationToken.None);
 
@@ -1056,19 +942,13 @@ namespace MackySoft.Ucli.Unity.Tests
             var reparentRequest = CreateOperation(
                 opId: "op-reparent",
                 opName: UcliPrimitiveOperationNames.GoReparent,
-                args: new
-                {
-                    target = new
-                    {
-                        scene = scenePath,
-                        hierarchyPath = "Root/Child",
-                    },
-                    parent = new
-                    {
-                        scene = scenePath,
-                        hierarchyPath = "Container",
-                    },
-                },
+                args: new GoReparentArgs(
+                    new SceneHierarchyReferenceArgs(
+                        new SceneAssetPath(scenePath),
+                        new UnityHierarchyPath("Root/Child")),
+                    new SceneHierarchyReferenceArgs(
+                        new SceneAssetPath(scenePath),
+                        new UnityHierarchyPath("Container"))),
                 sourceKind: NormalizedOperation.SourceStepKind.Edit);
 
             var reparentResult = await reparentOperation.PlanAsync(reparentRequest, context, CancellationToken.None);
@@ -1078,14 +958,11 @@ namespace MackySoft.Ucli.Unity.Tests
             var newPathDescribe = CreateOperation(
                 opId: "op-describe-new",
                 opName: UcliPrimitiveOperationNames.GoDescribe,
-                args: new
-                {
-                    target = new
-                    {
-                        scene = scenePath,
-                        hierarchyPath = "Container/Child",
-                    },
-                });
+                args: new GoDescribeArgs(
+                    new SceneHierarchyReferenceArgs(
+                        new SceneAssetPath(scenePath),
+                        new UnityHierarchyPath("Container/Child")),
+                    depth: null));
             var newPathResult = await describeOperation.PlanAsync(newPathDescribe, context, CancellationToken.None);
 
             AssertSuccess(newPathResult, applied: false, changed: false, expectedTouchKind: null);
@@ -1095,14 +972,11 @@ namespace MackySoft.Ucli.Unity.Tests
             var oldPathDescribe = CreateOperation(
                 opId: "op-describe-old",
                 opName: UcliPrimitiveOperationNames.GoDescribe,
-                args: new
-                {
-                    target = new
-                    {
-                        scene = scenePath,
-                        hierarchyPath = "Root/Child",
-                    },
-                });
+                args: new GoDescribeArgs(
+                    new SceneHierarchyReferenceArgs(
+                        new SceneAssetPath(scenePath),
+                        new UnityHierarchyPath("Root/Child")),
+                    depth: null));
             var oldPathResult = await describeOperation.PlanAsync(oldPathDescribe, context, CancellationToken.None);
 
             AssertInvalidArgument(oldPathResult, "op-describe-old");
@@ -1126,10 +1000,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var openRequest = CreateOperation(
                 opId: "op-open",
                 opName: UcliPrimitiveOperationNames.SceneOpen,
-                args: new
-                {
-                    path = scenePath,
-                },
+                args: new ScenePathArgs(new SceneAssetPath(scenePath)),
                 sourceKind: NormalizedOperation.SourceStepKind.Edit);
             var openResult = await openOperation.PlanAsync(openRequest, context, CancellationToken.None);
 
@@ -1138,19 +1009,13 @@ namespace MackySoft.Ucli.Unity.Tests
             var reparentRequest = CreateOperation(
                 opId: "op-reparent",
                 opName: UcliPrimitiveOperationNames.GoReparent,
-                args: new
-                {
-                    target = new
-                    {
-                        scene = scenePath,
-                        hierarchyPath = "Root/Child",
-                    },
-                    parent = new
-                    {
-                        scene = scenePath,
-                        hierarchyPath = "Root",
-                    },
-                },
+                args: new GoReparentArgs(
+                    new SceneHierarchyReferenceArgs(
+                        new SceneAssetPath(scenePath),
+                        new UnityHierarchyPath("Root/Child")),
+                    new SceneHierarchyReferenceArgs(
+                        new SceneAssetPath(scenePath),
+                        new UnityHierarchyPath("Root"))),
                 sourceKind: NormalizedOperation.SourceStepKind.Edit);
 
             var reparentResult = await reparentOperation.PlanAsync(reparentRequest, context, CancellationToken.None);
@@ -1178,19 +1043,13 @@ namespace MackySoft.Ucli.Unity.Tests
             var reparentRequest = CreateOperation(
                 opId: "op-reparent",
                 opName: UcliPrimitiveOperationNames.GoReparent,
-                args: new
-                {
-                    target = new
-                    {
-                        scene = scenePath,
-                        hierarchyPath = "Root/Child",
-                    },
-                    parent = new
-                    {
-                        scene = scenePath,
-                        hierarchyPath = "Root",
-                    },
-                });
+                args: new GoReparentArgs(
+                    new SceneHierarchyReferenceArgs(
+                        new SceneAssetPath(scenePath),
+                        new UnityHierarchyPath("Root/Child")),
+                    new SceneHierarchyReferenceArgs(
+                        new SceneAssetPath(scenePath),
+                        new UnityHierarchyPath("Root"))));
 
             var reparentResult = await reparentOperation.CallAsync(reparentRequest, context, CancellationToken.None);
 
@@ -1218,10 +1077,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var openRequest = CreateOperation(
                 opId: "op-open",
                 opName: UcliPrimitiveOperationNames.SceneOpen,
-                args: new
-                {
-                    path = scenePath,
-                },
+                args: new ScenePathArgs(new SceneAssetPath(scenePath)),
                 sourceKind: NormalizedOperation.SourceStepKind.Edit);
             var openResult = await openOperation.PlanAsync(openRequest, context, CancellationToken.None);
 
@@ -1230,11 +1086,9 @@ namespace MackySoft.Ucli.Unity.Tests
             var createRequest = CreateOperation(
                 opId: "op-create",
                 opName: UcliPrimitiveOperationNames.GoCreate,
-                args: new
-                {
-                    name = "CreatedRoot",
-                    scene = scenePath,
-                },
+                args: new GoCreateInSceneArgs(
+                    "CreatedRoot",
+                    new SceneAssetPath(scenePath)),
                 sourceKind: NormalizedOperation.SourceStepKind.Edit);
 
             var createResult = await createOperation.PlanAsync(createRequest, context, CancellationToken.None);
@@ -1244,14 +1098,11 @@ namespace MackySoft.Ucli.Unity.Tests
             var describeRequest = CreateOperation(
                 opId: "op-describe",
                 opName: UcliPrimitiveOperationNames.GoDescribe,
-                args: new
-                {
-                    target = new
-                    {
-                        scene = scenePath,
-                        hierarchyPath = "CreatedRoot",
-                    },
-                });
+                args: new GoDescribeArgs(
+                    new SceneHierarchyReferenceArgs(
+                        new SceneAssetPath(scenePath),
+                        new UnityHierarchyPath("CreatedRoot")),
+                    depth: null));
             var describeResult = await describeOperation.PlanAsync(describeRequest, context, CancellationToken.None);
 
             AssertSuccess(describeResult, applied: false, changed: false, expectedTouchKind: null);
@@ -1287,16 +1138,49 @@ namespace MackySoft.Ucli.Unity.Tests
         private static NormalizedOperation CreateOperation (
             string opId,
             string opName,
+            GoCreateArgs args,
+            string? alias = null,
+            NormalizedOperation.SourceStepKind sourceKind = NormalizedOperation.SourceStepKind.Op)
+        {
+            return CreateOperation(
+                opId,
+                opName,
+                IpcPayloadCodec.SerializeToElement<GoCreateArgs>(args),
+                alias,
+                sourceKind);
+        }
+
+        private static NormalizedOperation CreateOperation (
+            string opId,
+            string opName,
             object args,
             string? alias = null,
             NormalizedOperation.SourceStepKind sourceKind = NormalizedOperation.SourceStepKind.Op)
+        {
+            return CreateOperation(
+                opId,
+                opName,
+                JsonSerializer.SerializeToElement(
+                    args,
+                    args.GetType(),
+                    IpcJsonSerializerOptions.Default),
+                alias,
+                sourceKind);
+        }
+
+        private static NormalizedOperation CreateOperation (
+            string opId,
+            string opName,
+            JsonElement args,
+            string? alias,
+            NormalizedOperation.SourceStepKind sourceKind)
         {
             return new NormalizedOperation(
                 ExecutionKey: sourceKind == NormalizedOperation.SourceStepKind.Edit
                     ? OperationExecutionKey.ForEditPrimitive(new IpcExecuteStepId(opId), primitiveIndex: 0)
                     : OperationExecutionKey.ForRawStep(new IpcExecuteStepId(opId)),
                 Op: opName,
-                Args: JsonSerializer.SerializeToElement(args),
+                Args: args,
                 As: alias == null
                     ? null
                     : RequestLocalAliasIdentity.FromPublicAlias(new UcliPlanAlias(alias)),

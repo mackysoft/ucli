@@ -49,7 +49,6 @@ internal static class RefreshCommandAssert
                     .HasString("unityVersion", ProjectIdentityInfoTestFactory.UnityVersion))
                 .HasArrayLength("opResults", 1)
                 .HasProperty("opResults", 0, op => op
-                    .HasString("opId", "refresh")
                     .HasString("op", UcliPrimitiveOperationNames.ProjectRefresh)
                     .HasString("phase", "call")
                     .HasBoolean("applied", true)

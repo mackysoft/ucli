@@ -1,10 +1,10 @@
 using System.Text.Json.Serialization;
-using MackySoft.Ucli.Contracts.Operations;
+using MackySoft.JsonSchema.Generation.Annotations;
 
 namespace MackySoft.Ucli.Contracts.Index;
 
 /// <summary> Represents one schema property entry contract in <c>schemas.catalog.json</c>. </summary>
-[UcliDescription("Serialized object schema property entry.")]
+[Description("Serialized object schema property entry.")]
 internal sealed record IndexSchemaPropertyEntryJsonContract
 {
     [JsonConstructor]
@@ -25,32 +25,30 @@ internal sealed record IndexSchemaPropertyEntryJsonContract
     }
 
     /// <summary> Gets the normalized <c>SerializedProperty.propertyPath</c> value. </summary>
-    [UcliRequired]
-    [UcliDescription("SerializedProperty path.")]
+    [JsonRequired]
+    [Description("SerializedProperty path.")]
     public string? Path { get; init; }
 
     /// <summary> Gets the property-type literal value. </summary>
-    [UcliRequired]
-    [UcliDescription("SerializedProperty type literal.")]
+    [JsonRequired]
+    [Description("SerializedProperty type literal.")]
     public string? PropertyType { get; init; }
 
     /// <summary> Gets the declared-type identifier value. </summary>
-    [UcliDescription("Declared managed type identifier when available.")]
-    [UcliJsonAllowNull]
+    [Description("Declared managed type identifier when available.")]
     public string? DeclaredTypeId { get; init; }
 
     /// <summary> Gets a value indicating whether property value is an array-like collection. </summary>
-    [UcliRequired]
-    [UcliDescription("Whether the property is array-like.")]
+    [JsonRequired]
+    [Description("Whether the property is array-like.")]
     public bool IsArray { get; init; }
 
     /// <summary> Gets the element-type identifier for array-like values. </summary>
-    [UcliDescription("Array element type identifier when available.")]
-    [UcliJsonAllowNull]
+    [Description("Array element type identifier when available.")]
     public string? ElementTypeId { get; init; }
 
     /// <summary> Gets a value indicating whether set-style operations must treat this property as read-only. </summary>
-    [UcliRequired]
-    [UcliDescription("Whether set-style operations must treat this property as read-only.")]
+    [JsonRequired]
+    [Description("Whether set-style operations must treat this property as read-only.")]
     public bool IsReadOnly { get; init; }
 }

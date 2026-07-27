@@ -43,7 +43,7 @@ public sealed class OperationExecuteServiceFailureTests
         Assert.Empty(result.OpResults);
         var error = Assert.Single(result.Errors);
         Assert.Equal(OperationAuthorizationErrorCodes.OperationNotAllowed, error.Code);
-        Assert.Equal("refresh", error.OpId?.Value);
+        Assert.Null(error.InstancePath);
     }
 
     [Theory]
@@ -134,7 +134,7 @@ public sealed class OperationExecuteServiceFailureTests
                     new IpcError(
                         UcliCoreErrorCodes.InvalidArgument,
                         "refresh failed",
-                        new IpcExecuteStepId("refresh")),
+                        "/steps/0"),
                 ])));
         var service = OperationExecuteServiceTestSupport.CreateService(
             projectContextResolver,
@@ -155,7 +155,7 @@ public sealed class OperationExecuteServiceFailureTests
         Assert.Single(result.OpResults);
         var error = Assert.Single(result.Errors);
         Assert.Equal(UcliCoreErrorCodes.InvalidArgument, error.Code);
-        Assert.Equal("refresh", error.OpId?.Value);
+        Assert.Equal("/steps/0", error.InstancePath);
     }
 
     [Fact]

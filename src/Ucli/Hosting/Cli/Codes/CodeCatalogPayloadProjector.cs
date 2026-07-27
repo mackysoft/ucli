@@ -1,6 +1,7 @@
 using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
 using MackySoft.Ucli.Application.Features.CodeCatalog.Catalog;
-using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 
 namespace MackySoft.Ucli.Hosting.Cli.Codes;
 
@@ -9,13 +10,18 @@ internal static class CodeCatalogPayloadProjector
 {
     private const int CatalogVersion = 1;
 
-    private const string Source = "bundled";
-
-    private static readonly IReadOnlyList<string> ListedKindLiterals = Enum
+    private static readonly IReadOnlyList<CodeCatalogKind> ListedKinds = Enum
         .GetValues<CodeCatalogKind>()
         .Where(static kind => kind != CodeCatalogKind.Unknown)
-        .Select(TextVocabulary.GetText)
         .ToArray();
+
+    /// <summary> Gets the serializer contract used by <c>codes list</c> payloads. </summary>
+    public static JsonTypeInfo ListPayloadTypeInfo { get; } =
+        CliOutputJsonSerializerOptions.Default.GetTypeInfo(typeof(ListPayload));
+
+    /// <summary> Gets the serializer contract used by <c>codes describe</c> payloads. </summary>
+    public static JsonTypeInfo DescribePayloadTypeInfo { get; } =
+        CliOutputJsonSerializerOptions.Default.GetTypeInfo(typeof(DescribePayload));
 
     /// <summary> Creates the public payload for <c>codes list</c>. </summary>
     /// <param name="result"> The successful application list result. </param>
@@ -26,11 +32,11 @@ internal static class CodeCatalogPayloadProjector
 
         return new ListPayload(
             CatalogVersion,
-            Source,
-            ListedKindLiterals,
+            CodeCatalogSource.Bundled,
+            ListedKinds,
             result.Descriptors!.Select(static descriptor => new CodeListItemPayload(
                 descriptor.Code.Value,
-                TextVocabulary.GetText(descriptor.Kind),
+                descriptor.Kind,
                 descriptor.Category,
                 descriptor.Summary)).ToArray());
     }
@@ -46,7 +52,7 @@ internal static class CodeCatalogPayloadProjector
         return new DescribePayload(
             descriptor.Code.Value,
             result.Known,
-            TextVocabulary.GetText(descriptor.Kind),
+            descriptor.Kind,
             descriptor.Category,
             descriptor.Summary,
             descriptor.Meaning,
@@ -66,20 +72,20 @@ internal static class CodeCatalogPayloadProjector
 
     private sealed record ListPayload (
         int CatalogVersion,
-        string Source,
-        IReadOnlyList<string> Kinds,
+        CodeCatalogSource Source,
+        IReadOnlyList<CodeCatalogKind> Kinds,
         IReadOnlyList<CodeListItemPayload> Codes);
 
     private sealed record CodeListItemPayload (
         string Code,
-        string Kind,
+        CodeCatalogKind Kind,
         string Category,
         string Summary);
 
     private sealed record DescribePayload (
         string Code,
         bool Known,
-        string Kind,
+        CodeCatalogKind Kind,
         string Category,
         string Summary,
         [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

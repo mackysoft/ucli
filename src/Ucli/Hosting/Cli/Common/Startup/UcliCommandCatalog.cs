@@ -3,6 +3,7 @@ using MackySoft.AgentSkills.ConsoleAppFramework;
 using MackySoft.Ucli.Hosting.Cli.Assurance;
 using MackySoft.Ucli.Hosting.Cli.Codes;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
+using MackySoft.Ucli.Hosting.Cli.Common.Startup.OutputContracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Tokens;
 using MackySoft.Ucli.Hosting.Cli.Daemon;
 using MackySoft.Ucli.Hosting.Cli.Daemon.Logs;
@@ -10,6 +11,7 @@ using MackySoft.Ucli.Hosting.Cli.Init;
 using MackySoft.Ucli.Hosting.Cli.Ops;
 using MackySoft.Ucli.Hosting.Cli.Play;
 using MackySoft.Ucli.Hosting.Cli.Requests;
+using MackySoft.Ucli.Hosting.Cli.Schemas;
 using MackySoft.Ucli.Hosting.Cli.Screenshot;
 using MackySoft.Ucli.Hosting.Cli.Status;
 using MackySoft.Ucli.Hosting.Cli.Testing;
@@ -19,157 +21,24 @@ namespace MackySoft.Ucli.Hosting.Cli.Common.Startup;
 /// <summary> Provides the single catalog for public CLI registration and pre-dispatch metadata. </summary>
 internal static class UcliCommandCatalog
 {
-    private static readonly string[] StandaloneCommands =
-    [
-        UcliCommandNames.Init,
-        UcliCommandNames.Status,
-        UcliCommandNames.Ready,
-        UcliCommandNames.Compile,
-        UcliCommandNames.Verify,
-        UcliCommandNames.Refresh,
-        UcliCommandNames.Resolve,
-        UcliCommandNames.Validate,
-        UcliCommandNames.Plan,
-        UcliCommandNames.Call,
-        UcliCommandNames.Eval,
-    ];
+    private static readonly StandaloneCommandEntry[] StandaloneCommands =
+        UcliCommandCatalogDefinition.StandaloneCommands;
 
-    private static readonly CommandGroupEntry DaemonCommandGroup = new(
-        UcliCommandNames.Daemon,
-        [
-            new CommandLeafEntry(UcliCommandNames.StartSubcommand, UcliCommandNames.DaemonStart),
-            new CommandLeafEntry(UcliCommandNames.StopSubcommand, UcliCommandNames.DaemonStop),
-            new CommandLeafEntry(UcliCommandNames.CleanupSubcommand, UcliCommandNames.DaemonCleanup),
-            new CommandLeafEntry(UcliCommandNames.Status, UcliCommandNames.DaemonStatus),
-            new CommandLeafEntry(UcliCommandNames.ListSubcommand, UcliCommandNames.DaemonList),
-        ],
-        []);
-
-    private static readonly CommandGroupEntry LogsCommandGroup = new(
-        UcliCommandNames.Logs,
-        [],
-        [
-            new NestedCommandGroupEntry(
-                UcliCommandNames.Daemon,
-                [new CommandLeafEntry(UcliCommandNames.ReadSubcommand, UcliCommandNames.LogsDaemonRead)]),
-            new NestedCommandGroupEntry(
-                UcliCommandNames.UnitySubcommand,
-                [
-                    new CommandLeafEntry(UcliCommandNames.ReadSubcommand, UcliCommandNames.LogsUnityRead),
-                    new CommandLeafEntry(UcliCommandNames.ClearSubcommand, UcliCommandNames.LogsUnityClear),
-                ]),
-        ]);
-
-    private static readonly CommandGroupEntry ScreenshotCommandGroup = new(
-        UcliCommandNames.Screenshot,
-        [
-            new CommandLeafEntry(UcliCommandNames.GameSubcommand, UcliCommandNames.ScreenshotGame),
-            new CommandLeafEntry(UcliCommandNames.SceneSubcommand, UcliCommandNames.ScreenshotScene),
-        ],
-        []);
-
-    private static readonly CommandGroupEntry OpsCommandGroup = new(
-        UcliCommandNames.Ops,
-        [
-            new CommandLeafEntry(UcliCommandNames.ListSubcommand, UcliCommandNames.OpsList),
-            new CommandLeafEntry(UcliCommandNames.DescribeSubcommand, UcliCommandNames.OpsDescribe),
-        ],
-        []);
-
-    private static readonly CommandGroupEntry CodesCommandGroup = new(
-        UcliCommandNames.Codes,
-        [
-            new CommandLeafEntry(UcliCommandNames.ListSubcommand, UcliCommandNames.CodesList),
-            new CommandLeafEntry(UcliCommandNames.DescribeSubcommand, UcliCommandNames.CodesDescribe),
-        ],
-        []);
-
-    private static readonly CommandGroupEntry PlayCommandGroup = new(
-        UcliCommandNames.Play,
-        [
-            new CommandLeafEntry(UcliCommandNames.Status, UcliCommandNames.PlayStatus),
-            new CommandLeafEntry(UcliCommandNames.EnterSubcommand, UcliCommandNames.PlayEnter),
-            new CommandLeafEntry(UcliCommandNames.ExitSubcommand, UcliCommandNames.PlayExit),
-        ],
-        []);
-
-    private static readonly CommandGroupEntry SkillsCommandGroup = new(
-        UcliCommandNames.Skills,
-        [
-            new CommandLeafEntry(UcliCommandNames.ListSubcommand, UcliCommandNames.SkillsList),
-            new CommandLeafEntry(UcliCommandNames.ExportSubcommand, UcliCommandNames.SkillsExport),
-            new CommandLeafEntry(UcliCommandNames.InstallSubcommand, UcliCommandNames.SkillsInstall),
-            new CommandLeafEntry(UcliCommandNames.UpdateSubcommand, UcliCommandNames.SkillsUpdate),
-            new CommandLeafEntry(UcliCommandNames.UninstallSubcommand, UcliCommandNames.SkillsUninstall),
-            new CommandLeafEntry(UcliCommandNames.PruneSubcommand, UcliCommandNames.SkillsPrune),
-            new CommandLeafEntry(UcliCommandNames.DoctorSubcommand, UcliCommandNames.SkillsDoctor),
-        ],
-        []);
-
-    private static readonly CommandGroupEntry QueryCommandGroup = new(
-        UcliCommandNames.Query,
-        [],
-        [
-            new NestedCommandGroupEntry(
-                UcliCommandNames.AssetsSubcommand,
-                [new CommandLeafEntry(UcliCommandNames.FindSubcommand, UcliCommandNames.QueryAssetsFind)]),
-            new NestedCommandGroupEntry(
-                UcliCommandNames.SceneSubcommand,
-                [new CommandLeafEntry(UcliCommandNames.TreeSubcommand, UcliCommandNames.QuerySceneTree)]),
-            new NestedCommandGroupEntry(
-                UcliCommandNames.GoSubcommand,
-                [new CommandLeafEntry(UcliCommandNames.DescribeSubcommand, UcliCommandNames.QueryGoDescribe)]),
-            new NestedCommandGroupEntry(
-                UcliCommandNames.CompSubcommand,
-                [new CommandLeafEntry(UcliCommandNames.SchemaSubcommand, UcliCommandNames.QueryCompSchema)]),
-            new NestedCommandGroupEntry(
-                UcliCommandNames.AssetSubcommand,
-                [new CommandLeafEntry(UcliCommandNames.SchemaSubcommand, UcliCommandNames.QueryAssetSchema)]),
-        ]);
-
-    private static readonly CommandGroupEntry TestCommandGroup = new(
-        UcliCommandNames.Test,
-        [new CommandLeafEntry(UcliCommandNames.RunSubcommand, UcliCommandNames.TestRun)],
-        [
-            new NestedCommandGroupEntry(
-                UcliCommandNames.Profile,
-                [new CommandLeafEntry(UcliCommandNames.InitSubcommand, UcliCommandNames.TestProfileInit)]),
-        ]);
-
-    private static readonly CommandGroupEntry BuildCommandGroup = new(
-        UcliCommandNames.Build,
-        [new CommandLeafEntry(UcliCommandNames.RunSubcommand, UcliCommandNames.BuildRun)],
-        []);
-
-    private static readonly CommandGroupEntry[] CommandGroups =
-    [
-        DaemonCommandGroup,
-        LogsCommandGroup,
-        ScreenshotCommandGroup,
-        OpsCommandGroup,
-        CodesCommandGroup,
-        PlayCommandGroup,
-        SkillsCommandGroup,
-        QueryCommandGroup,
-        TestCommandGroup,
-        BuildCommandGroup,
-    ];
+    private static readonly CommandGroupEntry[] CommandGroups = UcliCommandCatalogDefinition.CommandGroups;
 
     private static readonly HashSet<string> RegisteredRootCommandSet = new(
         CreateRegisteredRootCommands(),
         StringComparer.Ordinal);
 
     private static readonly UnexpectedLeafArgumentRule[] UnexpectedLeafArgumentRules =
-    [
-        new(
-            UcliCommandNames.Skills,
-            UcliCommandNames.ListSubcommand,
-            UcliCommandNames.SkillsList,
-            ExpectedArgumentCount: 2),
-    ];
+        UcliCommandCatalogDefinition.UnexpectedLeafArgumentRules;
 
     /// <summary> Gets all registered command paths expected in framework help output. </summary>
     public static IReadOnlyList<string> CommandPaths { get; } = CreateCommandPaths();
+
+    /// <summary> Gets the effective serializer contracts emitted by the public command tree. </summary>
+    public static IReadOnlyList<UcliCommandOutputContract> OutputContracts { get; } =
+        UcliCommandOutputContractCatalog.GetAll();
 
     /// <summary> Registers all supported uCLI commands with the application builder. </summary>
     /// <param name="app"> The application builder used to register commands. </param>
@@ -208,6 +77,9 @@ internal static class UcliCommandCatalog
         app.Add<ScreenshotSceneCommand>("screenshot");
         app.Add<OpsListCommand>("ops");
         app.Add<OpsDescribeCommand>("ops");
+        app.Add<SchemaListCommand>("schema");
+        app.Add<SchemaGetCommand>("schema");
+        app.Add<SchemaExportCommand>("schema");
         app.Add<CodesListCommand>("codes");
         app.Add<CodesDescribeCommand>("codes");
         app.Add<PlayStatusCommand>("play");
@@ -256,6 +128,14 @@ internal static class UcliCommandCatalog
         }
 
         return IsRegisteredRootCommand(firstArgument) ? firstArgument : UcliCommandNames.Root;
+    }
+
+    /// <summary> Creates the structurally valid empty error branch for one result command. </summary>
+    public static object CreateDefaultErrorPayload (string commandName)
+    {
+        return UcliCommandOutputContractCatalog
+            .Get(commandName)
+            .CreateDefaultErrorPayload();
     }
 
     /// <summary> Gets supported second-level subcommands for a command group that must be validated before dispatch. </summary>
@@ -409,7 +289,7 @@ internal static class UcliCommandCatalog
 
         for (var i = 0; i < StandaloneCommands.Length; i++)
         {
-            commands[index] = StandaloneCommands[i];
+            commands[index] = StandaloneCommands[i].CommandName;
             index++;
         }
 
@@ -468,7 +348,7 @@ internal static class UcliCommandCatalog
 
         for (var i = 0; i < StandaloneCommands.Length; i++)
         {
-            commandPaths[index] = StandaloneCommands[i];
+            commandPaths[index] = StandaloneCommands[i].CommandName;
             index++;
         }
 
@@ -481,7 +361,7 @@ internal static class UcliCommandCatalog
         return commandPaths;
     }
 
-    private sealed record CommandGroupEntry (
+    internal sealed record CommandGroupEntry (
         string CommandName,
         CommandLeafEntry[] Leaves,
         NestedCommandGroupEntry[] NestedGroups)
@@ -536,7 +416,7 @@ internal static class UcliCommandCatalog
         }
     }
 
-    private sealed record NestedCommandGroupEntry (
+    internal sealed record NestedCommandGroupEntry (
         string GroupName,
         CommandLeafEntry[] Leaves)
     {
@@ -569,9 +449,18 @@ internal static class UcliCommandCatalog
         }
     }
 
-    private sealed record CommandLeafEntry (
+    internal sealed record StandaloneCommandEntry (
+        UcliCommandOutputContract OutputContract)
+    {
+        public string CommandName => OutputContract.Command;
+    }
+
+    internal sealed record CommandLeafEntry (
         string SubcommandName,
-        string ResultCommandName);
+        UcliCommandOutputContract OutputContract)
+    {
+        public string ResultCommandName => OutputContract.Command;
+    }
 
     internal readonly record struct UnexpectedLeafArgumentRule (
         string CommandName,

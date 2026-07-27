@@ -1,9 +1,11 @@
 using System.Text.Json.Serialization;
 using MackySoft.Ucli.Contracts.Operations;
 
+using MackySoft.JsonSchema.Generation.Annotations;
+
 namespace MackySoft.Ucli.Contracts.Ipc;
 
-[UcliDescription("Asset save operation arguments.")]
+[Description("Asset save operation arguments.")]
 public sealed record AssetSaveArgs
 {
     [JsonConstructor]
@@ -12,8 +14,9 @@ public sealed record AssetSaveArgs
         Target = ContractArgumentGuard.RequireNotNull(target, nameof(target));
     }
 
-    [UcliRequired]
-    [UcliDescription("Target asset or ProjectSettings asset to save.")]
-    [UcliInputConstraint(UcliOperationInputConstraintKind.ReferenceResolvable, TargetKind = UcliOperationReferenceTargetKind.Asset)]
-    public AssetReferenceArgs Target { get; }
+    [JsonInclude]
+    [JsonRequired]
+    [Description("Target asset or ProjectSettings asset to save.")]
+    [UcliReferenceResolvable(UcliOperationReferenceTargetKind.Asset)]
+    public AssetReferenceArgs Target { get; private init; }
 }

@@ -146,12 +146,7 @@ internal sealed class QueryGoDescribeCommand
                 return false;
             }
 
-            target = new GameObjectReferenceArgs(
-                alias: null,
-                globalObjectId: typedGlobalObjectId,
-                prefab: null,
-                scene: null,
-                hierarchyPath: null);
+            target = new GlobalObjectIdReferenceArgs(typedGlobalObjectId);
             return true;
         }
 
@@ -187,12 +182,9 @@ internal sealed class QueryGoDescribeCommand
             return false;
         }
 
-        target = new GameObjectReferenceArgs(
-            alias: null,
-            globalObjectId: null,
-            prefab: typedPrefab,
-            scene: typedScene,
-            hierarchyPath: typedHierarchyPath);
+        target = typedScene is not null
+            ? new SceneHierarchyReferenceArgs(typedScene, typedHierarchyPath)
+            : new PrefabHierarchyReferenceArgs(typedPrefab!, typedHierarchyPath);
         return true;
     }
 }

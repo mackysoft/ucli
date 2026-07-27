@@ -1,9 +1,11 @@
 using System.Text.Json.Serialization;
 using MackySoft.Ucli.Contracts.Operations;
 
+using MackySoft.JsonSchema.Generation.Annotations;
+
 namespace MackySoft.Ucli.Contracts.Ipc;
 
-[UcliDescription("Single scene query match.")]
+[Description("Single scene query match.")]
 public sealed record SceneQueryMatch
 {
     /// <summary> Initializes a scene-object or component match. </summary>
@@ -40,15 +42,16 @@ public sealed record SceneQueryMatch
         ComponentType = componentType;
     }
 
-    [UcliRequired]
-    [UcliDescription("Matched target kind.")]
-    public UcliOperationReferenceTargetKind Kind { get; }
+    [JsonInclude]
+    [JsonRequired]
+    [Description("Matched target kind.")]
+    public UcliOperationReferenceTargetKind Kind { get; private init; }
 
-    [UcliRequired]
-    [UcliDescription("Matched GameObject hierarchy path.")]
-    public UnityHierarchyPath HierarchyPath { get; }
+    [JsonInclude]
+    [JsonRequired]
+    [Description("Matched GameObject hierarchy path.")]
+    public UnityHierarchyPath HierarchyPath { get; private init; }
 
-    [UcliDescription("Matched component type identifier for component matches.")]
-    [UcliJsonAllowNull]
+    [Description("Matched component type identifier for component matches.")]
     public UnityComponentTypeId? ComponentType { get; }
 }

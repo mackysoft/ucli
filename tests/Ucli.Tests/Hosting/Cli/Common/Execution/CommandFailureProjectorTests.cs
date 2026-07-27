@@ -13,13 +13,13 @@ public sealed class CommandFailureProjectorTests
             "test",
             ApplicationFailure.InvalidInput(
                 "Invalid input.",
-                opId: new IpcExecuteStepId("step-1")));
+                instancePath: "/steps/0"));
 
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
         var error = Assert.Single(result.Errors);
         Assert.Equal(UcliCoreErrorCodes.InvalidArgument, error.Code);
         Assert.Equal("Invalid input.", error.Message);
-        Assert.Equal("step-1", error.OpId?.Value);
+        Assert.Equal("/steps/0", error.InstancePath);
     }
 
     [Fact]

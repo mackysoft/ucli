@@ -49,6 +49,7 @@ internal sealed class LogsUnityClearService : ILogsUnityClearService
         }
 
         return LogsUnityClearServiceResult.Success(new LogsUnityClearServiceOutput(
+            ClearStatus: LogsUnityClearStatus.Cleared,
             TimeoutMilliseconds: (int)context.Timeout.TotalMilliseconds));
     }
 }

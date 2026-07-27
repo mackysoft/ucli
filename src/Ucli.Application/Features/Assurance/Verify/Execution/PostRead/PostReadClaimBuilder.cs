@@ -188,19 +188,19 @@ internal static class PostReadClaimBuilder
             return false;
         }
 
-        var boundOpIds = new HashSet<IpcExecuteStepId>();
+        var boundResultIndexes = new HashSet<int>();
         foreach (var result in persistenceResults)
         {
-            boundOpIds.Add(result.OpId);
+            boundResultIndexes.Add(result.Index);
         }
 
         foreach (var result in deterministicMutationResults)
         {
-            boundOpIds.Add(result.OpId);
+            boundResultIndexes.Add(result.Index);
         }
 
         return opResults.Any(result =>
-            !boundOpIds.Contains(result.OpId)
+            !boundResultIndexes.Contains(result.Index)
             && ResolveDiagnosticImpact(result.Diagnostics) != VerifyDiagnosticImpact.None);
     }
 

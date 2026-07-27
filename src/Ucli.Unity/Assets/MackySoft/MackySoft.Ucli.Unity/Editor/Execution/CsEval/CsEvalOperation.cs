@@ -68,7 +68,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
             return Task.FromResult(OperationPhaseStepResult.Success(
                 applied: false,
                 changed: false,
-                result: IpcPayloadCodec.SerializeToElement(compilation.CreatePlanResult())));
+                result: SerializeResultToElement(compilation.CreatePlanResult())));
         }
 
         protected override async Task<OperationPhaseStepResult> CallAsync (
@@ -227,10 +227,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
                     "Executes user C# inside the Unity Editor process and can mutate project state outside declared touched resources.",
                     "Invoked user code and returned tasks cannot be forcibly stopped while they are executing.",
                 });
-            var describe = UcliOperationDescribeContractBuilder.Create<CsEvalArgs, CsEvalResult>(
-                "Compiles and executes a C# source unit in the Unity editor process as a dangerous eval operation.",
-                assurance);
-            describe.CodeContract = UcliOperationCodeContractBuilder.CreateCSharp(
+            var codeContract = UcliOperationCodeContractBuilder.CreateCSharp(
                 CsEvalEntryPointName.RequiredSignature,
                 CsEvalEntryPointName.MatchRule,
                 requiredStatic: true,
@@ -250,9 +247,11 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
             return UcliOperationMetadata.Create<CsEvalArgs, CsEvalResult>(
                 operationName: UcliPrimitiveOperationNames.CsEval,
                 kind: UcliOperationKind.Mutation,
-                describeContract: describe,
+                description: "Compiles and executes a C# source unit in the Unity editor process as a dangerous eval operation.",
+                assurance: assurance,
                 requiresPreCallPlanReplay: true,
-                playModeSupport: UcliOperationPlayModeSupport.Allowed);
+                playModeSupport: UcliOperationPlayModeSupport.Allowed,
+                codeContract: codeContract);
         }
 
         private static CsEvalResult CreateCallResult (
@@ -287,7 +286,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
                     applied: true,
                     changed: changed,
                     touched: touched,
-                    result: IpcPayloadCodec.SerializeToElement(CreateCallResult(compilation, durationMilliseconds, context, returnValue, touchedResources)))
+                    result: SerializeResultToElement(CreateCallResult(compilation, durationMilliseconds, context, returnValue, touchedResources)))
                 .WithReadInvalidations(CreateReadInvalidations());
         }
 
@@ -301,7 +300,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
                     Code: UcliCoreErrorCodes.InvalidArgument,
                     Message: message,
                     OpId: operation.Id),
-                result: IpcPayloadCodec.SerializeToElement(result));
+                result: SerializeResultToElement(result));
         }
 
         private static OperationPhaseStepResult CreatePostInvocationInvalidArgumentFailure (
@@ -322,7 +321,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
                     applied: true,
                     changed: changed,
                     touched: touched,
-                    result: IpcPayloadCodec.SerializeToElement(CreateCallResult(compilation, durationMilliseconds, context, returnValue: null, touchedResources)))
+                    result: SerializeResultToElement(CreateCallResult(compilation, durationMilliseconds, context, returnValue: null, touchedResources)))
                 .WithReadInvalidations(CreateReadInvalidations());
         }
 

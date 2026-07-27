@@ -581,9 +581,15 @@ internal static class BuildServiceTestSupport
                     continue;
                 }
 
-                Assert.True(
-                    output.Reports.ContainsKey(evidence.EvidenceRef.Value),
-                    $"Claim {claim.Id} references missing report '{evidence.EvidenceRef}'.");
+                var reference = evidence.EvidenceRef.Value switch
+                {
+                    BuildArtifactKind.Build => output.Reports.Build,
+                    BuildArtifactKind.BuildReport => output.Reports.BuildReport,
+                    BuildArtifactKind.BuildOutputManifest => output.Reports.BuildOutputManifest,
+                    BuildArtifactKind.BuildLog => output.Reports.BuildLog,
+                    _ => null,
+                };
+                Assert.NotNull(reference);
             }
         }
     }

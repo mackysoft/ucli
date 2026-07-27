@@ -161,7 +161,6 @@ public sealed class TestRunCommandProgressOutputTests
         CommandResultAssert.HasSingleError(outputJson.RootElement, TestRunErrorCodes.UnityTestExecutionFailed);
         JsonAssert.For(outputJson.RootElement)
             .HasProperty("payload", payload => payload
-                .IsNull("result")
                 .HasString("errorKind", "infraError")
                 .HasString("runId", RunIdTestValues.TestText)
                 .HasString("artifactsDir", artifactsDir.Value)

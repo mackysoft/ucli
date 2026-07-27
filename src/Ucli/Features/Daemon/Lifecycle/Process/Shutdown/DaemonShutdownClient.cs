@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Acquisition;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Shutdown;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Context.Project;

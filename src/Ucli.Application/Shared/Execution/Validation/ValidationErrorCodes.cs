@@ -3,24 +3,6 @@ namespace MackySoft.Ucli.Application.Shared.Execution;
 /// <summary> Defines machine-readable validation error codes for static request validation. </summary>
 internal static class ValidationErrorCodes
 {
-    /// <summary> Gets the error code used when steps is missing. </summary>
-    public static readonly UcliCode StepsRequired = new UcliCode("STEPS_REQUIRED");
-
-    /// <summary> Gets the error code used when stepId is missing. </summary>
-    public static readonly UcliCode StepIdRequired = new UcliCode("STEP_ID_REQUIRED");
-
-    /// <summary> Gets the error code used when stepId appears multiple times. </summary>
-    public static readonly UcliCode StepIdDuplicated = new UcliCode("STEP_ID_DUPLICATED");
-
-    /// <summary> Gets the error code used when step kind is missing. </summary>
-    public static readonly UcliCode StepKindRequired = new UcliCode("STEP_KIND_REQUIRED");
-
-    /// <summary> Gets the error code used when step kind is unsupported. </summary>
-    public static readonly UcliCode StepKindInvalid = new UcliCode("STEP_KIND_INVALID");
-
-    /// <summary> Gets the error code used when op name is missing. </summary>
-    public static readonly UcliCode OperationNameRequired = new UcliCode("OPERATION_NAME_REQUIRED");
-
     /// <summary> Gets the error code used when op name is not registered. </summary>
     public static readonly UcliCode OperationNotFound = new UcliCode("OPERATION_NOT_FOUND");
 
@@ -45,12 +27,6 @@ internal static class ValidationErrorCodes
     {
         return new HashSet<UcliCode>
         {
-            StepsRequired,
-            StepIdRequired,
-            StepIdDuplicated,
-            StepKindRequired,
-            StepKindInvalid,
-            OperationNameRequired,
             OperationNotFound,
             OperationArgsInvalid,
             EditStepInvalid,

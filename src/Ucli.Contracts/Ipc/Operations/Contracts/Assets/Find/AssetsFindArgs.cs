@@ -1,9 +1,11 @@
 using System.Text.Json.Serialization;
 using MackySoft.Ucli.Contracts.Operations;
 
+using MackySoft.JsonSchema.Generation.Annotations;
+
 namespace MackySoft.Ucli.Contracts.Ipc;
 
-[UcliDescription("Asset search operation arguments. Specify at least one filter. Searches persistent main assets under Assets.")]
+[Description("Asset search operation arguments. Specify at least one filter. Searches persistent main assets under Assets.")]
 public sealed record AssetsFindArgs
 {
     [JsonConstructor]
@@ -21,26 +23,26 @@ public sealed record AssetsFindArgs
         Cursor = cursor;
     }
 
-    [UcliDescription("Optional asset type identifier filter.")]
+    [Description("Optional asset type identifier filter.")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public UnityTypeId? Type { get; }
 
-    [UcliDescription("Optional project-relative Assets path prefix filter.")]
+    [Description("Optional project-relative Assets path prefix filter.")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public UnityAssetPathPrefix? PathPrefix { get; }
 
-    [UcliDescription("Optional case-insensitive asset name substring filter.")]
-    [UcliInputConstraint(UcliOperationInputConstraintKind.NonEmpty)]
+    [Description("Optional case-insensitive asset name substring filter.")]
+    [Length(1, int.MaxValue)]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? NameContains { get; }
 
-    [UcliDescription("Maximum number of matches to include in the response window.")]
-    [UcliInputConstraint(UcliOperationInputConstraintKind.Range, Min = 1, Max = BoundedWindowConstants.MaxLimit)]
+    [Description("Maximum number of matches to include in the response window.")]
+    [UcliInt32Range(1, BoundedWindowConstants.MaxLimit)]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public int? Limit { get; }
 
-    [UcliDescription("Opaque cursor returned by the previous assets-find window.")]
-    [UcliInputConstraint(UcliOperationInputConstraintKind.Cursor)]
+    [Description("Opaque cursor returned by the previous assets-find window.")]
+    [UcliCursor]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Cursor { get; }
 }

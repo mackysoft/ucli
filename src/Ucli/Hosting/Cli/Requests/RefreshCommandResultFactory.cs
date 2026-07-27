@@ -2,7 +2,6 @@ using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.OperationExe
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
-using MackySoft.Ucli.Hosting.Cli.Common.Projection;
 
 namespace MackySoft.Ucli.Hosting.Cli.Requests;
 
@@ -16,35 +15,18 @@ internal static class RefreshCommandResultFactory
     {
         ArgumentNullException.ThrowIfNull(executionResult);
 
-        var payload = new Dictionary<string, object?>
-        {
-            ["requestId"] = executionResult.RequestId.ToString("D"),
-        };
-        if (executionResult.Project != null)
-        {
-            payload["project"] = ProjectIdentityPayloadProjector.Create(executionResult.Project);
-        }
-
-        payload["opResults"] = executionResult.OpResults;
-        if (executionResult.ContractViolations.Count != 0)
-        {
-            payload["contractViolations"] = executionResult.ContractViolations;
-        }
-
-        if (executionResult.ReadPostcondition != null)
-        {
-            payload["readPostcondition"] = executionResult.ReadPostcondition;
-        }
-
-        if (executionResult.PostReadSource != null)
-        {
-            payload["postReadSource"] = executionResult.PostReadSource;
-        }
-
-        if (!executionResult.IsSuccess)
-        {
-            StartupFailurePayloadProjector.AppendFromFailures(payload, executionResult.Errors);
-        }
+        var startupFailure = StartupFailureFinder.FindInFailures(executionResult.Errors);
+        var payload = new OperationExecutionCommandPayload(
+            executionResult.RequestId,
+            executionResult.Project,
+            executionResult.OpResults,
+            executionResult.ContractViolations.Count == 0 ? null : executionResult.ContractViolations,
+            executionResult.ReadPostcondition,
+            executionResult.PostReadSource,
+            startupFailure?.Startup,
+            startupFailure?.Diagnosis,
+            startupFailure?.RetryDisposition,
+            startupFailure?.SafeToRetryImmediately);
 
         if (executionResult.IsSuccess)
         {
@@ -57,7 +39,7 @@ internal static class RefreshCommandResultFactory
         return CommandFailureProjector.Create(
             UcliCommandNames.Refresh,
             executionResult.Message,
-            payload,
+            CommandErrorPayload.Detailed(payload),
             executionResult.Errors);
     }
 

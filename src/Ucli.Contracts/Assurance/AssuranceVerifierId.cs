@@ -1,6 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Serialization;
-using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Json;
 
 namespace MackySoft.Ucli.Contracts.Assurance;
 

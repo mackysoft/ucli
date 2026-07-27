@@ -19,24 +19,6 @@ public sealed class IpcEnvelopeContractSerializationTests
         5,
         TimeSpan.Zero);
 
-    [Theory]
-    [Trait("Size", "Small")]
-    [InlineData(nameof(IpcRequestEnvelope.ProtocolVersion))]
-    [InlineData(nameof(IpcRequestEnvelope.RequestId))]
-    [InlineData(nameof(IpcRequestEnvelope.SessionToken))]
-    [InlineData(nameof(IpcRequestEnvelope.Method))]
-    [InlineData(nameof(IpcRequestEnvelope.Payload))]
-    [InlineData(nameof(IpcRequestEnvelope.RequestDeadlineUtc))]
-    [InlineData(nameof(IpcRequestEnvelope.RequestDeadlineRemainingMilliseconds))]
-    [InlineData(nameof(IpcRequestEnvelope.ResponseMode))]
-    public void IpcRequest_EnvelopePropertiesAreConstructorOnly (string propertyName)
-    {
-        var property = typeof(IpcRequestEnvelope).GetProperty(propertyName);
-
-        Assert.NotNull(property);
-        Assert.Null(property.SetMethod);
-    }
-
     [Fact]
     [Trait("Size", "Small")]
     public void IpcRequest_TextRepresentations_DoNotExposeSessionToken ()
@@ -232,7 +214,7 @@ public sealed class IpcEnvelopeContractSerializationTests
     [Trait("Size", "Small")]
     public void IpcResponse_WhenRequestIdIsMissing_Throws ()
     {
-        const string Json = """{"protocolVersion":1,"status":"error","payload":{},"errors":[{"code":"INVALID_ARGUMENT","message":"bad request","opId":null}]}""";
+        const string Json = """{"protocolVersion":1,"status":"error","payload":{},"errors":[{"code":"INVALID_ARGUMENT","message":"bad request","instancePath":null}]}""";
 
         Assert.Throws<JsonException>(() => JsonSerializer.Deserialize<IpcResponse>(Json, IpcJsonSerializerOptions.Default));
     }
@@ -241,7 +223,7 @@ public sealed class IpcEnvelopeContractSerializationTests
     [Trait("Size", "Small")]
     public void IpcResponse_WhenRequestIdIsExplicitlyNull_DeserializesWithoutCorrelation ()
     {
-        const string Json = """{"protocolVersion":1,"requestId":null,"status":"error","payload":{},"errors":[{"code":"INVALID_ARGUMENT","message":"bad request","opId":null}]}""";
+        const string Json = """{"protocolVersion":1,"requestId":null,"status":"error","payload":{},"errors":[{"code":"INVALID_ARGUMENT","message":"bad request","instancePath":null}]}""";
 
         var response = JsonSerializer.Deserialize<IpcResponse>(Json, IpcJsonSerializerOptions.Default);
 
@@ -494,9 +476,9 @@ public sealed class IpcEnvelopeContractSerializationTests
 
     [Theory]
     [Trait("Size", "Small")]
-    [InlineData("""{"protocolVersion":1,"requestId":"9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62","status":"error","payload":{},"errors":[{"code":123,"message":"bad","opId":null}]}""")]
-    [InlineData("""{"protocolVersion":1,"requestId":"9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62","status":"error","payload":{},"errors":[{"code":"","message":"bad","opId":null}]}""")]
-    [InlineData("""{"protocolVersion":1,"requestId":"9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62","status":"error","payload":{},"errors":[{"code":"lowercase_code","message":"bad","opId":null}]}""")]
+    [InlineData("""{"protocolVersion":1,"requestId":"9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62","status":"error","payload":{},"errors":[{"code":123,"message":"bad","instancePath":null}]}""")]
+    [InlineData("""{"protocolVersion":1,"requestId":"9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62","status":"error","payload":{},"errors":[{"code":"","message":"bad","instancePath":null}]}""")]
+    [InlineData("""{"protocolVersion":1,"requestId":"9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62","status":"error","payload":{},"errors":[{"code":"lowercase_code","message":"bad","instancePath":null}]}""")]
     public void IpcResponse_WhenErrorCodeJsonIsInvalid_Throws (string json)
     {
         Assert.Throws<JsonException>(() => JsonSerializer.Deserialize<IpcResponse>(json, IpcJsonSerializerOptions.Default));
@@ -506,7 +488,7 @@ public sealed class IpcEnvelopeContractSerializationTests
     [Trait("Size", "Small")]
     public void IpcResponse_WhenErrorCodeJsonIsNull_RejectsAtErrorContractBoundary ()
     {
-        const string Json = """{"protocolVersion":1,"requestId":"9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62","status":"error","payload":{},"errors":[{"code":null,"message":"bad","opId":null}]}""";
+        const string Json = """{"protocolVersion":1,"requestId":"9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62","status":"error","payload":{},"errors":[{"code":null,"message":"bad","instancePath":null}]}""";
 
         Assert.Throws<ArgumentNullException>(() =>
             JsonSerializer.Deserialize<IpcResponse>(Json, IpcJsonSerializerOptions.Default));

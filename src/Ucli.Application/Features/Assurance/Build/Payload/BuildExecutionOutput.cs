@@ -1,5 +1,3 @@
-using System.Collections.ObjectModel;
-using MackySoft.Ucli.Contracts.Assurance.Build;
 using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Features.Assurance.Build.Payload;
@@ -8,7 +6,7 @@ namespace MackySoft.Ucli.Application.Features.Assurance.Build.Payload;
 internal sealed record BuildExecutionOutput
 {
     /// <summary> Initializes a build assurance payload with a defined verdict. </summary>
-    /// <param name="Reports"> The report map to snapshot. </param>
+    /// <param name="Reports"> The finite build report artifacts. </param>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="Reports" /> is <see langword="null" />. </exception>
     /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="Verdict" /> is not defined by the assurance contract. </exception>
     public BuildExecutionOutput (
@@ -17,7 +15,7 @@ internal sealed record BuildExecutionOutput
         BuildOutput Build,
         IReadOnlyList<BuildVerifierOutput> Verifiers,
         IReadOnlyList<BuildClaimOutput> Claims,
-        IReadOnlyDictionary<BuildArtifactKind, AssuranceReportReference> Reports,
+        BuildReportsOutput Reports,
         IReadOnlyList<BuildResidualRiskOutput> ResidualRisks)
     {
         if (!TextVocabulary.IsDefined(Verdict))
@@ -39,11 +37,6 @@ internal sealed record BuildExecutionOutput
             throw new ArgumentException("Claims must not contain null.", nameof(Claims));
         }
 
-        if (Reports.Any(static item => !TextVocabulary.IsDefined(item.Key) || item.Value is null))
-        {
-            throw new ArgumentException("Reports must contain defined artifact keys and non-null references.", nameof(Reports));
-        }
-
         if (ResidualRisks.Any(static item => item is null))
         {
             throw new ArgumentException("Residual risks must not contain null.", nameof(ResidualRisks));
@@ -54,8 +47,7 @@ internal sealed record BuildExecutionOutput
         this.Build = Build ?? throw new ArgumentNullException(nameof(Build));
         this.Verifiers = Array.AsReadOnly(Verifiers.ToArray());
         this.Claims = Array.AsReadOnly(Claims.ToArray());
-        this.Reports = new ReadOnlyDictionary<BuildArtifactKind, AssuranceReportReference>(
-            new Dictionary<BuildArtifactKind, AssuranceReportReference>(Reports));
+        this.Reports = Reports;
         this.ResidualRisks = Array.AsReadOnly(ResidualRisks.ToArray());
     }
 
@@ -69,8 +61,8 @@ internal sealed record BuildExecutionOutput
 
     public IReadOnlyList<BuildClaimOutput> Claims { get; }
 
-    /// <summary> Gets the immutable report snapshot keyed by artifact kind. </summary>
-    public IReadOnlyDictionary<BuildArtifactKind, AssuranceReportReference> Reports { get; }
+    /// <summary> Gets the finite build report artifacts. </summary>
+    public BuildReportsOutput Reports { get; }
 
     public IReadOnlyList<BuildResidualRiskOutput> ResidualRisks { get; }
 }

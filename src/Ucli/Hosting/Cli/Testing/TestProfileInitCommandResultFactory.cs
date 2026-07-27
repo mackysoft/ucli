@@ -16,14 +16,10 @@ internal static class TestProfileInitCommandResultFactory
 
         if (executionResult.IsSuccess)
         {
-            var output = executionResult.Output!;
             return CommandResult.Success(
                 command: UcliCommandNames.TestProfileInit,
                 message: "Test profile template initialization completed.",
-                payload: new
-                {
-                    profilePath = output.ProfilePath,
-                });
+                payload: executionResult.Output!);
         }
 
         return CommandResultFactory.FromExecutionError(

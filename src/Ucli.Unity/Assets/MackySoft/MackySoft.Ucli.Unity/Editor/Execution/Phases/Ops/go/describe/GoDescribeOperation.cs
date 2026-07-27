@@ -113,7 +113,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return Task.FromResult(OperationPhaseStepResult.Success(
                 applied: false,
                 changed: false,
-                result: IpcPayloadCodec.SerializeToElement(description)));
+                result: SerializeResultToElement(description)));
         }
 
         /// <summary> Validates arguments and resolves the target editable GameObject. </summary>

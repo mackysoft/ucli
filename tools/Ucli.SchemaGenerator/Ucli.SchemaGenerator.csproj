@@ -12,16 +12,12 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="MackySoft.Text.Vocabularies" Version="[0.1.0]" />
+    <PackageReference Include="MackySoft.JsonSchema.Generation" Version="[0.3.0]" />
+    <PackageReference Include="MackySoft.FileSystem" Version="[0.1.0]" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="../../src/Ucli.Contracts/Ucli.Contracts.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Using Include="MackySoft.Text.Vocabularies" />
-    <Using Include="MackySoft.Text.Vocabularies.Vocabulary" Alias="TextVocabulary" />
+    <ProjectReference Include="../../src/Ucli/Ucli.csproj" />
   </ItemGroup>
 
 </Project>

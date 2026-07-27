@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using MackySoft.Ucli.Contracts.Text;
+using System.Text.Json.Serialization.Metadata;
+using MackySoft.Ucli.Contracts.Json;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
@@ -17,6 +18,7 @@ public static class IpcJsonSerializerOptions
         },
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         PropertyNameCaseInsensitive = true,
+        TypeInfoResolver = IpcJsonTypeInfoResolver.Default,
         UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow,
         WriteIndented = false,
     };
@@ -26,4 +28,38 @@ public static class IpcJsonSerializerOptions
     {
         PropertyNameCaseInsensitive = false,
     };
+
+    /// <summary>
+    /// Gets the effective serializer options for public raw operation contracts after request-local alias variants
+    /// have been removed.
+    /// </summary>
+    public static JsonSerializerOptions PublicRawOperationContracts { get; } =
+        CreatePublicRawOperationContractOptions();
+
+    private static JsonSerializerOptions CreatePublicRawOperationContractOptions ()
+    {
+        var options = new JsonSerializerOptions(StrictPropertyNames)
+        {
+            TypeInfoResolver = IpcJsonTypeInfoResolver.Create(RemoveRequestLocalAliasVariant),
+        };
+        options.MakeReadOnly();
+        return options;
+    }
+
+    private static void RemoveRequestLocalAliasVariant (JsonTypeInfo typeInfo)
+    {
+        var derivedTypes = typeInfo.PolymorphismOptions?.DerivedTypes;
+        if (derivedTypes == null)
+        {
+            return;
+        }
+
+        for (var i = derivedTypes.Count - 1; i >= 0; i--)
+        {
+            if (derivedTypes[i].DerivedType == typeof(UcliAliasReferenceArgs))
+            {
+                derivedTypes.RemoveAt(i);
+            }
+        }
+    }
 }

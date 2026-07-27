@@ -1,6 +1,7 @@
 using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 using MackySoft.Ucli.Application.Features.Daemon.Common.Projection;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Acquisition;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Inventory;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Observation;

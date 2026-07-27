@@ -8,6 +8,8 @@ namespace MackySoft.Ucli.Tests;
 
 internal static class VerifyCommandTestData
 {
+    private const string CompileSummaryReport = "compile.summary";
+
     private static readonly AssuranceVerifierId CompileVerifierId = new("compile");
     private static readonly AssuranceVerifierId ReadyVerifierId = new("ready.lifecycle");
 
@@ -47,7 +49,7 @@ internal static class VerifyCommandTestData
                     PrimaryClaims: [CompileClaimCodes.UnityCompileNoErrors],
                     Effects: AssuranceEffectSets.Compile)
                 {
-                    ReportRef = "compile.summary",
+                    ReportRef = CompileSummaryReport,
                 },
             ],
             Claims:
@@ -85,14 +87,14 @@ internal static class VerifyCommandTestData
                     [
                         new VerifyEvidenceOutput("compileSummary")
                         {
-                            EvidenceRef = "compile.summary",
+                            EvidenceRef = CompileSummaryReport,
                         },
                     ],
                     ResidualRisks: []),
             ],
             Reports: new Dictionary<string, AssuranceReportReference>(StringComparer.Ordinal)
             {
-                ["compile.summary"] = AssuranceReportReference.FromPath(
+                [CompileSummaryReport] = AssuranceReportReference.FromPath(
                     $".ucli/local/compile/{RunIdTestValues.CompileText}/summary.json",
                     digest: null),
             },

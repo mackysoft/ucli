@@ -1,6 +1,4 @@
-using System.Text.Json;
 using MackySoft.Ucli.Contracts.Ipc.ContractReading;
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
@@ -62,8 +60,7 @@ internal static class IpcEditStepLoweringRules
                 : IpcEditTargetKind.GameObject;
         }
 
-        return stepContract.Selection.SourceArgs.ValueKind == JsonValueKind.Object
-               && stepContract.Selection.SourceArgs.TryGetProperty("componentType", out _)
+        return stepContract.Selection.SourceComponentType != null
             ? IpcEditTargetKind.Component
             : IpcEditTargetKind.GameObject;
     }

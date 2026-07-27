@@ -21,12 +21,12 @@ internal static class OperationAuthorizationErrorCodeDescriptors
             impliesNotApplied: true,
             mayBeIndeterminate: false,
             safeToRetry: UcliErrorRetryClass.No,
-            inspect: ["errors[].opId", "payload.requestId", "payload.opResults", "operationPolicy"],
+            inspect: ["errors[].instancePath", "payload.requestId", "payload.opResults", "operationPolicy"],
             nextActions:
             [
                 new UcliErrorNextActionDescriptor(
                     When: null,
-                    Action: "Inspect errors[].message and errors[].opId to identify the blocked operation, required policy, and current operationPolicy; inspect operationAllowlist when allowlist denial is possible."),
+                    Action: "Inspect errors[].message and errors[].instancePath to identify the blocked operation, required policy, and current operationPolicy; inspect operationAllowlist when allowlist denial is possible."),
                 new UcliErrorNextActionDescriptor(
                     When: null,
                     Action: "Change .ucli/config.json intentionally before retrying, or use a command allowed by the current policy."),

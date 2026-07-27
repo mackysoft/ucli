@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Acquisition;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -20,7 +21,7 @@ public sealed class IpcDaemonPingClientFailureTests
                 new IpcError(
                     Code: UcliCoreErrorCodes.InvalidArgument,
                     Message: "invalid request",
-                    OpId: null),
+                    InstancePath: null),
             ]));
         var pingClient = new IpcDaemonPingClient(
             unityIpcClient,
@@ -77,7 +78,7 @@ public sealed class IpcDaemonPingClientFailureTests
                 new IpcError(
                     IpcSessionErrorCodes.SessionTokenInvalid,
                     "The session token was replaced.",
-                    OpId: null),
+                    InstancePath: null),
             ]));
         var rejectedSession = DaemonSessionTestFactory.CreateForToken("first-token");
         var sessionStore = new RecordingDaemonSessionStore

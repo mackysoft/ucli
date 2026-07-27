@@ -60,18 +60,15 @@ public sealed class BuildServiceSuccessPayloadTests
         Assert.Equal(StubBuildRunArtifactStore.OutputManifestDigest, output.Build.Output.ManifestDigest);
         Assert.Equal(1, output.Build.Output.EntryCount);
         Assert.Equal(1, output.Build.Output.FileCount);
-        Assert.Equal(
-            [BuildArtifactKind.Build, BuildArtifactKind.BuildReport, BuildArtifactKind.BuildOutputManifest, BuildArtifactKind.BuildLog],
-            output.Reports.Keys.Order().ToArray());
-        Assert.Equal(StubBuildRunArtifactStore.BuildMetadataDigest, output.Reports[BuildArtifactKind.Build].Digest);
-        Assert.Equal(StubBuildRunArtifactStore.BuildReportArtifactDigest, output.Reports[BuildArtifactKind.BuildReport].Digest);
-        Assert.Equal(StubBuildRunArtifactStore.BuildOutputManifestArtifactDigest, output.Reports[BuildArtifactKind.BuildOutputManifest].Digest);
-        Assert.Equal(StubBuildRunArtifactStore.BuildLogArtifactDigest, output.Reports[BuildArtifactKind.BuildLog].Digest);
-        Assert.Equal("build.json", output.Reports[BuildArtifactKind.Build].Path);
-        Assert.Equal("build-report.json", output.Reports[BuildArtifactKind.BuildReport].Path);
-        Assert.Equal("output-manifest.json", output.Reports[BuildArtifactKind.BuildOutputManifest].Path);
-        Assert.Equal("build.log", output.Reports[BuildArtifactKind.BuildLog].Path);
-        Assert.True(output.Reports.ContainsKey(output.Build.Output.ManifestRef));
+        Assert.Equal(StubBuildRunArtifactStore.BuildMetadataDigest, output.Reports.Build.Digest);
+        Assert.Equal(StubBuildRunArtifactStore.BuildReportArtifactDigest, output.Reports.BuildReport!.Digest);
+        Assert.Equal(StubBuildRunArtifactStore.BuildOutputManifestArtifactDigest, output.Reports.BuildOutputManifest.Digest);
+        Assert.Equal(StubBuildRunArtifactStore.BuildLogArtifactDigest, output.Reports.BuildLog.Digest);
+        Assert.Equal("build.json", output.Reports.Build.Path);
+        Assert.Equal("build-report.json", output.Reports.BuildReport.Path);
+        Assert.Equal("output-manifest.json", output.Reports.BuildOutputManifest.Path);
+        Assert.Equal("build.log", output.Reports.BuildLog.Path);
+        Assert.Equal(BuildArtifactKind.BuildOutputManifest, output.Build.Output.ManifestRef);
         AssertEvidenceRefsResolveToReports(output);
         Assert.DoesNotContain(output.Claims, static claim => claim.Id == BuildClaimCodes.UnityBuildExecuteMethodResolved);
         Assert.DoesNotContain(output.Claims, static claim => claim.Id == BuildClaimCodes.UnityBuildExecuteMethodInvoked);

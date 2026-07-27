@@ -19,7 +19,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         OperationFailure? Failure)
     {
         /// <summary> Gets the optional query result payload produced by this step. </summary>
-        public JsonElement? Result { get; init; }
+        public JsonElement? Result { get; private init; }
 
         /// <summary> Gets the optional read-surface invalidations emitted by this step. </summary>
         internal IReadOnlyList<OperationReadInvalidation> ReadInvalidations { get; init; } = Array.Empty<OperationReadInvalidation>();
@@ -152,6 +152,12 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             if (!result.HasValue)
             {
                 return null;
+            }
+            if (result.Value.ValueKind != JsonValueKind.Object)
+            {
+                throw new ArgumentException(
+                    "An operation result payload must be a JSON object.",
+                    nameof(result));
             }
 
             return result.Value.Clone();

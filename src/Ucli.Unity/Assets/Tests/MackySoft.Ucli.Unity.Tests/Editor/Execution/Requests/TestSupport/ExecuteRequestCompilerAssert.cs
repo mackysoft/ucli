@@ -65,15 +65,14 @@ namespace MackySoft.Ucli.Unity.Tests
         }
 
         /// <summary>
-        /// Asserts that all lowered primitive operations share the same public step identifier.
+        /// Asserts that all lowered primitive operations belong to the same source-step position.
         /// </summary>
-        /// <param name="expectedId"> The expected public step identifier. </param>
         /// <returns> The current assertion instance. </returns>
-        public ExecuteRequestCompilerAssert AllHavePublicId (string expectedId)
+        public ExecuteRequestCompilerAssert AllBelongToSourceStep ()
         {
             for (var i = 0; i < compiledOperations.Count; i++)
             {
-                Assert.That(compiledOperations[i].Id.Value, Is.EqualTo(expectedId));
+                Assert.That(compiledOperations[i].Id, Is.EqualTo(compiledStep.Id));
             }
 
             return this;
@@ -112,7 +111,6 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             Assert.That(compiledStep.PostReadSourceStep, Is.Not.Null);
             var sourceStep = compiledStep.PostReadSourceStep!;
-            Assert.That(sourceStep.OpId, Is.EqualTo(compiledStep.Id));
             Assert.That(sourceStep.SourceKind, Is.EqualTo(expectedSourceKind));
             Assert.That(sourceStep.PlayModeMutation, Is.EqualTo(expectedPlayModeMutation));
             Assert.That(sourceStep.Commit, Is.EqualTo(expectedCommit));

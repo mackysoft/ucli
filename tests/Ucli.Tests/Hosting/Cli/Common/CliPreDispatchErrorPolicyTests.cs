@@ -1,4 +1,4 @@
-using MackySoft.Ucli.Hosting.Cli.Common.Parsing;
+using MackySoft.Ucli.Hosting.Cli.Common.Startup;
 
 namespace MackySoft.Ucli.Tests.Cli;
 
@@ -163,11 +163,11 @@ public sealed class CliPreDispatchErrorPolicyTests
         string expectedCommand,
         string expectedMessage)
     {
-        Assert.NotNull(result);
-        Assert.Equal(expectedCommand, result.Command);
-        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
-        Assert.Equal(expectedMessage, result.Message);
-        var error = Assert.Single(result.Errors);
+        var commandResult = Assert.IsType<CommandResult>(result);
+        Assert.Equal(expectedCommand, commandResult.Command);
+        Assert.Equal((int)CliExitCode.InvalidArgument, commandResult.ExitCode);
+        Assert.Equal(expectedMessage, commandResult.Message);
+        var error = Assert.Single(commandResult.Errors);
         Assert.Equal(UcliCoreErrorCodes.InvalidArgument, error.Code);
         Assert.Equal(expectedMessage, error.Message);
     }

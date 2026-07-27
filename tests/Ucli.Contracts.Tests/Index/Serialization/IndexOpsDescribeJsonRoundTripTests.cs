@@ -1,3 +1,5 @@
+using System.Text.Json;
+using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
 
@@ -19,36 +21,43 @@ public sealed class IndexOpsDescribeJsonRoundTripTests
         Assert.Equal(contract.SourceInputsHash, deserialized.SourceInputsHash);
         Assert.NotNull(deserialized.Operation);
         Assert.Equal(UcliPrimitiveOperationNames.GoDescribe, deserialized.Operation.Name);
-        Assert.Equal("disallowed", deserialized.Operation.PlayModeSupport);
-        Assert.Equal("""{"type":"object"}""", deserialized.Operation.ArgsSchemaJson);
-        Assert.Equal("""{"type":"object"}""", deserialized.Operation.ResultSchemaJson);
+        Assert.Equal(UcliOperationPlayModeSupport.Disallowed, deserialized.Operation.PlayModeSupport);
         Assert.Equal(expectedOperation.Description, deserialized.Operation.Description);
-        Assert.NotNull(deserialized.Operation.Inputs);
+        Assert.NotNull(deserialized.Operation.ArgsContract);
         Assert.NotNull(deserialized.Operation.ResultContract);
-        Assert.Equal("GameObjectDescriptionResult", deserialized.Operation.ResultContract!.ResultType);
+        var expectedArgsContract = expectedOperation.ArgsContract!.Value;
+        var actualArgsContract = deserialized.Operation.ArgsContract!.Value;
+        Assert.Equal(
+            expectedArgsContract.ContractDigest,
+            actualArgsContract.ContractDigest);
+        AssertJsonEqual(
+            expectedArgsContract.TypeMetadata.GetRawText(),
+            actualArgsContract.TypeMetadata.GetRawText());
+        AssertJsonEqual(
+            expectedArgsContract.Schema.GetRawText(),
+            actualArgsContract.Schema.GetRawText());
+        var expectedResultContract = expectedOperation.ResultContract!.Value;
+        var actualResultContract = deserialized.Operation.ResultContract!.Value;
+        Assert.Equal(
+            expectedResultContract.ContractDigest,
+            actualResultContract.ContractDigest);
+        AssertJsonEqual(
+            expectedResultContract.TypeMetadata.GetRawText(),
+            actualResultContract.TypeMetadata.GetRawText());
+        AssertJsonEqual(
+            expectedResultContract.Schema.GetRawText(),
+            actualResultContract.Schema.GetRawText());
         Assert.NotNull(deserialized.Operation.Assurance);
     }
 
-    [Fact]
-    [Trait("Size", "Small")]
-    public void Serializer_RoundTripsInputVariantFieldContracts ()
+    private static void AssertJsonEqual (
+        string expected,
+        string actual)
     {
-        var contract = IndexOpsDescribeJsonContractTestSupport.CreateGoDescribeIndexContract();
-        var json = new IndexOpsDescribeJsonContractWriter().Write(contract);
-        var deserialized = IndexOpsDescribeJsonContractSerializer.Deserialize(json);
-
-        Assert.NotNull(deserialized?.Operation);
-        var operation = deserialized!.Operation!;
-        Assert.NotNull(operation.Inputs);
-        var inputs = operation.Inputs!;
-        var targetInput = inputs.Single(input =>
-            string.Equals(input.Name, "target", StringComparison.Ordinal));
-        var globalObjectIdVariant = targetInput.Variants!.Single(variant =>
-            string.Equals(variant.Name, "byGlobalObjectId", StringComparison.Ordinal));
-        var globalObjectIdField = Assert.Single(globalObjectIdVariant.Fields!);
-        Assert.Equal("globalObjectId", globalObjectIdField.Name);
-        Assert.Equal("$.target.globalObjectId", globalObjectIdField.ArgsPath);
-        Assert.Equal("Resolved Unity GlobalObjectId.", globalObjectIdField.Description);
-        Assert.Contains(globalObjectIdField.Constraints!, constraint => constraint.Kind == "globalObjectId");
+        using var expectedDocument = JsonDocument.Parse(expected);
+        using var actualDocument = JsonDocument.Parse(actual);
+        Assert.Equal(
+            JsonSerializer.Serialize(expectedDocument.RootElement),
+            JsonSerializer.Serialize(actualDocument.RootElement));
     }
 }

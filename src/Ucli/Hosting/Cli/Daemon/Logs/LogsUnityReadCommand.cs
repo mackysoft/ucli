@@ -1,9 +1,9 @@
 using System.Globalization;
+using System.Text.Json.Serialization.Metadata;
 using ConsoleAppFramework;
 using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Common;
 using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Unity;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 using MackySoft.Ucli.Hosting.Cli.Common.Streaming;
@@ -14,6 +14,14 @@ namespace MackySoft.Ucli.Hosting.Cli.Daemon.Logs;
 /// <summary> Provides the logs unity read CLI command entry point. </summary>
 internal sealed class LogsUnityReadCommand
 {
+    /// <summary> Gets the serializer contract used by successful <c>logs unity read</c> payloads. </summary>
+    public static JsonTypeInfo SuccessPayloadTypeInfo { get; } =
+        LogsReadCommandResultFactory.SuccessPayloadTypeInfo;
+
+    /// <summary> Gets the serializer contract used by failed <c>logs unity read</c> payloads. </summary>
+    public static JsonTypeInfo ErrorPayloadTypeInfo { get; } =
+        LogsReadCommandResultFactory.ErrorPayloadTypeInfo;
+
     private readonly ILogsUnityService logsUnityService;
 
     private readonly ICommandResultWriter commandResultWriter;

@@ -11,74 +11,28 @@ internal static class ResolveSelectorOperationArgsFactory
     {
         ArgumentNullException.ThrowIfNull(selector);
 
-        var args = selector switch
+        ResolveSelectorArgs args = selector switch
         {
-            ResolveGlobalObjectIdSelectorInput globalObjectId => new ResolveSelectorArgs(
-                globalObjectId: globalObjectId.GlobalObjectId,
-                assetGuid: null,
-                assetPath: null,
-                projectAssetPath: null,
-                scene: null,
-                prefab: null,
-                hierarchyPath: null,
-                componentType: null),
-            ResolveAssetGuidSelectorInput assetGuid => new ResolveSelectorArgs(
-                globalObjectId: null,
-                assetGuid: assetGuid.AssetGuid,
-                assetPath: null,
-                projectAssetPath: null,
-                scene: null,
-                prefab: null,
-                hierarchyPath: null,
-                componentType: null),
-            ResolveAssetPathSelectorInput assetPath => new ResolveSelectorArgs(
-                globalObjectId: null,
-                assetGuid: null,
-                assetPath: assetPath.AssetPath,
-                projectAssetPath: null,
-                scene: null,
-                prefab: null,
-                hierarchyPath: null,
-                componentType: null),
-            ResolveProjectAssetPathSelectorInput projectAssetPath => new ResolveSelectorArgs(
-                globalObjectId: null,
-                assetGuid: null,
-                assetPath: null,
-                projectAssetPath: projectAssetPath.ProjectAssetPath,
-                scene: null,
-                prefab: null,
-                hierarchyPath: null,
-                componentType: null),
-            ResolveSceneHierarchySelectorInput sceneHierarchy => new ResolveSelectorArgs(
-                globalObjectId: null,
-                assetGuid: null,
-                assetPath: null,
-                projectAssetPath: null,
-                scene: sceneHierarchy.Scene,
-                prefab: null,
-                hierarchyPath: sceneHierarchy.HierarchyPath,
-                componentType: null),
-            ResolveSceneComponentSelectorInput sceneComponent => new ResolveSelectorArgs(
-                globalObjectId: null,
-                assetGuid: null,
-                assetPath: null,
-                projectAssetPath: null,
-                scene: sceneComponent.Scene,
-                prefab: null,
-                hierarchyPath: sceneComponent.HierarchyPath,
-                componentType: sceneComponent.ComponentType),
-            ResolvePrefabHierarchySelectorInput prefabHierarchy => new ResolveSelectorArgs(
-                globalObjectId: null,
-                assetGuid: null,
-                assetPath: null,
-                projectAssetPath: null,
-                scene: null,
-                prefab: prefabHierarchy.Prefab,
-                hierarchyPath: prefabHierarchy.HierarchyPath,
-                componentType: null),
+            ResolveGlobalObjectIdSelectorInput globalObjectId =>
+                new GlobalObjectIdReferenceArgs(globalObjectId.GlobalObjectId),
+            ResolveAssetGuidSelectorInput assetGuid =>
+                new AssetGuidReferenceArgs(assetGuid.AssetGuid),
+            ResolveAssetPathSelectorInput assetPath =>
+                new AssetPathReferenceArgs(assetPath.AssetPath),
+            ResolveProjectAssetPathSelectorInput projectAssetPath =>
+                new ProjectAssetPathReferenceArgs(projectAssetPath.ProjectAssetPath),
+            ResolveSceneHierarchySelectorInput sceneHierarchy =>
+                new SceneHierarchyReferenceArgs(sceneHierarchy.Scene, sceneHierarchy.HierarchyPath),
+            ResolveSceneComponentSelectorInput sceneComponent =>
+                new SceneComponentReferenceArgs(
+                    sceneComponent.Scene,
+                    sceneComponent.HierarchyPath,
+                    sceneComponent.ComponentType),
+            ResolvePrefabHierarchySelectorInput prefabHierarchy =>
+                new PrefabHierarchyReferenceArgs(prefabHierarchy.Prefab, prefabHierarchy.HierarchyPath),
             _ => throw new ArgumentException("Unsupported resolve selector type.", nameof(selector)),
         };
 
-        return JsonSerializer.SerializeToElement(args, IpcJsonSerializerOptions.Default);
+        return JsonSerializer.SerializeToElement<ResolveSelectorArgs>(args, IpcJsonSerializerOptions.Default);
     }
 }

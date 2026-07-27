@@ -67,7 +67,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                         request,
                         captureResult.Error.Code,
                         captureResult.Error.Message,
-                        captureResult.Error.OpId);
+                        captureResult.Error.InstancePath);
             }
             catch (OperationCanceledException) when (
                 cancellation.Reason == IpcRequestCancellationReason.ExecutionDeadline)
@@ -76,7 +76,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     request,
                     IpcTransportErrorCodes.IpcTimeout,
                     "Unity screenshot capture reached its request deadline.",
-                    opId: null);
+                    instancePath: null);
             }
             catch (OperationCanceledException)
             {
@@ -88,7 +88,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     request,
                     UcliCoreErrorCodes.InvalidArgument,
                     exception.Message,
-                    opId: null);
+                    instancePath: null);
             }
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
             {
@@ -96,7 +96,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     request,
                     UcliCoreErrorCodes.InternalError,
                     $"Screenshot staging image could not be written. {exception.Message}",
-                    opId: null);
+                    instancePath: null);
             }
             catch (Exception exception)
             {
@@ -104,7 +104,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     request,
                     UcliCoreErrorCodes.InternalError,
                     $"Unity screenshot capture failed. {exception.Message}",
-                    opId: null);
+                    instancePath: null);
             }
         }
     }

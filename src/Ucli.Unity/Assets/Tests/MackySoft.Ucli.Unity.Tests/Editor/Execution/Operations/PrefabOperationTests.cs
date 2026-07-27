@@ -40,15 +40,11 @@ namespace MackySoft.Ucli.Unity.Tests
             var requestOperation = CreateOperation(
                 opId: "op-prefab-create",
                 opName: UcliPrimitiveOperationNames.PrefabCreate,
-                args: new
-                {
-                    target = new
-                    {
-                        scene = scenePath,
-                        hierarchyPath = "Root",
-                    },
-                    path = prefabPath,
-                },
+                args: new PrefabCreateArgs(
+                    new SceneHierarchyReferenceArgs(
+                        new SceneAssetPath(scenePath),
+                        new UnityHierarchyPath("Root")),
+                    new PrefabAssetPath(prefabPath)),
                 alias: "created");
 
             var result = await operation.CallAsync(requestOperation, context, CancellationToken.None);
@@ -88,37 +84,27 @@ namespace MackySoft.Ucli.Unity.Tests
             EditorSceneManager.SaveScene(scene, scenePath);
 
             var componentTypeId = IndexTypeIdFormatter.Format(typeof(CompOperationTestComponent));
-            var target = new
-            {
-                scene = scenePath,
-                hierarchyPath = "Root",
-                componentType = componentTypeId,
-            };
+            ComponentReferenceArgs target = new SceneComponentReferenceArgs(
+                new SceneAssetPath(scenePath),
+                new UnityHierarchyPath("Root"),
+                new UnityComponentTypeId(componentTypeId));
             var createRequest = CreateOperation(
                 opId: "create-prefab",
                 opName: UcliPrimitiveOperationNames.PrefabCreate,
-                args: new
-                {
-                    target = new
-                    {
-                        scene = scenePath,
-                        hierarchyPath = "Root",
-                    },
-                    path = prefabPath,
-                },
+                args: new PrefabCreateArgs(
+                    new SceneHierarchyReferenceArgs(
+                        new SceneAssetPath(scenePath),
+                        new UnityHierarchyPath("Root")),
+                    new PrefabAssetPath(prefabPath)),
                 sourceKind: NormalizedOperation.SourceStepKind.Edit);
             var ensureRequest = CreateOperation(
                 opId: "create-prefab",
                 opName: UcliPrimitiveOperationNames.CompEnsure,
-                args: new
-                {
-                    target = new
-                    {
-                        scene = scenePath,
-                        hierarchyPath = "Root",
-                    },
-                    type = componentTypeId,
-                },
+                args: new ComponentEnsureArgs(
+                    new SceneHierarchyReferenceArgs(
+                        new SceneAssetPath(scenePath),
+                        new UnityHierarchyPath("Root")),
+                    new UnityComponentTypeId(componentTypeId)),
                 sourceKind: NormalizedOperation.SourceStepKind.Edit);
             var setRequest = CreateOperation(
                 opId: "apply-step",
@@ -196,24 +182,18 @@ namespace MackySoft.Ucli.Unity.Tests
             EditorSceneManager.SaveScene(scene, scenePath);
 
             var componentTypeId = IndexTypeIdFormatter.Format(typeof(CompOperationTestComponent));
-            var target = new
-            {
-                scene = scenePath,
-                hierarchyPath = "Root",
-                componentType = componentTypeId,
-            };
+            ComponentReferenceArgs target = new SceneComponentReferenceArgs(
+                new SceneAssetPath(scenePath),
+                new UnityHierarchyPath("Root"),
+                new UnityComponentTypeId(componentTypeId));
             var createRequest = CreateOperation(
                 opId: "create-prefab",
                 opName: UcliPrimitiveOperationNames.PrefabCreate,
-                args: new
-                {
-                    target = new
-                    {
-                        scene = scenePath,
-                        hierarchyPath = "Root",
-                    },
-                    path = prefabPath,
-                },
+                args: new PrefabCreateArgs(
+                    new SceneHierarchyReferenceArgs(
+                        new SceneAssetPath(scenePath),
+                        new UnityHierarchyPath("Root")),
+                    new PrefabAssetPath(prefabPath)),
                 sourceKind: NormalizedOperation.SourceStepKind.Edit);
             var setRequest = CreateOperation(
                 opId: "apply-step",
@@ -265,12 +245,10 @@ namespace MackySoft.Ucli.Unity.Tests
                 .EnablePrefabStageCleanup();
             var prefabInstance = CreateSavedPrefabInstanceWithTestComponent(scope);
 
-            var target = new
-            {
-                scene = prefabInstance.ScenePath,
-                hierarchyPath = "InstanceRoot",
-                componentType = prefabInstance.ComponentTypeId,
-            };
+            ComponentReferenceArgs target = new SceneComponentReferenceArgs(
+                new SceneAssetPath(prefabInstance.ScenePath),
+                new UnityHierarchyPath("InstanceRoot"),
+                new UnityComponentTypeId(prefabInstance.ComponentTypeId));
             var changeSetRequest = CreateOperation(
                 opId: "edit-step",
                 opName: UcliPrimitiveOperationNames.CompSet,
@@ -337,12 +315,10 @@ namespace MackySoft.Ucli.Unity.Tests
                 .EnablePrefabStageCleanup();
             var prefabInstance = CreateSavedPrefabInstanceWithTestComponent(scope);
 
-            var target = new
-            {
-                scene = prefabInstance.ScenePath,
-                hierarchyPath = "InstanceRoot",
-                componentType = prefabInstance.ComponentTypeId,
-            };
+            ComponentReferenceArgs target = new SceneComponentReferenceArgs(
+                new SceneAssetPath(prefabInstance.ScenePath),
+                new UnityHierarchyPath("InstanceRoot"),
+                new UnityComponentTypeId(prefabInstance.ComponentTypeId));
             var firstSetRequest = CreateOperation(
                 opId: "edit-step",
                 opName: UcliPrimitiveOperationNames.CompSet,
@@ -410,22 +386,16 @@ namespace MackySoft.Ucli.Unity.Tests
                 .EnablePrefabStageCleanup();
             var prefabInstance = CreateSavedPrefabInstanceWithTestComponent(scope);
 
-            var aliasTarget = new
-            {
-                @var = "component",
-            };
+            ComponentReferenceArgs aliasTarget =
+                new UcliAliasReferenceArgs(new UcliPlanAlias("component"));
             var ensureRequest = CreateOperation(
                 opId: "edit-step",
                 opName: UcliPrimitiveOperationNames.CompEnsure,
-                args: new
-                {
-                    target = new
-                    {
-                        scene = prefabInstance.ScenePath,
-                        hierarchyPath = "InstanceRoot",
-                    },
-                    type = prefabInstance.ComponentTypeId,
-                },
+                args: new ComponentEnsureArgs(
+                    new SceneHierarchyReferenceArgs(
+                        new SceneAssetPath(prefabInstance.ScenePath),
+                        new UnityHierarchyPath("InstanceRoot")),
+                    new UnityComponentTypeId(prefabInstance.ComponentTypeId)),
                 alias: "component",
                 sourceKind: NormalizedOperation.SourceStepKind.Edit);
             var firstSetRequest = CreateOperation(
@@ -497,15 +467,16 @@ namespace MackySoft.Ucli.Unity.Tests
             var prefabInstance = CreateSavedPrefabInstanceWithTestComponent(scope);
             var canonicalGlobalObjectId = UnityObjectReferenceResolver.CreateGlobalObjectId(prefabInstance.Component).Value;
             var nonCanonicalGlobalObjectId = GlobalObjectIdTestValues.CreateNonCanonicalIdentifierTypeText(canonicalGlobalObjectId);
+            ComponentReferenceArgs nonCanonicalTarget =
+                new GlobalObjectIdReferenceArgs(new UnityGlobalObjectId(nonCanonicalGlobalObjectId));
+            ComponentReferenceArgs canonicalTarget =
+                new GlobalObjectIdReferenceArgs(new UnityGlobalObjectId(canonicalGlobalObjectId));
             var setRequest = CreateOperation(
                 opId: "edit-step",
                 opName: UcliPrimitiveOperationNames.CompSet,
                 args: new
                 {
-                    target = new
-                    {
-                        globalObjectId = nonCanonicalGlobalObjectId,
-                    },
+                    target = nonCanonicalTarget,
                     sets = new object[]
                     {
                         new
@@ -521,10 +492,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 opName: UcliPrimitiveOperationNames.PrefabApplyOverrides,
                 args: new
                 {
-                    target = new
-                    {
-                        globalObjectId = canonicalGlobalObjectId,
-                    },
+                    target = canonicalTarget,
                     targetAssetPath = prefabInstance.PrefabPath,
                     propertyPaths = new[] { "integerValue" },
                 },
@@ -560,41 +528,29 @@ namespace MackySoft.Ucli.Unity.Tests
             EditorSceneManager.SaveScene(scene, scenePath);
 
             var componentTypeId = IndexTypeIdFormatter.Format(typeof(CompOperationTestComponent));
-            var target = new
-            {
-                scene = scenePath,
-                hierarchyPath = "Root/External",
-                componentType = componentTypeId,
-            };
+            ComponentReferenceArgs target = new SceneComponentReferenceArgs(
+                new SceneAssetPath(scenePath),
+                new UnityHierarchyPath("Root/External"),
+                new UnityComponentTypeId(componentTypeId));
             var createRequest = CreateOperation(
                 opId: "create-prefab",
                 opName: UcliPrimitiveOperationNames.PrefabCreate,
-                args: new
-                {
-                    target = new
-                    {
-                        scene = scenePath,
-                        hierarchyPath = "Root",
-                    },
-                    path = prefabPath,
-                },
+                args: new PrefabCreateArgs(
+                    new SceneHierarchyReferenceArgs(
+                        new SceneAssetPath(scenePath),
+                        new UnityHierarchyPath("Root")),
+                    new PrefabAssetPath(prefabPath)),
                 sourceKind: NormalizedOperation.SourceStepKind.Edit);
             var reparentRequest = CreateOperation(
                 opId: "reparent",
                 opName: UcliPrimitiveOperationNames.GoReparent,
-                args: new
-                {
-                    target = new
-                    {
-                        scene = scenePath,
-                        hierarchyPath = "External",
-                    },
-                    parent = new
-                    {
-                        scene = scenePath,
-                        hierarchyPath = "Root",
-                    },
-                },
+                args: new GoReparentArgs(
+                    new SceneHierarchyReferenceArgs(
+                        new SceneAssetPath(scenePath),
+                        new UnityHierarchyPath("External")),
+                    new SceneHierarchyReferenceArgs(
+                        new SceneAssetPath(scenePath),
+                        new UnityHierarchyPath("Root"))),
                 sourceKind: NormalizedOperation.SourceStepKind.Edit);
             var setRequest = CreateOperation(
                 opId: "edit-step",
@@ -670,10 +626,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var requestOperation = CreateOperation(
                 opId: "op-prefab-open",
                 opName: UcliPrimitiveOperationNames.PrefabOpen,
-                args: new
-                {
-                    path = prefabPath,
-                });
+                args: new PrefabPathArgs(new PrefabAssetPath(prefabPath)));
 
             var result = await operation.CallAsync(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
 
@@ -696,10 +649,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var requestOperation = CreateOperation(
                 opId: "op-prefab-open",
                 opName: UcliPrimitiveOperationNames.PrefabOpen,
-                args: new
-                {
-                    path = prefabPath,
-                });
+                args: new PrefabPathArgs(new PrefabAssetPath(prefabPath)));
 
             var result = await operation.PlanAsync(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
 
@@ -723,10 +673,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var requestOperation = CreateOperation(
                 opId: "op-prefab-open",
                 opName: UcliPrimitiveOperationNames.PrefabOpen,
-                args: new
-                {
-                    path = targetPrefabPath,
-                });
+                args: new PrefabPathArgs(new PrefabAssetPath(targetPrefabPath)));
 
             var result = await operation.PlanAsync(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
 
@@ -746,10 +693,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var requestOperation = CreateOperation(
                 opId: "op-prefab-open",
                 opName: UcliPrimitiveOperationNames.PrefabOpen,
-                args: new
-                {
-                    path = prefabPath,
-                },
+                args: new PrefabPathArgs(new PrefabAssetPath(prefabPath)),
                 alias: "root",
                 sourceKind: NormalizedOperation.SourceStepKind.Edit);
 
@@ -778,10 +722,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var requestOperation = CreateOperation(
                 opId: "op-prefab-open",
                 opName: UcliPrimitiveOperationNames.PrefabOpen,
-                args: new
-                {
-                    path = prefabPath,
-                },
+                args: new PrefabPathArgs(new PrefabAssetPath(prefabPath)),
                 alias: "root",
                 sourceKind: NormalizedOperation.SourceStepKind.Op);
 
@@ -810,36 +751,23 @@ namespace MackySoft.Ucli.Unity.Tests
             var openRequest = CreateOperation(
                 opId: "op-prefab-open",
                 opName: UcliPrimitiveOperationNames.PrefabOpen,
-                args: new
-                {
-                    path = prefabPath,
-                },
+                args: new PrefabPathArgs(new PrefabAssetPath(prefabPath)),
                 alias: "root",
                 sourceKind: NormalizedOperation.SourceStepKind.Edit);
             var createRequest = CreateOperation(
                 opId: "op-go-create",
                 opName: UcliPrimitiveOperationNames.GoCreate,
-                args: new
-                {
-                    name = "Child",
-                    parent = new
-                    {
-                        @var = "root",
-                    },
-                },
+                args: new GoCreateUnderParentArgs(
+                    "Child",
+                    new UcliAliasReferenceArgs(new UcliPlanAlias("root"))),
                 alias: "child",
                 sourceKind: NormalizedOperation.SourceStepKind.Edit);
             var ensureRequest = CreateOperation(
                 opId: "op-comp-ensure",
                 opName: UcliPrimitiveOperationNames.CompEnsure,
-                args: new
-                {
-                    target = new
-                    {
-                        @var = "child",
-                    },
-                    type = componentTypeId,
-                },
+                args: new ComponentEnsureArgs(
+                    new UcliAliasReferenceArgs(new UcliPlanAlias("child")),
+                    new UnityComponentTypeId(componentTypeId)),
                 alias: "childComp",
                 sourceKind: NormalizedOperation.SourceStepKind.Edit);
             var setRequest = CreateOperation(
@@ -847,10 +775,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 opName: UcliPrimitiveOperationNames.CompSet,
                 args: new
                 {
-                    target = new
-                    {
-                        @var = "childComp",
-                    },
+                    target = IpcPayloadCodec.SerializeToElement<ComponentReferenceArgs>(
+                        new UcliAliasReferenceArgs(new UcliPlanAlias("childComp"))),
                     sets = new object[]
                     {
                         new
@@ -893,10 +819,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var requestOperation = CreateOperation(
                 opId: "op-prefab-open",
                 opName: UcliPrimitiveOperationNames.PrefabOpen,
-                args: new
-                {
-                    path = prefabPath,
-                },
+                args: new PrefabPathArgs(new PrefabAssetPath(prefabPath)),
                 alias: "root",
                 sourceKind: NormalizedOperation.SourceStepKind.Edit);
 
@@ -946,10 +869,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var requestOperation = CreateOperation(
                 opId: "op-prefab-open",
                 opName: UcliPrimitiveOperationNames.PrefabOpen,
-                args: new
-                {
-                    path = prefabPath,
-                },
+                args: new PrefabPathArgs(new PrefabAssetPath(prefabPath)),
                 sourceKind: NormalizedOperation.SourceStepKind.Edit);
 
             var result = await operation.PlanAsync(requestOperation, context, CancellationToken.None);
@@ -985,23 +905,16 @@ namespace MackySoft.Ucli.Unity.Tests
             var openRequest = CreateOperation(
                 opId: "op-prefab-open",
                 opName: UcliPrimitiveOperationNames.PrefabOpen,
-                args: new
-                {
-                    path = prefabPath,
-                },
+                args: new PrefabPathArgs(new PrefabAssetPath(prefabPath)),
                 sourceKind: NormalizedOperation.SourceStepKind.Edit);
             var ensureRequest = CreateOperation(
                 opId: "op-comp-ensure",
                 opName: UcliPrimitiveOperationNames.CompEnsure,
-                args: new
-                {
-                    target = new
-                    {
-                        prefab = prefabPath,
-                        hierarchyPath = Path.GetFileNameWithoutExtension(prefabPath),
-                    },
-                    type = componentTypeId,
-                },
+                args: new ComponentEnsureArgs(
+                    new PrefabHierarchyReferenceArgs(
+                        new PrefabAssetPath(prefabPath),
+                        new UnityHierarchyPath(Path.GetFileNameWithoutExtension(prefabPath))),
+                    new UnityComponentTypeId(componentTypeId)),
                 alias: "component",
                 sourceKind: NormalizedOperation.SourceStepKind.Edit);
 
@@ -1033,32 +946,22 @@ namespace MackySoft.Ucli.Unity.Tests
             var openRequest = CreateOperation(
                 opId: "op-prefab-open",
                 opName: UcliPrimitiveOperationNames.PrefabOpen,
-                args: new
-                {
-                    path = prefabPath,
-                },
+                args: new PrefabPathArgs(new PrefabAssetPath(prefabPath)),
                 alias: "root");
             var ensureRequest = CreateOperation(
                 opId: "op-comp-ensure",
                 opName: UcliPrimitiveOperationNames.CompEnsure,
-                args: new
-                {
-                    target = new
-                    {
-                        @var = "root",
-                    },
-                    type = componentTypeId,
-                },
+                args: new ComponentEnsureArgs(
+                    new UcliAliasReferenceArgs(new UcliPlanAlias("root")),
+                    new UnityComponentTypeId(componentTypeId)),
                 alias: "component");
             var setRequest = CreateOperation(
                 opId: "op-comp-set",
                 opName: UcliPrimitiveOperationNames.CompSet,
                 args: new
                 {
-                    target = new
-                    {
-                        @var = "component",
-                    },
+                    target = IpcPayloadCodec.SerializeToElement<ComponentReferenceArgs>(
+                        new UcliAliasReferenceArgs(new UcliPlanAlias("component"))),
                     sets = new object[]
                     {
                         new
@@ -1071,10 +974,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var saveRequest = CreateOperation(
                 opId: "op-prefab-save",
                 opName: UcliPrimitiveOperationNames.PrefabSave,
-                args: new
-                {
-                    path = prefabPath,
-                });
+                args: new PrefabPathArgs(new PrefabAssetPath(prefabPath)));
 
             var openResult = await openOperation.CallAsync(openRequest, context, CancellationToken.None);
             var ensureResult = await ensureOperation.CallAsync(ensureRequest, context, CancellationToken.None);
@@ -1114,44 +1014,29 @@ namespace MackySoft.Ucli.Unity.Tests
             var openRequest = CreateOperation(
                 opId: "op-prefab-open",
                 opName: UcliPrimitiveOperationNames.PrefabOpen,
-                args: new
-                {
-                    path = prefabPath,
-                },
+                args: new PrefabPathArgs(new PrefabAssetPath(prefabPath)),
                 alias: "root");
             var createRequest = CreateOperation(
                 opId: "op-go-create",
                 opName: UcliPrimitiveOperationNames.GoCreate,
-                args: new
-                {
-                    name = "Child",
-                    parent = new
-                    {
-                        @var = "root",
-                    },
-                },
+                args: new GoCreateUnderParentArgs(
+                    "Child",
+                    new UcliAliasReferenceArgs(new UcliPlanAlias("root"))),
                 alias: "child");
             var ensureRequest = CreateOperation(
                 opId: "op-comp-ensure",
                 opName: UcliPrimitiveOperationNames.CompEnsure,
-                args: new
-                {
-                    target = new
-                    {
-                        @var = "child",
-                    },
-                    type = componentTypeId,
-                },
+                args: new ComponentEnsureArgs(
+                    new UcliAliasReferenceArgs(new UcliPlanAlias("child")),
+                    new UnityComponentTypeId(componentTypeId)),
                 alias: "childComp");
             var setRequest = CreateOperation(
                 opId: "op-comp-set",
                 opName: UcliPrimitiveOperationNames.CompSet,
                 args: new
                 {
-                    target = new
-                    {
-                        @var = "childComp",
-                    },
+                    target = IpcPayloadCodec.SerializeToElement<ComponentReferenceArgs>(
+                        new UcliAliasReferenceArgs(new UcliPlanAlias("childComp"))),
                     sets = new object[]
                     {
                         new
@@ -1330,12 +1215,10 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var context = scope.CreateExecutionContext();
             Assert.That(context.TryEnsureSceneExecutionSession(prefabInstance.ScenePath, out var ensureErrorMessage), Is.True, ensureErrorMessage);
-            var target = new
-            {
-                scene = prefabInstance.ScenePath,
-                hierarchyPath = "InstanceRoot",
-                componentType = prefabInstance.ComponentTypeId,
-            };
+            ComponentReferenceArgs target = new SceneComponentReferenceArgs(
+                new SceneAssetPath(prefabInstance.ScenePath),
+                new UnityHierarchyPath("InstanceRoot"),
+                new UnityComponentTypeId(prefabInstance.ComponentTypeId));
             var setRequest = CreateOperation(
                 opId: "edit-step",
                 opName: UcliPrimitiveOperationNames.CompSet,
@@ -1397,12 +1280,11 @@ namespace MackySoft.Ucli.Unity.Tests
                 opName: UcliPrimitiveOperationNames.CompSet,
                 args: new
                 {
-                    target = new
-                    {
-                        scene = prefabInstance.ScenePath,
-                        hierarchyPath = "InstanceRoot",
-                        componentType = prefabInstance.ComponentTypeId,
-                    },
+                    target = IpcPayloadCodec.SerializeToElement<ComponentReferenceArgs>(
+                        new SceneComponentReferenceArgs(
+                            new SceneAssetPath(prefabInstance.ScenePath),
+                            new UnityHierarchyPath("InstanceRoot"),
+                            new UnityComponentTypeId(prefabInstance.ComponentTypeId))),
                     sets = new object[]
                     {
                         new
@@ -1417,10 +1299,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 opName: UcliPrimitiveOperationNames.PrefabApplyOverrides,
                 args: new
                 {
-                    target = new
-                    {
-                        @var = "component",
-                    },
+                    target = IpcPayloadCodec.SerializeToElement<ComponentReferenceArgs>(
+                        new UcliAliasReferenceArgs(new UcliPlanAlias("component"))),
                     targetAssetPath = prefabInstance.PrefabPath,
                     propertyPaths = new[] { "integerValue" },
                 },
@@ -1458,12 +1338,10 @@ namespace MackySoft.Ucli.Unity.Tests
                 fixture.PrefabPath);
             Assert.That(context.TryEnsureSceneExecutionSession(fixture.ScenePath, out var ensureErrorMessage), Is.True, ensureErrorMessage);
 
-            var target = new
-            {
-                scene = fixture.ScenePath,
-                hierarchyPath = "PrefabRoot",
-                componentType = fixture.ComponentTypeId,
-            };
+            ComponentReferenceArgs target = new SceneComponentReferenceArgs(
+                new SceneAssetPath(fixture.ScenePath),
+                new UnityHierarchyPath("PrefabRoot"),
+                new UnityComponentTypeId(fixture.ComponentTypeId));
             var setRequest = CreateOperation(
                 opId: "edit-step",
                 opName: UcliPrimitiveOperationNames.CompSet,
@@ -1526,12 +1404,10 @@ namespace MackySoft.Ucli.Unity.Tests
                 fixture.PrefabPath);
             Assert.That(context.TryEnsureSceneExecutionSession(fixture.ScenePath, out var ensureErrorMessage), Is.True, ensureErrorMessage);
 
-            var target = new
-            {
-                scene = fixture.ScenePath,
-                hierarchyPath = "PrefabRoot",
-                componentType = fixture.ComponentTypeId,
-            };
+            ComponentReferenceArgs target = new SceneComponentReferenceArgs(
+                new SceneAssetPath(fixture.ScenePath),
+                new UnityHierarchyPath("PrefabRoot"),
+                new UnityComponentTypeId(fixture.ComponentTypeId));
             var setRequest = CreateOperation(
                 opId: "edit-step",
                 opName: UcliPrimitiveOperationNames.CompSet,
@@ -1588,12 +1464,10 @@ namespace MackySoft.Ucli.Unity.Tests
                 fixture.PrefabPath);
             Assert.That(context.TryEnsureSceneExecutionSession(fixture.ScenePath, out var ensureErrorMessage), Is.True, ensureErrorMessage);
 
-            var target = new
-            {
-                scene = fixture.ScenePath,
-                hierarchyPath = "PrefabRoot",
-                componentType = fixture.ComponentTypeId,
-            };
+            ComponentReferenceArgs target = new SceneComponentReferenceArgs(
+                new SceneAssetPath(fixture.ScenePath),
+                new UnityHierarchyPath("PrefabRoot"),
+                new UnityComponentTypeId(fixture.ComponentTypeId));
             var setRequest = CreateOperation(
                 opId: "edit-step",
                 opName: UcliPrimitiveOperationNames.CompSet,
@@ -1645,12 +1519,10 @@ namespace MackySoft.Ucli.Unity.Tests
             var context = scope.CreateExecutionContext();
             Assert.That(context.TryEnsureSceneExecutionSession(fixture.ScenePath, out var ensureErrorMessage), Is.True, ensureErrorMessage);
 
-            var target = new
-            {
-                scene = fixture.ScenePath,
-                hierarchyPath = "PrefabRoot",
-                componentType = fixture.ComponentTypeId,
-            };
+            ComponentReferenceArgs target = new SceneComponentReferenceArgs(
+                new SceneAssetPath(fixture.ScenePath),
+                new UnityHierarchyPath("PrefabRoot"),
+                new UnityComponentTypeId(fixture.ComponentTypeId));
             var setRequest = CreateOperation(
                 opId: "edit-step",
                 opName: UcliPrimitiveOperationNames.CompSet,
@@ -1709,12 +1581,10 @@ namespace MackySoft.Ucli.Unity.Tests
                 fixture.PrefabPath);
             Assert.That(context.TryEnsureSceneExecutionSession(fixture.ScenePath, out var ensureErrorMessage), Is.True, ensureErrorMessage);
 
-            var target = new
-            {
-                scene = fixture.ScenePath,
-                hierarchyPath = "PrefabRoot",
-                componentType = fixture.ComponentTypeId,
-            };
+            ComponentReferenceArgs target = new SceneComponentReferenceArgs(
+                new SceneAssetPath(fixture.ScenePath),
+                new UnityHierarchyPath("PrefabRoot"),
+                new UnityComponentTypeId(fixture.ComponentTypeId));
             var setRequest = CreateOperation(
                 opId: "edit-step",
                 opName: UcliPrimitiveOperationNames.CompSet,
@@ -1726,11 +1596,10 @@ namespace MackySoft.Ucli.Unity.Tests
                         new
                         {
                             path = "objectReferenceValue",
-                            value = new
-                            {
-                                scene = fixture.ScenePath,
-                                hierarchyPath = "SceneOnlyReference",
-                            },
+                            value = IpcPayloadCodec.SerializeToElement<UnityObjectReferenceArgs>(
+                                new SceneHierarchyReferenceArgs(
+                                    new SceneAssetPath(fixture.ScenePath),
+                                    new UnityHierarchyPath("SceneOnlyReference"))),
                         },
                     },
                 },
@@ -1769,12 +1638,10 @@ namespace MackySoft.Ucli.Unity.Tests
                 .EnableEditorSceneReset();
             var prefabInstance = CreateDirtyPrefabPreviewWithTestComponent(scope);
 
-            var target = new
-            {
-                scene = prefabInstance.ScenePath,
-                hierarchyPath = "InstanceRoot",
-                componentType = prefabInstance.ComponentTypeId,
-            };
+            ComponentReferenceArgs target = new SceneComponentReferenceArgs(
+                new SceneAssetPath(prefabInstance.ScenePath),
+                new UnityHierarchyPath("InstanceRoot"),
+                new UnityComponentTypeId(prefabInstance.ComponentTypeId));
             var applySetRequest = CreateOperation(
                 opId: "apply-step",
                 opName: UcliPrimitiveOperationNames.CompSet,
@@ -2006,18 +1873,59 @@ namespace MackySoft.Ucli.Unity.Tests
         private static NormalizedOperation CreateOperation (
             string opId,
             string opName,
+            GoCreateArgs args,
+            string? alias = null,
+            NormalizedOperation.SourceStepKind sourceKind = NormalizedOperation.SourceStepKind.Edit,
+            OperationPersistenceReportingPolicy persistenceReportingPolicy = OperationPersistenceReportingPolicy.ReportAll,
+            bool allowExplicitPrefabAssetMutation = false)
+        {
+            return CreateOperation(
+                opId,
+                opName,
+                IpcPayloadCodec.SerializeToElement<GoCreateArgs>(args),
+                alias,
+                sourceKind,
+                persistenceReportingPolicy,
+                allowExplicitPrefabAssetMutation);
+        }
+
+        private static NormalizedOperation CreateOperation (
+            string opId,
+            string opName,
             object args,
             string? alias = null,
             NormalizedOperation.SourceStepKind sourceKind = NormalizedOperation.SourceStepKind.Edit,
             OperationPersistenceReportingPolicy persistenceReportingPolicy = OperationPersistenceReportingPolicy.ReportAll,
             bool allowExplicitPrefabAssetMutation = false)
         {
+            return CreateOperation(
+                opId,
+                opName,
+                JsonSerializer.SerializeToElement(
+                    args,
+                    args.GetType(),
+                    IpcJsonSerializerOptions.Default),
+                alias,
+                sourceKind,
+                persistenceReportingPolicy,
+                allowExplicitPrefabAssetMutation);
+        }
+
+        private static NormalizedOperation CreateOperation (
+            string opId,
+            string opName,
+            JsonElement args,
+            string? alias,
+            NormalizedOperation.SourceStepKind sourceKind,
+            OperationPersistenceReportingPolicy persistenceReportingPolicy,
+            bool allowExplicitPrefabAssetMutation)
+        {
             return new NormalizedOperation(
                 ExecutionKey: sourceKind == NormalizedOperation.SourceStepKind.Edit
                     ? OperationExecutionKey.ForEditPrimitive(new IpcExecuteStepId(opId), primitiveIndex: 0)
                     : OperationExecutionKey.ForRawStep(new IpcExecuteStepId(opId)),
                 Op: opName,
-                Args: JsonSerializer.SerializeToElement(args),
+                Args: args,
                 As: alias == null
                     ? null
                     : RequestLocalAliasIdentity.FromPublicAlias(new UcliPlanAlias(alias)),

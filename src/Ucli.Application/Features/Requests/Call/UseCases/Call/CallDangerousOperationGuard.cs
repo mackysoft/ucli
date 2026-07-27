@@ -2,7 +2,6 @@ using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Phase;
 using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc.ContractReading;
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Features.Requests.Call.UseCases.Call;
 
@@ -16,40 +15,35 @@ internal sealed class CallDangerousOperationGuard : ICallDangerousOperationGuard
     {
         ArgumentNullException.ThrowIfNull(preparedRequest);
 
-        if (allowDangerous
-            || preparedRequest.Request.Steps == null)
+        if (allowDangerous)
         {
             return null;
         }
 
         foreach (var step in preparedRequest.Request.Steps)
         {
-            if (step == null)
-            {
-                continue;
-            }
+            var stepPath = $"/steps/{step.StepIndex}";
 
             switch (step.Kind)
             {
                 case IpcExecuteStepKind.Op:
-                    if (!StringValueNormalizer.TryTrimToNonEmpty(step.Op, out var operationName))
-                    {
-                        continue;
-                    }
+                    var operationName = step.Op
+                        ?? throw new InvalidOperationException(
+                            $"Normalized operation step at '{stepPath}' has no operation name.");
 
                     if (TryFindDangerousOperation(operationName, preparedRequest.OperationsByName, out var operationDescriptor))
                     {
                         return new ValidationError(
                             OperationAuthorizationErrorCodes.OperationNotAllowed,
-                            $"Step '{step.StepId}' requires dangerous operation '{operationDescriptor!.Name}'. Specify --allowDangerous to execute dangerous operations.",
-                            step.StepId);
+                            $"Operation '{operationDescriptor!.Name}' requires --allowDangerous.",
+                            stepPath + "/op");
                     }
 
                     break;
 
                 case IpcExecuteStepKind.Edit:
                     if (!RequestEditStepLowerPreviewBuilder.TryBuild(
-                            step.Element,
+                            step.EditContract,
                             preparedRequest.Request.AllowPlayMode,
                             out var operationNames,
                             out var errorMessage))
@@ -57,7 +51,7 @@ internal sealed class CallDangerousOperationGuard : ICallDangerousOperationGuard
                         return new ValidationError(
                             ValidationErrorCodes.EditStepInvalid,
                             errorMessage,
-                            step.StepId);
+                            stepPath);
                     }
 
                     for (var operationIndex = 0; operationIndex < operationNames.Count; operationIndex++)
@@ -70,8 +64,8 @@ internal sealed class CallDangerousOperationGuard : ICallDangerousOperationGuard
 
                         return new ValidationError(
                             OperationAuthorizationErrorCodes.OperationNotAllowed,
-                            $"Edit step '{step.StepId}' requires dangerous operation '{operationDescriptor!.Name}'. Specify --allowDangerous to execute dangerous operations.",
-                            step.StepId);
+                            $"Edit step requires dangerous operation '{operationDescriptor!.Name}'. Specify --allowDangerous to execute dangerous operations.",
+                            stepPath);
                     }
 
                     break;

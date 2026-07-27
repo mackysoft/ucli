@@ -1,7 +1,6 @@
 using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts.Configuration;
-using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Tests;
 
@@ -43,7 +42,6 @@ public sealed class PlanServiceAllowPlayModeTests
         Assert.True(execution.Request.FailFast);
         Assert.True(execution.Request.AllowPlayMode);
         Assert.Null(execution.Request.PlanToken);
-        Assert.False(execution.Request.ExecuteArguments.TryGetProperty("requestId", out _));
     }
 
     [Fact]
@@ -84,8 +82,8 @@ public sealed class PlanServiceAllowPlayModeTests
         [
             new ValidationError(
                 OperationAuthorizationErrorCodes.OperationNotAllowed,
-                "Edit step 'step-1' requires operation 'ucli.comp.set'. Operation is blocked.",
-                new IpcExecuteStepId("step-1")),
+                "Edit step requires operation 'ucli.comp.set'. Operation is blocked.",
+                "/steps/0"),
         ];
         var service = CreateService(
             staticPreflightService: CreateSuccessfulPreflightService(),

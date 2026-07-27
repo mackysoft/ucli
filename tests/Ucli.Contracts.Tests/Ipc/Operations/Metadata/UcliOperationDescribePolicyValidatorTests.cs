@@ -27,8 +27,8 @@ public sealed class UcliOperationDescribePolicyValidatorTests
 
     private static readonly RiskyPolicyWithoutDangerousNotesCase[] RiskyPolicyWithoutDangerousNotesCases =
     [
-        new("advanced", UcliOperationSideEffect.EditorStateChange),
-        new("dangerous", UcliOperationSideEffect.ExternalProcess),
+        new(OperationPolicy.Advanced, UcliOperationSideEffect.EditorStateChange),
+        new(OperationPolicy.Dangerous, UcliOperationSideEffect.ExternalProcess),
     ];
 
     private static readonly UcliOperationSideEffect[] DerivedRiskySideEffectsWithoutDangerousNotes =
@@ -50,8 +50,8 @@ public sealed class UcliOperationDescribePolicyValidatorTests
 
         var isValid = UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContract(
             describe,
-            operationKind: "command",
-            operationPolicy: "advanced",
+            operationKind: UcliOperationKind.Command,
+            operationPolicy: OperationPolicy.Advanced,
             ownerName: "Test contract",
             out var errorMessage);
 
@@ -72,7 +72,7 @@ public sealed class UcliOperationDescribePolicyValidatorTests
 
         var isValid = UcliOperationDescribeContractValidator.TryValidateRegisteredOperationDescribeContractAndDerivePolicy(
             describe,
-            operationKind: "command",
+            operationKind: UcliOperationKind.Command,
             ownerName: "Test contract",
             exposure: UcliOperationExposure.EditLoweringOnly,
             out var derivedPolicy,
@@ -96,7 +96,7 @@ public sealed class UcliOperationDescribePolicyValidatorTests
 
         var isValid = UcliOperationDescribeContractValidator.TryValidateRegisteredOperationDescribeContractAndDerivePolicy(
             describe,
-            operationKind: "command",
+            operationKind: UcliOperationKind.Command,
             ownerName: "Test contract",
             exposure: (UcliOperationExposure)42,
             out var derivedPolicy,
@@ -120,8 +120,8 @@ public sealed class UcliOperationDescribePolicyValidatorTests
 
         var isValid = UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContract(
             describe,
-            operationKind: "query",
-            operationPolicy: "safe",
+            operationKind: UcliOperationKind.Query,
+            operationPolicy: OperationPolicy.Safe,
             ownerName: "Test contract",
             out var errorMessage);
 
@@ -144,8 +144,8 @@ public sealed class UcliOperationDescribePolicyValidatorTests
 
             var isValid = UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContract(
                 describe,
-                operationKind: "query",
-                operationPolicy: "safe",
+                operationKind: UcliOperationKind.Query,
+                operationPolicy: OperationPolicy.Safe,
                 ownerName: "Test contract",
                 out var errorMessage);
 
@@ -169,7 +169,7 @@ public sealed class UcliOperationDescribePolicyValidatorTests
 
             var isValid = UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContract(
                 describe,
-                operationKind: "command",
+                operationKind: UcliOperationKind.Command,
                 operationPolicy: testCase.Policy,
                 ownerName: "Test contract",
                 out var errorMessage);
@@ -212,8 +212,8 @@ public sealed class UcliOperationDescribePolicyValidatorTests
 
         var isValid = UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContract(
             describe,
-            operationKind: "command",
-            operationPolicy: "safe",
+            operationKind: UcliOperationKind.Command,
+            operationPolicy: OperationPolicy.Safe,
             ownerName: "Test contract",
             out var errorMessage);
 
@@ -234,7 +234,7 @@ public sealed class UcliOperationDescribePolicyValidatorTests
 
         var isValid = UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContractAndDerivePolicy(
             describe,
-            operationKind: "command",
+            operationKind: UcliOperationKind.Command,
             ownerName: "Test contract",
             out var derivedPolicy,
             out var errorMessage);
@@ -250,6 +250,6 @@ public sealed class UcliOperationDescribePolicyValidatorTests
         UcliTouchedResourceKind[] TouchedKinds);
 
     private sealed record RiskyPolicyWithoutDangerousNotesCase (
-        string Policy,
+        OperationPolicy Policy,
         UcliOperationSideEffect SideEffect);
 }

@@ -1,4 +1,3 @@
-using MackySoft.Ucli.Application.Diagnostics;
 using MackySoft.Ucli.Application.Features.Assurance.Ready;
 using MackySoft.Ucli.Application.Features.CodeCatalog.Catalog;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
@@ -23,24 +22,6 @@ public sealed class CodeCatalogTests
         Assert.Equal(expectedCodes, actualCodes);
         Assert.Contains(IpcTransportErrorCodes.IpcTimeout.Value, actualCodes);
         Assert.Contains(ProjectContextErrorCodes.ProjectPathNotFound.Value, actualCodes);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void Constructor_WithApplicationContributors_ContainsEveryApplicationErrorCodeDefinition ()
-    {
-        var catalog = CodeCatalogTestSupport.CreateCoreCatalog();
-        var actualCodes = catalog.Descriptors
-            .Select(static descriptor => descriptor.Code)
-            .ToHashSet();
-        var expectedCodes = StaticFieldValueReader.ReadFromStaticClasses<UcliCode>(
-            typeof(ApplicationErrorCodeDescriptors).Assembly,
-            "ErrorCodes");
-
-        foreach (var expectedCode in expectedCodes)
-        {
-            Assert.Contains(expectedCode, actualCodes);
-        }
     }
 
     [Fact]

@@ -67,7 +67,7 @@ public sealed class CommandResultTests
             expectedStatus: CommandResultStatus.Ok,
             expectedExitCode: (int)CliExitCode.Success,
             expectedMessage: message);
-        Assert.Equal(JsonValueKind.Object, JsonSerializer.SerializeToElement(result.Payload).ValueKind);
+        Assert.Equal(JsonValueKind.Object, SerializePayload(result).ValueKind);
         Assert.Empty(result.Errors);
     }
 
@@ -85,9 +85,27 @@ public sealed class CommandResultTests
                 expectedStatus: CommandResultStatus.Ok,
                 expectedExitCode: (int)CliExitCode.Success,
                 expectedMessage: "An unknown error occurred.");
-            Assert.Equal(JsonValueKind.Object, JsonSerializer.SerializeToElement(result.Payload).ValueKind);
+            Assert.Equal(JsonValueKind.Object, SerializePayload(result).ValueKind);
             Assert.Empty(result.Errors);
         }
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData("text")]
+    [InlineData(42)]
+    public void Success_WithScalarPayload_RejectsNonObjectContract (object payload)
+    {
+        Assert.Throws<ArgumentException>(
+            () => CommandResult.Success(UcliCommandNames.Init, "Initialized.", payload));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Success_WithArrayPayload_RejectsNonObjectContract ()
+    {
+        Assert.Throws<ArgumentException>(
+            () => CommandResult.Success(UcliCommandNames.Init, "Initialized.", Array.Empty<int>()));
     }
 
     [Fact]
@@ -152,11 +170,18 @@ public sealed class CommandResultTests
         string expectedCode,
         string expectedMessage)
     {
-        Assert.Equal(JsonValueKind.Object, JsonSerializer.SerializeToElement(result.Payload).ValueKind);
+        Assert.Equal(JsonValueKind.Object, SerializePayload(result).ValueKind);
         Assert.Single(result.Errors);
         Assert.Equal(expectedCode, result.Errors[0].Code.Value);
         Assert.Equal(expectedMessage, result.Errors[0].Message);
-        Assert.Null(result.Errors[0].OpId);
+        Assert.Null(result.Errors[0].InstancePath);
+    }
+
+    private static JsonElement SerializePayload (CommandResult result)
+    {
+        return JsonSerializer.SerializeToElement(
+            result,
+            CliOutputJsonSerializerOptions.Default).GetProperty("payload");
     }
 
     private sealed record ErrorCase (

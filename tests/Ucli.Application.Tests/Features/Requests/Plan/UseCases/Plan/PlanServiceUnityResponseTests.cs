@@ -15,7 +15,6 @@ public sealed class PlanServiceUnityResponseTests
             opResults:
             [
                 new IpcExecuteOperationResult(
-                    OpId: new IpcExecuteStepId("step-1"),
                     Op: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe,
                     Phase: IpcExecuteOperationPhase.Plan,
                     Applied: false,

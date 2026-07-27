@@ -2,7 +2,7 @@ using System.Buffers;
 using System.Text;
 using System.Text.Json;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Hosting.Cli.Common.Serialization;
+using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 
 namespace MackySoft.Ucli.Hosting.Cli.Common.Streaming;
 

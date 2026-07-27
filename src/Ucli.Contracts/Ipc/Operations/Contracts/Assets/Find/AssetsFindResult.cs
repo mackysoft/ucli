@@ -1,9 +1,10 @@
 using System.Text.Json.Serialization;
-using MackySoft.Ucli.Contracts.Operations;
+
+using MackySoft.JsonSchema.Generation.Annotations;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
-[UcliDescription("Assets find operation result.")]
+[Description("Assets find operation result.")]
 public sealed record AssetsFindResult
 {
     /// <summary> Initializes an asset search result with an owned snapshot of the matches. </summary>
@@ -20,11 +21,13 @@ public sealed record AssetsFindResult
         Window = window ?? throw new ArgumentNullException(nameof(window));
     }
 
-    [UcliRequired]
-    [UcliDescription("Matched assets in ordinal asset path order.")]
-    public IReadOnlyList<AssetsFindMatch> Matches { get; }
+    [JsonInclude]
+    [JsonRequired]
+    [Description("Matched assets in ordinal asset path order.")]
+    public IReadOnlyList<AssetsFindMatch> Matches { get; private init; }
 
-    [UcliRequired]
-    [UcliDescription("Bounded result window metadata.")]
-    public BoundedWindow Window { get; }
+    [JsonInclude]
+    [JsonRequired]
+    [Description("Bounded result window metadata.")]
+    public BoundedWindow Window { get; private init; }
 }

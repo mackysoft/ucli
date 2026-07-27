@@ -7,6 +7,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
+using MackySoft.Text.Vocabularies;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Daemon;
@@ -40,7 +41,6 @@ namespace MackySoft.Ucli.Unity.Tests
                         new
                         {
                             kind = "op",
-                            id = "resolve",
                             op = UcliPrimitiveOperationNames.Resolve,
                             args = new
                             {
@@ -88,7 +88,6 @@ namespace MackySoft.Ucli.Unity.Tests
                         new
                         {
                             kind = "op",
-                            id = "refresh",
                             op = UcliPrimitiveOperationNames.ProjectRefresh,
                             args = new
                             {
@@ -137,14 +136,15 @@ namespace MackySoft.Ucli.Unity.Tests
                         new
                         {
                             kind = "edit",
-                            id = "editSpawner",
                             on = new
                             {
-                                scene = scenePath,
+                                kind = "scene",
+                                path = scenePath,
                             },
                             select = new
                             {
-                                gameObject = "Root/Enemies/Spawner",
+                                kind = "gameObject",
+                                path = "Root/Enemies/Spawner",
                                 cardinality = "one",
                             },
                             actions = new object[]
@@ -226,14 +226,15 @@ namespace MackySoft.Ucli.Unity.Tests
                         new
                         {
                             kind = "edit",
-                            id = "reparentChild",
                             on = new
                             {
-                                scene = scenePath,
+                                kind = "scene",
+                                path = scenePath,
                             },
                             select = new
                             {
-                                gameObject = "Root/Child",
+                                kind = "gameObject",
+                                path = "Root/Child",
                                 cardinality = "one",
                             },
                             actions = new object[]
@@ -297,20 +298,18 @@ namespace MackySoft.Ucli.Unity.Tests
                         new
                         {
                             kind = "edit",
-                            id = "deleteFirst",
                             on = new
                             {
-                                scene = scenePath,
+                                kind = "scene",
+                                path = scenePath,
                             },
                             select = new
                             {
-                                from = new
-                                {
-                                    op = UcliPrimitiveOperationNames.SceneQuery,
-                                    args = new
+                                kind = "from",
+                                op = UcliPrimitiveOperationNames.SceneQuery,
+                                args = new
                                     {
                                     },
-                                },
                                 cardinality = "first",
                             },
                             actions = new object[]
@@ -331,7 +330,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var (compiledStep, compiledOperations) = CompileSingleStep(result.Request!, 0, scope.CreateExecutionContext());
             _ = new ExecuteRequestCompilerAssert(compiledStep, compiledOperations)
                 .HasLoweredOperations(IpcExecuteStepKind.Edit, "edit", UcliPrimitiveOperationNames.GoDelete)
-                .AllHavePublicId("deleteFirst")
+                .AllBelongToSourceStep()
                 .HaveDistinctExecutionKeys();
             var target = compiledOperations[0].Args.GetProperty("target");
             Assert.That(target.GetProperty("hierarchyPath").GetString(), Is.EqualTo("ZRoot"));
@@ -356,21 +355,19 @@ namespace MackySoft.Ucli.Unity.Tests
                         new
                         {
                             kind = "edit",
-                            id = "invalidComponentType",
                             on = new
                             {
-                                scene = scenePath,
+                                kind = "scene",
+                                path = scenePath,
                             },
                             select = new
                             {
-                                from = new
-                                {
-                                    op = UcliPrimitiveOperationNames.SceneQuery,
-                                    args = new
+                                kind = "from",
+                                op = UcliPrimitiveOperationNames.SceneQuery,
+                                args = new
                                     {
                                         componentType = "Missing.Component, Missing.Assembly",
                                     },
-                                },
                                 cardinality = "all",
                             },
                             actions = new object[]
@@ -391,7 +388,7 @@ namespace MackySoft.Ucli.Unity.Tests
             using var executionContext = scope.CreateExecutionContext();
             var error = CompileSingleStepFailure(normalizationResult.Request!, 0, executionContext);
             Assert.That(error.Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
-            Assert.That(error.OpId?.Value, Is.EqualTo("invalidComponentType"));
+            Assert.That(error.InstancePath, Is.EqualTo("/steps/0"));
             Assert.That(error.Message, Does.Contain("TypeId could not be resolved"));
         }
 
@@ -410,17 +407,14 @@ namespace MackySoft.Ucli.Unity.Tests
                         new
                         {
                             kind = "edit",
-                            id = "createAssets",
                             on = new
                             {
-                                project = true,
+                                kind = "project",
                             },
                             select = new
                             {
-                                projectAsset = new
-                                {
-                                    path = "ProjectSettings/TagManager.asset",
-                                },
+                                kind = "projectAsset",
+                                path = "ProjectSettings/TagManager.asset",
                                 cardinality = "one",
                             },
                             actions = new object[]
@@ -453,7 +447,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 .HasOperationNames(
                     UcliPrimitiveOperationNames.AssetCreate,
                     UcliPrimitiveOperationNames.AssetCreate)
-                .AllHavePublicId("createAssets")
+                .AllBelongToSourceStep()
                 .HaveDistinctExecutionKeys();
         }
 
@@ -471,17 +465,14 @@ namespace MackySoft.Ucli.Unity.Tests
                         new
                         {
                             kind = "edit",
-                            id = "setProjectSettings",
                             on = new
                             {
-                                project = true,
+                                kind = "project",
                             },
                             select = new
                             {
-                                projectAsset = new
-                                {
-                                    path = "ProjectSettings/TagManager.asset",
-                                },
+                                kind = "projectAsset",
+                                path = "ProjectSettings/TagManager.asset",
                                 cardinality = "one",
                             },
                             actions = new object[]
@@ -540,22 +531,20 @@ namespace MackySoft.Ucli.Unity.Tests
                         new
                         {
                             kind = "edit",
-                            id = "createAssetForMany",
                             on = new
                             {
-                                scene = scenePath,
+                                kind = "scene",
+                                path = scenePath,
                             },
                             select = new
                             {
-                                from = new
-                                {
-                                    op = UcliPrimitiveOperationNames.SceneQuery,
-                                    args = new
+                                kind = "from",
+                                op = UcliPrimitiveOperationNames.SceneQuery,
+                                args = new
                                     {
                                         pathPrefix = "Root",
                                         componentType = "UnityEngine.BoxCollider, UnityEngine.PhysicsModule",
                                     },
-                                },
                                 cardinality = "all",
                             },
                             actions = new object[]
@@ -577,7 +566,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 Assert.That(result.IsSuccess, Is.True);
                 var error = CompileSingleStepFailure(result.Request!, 0, scope.CreateExecutionContext());
                 _ = new ExecuteRequestCompileFailureAssert(error)
-                    .HasInvalidArgument("createAssetForMany")
+                    .HasInvalidArgument("/steps/0")
                     .HasMessageContaining("requires the selection to resolve to at most one target.");
         }
 
@@ -604,21 +593,19 @@ namespace MackySoft.Ucli.Unity.Tests
                         new
                         {
                             kind = "edit",
-                            id = "createPrefabForMany",
                             on = new
                             {
-                                scene = scenePath,
+                                kind = "scene",
+                                path = scenePath,
                             },
                             select = new
                             {
-                                from = new
-                                {
-                                    op = UcliPrimitiveOperationNames.SceneQuery,
-                                    args = new
+                                kind = "from",
+                                op = UcliPrimitiveOperationNames.SceneQuery,
+                                args = new
                                     {
                                         pathPrefix = "Root",
                                     },
-                                },
                                 cardinality = "all",
                             },
                             actions = new object[]
@@ -646,7 +633,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.IsSuccess, Is.True);
             var error = CompileSingleStepFailure(result.Request!, 0, scope.CreateExecutionContext());
             _ = new ExecuteRequestCompileFailureAssert(error)
-                .HasInvalidArgument("createPrefabForMany")
+                .HasInvalidArgument("/steps/0")
                 .HasMessageContaining("requires the selection to resolve to at most one target.");
         }
 
@@ -670,14 +657,15 @@ namespace MackySoft.Ucli.Unity.Tests
                         new
                         {
                             kind = "edit",
-                            id = "createPrefabInPrefabContext",
                             on = new
                             {
-                                prefab = prefabPath,
+                                kind = "prefab",
+                                path = prefabPath,
                             },
                             select = new
                             {
-                                gameObject = prefabRootName,
+                                kind = "gameObject",
+                                path = prefabRootName,
                                 cardinality = "one",
                             },
                             actions = new object[]
@@ -698,7 +686,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.IsSuccess, Is.True);
             var error = CompileSingleStepFailure(result.Request!, 0, scope.CreateExecutionContext());
             _ = new ExecuteRequestCompileFailureAssert(error)
-                .HasInvalidArgument("createPrefabInPrefabContext")
+                .HasInvalidArgument("/steps/0")
                 .HasMessageContaining("requires a GameObject target in scene context.");
         }
 
@@ -723,21 +711,19 @@ namespace MackySoft.Ucli.Unity.Tests
                         new
                         {
                             kind = "edit",
-                            id = "deletePersistedRoot",
                             on = new
                             {
-                                scene = scenePath,
+                                kind = "scene",
+                                path = scenePath,
                             },
                             select = new
                             {
-                                from = new
-                                {
-                                    op = UcliPrimitiveOperationNames.SceneQuery,
-                                    args = new
+                                kind = "from",
+                                op = UcliPrimitiveOperationNames.SceneQuery,
+                                args = new
                                     {
                                         pathPrefix = "Root",
                                     },
-                                },
                                 cardinality = "one",
                             },
                             actions = new object[]
@@ -759,7 +745,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var normalizedRequest = result.Request!;
             var error = CompileSingleStepFailure(normalizedRequest, 0, scope.CreateExecutionContext());
             _ = new ExecuteRequestCompileFailureAssert(error)
-                .HasInvalidArgument("deletePersistedRoot")
+                .HasInvalidArgument("/steps/0")
                 .HasMessageContaining("cardinality 'one' requires exactly one target.");
         }
 
@@ -784,21 +770,19 @@ namespace MackySoft.Ucli.Unity.Tests
                         new
                         {
                             kind = "edit",
-                            id = "ensureDirtySceneTarget",
                             on = new
                             {
-                                scene = scenePath,
+                                kind = "scene",
+                                path = scenePath,
                             },
                             select = new
                             {
-                                from = new
-                                {
-                                    op = UcliPrimitiveOperationNames.SceneQuery,
-                                    args = new
+                                kind = "from",
+                                op = UcliPrimitiveOperationNames.SceneQuery,
+                                args = new
                                     {
                                         pathPrefix = "Renamed",
                                     },
-                                },
                                 cardinality = "one",
                             },
                             actions = new object[]
@@ -821,7 +805,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var (compiledStep, compiledOperations) = CompileSingleStep(result.Request!, 0, executionContext);
             _ = new ExecuteRequestCompilerAssert(compiledStep, compiledOperations)
                 .HasLoweredOperations(IpcExecuteStepKind.Edit, "edit", UcliPrimitiveOperationNames.CompEnsure)
-                .AllHavePublicId("ensureDirtySceneTarget")
+                .AllBelongToSourceStep()
                 .HaveDistinctExecutionKeys();
             Assert.That(executionContext.TryGetTemporaryScene(scenePath, out var temporaryScene), Is.True);
             Assert.That(
@@ -853,21 +837,19 @@ namespace MackySoft.Ucli.Unity.Tests
                         new
                         {
                             kind = "edit",
-                            id = "deleteGoodRoot",
                             on = new
                             {
-                                scene = scenePath,
+                                kind = "scene",
+                                path = scenePath,
                             },
                             select = new
                             {
-                                from = new
-                                {
-                                    op = UcliPrimitiveOperationNames.SceneQuery,
-                                    args = new
+                                kind = "from",
+                                op = UcliPrimitiveOperationNames.SceneQuery,
+                                args = new
                                     {
                                         pathPrefix = "GoodRoot",
                                     },
-                                },
                                 cardinality = "one",
                             },
                             actions = new object[]
@@ -888,7 +870,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var (compiledStep, compiledOperations) = CompileSingleStep(result.Request!, 0, scope.CreateExecutionContext());
             _ = new ExecuteRequestCompilerAssert(compiledStep, compiledOperations)
                 .HasLoweredOperations(IpcExecuteStepKind.Edit, "edit", UcliPrimitiveOperationNames.GoDelete)
-                .AllHavePublicId("deleteGoodRoot")
+                .AllBelongToSourceStep()
                 .HaveDistinctExecutionKeys();
             Assert.That(compiledStep.Diagnostics.Count, Is.EqualTo(1));
             var diagnostic = compiledStep.Diagnostics[0];
@@ -917,14 +899,15 @@ namespace MackySoft.Ucli.Unity.Tests
                         new
                         {
                             kind = "edit",
-                            id = "closedSceneDelete",
                             on = new
                             {
-                                scene = scenePath,
+                                kind = "scene",
+                                path = scenePath,
                             },
                             select = new
                             {
-                                gameObject = "Root",
+                                kind = "gameObject",
+                                path = "Root",
                                 cardinality = "one",
                             },
                             actions = new object[]
@@ -944,7 +927,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.IsSuccess, Is.True);
             var error = CompileSingleStepFailure(result.Request!, 0, scope.CreateExecutionContext());
             _ = new ExecuteRequestCompileFailureAssert(error)
-                .HasInvalidArgument("closedSceneDelete")
+                .HasInvalidArgument("/steps/0")
                 .HasMessageContaining("Add 'ucli.scene.open' before this step.");
         }
 
@@ -968,14 +951,15 @@ namespace MackySoft.Ucli.Unity.Tests
                         new
                         {
                             kind = "edit",
-                            id = "closedSceneCommit",
                             on = new
                             {
-                                scene = scenePath,
+                                kind = "scene",
+                                path = scenePath,
                             },
                             select = new
                             {
-                                gameObject = "Root",
+                                kind = "gameObject",
+                                path = "Root",
                                 cardinality = "one",
                             },
                             actions = new object[]
@@ -995,7 +979,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.IsSuccess, Is.True);
             var error = CompileSingleStepFailure(result.Request!, 0, scope.CreateExecutionContext());
             _ = new ExecuteRequestCompileFailureAssert(error)
-                .HasInvalidArgument("closedSceneCommit")
+                .HasInvalidArgument("/steps/0")
                 .HasMessageContaining("Add 'ucli.scene.open' before this step.");
         }
 
@@ -1019,7 +1003,6 @@ namespace MackySoft.Ucli.Unity.Tests
                         new
                         {
                             kind = "op",
-                            id = "openScene",
                             op = UcliPrimitiveOperationNames.SceneOpen,
                             args = new
                             {
@@ -1029,14 +1012,15 @@ namespace MackySoft.Ucli.Unity.Tests
                         new
                         {
                             kind = "edit",
-                            id = "closedSceneCommitAfterOpen",
                             on = new
                             {
-                                scene = scenePath,
+                                kind = "scene",
+                                path = scenePath,
                             },
                             select = new
                             {
-                                gameObject = "Root",
+                                kind = "gameObject",
+                                path = "Root",
                                 cardinality = "one",
                             },
                             actions = new object[]
@@ -1067,7 +1051,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(executionContext.HasPlannedLiveSceneOpen(scenePath), Is.False);
             var error = CompileSingleStepFailure(result.Request, 1, executionContext);
             _ = new ExecuteRequestCompileFailureAssert(error)
-                .HasInvalidArgument("closedSceneCommitAfterOpen")
+                .HasInvalidArgument("/steps/1")
                 .HasMessageContaining("Add 'ucli.scene.open' before this step.");
         });
 
@@ -1092,14 +1076,15 @@ namespace MackySoft.Ucli.Unity.Tests
                         new
                         {
                             kind = "edit",
-                            id = "loadedSceneDelete",
                             on = new
                             {
-                                scene = scenePath,
+                                kind = "scene",
+                                path = scenePath,
                             },
                             select = new
                             {
-                                gameObject = "Root/Child",
+                                kind = "gameObject",
+                                path = "Root/Child",
                                 cardinality = "one",
                             },
                             actions = new object[]
@@ -1121,7 +1106,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var (compiledStep, compiledOperations) = CompileSingleStep(result.Request!, 0, executionContext);
             _ = new ExecuteRequestCompilerAssert(compiledStep, compiledOperations)
                 .HasLoweredOperations(IpcExecuteStepKind.Edit, "edit", UcliPrimitiveOperationNames.GoDelete)
-                .AllHavePublicId("loadedSceneDelete")
+                .AllBelongToSourceStep()
                 .HaveDistinctExecutionKeys();
             Assert.That(executionContext.TryGetTemporaryScene(scenePath, out var temporaryScene), Is.True);
             Assert.That(EditorSceneManager.IsPreviewScene(temporaryScene), Is.True);
@@ -1150,14 +1135,15 @@ namespace MackySoft.Ucli.Unity.Tests
                         new
                         {
                             kind = "edit",
-                            id = "closedPrefabEnsure",
                             on = new
                             {
-                                prefab = prefabPath,
+                                kind = "prefab",
+                                path = prefabPath,
                             },
                             select = new
                             {
-                                gameObject = prefabRootName,
+                                kind = "gameObject",
+                                path = prefabRootName,
                                 cardinality = "one",
                             },
                             actions = new object[]
@@ -1178,7 +1164,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.IsSuccess, Is.True);
             var error = CompileSingleStepFailure(result.Request!, 0, scope.CreateExecutionContext());
             _ = new ExecuteRequestCompileFailureAssert(error)
-                .HasInvalidArgument("closedPrefabEnsure")
+                .HasInvalidArgument("/steps/0")
                 .HasMessageContaining("Add 'ucli.prefab.open' before this step.");
         }
 
@@ -1200,14 +1186,15 @@ namespace MackySoft.Ucli.Unity.Tests
                         new
                         {
                             kind = "edit",
-                            id = "closedPrefabCreateAssetWithCommit",
                             on = new
                             {
-                                prefab = prefabPath,
+                                kind = "prefab",
+                                path = prefabPath,
                             },
                             select = new
                             {
-                                gameObject = prefabRootName,
+                                kind = "gameObject",
+                                path = prefabRootName,
                                 cardinality = "one",
                             },
                             actions = new object[]
@@ -1229,7 +1216,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.IsSuccess, Is.True);
             var error = CompileSingleStepFailure(result.Request!, 0, scope.CreateExecutionContext());
             _ = new ExecuteRequestCompileFailureAssert(error)
-                .HasInvalidArgument("closedPrefabCreateAssetWithCommit")
+                .HasInvalidArgument("/steps/0")
                 .HasMessageContaining("Add 'ucli.prefab.open' before this step.");
         }
 
@@ -1250,14 +1237,15 @@ namespace MackySoft.Ucli.Unity.Tests
                         new
                         {
                             kind = "edit",
-                            id = "closedPrefabOptionalCreateAssetWithCommit",
                             on = new
                             {
-                                prefab = prefabPath,
+                                kind = "prefab",
+                                path = prefabPath,
                             },
                             select = new
                             {
-                                gameObject = "Missing",
+                                kind = "gameObject",
+                                path = "Missing",
                                 cardinality = "atMostOne",
                             },
                             actions = new object[]
@@ -1279,7 +1267,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.IsSuccess, Is.True);
             var error = CompileSingleStepFailure(result.Request!, 0, scope.CreateExecutionContext());
             _ = new ExecuteRequestCompileFailureAssert(error)
-                .HasInvalidArgument("closedPrefabOptionalCreateAssetWithCommit")
+                .HasInvalidArgument("/steps/0")
                 .HasMessageContaining("Add 'ucli.prefab.open' before this step.");
         }
 
@@ -1304,14 +1292,15 @@ namespace MackySoft.Ucli.Unity.Tests
                         new
                         {
                             kind = "edit",
-                            id = "openedPrefabEnsure",
                             on = new
                             {
-                                prefab = prefabPath,
+                                kind = "prefab",
+                                path = prefabPath,
                             },
                             select = new
                             {
-                                gameObject = $"{prefabRootName}/Renamed",
+                                kind = "gameObject",
+                                path = $"{prefabRootName}/Renamed",
                                 cardinality = "one",
                             },
                             actions = new object[]
@@ -1334,7 +1323,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var (compiledStep, compiledOperations) = CompileSingleStep(result.Request!, 0, executionContext);
             _ = new ExecuteRequestCompilerAssert(compiledStep, compiledOperations)
                 .HasLoweredOperations(IpcExecuteStepKind.Edit, "edit", UcliPrimitiveOperationNames.CompEnsure)
-                .AllHavePublicId("openedPrefabEnsure")
+                .AllBelongToSourceStep()
                 .HaveDistinctExecutionKeys();
             Assert.That(executionContext.TryGetTemporaryPrefabContentsRoot(prefabPath, out var temporaryPrefabRoot), Is.True);
             Assert.That(temporaryPrefabRoot, Is.Not.Null);
@@ -1365,7 +1354,6 @@ namespace MackySoft.Ucli.Unity.Tests
                         new
                         {
                             kind = "op",
-                            id = "openPrefab",
                             op = UcliPrimitiveOperationNames.PrefabOpen,
                             args = new
                             {
@@ -1375,14 +1363,15 @@ namespace MackySoft.Ucli.Unity.Tests
                         new
                         {
                             kind = "edit",
-                            id = "closedPrefabEnsureAfterOpen",
                             on = new
                             {
-                                prefab = prefabPath,
+                                kind = "prefab",
+                                path = prefabPath,
                             },
                             select = new
                             {
-                                gameObject = prefabRootName,
+                                kind = "gameObject",
+                                path = prefabRootName,
                                 cardinality = "one",
                             },
                             actions = new object[]
@@ -1414,7 +1403,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(executionContext.HasPlannedLivePrefabOpen(prefabPath), Is.False);
             var error = CompileSingleStepFailure(result.Request, 1, executionContext);
             _ = new ExecuteRequestCompileFailureAssert(error)
-                .HasInvalidArgument("closedPrefabEnsureAfterOpen")
+                .HasInvalidArgument("/steps/1")
                 .HasMessageContaining("Add 'ucli.prefab.open' before this step.");
         });
 
@@ -1437,7 +1426,6 @@ namespace MackySoft.Ucli.Unity.Tests
                         new
                         {
                             kind = "op",
-                            id = "openPrefabForCommit",
                             op = UcliPrimitiveOperationNames.PrefabOpen,
                             args = new
                             {
@@ -1447,14 +1435,15 @@ namespace MackySoft.Ucli.Unity.Tests
                         new
                         {
                             kind = "edit",
-                            id = "closedPrefabCreateAssetAfterOpen",
                             on = new
                             {
-                                prefab = prefabPath,
+                                kind = "prefab",
+                                path = prefabPath,
                             },
                             select = new
                             {
-                                gameObject = prefabRootName,
+                                kind = "gameObject",
+                                path = prefabRootName,
                                 cardinality = "one",
                             },
                             actions = new object[]
@@ -1486,7 +1475,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(executionContext.HasPlannedLivePrefabOpen(prefabPath), Is.False);
             var error = CompileSingleStepFailure(result.Request, 1, executionContext);
             _ = new ExecuteRequestCompileFailureAssert(error)
-                .HasInvalidArgument("closedPrefabCreateAssetAfterOpen")
+                .HasInvalidArgument("/steps/1")
                 .HasMessageContaining("Add 'ucli.prefab.open' before this step.");
         });
 
@@ -1507,7 +1496,6 @@ namespace MackySoft.Ucli.Unity.Tests
                         new
                         {
                             kind = "op",
-                            id = "openPrefabForOptionalCommit",
                             op = UcliPrimitiveOperationNames.PrefabOpen,
                             args = new
                             {
@@ -1517,14 +1505,15 @@ namespace MackySoft.Ucli.Unity.Tests
                         new
                         {
                             kind = "edit",
-                            id = "openedPrefabOptionalCommit",
                             on = new
                             {
-                                prefab = prefabPath,
+                                kind = "prefab",
+                                path = prefabPath,
                             },
                             select = new
                             {
-                                gameObject = "Missing",
+                                kind = "gameObject",
+                                path = "Missing",
                                 cardinality = "atMostOne",
                             },
                             actions = new object[]
@@ -1556,7 +1545,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(executionContext.HasPlannedLivePrefabOpen(prefabPath), Is.False);
             var error = CompileSingleStepFailure(result.Request, 1, executionContext);
             _ = new ExecuteRequestCompileFailureAssert(error)
-                .HasInvalidArgument("openedPrefabOptionalCommit")
+                .HasInvalidArgument("/steps/1")
                 .HasMessageContaining("Add 'ucli.prefab.open' before this step.");
         });
 
@@ -1579,14 +1568,15 @@ namespace MackySoft.Ucli.Unity.Tests
                         new
                         {
                             kind = "edit",
-                            id = "missingDirectSelection",
                             on = new
                             {
-                                scene = scenePath,
+                                kind = "scene",
+                                path = scenePath,
                             },
                             select = new
                             {
-                                gameObject = "Root/Missing",
+                                kind = "gameObject",
+                                path = "Root/Missing",
                                 cardinality = "one",
                             },
                             actions = new object[]
@@ -1608,7 +1598,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.IsSuccess, Is.True);
             var error = CompileSingleStepFailure(result.Request!, 0, scope.CreateExecutionContext());
             _ = new ExecuteRequestCompileFailureAssert(error)
-                .HasInvalidArgument("missingDirectSelection")
+                .HasInvalidArgument("/steps/0")
                 .HasMessageContaining("cardinality 'one' requires exactly one target.");
         }
 
@@ -1632,14 +1622,15 @@ namespace MackySoft.Ucli.Unity.Tests
                         new
                         {
                             kind = "edit",
-                            id = "optionalMissingDirectSelectionNoCommit",
                             on = new
                             {
-                                scene = scenePath,
+                                kind = "scene",
+                                path = scenePath,
                             },
                             select = new
                             {
-                                gameObject = "Root/Missing",
+                                kind = "gameObject",
+                                path = "Root/Missing",
                                 cardinality = "atMostOne",
                             },
                             actions = new object[]
@@ -1662,7 +1653,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var (compiledStep, compiledOperations) = CompileSingleStep(result.Request!, 0, scope.CreateExecutionContext());
             _ = new ExecuteRequestCompilerAssert(compiledStep, compiledOperations)
                 .HasLoweredOperations(IpcExecuteStepKind.Edit, "edit")
-                .AllHavePublicId("optionalMissingDirectSelectionNoCommit");
+                .AllBelongToSourceStep();
         }
 
         [Test]
@@ -1685,14 +1676,15 @@ namespace MackySoft.Ucli.Unity.Tests
                         new
                         {
                             kind = "edit",
-                            id = "optionalMissingDirectSelectionProjectCommit",
                             on = new
                             {
-                                scene = scenePath,
+                                kind = "scene",
+                                path = scenePath,
                             },
                             select = new
                             {
-                                gameObject = "Root/Missing",
+                                kind = "gameObject",
+                                path = "Root/Missing",
                                 cardinality = "atMostOne",
                             },
                             actions = new object[]
@@ -1718,7 +1710,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     IpcExecuteStepKind.Edit,
                     "edit",
                     UcliPrimitiveOperationNames.ProjectSave)
-                .AllHavePublicId("optionalMissingDirectSelectionProjectCommit");
+                .AllBelongToSourceStep();
         }
 
         [Test]
@@ -1740,14 +1732,15 @@ namespace MackySoft.Ucli.Unity.Tests
                         new
                         {
                             kind = "edit",
-                            id = "optionalMissingDirectSelectionSceneContextCommit",
                             on = new
                             {
-                                scene = scenePath,
+                                kind = "scene",
+                                path = scenePath,
                             },
                             select = new
                             {
-                                gameObject = "Root/Missing",
+                                kind = "gameObject",
+                                path = "Root/Missing",
                                 cardinality = "atMostOne",
                             },
                             actions = new object[]
@@ -1769,7 +1762,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.IsSuccess, Is.True);
             var error = CompileSingleStepFailure(result.Request!, 0, scope.CreateExecutionContext());
             _ = new ExecuteRequestCompileFailureAssert(error)
-                .HasInvalidArgument("optionalMissingDirectSelectionSceneContextCommit")
+                .HasInvalidArgument("/steps/0")
                 .HasMessageContaining("Add 'ucli.scene.open' before this step.");
         }
 
@@ -1793,14 +1786,15 @@ namespace MackySoft.Ucli.Unity.Tests
                         new
                         {
                             kind = "edit",
-                            id = "optionalMissingDirectSelectionNoCommitReleaseScenePreview",
                             on = new
                             {
-                                scene = scenePath,
+                                kind = "scene",
+                                path = scenePath,
                             },
                             select = new
                             {
-                                gameObject = "Root/Missing",
+                                kind = "gameObject",
+                                path = "Root/Missing",
                                 cardinality = "atMostOne",
                             },
                             actions = new object[]
@@ -1824,7 +1818,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var (compiledStep, compiledOperations) = CompileSingleStep(result.Request!, 0, executionContext);
             _ = new ExecuteRequestCompilerAssert(compiledStep, compiledOperations)
                 .HasLoweredOperations(IpcExecuteStepKind.Edit, "edit")
-                .AllHavePublicId("optionalMissingDirectSelectionNoCommitReleaseScenePreview");
+                .AllBelongToSourceStep();
             Assert.That(executionContext.TryGetTemporaryScene(scenePath, out _), Is.False);
         }
 
@@ -1845,14 +1839,15 @@ namespace MackySoft.Ucli.Unity.Tests
                         new
                         {
                             kind = "edit",
-                            id = "optionalMissingDirectSelectionNoCommitReleasePrefabPreview",
                             on = new
                             {
-                                prefab = prefabPath,
+                                kind = "prefab",
+                                path = prefabPath,
                             },
                             select = new
                             {
-                                gameObject = "Missing",
+                                kind = "gameObject",
+                                path = "Missing",
                                 cardinality = "atMostOne",
                             },
                             actions = new object[]
@@ -1876,7 +1871,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var (compiledStep, compiledOperations) = CompileSingleStep(result.Request!, 0, executionContext);
             _ = new ExecuteRequestCompilerAssert(compiledStep, compiledOperations)
                 .HasLoweredOperations(IpcExecuteStepKind.Edit, "edit")
-                .AllHavePublicId("optionalMissingDirectSelectionNoCommitReleasePrefabPreview");
+                .AllBelongToSourceStep();
             Assert.That(executionContext.TryGetTemporaryPrefabContentsRoot(prefabPath, out _), Is.False);
         }
 
@@ -1900,14 +1895,15 @@ namespace MackySoft.Ucli.Unity.Tests
                         new
                         {
                             kind = "edit",
-                            id = "closedSceneCreateAsset",
                             on = new
                             {
-                                scene = scenePath,
+                                kind = "scene",
+                                path = scenePath,
                             },
                             select = new
                             {
-                                gameObject = "Root",
+                                kind = "gameObject",
+                                path = "Root",
                                 cardinality = "one",
                             },
                             actions = new object[]
@@ -1930,7 +1926,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var (compiledStep, compiledOperations) = CompileSingleStep(result.Request!, 0, scope.CreateExecutionContext());
             _ = new ExecuteRequestCompilerAssert(compiledStep, compiledOperations)
                 .HasOperationNames(UcliPrimitiveOperationNames.AssetCreate)
-                .AllHavePublicId("closedSceneCreateAsset");
+                .AllBelongToSourceStep();
         }
 
         [Test]
@@ -1951,14 +1947,15 @@ namespace MackySoft.Ucli.Unity.Tests
                         new
                         {
                             kind = "edit",
-                            id = "closedPrefabCreateAsset",
                             on = new
                             {
-                                prefab = prefabPath,
+                                kind = "prefab",
+                                path = prefabPath,
                             },
                             select = new
                             {
-                                gameObject = prefabRootName,
+                                kind = "gameObject",
+                                path = prefabRootName,
                                 cardinality = "one",
                             },
                             actions = new object[]
@@ -1981,7 +1978,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var (compiledStep, compiledOperations) = CompileSingleStep(result.Request!, 0, scope.CreateExecutionContext());
             _ = new ExecuteRequestCompilerAssert(compiledStep, compiledOperations)
                 .HasOperationNames(UcliPrimitiveOperationNames.AssetCreate)
-                .AllHavePublicId("closedPrefabCreateAsset");
+                .AllBelongToSourceStep();
         }
 
         [Test]
@@ -2042,7 +2039,6 @@ namespace MackySoft.Ucli.Unity.Tests
                         new
                         {
                             kind = "op",
-                            id = "rawSet",
                             op = UcliPrimitiveOperationNames.CompSet,
                             args = new { },
                         },
@@ -2054,7 +2050,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var result = CreateNormalizer().Normalize(request);
 
-            AssertInvalidArgument(result, "rawSet");
+            AssertInvalidArgument(result, "/steps/0");
             Assert.That(result.Error!.Message, Is.EqualTo($"Operation '{UcliPrimitiveOperationNames.CompSet}' does not support Play Mode execution."));
         }
 
@@ -2072,7 +2068,6 @@ namespace MackySoft.Ucli.Unity.Tests
                         new
                         {
                             kind = "op",
-                            id = "eval",
                             op = UcliPrimitiveOperationNames.CsEval,
                             args = new
                             {
@@ -2113,7 +2108,6 @@ namespace MackySoft.Ucli.Unity.Tests
                         new
                         {
                             kind = "op",
-                            id = "cheat",
                             op = operationName,
                             args = new { },
                         },
@@ -2122,7 +2116,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var result = CreateNormalizer(CreatePlayModeOperation(operationName, UcliOperationPlayModeSupport.Required)).Normalize(request);
 
-            AssertInvalidArgument(result, "cheat");
+            AssertInvalidArgument(result, "/steps/0");
             Assert.That(result.Error!.Message, Is.EqualTo($"Operation '{operationName}' requires --allowPlayMode."));
         }
 
@@ -2141,7 +2135,6 @@ namespace MackySoft.Ucli.Unity.Tests
                         new
                         {
                             kind = "op",
-                            id = "cheat",
                             op = operationName,
                             args = new { },
                         },
@@ -2179,7 +2172,6 @@ namespace MackySoft.Ucli.Unity.Tests
                         new
                         {
                             kind = "op",
-                            id = "unknown",
                             op = operationName,
                             args = new { },
                         },
@@ -2191,7 +2183,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var result = CreateNormalizer(Array.Empty<IUcliOperation>()).Normalize(request);
 
-            AssertInvalidArgument(result, "unknown");
+            AssertInvalidArgument(result, "/steps/0");
             Assert.That(result.Error!.Message, Is.EqualTo($"Operation '{operationName}' is not registered and cannot be used in Play Mode execution."));
         }
 
@@ -2211,7 +2203,6 @@ namespace MackySoft.Ucli.Unity.Tests
                             new
                             {
                                 kind = "op",
-                                id = "cheat",
                                 op = operationName,
                                 args = new { },
                             },
@@ -2230,7 +2221,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(compiled, Is.False);
             Assert.That(error.Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
-            Assert.That(error.OpId?.Value, Is.EqualTo("cheat"));
+            Assert.That(error.InstancePath, Is.EqualTo("/steps/0"));
             Assert.That(error.Message, Is.EqualTo($"Operation '{operationName}' requires --allowPlayMode."));
         }
 
@@ -2276,14 +2267,15 @@ namespace MackySoft.Ucli.Unity.Tests
                         new
                         {
                             kind = "edit",
-                            id = "playSceneCommit",
                             on = new
                             {
-                                scene = "Assets/Scenes/Main.unity",
+                                kind = "scene",
+                                path = "Assets/Scenes/Main.unity",
                             },
                             select = new
                             {
-                                gameObject = "Root",
+                                kind = "gameObject",
+                                path = "Root",
                                 cardinality = "one",
                             },
                             actions = new object[]
@@ -2306,7 +2298,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.IsSuccess, Is.False);
             Assert.That(result.Error, Is.Not.Null);
             Assert.That(result.Error!.Code, Is.EqualTo(PlayModeErrorCodes.PlayModePersistenceForbidden));
-            Assert.That(result.Error.OpId?.Value, Is.EqualTo("playSceneCommit"));
+            Assert.That(result.Error.InstancePath, Is.EqualTo("/steps/0"));
         }
 
         [Test]
@@ -2328,14 +2320,15 @@ namespace MackySoft.Ucli.Unity.Tests
                         new
                         {
                             kind = "edit",
-                            id = "playSceneMutation",
                             on = new
                             {
-                                scene = scenePath,
+                                kind = "scene",
+                                path = scenePath,
                             },
                             select = new
                             {
-                                gameObject = "Root",
+                                kind = "gameObject",
+                                path = "Root",
                                 cardinality = "one",
                             },
                             actions = new object[]
@@ -2401,14 +2394,15 @@ namespace MackySoft.Ucli.Unity.Tests
                         new
                         {
                             kind = "edit",
-                            id = "playSceneApplyOverride",
                             on = new
                             {
-                                scene = scenePath,
+                                kind = "scene",
+                                path = scenePath,
                             },
                             select = new
                             {
-                                gameObject = "InstanceRoot",
+                                kind = "gameObject",
+                                path = "InstanceRoot",
                                 component = componentTypeId,
                                 cardinality = "one",
                             },
@@ -2477,14 +2471,15 @@ namespace MackySoft.Ucli.Unity.Tests
                         new
                         {
                             kind = "edit",
-                            id = "playSceneCreatePrefab",
                             on = new
                             {
-                                scene = scenePath,
+                                kind = "scene",
+                                path = scenePath,
                             },
                             select = new
                             {
-                                gameObject = "Root",
+                                kind = "gameObject",
+                                path = "Root",
                                 cardinality = "one",
                             },
                             actions = new object[]
@@ -2537,14 +2532,14 @@ namespace MackySoft.Ucli.Unity.Tests
                         new
                         {
                             kind = "edit",
-                            id = "playAssetMutation",
                             on = new
                             {
-                                asset = assetPath,
+                                kind = "asset",
+                                path = assetPath,
                             },
                             select = new
                             {
-                                self = true,
+                                kind = "self",
                                 cardinality = "one",
                             },
                             actions = new object[]
@@ -2647,20 +2642,38 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var requestA = CreateExecuteRequestFromJson(
                 UcliCommandIds.Plan.Name,
-                "{\"protocolVersion\":1,\"steps\":[{\"kind\":\"op\",\"id\":\"setSpawner\",\"op\":\"__COMP_SET_OP__\",\"args\":{\"target\":{\"scene\":\"Assets/Scenes/Main.unity\",\"hierarchyPath\":\"Root/Spawner\",\"componentType\":\"UnityEngine.BoxCollider, UnityEngine.PhysicsModule\"},\"sets\":[{\"path\":\"isTrigger\",\"value\":true}]}}]}"
-                    .Replace("__COMP_SET_OP__", UcliPrimitiveOperationNames.CompSet, StringComparison.Ordinal));
+                "{\"protocolVersion\":1,\"steps\":[{\"kind\":\"__OP_KIND__\",\"op\":\"__COMP_SET_OP__\",\"args\":{\"target\":{\"kind\":\"__SCENE_COMPONENT_KIND__\",\"scene\":\"Assets/Scenes/Main.unity\",\"hierarchyPath\":\"Root/Spawner\",\"componentType\":\"UnityEngine.BoxCollider, UnityEngine.PhysicsModule\"},\"sets\":[{\"path\":\"isTrigger\",\"value\":true}]}}]}"
+                    .Replace("__COMP_SET_OP__", UcliPrimitiveOperationNames.CompSet, StringComparison.Ordinal)
+                    .Replace(
+                        "__OP_KIND__",
+                        Vocabulary.GetText(IpcExecuteStepKind.Op),
+                        StringComparison.Ordinal)
+                    .Replace(
+                        "__SCENE_COMPONENT_KIND__",
+                        Vocabulary.GetText(UcliReferenceKind.SceneComponent),
+                        StringComparison.Ordinal));
             var requestB = CreateExecuteRequestFromJson(
                 UcliCommandIds.Plan.Name,
-                "{\"steps\":[{\"args\":{\"sets\":[{\"value\":true,\"path\":\"isTrigger\"}],\"target\":{\"componentType\":\"UnityEngine.BoxCollider, UnityEngine.PhysicsModule\",\"hierarchyPath\":\"Root/Spawner\",\"scene\":\"Assets/Scenes/Main.unity\"}},\"op\":\"__COMP_SET_OP__\",\"id\":\"setSpawner\",\"kind\":\"op\"}],\"protocolVersion\":1}"
-                    .Replace("__COMP_SET_OP__", UcliPrimitiveOperationNames.CompSet, StringComparison.Ordinal));
+                "{\"steps\":[{\"args\":{\"sets\":[{\"value\":true,\"path\":\"isTrigger\"}],\"target\":{\"componentType\":\"UnityEngine.BoxCollider, UnityEngine.PhysicsModule\",\"hierarchyPath\":\"Root/Spawner\",\"scene\":\"Assets/Scenes/Main.unity\",\"kind\":\"__SCENE_COMPONENT_KIND__\"}},\"op\":\"__COMP_SET_OP__\",\"kind\":\"__OP_KIND__\"}],\"protocolVersion\":1}"
+                    .Replace("__COMP_SET_OP__", UcliPrimitiveOperationNames.CompSet, StringComparison.Ordinal)
+                    .Replace(
+                        "__OP_KIND__",
+                        Vocabulary.GetText(IpcExecuteStepKind.Op),
+                        StringComparison.Ordinal)
+                    .Replace(
+                        "__SCENE_COMPONENT_KIND__",
+                        Vocabulary.GetText(UcliReferenceKind.SceneComponent),
+                        StringComparison.Ordinal));
 
             var normalizer = CreateNormalizer();
             var resultA = normalizer.Normalize(requestA);
             var resultB = normalizer.Normalize(requestB);
 
             Assert.That(resultA.IsSuccess, Is.True);
-            Assert.That(resultB.IsSuccess, Is.True);
-            Assert.That(resultA.Request!.CanonicalDigestPayloadUtf8.Span.SequenceEqual(resultB.Request!.CanonicalDigestPayloadUtf8.Span), Is.True);
+            Assert.That(resultB.IsSuccess, Is.True, resultB.Error?.ToString());
+            Assert.That(
+                Encoding.UTF8.GetString(resultA.Request!.CanonicalDigestPayloadUtf8.Span),
+                Is.EqualTo(Encoding.UTF8.GetString(resultB.Request!.CanonicalDigestPayloadUtf8.Span)));
         }
 
         [Test]
@@ -2669,11 +2682,11 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var requestA = CreateExecuteRequestFromJson(
                 UcliCommandIds.Plan.Name,
-                "{\"protocolVersion\":1,\"steps\":[{\"kind\":\"op\",\"id\":\"resolve\",\"op\":\"__RESOLVE_OP__\",\"args\":{\"number\":9007199254740992}}]}"
+                "{\"protocolVersion\":1,\"steps\":[{\"kind\":\"op\",\"op\":\"__RESOLVE_OP__\",\"args\":{\"number\":9007199254740992}}]}"
                     .Replace("__RESOLVE_OP__", UcliPrimitiveOperationNames.Resolve, StringComparison.Ordinal));
             var requestB = CreateExecuteRequestFromJson(
                 UcliCommandIds.Plan.Name,
-                "{\"protocolVersion\":1,\"steps\":[{\"kind\":\"op\",\"id\":\"resolve\",\"op\":\"__RESOLVE_OP__\",\"args\":{\"number\":9007199254740993}}]}"
+                "{\"protocolVersion\":1,\"steps\":[{\"kind\":\"op\",\"op\":\"__RESOLVE_OP__\",\"args\":{\"number\":9007199254740993}}]}"
                     .Replace("__RESOLVE_OP__", UcliPrimitiveOperationNames.Resolve, StringComparison.Ordinal));
 
             var normalizer = CreateNormalizer();
@@ -2708,145 +2721,13 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.IsSuccess, Is.False);
             Assert.That(result.Error, Is.Not.Null);
             Assert.That(result.Error!.Code, Is.EqualTo(IpcProtocolErrorCodes.ProtocolVersionMismatch));
-            Assert.That(result.Error.OpId, Is.Null);
+            Assert.That(result.Error.InstancePath, Is.EqualTo("/protocolVersion"));
         }
 
-        [Test]
-        [Category("Size.Small")]
-        public void Normalize_WhenRequestIdExists_ReturnsUnknownPropertyError ()
-        {
-            var request = CreateExecuteRequest(
-                UcliCommandIds.Call.Name,
-                new
-                {
-                    protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
-                    steps = Array.Empty<object>(),
-                });
 
-            var result = CreateNormalizer().Normalize(request);
 
-            AssertInvalidArgument(result);
-            Assert.That(result.Error!.Message, Does.Contain("unknown property: requestId"));
-        }
 
-        [Test]
-        [Category("Size.Small")]
-        public void Normalize_WhenStepIdIsDuplicated_ReturnsInvalidArgumentError ()
-        {
-            var request = CreateExecuteRequest(
-                UcliCommandIds.Call.Name,
-                new
-                {
-                    protocolVersion = IpcProtocol.CurrentVersion,
-                    steps = new[]
-                    {
-                        new
-                        {
-                            kind = "op",
-                            id = "same",
-                            op = UcliPrimitiveOperationNames.ProjectRefresh,
-                            args = new { },
-                        },
-                        new
-                        {
-                            kind = "op",
-                            id = "same",
-                            op = UcliPrimitiveOperationNames.ProjectRefresh,
-                            args = new { },
-                        },
-                    },
-                });
 
-            var result = CreateNormalizer().Normalize(request);
-
-            AssertInvalidArgument(result, "same");
-        }
-
-        [Test]
-        [Category("Size.Small")]
-        public void Normalize_WhenOpArgsPropertyIsMissing_ReturnsInvalidArgumentError ()
-        {
-            var request = CreateExecuteRequest(
-                UcliCommandIds.Plan.Name,
-                new
-                {
-                    protocolVersion = IpcProtocol.CurrentVersion,
-                    steps = new[]
-                    {
-                        new
-                        {
-                            kind = "op",
-                            id = "missingArgs",
-                            op = UcliPrimitiveOperationNames.SceneOpen,
-                        },
-                    },
-                });
-
-            var result = CreateNormalizer().Normalize(request);
-
-            AssertInvalidArgument(result, "missingArgs");
-        }
-
-        [Test]
-        [Category("Size.Small")]
-        public void Normalize_WhenOpArgsPropertyIsNotObject_ReturnsInvalidArgumentError ()
-        {
-            var request = CreateExecuteRequest(
-                UcliCommandIds.Plan.Name,
-                new
-                {
-                    protocolVersion = IpcProtocol.CurrentVersion,
-                    steps = new[]
-                    {
-                        new
-                        {
-                            kind = "op",
-                            id = "argsType",
-                            op = UcliPrimitiveOperationNames.SceneOpen,
-                            args = Array.Empty<object>(),
-                        },
-                    },
-                });
-
-            var result = CreateNormalizer().Normalize(request);
-
-            AssertInvalidArgument(result, "argsType");
-        }
-
-        [Test]
-        [Category("Size.Small")]
-        public void Normalize_WhenEditCommitIsMissing_ReturnsInvalidArgumentError ()
-        {
-            var request = CreateExecuteRequest(
-                UcliCommandIds.Plan.Name,
-                new
-                {
-                    protocolVersion = IpcProtocol.CurrentVersion,
-                    steps = new object[]
-                    {
-                        new
-                        {
-                            kind = "edit",
-                            id = "missingCommit",
-                            on = new
-                            {
-                                scene = "Assets/Scenes/Main.unity",
-                            },
-                            select = new
-                            {
-                                gameObject = "Root",
-                                cardinality = "one",
-                            },
-                            actions = Array.Empty<object>(),
-                        },
-                    },
-                });
-
-            var result = CreateNormalizer().Normalize(request);
-
-            AssertInvalidArgument(result, "missingCommit");
-        }
 
         [Test]
         [Category("Size.Small")]
@@ -2862,21 +2743,19 @@ namespace MackySoft.Ucli.Unity.Tests
                         new
                         {
                             kind = "edit",
-                            id = "prefabFrom",
                             on = new
                             {
-                                prefab = "Assets/Prefabs/Enemy.prefab",
+                                kind = "prefab",
+                                path = "Assets/Prefabs/Enemy.prefab",
                             },
                             select = new
                             {
-                                from = new
-                                {
-                                    op = UcliPrimitiveOperationNames.SceneQuery,
-                                    args = new
+                                kind = "from",
+                                op = UcliPrimitiveOperationNames.SceneQuery,
+                                args = new
                                     {
                                         pathPrefix = "Root",
                                     },
-                                },
                                 cardinality = "all",
                             },
                             actions = new object[]
@@ -2893,53 +2772,9 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var result = CreateNormalizer().Normalize(request);
 
-            AssertInvalidArgument(result, "prefabFrom");
+            AssertInvalidArgument(result, "/steps/0");
         }
 
-        [Test]
-        [Category("Size.Small")]
-        public void Normalize_WhenEditCommitLiteralIsUnsupported_ReturnsDetailedInvalidArgumentError ()
-        {
-            var request = CreateExecuteRequest(
-                UcliCommandIds.Plan.Name,
-                new
-                {
-                    protocolVersion = IpcProtocol.CurrentVersion,
-                    steps = new object[]
-                    {
-                        new
-                        {
-                            kind = "edit",
-                            id = "badCommit",
-                            on = new
-                            {
-                                scene = "Assets/Scenes/Main.unity",
-                            },
-                            select = new
-                            {
-                                gameObject = "Root",
-                                cardinality = "one",
-                            },
-                            actions = new object[]
-                            {
-                                new
-                                {
-                                    kind = "delete",
-                                },
-                            },
-                            commit = "later",
-                        },
-                    },
-                });
-
-            var result = CreateNormalizer().Normalize(request);
-
-            Assert.That(result.IsSuccess, Is.False);
-            Assert.That(result.Error, Is.Not.Null);
-            Assert.That(result.Error!.Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
-            Assert.That(result.Error.OpId?.Value, Is.EqualTo("badCommit"));
-            Assert.That(result.Error.Message, Is.EqualTo("Edit step property 'step.commit' must be one of 'none', 'context', or 'project'."));
-        }
 
         private static IpcExecuteRequest CreatePrefabOverrideRevertRequest (
             string scenePath,
@@ -2955,14 +2790,15 @@ namespace MackySoft.Ucli.Unity.Tests
                         new
                         {
                             kind = "edit",
-                            id = "revertOverrides",
                             on = new
                             {
-                                scene = scenePath,
+                                kind = "scene",
+                                path = scenePath,
                             },
                             select = new
                             {
-                                gameObject = "Root",
+                                kind = "gameObject",
+                                path = "Root",
                                 component = "UnityEngine.BoxCollider, UnityEngine.PhysicsModule",
                                 cardinality = "one",
                             },
@@ -3102,23 +2938,22 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(
                 IpcExecuteArgumentsContractReader.TryRead(
                     request.Arguments,
-                    IpcExecuteArgumentsContractReadProfile.StrictExecute,
                     out var contract,
                     out var error),
                 Is.True,
                 error.ToString());
-            return contract.Steps![0];
+            return contract.Steps[0];
         }
 
         private static void AssertInvalidArgument (
             ExecuteRequestNormalizationResult result,
-            string expectedOpId = null)
+            string expectedInstancePath = null)
         {
             Assert.That(result.IsSuccess, Is.False);
             Assert.That(result.Request, Is.Null);
             Assert.That(result.Error, Is.Not.Null);
             Assert.That(result.Error!.Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
-            Assert.That(result.Error.OpId?.Value, Is.EqualTo(expectedOpId));
+            Assert.That(result.Error.InstancePath, Is.EqualTo(expectedInstancePath));
         }
 
         private static IpcExecuteRequest CreateExecuteRequest (string command, object arguments)

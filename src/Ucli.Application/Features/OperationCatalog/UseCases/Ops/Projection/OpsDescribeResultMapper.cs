@@ -1,6 +1,5 @@
 using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Access;
 using MackySoft.Ucli.Application.Features.OperationCatalog.Common.Contracts;
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Features.OperationCatalog.UseCases.Ops.Projection;
 
@@ -28,16 +27,14 @@ internal sealed class OpsDescribeResultMapper : IOpsDescribeResultMapper
             new OpsDescribeExecutionOutput(
                 Operation: new OpsOperationDetail(
                     name: operation.Name,
-                    kind: TextVocabulary.GetText(operation.Kind),
-                    policy: TextVocabulary.GetText(operation.Policy),
-                    playModeSupport: TextVocabulary.GetText(operation.PlayModeSupport),
+                    kind: operation.Kind,
+                    policy: operation.Policy,
+                    playModeSupport: operation.PlayModeSupport,
                     description: operation.Description,
-                    inputs: operation.Inputs,
+                    argsContract: operation.ArgsContract,
                     resultContract: operation.ResultContract,
                     assurance: operation.Assurance,
-                    codeContract: operation.CodeContract,
-                    argsSchema: operation.ArgsSchema,
-                    resultSchema: operation.ResultSchema),
+                    codeContract: operation.CodeContract),
                 ReadIndex: readIndexInfoMapper.Map(output.AccessInfo)),
             $"uCLI ops describe completed for '{operationName}'.");
     }

@@ -7,7 +7,7 @@ using MackySoft.Ucli.Unity.Execution.Requests;
 
 namespace MackySoft.Ucli.Unity.Execution.Phases
 {
-    /// <summary> Maps public operation contract reference objects into Unity execution reference values. </summary>
+    /// <summary> Maps public polymorphic reference contracts into Unity execution reference values. </summary>
     internal static class UnityObjectReferenceContractMapper
     {
         public static bool TryMap (
@@ -15,150 +15,35 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             [NotNullWhen(true)] out ResolveSelector? selector,
             out string errorMessage)
         {
-            return TryMapSelector(
-                args.GlobalObjectId,
-                args.AssetGuid,
-                args.AssetPath,
-                args.ProjectAssetPath,
-                args.Scene,
-                args.Prefab,
-                args.HierarchyPath,
-                args.ComponentType,
-                out selector,
-                out errorMessage);
+            return TryMapSelector(args, out selector, out errorMessage);
         }
 
         public static bool TryMap (
-            GameObjectReferenceArgs args,
-            string propertyPath,
-            OperationAliasReferenceMap aliasReferences,
-            [NotNullWhen(true)] out UnityObjectReference? reference,
-            out string errorMessage)
-        {
-            return TryMapReference(
-                args.Alias,
-                args.GlobalObjectId,
-                assetGuid: null,
-                assetPath: null,
-                projectAssetPath: null,
-                args.Scene,
-                args.Prefab,
-                args.HierarchyPath,
-                componentType: null,
-                propertyPath,
-                aliasReferences,
-                out reference,
-                out errorMessage);
-        }
-
-        public static bool TryMap (
-            SceneGameObjectReferenceArgs args,
-            string propertyPath,
-            OperationAliasReferenceMap aliasReferences,
-            [NotNullWhen(true)] out UnityObjectReference? reference,
-            out string errorMessage)
-        {
-            return TryMapReference(
-                args.Alias,
-                args.GlobalObjectId,
-                assetGuid: null,
-                assetPath: null,
-                projectAssetPath: null,
-                args.Scene,
-                prefabPath: null,
-                args.HierarchyPath,
-                componentType: null,
-                propertyPath,
-                aliasReferences,
-                out reference,
-                out errorMessage);
-        }
-
-        public static bool TryMap (
-            ComponentReferenceArgs args,
-            string propertyPath,
-            OperationAliasReferenceMap aliasReferences,
-            [NotNullWhen(true)] out UnityObjectReference? reference,
-            out string errorMessage)
-        {
-            return TryMapReference(
-                args.Alias,
-                args.GlobalObjectId,
-                assetGuid: null,
-                assetPath: null,
-                projectAssetPath: null,
-                args.Scene,
-                args.Prefab,
-                args.HierarchyPath,
-                args.ComponentType,
-                propertyPath,
-                aliasReferences,
-                out reference,
-                out errorMessage);
-        }
-
-        public static bool TryMap (
-            AssetReferenceArgs args,
-            string propertyPath,
-            OperationAliasReferenceMap aliasReferences,
-            [NotNullWhen(true)] out UnityObjectReference? reference,
-            out string errorMessage)
-        {
-            return TryMapReference(
-                args.Alias,
-                args.GlobalObjectId,
-                args.AssetGuid,
-                args.AssetPath,
-                args.ProjectAssetPath,
-                scenePath: null,
-                prefabPath: null,
-                hierarchyPath: null,
-                componentType: null,
-                propertyPath,
-                aliasReferences,
-                out reference,
-                out errorMessage);
-        }
-
-        private static bool TryMapReference (
-            UcliPlanAlias? alias,
-            UnityGlobalObjectId? globalObjectId,
-            Guid? assetGuid,
-            UnityAssetPath? assetPath,
-            ProjectSettingsAssetPath? projectAssetPath,
-            SceneAssetPath? scenePath,
-            PrefabAssetPath? prefabPath,
-            UnityHierarchyPath? hierarchyPath,
-            UnityComponentTypeId? componentType,
+            UnityObjectReferenceArgs args,
             string propertyPath,
             OperationAliasReferenceMap aliasReferences,
             [NotNullWhen(true)] out UnityObjectReference? reference,
             out string errorMessage)
         {
             reference = null;
+            if (args == null)
+            {
+                throw new ArgumentNullException(nameof(args));
+            }
+
             if (aliasReferences == null)
             {
                 throw new ArgumentNullException(nameof(aliasReferences));
             }
 
-            if (alias != null)
+            if (args is UcliAliasReferenceArgs aliasReference)
             {
-                reference = UnityObjectReference.FromAlias(aliasReferences.Resolve(alias));
+                reference = UnityObjectReference.FromAlias(aliasReferences.Resolve(aliasReference.Alias));
                 errorMessage = string.Empty;
                 return true;
             }
 
-            if (!TryMapSelector(
-                globalObjectId,
-                assetGuid,
-                assetPath,
-                projectAssetPath,
-                scenePath,
-                prefabPath,
-                hierarchyPath,
-                componentType,
-                out var selector,
-                out errorMessage))
+            if (!TryMapSelector(args, out var selector, out errorMessage))
             {
                 errorMessage = errorMessage.Replace("Operation 'args'", $"Operation '{propertyPath}'");
                 return false;
@@ -169,63 +54,56 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         }
 
         private static bool TryMapSelector (
-            UnityGlobalObjectId? globalObjectId,
-            Guid? assetGuid,
-            UnityAssetPath? assetPath,
-            ProjectSettingsAssetPath? projectAssetPath,
-            SceneAssetPath? scenePath,
-            PrefabAssetPath? prefabPath,
-            UnityHierarchyPath? hierarchyPath,
-            UnityComponentTypeId? componentType,
+            UnityObjectReferenceArgs args,
             [NotNullWhen(true)] out ResolveSelector? selector,
             out string errorMessage)
         {
             selector = null;
-            if (globalObjectId != null)
+            switch (args)
             {
-                selector = ResolveSelector.FromGlobalObjectId(globalObjectId);
-                errorMessage = string.Empty;
-                return true;
+                case GlobalObjectIdReferenceArgs globalObjectId:
+                    selector = ResolveSelector.FromGlobalObjectId(globalObjectId.GlobalObjectId);
+                    break;
+                case AssetGuidReferenceArgs assetGuid:
+                    selector = ResolveSelector.FromAssetGuid(assetGuid.AssetGuid);
+                    break;
+                case AssetPathReferenceArgs assetPath:
+                    selector = ResolveSelector.FromAssetPath(assetPath.AssetPath);
+                    break;
+                case ProjectAssetPathReferenceArgs projectAssetPath:
+                    selector = ResolveSelector.FromProjectAssetPath(projectAssetPath.ProjectAssetPath);
+                    break;
+                case SceneHierarchyReferenceArgs sceneHierarchy:
+                    selector = ResolveSelector.FromSceneHierarchy(
+                        sceneHierarchy.Scene,
+                        sceneHierarchy.HierarchyPath,
+                        componentType: null);
+                    break;
+                case PrefabHierarchyReferenceArgs prefabHierarchy:
+                    selector = ResolveSelector.FromPrefabHierarchy(
+                        prefabHierarchy.Prefab,
+                        prefabHierarchy.HierarchyPath,
+                        componentType: null);
+                    break;
+                case SceneComponentReferenceArgs sceneComponent:
+                    selector = ResolveSelector.FromSceneHierarchy(
+                        sceneComponent.Scene,
+                        sceneComponent.HierarchyPath,
+                        sceneComponent.ComponentType);
+                    break;
+                case PrefabComponentReferenceArgs prefabComponent:
+                    selector = ResolveSelector.FromPrefabHierarchy(
+                        prefabComponent.Prefab,
+                        prefabComponent.HierarchyPath,
+                        prefabComponent.ComponentType);
+                    break;
+                default:
+                    errorMessage = $"Operation 'args' contains an unsupported reference type: {args.GetType().FullName}.";
+                    return false;
             }
 
-            if (assetGuid != null)
-            {
-                selector = ResolveSelector.FromAssetGuid(assetGuid.Value);
-                errorMessage = string.Empty;
-                return true;
-            }
-
-            if (assetPath != null)
-            {
-                selector = ResolveSelector.FromAssetPath(assetPath);
-                errorMessage = string.Empty;
-                return true;
-            }
-
-            if (projectAssetPath != null)
-            {
-                selector = ResolveSelector.FromProjectAssetPath(projectAssetPath);
-                errorMessage = string.Empty;
-                return true;
-            }
-
-            if (scenePath != null && hierarchyPath != null)
-            {
-                selector = ResolveSelector.FromSceneHierarchy(scenePath, hierarchyPath, componentType);
-                errorMessage = string.Empty;
-                return true;
-            }
-
-            if (prefabPath != null && hierarchyPath != null)
-            {
-                selector = ResolveSelector.FromPrefabHierarchy(prefabPath, hierarchyPath, componentType);
-                errorMessage = string.Empty;
-                return true;
-            }
-
-            errorMessage =
-                $"Operation 'args' must specify exactly one selector: '{IpcResolveSelectorPropertyNames.GlobalObjectId}', '{IpcResolveSelectorPropertyNames.AssetGuid}', '{IpcResolveSelectorPropertyNames.AssetPath}', '{IpcResolveSelectorPropertyNames.ProjectAssetPath}', '{IpcResolveSelectorPropertyNames.Scene}' + '{IpcResolveSelectorPropertyNames.HierarchyPath}', or '{IpcResolveSelectorPropertyNames.Prefab}' + '{IpcResolveSelectorPropertyNames.HierarchyPath}'.";
-            return false;
+            errorMessage = string.Empty;
+            return true;
         }
     }
 }

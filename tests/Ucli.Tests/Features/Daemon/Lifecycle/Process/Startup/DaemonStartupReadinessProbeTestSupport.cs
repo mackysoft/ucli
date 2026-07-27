@@ -3,7 +3,7 @@ namespace MackySoft.Ucli.Tests.Daemon;
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Compensation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Startup;
-using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Shared.Unity.ProjectLock;
 using MackySoft.Ucli.Tests.Helpers.Unity;

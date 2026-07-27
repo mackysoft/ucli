@@ -1,11 +1,11 @@
 using System.Text.Json.Serialization;
-using MackySoft.Ucli.Contracts.Operations;
-using MackySoft.Ucli.Contracts.Text;
+
+using MackySoft.JsonSchema.Generation.Annotations;
 
 namespace MackySoft.Ucli.Contracts.Index;
 
 /// <summary> Represents one scene-tree-lite node entry. </summary>
-[UcliDescription("Scene tree node.")]
+[Description("Scene tree node.")]
 public sealed record IndexSceneTreeLiteNodeJsonContract
 {
     [JsonConstructor]
@@ -27,22 +27,23 @@ public sealed record IndexSceneTreeLiteNodeJsonContract
     }
 
     /// <summary> Gets the GameObject name. </summary>
-    [UcliRequired]
-    [UcliDescription("GameObject name.")]
+    [JsonRequired]
+    [Description("GameObject name.")]
     public string? Name { get; init; }
 
     /// <summary> Gets the resolved GlobalObjectId, or an empty string when unavailable. </summary>
-    [UcliRequired]
-    [UcliDescription("Resolved Unity GlobalObjectId.")]
+    [JsonRequired]
+    [Description("Resolved Unity GlobalObjectId.")]
     public string? GlobalObjectId { get; init; }
 
     /// <summary> Gets the child nodes in hierarchy order. </summary>
-    [UcliRequired]
-    [UcliDescription("Child nodes in hierarchy order.")]
+    [JsonRequired]
+    [Description("Child nodes in hierarchy order.")]
     public IReadOnlyList<IndexSceneTreeLiteNodeJsonContract>? Children { get; init; }
 
     /// <summary> Gets the child collection completeness state. </summary>
-    [UcliRequired]
-    [UcliDescription("Child node completeness state. Values are complete, notExpandedByDepth, truncatedByWindow, and unknown.")]
-    public IndexSceneTreeLiteNodeChildrenState ChildrenState { get; }
+    [JsonInclude]
+    [JsonRequired]
+    [Description("Child node completeness state.")]
+    public IndexSceneTreeLiteNodeChildrenState ChildrenState { get; private init; }
 }

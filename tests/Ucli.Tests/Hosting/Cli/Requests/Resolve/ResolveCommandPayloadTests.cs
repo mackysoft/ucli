@@ -55,6 +55,6 @@ public sealed class ResolveCommandPayloadTests
             .HasProperty("errors", 0, error => error
                 .HasString("code", UcliCoreErrorCodes.InternalError.Value)
                 .HasString("message", "Unity execution failed.")
-                .HasString("opId", "resolve"));
+                .HasString("instancePath", "/steps/0"));
     }
 }

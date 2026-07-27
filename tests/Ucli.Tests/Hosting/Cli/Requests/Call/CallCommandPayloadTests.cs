@@ -25,7 +25,6 @@ public sealed class CallCommandPayloadTests
                 .HasInt32("schemaVersion", 1)
                 .HasArrayLength("steps", 1)
                 .HasProperty("steps", 0, step => step
-                    .HasString("opId", "step-1")
                     .HasString("sourceKind", TextVocabulary.GetText(IpcExecutePostReadSourceKind.Edit))
                     .HasBoolean("playModeMutation", false)
                     .HasString("commit", TextVocabulary.GetText(IpcExecutePostReadCommit.Context))

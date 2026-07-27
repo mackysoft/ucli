@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Application.Features.Assurance;
 using MackySoft.Ucli.Application.Features.Assurance.Ready;
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 using MackySoft.Ucli.Contracts.Ipc;

@@ -12,7 +12,6 @@ internal static class ValidateRequestJsonParserTestSupport
         [
           {
             "kind": "op",
-            "id": "step-1",
             "op": "{{UcliPrimitiveOperationNames.SceneOpen}}",
             "args": {
               "path": "{{ScenePath}}"
@@ -37,7 +36,6 @@ internal static class ValidateRequestJsonParserTestSupport
     {
         return CreateOperationRequest($$"""
             "kind": "op",
-            "id": "step-1",
             "op": "{{UcliPrimitiveOperationNames.SceneOpen}}",
             "args": {
               "path": "{{ScenePath}}"

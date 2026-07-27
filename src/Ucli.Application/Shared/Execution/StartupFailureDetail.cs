@@ -1,5 +1,3 @@
-using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
-
 namespace MackySoft.Ucli.Application.Shared.Execution;
 
 /// <summary> Represents structured startup failure details projected by commands that start a Unity process. </summary>

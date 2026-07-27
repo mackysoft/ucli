@@ -56,7 +56,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     request,
                     error.Code,
                     error.Message,
-                    error.OpId);
+                    error.InstancePath);
             }
 
             try

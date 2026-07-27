@@ -95,7 +95,6 @@ public sealed class QueryServiceAssetsFindTests
             expectedFailFast: true);
 
         var opResult = Assert.Single(result.OpResults);
-        Assert.Equal("assets.find", opResult.OpId.Value);
         Assert.Equal(UcliPrimitiveOperationNames.AssetsFind, opResult.Op);
         Assert.True(opResult.Result.HasValue);
         var payload = opResult.Result!.Value;

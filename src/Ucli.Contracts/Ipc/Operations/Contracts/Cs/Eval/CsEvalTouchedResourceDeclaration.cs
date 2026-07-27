@@ -1,10 +1,10 @@
 using System.Text.Json.Serialization;
-using MackySoft.Ucli.Contracts.Operations;
-using MackySoft.Ucli.Contracts.Text;
+
+using MackySoft.JsonSchema.Generation.Annotations;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
-[UcliDescription("C# eval touched resource item.")]
+[Description("C# eval touched resource item.")]
 public sealed record CsEvalTouchedResourceDeclaration
 {
     /// <summary> Initializes a touched resource declared by evaluated C# code. </summary>
@@ -31,11 +31,13 @@ public sealed record CsEvalTouchedResourceDeclaration
         Path = path;
     }
 
-    [UcliRequired]
-    [UcliDescription("Touched resource kind literal.")]
-    public UcliTouchedResourceKind Kind { get; }
+    [JsonInclude]
+    [JsonRequired]
+    [Description("Touched resource kind literal.")]
+    public UcliTouchedResourceKind Kind { get; private init; }
 
-    [UcliRequired]
-    [UcliDescription("Project-relative touched resource path.")]
-    public string Path { get; }
+    [JsonInclude]
+    [JsonRequired]
+    [Description("Project-relative touched resource path.")]
+    public string Path { get; private init; }
 }

@@ -1,13 +1,42 @@
+using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
+using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 using MackySoft.Ucli.Application.Features.Requests.Plan.Common.Contracts;
+using MackySoft.Ucli.Application.Shared.Context.Project;
+using MackySoft.Ucli.Application.Shared.Execution;
+using MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
+using MackySoft.Ucli.Application.Shared.Execution.Results;
+using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
-using MackySoft.Ucli.Hosting.Cli.Common.Projection;
 
 namespace MackySoft.Ucli.Hosting.Cli.Requests;
 
 /// <summary> Creates command-level JSON results from <c>plan</c> service results. </summary>
 internal static class PlanCommandResultFactory
 {
+    /// <summary> Gets the serializer contract used by successful <c>plan</c> payloads. </summary>
+    public static JsonTypeInfo SuccessPayloadTypeInfo { get; } =
+        CliOutputJsonSerializerOptions.Default.GetTypeInfo(typeof(PlanSuccessCommandPayload));
+
+    /// <summary> Gets the serializer contract used by failed <c>plan</c> payloads. </summary>
+    public static JsonTypeInfo ErrorPayloadTypeInfo { get; } =
+        CommandErrorPayload.TypeInfo<PlanErrorCommandPayload>();
+
+    public static object CreateEmptyErrorPayload ()
+    {
+        return CommandErrorPayload.Empty<PlanErrorCommandPayload>();
+    }
+
+    public static CommandResult CreateExecutionError (ExecutionError error)
+    {
+        ArgumentNullException.ThrowIfNull(error);
+        return CommandFailureProjector.Create(
+            UcliCommandNames.Plan,
+            ApplicationFailure.FromExecutionError(error),
+            CreateEmptyErrorPayload());
+    }
+
     /// <summary> Creates one command result for <c>plan</c>. </summary>
     /// <param name="serviceResult"> The service result. </param>
     /// <returns> The command result serialized to stdout. </returns>
@@ -15,53 +44,90 @@ internal static class PlanCommandResultFactory
     {
         ArgumentNullException.ThrowIfNull(serviceResult);
 
-        var payload = CreatePayload(serviceResult.Output);
-        if (!serviceResult.IsSuccess)
-        {
-            StartupFailurePayloadProjector.AppendFromFailures(payload, serviceResult.Errors);
-        }
-
         if (serviceResult.IsSuccess)
         {
             return CommandResult.Success(
                 command: UcliCommandNames.Plan,
                 message: serviceResult.Message,
-                payload: payload);
+                payload: CreateSuccessPayload(serviceResult.Output!));
         }
 
         return CommandFailureProjector.Create(
             UcliCommandNames.Plan,
             serviceResult.Message,
-            payload,
+            CreateErrorPayload(serviceResult.Output, serviceResult.Errors),
             serviceResult.Errors);
     }
 
-    private static Dictionary<string, object?> CreatePayload (PlanExecutionOutput? output)
+    private static PlanSuccessCommandPayload CreateSuccessPayload (
+        PlanExecutionOutput output)
     {
-        if (output == null)
-        {
-            return new Dictionary<string, object?>();
-        }
-
-        var payload = new Dictionary<string, object?>
-        {
-            ["requestId"] = output.RequestId.ToString("D"),
-            ["project"] = ProjectIdentityPayloadProjector.Create(output.Project),
-            ["opResults"] = output.OpResults,
-            ["readIndex"] = ReadIndexInfoPayloadProjector.Create(output.ReadIndex),
-        };
-
-        if (output.ContractViolations.Count != 0)
-        {
-            payload["contractViolations"] = output.ContractViolations;
-        }
-
-        if (string.IsNullOrWhiteSpace(output.PlanToken))
-        {
-            return payload;
-        }
-
-        payload["planToken"] = output.PlanToken;
-        return payload;
+        return new PlanSuccessCommandPayload(
+            output.RequestId,
+            output.Project,
+            output.OpResults,
+            output.ContractViolations.Count == 0
+                ? null
+                : output.ContractViolations,
+            output.ReadIndex,
+            string.IsNullOrWhiteSpace(output.PlanToken) ? null : output.PlanToken);
     }
+
+    private static object CreateErrorPayload (
+        PlanExecutionOutput? output,
+        IReadOnlyList<ApplicationFailure> failures)
+    {
+        var startupFailure = StartupFailureFinder.FindInFailures(failures);
+        if (output == null && startupFailure == null)
+        {
+            return CreateEmptyErrorPayload();
+        }
+
+        return CommandErrorPayload.Detailed(new PlanErrorCommandPayload(
+            output?.RequestId,
+            output?.Project,
+            output?.OpResults,
+            output is null || output.ContractViolations.Count == 0
+                ? null
+                : output.ContractViolations,
+            output?.ReadIndex,
+            string.IsNullOrWhiteSpace(output?.PlanToken) ? null : output.PlanToken,
+            startupFailure?.Startup,
+            startupFailure?.Diagnosis,
+            startupFailure?.RetryDisposition,
+            startupFailure?.SafeToRetryImmediately));
+    }
+
+    private sealed record PlanSuccessCommandPayload (
+        Guid RequestId,
+        ProjectIdentityInfo Project,
+        IReadOnlyList<OperationExecutionOperationResult> OpResults,
+        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        IReadOnlyList<OperationExecutionContractViolation>? ContractViolations,
+        ReadIndexInfo ReadIndex,
+        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        string? PlanToken);
+
+    private sealed record PlanErrorCommandPayload (
+        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        Guid? RequestId,
+        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        ProjectIdentityInfo? Project,
+        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        IReadOnlyList<OperationExecutionOperationResult>? OpResults,
+        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        IReadOnlyList<OperationExecutionContractViolation>? ContractViolations,
+        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        ReadIndexInfo? ReadIndex,
+        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        string? PlanToken,
+        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        DaemonStartupObservationOutput? Startup,
+        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        DaemonDiagnosisOutput? Diagnosis,
+        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        DaemonStartupRetryDisposition? RetryDisposition,
+        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        bool? SafeToRetryImmediately)
+        : CommandErrorPayload<PlanErrorCommandPayload>;
 }

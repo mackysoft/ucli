@@ -16,7 +16,7 @@ public sealed class RequestStaticValidatorRawOperationExposureTests
         var request = CreateRequest(
             steps:
             [
-                CreateOpStep("step-edit-lowering-only", operationName, new
+                CreateOpStep(0, operationName, new
                 {
                 }),
             ]);
@@ -49,7 +49,7 @@ public sealed class RequestStaticValidatorRawOperationExposureTests
             var request = CreateRequest(
                 steps:
                 [
-                    CreateOpStep("step-edit-only-raw", operationName, new
+                    CreateOpStep(0, operationName, new
                     {
                     }),
                 ]);
@@ -72,7 +72,7 @@ public sealed class RequestStaticValidatorRawOperationExposureTests
         var request = CreateRequest(
             steps:
             [
-                CreateOpStep("step-comp-set", UcliPrimitiveOperationNames.CompSet, new
+                CreateOpStep(0, UcliPrimitiveOperationNames.CompSet, new
                 {
                     target = new
                     {
@@ -95,7 +95,7 @@ public sealed class RequestStaticValidatorRawOperationExposureTests
         var request = CreateRequest(
             steps:
             [
-                CreateOpStep("step-go-create", UcliPrimitiveOperationNames.GoCreate, new
+                CreateOpStep(0, UcliPrimitiveOperationNames.GoCreate, new
                 {
                     name = "GeneratedChild",
                     parent = new
@@ -119,7 +119,7 @@ public sealed class RequestStaticValidatorRawOperationExposureTests
         var request = CreateRequest(
             steps:
             [
-                CreateOpStep("step-comp-set", UcliPrimitiveOperationNames.CompSet, new
+                CreateOpStep(0, UcliPrimitiveOperationNames.CompSet, new
                 {
                     target = new
                     {
@@ -151,7 +151,7 @@ public sealed class RequestStaticValidatorRawOperationExposureTests
         var request = CreateRequest(
             steps:
             [
-                CreateOpStep("step-comp-set", UcliPrimitiveOperationNames.CompSet, new
+                CreateOpStep(0, UcliPrimitiveOperationNames.CompSet, new
                 {
                     target = new
                     {
@@ -180,7 +180,7 @@ public sealed class RequestStaticValidatorRawOperationExposureTests
         var request = CreateRequest(
             steps:
             [
-                CreateOpStep("step-asset-set", UcliPrimitiveOperationNames.AssetSet, new
+                CreateOpStep(0, UcliPrimitiveOperationNames.AssetSet, new
                 {
                     target = new
                     {
@@ -210,7 +210,7 @@ public sealed class RequestStaticValidatorRawOperationExposureTests
         var request = CreateRequest(
             steps:
             [
-                CreateOpStep("step-prefab-create", UcliPrimitiveOperationNames.PrefabCreate, new
+                CreateOpStep(0, UcliPrimitiveOperationNames.PrefabCreate, new
                 {
                     target = new
                     {
@@ -234,7 +234,7 @@ public sealed class RequestStaticValidatorRawOperationExposureTests
         var request = CreateRequest(
             steps:
             [
-                CreateOpStep("step-go-create", UcliPrimitiveOperationNames.GoCreate, new
+                CreateOpStep(0, UcliPrimitiveOperationNames.GoCreate, new
                 {
                     name = "GeneratedChild",
                     parent = new

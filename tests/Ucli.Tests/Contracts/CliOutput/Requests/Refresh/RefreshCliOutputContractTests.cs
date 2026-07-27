@@ -103,7 +103,7 @@ public sealed class RefreshCliOutputContractTests
             .HasProperty("errors", 0, error => error
                 .HasString("code", "OPERATION_NOT_ALLOWED")
                 .HasValueKind("message", JsonValueKind.String)
-                .HasString("opId", "refresh"));
+                .IsNull("instancePath"));
         var message = outputJson.RootElement.GetProperty("errors")[0].GetProperty("message").GetString();
         Assert.Contains("ucli.project.refresh", message, StringComparison.Ordinal);
         Assert.Contains("advanced", message, StringComparison.Ordinal);

@@ -1,5 +1,4 @@
 using System.Text.Json;
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Ipc.ContractReading;
 
@@ -19,14 +18,19 @@ internal sealed record IpcEditStepContract (
     /// <summary>
     /// Defines the supported edit execution contexts.
     /// </summary>
+    [VocabularyDefinition]
     internal enum ContextKind
     {
+        [VocabularyText("scene")]
         Scene = 0,
 
+        [VocabularyText("prefab")]
         Prefab,
 
+        [VocabularyText("asset")]
         Asset,
 
+        [VocabularyText("project")]
         Project,
     }
 
@@ -128,7 +132,8 @@ internal sealed record IpcEditStepContract (
     /// <param name="Self"> <see langword="true" /> when the asset context selects the context asset itself. </param>
     /// <param name="ProjectAssetPath"> The selected project asset path for project-scoped direct selection. </param>
     /// <param name="SourceOperation"> The selection-source operation name for <see cref="SelectionKind.From" /> selections. </param>
-    /// <param name="SourceArgs"> The cloned source-operation argument object for <see cref="SelectionKind.From" /> selections. </param>
+    /// <param name="SourcePathPrefix"> The optional hierarchy prefix supplied by a source selection. </param>
+    /// <param name="SourceComponentType"> The optional component type supplied by a source selection. </param>
     internal sealed record EditSelection (
         SelectionKind Kind,
         CardinalityKind Cardinality,
@@ -137,7 +142,8 @@ internal sealed record IpcEditStepContract (
         bool Self,
         string? ProjectAssetPath,
         string? SourceOperation,
-        JsonElement SourceArgs);
+        string? SourcePathPrefix,
+        string? SourceComponentType);
 
     /// <summary>
     /// Represents one validated public edit action before lowering.

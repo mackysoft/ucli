@@ -5,6 +5,7 @@
   "exitCode": 4,
   "message": "endpoint registration timeout",
   "payload": {
+    "payloadKind": "detailed",
     "startStatus": "failed",
     "daemonStatus": "notRunning",
     "timeoutMilliseconds": 1234,
@@ -32,7 +33,7 @@
     {
       "code": "IPC_TIMEOUT",
       "message": "endpoint registration timeout",
-      "opId": null
+      "instancePath": null
     }
   ]
 }

@@ -28,11 +28,24 @@ internal sealed class IndexOpsCatalogJsonContractWriter : IndexJsonContractWrite
     {
         writer.WriteStartObject();
         WriteNullableString(writer, "name", entry.Name);
-        WriteNullableString(writer, "kind", entry.Kind);
-        WriteNullableString(writer, "policy", entry.Policy);
+        WriteNullableVocabulary(writer, "kind", entry.Kind);
+        WriteNullableVocabulary(writer, "policy", entry.Policy);
         WriteNullableString(writer, "description", entry.Description);
         WriteNullableString(writer, "describeKey", entry.DescribeKey);
         WriteNullableString(writer, "describeHash", entry.DescribeHash);
         writer.WriteEndObject();
+    }
+
+    private static void WriteNullableVocabulary<T> (
+        Utf8JsonWriter writer,
+        string propertyName,
+        T? value)
+        where T : struct, Enum
+    {
+        writer.WritePropertyName(propertyName);
+        JsonSerializer.Serialize(
+            writer,
+            value,
+            IndexJsonContractSerializerOptions.Deserialize);
     }
 }

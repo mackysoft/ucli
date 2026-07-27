@@ -1,5 +1,4 @@
 using MackySoft.Ucli.Application.Shared.Foundation;
-using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Shared.Execution;
 
@@ -11,7 +10,7 @@ internal sealed record ApplicationFailure
     /// <param name="outcome"> The application outcome used for exit-code projection. </param>
     /// <param name="code"> The machine-readable failure code. </param>
     /// <param name="message"> The user-facing failure message. </param>
-    /// <param name="opId"> The operation identifier associated with the failure, or <see langword="null" /> when not applicable. </param>
+    /// <param name="instancePath"> The RFC 6901 path of the related value, or <see langword="null" /> when not applicable. </param>
     /// <param name="startupFailure"> The structured startup failure detail when this failure occurred before a Unity process accepted the request. </param>
     /// <exception cref="ArgumentException"> Thrown when <paramref name="outcome" /> is incompatible with <paramref name="kind" /> or <paramref name="message" /> has no content. </exception>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="code" /> is <see langword="null" />. </exception>
@@ -21,7 +20,7 @@ internal sealed record ApplicationFailure
         ApplicationOutcome outcome,
         UcliCode code,
         string message,
-        IpcExecuteStepId? opId,
+        string? instancePath,
         StartupFailureDetail? startupFailure)
     {
         if (!IsDefinedKind(kind))
@@ -35,7 +34,7 @@ internal sealed record ApplicationFailure
         Outcome = outcome;
         Code = code ?? throw new ArgumentNullException(nameof(code));
         Message = message;
-        OpId = opId;
+        InstancePath = instancePath;
         StartupFailure = startupFailure;
     }
 
@@ -51,8 +50,8 @@ internal sealed record ApplicationFailure
     /// <summary> Gets the user-facing failure message. </summary>
     public string Message { get; }
 
-    /// <summary> Gets the operation identifier associated with the failure, or <see langword="null" /> when not applicable. </summary>
-    public IpcExecuteStepId? OpId { get; }
+    /// <summary> Gets the RFC 6901 path of the related value, or <see langword="null" /> when not applicable. </summary>
+    public string? InstancePath { get; }
 
     /// <summary> Gets the structured startup failure detail when this failure occurred before a Unity process accepted the request. </summary>
     public StartupFailureDetail? StartupFailure { get; }
@@ -62,7 +61,7 @@ internal sealed record ApplicationFailure
         ApplicationFailureKind kind,
         string message,
         UcliCode? code = null,
-        IpcExecuteStepId? opId = null,
+        string? instancePath = null,
         ApplicationOutcome? outcome = null,
         StartupFailureDetail? startupFailure = null)
     {
@@ -72,7 +71,7 @@ internal sealed record ApplicationFailure
             outcome ?? ResolveOutcome(kind),
             resolvedCode,
             message,
-            opId,
+            instancePath,
             startupFailure);
     }
 
@@ -80,95 +79,95 @@ internal sealed record ApplicationFailure
     public static ApplicationFailure InvalidInput (
         string message,
         UcliCode? code = null,
-        IpcExecuteStepId? opId = null,
+        string? instancePath = null,
         StartupFailureDetail? startupFailure = null)
     {
-        return Create(ApplicationFailureKind.InvalidInput, message, code, opId, startupFailure: startupFailure);
+        return Create(ApplicationFailureKind.InvalidInput, message, code, instancePath, startupFailure: startupFailure);
     }
 
     /// <summary> Creates a configuration failure. </summary>
     public static ApplicationFailure ConfigurationError (
         string message,
         UcliCode? code = null,
-        IpcExecuteStepId? opId = null)
+        string? instancePath = null)
     {
-        return Create(ApplicationFailureKind.ConfigurationError, message, code, opId);
+        return Create(ApplicationFailureKind.ConfigurationError, message, code, instancePath);
     }
 
     /// <summary> Creates an environment failure. </summary>
     public static ApplicationFailure EnvironmentError (
         string message,
         UcliCode? code = null,
-        IpcExecuteStepId? opId = null)
+        string? instancePath = null)
     {
-        return Create(ApplicationFailureKind.EnvironmentError, message, code, opId);
+        return Create(ApplicationFailureKind.EnvironmentError, message, code, instancePath);
     }
 
     /// <summary> Creates a Unity IPC failure. </summary>
     public static ApplicationFailure UnityIpcFailure (
         string message,
         UcliCode? code = null,
-        IpcExecuteStepId? opId = null,
+        string? instancePath = null,
         StartupFailureDetail? startupFailure = null)
     {
-        return Create(ApplicationFailureKind.UnityIpcFailure, message, code, opId, startupFailure: startupFailure);
+        return Create(ApplicationFailureKind.UnityIpcFailure, message, code, instancePath, startupFailure: startupFailure);
     }
 
     /// <summary> Creates an external-process failure. </summary>
     public static ApplicationFailure ExternalProcessFailure (
         string message,
         UcliCode? code = null,
-        IpcExecuteStepId? opId = null,
+        string? instancePath = null,
         ApplicationOutcome? outcome = null,
         StartupFailureDetail? startupFailure = null)
     {
-        return Create(ApplicationFailureKind.ExternalProcessFailure, message, code, opId, outcome, startupFailure);
+        return Create(ApplicationFailureKind.ExternalProcessFailure, message, code, instancePath, outcome, startupFailure);
     }
 
     /// <summary> Creates a contract-violation failure. </summary>
     public static ApplicationFailure ContractViolation (
         string message,
         UcliCode? code = null,
-        IpcExecuteStepId? opId = null,
+        string? instancePath = null,
         StartupFailureDetail? startupFailure = null)
     {
-        return Create(ApplicationFailureKind.ContractViolation, message, code, opId, startupFailure: startupFailure);
+        return Create(ApplicationFailureKind.ContractViolation, message, code, instancePath, startupFailure: startupFailure);
     }
 
     /// <summary> Creates a timeout failure. </summary>
     public static ApplicationFailure Timeout (
         string message,
         UcliCode? code = null,
-        IpcExecuteStepId? opId = null,
+        string? instancePath = null,
         StartupFailureDetail? startupFailure = null)
     {
-        return Create(ApplicationFailureKind.Timeout, message, code, opId, startupFailure: startupFailure);
+        return Create(ApplicationFailureKind.Timeout, message, code, instancePath, startupFailure: startupFailure);
     }
 
     /// <summary> Creates a canceled failure. </summary>
     public static ApplicationFailure Canceled (
         string message,
         UcliCode? code = null,
-        IpcExecuteStepId? opId = null)
+        string? instancePath = null)
     {
-        return Create(ApplicationFailureKind.Canceled, message, code, opId);
+        return Create(ApplicationFailureKind.Canceled, message, code, instancePath);
     }
 
     /// <summary> Creates an internal failure. </summary>
     public static ApplicationFailure InternalError (
         string message,
         UcliCode? code = null,
-        IpcExecuteStepId? opId = null,
+        string? instancePath = null,
         StartupFailureDetail? startupFailure = null)
     {
-        return Create(ApplicationFailureKind.InternalError, message, code, opId, startupFailure: startupFailure);
+        return Create(ApplicationFailureKind.InternalError, message, code, instancePath, startupFailure: startupFailure);
     }
 
     /// <summary> Creates a failure from a structured execution error. </summary>
     public static ApplicationFailure FromExecutionError (
         ExecutionError error,
         UcliCode? code = null,
-        IpcExecuteStepId? opId = null,
+        string? instancePath = null,
         StartupFailureDetail? startupFailure = null)
     {
         ArgumentNullException.ThrowIfNull(error);
@@ -176,11 +175,11 @@ internal sealed record ApplicationFailure
 
         return error.Kind switch
         {
-            ExecutionErrorKind.InvalidArgument => InvalidInput(error.Message, resolvedCode, opId, startupFailure),
-            ExecutionErrorKind.Timeout when InvalidArgumentErrorCodeSet.Contains(resolvedCode) => InvalidInput(error.Message, resolvedCode, opId, startupFailure),
-            ExecutionErrorKind.Timeout => Timeout(error.Message, resolvedCode, opId, startupFailure),
-            ExecutionErrorKind.InternalError when InvalidArgumentErrorCodeSet.Contains(resolvedCode) => InvalidInput(error.Message, resolvedCode, opId, startupFailure),
-            ExecutionErrorKind.InternalError => InternalError(error.Message, resolvedCode, opId, startupFailure),
+            ExecutionErrorKind.InvalidArgument => InvalidInput(error.Message, resolvedCode, instancePath, startupFailure),
+            ExecutionErrorKind.Timeout when InvalidArgumentErrorCodeSet.Contains(resolvedCode) => InvalidInput(error.Message, resolvedCode, instancePath, startupFailure),
+            ExecutionErrorKind.Timeout => Timeout(error.Message, resolvedCode, instancePath, startupFailure),
+            ExecutionErrorKind.InternalError when InvalidArgumentErrorCodeSet.Contains(resolvedCode) => InvalidInput(error.Message, resolvedCode, instancePath, startupFailure),
+            ExecutionErrorKind.InternalError => InternalError(error.Message, resolvedCode, instancePath, startupFailure),
             _ => throw new ArgumentOutOfRangeException(nameof(error), error.Kind, "Execution error kind is not defined."),
         };
     }
@@ -189,32 +188,32 @@ internal sealed record ApplicationFailure
     public static ApplicationFailure FromCode (
         UcliCode? code,
         string message,
-        IpcExecuteStepId? opId = null,
+        string? instancePath = null,
         StartupFailureDetail? startupFailure = null)
     {
         var resolvedCode = code ?? UcliCoreErrorCodes.InternalError;
 
         if (resolvedCode == ExecutionErrorCodes.IpcTimeout)
         {
-            return Timeout(message, resolvedCode, opId, startupFailure);
+            return Timeout(message, resolvedCode, instancePath, startupFailure);
         }
 
         if (resolvedCode == ExecutionErrorCodes.Canceled)
         {
-            return Canceled(message, resolvedCode, opId);
+            return Canceled(message, resolvedCode, instancePath);
         }
 
         if (InvalidArgumentErrorCodeSet.Contains(resolvedCode))
         {
-            return InvalidInput(message, resolvedCode, opId, startupFailure);
+            return InvalidInput(message, resolvedCode, instancePath, startupFailure);
         }
 
         if (resolvedCode == UcliCoreErrorCodes.InternalError)
         {
-            return InternalError(message, resolvedCode, opId, startupFailure);
+            return InternalError(message, resolvedCode, instancePath, startupFailure);
         }
 
-        return ContractViolation(message, resolvedCode, opId, startupFailure);
+        return ContractViolation(message, resolvedCode, instancePath, startupFailure);
     }
 
     private static UcliCode ResolveCode (

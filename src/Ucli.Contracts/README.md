@@ -20,7 +20,7 @@ dotnet add package MackySoft.Ucli.Contracts --version <version>
 
 - IPC request and response contracts.
 - Typed primitive operation Args/Result contract types.
-- Attributes used to describe operation inputs, results, and generated validation schemas.
+- Consumer-owned annotations for uCLI-specific operation-input meaning.
 - `UcliNoResult` for operations that intentionally omit `opResults[].result`.
 - Protocol constants and shared protocol metadata.
 - Configuration and storage contract models.
@@ -30,11 +30,13 @@ dotnet add package MackySoft.Ucli.Contracts --version <version>
 
 ## Operation Contracts
 
-Primitive operation contracts are authored as CLR Args/Result types plus operation metadata. Args/Result types define the public JSON structure. Reusable operation values such as scene asset paths, prefab asset paths, hierarchy paths, GlobalObjectId strings, asset GUIDs, and Unity type identifiers use semantic string value types in the CLR contract, but they serialize as JSON strings on the IPC boundary. Args properties and semantic value types carry input descriptions and semantic constraints through attributes such as `UcliDescriptionAttribute` and `UcliInputConstraintAttribute`; `ops describe` derives `inputs[]` from those attributes. Operation metadata defines the operation-level description and assurance metadata. uCLI exposes `description`, `inputs`, `resultContract`, and `assurance` through `ops describe`, and also generates `argsSchema` / `resultSchema` for JSON structure validation.
+Primitive operation contracts are authored as CLR Args/Result types plus operation metadata. Args/Result types and the effective `System.Text.Json` contract define the public JSON structure. Reusable operation values such as scene asset paths, prefab asset paths, hierarchy paths, GlobalObjectId strings, asset GUIDs, and Unity type identifiers use semantic CLR value types even when they serialize as JSON strings. Finite string values use `MackySoft.Text.Vocabularies` types and the runtime vocabulary converter. Closed selector alternatives use the IPC serializer's polymorphic `JsonTypeInfo` configuration.
 
-Public raw `op` args must not use the JSON property name `var`, even with a `null` value. `ops describe` omits that selector branch and the Unity runtime rejects it for raw `op` steps.
+Descriptions and string or collection bounds use the common `MackySoft.JsonSchema.Generation.Annotations` attributes. Requiredness, nullability, arbitrary JSON values, finite vocabularies, and polymorphic alternatives come from the actual CLR and serializer contract rather than duplicate schema annotations. uCLI-specific Unity meaning uses one concrete annotation per constraint, with typed vocabulary arguments where a finite value is required.
 
-`argsSchema` and `resultSchema` validate only the JSON structure of `steps[].args` and `opResults[].result`; they are not the primary agent UX contract. Operation selection, input construction, and result interpretation should use the higher-level describe contract. Semantic constraints are exposed as `inputs[].constraints` and `inputs[].variants[].fields[].constraints`, not as JSON Schema constraint keywords.
+Public raw `op` args must not use request-local alias references. The Unity runtime accepts that reference variant only while compiling higher-level request steps.
+
+Operation schema and describe metadata are projections of the same provider generation result. uCLI does not rebuild a separate input table from reflection attributes.
 
 Selectors are also contract types, such as `GameObjectReferenceArgs`, `ComponentReferenceArgs`, and `AssetReferenceArgs`. Operation authors consume those typed references and keep resolved Unity objects inside the Unity implementation layer.
 

@@ -1,14 +1,25 @@
+using System.Text.Json.Serialization.Metadata;
 using MackySoft.Ucli.Application.Features.Play.UseCases.Exit;
-using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
-using MackySoft.Ucli.Hosting.Cli.Common.Projection;
 
 namespace MackySoft.Ucli.Hosting.Cli.Play;
 
 /// <summary> Creates command-level JSON results from Play Mode exit execution results. </summary>
 internal static class PlayExitCommandResultFactory
 {
+    public static JsonTypeInfo SuccessPayloadTypeInfo { get; } =
+        CliOutputJsonSerializerOptions.Default.GetTypeInfo(typeof(PlayExitExecutionOutput));
+
+    public static JsonTypeInfo ErrorPayloadTypeInfo { get; } =
+        CommandErrorPayload.TypeInfo<PlayTransitionErrorCommandPayload>();
+
+    public static object CreateEmptyErrorPayload ()
+    {
+        return CommandErrorPayload.Empty<PlayTransitionErrorCommandPayload>();
+    }
+
     /// <summary> Creates one command result for <c>play exit</c>. </summary>
     /// <param name="executionResult"> The Play Mode exit execution result. </param>
     /// <returns> The command result serialized to stdout. </returns>
@@ -21,37 +32,22 @@ internal static class PlayExitCommandResultFactory
             return CommandResult.Success(
                 command: UcliCommandNames.PlayExit,
                 message: executionResult.Message,
-                payload: CreatePayload(executionResult.Output!));
+                payload: executionResult.Output!);
         }
 
-        var payload = executionResult.Output is null ? null : CreatePayload(executionResult.Output);
         return CommandFailureProjector.Create(
             UcliCommandNames.PlayExit,
             executionResult.Message,
-            payload,
+            executionResult.Output == null
+                ? CreateEmptyErrorPayload()
+                : CommandErrorPayload.Detailed(
+                    PlayTransitionErrorCommandPayload.From(executionResult.Output)),
             [executionResult.Error!]);
     }
 
-    private static object CreatePayload (PlayExitExecutionOutput output)
+    public static CommandResult CreateExecutionError (ExecutionError error)
     {
-        return new
-        {
-            project = ProjectIdentityPayloadProjector.Create(output.Project),
-            daemonStatus = TextVocabulary.GetText(output.DaemonStatus),
-            serverVersion = output.ServerVersion,
-            editorMode = output.EditorMode,
-            lifecycleState = output.LifecycleState,
-            blockingReason = output.BlockingReason,
-            compileState = output.CompileState,
-            generations = output.Generations,
-            canAcceptExecutionRequests = output.CanAcceptExecutionRequests,
-            observedAtUtc = output.ObservedAtUtc,
-            actionRequired = output.ActionRequired,
-            primaryDiagnostic = output.PrimaryDiagnostic,
-            playMode = output.PlayMode,
-            transition = PlayTransitionPayloadProjector.Create(output.Transition),
-            timeoutMilliseconds = output.TimeoutMilliseconds,
-        };
+        ArgumentNullException.ThrowIfNull(error);
+        return Create(PlayExitExecutionResult.Failure(error));
     }
-
 }

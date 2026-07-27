@@ -17,11 +17,11 @@ namespace MackySoft.Ucli.Application.Features.Daemon.UseCases.Status;
 /// <param name="ObservedAtUtc"> The daemon lifecycle observation timestamp when available. </param>
 /// <param name="ActionRequired"> The normalized user action required by the lifecycle blocker when available. </param>
 /// <param name="PrimaryDiagnostic"> The primary lifecycle diagnostic when available. </param>
+/// <param name="PlayMode"> The Play Mode snapshot when daemon ping details are available. </param>
 /// <param name="TimeoutMilliseconds"> The effective timeout in milliseconds used for daemon status workflow. </param>
 /// <param name="Session"> The daemon session values when available; otherwise <see langword="null" />. </param>
 /// <param name="Diagnosis"> The daemon diagnosis values when available; otherwise <see langword="null" />. </param>
 /// <param name="LastLaunchAttempt"> The last session-less launch-attempt failure when available; otherwise <see langword="null" />. </param>
-/// <param name="PlayMode"> The Play Mode snapshot when daemon ping details are available. </param>
 internal sealed record DaemonStatusExecutionOutput (
     DaemonStatusKind DaemonStatus,
     string? ServerVersion,
@@ -31,11 +31,11 @@ internal sealed record DaemonStatusExecutionOutput (
     IpcCompileState? CompileState,
     IpcUnityGenerationSnapshot? Generations,
     bool CanAcceptExecutionRequests,
-    int TimeoutMilliseconds,
-    DaemonSessionOutput? Session,
-    DaemonDiagnosisOutput? Diagnosis,
-    DaemonLaunchAttemptOutput? LastLaunchAttempt,
     DateTimeOffset? ObservedAtUtc,
     DaemonDiagnosisActionRequired? ActionRequired,
     DaemonPrimaryDiagnosticOutput? PrimaryDiagnostic,
-    IpcPlayModeSnapshot? PlayMode);
+    IpcPlayModeSnapshot? PlayMode,
+    int TimeoutMilliseconds,
+    DaemonSessionOutput? Session,
+    DaemonDiagnosisOutput? Diagnosis,
+    DaemonLaunchAttemptOutput? LastLaunchAttempt);

@@ -91,7 +91,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 applied,
                 changed,
                 touched,
-                IpcPayloadCodec.SerializeToElement(result));
+                SerializeResultToElement(result));
+        }
+
+        /// <summary> Serializes a typed result through its registered non-null object contract. </summary>
+        protected static System.Text.Json.JsonElement SerializeResultToElement (TResult result)
+        {
+            return IpcPayloadCodec.SerializePublicRawOperationResultToElement(result);
         }
 
         private static bool TryReadArgs (
@@ -101,31 +107,23 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         {
             args = default;
             failure = null;
-            if (!IpcPayloadCodec.TryDeserializeStrict(operation.Args, out TArgs value, out var error))
+            bool isDeserialized;
+            TArgs value;
+            IpcPayloadReadError error;
+            if (operation.AllowRequestLocalAliases)
+            {
+                isDeserialized = IpcPayloadCodec.TryDeserializeStrictOperationArgs(operation.Args, out value, out error);
+            }
+            else
+            {
+                isDeserialized = IpcPayloadCodec.TryDeserializePublicRawOperationArgs(operation.Args, out value, out error);
+            }
+
+            if (!isDeserialized)
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(
                     operation.Id,
                     $"Operation args do not match '{typeof(TArgs).Name}'. {error.Message}");
-                return false;
-            }
-
-            if (!operation.AllowRequestLocalAliases
-                && !UcliOperationContractValidator.TryValidateNoRequestLocalAliasProperties(operation.Args, typeof(TArgs), out var aliasPropertyValidationError))
-            {
-                failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, aliasPropertyValidationError);
-                return false;
-            }
-
-            if (!UcliOperationContractValidator.TryValidate(value, typeof(TArgs), out var validationError))
-            {
-                failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, validationError);
-                return false;
-            }
-
-            if (!operation.AllowRequestLocalAliases
-                && !UcliOperationContractValidator.TryValidateNoRequestLocalAliases(value, typeof(TArgs), out var aliasValidationError))
-            {
-                failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, aliasValidationError);
                 return false;
             }
 

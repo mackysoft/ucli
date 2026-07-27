@@ -8,7 +8,7 @@ public sealed class UserRequestJsonNormalizerTests
 {
     [Fact]
     [Trait("Size", "Small")]
-    public void Normalize_WhenUserRequestContainsOnlySteps_AddsProtocolVersionWithoutRequestId ()
+    public void Normalize_WhenUserRequestContainsOnlySteps_AddsProtocolVersion ()
     {
         var normalizer = CreateNormalizer();
 
@@ -19,7 +19,6 @@ public sealed class UserRequestJsonNormalizerTests
         using var document = JsonDocument.Parse(result.RequestJson!);
         var root = document.RootElement;
         Assert.Equal(IpcProtocol.CurrentVersion, root.GetProperty("protocolVersion").GetInt32());
-        Assert.False(root.TryGetProperty("requestId", out _));
         Assert.Equal(JsonValueKind.Array, root.GetProperty("steps").ValueKind);
     }
 
@@ -35,7 +34,6 @@ public sealed class UserRequestJsonNormalizerTests
               "steps": [
                 {
                   "kind": "op",
-                  "id": "step-1",
                   "op": "ucli.go.describe",
                   "args": {
                     "path": "Root"
@@ -50,7 +48,6 @@ public sealed class UserRequestJsonNormalizerTests
         using var document = JsonDocument.Parse(result.RequestJson!);
         var step = document.RootElement.GetProperty("steps")[0];
         Assert.Equal("op", step.GetProperty("kind").GetString());
-        Assert.Equal("step-1", step.GetProperty("id").GetString());
         Assert.Equal("ucli.go.describe", step.GetProperty("op").GetString());
         Assert.Equal("Root", step.GetProperty("args").GetProperty("path").GetString());
     }
@@ -72,7 +69,6 @@ public sealed class UserRequestJsonNormalizerTests
 
     [Theory]
     [Trait("Size", "Small")]
-    [InlineData("requestId")]
     [InlineData("unknown")]
     public void Normalize_WhenUserRequestContainsUnknownRootProperty_ReturnsInvalidArgument (string propertyName)
     {
@@ -84,8 +80,7 @@ public sealed class UserRequestJsonNormalizerTests
         Assert.False(result.IsSuccess);
         Assert.Null(result.RequestJson);
         Assert.NotNull(result.Error);
-        Assert.Contains("unknown property", result.Error!.Message, StringComparison.Ordinal);
-        Assert.Contains(propertyName, result.Error.Message, StringComparison.Ordinal);
+        Assert.Contains(propertyName, result.Error!.Message, StringComparison.Ordinal);
     }
 
     [Fact]

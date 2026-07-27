@@ -1,6 +1,5 @@
 using ConsoleAppFramework;
 using MackySoft.Ucli.Application.Features.Daemon.UseCases.Status;
-using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 using MackySoft.Ucli.Hosting.Cli.Options;
@@ -70,29 +69,10 @@ internal sealed class DaemonStatusCommand
 
         if (executionResult.IsSuccess)
         {
-            var output = executionResult.Output!;
             return CommandResult.Success(
                 command: UcliCommandNames.DaemonStatus,
                 message: "uCLI daemon status retrieval completed.",
-                payload: new
-                {
-                    daemonStatus = TextVocabulary.GetText(output.DaemonStatus),
-                    serverVersion = output.ServerVersion,
-                    editorMode = output.EditorMode,
-                    lifecycleState = output.LifecycleState,
-                    blockingReason = output.BlockingReason,
-                    compileState = output.CompileState,
-                    generations = output.Generations,
-                    canAcceptExecutionRequests = output.CanAcceptExecutionRequests,
-                    observedAtUtc = output.ObservedAtUtc,
-                    actionRequired = output.ActionRequired,
-                    primaryDiagnostic = output.PrimaryDiagnostic,
-                    playMode = output.PlayMode,
-                    timeoutMilliseconds = output.TimeoutMilliseconds,
-                    session = output.Session,
-                    diagnosis = output.Diagnosis,
-                    lastLaunchAttempt = output.LastLaunchAttempt,
-                });
+                payload: executionResult.Output!);
         }
 
         return CommandResultFactory.FromExecutionError(UcliCommandNames.DaemonStatus, executionResult.Error!);

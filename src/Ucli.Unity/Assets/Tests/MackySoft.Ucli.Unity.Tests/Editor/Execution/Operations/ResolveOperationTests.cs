@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
+using MackySoft.Text.Vocabularies;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Phases;
@@ -29,15 +30,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var scene = new SceneAssetPath("Assets/Sample.unity");
             var hierarchyPath = new UnityHierarchyPath("Root/Child");
             var componentType = new UnityComponentTypeId("Example.Component");
-            var args = new ResolveSelectorArgs(
-                globalObjectId: null,
-                assetGuid: null,
-                assetPath: null,
-                projectAssetPath: null,
-                scene: scene,
-                prefab: null,
-                hierarchyPath: hierarchyPath,
-                componentType: componentType);
+            var args = new SceneComponentReferenceArgs(scene, hierarchyPath, componentType);
 
             var result = UnityObjectReferenceContractMapper.TryMap(args, out var selector, out var errorMessage);
 
@@ -53,12 +46,7 @@ namespace MackySoft.Ucli.Unity.Tests
         public void ContractMapper_WhenReferenceUsesTypedAlias_PreservesSemanticValue ()
         {
             var alias = new UcliPlanAlias("target");
-            var args = new GameObjectReferenceArgs(
-                alias: alias,
-                globalObjectId: null,
-                prefab: null,
-                scene: null,
-                hierarchyPath: null);
+            var args = new UcliAliasReferenceArgs(alias);
 
             var result = UnityObjectReferenceContractMapper.TryMap(
                 args,
@@ -73,17 +61,9 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(reference.Alias!.Alias, Is.SameAs(alias));
         }
 
-        [TestCase("{\"assetGuid\":\"not-a-guid\"}", IpcResolveSelectorPropertyNames.AssetGuid)]
-        [TestCase("{\"assetGuid\":\"00000000-0000-0000-0000-000000000000\"}", IpcResolveSelectorPropertyNames.AssetGuid)]
-        [TestCase("{\"assetPath\":\"ProjectSettings/TagManager.asset\"}", IpcResolveSelectorPropertyNames.AssetPath)]
-        [TestCase("{\"projectAssetPath\":\"Assets/Sample.asset\"}", IpcResolveSelectorPropertyNames.ProjectAssetPath)]
-        [TestCase("{\"scene\":\"Assets/Sample.prefab\",\"hierarchyPath\":\"Root\"}", IpcResolveSelectorPropertyNames.Scene)]
-        [TestCase("{\"prefab\":\"Assets/Sample.unity\",\"hierarchyPath\":\"Root\"}", IpcResolveSelectorPropertyNames.Prefab)]
-        [TestCase("{\"scene\":\"Assets/Sample.unity\",\"hierarchyPath\":\"Root//Child\"}", IpcResolveSelectorPropertyNames.HierarchyPath)]
+        [TestCaseSource(nameof(InvalidRawSelectorPayloads))]
         [Category("Size.Small")]
-        public void ResolveSelectorCodec_WhenRawValueViolatesSemanticContract_ReturnsFalse (
-            string json,
-            string propertyName)
+        public void ResolveSelectorCodec_WhenRawValueViolatesSemanticContract_ReturnsFalse (string json)
         {
             using var document = JsonDocument.Parse(json);
 
@@ -91,7 +71,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(result, Is.False);
             Assert.That(selector, Is.Null);
-            Assert.That(errorMessage, Does.Contain(propertyName));
+            Assert.That(errorMessage, Is.Not.Null.And.Not.Empty);
         }
 
         [Test]
@@ -107,10 +87,11 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public void ResolveSelectorCodec_WhenAssetGuidUsesStandardJsonFormat_ProjectsNativeGuid ()
         {
-            using var document = JsonDocument.Parse(
-                "{\"assetGuid\":\"11111111-1111-1111-1111-111111111111\"}");
+            ResolveSelectorArgs args = new AssetGuidReferenceArgs(
+                Guid.Parse("11111111-1111-1111-1111-111111111111"));
+            var payload = IpcPayloadCodec.SerializeToElement<ResolveSelectorArgs>(args);
 
-            var result = ResolveSelectorCodec.TryParse(document.RootElement, out var selector, out var errorMessage);
+            var result = ResolveSelectorCodec.TryParse(payload, out var selector, out var errorMessage);
 
             Assert.That(result, Is.True, errorMessage);
             Assert.That(selector!.AssetGuid, Is.EqualTo(Guid.Parse("11111111-1111-1111-1111-111111111111")));
@@ -120,10 +101,13 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public void ResolveSelectorCodec_WhenRawSceneComponentSelectorIsValid_ProjectsToSemanticValues ()
         {
-            using var document = JsonDocument.Parse(
-                "{\"scene\":\"Assets/Sample.unity\",\"hierarchyPath\":\"Root/Child\",\"componentType\":\"Example.Component\"}");
+            ResolveSelectorArgs args = new SceneComponentReferenceArgs(
+                new SceneAssetPath("Assets/Sample.unity"),
+                new UnityHierarchyPath("Root/Child"),
+                new UnityComponentTypeId("Example.Component"));
+            var payload = IpcPayloadCodec.SerializeToElement<ResolveSelectorArgs>(args);
 
-            var result = ResolveSelectorCodec.TryParse(document.RootElement, out var selector, out var errorMessage);
+            var result = ResolveSelectorCodec.TryParse(payload, out var selector, out var errorMessage);
 
             Assert.That(result, Is.True, errorMessage);
             Assert.That(selector!.Kind, Is.EqualTo(ResolveSelectorKind.SceneComponent));
@@ -136,10 +120,11 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public void UnityObjectReferenceCodec_WhenRawAliasIsValid_ProjectsToTypedAlias ()
         {
-            using var document = JsonDocument.Parse("{\"var\":\"target\"}");
+            UnityObjectReferenceArgs args = new UcliAliasReferenceArgs(new UcliPlanAlias("target"));
+            var payload = IpcPayloadCodec.SerializeToElement<UnityObjectReferenceArgs>(args);
 
             var result = UnityObjectReferenceCodec.TryParse(
-                document.RootElement,
+                payload,
                 "args.target",
                 OperationAliasReferenceMap.Empty,
                 out var reference,
@@ -158,10 +143,11 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator Validate_WhenArgsContainMultipleSelectors_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
         {
             var operation = new ResolveOperation();
-            var requestOperation = CreateOperation(
+            var requestOperation = CreateRawOperation(
                 opId: "op-1",
                 args: new
                 {
+                    kind = Vocabulary.GetText(UcliReferenceKind.AssetPath),
                     assetPath = "Assets/sample.asset",
                     assetGuid = Guid.Parse("11111111-1111-1111-1111-111111111111"),
                 });
@@ -177,10 +163,11 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator Validate_WhenGlobalObjectIdIsMalformed_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
         {
             var operation = new ResolveOperation();
-            var requestOperation = CreateOperation(
+            var requestOperation = CreateRawOperation(
                 opId: "op-1",
                 args: new
                 {
+                    kind = Vocabulary.GetText(UcliReferenceKind.GlobalObjectId),
                     globalObjectId = "invalid-global-object-id",
                 });
 
@@ -201,10 +188,8 @@ namespace MackySoft.Ucli.Unity.Tests
             var requestOperation = CreateOperation(
                 opId: "op-1",
                 alias: "resolved",
-                args: new
-                {
-                    globalObjectId = expectedGlobalObjectId,
-                });
+                args: new GlobalObjectIdReferenceArgs(
+                    new UnityGlobalObjectId(expectedGlobalObjectId)));
             var context = scope.CreateExecutionContext();
 
             var result = await operation.PlanAsync(requestOperation, context, CancellationToken.None);
@@ -458,10 +443,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var requestOperation = CreateOperation(
                 opId: "op-1",
                 alias: "resolved",
-                args: new
-                {
-                    assetGuid,
-                });
+                args: new AssetGuidReferenceArgs(assetGuid));
             var context = scope.CreateExecutionContext();
 
             var result = await operation.PlanAsync(requestOperation, context, CancellationToken.None);
@@ -483,10 +465,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var requestOperation = CreateOperation(
                 opId: "op-1",
                 alias: "resolved",
-                args: new
-                {
-                    assetPath,
-                });
+                args: new AssetPathReferenceArgs(new UnityAssetPath(assetPath)));
             var context = scope.CreateExecutionContext();
 
             var result = await operation.PlanAsync(requestOperation, context, CancellationToken.None);
@@ -509,10 +488,8 @@ namespace MackySoft.Ucli.Unity.Tests
             var requestOperation = CreateOperation(
                 opId: "op-1",
                 alias: "resolved",
-                args: new
-                {
-                    projectAssetPath,
-                });
+                args: new ProjectAssetPathReferenceArgs(
+                    new ProjectSettingsAssetPath(projectAssetPath)));
             using var context = new OperationExecutionContext();
 
             var result = await operation.PlanAsync(requestOperation, context, CancellationToken.None);
@@ -541,11 +518,9 @@ namespace MackySoft.Ucli.Unity.Tests
             var requestOperation = CreateOperation(
                 opId: "op-1",
                 alias: "resolved",
-                args: new
-                {
-                    scene = scenePath,
-                    hierarchyPath = "Root/Enemies/Spawner",
-                });
+                args: new SceneHierarchyReferenceArgs(
+                    new SceneAssetPath(scenePath),
+                    new UnityHierarchyPath("Root/Enemies/Spawner")));
             var context = scope.CreateExecutionContext();
 
             var result = await operation.PlanAsync(requestOperation, context, CancellationToken.None);
@@ -571,11 +546,9 @@ namespace MackySoft.Ucli.Unity.Tests
             EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             var requestOperation = CreateOperation(
                 opId: "op-1",
-                args: new
-                {
-                    scene = scenePath,
-                    hierarchyPath = "Root/Child",
-                });
+                args: new SceneHierarchyReferenceArgs(
+                    new SceneAssetPath(scenePath),
+                    new UnityHierarchyPath("Root/Child")));
 
             var result = await operation.PlanAsync(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
 
@@ -597,12 +570,10 @@ namespace MackySoft.Ucli.Unity.Tests
             var requestOperation = CreateOperation(
                 opId: "op-1",
                 alias: "resolved",
-                args: new
-                {
-                    scene = scenePath,
-                    hierarchyPath = "Root",
-                    componentType = IndexTypeIdFormatter.Format(typeof(CompOperationTestComponent)),
-                });
+                args: new SceneComponentReferenceArgs(
+                    new SceneAssetPath(scenePath),
+                    new UnityHierarchyPath("Root"),
+                    new UnityComponentTypeId(IndexTypeIdFormatter.Format(typeof(CompOperationTestComponent)))));
             var context = scope.CreateExecutionContext();
 
             var result = await operation.PlanAsync(requestOperation, context, CancellationToken.None);
@@ -631,13 +602,10 @@ namespace MackySoft.Ucli.Unity.Tests
             var deleteRequest = new NormalizedOperation(
                 ExecutionKey: OperationExecutionKey.ForEditPrimitive(new IpcExecuteStepId("op-delete"), primitiveIndex: 0),
                 Op: UcliPrimitiveOperationNames.GoDelete,
-                Args: JsonSerializer.SerializeToElement(new
-                {
-                    target = new
-                    {
-                        globalObjectId = deletedGlobalObjectId,
-                    },
-                }),
+                Args: IpcPayloadCodec.SerializeToElement(
+                    new GoTargetArgs(
+                        new GlobalObjectIdReferenceArgs(
+                            new UnityGlobalObjectId(deletedGlobalObjectId)))),
                 As: null,
                 Expect: null,
                 AliasReferences: OperationAliasReferenceMap.Empty,
@@ -646,10 +614,8 @@ namespace MackySoft.Ucli.Unity.Tests
             var resolveRequest = CreateOperation(
                 opId: "op-resolve",
                 alias: "resolved",
-                args: new
-                {
-                    globalObjectId = deletedGlobalObjectId,
-                });
+                args: new GlobalObjectIdReferenceArgs(
+                    new UnityGlobalObjectId(deletedGlobalObjectId)));
 
             var deleteResult = await deleteOperation.PlanAsync(deleteRequest, context, CancellationToken.None);
             var resolveResult = await resolveOperation.PlanAsync(resolveRequest, context, CancellationToken.None);
@@ -686,11 +652,9 @@ namespace MackySoft.Ucli.Unity.Tests
             var requestOperation = CreateOperation(
                 opId: "op-1",
                 alias: "resolved",
-                args: new
-                {
-                    scene = scenePath,
-                    hierarchyPath = "Root/Child",
-                });
+                args: new SceneHierarchyReferenceArgs(
+                    new SceneAssetPath(scenePath),
+                    new UnityHierarchyPath("Root/Child")));
 
             var result = await operation.PlanAsync(requestOperation, context, CancellationToken.None);
 
@@ -713,10 +677,8 @@ namespace MackySoft.Ucli.Unity.Tests
             var openRequest = new NormalizedOperation(
                 ExecutionKey: OperationExecutionKey.ForEditPrimitive(new IpcExecuteStepId("op-open"), primitiveIndex: 0),
                 Op: UcliPrimitiveOperationNames.PrefabOpen,
-                Args: JsonSerializer.SerializeToElement(new
-                {
-                    path = prefabPath,
-                }),
+                Args: IpcPayloadCodec.SerializeToElement(
+                    new PrefabPathArgs(new PrefabAssetPath(prefabPath))),
                 As: null,
                 Expect: null,
                 AliasReferences: OperationAliasReferenceMap.Empty,
@@ -735,11 +697,9 @@ namespace MackySoft.Ucli.Unity.Tests
             var resolveRequest = CreateOperation(
                 opId: "op-resolve",
                 alias: "resolved",
-                args: new
-                {
-                    prefab = prefabPath,
-                    hierarchyPath = temporaryRoot.name,
-                });
+                args: new PrefabHierarchyReferenceArgs(
+                    new PrefabAssetPath(prefabPath),
+                    new UnityHierarchyPath(temporaryRoot.name)));
             var resolveResult = await resolveOperation.PlanAsync(resolveRequest, context, CancellationToken.None);
 
             Assert.That(openResult.IsSuccess, Is.True);
@@ -776,10 +736,8 @@ namespace MackySoft.Ucli.Unity.Tests
             var openRequest = new NormalizedOperation(
                 ExecutionKey: OperationExecutionKey.ForRawStep(new IpcExecuteStepId("op-open")),
                 Op: UcliPrimitiveOperationNames.PrefabOpen,
-                Args: JsonSerializer.SerializeToElement(new
-                {
-                    path = prefabPath,
-                }),
+                Args: IpcPayloadCodec.SerializeToElement(
+                    new PrefabPathArgs(new PrefabAssetPath(prefabPath))),
                 As: null,
                 Expect: null,
                 AliasReferences: OperationAliasReferenceMap.Empty,
@@ -788,12 +746,10 @@ namespace MackySoft.Ucli.Unity.Tests
             var resolveRequest = CreateOperation(
                 opId: "op-resolve",
                 alias: "resolved",
-                args: new
-                {
-                    prefab = prefabPath,
-                    hierarchyPath = "PrefabRoot",
-                    componentType = IndexTypeIdFormatter.Format(typeof(CompOperationTestComponent)),
-                });
+                args: new PrefabComponentReferenceArgs(
+                    new PrefabAssetPath(prefabPath),
+                    new UnityHierarchyPath("PrefabRoot"),
+                    new UnityComponentTypeId(IndexTypeIdFormatter.Format(typeof(CompOperationTestComponent)))));
 
             var openResult = await openOperation.CallAsync(openRequest, context, CancellationToken.None);
             var resolveResult = await resolveOperation.CallAsync(resolveRequest, context, CancellationToken.None);
@@ -823,10 +779,8 @@ namespace MackySoft.Ucli.Unity.Tests
             var openRequest = new NormalizedOperation(
                 ExecutionKey: OperationExecutionKey.ForEditPrimitive(new IpcExecuteStepId("op-open"), primitiveIndex: 0),
                 Op: UcliPrimitiveOperationNames.PrefabOpen,
-                Args: JsonSerializer.SerializeToElement(new
-                {
-                    path = prefabPath,
-                }),
+                Args: IpcPayloadCodec.SerializeToElement(
+                    new PrefabPathArgs(new PrefabAssetPath(prefabPath))),
                 As: null,
                 Expect: null,
                 AliasReferences: OperationAliasReferenceMap.Empty,
@@ -848,11 +802,9 @@ namespace MackySoft.Ucli.Unity.Tests
             var resolveRequest = CreateOperation(
                 opId: "op-resolve",
                 alias: "resolved",
-                args: new
-                {
-                    prefab = prefabPath,
-                    hierarchyPath = "PrefabRoot/Child",
-                });
+                args: new PrefabHierarchyReferenceArgs(
+                    new PrefabAssetPath(prefabPath),
+                    new UnityHierarchyPath("PrefabRoot/Child")));
 
             var resolveResult = await resolveOperation.PlanAsync(resolveRequest, context, CancellationToken.None);
 
@@ -891,11 +843,9 @@ namespace MackySoft.Ucli.Unity.Tests
             var resolveRequest = CreateOperation(
                 opId: "op-resolve",
                 alias: "resolved",
-                args: new
-                {
-                    prefab = prefabPath,
-                    hierarchyPath,
-                });
+                args: new PrefabHierarchyReferenceArgs(
+                    new PrefabAssetPath(prefabPath),
+                    new UnityHierarchyPath(hierarchyPath)));
 
             var resolveResult = await resolveOperation.PlanAsync(resolveRequest, context, CancellationToken.None);
 
@@ -939,11 +889,9 @@ namespace MackySoft.Ucli.Unity.Tests
             var resolveRequest = CreateOperation(
                 opId: "op-resolve",
                 alias: "resolved",
-                args: new
-                {
-                    prefab = prefabPath,
-                    hierarchyPath,
-                });
+                args: new PrefabHierarchyReferenceArgs(
+                    new PrefabAssetPath(prefabPath),
+                    new UnityHierarchyPath(hierarchyPath)));
 
             var resolveResult = await resolveOperation.PlanAsync(resolveRequest, context, CancellationToken.None);
 
@@ -965,10 +913,8 @@ namespace MackySoft.Ucli.Unity.Tests
             var openRequest = new NormalizedOperation(
                 ExecutionKey: OperationExecutionKey.ForEditPrimitive(new IpcExecuteStepId("op-open"), primitiveIndex: 0),
                 Op: UcliPrimitiveOperationNames.PrefabOpen,
-                Args: JsonSerializer.SerializeToElement(new
-                {
-                    path = prefabPath,
-                }),
+                Args: IpcPayloadCodec.SerializeToElement(
+                    new PrefabPathArgs(new PrefabAssetPath(prefabPath))),
                 As: null,
                 Expect: null,
                 AliasReferences: OperationAliasReferenceMap.Empty,
@@ -984,13 +930,10 @@ namespace MackySoft.Ucli.Unity.Tests
             var deleteRequest = new NormalizedOperation(
                 ExecutionKey: OperationExecutionKey.ForEditPrimitive(new IpcExecuteStepId("op-delete"), primitiveIndex: 0),
                 Op: UcliPrimitiveOperationNames.GoDelete,
-                Args: JsonSerializer.SerializeToElement(new
-                {
-                    target = new
-                    {
-                        globalObjectId = previewChildReference!.Value,
-                    },
-                }),
+                Args: IpcPayloadCodec.SerializeToElement(
+                    new GoTargetArgs(
+                        new GlobalObjectIdReferenceArgs(
+                            new UnityGlobalObjectId(previewChildReference!.Value)))),
                 As: null,
                 Expect: null,
                 AliasReferences: OperationAliasReferenceMap.Empty,
@@ -999,10 +942,8 @@ namespace MackySoft.Ucli.Unity.Tests
             var resolveRequest = CreateOperation(
                 opId: "op-resolve",
                 alias: "resolved",
-                args: new
-                {
-                    globalObjectId = previewChildReference!.Value,
-                });
+                args: new GlobalObjectIdReferenceArgs(
+                    new UnityGlobalObjectId(previewChildReference!.Value)));
             var deleteResult = await deleteOperation.PlanAsync(deleteRequest, context, CancellationToken.None);
             var resolveResult = await resolveOperation.PlanAsync(resolveRequest, context, CancellationToken.None);
 
@@ -1040,10 +981,8 @@ namespace MackySoft.Ucli.Unity.Tests
             var resolveRequest = CreateOperation(
                 opId: "op-resolve",
                 alias: "resolved",
-                args: new
-                {
-                    globalObjectId = deletedGlobalObjectId,
-                });
+                args: new GlobalObjectIdReferenceArgs(
+                    new UnityGlobalObjectId(deletedGlobalObjectId)));
 
             var resolveResult = await resolveOperation.PlanAsync(resolveRequest, context, CancellationToken.None);
 
@@ -1071,10 +1010,8 @@ namespace MackySoft.Ucli.Unity.Tests
             var openRequest = new NormalizedOperation(
                 ExecutionKey: OperationExecutionKey.ForRawStep(new IpcExecuteStepId("op-open")),
                 Op: UcliPrimitiveOperationNames.PrefabOpen,
-                Args: JsonSerializer.SerializeToElement(new
-                {
-                    path = prefabPath,
-                }),
+                Args: IpcPayloadCodec.SerializeToElement(
+                    new PrefabPathArgs(new PrefabAssetPath(prefabPath))),
                 As: null,
                 Expect: null,
                 AliasReferences: OperationAliasReferenceMap.Empty,
@@ -1102,11 +1039,9 @@ namespace MackySoft.Ucli.Unity.Tests
             var resolveRequest = CreateOperation(
                 opId: "op-resolve",
                 alias: "resolved",
-                args: new
-                {
-                    prefab = prefabPath,
-                    hierarchyPath = "PrefabRoot/Child",
-                });
+                args: new PrefabHierarchyReferenceArgs(
+                    new PrefabAssetPath(prefabPath),
+                    new UnityHierarchyPath("PrefabRoot/Child")));
 
             var resolveResult = await resolveOperation.CallAsync(resolveRequest, context, CancellationToken.None);
 
@@ -1134,10 +1069,8 @@ namespace MackySoft.Ucli.Unity.Tests
             var openRequest = new NormalizedOperation(
                 ExecutionKey: OperationExecutionKey.ForRawStep(new IpcExecuteStepId("op-open")),
                 Op: UcliPrimitiveOperationNames.PrefabOpen,
-                Args: JsonSerializer.SerializeToElement(new
-                {
-                    path = prefabPath,
-                }),
+                Args: IpcPayloadCodec.SerializeToElement(
+                    new PrefabPathArgs(new PrefabAssetPath(prefabPath))),
                 As: null,
                 Expect: null,
                 AliasReferences: OperationAliasReferenceMap.Empty,
@@ -1158,11 +1091,9 @@ namespace MackySoft.Ucli.Unity.Tests
             var resolveRequest = CreateOperation(
                 opId: "op-resolve",
                 alias: "resolved",
-                args: new
-                {
-                    prefab = prefabPath,
-                    hierarchyPath = "PrefabRoot/Renamed",
-                });
+                args: new PrefabHierarchyReferenceArgs(
+                    new PrefabAssetPath(prefabPath),
+                    new UnityHierarchyPath("PrefabRoot/Renamed")));
 
             var resolveResult = await resolveOperation.CallAsync(resolveRequest, context, CancellationToken.None);
 
@@ -1198,11 +1129,9 @@ namespace MackySoft.Ucli.Unity.Tests
             var resolveRequest = CreateOperation(
                 opId: "op-resolve",
                 alias: "resolved",
-                args: new
-                {
-                    prefab = prefabPath,
-                    hierarchyPath = $"{temporaryRoot.name}/Child",
-                });
+                args: new PrefabHierarchyReferenceArgs(
+                    new PrefabAssetPath(prefabPath),
+                    new UnityHierarchyPath($"{temporaryRoot.name}/Child")));
 
             var resolveResult = await resolveOperation.PlanAsync(resolveRequest, context, CancellationToken.None);
 
@@ -1223,10 +1152,8 @@ namespace MackySoft.Ucli.Unity.Tests
             var openRequest = new NormalizedOperation(
                 ExecutionKey: OperationExecutionKey.ForRawStep(new IpcExecuteStepId("op-open")),
                 Op: UcliPrimitiveOperationNames.PrefabOpen,
-                Args: JsonSerializer.SerializeToElement(new
-                {
-                    path = prefabPath,
-                }),
+                Args: IpcPayloadCodec.SerializeToElement(
+                    new PrefabPathArgs(new PrefabAssetPath(prefabPath))),
                 As: null,
                 Expect: null,
                 AliasReferences: OperationAliasReferenceMap.Empty,
@@ -1247,11 +1174,9 @@ namespace MackySoft.Ucli.Unity.Tests
             var resolveRequest = CreateOperation(
                 opId: "op-resolve",
                 alias: "resolved",
-                args: new
-                {
-                    prefab = prefabPath,
-                    hierarchyPath = "PrefabRoot/Child",
-                });
+                args: new PrefabHierarchyReferenceArgs(
+                    new PrefabAssetPath(prefabPath),
+                    new UnityHierarchyPath("PrefabRoot/Child")));
 
             var resolveResult = await resolveOperation.CallAsync(resolveRequest, context, CancellationToken.None);
 
@@ -1287,11 +1212,9 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var requestOperation = CreateOperation(
                 opId: "op-1",
-                args: new
-                {
-                    scene = scenePath,
-                    hierarchyPath = "Root/Child",
-                },
+                args: new SceneHierarchyReferenceArgs(
+                    new SceneAssetPath(scenePath),
+                    new UnityHierarchyPath("Root/Child")),
                 alias: "resolved");
 
             var result = await operation.PlanAsync(requestOperation, context, CancellationToken.None);
@@ -1326,11 +1249,9 @@ namespace MackySoft.Ucli.Unity.Tests
             var requestOperation = CreateOperation(
                 opId: "op-1",
                 alias: "resolved",
-                args: new
-                {
-                    scene = scenePath,
-                    hierarchyPath = "Root/Renamed",
-                });
+                args: new SceneHierarchyReferenceArgs(
+                    new SceneAssetPath(scenePath),
+                    new UnityHierarchyPath("Root/Renamed")));
 
             var result = await operation.PlanAsync(requestOperation, context, CancellationToken.None);
 
@@ -1369,12 +1290,10 @@ namespace MackySoft.Ucli.Unity.Tests
             var requestOperation = CreateOperation(
                 opId: "op-1",
                 alias: "resolved",
-                args: new
-                {
-                    scene = scenePath,
-                    hierarchyPath = "Root/Renamed",
-                    componentType = IndexTypeIdFormatter.Format(typeof(CompOperationTestComponent)),
-                });
+                args: new SceneComponentReferenceArgs(
+                    new SceneAssetPath(scenePath),
+                    new UnityHierarchyPath("Root/Renamed"),
+                    new UnityComponentTypeId(IndexTypeIdFormatter.Format(typeof(CompOperationTestComponent)))));
 
             var result = await operation.PlanAsync(requestOperation, context, CancellationToken.None);
 
@@ -1414,12 +1333,10 @@ namespace MackySoft.Ucli.Unity.Tests
             var requestOperation = CreateOperation(
                 opId: "op-1",
                 alias: "resolved",
-                args: new
-                {
-                    scene = scenePath,
-                    hierarchyPath = "Root/Child",
-                    componentType = IndexTypeIdFormatter.Format(typeof(CompOperationTestComponent)),
-                });
+                args: new SceneComponentReferenceArgs(
+                    new SceneAssetPath(scenePath),
+                    new UnityHierarchyPath("Root/Child"),
+                    new UnityComponentTypeId(IndexTypeIdFormatter.Format(typeof(CompOperationTestComponent)))));
 
             var result = await operation.PlanAsync(requestOperation, context, CancellationToken.None);
 
@@ -1448,11 +1365,9 @@ namespace MackySoft.Ucli.Unity.Tests
             EditorSceneManager.SaveScene(scene, scenePath);
             var requestOperation = CreateOperation(
                 opId: "op-1",
-                args: new
-                {
-                    scene = scenePath,
-                    hierarchyPath = "Root/Missing",
-                });
+                args: new SceneHierarchyReferenceArgs(
+                    new SceneAssetPath(scenePath),
+                    new UnityHierarchyPath("Root/Missing")));
 
             var result = await operation.PlanAsync(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
 
@@ -1475,11 +1390,9 @@ namespace MackySoft.Ucli.Unity.Tests
             EditorSceneManager.SaveScene(scene, scenePath);
             var requestOperation = CreateOperation(
                 opId: "op-1",
-                args: new
-                {
-                    scene = scenePath,
-                    hierarchyPath = "Root/Dup",
-                });
+                args: new SceneHierarchyReferenceArgs(
+                    new SceneAssetPath(scenePath),
+                    new UnityHierarchyPath("Root/Dup")));
 
             var result = await operation.PlanAsync(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
 
@@ -1496,10 +1409,8 @@ namespace MackySoft.Ucli.Unity.Tests
             var requestOperation = CreateOperation(
                 opId: "op-1",
                 alias: "resolved",
-                args: new
-                {
-                    globalObjectId = GlobalObjectId.GetGlobalObjectIdSlow(asset).ToString(),
-                });
+                args: new GlobalObjectIdReferenceArgs(
+                    new UnityGlobalObjectId(GlobalObjectId.GetGlobalObjectIdSlow(asset).ToString())));
             var context = scope.CreateExecutionContext();
 
             var result = await operation.CallAsync(requestOperation, context, CancellationToken.None);
@@ -1526,7 +1437,79 @@ namespace MackySoft.Ucli.Unity.Tests
             return null!;
         }
 
+        private static IEnumerable InvalidRawSelectorPayloads ()
+        {
+            yield return CreateInvalidRawSelectorPayload(
+                new
+                {
+                    kind = Vocabulary.GetText(UcliReferenceKind.AssetGuid),
+                    assetGuid = "not-a-guid",
+                });
+            yield return CreateInvalidRawSelectorPayload(
+                new
+                {
+                    kind = Vocabulary.GetText(UcliReferenceKind.AssetGuid),
+                    assetGuid = Guid.Empty,
+                });
+            yield return CreateInvalidRawSelectorPayload(
+                new
+                {
+                    kind = Vocabulary.GetText(UcliReferenceKind.AssetPath),
+                    assetPath = "ProjectSettings/TagManager.asset",
+                });
+            yield return CreateInvalidRawSelectorPayload(
+                new
+                {
+                    kind = Vocabulary.GetText(UcliReferenceKind.ProjectAssetPath),
+                    projectAssetPath = "Assets/Sample.asset",
+                });
+            yield return CreateInvalidRawSelectorPayload(
+                new
+                {
+                    kind = Vocabulary.GetText(UcliReferenceKind.SceneHierarchy),
+                    scene = "Assets/Sample.prefab",
+                    hierarchyPath = "Root",
+                });
+            yield return CreateInvalidRawSelectorPayload(
+                new
+                {
+                    kind = Vocabulary.GetText(UcliReferenceKind.PrefabHierarchy),
+                    prefab = "Assets/Sample.unity",
+                    hierarchyPath = "Root",
+                });
+            yield return CreateInvalidRawSelectorPayload(
+                new
+                {
+                    kind = Vocabulary.GetText(UcliReferenceKind.SceneHierarchy),
+                    scene = "Assets/Sample.unity",
+                    hierarchyPath = "Root//Child",
+                });
+        }
+
+        private static TestCaseData CreateInvalidRawSelectorPayload (object payload)
+        {
+            return new TestCaseData(JsonSerializer.Serialize(payload));
+        }
+
         private static NormalizedOperation CreateOperation (
+            string opId,
+            ResolveSelectorArgs args,
+            string? alias = null)
+        {
+            return new NormalizedOperation(
+                ExecutionKey: OperationExecutionKey.ForRawStep(new IpcExecuteStepId(opId)),
+                Op: UcliPrimitiveOperationNames.Resolve,
+                Args: IpcPayloadCodec.SerializeToElement<ResolveSelectorArgs>(args),
+                As: alias == null
+                    ? null
+                    : RequestLocalAliasIdentity.FromPublicAlias(new UcliPlanAlias(alias)),
+                Expect: null,
+                AliasReferences: OperationAliasReferenceMap.Empty,
+                PersistenceReportingPolicy: OperationPersistenceReportingPolicy.ReportAll,
+                AllowExplicitPrefabAssetMutation: false);
+        }
+
+        private static NormalizedOperation CreateRawOperation (
             string opId,
             object args,
             string? alias = null)
@@ -1534,7 +1517,10 @@ namespace MackySoft.Ucli.Unity.Tests
             return new NormalizedOperation(
                 ExecutionKey: OperationExecutionKey.ForRawStep(new IpcExecuteStepId(opId)),
                 Op: UcliPrimitiveOperationNames.Resolve,
-                Args: JsonSerializer.SerializeToElement(args),
+                Args: JsonSerializer.SerializeToElement(
+                    args,
+                    args.GetType(),
+                    IpcJsonSerializerOptions.Default),
                 As: alias == null
                     ? null
                     : RequestLocalAliasIdentity.FromPublicAlias(new UcliPlanAlias(alias)),

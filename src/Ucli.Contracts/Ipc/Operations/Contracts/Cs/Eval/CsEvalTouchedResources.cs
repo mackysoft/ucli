@@ -1,10 +1,9 @@
 using System.Text.Json.Serialization;
-using MackySoft.Ucli.Contracts.Operations;
-using MackySoft.Ucli.Contracts.Text;
+
+using MackySoft.JsonSchema.Generation.Annotations;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
-[UcliDescription("C# eval touched resources declaration.")]
 public sealed record CsEvalTouchedResources
 {
     [JsonConstructor]
@@ -39,11 +38,12 @@ public sealed record CsEvalTouchedResources
         State = state;
     }
 
-    [UcliRequired]
-    [UcliDescription("Touched-resource declaration completeness.")]
-    public CsEvalTouchedResourceState State { get; }
+    [JsonInclude]
+    [JsonRequired]
+    [Description("Touched-resource declaration completeness.")]
+    public CsEvalTouchedResourceState State { get; private init; }
 
-    [UcliDescription("Declared touched resources when state is declared.")]
+    [Description("Declared touched resources when state is declared.")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public IReadOnlyList<CsEvalTouchedResourceDeclaration>? Declared { get; }
 }

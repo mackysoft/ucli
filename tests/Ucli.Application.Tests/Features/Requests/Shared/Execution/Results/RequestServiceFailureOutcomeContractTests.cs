@@ -85,7 +85,7 @@ public sealed class RequestServiceFailureOutcomeContractTests
             var validationError = new ValidationError(
                 errorCode,
                 "Validation failed.",
-                new IpcExecuteStepId("step-1"));
+                "/steps/0");
 
             Assert.True(InvalidArgumentErrorCodeSet.Contains(errorCode));
 

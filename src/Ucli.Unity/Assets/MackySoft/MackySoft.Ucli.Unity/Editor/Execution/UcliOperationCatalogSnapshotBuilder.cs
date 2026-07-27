@@ -1,14 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using MackySoft.Text.Vocabularies;
-using TextVocabulary = MackySoft.Text.Vocabularies.Vocabulary;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Phases;
-
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Unity.Execution
 {
@@ -60,18 +56,16 @@ namespace MackySoft.Ucli.Unity.Execution
                     var describeContract = registration.Metadata.DescribeContract;
                     return new IndexOpEntryJsonContract(
                         Name: registration.Metadata.OperationName,
-                        Kind: TextVocabulary.GetText(registration.Metadata.Kind),
-                        Policy: TextVocabulary.GetText(registration.Metadata.Policy),
-                        ArgsSchemaJson: registration.Metadata.ArgsSchemaJson,
-                        ResultSchemaJson: registration.Metadata.ResultSchemaJson,
+                        Kind: registration.Metadata.Kind,
+                        Policy: registration.Metadata.Policy,
+                        ArgsContract: describeContract.ArgsContract,
+                        ResultContract: describeContract.ResultContract,
                         Exposure: registration.Metadata.Exposure == UcliOperationExposure.Public
                             ? null
-                            : TextVocabulary.GetText(registration.Metadata.Exposure),
-                        PlayModeSupport: TextVocabulary.GetText(registration.Metadata.PlayModeSupport))
+                            : registration.Metadata.Exposure,
+                        PlayModeSupport: registration.Metadata.PlayModeSupport)
                     {
                         Description = describeContract.Description,
-                        Inputs = describeContract.Inputs,
-                        ResultContract = describeContract.ResultContract,
                         Assurance = describeContract.Assurance,
                         CodeContract = describeContract.CodeContract,
                     };

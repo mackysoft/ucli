@@ -18,7 +18,6 @@ internal static class ResolveCommandTestData
             RequestGuid,
             [
                 new OperationExecutionOperationResult(
-                    OpId: new IpcExecuteStepId("resolve"),
                     Op: UcliPrimitiveOperationNames.Resolve,
                     Phase: IpcExecuteOperationPhase.Plan,
                     Applied: false,
@@ -49,7 +48,7 @@ internal static class ResolveCommandTestData
             [
                 ApplicationFailure.InternalError(
                     "Unity execution failed.",
-                    opId: new IpcExecuteStepId("resolve")),
+                    instancePath: "/steps/0"),
             ],
             new ReadIndexInfo(
                 Used: true,

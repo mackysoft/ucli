@@ -1,9 +1,9 @@
-using System.Text.Json;
 using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Source;
 using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 using static MackySoft.Ucli.TestSupport.OperationCatalogTestFixtures;
 
@@ -135,7 +135,12 @@ public sealed class OperationCatalogDiscoveryServiceTests
 
     private static OpsCatalogFetchResult CreateSceneOpenFetchResult ()
     {
-        var describe = UcliOperationDescribeContractBuilder.Create<ScenePathArgs, UcliNoResult>(
+        var generationResult = UcliOperationJsonContractGenerator.Generate(
+            MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneOpen,
+            IpcJsonSerializerOptions.PublicRawOperationContracts.GetTypeInfo(typeof(ScenePathArgs)),
+            resultTypeInfo: null);
+        var describe = UcliOperationDescribeContractBuilder.Create(
+            generationResult,
             "Opens a Unity scene asset in the editor.",
             new UcliOperationAssuranceContract(
                 sideEffects: Array.Empty<UcliOperationSideEffect>(),
@@ -154,17 +159,12 @@ public sealed class OperationCatalogDiscoveryServiceTests
                 [
                     new IndexOpEntryJsonContract(
                         Name: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneOpen,
-                        Kind: "command",
-                        Policy: "safe",
-                        ArgsSchemaJson: JsonSerializer.Serialize(new
-                        {
-                            type = "object",
-                            additionalProperties = false,
-                        }))
+                        Kind: UcliOperationKind.Command,
+                        Policy: OperationPolicy.Safe,
+                        ArgsContract: describe.ArgsContract,
+                        ResultContract: describe.ResultContract)
                     {
                         Description = describe.Description,
-                        Inputs = describe.Inputs,
-                        ResultContract = describe.ResultContract,
                         Assurance = describe.Assurance,
                     },
                 ]));

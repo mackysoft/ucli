@@ -22,7 +22,7 @@ internal static class IpcResponseTestFactory
         IpcRequestEnvelope request,
         UcliCode code,
         string message,
-        IpcExecuteStepId? opId = null)
+        string? instancePath = null)
     {
         ArgumentNullException.ThrowIfNull(request);
 
@@ -33,7 +33,7 @@ internal static class IpcResponseTestFactory
             payload: IpcPayloadCodec.SerializeToElement(new { }),
             errors:
             [
-                new IpcError(code, message, opId),
+                new IpcError(code, message, instancePath),
             ]);
     }
 }

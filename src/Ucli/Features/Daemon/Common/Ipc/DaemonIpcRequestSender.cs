@@ -1,11 +1,10 @@
 using System.Text.Json;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Acquisition;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Reachability;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.UnityIntegration.Ipc.Dispatch;
 using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 

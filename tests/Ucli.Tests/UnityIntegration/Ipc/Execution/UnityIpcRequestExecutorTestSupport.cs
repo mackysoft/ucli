@@ -138,7 +138,7 @@ internal static class UnityIpcRequestExecutorTestSupport
         {
             Assert.Equal(expected.Errors[i].Code, actual.Errors[i].Code);
             Assert.Equal(expected.Errors[i].Message, actual.Errors[i].Message);
-            Assert.Equal(expected.Errors[i].OpId, actual.Errors[i].OpId);
+            Assert.Equal(expected.Errors[i].InstancePath, actual.Errors[i].InstancePath);
         }
     }
 }

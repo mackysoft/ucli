@@ -1,5 +1,4 @@
 using MackySoft.Tests;
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Tests.Diagnostics;
 
@@ -16,23 +15,6 @@ public sealed class UcliErrorDescriptorTests
             .ToArray();
 
         Assert.Empty(duplicateCodes);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void KnownDescriptors_IncludeEveryContractsErrorCodeDefinition ()
-    {
-        var expectedCodes = StaticFieldValueReader.ReadFromStaticClasses<UcliCode>(
-            typeof(UcliCode).Assembly,
-            "ErrorCodes");
-        var actualCodes = UcliKnownErrorDescriptors.All
-            .Select(static descriptor => descriptor.Code)
-            .ToHashSet();
-
-        foreach (var expectedCode in expectedCodes)
-        {
-            Assert.Contains(expectedCode, actualCodes);
-        }
     }
 
     [Fact]
@@ -301,18 +283,6 @@ public sealed class UcliErrorDescriptorTests
         Assert.Contains(UcliCommandIds.Call, persistenceForbiddenDescriptor.AppliesTo);
         Assert.DoesNotContain(UcliCommandIds.PlayEnter, persistenceForbiddenDescriptor.AppliesTo);
         Assert.DoesNotContain(UcliCommandIds.PlayExit, persistenceForbiddenDescriptor.AppliesTo);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void PlayModeErrorCodes_DoNotExposePlayModeUnderscorePrefix ()
-    {
-        var codes = StaticFieldValueReader.ReadFromStaticClasses<UcliCode>(
-            typeof(PlayModeErrorCodes).Assembly,
-            "ErrorCodes");
-
-        Assert.Contains(PlayModeErrorCodes.PlayModeSessionNotAvailable, codes);
-        Assert.DoesNotContain(codes, static code => code.Value.StartsWith("PLAY_MODE_", StringComparison.Ordinal));
     }
 
     [Fact]

@@ -1,9 +1,11 @@
 using System.Text.Json.Serialization;
 using MackySoft.Ucli.Contracts.Operations;
 
+using MackySoft.JsonSchema.Generation.Annotations;
+
 namespace MackySoft.Ucli.Contracts.Ipc;
 
-[UcliDescription("GameObject reparent operation arguments.")]
+[Description("GameObject reparent operation arguments.")]
 public sealed record GoReparentArgs
 {
     [JsonConstructor]
@@ -15,13 +17,15 @@ public sealed record GoReparentArgs
         Parent = ContractArgumentGuard.RequireNotNull(parent, nameof(parent));
     }
 
-    [UcliRequired]
-    [UcliDescription("Target GameObject reference.")]
-    [UcliInputConstraint(UcliOperationInputConstraintKind.ReferenceResolvable, TargetKind = UcliOperationReferenceTargetKind.GameObject)]
-    public GameObjectReferenceArgs Target { get; }
+    [JsonInclude]
+    [JsonRequired]
+    [Description("Target GameObject reference.")]
+    [UcliReferenceResolvable(UcliOperationReferenceTargetKind.GameObject)]
+    public GameObjectReferenceArgs Target { get; private init; }
 
-    [UcliRequired]
-    [UcliDescription("New parent GameObject reference.")]
-    [UcliInputConstraint(UcliOperationInputConstraintKind.ReferenceResolvable, TargetKind = UcliOperationReferenceTargetKind.GameObject)]
-    public GameObjectReferenceArgs Parent { get; }
+    [JsonInclude]
+    [JsonRequired]
+    [Description("New parent GameObject reference.")]
+    [UcliReferenceResolvable(UcliOperationReferenceTargetKind.GameObject)]
+    public GameObjectReferenceArgs Parent { get; private init; }
 }

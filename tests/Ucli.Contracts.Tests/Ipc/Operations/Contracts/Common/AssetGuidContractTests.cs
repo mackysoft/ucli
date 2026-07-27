@@ -6,31 +6,9 @@ public sealed class AssetGuidContractTests
 {
     [Fact]
     [Trait("Size", "Small")]
-    public void AssetReferenceArgs_WhenAssetGuidIsEmpty_ThrowsArgumentException ()
+    public void AssetGuidReferenceArgs_WhenAssetGuidIsEmpty_ThrowsArgumentException ()
     {
-        var exception = Assert.Throws<ArgumentException>(() => new AssetReferenceArgs(
-            alias: null,
-            globalObjectId: null,
-            assetGuid: Guid.Empty,
-            assetPath: null,
-            projectAssetPath: null));
-
-        Assert.Equal("assetGuid", exception.ParamName);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void ResolveSelectorArgs_WhenAssetGuidIsEmpty_ThrowsArgumentException ()
-    {
-        var exception = Assert.Throws<ArgumentException>(() => new ResolveSelectorArgs(
-            globalObjectId: null,
-            assetGuid: Guid.Empty,
-            assetPath: null,
-            projectAssetPath: null,
-            scene: null,
-            prefab: null,
-            hierarchyPath: null,
-            componentType: null));
+        var exception = Assert.Throws<ArgumentException>(() => new AssetGuidReferenceArgs(Guid.Empty));
 
         Assert.Equal("assetGuid", exception.ParamName);
     }

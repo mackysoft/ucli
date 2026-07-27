@@ -8,7 +8,14 @@ namespace MackySoft.Ucli.Contracts.Ipc.ContractReading;
 /// <param name="OperationName"> The parsed operation name for <c>kind:"op"</c> steps. </param>
 /// <param name="Element"> The cloned public step JSON object. </param>
 internal sealed record IpcExecuteStepContract (
-    IpcExecuteStepKind? Kind,
-    IpcExecuteStepId? Id,
+    IpcExecuteStepKind Kind,
+    IpcExecuteStepId Id,
     string? OperationName,
-    JsonElement Element);
+    JsonElement Element)
+{
+    /// <summary>Gets the operation arguments from the authoritative deserialized request DTO.</summary>
+    public JsonElement OperationArgs { get; init; }
+
+    /// <summary>Gets the mapped edit execution model for an edit step.</summary>
+    public IpcEditStepContract? EditContract { get; init; }
+}

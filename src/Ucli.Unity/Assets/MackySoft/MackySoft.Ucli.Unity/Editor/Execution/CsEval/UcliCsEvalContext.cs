@@ -10,7 +10,7 @@ using MackySoft.Ucli.Contracts.Operations;
 namespace MackySoft.Ucli.Unity.Execution.CsEval
 {
     /// <summary> Execution context passed to <c>ucli.cs.eval</c> entry points. </summary>
-    [UcliDescription("Execution context passed to ucli.cs.eval entry points.")]
+    [UcliCodeDescription("Execution context passed to ucli.cs.eval entry points.")]
     public sealed class UcliCsEvalContext
     {
         private const string ProjectSettingsRootPrefix = "ProjectSettings/";
@@ -31,30 +31,30 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
 
         /// <summary> Records an informational eval log entry. </summary>
         /// <param name="message"> The log message text. </param>
-        [UcliDescription("Records an informational eval log entry.")]
-        public void Log ([UcliDescription("Log message text.")] string message)
+        [UcliCodeDescription("Records an informational eval log entry.")]
+        public void Log ([UcliCodeDescription("Log message text.")] string message)
         {
             AddLog(CsEvalLogLevel.Log, message);
         }
 
         /// <summary> Records a warning eval log entry. </summary>
         /// <param name="message"> The log message text. </param>
-        [UcliDescription("Records a warning eval log entry.")]
-        public void LogWarning ([UcliDescription("Log message text.")] string message)
+        [UcliCodeDescription("Records a warning eval log entry.")]
+        public void LogWarning ([UcliCodeDescription("Log message text.")] string message)
         {
             AddLog(CsEvalLogLevel.Warning, message);
         }
 
         /// <summary> Records an error eval log entry. </summary>
         /// <param name="message"> The log message text. </param>
-        [UcliDescription("Records an error eval log entry.")]
-        public void LogError ([UcliDescription("Log message text.")] string message)
+        [UcliCodeDescription("Records an error eval log entry.")]
+        public void LogError ([UcliCodeDescription("Log message text.")] string message)
         {
             AddLog(CsEvalLogLevel.Error, message);
         }
 
         /// <summary> Declares that the eval call did not touch Unity resources. </summary>
-        [UcliDescription("Declares that the eval call did not touch Unity resources.")]
+        [UcliCodeDescription("Declares that the eval call did not touch Unity resources.")]
         public void DeclareNoTouchedResources ()
         {
             if (touchedResources.Count != 0)
@@ -67,8 +67,8 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
 
         /// <summary> Declares that the eval call touched a project asset. </summary>
         /// <param name="path"> The project-relative asset path. </param>
-        [UcliDescription("Declares that the eval call touched a project asset.")]
-        public void DeclareTouchedAsset ([UcliDescription("Project-relative asset path.")] string path)
+        [UcliCodeDescription("Declares that the eval call touched a project asset.")]
+        public void DeclareTouchedAsset ([UcliCodeDescription("Project-relative asset path.")] string path)
         {
             var normalizedPath = NormalizeDeclaredAssetPath(path);
             if (IsSceneOrPrefabAssetPath(normalizedPath))
@@ -83,8 +83,8 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
 
         /// <summary> Declares that the eval call touched a scene asset. </summary>
         /// <param name="path"> The project-relative scene asset path. </param>
-        [UcliDescription("Declares that the eval call touched a scene asset.")]
-        public void DeclareTouchedScene ([UcliDescription("Project-relative scene asset path.")] string path)
+        [UcliCodeDescription("Declares that the eval call touched a scene asset.")]
+        public void DeclareTouchedScene ([UcliCodeDescription("Project-relative scene asset path.")] string path)
         {
             AddTouchedResource(
                 UcliTouchedResourceKind.Scene,
@@ -93,8 +93,8 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
 
         /// <summary> Declares that the eval call touched a prefab asset. </summary>
         /// <param name="path"> The project-relative prefab asset path. </param>
-        [UcliDescription("Declares that the eval call touched a prefab asset.")]
-        public void DeclareTouchedPrefab ([UcliDescription("Project-relative prefab asset path.")] string path)
+        [UcliCodeDescription("Declares that the eval call touched a prefab asset.")]
+        public void DeclareTouchedPrefab ([UcliCodeDescription("Project-relative prefab asset path.")] string path)
         {
             AddTouchedResource(
                 UcliTouchedResourceKind.Prefab,
@@ -103,8 +103,8 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
 
         /// <summary> Declares that the eval call touched a ProjectSettings asset. </summary>
         /// <param name="path"> The project-relative ProjectSettings path. </param>
-        [UcliDescription("Declares that the eval call touched a ProjectSettings asset.")]
-        public void DeclareTouchedProjectSettings ([UcliDescription("Project-relative ProjectSettings path.")] string path)
+        [UcliCodeDescription("Declares that the eval call touched a ProjectSettings asset.")]
+        public void DeclareTouchedProjectSettings ([UcliCodeDescription("Project-relative ProjectSettings path.")] string path)
         {
             AddTouchedResource(
                 UcliTouchedResourceKind.ProjectSettings,

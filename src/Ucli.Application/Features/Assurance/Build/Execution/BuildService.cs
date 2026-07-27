@@ -885,7 +885,7 @@ internal sealed class BuildService : IBuildService
             var failure = ApplicationFailure.FromCode(
                 firstError.Code,
                 firstError.Message,
-                firstError.OpId);
+                firstError.InstancePath);
             return BuildResponseResolutionResult.Failure(failure, TryReadErrorPayload(response));
         }
 
@@ -1465,51 +1465,47 @@ internal sealed class BuildService : IBuildService
             Status: GetTerminalResult(response));
     }
 
-    private static IReadOnlyDictionary<BuildArtifactKind, AssuranceReportReference> CreateReports (
+    private static BuildReportsOutput CreateReports (
         BuildRunArtifactAccountingResult accounting,
         BuildArtifactRef? buildArtifact)
     {
-        var reports = new Dictionary<BuildArtifactKind, AssuranceReportReference>
-        {
-            [BuildArtifactKind.Build] = AssuranceReportReference.FromPath(buildArtifact?.Path ?? "build.json", buildArtifact?.Digest),
-            [BuildArtifactKind.BuildOutputManifest] = AssuranceReportReference.FromPath(accounting.BuildOutputManifest.Path, accounting.BuildOutputManifest.Digest),
-            [BuildArtifactKind.BuildLog] = AssuranceReportReference.FromPath(accounting.BuildLog.Path, accounting.BuildLog.Digest),
-        };
-        if (accounting.BuildReport != null)
-        {
-            reports.Add(
-                BuildArtifactKind.BuildReport,
-                AssuranceReportReference.FromPath(accounting.BuildReport.Path, accounting.BuildReport.Digest));
-        }
-
-        return reports;
+        return new BuildReportsOutput(
+            Build: AssuranceReportReference.FromPath(
+                buildArtifact?.Path ?? "build.json",
+                buildArtifact?.Digest),
+            BuildReport: accounting.BuildReport == null
+                ? null
+                : AssuranceReportReference.FromPath(
+                    accounting.BuildReport.Path,
+                    accounting.BuildReport.Digest),
+            BuildOutputManifest: AssuranceReportReference.FromPath(
+                accounting.BuildOutputManifest.Path,
+                accounting.BuildOutputManifest.Digest),
+            BuildLog: AssuranceReportReference.FromPath(
+                accounting.BuildLog.Path,
+                accounting.BuildLog.Digest));
     }
 
-    private static IReadOnlyList<BuildArtifactKind> CreateReportRefs (IReadOnlyDictionary<BuildArtifactKind, AssuranceReportReference> reports)
+    private static IReadOnlyList<BuildArtifactKind> CreateReportRefs (BuildReportsOutput reports)
     {
         ArgumentNullException.ThrowIfNull(reports);
-        var refs = new List<BuildArtifactKind>(capacity: 4);
-        if (reports.ContainsKey(BuildArtifactKind.Build))
+        if (reports.BuildReport != null)
         {
-            refs.Add(BuildArtifactKind.Build);
+            return
+            [
+                BuildArtifactKind.Build,
+                BuildArtifactKind.BuildReport,
+                BuildArtifactKind.BuildOutputManifest,
+                BuildArtifactKind.BuildLog,
+            ];
         }
 
-        if (reports.ContainsKey(BuildArtifactKind.BuildReport))
-        {
-            refs.Add(BuildArtifactKind.BuildReport);
-        }
-
-        if (reports.ContainsKey(BuildArtifactKind.BuildOutputManifest))
-        {
-            refs.Add(BuildArtifactKind.BuildOutputManifest);
-        }
-
-        if (reports.ContainsKey(BuildArtifactKind.BuildLog))
-        {
-            refs.Add(BuildArtifactKind.BuildLog);
-        }
-
-        return refs.ToArray();
+        return
+        [
+            BuildArtifactKind.Build,
+            BuildArtifactKind.BuildOutputManifest,
+            BuildArtifactKind.BuildLog,
+        ];
     }
 
     private static BuildRunMetadataDocument CreateMetadataDocument (

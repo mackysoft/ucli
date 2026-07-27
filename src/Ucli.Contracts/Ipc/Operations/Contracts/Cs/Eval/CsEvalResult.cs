@@ -1,11 +1,12 @@
 using System.Text.Json.Serialization;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Operations;
-using MackySoft.Ucli.Contracts.Text;
+
+using MackySoft.JsonSchema.Generation.Annotations;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
-[UcliDescription("C# eval operation result.")]
+[Description("C# eval operation result.")]
 public sealed record CsEvalResult
 {
     [JsonConstructor]
@@ -45,39 +46,42 @@ public sealed record CsEvalResult
         TouchedResources = touchedResources;
     }
 
-    [UcliRequired]
-    [UcliDescription("SHA-256 digest of the UTF-8 source text.")]
-    public Sha256Digest SourceDigest { get; }
+    [JsonInclude]
+    [JsonRequired]
+    [Description("SHA-256 digest of the UTF-8 source text.")]
+    public Sha256Digest SourceDigest { get; private init; }
 
-    [UcliDescription("Eval source form used for compilation; omitted when the source form could not be classified.")]
+    [Description("Eval source form used for compilation; omitted when the source form could not be classified.")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public UcliCodeSourceFormKind? SourceKind { get; }
 
-    [UcliDescription("Entry point resolved from the eval source; omitted when no unique entry point was resolved.")]
+    [Description("Entry point resolved from the eval source; omitted when no unique entry point was resolved.")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? ResolvedEntryPoint { get; }
 
-    [UcliRequired]
-    [UcliDescription("SHA-256 digest of normalized eval execution inputs.")]
-    public Sha256Digest ExecutionDigest { get; }
+    [JsonInclude]
+    [JsonRequired]
+    [Description("SHA-256 digest of normalized eval execution inputs.")]
+    public Sha256Digest ExecutionDigest { get; private init; }
 
-    [UcliRequired]
-    [UcliDescription("Compile and entry point validation result.")]
-    public CsEvalCompileResult Compile { get; }
+    [JsonInclude]
+    [JsonRequired]
+    [Description("Compile and entry point validation result.")]
+    public CsEvalCompileResult Compile { get; private init; }
 
-    [UcliDescription("Call duration in milliseconds; omitted for plan results.")]
+    [Description("Call duration in milliseconds; omitted for plan results.")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public long? DurationMilliseconds { get; }
 
-    [UcliDescription("Structured log entries recorded during call; omitted for plan results.")]
+    [Description("Structured log entries recorded during call; omitted for plan results.")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public IReadOnlyList<CsEvalLogEntry>? Logs { get; }
 
-    [UcliDescription("JSON-serializable entry point return value; omitted for plan results.")]
+    [Description("JSON-serializable entry point return value; omitted for plan results.")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public CsEvalReturnValue? ReturnValue { get; }
 
-    [UcliDescription("Touched resources declared by the entry point; omitted for plan results.")]
+    [Description("Touched resources declared by the entry point; omitted for plan results.")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public CsEvalTouchedResources? TouchedResources { get; }
 }

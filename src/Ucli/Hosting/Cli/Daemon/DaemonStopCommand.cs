@@ -1,6 +1,6 @@
+using System.Text.Json.Serialization.Metadata;
 using ConsoleAppFramework;
 using MackySoft.Ucli.Application.Features.Daemon.UseCases.Stop;
-using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 using MackySoft.Ucli.Hosting.Cli.Options;
@@ -10,6 +10,14 @@ namespace MackySoft.Ucli.Hosting.Cli.Daemon;
 /// <summary> Provides the daemon stop CLI command entry point. </summary>
 internal sealed class DaemonStopCommand
 {
+    /// <summary> Gets the serializer contract used by successful <c>daemon stop</c> payloads. </summary>
+    public static JsonTypeInfo SuccessPayloadTypeInfo { get; } =
+        CliOutputJsonSerializerOptions.Default.GetTypeInfo(typeof(DaemonStopExecutionOutput));
+
+    /// <summary> Gets the serializer contract used by failed <c>daemon stop</c> payloads. </summary>
+    public static JsonTypeInfo ErrorPayloadTypeInfo { get; } =
+        CliOutputJsonSerializerOptions.Default.GetTypeInfo(typeof(EmptyCommandPayload));
+
     private readonly IDaemonStopService daemonStopService;
 
     private readonly ICommandResultWriter commandResultWriter;
@@ -70,17 +78,10 @@ internal sealed class DaemonStopCommand
 
         if (executionResult.IsSuccess)
         {
-            var output = executionResult.Output!;
             return CommandResult.Success(
                 command: UcliCommandNames.DaemonStop,
                 message: "uCLI daemon stop completed.",
-                payload: new
-                {
-                    stopStatus = TextVocabulary.GetText(output.StopStatus),
-                    daemonStatus = TextVocabulary.GetText(output.DaemonStatus),
-                    timeoutMilliseconds = output.TimeoutMilliseconds,
-                    session = output.Session,
-                });
+                payload: executionResult.Output!);
         }
 
         return CommandResultFactory.FromExecutionError(UcliCommandNames.DaemonStop, executionResult.Error!);

@@ -1,9 +1,10 @@
 using System.Text.Json.Serialization;
-using MackySoft.Ucli.Contracts.Operations;
+
+using MackySoft.JsonSchema.Generation.Annotations;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
-[UcliDescription("GameObject describe operation result.")]
+[Description("GameObject describe operation result.")]
 public sealed record GameObjectDescriptionResult
 {
     /// <summary> Initializes a GameObject description with owned component and child snapshots. </summary>
@@ -26,19 +27,21 @@ public sealed record GameObjectDescriptionResult
         Children = ContractArgumentGuard.RequireItems(children, nameof(children));
     }
 
-    [UcliRequired]
-    [UcliDescription("GameObject name.")]
-    public string Name { get; }
+    [JsonInclude]
+    [JsonRequired]
+    [Description("GameObject name.")]
+    public string Name { get; private init; }
 
-    [UcliDescription("Stable GameObject GlobalObjectId when available.")]
-    [UcliJsonAllowNull]
+    [Description("Stable GameObject GlobalObjectId when available.")]
     public UnityGlobalObjectId? GlobalObjectId { get; }
 
-    [UcliRequired]
-    [UcliDescription("Components attached to this GameObject.")]
-    public IReadOnlyList<GameObjectComponentDescriptionResult> Components { get; }
+    [JsonInclude]
+    [JsonRequired]
+    [Description("Components attached to this GameObject.")]
+    public IReadOnlyList<GameObjectComponentDescriptionResult> Components { get; private init; }
 
-    [UcliRequired]
-    [UcliDescription("Child GameObject descriptions.")]
-    public IReadOnlyList<GameObjectDescriptionResult> Children { get; }
+    [JsonInclude]
+    [JsonRequired]
+    [Description("Child GameObject descriptions.")]
+    public IReadOnlyList<GameObjectDescriptionResult> Children { get; private init; }
 }

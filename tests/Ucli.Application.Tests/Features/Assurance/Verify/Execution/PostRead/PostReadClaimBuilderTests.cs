@@ -163,13 +163,13 @@ public sealed class PostReadClaimBuilderTests
     {
         var input = CreateInput([
             CreateOperationResult(
-                opId: "live",
+                index: 0,
                 playModeMutation: true,
                 persistenceExpected: false,
                 expectedPostState: IpcExecuteExpectedPostState.Unavailable,
                 touchedCount: 0),
             CreateOperationResult(
-                opId: "persistent",
+                index: 1,
                 persistenceExpected: true,
                 expectedPostState: IpcExecuteExpectedPostState.Deterministic,
                 touchedCount: 1),
@@ -307,19 +307,16 @@ public sealed class PostReadClaimBuilderTests
         int touchedCount = 0,
         IReadOnlyList<VerifyFromDiagnostic>? diagnostics = null,
         string op = "edit",
-        string opId = "op-1")
+        int index = 0)
     {
-        var executeStepId = new IpcExecuteStepId(opId);
-
         return new VerifyFromOperationResult(
-            OpId: executeStepId,
+            Index: index,
             Op: op,
             Applied: applied,
             Changed: changed,
             TouchedCount: touchedCount,
             Diagnostics: diagnostics ?? Array.Empty<VerifyFromDiagnostic>(),
             PostReadSource: new VerifyFromPostReadSourceStep(
-                OpId: executeStepId,
                 SourceKind: sourceKind,
                 PlayModeMutation: playModeMutation,
                 Commit: commit,

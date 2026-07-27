@@ -52,8 +52,8 @@ public sealed class FileReadIndexArtifactReaderOpsTests
             [
                 new IndexOpsCatalogEntryJsonContract(
                     Name: UcliPrimitiveOperationNames.GoDescribe,
-                    Kind: "query",
-                    Policy: "safe",
+                    Kind: UcliOperationKind.Query,
+                    Policy: OperationPolicy.Safe,
                     Description: "Returns a GameObject description.",
                     DescribeKey: new string('a', 64),
                     DescribeHash: new string('b', 64)),
@@ -129,15 +129,18 @@ public sealed class FileReadIndexArtifactReaderOpsTests
             [
                 new IndexOpsCatalogEntryJsonContract(
                     Name: UcliPrimitiveOperationNames.GoDescribe,
-                    Kind: kind,
-                    Policy: policy,
+                    Kind: UcliOperationKind.Query,
+                    Policy: OperationPolicy.Safe,
                     Description: "Returns a GameObject description.",
                     DescribeKey: new string('a', 64),
                     DescribeHash: new string('b', 64)),
             ]);
+        var nonCanonicalJson = FileReadIndexArtifactReaderTestSupport.Write(contract)
+            .Replace("\"kind\": \"query\"", $"\"kind\": \"{kind}\"", StringComparison.Ordinal)
+            .Replace("\"policy\": \"safe\"", $"\"policy\": \"{policy}\"", StringComparison.Ordinal);
         FileReadIndexArtifactReaderTestSupport.WriteText(
             UcliStoragePathResolver.ResolveOpsCatalogPath(AbsolutePath.Parse(scope.FullPath), fingerprint, generationId),
-            FileReadIndexArtifactReaderTestSupport.Write(contract));
+            nonCanonicalJson);
 
         var result = await reader.ReadOpsCatalogAsync(project, CancellationToken.None);
 

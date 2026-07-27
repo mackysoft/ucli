@@ -93,7 +93,7 @@ public sealed class BuildServiceExecuteMethodRunnerTests
         Assert.Equal(["UCLI_MODE"], output.Build.Runner.Invocation.Environment.Variables);
         Assert.Equal(["UCLI_SECRET"], output.Build.Runner.Invocation.Environment.Secrets);
         Assert.Null(output.Build.Summary.ReportRef);
-        Assert.False(output.Reports.ContainsKey(BuildArtifactKind.BuildReport));
+        Assert.Null(output.Reports.BuildReport);
         Assert.DoesNotContain(output.Claims, static claim => claim.Id == BuildClaimCodes.UnityBuildReportAccounted);
         Assert.DoesNotContain(EnvironmentValue, JsonSerializer.Serialize(output, PayloadSerializerOptions));
         Assert.DoesNotContain(SecretValue, JsonSerializer.Serialize(output, PayloadSerializerOptions));
@@ -164,7 +164,7 @@ public sealed class BuildServiceExecuteMethodRunnerTests
             accountingRequest.BuildReport.RunnerOutputRelativePath);
         var output = result.Output!;
         Assert.Equal(BuildArtifactKind.BuildReport, output.Build.Summary.ReportRef);
-        Assert.True(output.Reports.ContainsKey(BuildArtifactKind.BuildReport));
+        Assert.NotNull(output.Reports.BuildReport);
         var reportClaim = Assert.Single(output.Claims, static claim => claim.Id == BuildClaimCodes.UnityBuildReportAccounted);
         Assert.False(reportClaim.Required);
         var semanticResult = CreateBuildSemanticInvariantValidator().Validate(JsonSerializer.SerializeToElement(output, PayloadSerializerOptions));

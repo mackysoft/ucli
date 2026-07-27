@@ -162,6 +162,18 @@ public static class UcliCommandIds
     /// <summary> Gets command identifier for <c>ops.describe</c>. </summary>
     public static UcliCommand OpsDescribe { get; } = new("ops.describe");
 
+    /// <summary> Gets command identifier for <c>schema</c>. </summary>
+    public static UcliCommand Schema { get; } = new("schema");
+
+    /// <summary> Gets command identifier for <c>schema.list</c>. </summary>
+    public static UcliCommand SchemaList { get; } = new("schema.list");
+
+    /// <summary> Gets command identifier for <c>schema.get</c>. </summary>
+    public static UcliCommand SchemaGet { get; } = new("schema.get");
+
+    /// <summary> Gets command identifier for <c>schema.export</c>. </summary>
+    public static UcliCommand SchemaExport { get; } = new("schema.export");
+
     /// <summary> Gets command identifier for <c>skills</c>. </summary>
     public static UcliCommand Skills { get; } = new("skills");
 

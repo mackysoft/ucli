@@ -3,6 +3,7 @@ using MackySoft.Ucli.Application.Features.Requests.Call.UseCases.Call;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Phase;
 using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Preparation;
+using MackySoft.Ucli.Application.Features.Requests.Shared.Validation.Parsing;
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -99,14 +100,10 @@ internal static class CallServiceTestSupport
             [
                 new ValidateRequestStep(
                     Kind: IpcExecuteStepKind.Op,
-                    StepId: new IpcExecuteStepId("step-1"),
+                    StepIndex: 0,
                     Op: operationName,
-                    Element: JsonSerializer.SerializeToElement(new
+                    Args: JsonSerializer.SerializeToElement(new
                     {
-                        kind = "op",
-                        id = "step-1",
-                        op = operationName,
-                        args = new { },
                     })),
             ]);
     }
@@ -121,7 +118,6 @@ internal static class CallServiceTestSupport
                 new
                 {
                     kind = "op",
-                    id = "step-1",
                     op = operationName,
                     args = new { },
                 },
@@ -131,18 +127,9 @@ internal static class CallServiceTestSupport
 
     public static ValidateRequest CreateEditRequest ()
     {
-        using var document = JsonDocument.Parse(CreateEditRequestJson());
-
-        return new ValidateRequest(
-            ProtocolVersion: IpcProtocol.CurrentVersion,
-            Steps:
-            [
-                new ValidateRequestStep(
-                    Kind: IpcExecuteStepKind.Edit,
-                    StepId: new IpcExecuteStepId("edit-1"),
-                    Op: null,
-                    Element: document.RootElement.GetProperty("steps")[0].Clone()),
-            ]);
+        var result = new ValidateRequestJsonParser().Parse(CreateEditRequestJson());
+        Assert.True(result.IsSuccess, result.Error?.Message);
+        return result.Request!;
     }
 
     public static string CreateEditRequestJson ()
@@ -153,12 +140,13 @@ internal static class CallServiceTestSupport
               "steps": [
                 {
                   "kind": "edit",
-                  "id": "edit-1",
                   "on": {
-                    "scene": "Assets/Scenes/Main.unity"
+                    "kind": "scene",
+                    "path": "Assets/Scenes/Main.unity"
                   },
                   "select": {
-                    "gameObject": "Root/Spawner",
+                    "kind": "gameObject",
+                    "path": "Root/Spawner",
                     "cardinality": "one"
                   },
                   "actions": [

@@ -72,6 +72,6 @@ public sealed class QueryCommandPayloadTests
             .HasProperty("errors", 0, error => error
                 .HasString("code", UcliCoreErrorCodes.InternalError.Value)
                 .HasString("message", "Unity execution failed.")
-                .HasString("opId", "assets.find"));
+                .HasString("instancePath", "/steps/0"));
     }
 }

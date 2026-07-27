@@ -16,7 +16,7 @@ internal sealed class RecordingOperationAuthorizationService : IOperationAuthori
     public IReadOnlyList<Invocation> Invocations => invocations;
 
     public ValueTask<OperationAuthorizationResult> AuthorizeAsync (
-        UcliOperationDescriptor operation,
+        UcliOperationAuthorizationDescriptor operation,
         UcliConfig config,
         CancellationToken cancellationToken = default)
     {
@@ -30,7 +30,7 @@ internal sealed class RecordingOperationAuthorizationService : IOperationAuthori
     }
 
     internal readonly record struct Invocation (
-        UcliOperationDescriptor Operation,
+        UcliOperationAuthorizationDescriptor Operation,
         UcliConfig Config,
         CancellationToken CancellationToken);
 }

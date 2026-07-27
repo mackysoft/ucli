@@ -15,7 +15,6 @@ public sealed class PlanServiceDispatchTests
             "plan-token-1",
             [
                 new IpcExecuteOperationResult(
-                    OpId: new IpcExecuteStepId("step-1"),
                     Op: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe,
                     Phase: IpcExecuteOperationPhase.Plan,
                     Applied: false,
@@ -54,6 +53,5 @@ public sealed class PlanServiceDispatchTests
         Assert.True(execution.Request.FailFast);
         Assert.False(execution.Request.AllowPlayMode);
         Assert.Null(execution.Request.PlanToken);
-        Assert.False(execution.Request.ExecuteArguments.TryGetProperty("requestId", out _));
     }
 }

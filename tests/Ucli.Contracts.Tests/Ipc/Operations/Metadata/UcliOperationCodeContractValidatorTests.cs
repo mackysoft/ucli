@@ -40,7 +40,7 @@ public sealed class UcliOperationCodeContractValidatorTests
 
         var isValid = UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContractAndDerivePolicy(
             describe,
-            operationKind: "command",
+            operationKind: UcliOperationKind.Command,
             ownerName: "Test contract",
             out var derivedPolicy,
             out var errorMessage);
@@ -59,8 +59,8 @@ public sealed class UcliOperationCodeContractValidatorTests
 
         var isValid = UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContract(
             describe,
-            operationKind: "query",
-            operationPolicy: "dangerous",
+            operationKind: UcliOperationKind.Query,
+            operationPolicy: OperationPolicy.Dangerous,
             ownerName: "Test contract",
             out var errorMessage);
 

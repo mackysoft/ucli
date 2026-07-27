@@ -123,6 +123,6 @@ internal static class CommandResultAssert
             .HasProperty("errors", 0, error => error
                 .HasString("code", expectedCode)
                 .HasValueKind("message", JsonValueKind.String)
-                .IsNull("opId"));
+                .IsNull("instancePath"));
     }
 }

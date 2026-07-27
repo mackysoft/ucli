@@ -4,10 +4,12 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
 using MackySoft.FileSystem;
+using MackySoft.Text.Vocabularies;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -273,6 +275,19 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(operation.ValidateBodyCalled, Is.False);
         }
 
+        [TestCase("null")]
+        [TestCase("[]")]
+        [TestCase("\"text\"")]
+        [Category("Size.Small")]
+        public void OperationPhaseStepResult_WhenResultRootIsNotObject_ThrowsArgumentException (
+            string json)
+        {
+            using var document = JsonDocument.Parse(json);
+
+            Assert.Throws<ArgumentException>(() =>
+                OperationPhaseStepResult.Success(result: document.RootElement));
+        }
+
         [Test]
         [Category("Size.Small")]
         public async Task TypedOperation_WhenPlanArgsFailContractValidation_ReturnsInvalidArgumentWithoutCallingBody ()
@@ -326,6 +341,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 {
                     target = new
                     {
+                        kind = Vocabulary.GetText(UcliReferenceKind.Alias),
                         @var = "created",
                     },
                 }),
@@ -339,43 +355,6 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(result.IsSuccess, Is.False);
             Assert.That(result.Failure!.Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
-            Assert.That(
-                result.Failure.Message,
-                Is.EqualTo("Operation 'args.target.var' cannot use reserved request-local alias property 'var' in public op steps."));
-            Assert.That(operation.ValidateBodyCalled, Is.False);
-        });
-
-        [UnityTest]
-        [Category("Size.Small")]
-        public IEnumerator TypedOperation_WhenPublicOpIncludesNullRequestLocalAliasProperty_ReturnsInvalidArgumentWithoutCallingBody () => UniTask.ToCoroutine(async () =>
-        {
-            var operation = new AliasReferenceTypedOperation();
-            using var executionContext = new OperationExecutionContext();
-            var normalizedOperation = new NormalizedOperation(
-                ExecutionKey: OperationExecutionKey.ForRawStep(new IpcExecuteStepId("op-alias")),
-                Op: "ucli.tests.alias-reference",
-                Args: JsonSerializer.SerializeToElement(new
-                {
-                    target = new
-                    {
-                        @var = (string?)null,
-                        scene = "Assets/Scenes/Main.unity",
-                        hierarchyPath = "Root",
-                    },
-                }),
-                As: null,
-                Expect: null,
-                AliasReferences: OperationAliasReferenceMap.Empty,
-                PersistenceReportingPolicy: OperationPersistenceReportingPolicy.ReportAll,
-                AllowExplicitPrefabAssetMutation: false);
-
-            var result = await operation.ValidateAsync(normalizedOperation, executionContext, CancellationToken.None);
-
-            Assert.That(result.IsSuccess, Is.False);
-            Assert.That(result.Failure!.Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
-            Assert.That(
-                result.Failure.Message,
-                Is.EqualTo("Operation 'args.target.var' cannot use reserved request-local alias property 'var' in public op steps."));
             Assert.That(operation.ValidateBodyCalled, Is.False);
         });
 
@@ -720,16 +699,26 @@ namespace MackySoft.Ucli.Unity.Tests
                 callResult: OperationPhaseStepResult.Success(applied: true, changed: true),
                 exposure: UcliOperationExposure.EditLoweringOnly);
             var executor = CreateExecutor(CreateRegistry((UcliPrimitiveOperationNames.CompEnsure, operation)));
-            var request = CreateEditRequest(
-                stepId: "edit-1",
-                stepJson: "{"
-                    + "\"kind\":\"edit\","
-                    + "\"id\":\"edit-1\","
-                    + "\"on\":{\"scene\":\"" + scenePath + "\"},"
-                    + "\"select\":{\"gameObject\":\"Root\",\"cardinality\":\"one\"},"
-                    + "\"actions\":[{\"kind\":\"ensureComponent\",\"type\":\"UnityEngine.BoxCollider, UnityEngine.PhysicsModule\"}],"
-                    + "\"commit\":\"none\""
-                    + "}");
+            var request = CreateEditRequest(new UcliEditRequestStepJsonContract
+            {
+                On = new UcliSceneEditContextJsonContract
+                {
+                    Path = scenePath,
+                },
+                Select = new UcliGameObjectEditSelectionJsonContract
+                {
+                    Path = "Root",
+                    Cardinality = IpcEditStepContract.CardinalityKind.One,
+                },
+                Actions = new UcliEditActionJsonContract[]
+                {
+                    new UcliEnsureComponentEditActionJsonContract
+                    {
+                        Type = "UnityEngine.BoxCollider, UnityEngine.PhysicsModule",
+                    },
+                },
+                Commit = IpcEditStepContract.CommitKind.None,
+            });
 
             var trace = await ExecuteAsync(executor, PhaseExecutionCommand.Call, request, "Edit lowering allowed edit-only operation");
 
@@ -1052,7 +1041,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var request = CreateRequest(
                 operations: new[] { ("op-1", UcliPrimitiveOperationNames.Resolve) },
                 planToken: null,
-                canonicalPayloadJson: "{\"ops\":[],\"protocolVersion\":1}");
+                canonicalPayloadJson: "{\"steps\":[],\"protocolVersion\":1}");
             var traces = CreatePlanTraceWithTouched(scope.ProjectRoot, "Assets/Scenes/Main.unity");
 
             var result = coordinator.ValidateCall(request, traces, CreateCompiledDigestPayloadUtf8());
@@ -1074,7 +1063,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var request = CreateRequest(
                 operations: new[] { ("op-1", UcliPrimitiveOperationNames.Resolve) },
                 planToken: null,
-                canonicalPayloadJson: "{\"ops\":[],\"protocolVersion\":1}");
+                canonicalPayloadJson: "{\"steps\":[],\"protocolVersion\":1}");
             var traces = CreatePlanTraceWithTouched(scope.ProjectRoot, "Assets/Scenes/Main.unity");
 
             var issueResult = coordinator.Issue(request, traces, CreateCompiledDigestPayloadUtf8());
@@ -1094,7 +1083,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var request = CreateRequest(
                 operations: new[] { ("op-1", UcliPrimitiveOperationNames.Resolve) },
                 planToken: null,
-                canonicalPayloadJson: "{\"ops\":[],\"protocolVersion\":1}");
+                canonicalPayloadJson: "{\"steps\":[],\"protocolVersion\":1}");
             var traces = CreatePlanTraceWithTouched(scope.ProjectRoot, "Assets/Scenes/Main.unity");
 
             var issueResult = coordinator.Issue(request, traces, CreateCompiledDigestPayloadUtf8());
@@ -1120,7 +1109,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var request = CreateRequest(
                 operations: new[] { ("op-1", UcliPrimitiveOperationNames.Resolve) },
                 planToken: null,
-                canonicalPayloadJson: "{\"ops\":[],\"protocolVersion\":1}");
+                canonicalPayloadJson: "{\"steps\":[],\"protocolVersion\":1}");
             var traces = CreatePlanTraceWithTouched(scope.ProjectRoot, "Assets/Scenes/Main.unity");
 
             var issueResult = coordinator.Issue(request, traces, CreateCompiledDigestPayloadUtf8());
@@ -1148,7 +1137,8 @@ namespace MackySoft.Ucli.Unity.Tests
             var originalRequest = CreateRequest(
                 operations: new[] { ("op-1", UcliPrimitiveOperationNames.Resolve) },
                 planToken: null,
-                canonicalPayloadJson: "{\"ops\":[{\"id\":\"op-1\"}],\"protocolVersion\":1}");
+                canonicalPayloadJson: "{\"steps\":[{\"kind\":\"op\",\"op\":\"__RESOLVE_OP__\",\"args\":{\"variant\":1}}],\"protocolVersion\":1}"
+                    .Replace("__RESOLVE_OP__", UcliPrimitiveOperationNames.Resolve, StringComparison.Ordinal));
             var traces = CreatePlanTraceWithTouched(scope.ProjectRoot, "Assets/Scenes/Main.unity");
 
             var issueResult = coordinator.Issue(originalRequest, traces, CreateCompiledDigestPayloadUtf8());
@@ -1157,7 +1147,8 @@ namespace MackySoft.Ucli.Unity.Tests
             var modifiedRequest = CreateRequest(
                 operations: new[] { ("op-1", UcliPrimitiveOperationNames.Resolve) },
                 planToken: issueResult.PlanToken,
-                canonicalPayloadJson: "{\"ops\":[{\"id\":\"op-2\"}],\"protocolVersion\":1}");
+                canonicalPayloadJson: "{\"steps\":[{\"kind\":\"op\",\"op\":\"__RESOLVE_OP__\",\"args\":{\"variant\":2}}],\"protocolVersion\":1}"
+                    .Replace("__RESOLVE_OP__", UcliPrimitiveOperationNames.Resolve, StringComparison.Ordinal));
             var validationResult = coordinator.ValidateCall(modifiedRequest, traces, CreateCompiledDigestPayloadUtf8());
 
             Assert.That(validationResult.IsSuccess, Is.False);
@@ -1202,7 +1193,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var request = CreateRequest(
                 operations: new[] { ("op-1", UcliPrimitiveOperationNames.Resolve) },
                 planToken: null,
-                canonicalPayloadJson: "{\"ops\":[],\"protocolVersion\":1}");
+                canonicalPayloadJson: "{\"steps\":[],\"protocolVersion\":1}");
             var traces = CreatePlanTraceWithTouched(scope.ProjectRoot, "Assets/Scenes/Main.unity");
 
             var issueResult = coordinator.Issue(request, traces, CreateCompiledDigestPayloadUtf8());
@@ -1239,7 +1230,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var request = CreateRequest(
                 operations: new[] { ("op-1", UcliPrimitiveOperationNames.Resolve) },
                 planToken: null,
-                canonicalPayloadJson: "{\"ops\":[],\"protocolVersion\":1}");
+                canonicalPayloadJson: "{\"steps\":[],\"protocolVersion\":1}");
             var traces = CreatePlanTraceWithTouched(scope.ProjectRoot, touchedPath);
 
             var issueResult = coordinator.Issue(request, traces, CreateCompiledDigestPayloadUtf8());
@@ -1268,7 +1259,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var request = CreateRequest(
                 operations: new[] { ("op-1", UcliPrimitiveOperationNames.Resolve) },
                 planToken: null,
-                canonicalPayloadJson: "{\"ops\":[],\"protocolVersion\":1}");
+                canonicalPayloadJson: "{\"steps\":[],\"protocolVersion\":1}");
             var traces = CreatePlanTraceWithTouched(scope.ProjectRoot, "Assets/Scenes/Main.unity");
 
             var issueResult = coordinator.Issue(request, traces, CreateCompiledDigestPayloadUtf8());
@@ -1521,34 +1512,15 @@ namespace MackySoft.Ucli.Unity.Tests
             var registrations = new UcliOperationRegistration[operations.Length];
             for (var i = 0; i < operations.Length; i++)
             {
-                registrations[i] = new UcliOperationRegistration(
-                    new UcliOperationMetadata(
-                        operationName: operations[i].Name,
-                        kind: operations[i].Operation.Metadata.Kind,
-                        describeContract: operations[i].Operation.Metadata.DescribeContract,
-                        argsType: operations[i].Operation.Metadata.ArgsType,
-                        resultType: operations[i].Operation.Metadata.ResultType,
-                        requiresPreCallPlanReplay: operations[i].Operation.Metadata.RequiresPreCallPlanReplay,
-                        exposure: operations[i].Operation.Metadata.Exposure,
-                        playModeSupport: operations[i].Operation.Metadata.PlayModeSupport),
+                var registeredOperation = new RegisteredOperationView(
+                    operations[i].Name,
                     operations[i].Operation);
+                registrations[i] = new UcliOperationRegistration(
+                    registeredOperation.Metadata,
+                    registeredOperation);
             }
 
             return new InMemoryPhaseOperationRegistry(registrations);
-        }
-
-        private static UcliOperationDescribeContract CreateDescribeContract (
-            string operationName,
-            OperationPolicy policy = OperationPolicy.Safe,
-            UcliOperationAssuranceContract? assurance = null,
-            IReadOnlyList<UcliOperationSideEffect>? sideEffects = null)
-        {
-            return new UcliOperationDescribeContract(
-                $"{operationName} test operation.",
-                Array.Empty<UcliOperationInputContract>(),
-                UcliOperationResultContract.NoResult("This test operation does not emit operation-specific result data."),
-                assurance ?? CreateValidationOnlyAssurance(policy, sideEffects),
-                codeContract: null);
         }
 
         private static UcliOperationAssuranceContract CreateValidationOnlyAssurance (
@@ -1629,10 +1601,12 @@ namespace MackySoft.Ucli.Unity.Tests
                     Element: JsonSerializer.SerializeToElement(new
                     {
                         kind = "op",
-                        id = operation.OpId,
                         op = operation.Op,
                         args = new { },
-                    })));
+                    }))
+                {
+                    OperationArgs = JsonSerializer.SerializeToElement(new { }),
+                });
             }
 
             return new NormalizedExecuteRequest(
@@ -1643,20 +1617,25 @@ namespace MackySoft.Ucli.Unity.Tests
                 CanonicalDigestPayloadUtf8: Encoding.UTF8.GetBytes(canonicalPayloadJson));
         }
 
-        private static NormalizedExecuteRequest CreateEditRequest (
-            string stepId,
-            string stepJson)
+        private static NormalizedExecuteRequest CreateEditRequest (UcliEditRequestStepJsonContract step)
         {
-            using var document = JsonDocument.Parse(stepJson);
-            return new NormalizedExecuteRequest(
-                SourceSteps: new[]
+            var executeArguments = JsonSerializer.SerializeToElement(new IpcExecuteArgumentsJsonContract
+            {
+                ProtocolVersion = IpcProtocol.CurrentVersion,
+                Steps = new UcliRequestStepJsonContract[]
                 {
-                    new IpcExecuteStepContract(
-                        Kind: IpcExecuteStepKind.Edit,
-                        Id: new IpcExecuteStepId(stepId),
-                        OperationName: null,
-                        Element: document.RootElement.Clone()),
+                    step,
                 },
+            }, IpcJsonSerializerOptions.StrictPropertyNames);
+            Assert.That(
+                IpcExecuteArgumentsContractReader.TryRead(
+                    executeArguments,
+                    out var argumentsContract,
+                    out var readError),
+                Is.True,
+                readError.Message);
+            return new NormalizedExecuteRequest(
+                SourceSteps: argumentsContract.Steps,
                 AllowDangerous: false,
                 AllowPlayMode: false,
                 PlanToken: null,
@@ -1901,6 +1880,55 @@ namespace MackySoft.Ucli.Unity.Tests
             }
         }
 
+        private sealed class RegisteredOperationView : IUcliOperation
+        {
+            private readonly IUcliOperation operation;
+
+            public RegisteredOperationView (
+                string operationName,
+                IUcliOperation operation)
+            {
+                this.operation = operation ?? throw new ArgumentNullException(nameof(operation));
+                var sourceMetadata = operation.Metadata;
+                var describeContract = sourceMetadata.DescribeContract;
+                Metadata = UcliOperationMetadata.Create<UcliEmptyArgs, UcliNoResult>(
+                    operationName,
+                    sourceMetadata.Kind,
+                    describeContract.Description!,
+                    describeContract.Assurance!,
+                    sourceMetadata.RequiresPreCallPlanReplay,
+                    sourceMetadata.Exposure,
+                    sourceMetadata.PlayModeSupport,
+                    describeContract.CodeContract);
+            }
+
+            public UcliOperationMetadata Metadata { get; }
+
+            public Task<OperationPhaseStepResult> ValidateAsync (
+                NormalizedOperation normalizedOperation,
+                OperationExecutionContext executionContext,
+                CancellationToken cancellationToken = default)
+            {
+                return operation.ValidateAsync(normalizedOperation, executionContext, cancellationToken);
+            }
+
+            public Task<OperationPhaseStepResult> PlanAsync (
+                NormalizedOperation normalizedOperation,
+                OperationExecutionContext executionContext,
+                CancellationToken cancellationToken = default)
+            {
+                return operation.PlanAsync(normalizedOperation, executionContext, cancellationToken);
+            }
+
+            public Task<OperationPhaseStepResult> CallAsync (
+                NormalizedOperation normalizedOperation,
+                OperationExecutionContext executionContext,
+                CancellationToken cancellationToken = default)
+            {
+                return operation.CallAsync(normalizedOperation, executionContext, cancellationToken);
+            }
+        }
+
         private sealed class RequiredTypedOperation : UcliOperation<RequiredTypedArgs, UcliNoResult>
         {
             public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<RequiredTypedArgs, UcliNoResult>(
@@ -1946,11 +1974,9 @@ namespace MackySoft.Ucli.Unity.Tests
             }
         }
 
-        [UcliDescription("Required typed operation args.")]
         private sealed class RequiredTypedArgs
         {
-            [UcliRequired]
-            [UcliDescription("Required name.")]
+            [JsonRequired]
             public string? Name { get; set; }
         }
 
@@ -1993,11 +2019,9 @@ namespace MackySoft.Ucli.Unity.Tests
             }
         }
 
-        [UcliDescription("Alias reference operation args.")]
         private sealed class AliasReferenceTypedArgs
         {
-            [UcliRequired]
-            [UcliDescription("Target GameObject reference.")]
+            [JsonRequired]
             public GameObjectReferenceArgs? Target { get; set; }
         }
 
@@ -2005,13 +2029,11 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             public AsynchronousCallPhaseOperation (string operationName)
             {
-                Metadata = new UcliOperationMetadata(
+                Metadata = UcliOperationMetadata.Create<UcliEmptyArgs, UcliNoResult>(
                     operationName,
                     UcliOperationKind.Mutation,
-                    CreateDescribeContract(operationName, assurance: CreateMutableAssurance()),
-                    typeof(UcliEmptyArgs),
-                    typeof(UcliNoResult),
-                    requiresPreCallPlanReplay: false);
+                    $"{operationName} test operation.",
+                    CreateMutableAssurance());
             }
 
             public UcliOperationMetadata Metadata { get; }
@@ -2046,13 +2068,11 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             public ThreadCapturingCallPhaseOperation (string operationName)
             {
-                Metadata = new UcliOperationMetadata(
+                Metadata = UcliOperationMetadata.Create<UcliEmptyArgs, UcliNoResult>(
                     operationName,
                     UcliOperationKind.Mutation,
-                    CreateDescribeContract(operationName, assurance: CreateMutableAssurance()),
-                    typeof(UcliEmptyArgs),
-                    typeof(UcliNoResult),
-                    requiresPreCallPlanReplay: false);
+                    $"{operationName} test operation.",
+                    CreateMutableAssurance());
             }
 
             public UcliOperationMetadata Metadata { get; }
@@ -2120,17 +2140,13 @@ namespace MackySoft.Ucli.Unity.Tests
                     }
                 }
 
-                Metadata = new UcliOperationMetadata(
-                    operationName: "ucli.tests.recording",
-                    kind: kind,
-                    describeContract: CreateDescribeContract(
-                        "ucli.tests.recording",
-                        policy,
-                        effectiveAssurance),
-                    argsType: typeof(UcliEmptyArgs),
-                    resultType: typeof(UcliNoResult),
-                    requiresPreCallPlanReplay: requiresPreCallPlanReplay,
-                    exposure: exposure);
+                Metadata = UcliOperationMetadata.Create<UcliEmptyArgs, UcliNoResult>(
+                    "ucli.tests.recording",
+                    kind,
+                    "ucli.tests.recording test operation.",
+                    effectiveAssurance,
+                    requiresPreCallPlanReplay,
+                    exposure);
             }
 
             public UcliOperationMetadata Metadata { get; }
@@ -2172,12 +2188,11 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             private IpcExecuteStepId? lastPlannedOperationId;
 
-            public UcliOperationMetadata Metadata { get; } = new UcliOperationMetadata(
-                operationName: "ucli.tests.stateful",
-                kind: UcliOperationKind.Query,
-                describeContract: CreateDescribeContract("ucli.tests.stateful"),
-                argsType: typeof(UcliEmptyArgs),
-                resultType: typeof(UcliNoResult),
+            public UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<UcliEmptyArgs, UcliNoResult>(
+                "ucli.tests.stateful",
+                UcliOperationKind.Query,
+                "ucli.tests.stateful test operation.",
+                CreateValidationOnlyAssurance(),
                 requiresPreCallPlanReplay: true);
 
             public Task<OperationPhaseStepResult> ValidateAsync (
@@ -2221,15 +2236,11 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             private int planCallCount;
 
-            public UcliOperationMetadata Metadata { get; } = new UcliOperationMetadata(
-                operationName: "ucli.tests.replay-failing",
-                kind: UcliOperationKind.Mutation,
-                describeContract: CreateDescribeContract(
-                    "ucli.tests.replay-failing",
-                    OperationPolicy.Advanced,
-                    CreateMutableAssurance(OperationPolicy.Advanced)),
-                argsType: typeof(UcliEmptyArgs),
-                resultType: typeof(UcliNoResult),
+            public UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<UcliEmptyArgs, UcliNoResult>(
+                "ucli.tests.replay-failing",
+                UcliOperationKind.Mutation,
+                "ucli.tests.replay-failing test operation.",
+                CreateMutableAssurance(OperationPolicy.Advanced),
                 requiresPreCallPlanReplay: true);
 
             public List<OperationPhase> CalledPhases { get; } = new List<OperationPhase>();
@@ -2276,10 +2287,11 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private sealed class ContextCapturingPhaseOperation : IUcliOperation
         {
-            public UcliOperationMetadata Metadata { get; } = new UcliOperationMetadata(
-                operationName: "ucli.tests.context",
-                kind: UcliOperationKind.Query,
-                describeContract: CreateDescribeContract("ucli.tests.context"));
+            public UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<UcliEmptyArgs, UcliNoResult>(
+                "ucli.tests.context",
+                UcliOperationKind.Query,
+                "ucli.tests.context test operation.",
+                CreateValidationOnlyAssurance());
 
             public OperationExecutionContext? ValidateContext { get; private set; }
 

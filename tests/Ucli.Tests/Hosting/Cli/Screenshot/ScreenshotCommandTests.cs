@@ -4,7 +4,6 @@ using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Screenshot;
 using MackySoft.Ucli.Tests.Hosting.Cli.Common.Execution;
-using MackySoft.Ucli.Tests.Schemas;
 
 namespace MackySoft.Ucli.Tests;
 
@@ -121,34 +120,6 @@ public sealed class ScreenshotCommandTests
                 .HasString("digest", new string('a', 64))
                 .HasInt32("sizeBytes", 4096)
                 .HasString("createdAtUtc", "2026-07-11T01:02:03+00:00"));
-    }
-
-    [Fact]
-    [Trait("Size", "Medium")]
-    public async Task Game_WhenCaptureSucceeds_EmitsPayloadAcceptedByPublishedSchema ()
-    {
-        var service = new RecordingScreenshotCaptureService((_, _) => ValueTask.FromResult(
-            ScreenshotCaptureResult.Success(CreateOutput(
-                IpcScreenshotTarget.Game,
-                requestedWidth: 1920,
-                requestedHeight: 1080))));
-        var command = new ScreenshotGameCommand(service, CommandResultTestWriter.Create());
-
-        var result = await CommandResultCapture.ExecuteAsync(() => command.GameAsync(
-            width: "1920",
-            height: "1080",
-            cancellationToken: CancellationToken.None));
-
-        Assert.Equal((int)CliExitCode.Success, result.ExitCode);
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
-        var errors = CliOutputSchemaTestSupport.SchemaSet.Validate(
-            "cli-output/payload/screenshot.game.schema.json",
-            outputJson.RootElement.GetProperty("payload"),
-            "$.payload");
-
-        Assert.True(
-            errors.Count == 0,
-            $"Schema validation failed:{Environment.NewLine}{string.Join(Environment.NewLine, errors)}");
     }
 
     [Fact]

@@ -8,15 +8,6 @@ namespace MackySoft.Ucli.Tests;
 
 public sealed class StatusCommandResultFactoryTests
 {
-    private static readonly JsonSerializerOptions SerializerOptions = new()
-    {
-        Converters =
-        {
-            new VocabularyJsonConverterFactory(),
-        },
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-    };
-
     [Fact]
     [Trait("Size", "Small")]
     public void Create_WithSuccessResult_ReturnsOkEnvelopeWithPayload ()
@@ -49,7 +40,9 @@ public sealed class StatusCommandResultFactoryTests
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
         Assert.Empty(result.Errors);
 
-        var payload = JsonSerializer.SerializeToElement(result.Payload, SerializerOptions);
+        var payload = JsonSerializer.SerializeToElement(
+            result.Payload,
+            CliOutputJsonSerializerOptions.Default);
         JsonAssert.For(payload)
             .HasString("daemonStatus", "running")
             .HasString("unityVersion", "6000.1.4f1")

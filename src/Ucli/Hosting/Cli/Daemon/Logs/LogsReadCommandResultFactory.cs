@@ -1,5 +1,5 @@
+using System.Text.Json.Serialization.Metadata;
 using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Common;
-using MackySoft.Ucli.Application.Shared.Execution;
 using MackySoft.Ucli.Application.Shared.Execution.ErrorCodes;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
@@ -9,7 +9,18 @@ namespace MackySoft.Ucli.Hosting.Cli.Daemon.Logs;
 /// <summary> Creates public command results for <c>logs * read</c>. </summary>
 internal static class LogsReadCommandResultFactory
 {
-    private const string StartDaemonOrCheckProjectPathActionRequired = "startDaemonOrCheckProjectPath";
+    /// <summary> Gets the serializer contract used by successful <c>logs * read</c> payloads. </summary>
+    public static JsonTypeInfo SuccessPayloadTypeInfo { get; } =
+        CliOutputJsonSerializerOptions.Default.GetTypeInfo(typeof(LogsReadCommandPayload));
+
+    /// <summary> Gets the serializer contract used by failed <c>logs * read</c> payloads. </summary>
+    public static JsonTypeInfo ErrorPayloadTypeInfo { get; } =
+        CommandErrorPayload.TypeInfo<LogsReadCommandPayload>();
+
+    public static object CreateEmptyErrorPayload ()
+    {
+        return CommandErrorPayload.Empty<LogsReadCommandPayload>();
+    }
 
     /// <summary> Creates one final command result from the logs-read service result. </summary>
     public static CommandResult Create (
@@ -30,7 +41,11 @@ internal static class LogsReadCommandResultFactory
         }
 
         var failure = CreateFailure(serviceResult);
-        return CommandFailureProjector.Create(commandName, failure.Message, payload, [failure]);
+        return CommandFailureProjector.Create(
+            commandName,
+            failure.Message,
+            CommandErrorPayload.Detailed(payload),
+            [failure]);
     }
 
     private static ApplicationFailure CreateFailure (LogsReadServiceResult serviceResult)
@@ -44,10 +59,10 @@ internal static class LogsReadCommandResultFactory
         return ApplicationFailure.FromExecutionError(error);
     }
 
-    private static string? ResolveActionRequired (LogsReadServiceResult serviceResult)
+    private static LogsReadActionRequired? ResolveActionRequired (LogsReadServiceResult serviceResult)
     {
         return serviceResult.Error?.Code == DaemonErrorCodes.DaemonSessionNotAvailable
-            ? StartDaemonOrCheckProjectPathActionRequired
+            ? LogsReadActionRequired.StartDaemonOrCheckProjectPath
             : null;
     }
 }

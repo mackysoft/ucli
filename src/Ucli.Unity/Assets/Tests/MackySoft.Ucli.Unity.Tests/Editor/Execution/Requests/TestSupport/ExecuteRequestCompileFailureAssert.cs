@@ -20,14 +20,14 @@ namespace MackySoft.Ucli.Unity.Tests
         }
 
         /// <summary>
-        /// Asserts that the wrapped failure is one invalid-argument error for the expected public step.
+        /// Asserts that the wrapped failure is one invalid-argument error for the expected request value.
         /// </summary>
-        /// <param name="expectedOpId"> The expected public step identifier. </param>
+        /// <param name="expectedInstancePath"> The expected RFC 6901 instance path. </param>
         /// <returns> The current assertion instance. </returns>
-        public ExecuteRequestCompileFailureAssert HasInvalidArgument (string expectedOpId)
+        public ExecuteRequestCompileFailureAssert HasInvalidArgument (string expectedInstancePath)
         {
             Assert.That(error.Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
-            Assert.That(error.OpId?.Value, Is.EqualTo(expectedOpId));
+            Assert.That(error.InstancePath, Is.EqualTo(expectedInstancePath));
             return this;
         }
 

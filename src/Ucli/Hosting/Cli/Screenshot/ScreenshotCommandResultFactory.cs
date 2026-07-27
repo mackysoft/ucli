@@ -1,13 +1,26 @@
+using System.Text.Json.Serialization.Metadata;
 using MackySoft.Ucli.Application.Features.Screenshot.Capture;
+using MackySoft.Ucli.Application.Features.Screenshot.Artifacts;
+using MackySoft.Ucli.Application.Shared.Context.Project;
+using MackySoft.Ucli.Contracts.Cryptography;
+using MackySoft.Ucli.Contracts.Daemon;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
-using MackySoft.Ucli.Hosting.Cli.Common.Projection;
 
 namespace MackySoft.Ucli.Hosting.Cli.Screenshot;
 
 /// <summary> Creates public command results for screenshot captures. </summary>
 internal static class ScreenshotCommandResultFactory
 {
+    /// <summary> Gets the serializer contract used by successful screenshot command payloads. </summary>
+    public static JsonTypeInfo SuccessPayloadTypeInfo { get; } =
+        CliOutputJsonSerializerOptions.Default.GetTypeInfo(typeof(ScreenshotCommandPayload));
+
+    /// <summary> Gets the serializer contract used by failed screenshot command payloads. </summary>
+    public static JsonTypeInfo ErrorPayloadTypeInfo { get; } =
+        CliOutputJsonSerializerOptions.Default.GetTypeInfo(typeof(EmptyCommandPayload));
+
     /// <summary> Creates one screenshot command result. </summary>
     public static CommandResult Create (string command, ScreenshotCaptureResult result)
     {
@@ -25,11 +38,9 @@ internal static class ScreenshotCommandResultFactory
         return CommandResult.Success(
             command,
             "Screenshot capture completed.",
-            new
-            {
-                project = ProjectIdentityPayloadProjector.Create(output.Project),
-                capture = new
-                {
+            new ScreenshotCommandPayload(
+                output.Project,
+                new ScreenshotCaptureCommandPayload(
                     capture.Target,
                     capture.SizeMode,
                     capture.RequestedWidth,
@@ -37,20 +48,42 @@ internal static class ScreenshotCommandResultFactory
                     capture.Width,
                     capture.Height,
                     capture.ColorSpace,
-                    lifecycleStateAtCapture = capture.State.LifecycleState,
-                    compileStateAtCapture = capture.State.CompileState,
-                    generations = capture.State.Generations,
-                    playModeState = capture.State.PlayMode.State,
-                },
-                artifact = new
-                {
-                    kind = ScreenshotArtifactKind.Screenshot,
-                    mediaType = ScreenshotArtifactContract.MediaType,
+                    capture.State.LifecycleState,
+                    capture.State.CompileState,
+                    capture.State.Generations,
+                    capture.State.PlayMode.State),
+                new ScreenshotArtifactCommandPayload(
+                    ScreenshotArtifactKind.Screenshot,
+                    ScreenshotArtifactMediaType.Png,
                     artifact.Path,
                     artifact.Digest,
                     artifact.SizeBytes,
-                    artifact.CreatedAtUtc,
-                },
-            });
+                    artifact.CreatedAtUtc)));
     }
+
+    private sealed record ScreenshotCommandPayload (
+        ProjectIdentityInfo Project,
+        ScreenshotCaptureCommandPayload Capture,
+        ScreenshotArtifactCommandPayload Artifact);
+
+    private sealed record ScreenshotCaptureCommandPayload (
+        IpcScreenshotTarget Target,
+        IpcScreenshotSizeMode SizeMode,
+        int? RequestedWidth,
+        int? RequestedHeight,
+        int Width,
+        int Height,
+        IpcScreenshotColorSpace ColorSpace,
+        IpcEditorLifecycleState LifecycleStateAtCapture,
+        IpcCompileState CompileStateAtCapture,
+        IpcUnityGenerationSnapshot Generations,
+        IpcPlayModeState PlayModeState);
+
+    private sealed record ScreenshotArtifactCommandPayload (
+        ScreenshotArtifactKind Kind,
+        ScreenshotArtifactMediaType MediaType,
+        string Path,
+        Sha256Digest Digest,
+        long SizeBytes,
+        DateTimeOffset CreatedAtUtc);
 }

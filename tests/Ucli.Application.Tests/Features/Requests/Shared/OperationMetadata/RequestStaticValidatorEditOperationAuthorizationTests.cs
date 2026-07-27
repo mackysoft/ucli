@@ -16,16 +16,17 @@ public sealed class RequestStaticValidatorEditOperationAuthorizationTests
             steps:
             [
                 CreateEditStep(
-                    stepId: "edit-scene-create-asset",
+                    stepIndex: 0,
                     """
                     {
                       "kind": "edit",
-                      "id": "edit-scene-create-asset",
                       "on": {
-                        "scene": "Assets/Scenes/Main.unity"
+                        "kind": "scene",
+                        "path": "Assets/Scenes/Main.unity"
                       },
                       "select": {
-                        "gameObject": "Root/Spawner",
+                        "kind": "gameObject",
+                        "path": "Root/Spawner",
                         "cardinality": "one"
                       },
                       "actions": [
@@ -60,16 +61,17 @@ public sealed class RequestStaticValidatorEditOperationAuthorizationTests
             steps:
             [
                 CreateEditStep(
-                    stepId: "edit-prefab-create-asset",
+                    stepIndex: 0,
                     """
                     {
                       "kind": "edit",
-                      "id": "edit-prefab-create-asset",
                       "on": {
-                        "prefab": "Assets/Prefabs/Enemy.prefab"
+                        "kind": "prefab",
+                        "path": "Assets/Prefabs/Enemy.prefab"
                       },
                       "select": {
-                        "gameObject": "Enemy",
+                        "kind": "gameObject",
+                        "path": "Enemy",
                         "cardinality": "one"
                       },
                       "actions": [
@@ -104,16 +106,17 @@ public sealed class RequestStaticValidatorEditOperationAuthorizationTests
             steps:
             [
                 CreateEditStep(
-                    stepId: "edit-scene-ensure",
+                    stepIndex: 0,
                     """
                     {
                       "kind": "edit",
-                      "id": "edit-scene-ensure",
                       "on": {
-                        "scene": "Assets/Scenes/Main.unity"
+                        "kind": "scene",
+                        "path": "Assets/Scenes/Main.unity"
                       },
                       "select": {
-                        "gameObject": "Root/Spawner",
+                        "kind": "gameObject",
+                        "path": "Root/Spawner",
                         "cardinality": "one"
                       },
                       "actions": [
@@ -146,7 +149,7 @@ public sealed class RequestStaticValidatorEditOperationAuthorizationTests
         var request = CreateRequest(
             steps:
             [
-                CreateSceneEnsureEditStep("edit-comp-ensure"),
+                CreateSceneEnsureEditStep(0),
             ]);
         var operations = new[]
         {
@@ -175,7 +178,7 @@ public sealed class RequestStaticValidatorEditOperationAuthorizationTests
         var request = CreateRequest(
             steps:
             [
-                CreateSceneEnsureEditStep("edit-comp-ensure"),
+                CreateSceneEnsureEditStep(0),
             ]);
 
         var result = await validator.ValidateAsync(
@@ -188,7 +191,8 @@ public sealed class RequestStaticValidatorEditOperationAuthorizationTests
         Assert.Contains(
             result.Errors,
             error => error.Code == OperationAuthorizationErrorCodes.OperationNotAllowed
-                     && error.Message.Contains("Edit step 'edit-comp-ensure' requires operation 'ucli.comp.ensure'.", StringComparison.Ordinal)
+                     && error.Message.Contains("Edit step requires operation 'ucli.comp.ensure'.", StringComparison.Ordinal)
+                     && error.InstancePath == "/steps/0"
                      && error.Message.Contains("operationPolicy", StringComparison.Ordinal));
     }
 
@@ -200,7 +204,7 @@ public sealed class RequestStaticValidatorEditOperationAuthorizationTests
         var request = CreateRequest(
             steps:
             [
-                CreateSceneEnsureEditStep("edit-comp-ensure"),
+                CreateSceneEnsureEditStep(0),
             ]);
 
         var result = await validator.ValidateAsync(
@@ -213,7 +217,8 @@ public sealed class RequestStaticValidatorEditOperationAuthorizationTests
         Assert.Contains(
             result.Errors,
             error => error.Code == OperationAuthorizationErrorCodes.OperationNotAllowed
-                     && error.Message.Contains("Edit step 'edit-comp-ensure' requires operation 'ucli.comp.ensure'.", StringComparison.Ordinal)
+                     && error.Message.Contains("Edit step requires operation 'ucli.comp.ensure'.", StringComparison.Ordinal)
+                     && error.InstancePath == "/steps/0"
                      && error.Message.Contains("operationAllowlist", StringComparison.Ordinal));
     }
 
@@ -229,7 +234,7 @@ public sealed class RequestStaticValidatorEditOperationAuthorizationTests
             allowPlayMode: true,
             steps:
             [
-                CreateAssetSetEditStep("edit-asset-save", contextKind),
+                CreateAssetSetEditStep(0, contextKind),
             ]);
 
         var result = await validator.ValidateAsync(
@@ -254,7 +259,7 @@ public sealed class RequestStaticValidatorEditOperationAuthorizationTests
         var request = CreateRequest(
             steps:
             [
-                CreateAssetSetEditStep("edit-project-save", contextKind),
+                CreateAssetSetEditStep(0, contextKind),
             ]);
 
         var result = await validator.ValidateAsync(
@@ -280,16 +285,17 @@ public sealed class RequestStaticValidatorEditOperationAuthorizationTests
             steps:
             [
                 CreateEditStep(
-                    stepId: "edit-prefab-ensure",
+                    stepIndex: 0,
                     """
                     {
                       "kind": "edit",
-                      "id": "edit-prefab-ensure",
                       "on": {
-                        "prefab": "Assets/Prefabs/Enemy.prefab"
+                        "kind": "prefab",
+                        "path": "Assets/Prefabs/Enemy.prefab"
                       },
                       "select": {
-                        "gameObject": "Enemy",
+                        "kind": "gameObject",
+                        "path": "Enemy",
                         "cardinality": "one"
                       },
                       "actions": [

@@ -5,4 +5,4 @@ namespace MackySoft.Ucli.Contracts.Ipc.ContractReading;
 /// <param name="Steps"> The parsed step list. </param>
 internal sealed record IpcExecuteArgumentsContract (
     int ProtocolVersion,
-    IReadOnlyList<IpcExecuteStepContract?>? Steps);
+    IReadOnlyList<IpcExecuteStepContract> Steps);

@@ -2,9 +2,11 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using MackySoft.Ucli.Contracts.Operations;
 
+using MackySoft.JsonSchema.Generation.Annotations;
+
 namespace MackySoft.Ucli.Contracts.Ipc;
 
-[UcliDescription("Serialized object set item.")]
+[Description("Serialized object set item.")]
 public sealed record SerializedObjectSetItemArgs
 {
     [JsonConstructor]
@@ -16,13 +18,14 @@ public sealed record SerializedObjectSetItemArgs
         Value = value;
     }
 
-    [UcliRequired]
-    [UcliDescription("SerializedProperty path to assign.")]
-    [UcliInputConstraint(UcliOperationInputConstraintKind.SerializedProperty, Access = UcliOperationSerializedPropertyAccess.Write)]
-    public SerializedPropertyPath Path { get; }
+    [JsonInclude]
+    [JsonRequired]
+    [Description("SerializedProperty path to assign.")]
+    [UcliSerializedProperty(UcliOperationSerializedPropertyAccess.Write)]
+    public SerializedPropertyPath Path { get; private init; }
 
-    [UcliRequired]
-    [UcliDescription("JSON value assigned to the serialized property.")]
-    [UcliJsonAnyValue]
-    public JsonElement Value { get; }
+    [JsonInclude]
+    [JsonRequired]
+    [Description("JSON value assigned to the serialized property.")]
+    public JsonElement Value { get; private init; }
 }

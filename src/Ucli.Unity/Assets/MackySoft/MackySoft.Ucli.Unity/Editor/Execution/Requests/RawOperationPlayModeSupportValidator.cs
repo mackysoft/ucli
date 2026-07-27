@@ -16,6 +16,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
         public static bool TryValidate (
             IPhaseOperationRegistry operationRegistry,
             IpcExecuteStepContract step,
+            string instancePath,
             bool allowPlayMode,
             out ExecuteRequestNormalizationError error)
         {
@@ -27,6 +28,11 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
             if (step == null)
             {
                 throw new ArgumentNullException(nameof(step));
+            }
+
+            if (string.IsNullOrWhiteSpace(instancePath))
+            {
+                throw new ArgumentException("Instance path must not be empty.", nameof(instancePath));
             }
 
             error = default!;
@@ -45,17 +51,22 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
 
                 error = ExecuteRequestNormalizationError.InvalidArgument(
                     $"Operation '{operationName}' is not registered and cannot be used in Play Mode execution.",
-                    step.Id);
+                    instancePath);
                 return false;
             }
 
-            return TryValidateResolvedSupport(operation.Metadata.PlayModeSupport, operationName, step.Id, allowPlayMode, out error);
+            return TryValidateResolvedSupport(
+                operation.Metadata.PlayModeSupport,
+                operationName,
+                instancePath,
+                allowPlayMode,
+                out error);
         }
 
         private static bool TryValidateResolvedSupport (
             UcliOperationPlayModeSupport playModeSupport,
             string operationName,
-            IpcExecuteStepId? stepId,
+            string instancePath,
             bool allowPlayMode,
             out ExecuteRequestNormalizationError error)
         {
@@ -63,7 +74,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
             {
                 error = ExecuteRequestNormalizationError.InvalidArgument(
                     $"Operation '{operationName}' requires --allowPlayMode.",
-                    stepId);
+                    instancePath);
                 return false;
             }
 
@@ -71,7 +82,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
             {
                 error = ExecuteRequestNormalizationError.InvalidArgument(
                     $"Operation '{operationName}' does not support Play Mode execution.",
-                    stepId);
+                    instancePath);
                 return false;
             }
 
