@@ -8,6 +8,12 @@ internal static class ArtifactFileCreateOnlyMove
 {
     private const int CurrentWorkingDirectory = -100;
     private const uint LinuxNoReplace = 1;
+
+    // NOTE: Linux C libraries do not expose one uniform renameat2 entry point.
+    // Invoke the kernel through syscall with the ABI numbers for the supported Linux architectures.
+    private const long LinuxX64RenameAt2SystemCallNumber = 316;
+    private const long LinuxArm64RenameAt2SystemCallNumber = 276;
+
     private const uint MacOsExclusive = 0x00000004;
 
     public static void Move (
@@ -60,7 +66,8 @@ internal static class ArtifactFileCreateOnlyMove
 
     private static void MoveLinux (string source, string destination)
     {
-        if (RenameAt2(
+        if (InvokeLinuxRenameAt2SystemCall(
+                GetLinuxRenameAt2SystemCallNumber(),
                 CurrentWorkingDirectory,
                 source,
                 CurrentWorkingDirectory,
@@ -70,6 +77,17 @@ internal static class ArtifactFileCreateOnlyMove
             throw CreateIOException(
                 $"Immutable artifact create-only move failed: {destination}");
         }
+    }
+
+    private static long GetLinuxRenameAt2SystemCallNumber ()
+    {
+        return RuntimeInformation.ProcessArchitecture switch
+        {
+            Architecture.X64 => LinuxX64RenameAt2SystemCallNumber,
+            Architecture.Arm64 => LinuxArm64RenameAt2SystemCallNumber,
+            _ => throw new PlatformNotSupportedException(
+                $"Linux create-only artifact publication is not implemented for the {RuntimeInformation.ProcessArchitecture} process architecture."),
+        };
     }
 
     private static void MoveMacOs (string source, string destination)
@@ -121,8 +139,13 @@ internal static class ArtifactFileCreateOnlyMove
         string existingFileName,
         string newFileName);
 
-    [DllImport("libc", SetLastError = true, EntryPoint = "renameat2")]
-    private static extern int RenameAt2 (
+    [DllImport(
+        "libc",
+        CallingConvention = CallingConvention.Cdecl,
+        SetLastError = true,
+        EntryPoint = "syscall")]
+    private static extern long InvokeLinuxRenameAt2SystemCall (
+        long systemCallNumber,
         int oldDirectoryFileDescriptor,
         string oldPath,
         int newDirectoryFileDescriptor,

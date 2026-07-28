@@ -37,17 +37,31 @@ internal static class WindowsFileSystemNodeIdentityReader
         SafeFileHandle handle,
         string subject)
     {
-        if (!GetFileInformationByHandle(handle, out var information))
+        // FILE_ID_INFO owns binding identity because the legacy 64-bit file index is not unique on ReFS.
+        // The legacy call remains the source of node kind and link count, which FILE_ID_INFO does not expose.
+        if (!GetFileInformationByHandle(handle, out var nodeInformation))
+        {
+            throw CreateIOException(
+                $"{subject} physical node metadata could not be inspected");
+        }
+
+        if (!GetFileInformationByHandleEx(
+                handle,
+                FileInfoByHandleClass.FileIdInfo,
+                out var identityInformation,
+                checked((uint)Marshal.SizeOf<FileIdInformation>())))
         {
             throw CreateIOException(
                 $"{subject} physical node identity could not be inspected");
         }
 
-        var attributes = information.fileAttributes;
+        var attributes = nodeInformation.fileAttributes;
         return new FileSystemNodeIdentity(
-            information.volumeSerialNumber,
-            ((ulong)information.fileIndexHigh << 32) | information.fileIndexLow,
-            information.numberOfLinks,
+            identityInformation.volumeSerialNumber,
+            new FileSystemNodeIdentifier(
+                identityInformation.fileId.low,
+                identityInformation.fileId.high),
+            nodeInformation.numberOfLinks,
             IsRegularFile(attributes),
             (attributes & FileAttributes.Directory) != 0,
             (attributes & FileAttributes.ReparsePoint) != 0);
@@ -82,6 +96,19 @@ internal static class WindowsFileSystemNodeIdentityReader
         SafeFileHandle file,
         out ByHandleFileInformation fileInformation);
 
+    [DllImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetFileInformationByHandleEx (
+        SafeFileHandle file,
+        FileInfoByHandleClass fileInformationClass,
+        out FileIdInformation fileInformation,
+        uint bufferSize);
+
+    private enum FileInfoByHandleClass
+    {
+        FileIdInfo = 18,
+    }
+
     [StructLayout(LayoutKind.Sequential)]
     private struct ByHandleFileInformation
     {
@@ -95,6 +122,20 @@ internal static class WindowsFileSystemNodeIdentityReader
         public uint numberOfLinks;
         public uint fileIndexHigh;
         public uint fileIndexLow;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct FileIdInformation
+    {
+        public ulong volumeSerialNumber;
+        public FileId128 fileId;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct FileId128
+    {
+        public ulong low;
+        public ulong high;
     }
 
     [StructLayout(LayoutKind.Sequential)]
