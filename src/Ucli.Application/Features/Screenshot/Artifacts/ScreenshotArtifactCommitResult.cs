@@ -6,7 +6,7 @@ namespace MackySoft.Ucli.Application.Features.Screenshot.Artifacts;
 internal sealed record ScreenshotArtifactCommitResult
 {
     private ScreenshotArtifactCommitResult (
-        ScreenshotArtifact? artifact,
+        PathArtifactRef? artifact,
         ExecutionError? error)
     {
         Artifact = artifact;
@@ -14,7 +14,7 @@ internal sealed record ScreenshotArtifactCommitResult
     }
 
     /// <summary> Gets the committed artifact on success. </summary>
-    public ScreenshotArtifact? Artifact { get; }
+    public PathArtifactRef? Artifact { get; }
 
     /// <summary> Gets the structured commit error on failure. </summary>
     public ExecutionError? Error { get; }
@@ -23,7 +23,7 @@ internal sealed record ScreenshotArtifactCommitResult
     public bool IsSuccess => Artifact != null;
 
     /// <summary> Creates a successful commit result. </summary>
-    public static ScreenshotArtifactCommitResult Success (ScreenshotArtifact artifact)
+    public static ScreenshotArtifactCommitResult Success (PathArtifactRef artifact)
     {
         ArgumentNullException.ThrowIfNull(artifact);
         return new ScreenshotArtifactCommitResult(artifact, null);

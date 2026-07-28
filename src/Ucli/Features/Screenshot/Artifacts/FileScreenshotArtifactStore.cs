@@ -1,13 +1,10 @@
-using System.Buffers;
-using System.Security.Cryptography;
 using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Screenshot.Artifacts;
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Foundation;
-using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Features.Screenshot.Artifacts.Png;
-using MackySoft.Ucli.Infrastructure.Paths;
+using MackySoft.Ucli.Infrastructure.Artifacts;
 using MackySoft.Ucli.Infrastructure.Storage;
 
 namespace MackySoft.Ucli.Features.Screenshot.Artifacts;
@@ -18,24 +15,21 @@ internal sealed class FileScreenshotArtifactStore : IScreenshotArtifactStore
     private const int FileStreamBufferSize = 81920;
     private readonly Rgba8SrgbPngEncoder pngEncoder;
     private readonly Rgba8SrgbPngValidator pngValidator;
-    private readonly TimeProvider timeProvider;
+    private readonly ImmutableArtifactFilePublisher artifactPublisher;
     private readonly Action<AbsolutePath> ensureSecureStagingDirectory;
-    private readonly Action<AbsolutePath> deleteOwnedFile;
 
     /// <summary> Initializes a new screenshot artifact store. </summary>
     public FileScreenshotArtifactStore (
         Rgba8SrgbPngEncoder pngEncoder,
         Rgba8SrgbPngValidator pngValidator,
-        TimeProvider timeProvider,
-        Action<AbsolutePath> ensureSecureStagingDirectory,
-        Action<AbsolutePath> deleteOwnedFile)
+        ImmutableArtifactFilePublisher artifactPublisher,
+        Action<AbsolutePath> ensureSecureStagingDirectory)
     {
         this.pngEncoder = pngEncoder ?? throw new ArgumentNullException(nameof(pngEncoder));
         this.pngValidator = pngValidator ?? throw new ArgumentNullException(nameof(pngValidator));
-        this.timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
+        this.artifactPublisher = artifactPublisher ?? throw new ArgumentNullException(nameof(artifactPublisher));
         this.ensureSecureStagingDirectory = ensureSecureStagingDirectory
             ?? throw new ArgumentNullException(nameof(ensureSecureStagingDirectory));
-        this.deleteOwnedFile = deleteOwnedFile ?? throw new ArgumentNullException(nameof(deleteOwnedFile));
     }
 
     /// <inheritdoc />
@@ -92,9 +86,7 @@ internal sealed class FileScreenshotArtifactStore : IScreenshotArtifactStore
     {
         ArgumentNullException.ThrowIfNull(staging);
 
-        AbsolutePath? temporaryPngPath = null;
-        var finalArtifactCreated = false;
-        ScreenshotArtifact? artifact = null;
+        PathArtifactRef? artifact = null;
         ExecutionError? error = null;
         try
         {
@@ -103,45 +95,24 @@ internal sealed class FileScreenshotArtifactStore : IScreenshotArtifactStore
             EnsureReadableRawStagingFile(paths.RawStagingPath, staging.SizeBytes);
             EnsureCapturePathDoesNotExist(paths.ArtifactDirectory, "Screenshot artifact directory");
             FileSystemAccessBoundary.EnsureSecureDirectory(paths.ArtifactDirectory);
-            EnsureWritableNewFilePath(paths.PngPath, "Screenshot PNG artifact");
 
-            var temporaryPngStream = FileUtilities.OpenAtomicWriteTemporaryFileInDirectory(
-                paths.ArtifactDirectory,
-                out var reservedTemporaryPngPath);
-            temporaryPngPath = reservedTemporaryPngPath;
-            using (temporaryPngStream)
-            {
-                await EncodeTemporaryPngAsync(
-                        paths,
-                        staging,
-                        temporaryPngStream,
-                        cancellationToken)
-                    .ConfigureAwait(false);
-            }
-
-            FileSystemAccessBoundary.EnsureSecureFile(temporaryPngPath);
-            await ValidatePngAgainstRawAsync(paths, staging, temporaryPngPath, cancellationToken).ConfigureAwait(false);
-
-            File.Move(temporaryPngPath.Value, paths.PngPath.Value);
-            temporaryPngPath = null;
-            finalArtifactCreated = true;
-            FileSystemAccessBoundary.EnsureSecureFile(paths.PngPath);
-            await ValidatePngAgainstRawAsync(paths, staging, paths.PngPath, cancellationToken).ConfigureAwait(false);
-
-            var committedFile = await ComputeCommittedFileAsync(paths.PngPath, cancellationToken).ConfigureAwait(false);
-            if (!UcliPortablePathAdapter.TryFormat(
-                    paths.RepositoryRelativeArtifactPath,
-                    out var portableArtifactPath))
-            {
-                throw new InvalidOperationException(
-                    $"Screenshot artifact path cannot be represented by the portable result contract: {paths.RepositoryRelativeArtifactPath.Value}");
-            }
-
-            artifact = new ScreenshotArtifact(
-                portableArtifactPath,
-                committedFile.Digest,
-                committedFile.SizeBytes,
-                timeProvider.GetUtcNow());
+            var publication = artifactPublisher.PublishAsync(
+                new ArtifactKind(TextVocabulary.GetText(ScreenshotArtifactKind.Screenshot)),
+                new ArtifactMediaType(TextVocabulary.GetText(ScreenshotArtifactMediaType.Png)),
+                ContainedPath.Create(paths.RepositoryRoot, paths.PngPath),
+                (pngStream, token) => EncodeTemporaryPngAsync(
+                    paths,
+                    staging,
+                    pngStream,
+                    token),
+                (pngStream, token) => ValidateAndDiscardStagingAsync(
+                    paths,
+                    staging,
+                    pngStream,
+                    token),
+                cancellationToken);
+            artifact = await publication
+                .ConfigureAwait(false);
         }
         catch (ScreenshotCaptureContractException exception)
         {
@@ -156,28 +127,10 @@ internal sealed class FileScreenshotArtifactStore : IScreenshotArtifactStore
         finally
         {
             var cleanupFailures = new List<string>();
-            if (temporaryPngPath != null)
-            {
-                TryDeleteOwnedFileIfExists(
-                    temporaryPngPath,
-                    "temporary PNG artifact",
-                    cleanupFailures);
-            }
-
             var discardResult = DiscardCore(paths);
             if (!discardResult.IsSuccess)
             {
                 cleanupFailures.Add(discardResult.Error!.Message);
-            }
-
-            if (finalArtifactCreated
-                && (artifact == null || cleanupFailures.Count != 0))
-            {
-                TryDeleteOwnedFileIfExists(
-                    paths.PngPath,
-                    "uncommitted final PNG artifact",
-                    cleanupFailures);
-                artifact = null;
             }
 
             if (artifact == null)
@@ -185,7 +138,7 @@ internal sealed class FileScreenshotArtifactStore : IScreenshotArtifactStore
                 TryDeleteArtifactDirectoryWhenEmpty(paths, cleanupFailures);
             }
 
-            if (cleanupFailures.Count != 0)
+            if (artifact == null && cleanupFailures.Count != 0)
             {
                 var cleanupMessage = string.Join(" ", cleanupFailures);
                 error = ExecutionError.InternalError(
@@ -195,7 +148,7 @@ internal sealed class FileScreenshotArtifactStore : IScreenshotArtifactStore
             }
         }
 
-        return artifact != null && error == null
+        return artifact != null
             ? ScreenshotArtifactCommitResult.Success(artifact)
             : ScreenshotArtifactCommitResult.Failure(error
                 ?? ExecutionError.InternalError("Screenshot artifact commit failed without a diagnostic."));
@@ -222,18 +175,10 @@ internal sealed class FileScreenshotArtifactStore : IScreenshotArtifactStore
     private async ValueTask ValidatePngAgainstRawAsync (
         CapturePaths paths,
         IpcScreenshotStagingImage staging,
-        AbsolutePath pngPath,
+        Stream pngStream,
         CancellationToken cancellationToken)
     {
-        EnsureReadablePngFile(pngPath);
         EnsureReadableRawStagingFile(paths.RawStagingPath, staging.SizeBytes);
-        await using var pngStream = new FileStream(
-            pngPath.Value,
-            FileMode.Open,
-            FileAccess.Read,
-            FileShare.Read,
-            FileStreamBufferSize,
-            FileOptions.Asynchronous | FileOptions.SequentialScan);
         await using var rawStream = OpenRawStagingFile(paths.RawStagingPath);
         await pngValidator
             .ValidateAsync(
@@ -243,6 +188,24 @@ internal sealed class FileScreenshotArtifactStore : IScreenshotArtifactStore
                 staging.Height,
                 cancellationToken)
             .ConfigureAwait(false);
+    }
+
+    private async ValueTask ValidateAndDiscardStagingAsync (
+        CapturePaths paths,
+        IpcScreenshotStagingImage staging,
+        Stream pngStream,
+        CancellationToken cancellationToken)
+    {
+        await ValidatePngAgainstRawAsync(
+            paths,
+            staging,
+            pngStream,
+            cancellationToken).ConfigureAwait(false);
+        var discardResult = DiscardStagingCore(paths);
+        if (!discardResult.IsSuccess)
+        {
+            throw new InvalidOperationException(discardResult.Error!.Message);
+        }
     }
 
     private static FileStream OpenRawStagingFile (AbsolutePath path)
@@ -294,7 +257,7 @@ internal sealed class FileScreenshotArtifactStore : IScreenshotArtifactStore
         }
 
         return new CapturePaths(
-            ContainedPath.Create(repositoryRoot, pngPath).RelativePath,
+            repositoryRoot,
             localStorageDirectory,
             artifactDirectory,
             pngPath,
@@ -312,24 +275,6 @@ internal sealed class FileScreenshotArtifactStore : IScreenshotArtifactStore
         }
     }
 
-    private static void EnsureWritableNewFilePath (
-        AbsolutePath path,
-        string description)
-    {
-        if (!File.Exists(path.Value) && !Directory.Exists(path.Value))
-        {
-            return;
-        }
-
-        var attributes = File.GetAttributes(path.Value);
-        if ((attributes & FileAttributes.ReparsePoint) != 0)
-        {
-            throw new IOException($"{description} must not be a reparse point: {path}");
-        }
-
-        throw new IOException($"{description} already exists: {path}");
-    }
-
     private static void EnsureReadableRawStagingFile (
         AbsolutePath path,
         long expectedSizeBytes)
@@ -341,11 +286,6 @@ internal sealed class FileScreenshotArtifactStore : IScreenshotArtifactStore
             throw new ScreenshotCaptureContractException(
                 $"Raw staging file length does not match capture metadata. Expected={expectedSizeBytes}, Actual={actualSizeBytes}.");
         }
-    }
-
-    private static void EnsureReadablePngFile (AbsolutePath path)
-    {
-        EnsureReadableRegularFile(path, "Screenshot PNG artifact");
     }
 
     private static void EnsureReadableRegularFile (
@@ -372,53 +312,6 @@ internal sealed class FileScreenshotArtifactStore : IScreenshotArtifactStore
         {
             throw new IOException($"{description} must be a regular file: {path}");
         }
-    }
-
-    private static async ValueTask<CommittedFile> ComputeCommittedFileAsync (
-        AbsolutePath path,
-        CancellationToken cancellationToken)
-    {
-        EnsureReadablePngFile(path);
-        await using var stream = new FileStream(
-            path.Value,
-            FileMode.Open,
-            FileAccess.Read,
-            FileShare.Read,
-            FileStreamBufferSize,
-            FileOptions.Asynchronous | FileOptions.SequentialScan);
-        var expectedSizeBytes = stream.Length;
-        using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
-        var buffer = ArrayPool<byte>.Shared.Rent(FileStreamBufferSize);
-        long totalBytesRead = 0;
-        try
-        {
-            while (true)
-            {
-                var bytesRead = await stream
-                    .ReadAsync(buffer.AsMemory(0, buffer.Length), cancellationToken)
-                    .ConfigureAwait(false);
-                if (bytesRead == 0)
-                {
-                    break;
-                }
-
-                totalBytesRead += bytesRead;
-                hash.AppendData(buffer, 0, bytesRead);
-            }
-        }
-        finally
-        {
-            ArrayPool<byte>.Shared.Return(buffer);
-        }
-
-        if (totalBytesRead != expectedSizeBytes || stream.Length != expectedSizeBytes)
-        {
-            throw new IOException($"Screenshot PNG artifact length changed while hashing: {path}");
-        }
-
-        return new CommittedFile(
-            expectedSizeBytes,
-            Sha256LowerHex.GetHashAndReset(hash));
     }
 
     private static void TryRollbackPreparedStagingDirectory (
@@ -544,6 +437,20 @@ internal sealed class FileScreenshotArtifactStore : IScreenshotArtifactStore
         }
     }
 
+    private static ScreenshotArtifactDiscardResult DiscardStagingCore (CapturePaths paths)
+    {
+        try
+        {
+            DeleteStagingLayout(paths);
+            return ScreenshotArtifactDiscardResult.Success();
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException)
+        {
+            return ScreenshotArtifactDiscardResult.Failure(ExecutionError.InternalError(
+                $"Failed to discard screenshot staging files. {exception.Message}"));
+        }
+    }
+
     private static void DeleteStagingLayout (CapturePaths paths)
     {
         if (Directory.Exists(paths.StagingDirectory.Value))
@@ -619,27 +526,6 @@ internal sealed class FileScreenshotArtifactStore : IScreenshotArtifactStore
         Directory.Delete(path.Value);
     }
 
-    private void TryDeleteOwnedFileIfExists (
-        AbsolutePath path,
-        string description,
-        ICollection<string> cleanupFailures)
-    {
-        try
-        {
-            deleteOwnedFile(path);
-        }
-        catch (FileNotFoundException)
-        {
-        }
-        catch (DirectoryNotFoundException)
-        {
-        }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
-        {
-            cleanupFailures.Add($"Failed to delete screenshot {description}. {exception.Message}");
-        }
-    }
-
     private static void TryDeleteArtifactDirectoryWhenEmpty (
         CapturePaths paths,
         ICollection<string> cleanupFailures)
@@ -696,14 +582,11 @@ internal sealed class FileScreenshotArtifactStore : IScreenshotArtifactStore
     }
 
     private sealed record CapturePaths (
-        RootRelativePath RepositoryRelativeArtifactPath,
+        AbsolutePath RepositoryRoot,
         AbsolutePath LocalStorageDirectory,
         AbsolutePath ArtifactDirectory,
         AbsolutePath PngPath,
         AbsolutePath StagingDirectory,
         AbsolutePath RawStagingPath);
 
-    private readonly record struct CommittedFile (
-        long SizeBytes,
-        Sha256Digest Digest);
 }

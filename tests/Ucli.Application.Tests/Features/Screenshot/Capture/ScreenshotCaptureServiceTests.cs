@@ -591,11 +591,13 @@ public sealed class ScreenshotCaptureServiceTests
                 CancellationToken cancellationToken = default)
             {
                 store.CommitRequests.Add(staging);
-                return ValueTask.FromResult(store.CommitResult ?? ScreenshotArtifactCommitResult.Success(new ScreenshotArtifact(
-                    path: ".ucli/local/projects/<projectStorageKey>/artifacts/screenshot/<captureStorageKey>/screenshot.png",
-                    digest: Sha256Digest.Parse(new string('b', 64)),
+                return ValueTask.FromResult(store.CommitResult ?? ScreenshotArtifactCommitResult.Success(new PathArtifactRef(
+                    new ArtifactKind(TextVocabulary.GetText(ScreenshotArtifactKind.Screenshot)),
+                    new ArtifactMediaType(TextVocabulary.GetText(ScreenshotArtifactMediaType.Png)),
+                    new ArtifactPath(".ucli/local/projects/<projectStorageKey>/artifacts/screenshot/<captureStorageKey>/screenshot.png"),
+                    Sha256Digest.Parse(new string('b', 64)),
                     sizeBytes: 1024,
-                    createdAtUtc: CreatedAtUtc)));
+                    CreatedAtUtc)));
             }
 
             public ScreenshotArtifactDiscardResult Discard ()

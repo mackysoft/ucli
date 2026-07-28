@@ -30,6 +30,11 @@ internal static class CliOutputJsonSerializerOptions
     private static DefaultJsonTypeInfoResolver CreateTypeInfoResolver ()
     {
         var resolver = new DefaultJsonTypeInfoResolver();
+        resolver.Modifiers.Add(static typeInfo =>
+        {
+            ArtifactRefJsonPolymorphismConfigurator.TryConfigure(typeInfo);
+            ExecutionRefJsonPolymorphismConfigurator.TryConfigure(typeInfo);
+        });
         resolver.Modifiers.Add(ConfigureCommandErrorPayload);
         resolver.Modifiers.Add(MarkAlwaysWrittenPropertiesRequired);
         return resolver;

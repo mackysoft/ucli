@@ -1,8 +1,6 @@
 using System.Text.Json.Serialization.Metadata;
 using MackySoft.Ucli.Application.Features.Screenshot.Capture;
-using MackySoft.Ucli.Application.Features.Screenshot.Artifacts;
 using MackySoft.Ucli.Application.Shared.Context.Project;
-using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
@@ -52,19 +50,13 @@ internal static class ScreenshotCommandResultFactory
                     capture.State.CompileState,
                     capture.State.Generations,
                     capture.State.PlayMode.State),
-                new ScreenshotArtifactCommandPayload(
-                    ScreenshotArtifactKind.Screenshot,
-                    ScreenshotArtifactMediaType.Png,
-                    artifact.Path,
-                    artifact.Digest,
-                    artifact.SizeBytes,
-                    artifact.CreatedAtUtc)));
+                artifact));
     }
 
     private sealed record ScreenshotCommandPayload (
         ProjectIdentityInfo Project,
         ScreenshotCaptureCommandPayload Capture,
-        ScreenshotArtifactCommandPayload Artifact);
+        ArtifactRef Artifact);
 
     private sealed record ScreenshotCaptureCommandPayload (
         IpcScreenshotTarget Target,
@@ -79,11 +71,4 @@ internal static class ScreenshotCommandResultFactory
         IpcUnityGenerationSnapshot Generations,
         IpcPlayModeState PlayModeState);
 
-    private sealed record ScreenshotArtifactCommandPayload (
-        ScreenshotArtifactKind Kind,
-        ScreenshotArtifactMediaType MediaType,
-        string Path,
-        Sha256Digest Digest,
-        long SizeBytes,
-        DateTimeOffset CreatedAtUtc);
 }

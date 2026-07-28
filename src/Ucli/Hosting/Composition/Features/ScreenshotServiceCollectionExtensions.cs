@@ -1,6 +1,7 @@
 using MackySoft.Ucli.Application.Features.Screenshot.Artifacts;
 using MackySoft.Ucli.Features.Screenshot.Artifacts;
 using MackySoft.Ucli.Features.Screenshot.Artifacts.Png;
+using MackySoft.Ucli.Infrastructure.Artifacts;
 using MackySoft.Ucli.Infrastructure.Storage;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -16,13 +17,17 @@ internal static class ScreenshotServiceCollectionExtensions
 
         services.AddSingleton<Rgba8SrgbPngEncoder>();
         services.AddSingleton<Rgba8SrgbPngValidator>();
+        services.AddSingleton(serviceProvider =>
+        {
+            var timeProvider = serviceProvider.GetRequiredService<TimeProvider>();
+            return new ImmutableArtifactFilePublisher(timeProvider.GetUtcNow);
+        });
         services.AddSingleton<IScreenshotArtifactStore>(serviceProvider =>
             new FileScreenshotArtifactStore(
                 serviceProvider.GetRequiredService<Rgba8SrgbPngEncoder>(),
                 serviceProvider.GetRequiredService<Rgba8SrgbPngValidator>(),
-                serviceProvider.GetRequiredService<TimeProvider>(),
-                FileSystemAccessBoundary.EnsureSecureDirectory,
-                static path => File.Delete(path.Value)));
+                serviceProvider.GetRequiredService<ImmutableArtifactFilePublisher>(),
+                FileSystemAccessBoundary.EnsureSecureDirectory));
         return services;
     }
 }
