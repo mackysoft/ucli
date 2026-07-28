@@ -199,7 +199,12 @@ public sealed class ImmutableArtifactFileVerifierTests
         }
     }
 
-    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    [DllImport(
+        "kernel32.dll",
+        CharSet = CharSet.Unicode,
+        EntryPoint = "CreateHardLinkW",
+        ExactSpelling = true,
+        SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool CreateHardLinkWindows (
         string fileName,

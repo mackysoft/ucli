@@ -32,9 +32,37 @@ internal sealed class ArtifactPhysicalFileSession : IDisposable
         ArtifactPhysicalFileRequest request,
         CancellationToken cancellationToken)
     {
+        return OpenCore(request, OpenStableRead, cancellationToken);
+    }
+
+    /// <summary>
+    /// Reopens the same physical node while this session retains the read/write handle that created it.
+    /// </summary>
+    public ArtifactPhysicalFileSession ReopenSameNodeAlongsideRetainedWriter (
+        CancellationToken cancellationToken)
+    {
+        ThrowIfDisposed();
+        var reopened = OpenCore(Request, OpenReadAlongsideRetainedWriter, cancellationToken);
+        try
+        {
+            EnsureSameNodeAs(reopened, Request.Subject);
+            return reopened;
+        }
+        catch
+        {
+            reopened.Dispose();
+            throw;
+        }
+    }
+
+    private static ArtifactPhysicalFileSession OpenCore (
+        ArtifactPhysicalFileRequest request,
+        Func<AbsolutePath, FileStream> openRead,
+        CancellationToken cancellationToken)
+    {
         cancellationToken.ThrowIfCancellationRequested();
         var beforeOpen = ArtifactPhysicalPathSnapshot.Capture(request);
-        var stream = OpenRead(request.RepositoryFile.Target);
+        var stream = openRead(request.RepositoryFile.Target);
         try
         {
             return CompleteOpen(request, stream, beforeOpen);
@@ -230,13 +258,26 @@ internal sealed class ArtifactPhysicalFileSession : IDisposable
         return new ArtifactPhysicalFileSession(request, stream, handleIdentity, binding);
     }
 
-    private static FileStream OpenRead (AbsolutePath file)
+    private static FileStream OpenStableRead (AbsolutePath file)
     {
         return new FileStream(
             file.Value,
             FileMode.Open,
             FileAccess.Read,
             FileShare.Read | FileShare.Delete,
+            FileReadBufferSize,
+            FileOptions.Asynchronous | FileOptions.SequentialScan);
+    }
+
+    private static FileStream OpenReadAlongsideRetainedWriter (AbsolutePath file)
+    {
+        // Windows requires this new handle to share the write access already granted to the retained handle.
+        // The retained handle itself continues to deny unrelated writers until final verification completes.
+        return new FileStream(
+            file.Value,
+            FileMode.Open,
+            FileAccess.Read,
+            FileShare.Read | FileShare.Write | FileShare.Delete,
             FileReadBufferSize,
             FileOptions.Asynchronous | FileOptions.SequentialScan);
     }

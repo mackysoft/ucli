@@ -285,7 +285,7 @@ public sealed class ImmutableArtifactFilePublisherTests
 
     [Fact]
     [Trait("Size", "Medium")]
-    public async Task PublishAsync_WhenFinalBytesChangeDuringPublicationTimeCapture_RejectsReference ()
+    public async Task PublishAsync_WhenFinalWriteIsAttemptedDuringPublicationTimeCapture_DoesNotReturnAChangedReference ()
     {
         using var scope = TestDirectories.CreateTempScope(
             "infrastructure-artifacts",
@@ -295,10 +295,14 @@ public sealed class ImmutableArtifactFilePublisherTests
         var sourceContents = new byte[] { 1, 2, 3 };
         var changedContents = new byte[] { 9, 8, 7 };
         var boundaryRoot = AbsolutePath.Parse(scope.FullPath);
+        var writeAttempted = false;
+        var writeCompleted = false;
         var publisher = new ImmutableArtifactFilePublisher(
             () =>
             {
+                writeAttempted = true;
                 File.WriteAllBytes(destinationPath, changedContents);
+                writeCompleted = true;
                 return PublicationTime;
             });
 
@@ -312,14 +316,16 @@ public sealed class ImmutableArtifactFilePublisherTests
             .AsTask());
 
         Assert.Empty(EnumeratePrivateCandidatePaths(directory));
+        Assert.True(writeAttempted);
         Assert.Equal(
-            changedContents,
+            writeCompleted ? changedContents : sourceContents,
             await File.ReadAllBytesAsync(destinationPath, CancellationToken.None));
+        Assert.Equal(!OperatingSystem.IsWindows(), writeCompleted);
     }
 
     [Fact]
     [Trait("Size", "Medium")]
-    public async Task PublishAsync_WhenDestinationAncestorIsReplacedAfterFinalRead_RejectsAndDoesNotDeleteReplacement ()
+    public async Task PublishAsync_WhenDestinationAncestorReplacementIsAttemptedAfterFinalRead_DoesNotReturnAReference ()
     {
         using var scope = TestDirectories.CreateTempScope(
             "infrastructure-artifacts",
@@ -331,12 +337,16 @@ public sealed class ImmutableArtifactFilePublisherTests
         var sourceContents = new byte[] { 1, 2, 3 };
         var replacementContents = new byte[] { 9, 8, 7 };
         var boundaryRoot = AbsolutePath.Parse(scope.FullPath);
+        var replacementAttempted = false;
+        var replacementCompleted = false;
         var publisher = new ImmutableArtifactFilePublisher(
             () =>
             {
+                replacementAttempted = true;
                 Directory.Move(directory, movedDirectory);
                 Directory.CreateDirectory(directory);
                 File.WriteAllBytes(destinationPath, replacementContents);
+                replacementCompleted = true;
                 return PublicationTime;
             });
 
@@ -350,12 +360,24 @@ public sealed class ImmutableArtifactFilePublisherTests
             .AsTask());
 
         Assert.Empty(EnumeratePrivateCandidatePaths(directory));
-        Assert.Equal(
-            replacementContents,
-            await File.ReadAllBytesAsync(destinationPath, CancellationToken.None));
-        Assert.Equal(
-            sourceContents,
-            await File.ReadAllBytesAsync(movedDestinationPath, CancellationToken.None));
+        Assert.True(replacementAttempted);
+        if (replacementCompleted)
+        {
+            Assert.Equal(
+                replacementContents,
+                await File.ReadAllBytesAsync(destinationPath, CancellationToken.None));
+            Assert.Equal(
+                sourceContents,
+                await File.ReadAllBytesAsync(movedDestinationPath, CancellationToken.None));
+        }
+        else
+        {
+            Assert.True(OperatingSystem.IsWindows());
+            Assert.Equal(
+                sourceContents,
+                await File.ReadAllBytesAsync(destinationPath, CancellationToken.None));
+            Assert.False(File.Exists(movedDestinationPath));
+        }
     }
 
     private static Func<Stream, CancellationToken, ValueTask> CreateWriteCallback (
@@ -401,7 +423,12 @@ public sealed class ImmutableArtifactFilePublisherTests
         }
     }
 
-    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    [DllImport(
+        "kernel32.dll",
+        CharSet = CharSet.Unicode,
+        EntryPoint = "CreateHardLinkW",
+        ExactSpelling = true,
+        SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool CreateHardLinkWindows (
         string fileName,

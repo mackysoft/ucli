@@ -60,11 +60,7 @@ internal sealed class RepositoryArtifactPublication
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        using var final = ImmutableArtifactFileReadBoundary.OpenSession(
-            Paths.DestinationFile,
-            ImmutableArtifactFilePublisher.DestinationFileSubject,
-            cancellationToken);
-        source.EnsureSameNodeAs(final, ImmutableArtifactFilePublisher.DestinationFileSubject);
+        using var final = source.ReopenSameNodeAlongsideRetainedWriter(cancellationToken);
         var publicationTime = getUtcNow();
         var measurement = await final.MeasureAsync(cancellationToken).ConfigureAwait(false);
         sourceMeasurement.EnsureMatches(
