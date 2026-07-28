@@ -1,4 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Serialization;
 using MackySoft.JsonSchema.Generation.Annotations;
 using MackySoft.Ucli.Contracts.Json;
@@ -22,24 +21,6 @@ public sealed class ArtifactPath : UcliStringValue
     public ArtifactPath (string value)
         : base(Validate(value))
     {
-    }
-
-    /// <summary> Attempts to parse canonical portable artifact-path text. </summary>
-    /// <param name="value"> The candidate path. </param>
-    /// <param name="path"> The parsed path when successful; otherwise <see langword="null" />. </param>
-    /// <returns> <see langword="true" /> when <paramref name="value" /> is canonical portable relative path text; otherwise <see langword="false" />. </returns>
-    public static bool TryParse (
-        string? value,
-        [NotNullWhen(true)] out ArtifactPath? path)
-    {
-        path = null;
-        if (!IsValid(value))
-        {
-            return false;
-        }
-
-        path = new ArtifactPath(value!);
-        return true;
     }
 
     private static string Validate (string? value)
