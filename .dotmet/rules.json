@@ -41,10 +41,13 @@
         "matches": [
           {
             "pathPrefix": [
+              "src/Ucli.Contracts/Artifacts",
+              "src/Ucli.Contracts/Execution/References",
               "src/Ucli.Contracts/Index/Catalogs/Schemas",
               "src/Ucli.Contracts/Index/Lookups/SceneTreeLite",
               "src/Ucli.Contracts/Ipc/Operations/Contracts",
-              "src/Ucli.Contracts/Ipc/Values"
+              "src/Ucli.Contracts/Ipc/Values",
+              "src/Ucli.Contracts/References"
             ]
           },
           {

@@ -7,7 +7,9 @@ internal static class IpcJsonPolymorphismConfigurator
 {
     public static void Configure (JsonTypeInfo typeInfo)
     {
-        if (UcliRequestJsonPolymorphismConfigurator.TryConfigure(typeInfo)
+        if (ArtifactRefJsonPolymorphismConfigurator.TryConfigure(typeInfo)
+            || ExecutionRefJsonPolymorphismConfigurator.TryConfigure(typeInfo)
+            || UcliRequestJsonPolymorphismConfigurator.TryConfigure(typeInfo)
             || UcliReferenceJsonPolymorphismConfigurator.TryConfigure(typeInfo))
         {
             return;
