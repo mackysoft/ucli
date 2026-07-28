@@ -28,6 +28,8 @@ done
 package_dir="$(cd "${package_dir}" && pwd)"
 filesystem_package_id="MackySoft.FileSystem"
 filesystem_package_version="0.1.0"
+json_schema_package_id="MackySoft.JsonSchema.Generation"
+json_schema_dependency_version_range="[0.3.0]"
 
 temp_dir="$(mktemp -d)"
 trap 'rm -rf "${temp_dir}"' EXIT
@@ -60,6 +62,7 @@ for package_id in "${package_ids[@]}"; do
         "lib/netstandard2.1/MackySoft.Ucli.Contracts.dll"
       )
       required_dependencies=(
+        "${json_schema_package_id}"
         "MackySoft.Text.Vocabularies"
         "MackySoft.Text.Vocabularies.Json"
       )
@@ -122,6 +125,9 @@ for package_id in "${package_ids[@]}"; do
     fi
 
     case "${dependency_id}" in
+      MackySoft.JsonSchema.Generation)
+        required_dependency_version="${json_schema_dependency_version_range}"
+        ;;
       MackySoft.FileSystem|MackySoft.Text.Vocabularies|MackySoft.Text.Vocabularies.Json)
         required_dependency_version="${foundation_dependency_version_range}"
         ;;
@@ -141,8 +147,8 @@ for package_id in "${package_ids[@]}"; do
   done
 done
 
-consumer_dir="${temp_dir}/filesystem-consumer"
-consumer_project_path="${consumer_dir}/FileSystemPackageConsumer.csproj"
+consumer_dir="${temp_dir}/shared-package-consumer"
+consumer_project_path="${consumer_dir}/UcliSharedPackageConsumer.csproj"
 consumer_dotnet_home="${temp_dir}/dotnet-home"
 consumer_nuget_packages="${temp_dir}/nuget-packages"
 consumer_nuget_http_cache="${temp_dir}/http-cache"
@@ -182,6 +188,8 @@ cat > "${consumer_nuget_config}" <<EOF
     </packageSource>
     <packageSource key="nuget.org">
       <package pattern="MackySoft.FileSystem" />
+      <package pattern="MackySoft.Json.Canonicalization" />
+      <package pattern="MackySoft.JsonSchema.Generation" />
       <package pattern="MackySoft.Text.Vocabularies" />
       <package pattern="MackySoft.Text.Vocabularies.Json" />
       <package pattern="Microsoft.*" />
@@ -194,25 +202,50 @@ cat > "${consumer_nuget_config}" <<EOF
 EOF
 
 dotnet new classlib \
-  --name FileSystemPackageConsumer \
+  --name UcliSharedPackageConsumer \
   --output "${consumer_dir}" \
   --framework netstandard2.1 \
   --no-restore \
   >/dev/null
 EXPECTED_VERSION="${expected_version}" perl -0pi -e '
   my $version = $ENV{"EXPECTED_VERSION"};
-  s{<TargetFramework>netstandard2\.1</TargetFramework>}{<TargetFrameworks>net8.0;netstandard2.1</TargetFrameworks>};
+  s{<TargetFramework>netstandard2\.1</TargetFramework>}{<TargetFrameworks>net8.0;netstandard2.1</TargetFrameworks>\n    <OutputType Condition="&apos;\$(TargetFramework)&apos; == &apos;net8.0&apos;">Exe</OutputType>};
   s{</Project>}{  <ItemGroup>\n    <PackageReference Include="MackySoft.Ucli.Infrastructure" Version="$version" />\n  </ItemGroup>\n</Project>};
 ' "${consumer_project_path}"
 cat > "${consumer_dir}/Class1.cs" <<'EOF'
+using System;
 using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Ipc;
 
-namespace FileSystemPackageConsumer
+namespace UcliSharedPackageConsumer
 {
-    public static class GuardedPathConsumer
+    public static class PackageConsumer
     {
+        public static int Main ()
+        {
+            var serializerOptions = IpcJsonSerializerOptions.PublicRawOperationContracts;
+            var generationResult = UcliOperationJsonContractGenerator.Generate(
+                "scene.tree",
+                serializerOptions.GetTypeInfo(typeof(SceneTreeArgs)),
+                resultTypeInfo: null);
+            var argsContract = generationResult.ArgsContract;
+            var schemaUtf8 = generationResult.GetArgsJsonSchemaUtf8();
+            var typeMetadataText = argsContract.TypeMetadata.GetRawText();
+            if (string.IsNullOrWhiteSpace(argsContract.ContractDigest.ToString())
+                || schemaUtf8.Length == 0
+                || string.IsNullOrWhiteSpace(typeMetadataText))
+            {
+                return 1;
+            }
+
+            Console.WriteLine($"contractDigest={argsContract.ContractDigest}");
+            Console.WriteLine($"schemaBytes={schemaUtf8.Length}");
+            Console.WriteLine($"typeMetadataCharacters={typeMetadataText.Length}");
+            return 0;
+        }
+
         public static ContainedPath Resolve (string rootPath, string relativePath)
         {
             AbsolutePath root = AbsolutePath.Parse(rootPath);
@@ -241,4 +274,24 @@ dotnet build "${consumer_project_path}" \
   --no-restore \
   --verbosity minimal
 
+consumer_output="$(
+  dotnet run \
+    --project "${consumer_project_path}" \
+    --framework net8.0 \
+    --configuration Release \
+    --no-restore \
+    --no-build
+)"
+for expected_output_pattern in \
+  '^contractDigest=[^[:space:]]+$' \
+  '^schemaBytes=[1-9][0-9]*$' \
+  '^typeMetadataCharacters=[1-9][0-9]*$'; do
+  if ! grep -Eq "${expected_output_pattern}" <<< "${consumer_output}"; then
+    echo "Shared package consumer did not observe the generated contract output matching ${expected_output_pattern}." >&2
+    printf '%s\n' "${consumer_output}" >&2
+    exit 1
+  fi
+done
+
+printf '%s\n' "${consumer_output}"
 echo "Shared package verification passed: ${package_dir}"

@@ -35,6 +35,10 @@ filesystem_package_id="MackySoft.FileSystem"
 filesystem_package_version="0.1.0"
 canonicalization_package_id="MackySoft.Json.Canonicalization"
 canonicalization_package_version="0.1.0"
+json_schema_package_id="MackySoft.JsonSchema.Generation"
+json_schema_package_version="0.3.0"
+schema_validation_package_id="JsonSchema.Net"
+schema_validation_package_version="8.0.5"
 
 for required_tool in cmp dotnet unzip; do
   if ! command -v "${required_tool}" >/dev/null 2>&1; then
@@ -60,6 +64,17 @@ canonicalization_notice_files=(
   "THIRD-PARTY-NOTICES.md"
   "licenses/Apache-2.0.txt"
   "licenses/MPL-2.0.txt"
+)
+schema_validation_runtime_specs=(
+  "JsonSchema.Net|8.0.5|JsonSchema.Net.dll"
+  "JsonPointer.Net|6.0.1|JsonPointer.Net.dll"
+  "Json.More.Net|2.2.0|Json.More.dll"
+  "Humanizer.Core|2.14.1|Humanizer.dll"
+)
+schema_validation_license_specs=(
+  "JsonSchema.Net|8.0.5"
+  "JsonPointer.Net|6.0.1"
+  "Json.More.Net|2.2.0"
 )
 
 temp_root="${RUNNER_TEMP:-${TMPDIR:-/tmp}}"
@@ -104,9 +119,14 @@ cat > "${tool_nuget_config}" <<EOF
     </packageSource>
     <packageSource key="nuget.org">
       <package pattern="ConsoleAppFramework*" />
+      <package pattern="Humanizer.Core" />
+      <package pattern="Json.More.Net" />
+      <package pattern="JsonPointer.Net" />
+      <package pattern="JsonSchema.Net" />
       <package pattern="MackySoft.AgentSkills*" />
       <package pattern="MackySoft.FileSystem" />
       <package pattern="MackySoft.Json.Canonicalization" />
+      <package pattern="MackySoft.JsonSchema.Generation" />
       <package pattern="MackySoft.Text.Vocabularies" />
       <package pattern="MackySoft.Text.Vocabularies.Json" />
       <package pattern="Microsoft.*" />
@@ -129,6 +149,8 @@ cat > "${provider_restore_project}" <<EOF
     <PackageReference Include="MackySoft.Text.Vocabularies" Version="[${text_package_version}]" />
     <PackageReference Include="MackySoft.Text.Vocabularies.Json" Version="[${text_package_version}]" />
     <PackageReference Include="${canonicalization_package_id}" Version="[${canonicalization_package_version}]" />
+    <PackageReference Include="${json_schema_package_id}" Version="[${json_schema_package_version}]" />
+    <PackageReference Include="${schema_validation_package_id}" Version="[${schema_validation_package_version}]" />
   </ItemGroup>
 </Project>
 EOF
@@ -171,6 +193,7 @@ fi
 
 package_entries="$(unzip -Z1 "${package_path}")"
 filesystem_license_entry="tools/net8.0/any/third-party/${filesystem_package_id}/${filesystem_package_version}/LICENSE"
+json_schema_license_entry="tools/net8.0/any/third-party/${json_schema_package_id}/${json_schema_package_version}/LICENSE"
 required_package_entries=(
   "README.md"
   "LICENSE"
@@ -180,9 +203,11 @@ required_package_entries=(
   "tools/net8.0/any/MackySoft.Text.Vocabularies.dll"
   "tools/net8.0/any/MackySoft.Text.Vocabularies.Json.dll"
   "tools/net8.0/any/${canonicalization_package_id}.dll"
+  "tools/net8.0/any/${json_schema_package_id}.dll"
+  "${json_schema_license_entry}"
   "tools/net8.0/any/MackySoft.Ucli.deps.json"
   "tools/net8.0/any/THIRD-PARTY-NOTICES"
-  "tools/net8.0/any/schemas/v1/schema-manifest.json"
+  "tools/net8.0/any/schemas/schema-manifest.json"
   "tools/net8.0/any/skills/bundle.json"
 )
 for package_id in "${text_package_ids[@]}"; do
@@ -192,6 +217,16 @@ for package_id in "${text_package_ids[@]}"; do
 done
 for relative_path in "${canonicalization_notice_files[@]}"; do
   required_package_entries+=("${canonicalization_notice_root}/${relative_path}")
+done
+for dependency_spec in "${schema_validation_runtime_specs[@]}"; do
+  IFS='|' read -r package_id package_version assembly_name <<< "${dependency_spec}"
+  required_package_entries+=("tools/net8.0/any/${assembly_name}")
+done
+for dependency_spec in "${schema_validation_license_specs[@]}"; do
+  IFS='|' read -r package_id package_version <<< "${dependency_spec}"
+  required_package_entries+=(
+    "tools/net8.0/any/third-party/${package_id}/${package_version}/LICENSE"
+  )
 done
 
 for entry in "${required_package_entries[@]}"; do
@@ -207,6 +242,17 @@ for package_id in "${foundation_package_ids[@]}"; do
     exit 1
   fi
 done
+if grep -Ei "(^|/)${json_schema_package_id//./[.]}.+nupkg$" <<< "${package_entries}" >/dev/null; then
+  echo "CLI package must not embed the standalone ${json_schema_package_id} provider package." >&2
+  exit 1
+fi
+for dependency_spec in "${schema_validation_runtime_specs[@]}"; do
+  IFS='|' read -r package_id package_version assembly_name <<< "${dependency_spec}"
+  if grep -Ei "(^|/)${package_id//./[.]}.+nupkg$" <<< "${package_entries}" >/dev/null; then
+    echo "CLI package must not embed the ${package_id} package archive." >&2
+    exit 1
+  fi
+done
 
 if grep -Fi "es6numberserializer" <<< "${package_entries}" >/dev/null; then
   echo "CLI package contains the retired es6numberserializer dependency." >&2
@@ -219,6 +265,17 @@ dependency_manifest="$(
 for package_id in "${foundation_package_ids[@]}"; do
   if ! grep -F "\"${package_id}/0.1.0\"" <<< "${dependency_manifest}" >/dev/null; then
     echo "CLI package dependency manifest does not reference ${package_id} 0.1.0." >&2
+    exit 1
+  fi
+done
+if ! grep -F "\"${json_schema_package_id}/${json_schema_package_version}\"" <<< "${dependency_manifest}" >/dev/null; then
+  echo "CLI package dependency manifest does not reference ${json_schema_package_id} ${json_schema_package_version}." >&2
+  exit 1
+fi
+for dependency_spec in "${schema_validation_runtime_specs[@]}"; do
+  IFS='|' read -r package_id package_version assembly_name <<< "${dependency_spec}"
+  if ! grep -F "\"${package_id}/${package_version}\"" <<< "${dependency_manifest}" >/dev/null; then
+    echo "CLI package dependency manifest does not reference ${package_id} ${package_version}." >&2
     exit 1
   fi
 done
@@ -247,6 +304,25 @@ if ! grep -F "${canonicalization_package_id} ${canonicalization_package_version}
   echo "CLI package third-party notice does not identify the canonicalization provider notice directory." >&2
   exit 1
 fi
+if ! grep -F "${json_schema_package_id} ${json_schema_package_version}" <<< "${cli_notice}" >/dev/null \
+  || ! grep -F "third-party/${json_schema_package_id}/${json_schema_package_version}/LICENSE" <<< "${cli_notice}" >/dev/null; then
+  echo "CLI package third-party notice does not identify the JSON Schema generation provider license." >&2
+  exit 1
+fi
+for dependency_spec in "${schema_validation_runtime_specs[@]}"; do
+  IFS='|' read -r package_id package_version assembly_name <<< "${dependency_spec}"
+  if ! grep -F "${package_id} ${package_version}" <<< "${cli_notice}" >/dev/null; then
+    echo "CLI package third-party notice does not identify ${package_id} ${package_version}." >&2
+    exit 1
+  fi
+done
+for dependency_spec in "${schema_validation_license_specs[@]}"; do
+  IFS='|' read -r package_id package_version <<< "${dependency_spec}"
+  if ! grep -F "third-party/${package_id}/${package_version}/LICENSE" <<< "${cli_notice}" >/dev/null; then
+    echo "CLI package third-party notice does not identify the ${package_id} license." >&2
+    exit 1
+  fi
+done
 
 for package_id in "${foundation_package_ids[@]}"; do
   if [[ -z "$(find "${tool_path}" -type f -name "${package_id}.dll" -print -quit)" ]]; then
@@ -255,6 +331,25 @@ for package_id in "${foundation_package_ids[@]}"; do
   fi
   if find "${tool_path}" -type f -iname "${package_id}.*.nupkg" -print -quit | grep -q .; then
     echo "Installed CLI contains the standalone ${package_id} provider package." >&2
+    exit 1
+  fi
+done
+if [[ -z "$(find "${tool_path}" -type f -name "${json_schema_package_id}.dll" -print -quit)" ]]; then
+  echo "Installed CLI is missing ${json_schema_package_id}.dll." >&2
+  exit 1
+fi
+if find "${tool_path}" -type f -iname "${json_schema_package_id}.*.nupkg" -print -quit | grep -q .; then
+  echo "Installed CLI contains the standalone ${json_schema_package_id} provider package." >&2
+  exit 1
+fi
+for dependency_spec in "${schema_validation_runtime_specs[@]}"; do
+  IFS='|' read -r package_id package_version assembly_name <<< "${dependency_spec}"
+  if [[ -z "$(find "${tool_path}" -type f -name "${assembly_name}" -print -quit)" ]]; then
+    echo "Installed CLI is missing ${assembly_name}." >&2
+    exit 1
+  fi
+  if find "${tool_path}" -type f -iname "${package_id}.*.nupkg" -print -quit | grep -q .; then
+    echo "Installed CLI contains the ${package_id} package archive." >&2
     exit 1
   fi
 done
@@ -274,6 +369,17 @@ for package_id in "${text_package_ids[@]}"; do
     exit 1
   fi
 done
+if [[ -z "$(find "${tool_path}" -type f -path "*/third-party/${json_schema_package_id}/${json_schema_package_version}/LICENSE" -print -quit)" ]]; then
+  echo "Installed CLI is missing the ${json_schema_package_id} license." >&2
+  exit 1
+fi
+for dependency_spec in "${schema_validation_license_specs[@]}"; do
+  IFS='|' read -r package_id package_version <<< "${dependency_spec}"
+  if [[ -z "$(find "${tool_path}" -type f -path "*/third-party/${package_id}/${package_version}/LICENSE" -print -quit)" ]]; then
+    echo "Installed CLI is missing the ${package_id} license." >&2
+    exit 1
+  fi
+done
 for relative_path in "${canonicalization_notice_files[@]}"; do
   if [[ -z "$(find "${tool_path}" -type f -path "*/third-party/${canonicalization_package_id}/${canonicalization_package_version}/${relative_path}" -print -quit)" ]]; then
     echo "Installed CLI is missing canonicalization notice material: ${relative_path}" >&2
@@ -286,7 +392,7 @@ if find "${tool_path}" -type f -iname "*es6numberserializer*" -print -quit | gre
 fi
 
 package_schema_manifest_path="${tool_path}/package-schema-manifest.json"
-unzip -p "${package_path}" tools/net8.0/any/schemas/v1/schema-manifest.json > "${package_schema_manifest_path}"
+unzip -p "${package_path}" tools/net8.0/any/schemas/schema-manifest.json > "${package_schema_manifest_path}"
 assert_json_manifest_package_version "${package_schema_manifest_path}" "${expected_version}" "CLI package schema manifest"
 
 generated_skills_root="${repo_root}/skills/generated"
@@ -317,13 +423,67 @@ while IFS= read -r schema_file; do
   fi
 done < <(find "${repo_root}/schemas" -type f | sort)
 
-installed_schema_manifest="$(find "${tool_path}" -path "*/schemas/v1/schema-manifest.json" -type f | head -n 1)"
+installed_schema_manifest="$(find "${tool_path}" -path "*/schemas/schema-manifest.json" -type f | head -n 1)"
 if [[ -z "${installed_schema_manifest}" ]]; then
-  echo "Installed CLI tool package did not materialize schemas/v1/schema-manifest.json." >&2
+  echo "Installed CLI tool package did not materialize schemas/schema-manifest.json." >&2
   exit 1
 fi
 
 assert_json_manifest_package_version "${installed_schema_manifest}" "${expected_version}" "Installed CLI tool schema manifest"
+
+schema_list_output="${verification_root}/schema-list.json"
+"${tool_path}/ucli" schema list > "${schema_list_output}"
+python3 - "${schema_list_output}" <<'PY'
+import json
+import sys
+
+output_path = sys.argv[1]
+with open(output_path, encoding="utf-8") as output_file:
+    output = json.load(output_file)
+
+if output.get("command") != "schema.list" or output.get("status") != "ok":
+    print("Installed ucli schema list did not return a success envelope.", file=sys.stderr)
+    sys.exit(1)
+
+payload = output.get("payload")
+schemas = payload.get("schemas") if isinstance(payload, dict) else None
+if not isinstance(schemas, list) or not any(
+    isinstance(schema, dict) and schema.get("name") == "cli-output.envelope"
+    for schema in schemas
+):
+    print(
+        "Installed ucli schema list did not expose cli-output.envelope.",
+        file=sys.stderr,
+    )
+    sys.exit(1)
+PY
+
+schema_get_output="${verification_root}/schema-get.json"
+"${tool_path}/ucli" schema get cli-output.envelope > "${schema_get_output}"
+python3 - "${schema_get_output}" <<'PY'
+import json
+import sys
+
+output_path = sys.argv[1]
+with open(output_path, encoding="utf-8") as output_file:
+    output = json.load(output_file)
+
+if output.get("command") != "schema.get" or output.get("status") != "ok":
+    print("Installed ucli schema get did not return a success envelope.", file=sys.stderr)
+    sys.exit(1)
+
+payload = output.get("payload")
+if (
+    not isinstance(payload, dict)
+    or payload.get("name") != "cli-output.envelope"
+    or not isinstance(payload.get("document"), dict)
+):
+    print(
+        "Installed ucli schema get did not return the requested schema document.",
+        file=sys.stderr,
+    )
+    sys.exit(1)
+PY
 
 list_host_independent_skill_files() {
   local relative_path

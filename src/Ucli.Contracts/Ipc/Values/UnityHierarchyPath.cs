@@ -1,14 +1,15 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Serialization;
+using MackySoft.JsonSchema.Generation.Annotations;
+using MackySoft.Ucli.Contracts.Json;
 using MackySoft.Ucli.Contracts.Operations;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
 /// <summary> Represents a Unity hierarchy path inside a selected scene or prefab. </summary>
 [JsonConverter(typeof(UcliStringValueJsonConverterFactory))]
-[UcliDescription("Unity hierarchy path inside a selected scene or prefab.")]
-[UcliInputConstraint(UcliOperationInputConstraintKind.NonEmpty)]
-[UcliInputConstraint(UcliOperationInputConstraintKind.HierarchyPath)]
+[Length(1, int.MaxValue)]
+[UcliHierarchyPath]
 public sealed class UnityHierarchyPath : UcliStringValue
 {
     /// <summary> Initializes a new instance of the <see cref="UnityHierarchyPath" /> class. </summary>

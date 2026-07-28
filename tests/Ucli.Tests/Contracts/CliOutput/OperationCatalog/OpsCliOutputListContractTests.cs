@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 using static MackySoft.Ucli.Tests.OpsCliOutputContractTestSupport;
 
@@ -11,24 +12,26 @@ public sealed class OpsCliOutputListContractTests
     {
         using var scope = TestDirectories.CreateTempScope("ops-cli-output-contract", "list-success");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
+        var sceneSaveGeneration = UcliOperationJsonContractGenerator.Generate(
+            UcliPrimitiveOperationNames.SceneSave,
+            IpcJsonSerializerOptions.PublicRawOperationContracts.GetTypeInfo(typeof(ScenePathArgs)),
+            resultTypeInfo: null);
+        var sceneSaveDescribe = UcliOperationDescribeContractBuilder.Create(
+            sceneSaveGeneration,
+            "Saves a Unity scene asset.",
+            CreateAssurance(UcliOperationKind.Mutation, OperationPolicy.Advanced));
         ReadIndexCatalogTestSeeder.SeedOpsCatalog(
             unityProjectPath,
             [
                 CreateDescribedEntry(
                     name: UcliPrimitiveOperationNames.GoDescribe,
-                    kind: "query",
-                    policy: "safe",
-                    argsSchemaJson: """{"type":"object","properties":{"path":{"type":"string"}}}""",
-                    resultSchemaJson: """{"type":"object"}"""),
+                    kind: UcliOperationKind.Query,
+                    policy: OperationPolicy.Safe),
                 CreateDescribedEntry(
                     name: UcliPrimitiveOperationNames.SceneSave,
-                    kind: "mutation",
-                    policy: "advanced",
-                    argsSchemaJson: """{"type":"object","properties":{"path":{"type":"string"}}}""",
-                    resultSchemaJson: null,
-                    describe: UcliOperationDescribeContractBuilder.Create<ScenePathArgs, UcliNoResult>(
-                        "Saves a Unity scene asset.",
-                        CreateAssurance("mutation", "advanced"))),
+                    kind: UcliOperationKind.Mutation,
+                    policy: OperationPolicy.Advanced,
+                    describe: sceneSaveDescribe),
             ]);
 
         var result = await RunOpsListCommandAsync(
@@ -46,13 +49,13 @@ public sealed class OpsCliOutputListContractTests
                     .HasString("source", "index")
                     .HasString("freshness", "probable")));
 
-        var operations = outputJson.RootElement.GetProperty("payload").GetProperty("operations").EnumerateArray().ToArray();
+        var operations = outputJson.RootElement
+            .GetProperty("payload")
+            .GetProperty("operations")
+            .EnumerateArray()
+            .ToArray();
         Assert.Equal(
             [UcliPrimitiveOperationNames.GoDescribe, UcliPrimitiveOperationNames.SceneSave],
             operations.Select(static operation => operation.GetProperty("name").GetString()));
-        foreach (var operation in operations)
-        {
-            AssertNoFreezeInternalOperationTopLevelFields(operation);
-        }
     }
 }

@@ -29,6 +29,8 @@
     <PackageReference Include="MackySoft.FileSystem" Version="[0.1.0]" GeneratePathProperty="true" />
     <PackageReference Include="MackySoft.Text.Vocabularies" Version="[0.1.0]" GeneratePathProperty="true" />
     <PackageReference Include="MackySoft.Text.Vocabularies.Json" Version="[0.1.0]" GeneratePathProperty="true" />
+    <PackageReference Include="MackySoft.JsonSchema.Generation" Version="[0.3.0]" GeneratePathProperty="true" />
+    <PackageReference Include="JsonSchema.Net" Version="[8.0.5]" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.3" />
   </ItemGroup>
 
@@ -80,6 +82,30 @@
 
     <None Include="$(PkgMackySoft_Text_Vocabularies_Json)/LICENSE"
           Link="third-party/MackySoft.Text.Vocabularies.Json/0.1.0/LICENSE">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </None>
+
+    <None Include="$(PkgMackySoft_JsonSchema_Generation)/LICENSE"
+          Link="third-party/MackySoft.JsonSchema.Generation/0.3.0/LICENSE">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </None>
+
+    <None Include="$(NuGetPackageRoot)/jsonschema.net/8.0.5/LICENSE"
+          Link="third-party/JsonSchema.Net/8.0.5/LICENSE">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </None>
+
+    <None Include="$(NuGetPackageRoot)/jsonpointer.net/6.0.1/LICENSE"
+          Link="third-party/JsonPointer.Net/6.0.1/LICENSE">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </None>
+
+    <None Include="$(NuGetPackageRoot)/json.more.net/2.2.0/LICENSE"
+          Link="third-party/Json.More.Net/2.2.0/LICENSE">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </None>

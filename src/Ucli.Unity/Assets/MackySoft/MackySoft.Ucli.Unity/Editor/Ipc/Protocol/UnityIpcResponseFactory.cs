@@ -29,13 +29,13 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <param name="request"> The request envelope used as response context. </param>
         /// <param name="code"> The machine-readable error code. </param>
         /// <param name="message"> The human-readable error message. </param>
-        /// <param name="opId"> The related operation identifier when available. </param>
+        /// <param name="instancePath"> The RFC 6901 path of the related value when available. </param>
         /// <returns> The error response envelope. </returns>
         public static IpcResponse CreateErrorResponse (
             IIpcRequestCorrelation request,
             UcliCode code,
             string message,
-            IpcExecuteStepId? opId)
+            string? instancePath)
         {
             return new IpcResponse(
                 protocolVersion: IpcProtocol.CurrentVersion,
@@ -44,7 +44,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 payload: IpcPayloadCodec.SerializeToElement(new { }),
                 errors: new[]
                 {
-                    new IpcError(code, message, opId),
+                    new IpcError(code, message, instancePath),
                 });
         }
 
@@ -53,14 +53,14 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <param name="request"> The request envelope used as response context. </param>
         /// <param name="code"> The machine-readable error code. </param>
         /// <param name="message"> The human-readable error message. </param>
-        /// <param name="opId"> The related operation identifier when available. </param>
+        /// <param name="instancePath"> The RFC 6901 path of the related value when available. </param>
         /// <param name="payload"> The structured payload model. </param>
         /// <returns> The error response envelope. </returns>
         public static IpcResponse CreateErrorResponse<TPayload> (
             IIpcRequestCorrelation request,
             UcliCode code,
             string message,
-            IpcExecuteStepId? opId,
+            string? instancePath,
             TPayload payload)
         {
             return new IpcResponse(
@@ -70,7 +70,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 payload: IpcPayloadCodec.SerializeToElement(payload),
                 errors: new[]
                 {
-                    new IpcError(code, message, opId),
+                    new IpcError(code, message, instancePath),
                 });
         }
 

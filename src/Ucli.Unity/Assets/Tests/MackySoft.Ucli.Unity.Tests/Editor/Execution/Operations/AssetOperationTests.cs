@@ -127,24 +127,15 @@ namespace MackySoft.Ucli.Unity.Tests
             var setRequest = CreateOperation(
                 opId: "op-set",
                 opName: UcliPrimitiveOperationNames.AssetSet,
-                args: new
-                {
-                    target = new
+                args: new AssetSetArgs(
+                    new AssetPathReferenceArgs(new UnityAssetPath(targetAssetPath)),
+                    new[]
                     {
-                        assetPath = targetAssetPath,
-                    },
-                    sets = new object[]
-                    {
-                        new
-                        {
-                            path = "assetReferenceValue",
-                            value = new
-                            {
-                                @var = "created",
-                            },
-                        },
-                    },
-                });
+                        new SerializedObjectSetItemArgs(
+                            new SerializedPropertyPath("assetReferenceValue"),
+                            IpcPayloadCodec.SerializeToElement<UnityObjectReferenceArgs>(
+                                new UcliAliasReferenceArgs(new UcliPlanAlias("created")))),
+                    }));
 
             var createResult = await createOperation.CallAsync(createRequest, context, CancellationToken.None);
             var setResult = await setOperation.CallAsync(setRequest, context, CancellationToken.None);
@@ -304,36 +295,22 @@ namespace MackySoft.Ucli.Unity.Tests
             var setRequest = CreateOperation(
                 opId: "op-set",
                 opName: UcliPrimitiveOperationNames.AssetSet,
-                args: new
-                {
-                    target = new
+                args: new AssetSetArgs(
+                    new UcliAliasReferenceArgs(new UcliPlanAlias("created")),
+                    new[]
                     {
-                        @var = "created",
-                    },
-                    sets = new object[]
-                    {
-                        new
-                        {
-                            path = "integerValue",
-                            value = 42,
-                        },
-                        new
-                        {
-                            path = "text",
-                            value = "after",
-                        },
-                    },
-                });
+                        new SerializedObjectSetItemArgs(
+                            new SerializedPropertyPath("integerValue"),
+                            JsonSerializer.SerializeToElement(42)),
+                        new SerializedObjectSetItemArgs(
+                            new SerializedPropertyPath("text"),
+                            JsonSerializer.SerializeToElement("after")),
+                    }));
             var schemaRequest = CreateOperation(
                 opId: "op-schema",
                 opName: UcliPrimitiveOperationNames.AssetSchema,
-                args: new
-                {
-                    target = new
-                    {
-                        @var = "created",
-                    },
-                });
+                args: (AssetSchemaArgs)new AssetSchemaByTargetArgs(
+                    new UcliAliasReferenceArgs(new UcliPlanAlias("created"))));
 
             var createResult = await createOperation.PlanAsync(createRequest, context, CancellationToken.None);
             var setResult = await setOperation.PlanAsync(setRequest, context, CancellationToken.None);
@@ -378,36 +355,22 @@ namespace MackySoft.Ucli.Unity.Tests
             var setRequest = CreateOperation(
                 opId: "op-set",
                 opName: UcliPrimitiveOperationNames.AssetSet,
-                args: new
-                {
-                    target = new
+                args: new AssetSetArgs(
+                    new AssetPathReferenceArgs(new UnityAssetPath(assetPath)),
+                    new[]
                     {
-                        assetPath,
-                    },
-                    sets = new object[]
-                    {
-                        new
-                        {
-                            path = "integerValue",
-                            value = 99,
-                        },
-                        new
-                        {
-                            path = "text",
-                            value = "planned-path",
-                        },
-                    },
-                });
+                        new SerializedObjectSetItemArgs(
+                            new SerializedPropertyPath("integerValue"),
+                            JsonSerializer.SerializeToElement(99)),
+                        new SerializedObjectSetItemArgs(
+                            new SerializedPropertyPath("text"),
+                            JsonSerializer.SerializeToElement("planned-path")),
+                    }));
             var schemaRequest = CreateOperation(
                 opId: "op-schema",
                 opName: UcliPrimitiveOperationNames.AssetSchema,
-                args: new
-                {
-                    target = new
-                    {
-                        assetPath,
-                    },
-                });
+                args: (AssetSchemaArgs)new AssetSchemaByTargetArgs(
+                    new AssetPathReferenceArgs(new UnityAssetPath(assetPath))));
 
             var createResult = await createOperation.PlanAsync(createRequest, context, CancellationToken.None);
             var setResult = await setOperation.PlanAsync(setRequest, context, CancellationToken.None);
@@ -449,24 +412,15 @@ namespace MackySoft.Ucli.Unity.Tests
             var setRequest = CreateOperation(
                 opId: "op-set",
                 opName: UcliPrimitiveOperationNames.AssetSet,
-                args: new
-                {
-                    target = new
+                args: new AssetSetArgs(
+                    new AssetPathReferenceArgs(new UnityAssetPath(targetAssetPath)),
+                    new[]
                     {
-                        assetPath = targetAssetPath,
-                    },
-                    sets = new object[]
-                    {
-                        new
-                        {
-                            path = "assetReferenceValue",
-                            value = new
-                            {
-                                assetPath = createdAssetPath,
-                            },
-                        },
-                    },
-                });
+                        new SerializedObjectSetItemArgs(
+                            new SerializedPropertyPath("assetReferenceValue"),
+                            IpcPayloadCodec.SerializeToElement<UnityObjectReferenceArgs>(
+                                new AssetPathReferenceArgs(new UnityAssetPath(createdAssetPath)))),
+                    }));
 
             var createResult = await createOperation.PlanAsync(createRequest, context, CancellationToken.None);
             var setResult = await setOperation.PlanAsync(setRequest, context, CancellationToken.None);
@@ -490,26 +444,17 @@ namespace MackySoft.Ucli.Unity.Tests
             var requestOperation = CreateOperation(
                 opId: "op-set",
                 opName: UcliPrimitiveOperationNames.AssetSet,
-                args: new
-                {
-                    target = new
+                args: new AssetSetArgs(
+                    new AssetPathReferenceArgs(new UnityAssetPath(assetPath)),
+                    new[]
                     {
-                        assetPath,
-                    },
-                    sets = new object[]
-                    {
-                        new
-                        {
-                            path = "integerValue",
-                            value = 64,
-                        },
-                        new
-                        {
-                            path = "text",
-                            value = "updated",
-                        },
-                    },
-                });
+                        new SerializedObjectSetItemArgs(
+                            new SerializedPropertyPath("integerValue"),
+                            JsonSerializer.SerializeToElement(64)),
+                        new SerializedObjectSetItemArgs(
+                            new SerializedPropertyPath("text"),
+                            JsonSerializer.SerializeToElement("updated")),
+                    }));
 
             var result = await operation.CallAsync(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
 
@@ -537,25 +482,17 @@ namespace MackySoft.Ucli.Unity.Tests
             var requestOperation = CreateOperation(
                 opId: "op-set",
                 opName: UcliPrimitiveOperationNames.AssetSet,
-                args: new
-                {
-                    target = new
+                args: new AssetSetArgs(
+                    new AssetPathReferenceArgs(new UnityAssetPath(assetPath)),
+                    new[]
                     {
-                        assetPath,
-                    },
-                    sets = new object[]
-                    {
-                        new
-                        {
-                            path = "objectReferenceValue",
-                            value = new
-                            {
-                                scene = scenePath,
-                                hierarchyPath = "PreviewOnly",
-                            },
-                        },
-                    },
-                });
+                        new SerializedObjectSetItemArgs(
+                            new SerializedPropertyPath("objectReferenceValue"),
+                            IpcPayloadCodec.SerializeToElement<UnityObjectReferenceArgs>(
+                                new SceneHierarchyReferenceArgs(
+                                    new SceneAssetPath(scenePath),
+                                    new UnityHierarchyPath("PreviewOnly")))),
+                    }));
 
             var result = await operation.PlanAsync(requestOperation, context, CancellationToken.None);
 
@@ -588,25 +525,17 @@ namespace MackySoft.Ucli.Unity.Tests
             var requestOperation = CreateOperation(
                 opId: "op-set",
                 opName: UcliPrimitiveOperationNames.AssetSet,
-                args: new
-                {
-                    target = new
+                args: new AssetSetArgs(
+                    new AssetPathReferenceArgs(new UnityAssetPath(assetPath)),
+                    new[]
                     {
-                        assetPath,
-                    },
-                    sets = new object[]
-                    {
-                        new
-                        {
-                            path = "objectReferenceValue",
-                            value = new
-                            {
-                                scene = scenePath,
-                                hierarchyPath = "PreviewOnly",
-                            },
-                        },
-                    },
-                });
+                        new SerializedObjectSetItemArgs(
+                            new SerializedPropertyPath("objectReferenceValue"),
+                            IpcPayloadCodec.SerializeToElement<UnityObjectReferenceArgs>(
+                                new SceneHierarchyReferenceArgs(
+                                    new SceneAssetPath(scenePath),
+                                    new UnityHierarchyPath("PreviewOnly")))),
+                    }));
 
             var result = await operation.CallAsync(requestOperation, context, CancellationToken.None);
 
@@ -627,33 +556,26 @@ namespace MackySoft.Ucli.Unity.Tests
             var requestOperation = CreateOperation(
                 opId: "op-set",
                 opName: UcliPrimitiveOperationNames.AssetSet,
-                args: new
-                {
-                    target = new
+                args: new AssetSetArgs(
+                    new AssetPathReferenceArgs(new UnityAssetPath(assetPath)),
+                    new[]
                     {
-                        assetPath,
-                    },
-                    sets = new object[]
-                    {
-                        new
-                        {
-                            path = "node",
-                            value = new
-                            {
-                                type = IndexTypeIdFormatter.Format(typeof(AssetOperationManagedReferenceTestAsset.TextNode)),
-                                value = new
+                        new SerializedObjectSetItemArgs(
+                            new SerializedPropertyPath("node"),
+                            JsonSerializer.SerializeToElement(
+                                new
                                 {
-                                    text = "after",
+                                    type = IndexTypeIdFormatter.Format(typeof(AssetOperationManagedReferenceTestAsset.TextNode)),
+                                    value = new
+                                    {
+                                        text = "after",
+                                    },
                                 },
-                            },
-                        },
-                        new
-                        {
-                            path = "missing",
-                            value = 1,
-                        },
-                    },
-                });
+                                IpcJsonSerializerOptions.StrictPropertyNames)),
+                        new SerializedObjectSetItemArgs(
+                            new SerializedPropertyPath("missing"),
+                            JsonSerializer.SerializeToElement(1)),
+                    }));
 
             var result = await operation.CallAsync(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
 
@@ -674,21 +596,14 @@ namespace MackySoft.Ucli.Unity.Tests
             var requestOperation = CreateOperation(
                 opId: "op-set",
                 opName: UcliPrimitiveOperationNames.AssetSet,
-                args: new
-                {
-                    target = new
+                args: new AssetSetArgs(
+                    new AssetPathReferenceArgs(new UnityAssetPath(assetPath)),
+                    new[]
                     {
-                        assetPath,
-                    },
-                    sets = new object[]
-                    {
-                        new
-                        {
-                            path = "m_CustomRenderQueue",
-                            value = 2450,
-                        },
-                    },
-                });
+                        new SerializedObjectSetItemArgs(
+                            new SerializedPropertyPath("m_CustomRenderQueue"),
+                            JsonSerializer.SerializeToElement(2450)),
+                    }));
 
             var result = await operation.CallAsync(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
 
@@ -713,21 +628,14 @@ namespace MackySoft.Ucli.Unity.Tests
             var requestOperation = CreateOperation(
                 opId: "op-set",
                 opName: UcliPrimitiveOperationNames.AssetSet,
-                args: new
-                {
-                    target = new
+                args: new AssetSetArgs(
+                    new UcliAliasReferenceArgs(new UcliPlanAlias("target")),
+                    new[]
                     {
-                        @var = "target",
-                    },
-                    sets = new object[]
-                    {
-                        new
-                        {
-                            path = "integerValue",
-                            value = 10,
-                        },
-                    },
-                });
+                        new SerializedObjectSetItemArgs(
+                            new SerializedPropertyPath("integerValue"),
+                            JsonSerializer.SerializeToElement(10)),
+                    }));
 
             var result = await operation.ValidateAsync(requestOperation, context, CancellationToken.None);
 
@@ -742,21 +650,15 @@ namespace MackySoft.Ucli.Unity.Tests
             var requestOperation = CreateOperation(
                 opId: "op-set",
                 opName: UcliPrimitiveOperationNames.AssetSet,
-                args: new
-                {
-                    target = new
+                args: new AssetSetArgs(
+                    new ProjectAssetPathReferenceArgs(
+                        new ProjectSettingsAssetPath("ProjectSettings/TagManager.asset")),
+                    new[]
                     {
-                        projectAssetPath = "ProjectSettings/TagManager.asset",
-                    },
-                    sets = new object[]
-                    {
-                        new
-                        {
-                            path = "m_DefaultBehaviorMode",
-                            value = 0,
-                        },
-                    },
-                });
+                        new SerializedObjectSetItemArgs(
+                            new SerializedPropertyPath("m_DefaultBehaviorMode"),
+                            JsonSerializer.SerializeToElement(0)),
+                    }));
 
             using var executionContext = new OperationExecutionContext();
             var result = await operation.ValidateAsync(requestOperation, executionContext, CancellationToken.None);
@@ -776,10 +678,8 @@ namespace MackySoft.Ucli.Unity.Tests
             var requestOperation = CreateOperation(
                 opId: "op-schema",
                 opName: UcliPrimitiveOperationNames.AssetSchema,
-                args: new
-                {
-                    type = IndexTypeIdFormatter.Format(typeof(Material)),
-                });
+                args: (AssetSchemaArgs)new AssetSchemaByTypeArgs(
+                    new UnityTypeId(IndexTypeIdFormatter.Format(typeof(Material)))));
 
             using var executionContext = new OperationExecutionContext();
             var result = await operation.ValidateAsync(requestOperation, executionContext, CancellationToken.None);
@@ -799,13 +699,8 @@ namespace MackySoft.Ucli.Unity.Tests
             var requestOperation = CreateOperation(
                 opId: "op-schema",
                 opName: UcliPrimitiveOperationNames.AssetSchema,
-                args: new
-                {
-                    target = new
-                    {
-                        assetPath,
-                    },
-                });
+                args: (AssetSchemaArgs)new AssetSchemaByTargetArgs(
+                    new AssetPathReferenceArgs(new UnityAssetPath(assetPath))));
 
             var result = await operation.PlanAsync(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
 
@@ -831,10 +726,10 @@ namespace MackySoft.Ucli.Unity.Tests
             return shader;
         }
 
-        private static NormalizedOperation CreateOperation (
+        private static NormalizedOperation CreateOperation<TArgs> (
             string opId,
             string opName,
-            object args,
+            TArgs args,
             string? alias = null,
             OperationExecutionKey? executionKey = null)
         {
@@ -842,7 +737,9 @@ namespace MackySoft.Ucli.Unity.Tests
                 ExecutionKey: executionKey
                     ?? OperationExecutionKey.ForEditPrimitive(new IpcExecuteStepId(opId), primitiveIndex: 0),
                 Op: opName,
-                Args: JsonSerializer.SerializeToElement(args),
+                Args: JsonSerializer.SerializeToElement(
+                    args,
+                    IpcJsonSerializerOptions.StrictPropertyNames),
                 As: alias == null
                     ? null
                     : RequestLocalAliasIdentity.FromPublicAlias(new UcliPlanAlias(alias)),

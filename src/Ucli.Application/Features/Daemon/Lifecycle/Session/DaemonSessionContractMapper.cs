@@ -7,16 +7,6 @@ using MackySoft.Ucli.Contracts.Storage;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 
-/// <summary>
-/// Converts one transport-specific endpoint text value to its normalized contract and guarded runtime path.
-/// </summary>
-/// <param name="transportKind"> The endpoint transport kind declared by the session contract. </param>
-/// <param name="address"> The raw endpoint address declared by the session contract. </param>
-/// <returns> The normalized endpoint contract and guarded Unix socket path produced at the input boundary. </returns>
-internal delegate DaemonSessionEndpointBinding DaemonSessionEndpointBindingFactory (
-    IpcTransportKind transportKind,
-    string address);
-
 /// <summary> Carries one normalized endpoint contract and its guarded Unix socket path into session creation. </summary>
 /// <param name="Contract"> The normalized endpoint contract. </param>
 /// <param name="UnixSocketPath"> The guarded Unix socket path, or <see langword="null" /> for a Named Pipe endpoint. </param>
@@ -41,7 +31,7 @@ internal static class DaemonSessionContractMapper
         DaemonSessionJsonContract contract,
         ProjectFingerprint expectedProjectFingerprint,
         string sourceDescription,
-        DaemonSessionEndpointBindingFactory endpointBindingFactory,
+        Func<IpcTransportKind, string, DaemonSessionEndpointBinding> endpointBindingFactory,
         [NotNullWhen(true)] out DaemonSession? session,
         [NotNullWhen(false)] out ExecutionError? error)
     {

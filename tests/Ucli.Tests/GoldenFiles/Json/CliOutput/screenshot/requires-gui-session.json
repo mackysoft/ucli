@@ -9,7 +9,7 @@
     {
       "code": "SCREENSHOT_REQUIRES_GUI_SESSION",
       "message": "Screenshot capture requires a registered GUI Editor session.",
-      "opId": null
+      "instancePath": null
     }
   ]
 }

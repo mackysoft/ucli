@@ -17,7 +17,6 @@ internal static class QueryCommandTestData
             RequestGuid,
             [
                 new OperationExecutionOperationResult(
-                    OpId: new IpcExecuteStepId("assets.find"),
                     Op: UcliPrimitiveOperationNames.AssetsFind,
                     Phase: IpcExecuteOperationPhase.Plan,
                     Applied: false,
@@ -49,7 +48,7 @@ internal static class QueryCommandTestData
             [
                 ApplicationFailure.InternalError(
                     "Unity execution failed.",
-                    opId: new IpcExecuteStepId("assets.find")),
+                    instancePath: "/steps/0"),
             ],
             "Unity execution failed.",
             new ReadIndexInfo(

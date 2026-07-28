@@ -93,13 +93,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return OperationPhaseStepResult.Success(
                     applied: false,
                     changed: false,
-                    result: IpcPayloadCodec.SerializeToElement(schemaEntry));
+                    result: SerializeResultToElement(schemaEntry));
             }
 
             return OperationPhaseStepResult.Success(
                 applied: false,
                 changed: false,
-                result: IpcPayloadCodec.SerializeToElement(validationState.TargetSchemaEntry));
+                result: SerializeResultToElement(validationState.TargetSchemaEntry));
         }
 
         private bool TryValidate (
@@ -113,9 +113,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             validationState = default;
             failure = null;
 
-            if (args.Target == null)
+            if (args is AssetSchemaByTypeArgs typeArgs)
             {
-                if (!AssetTypeResolver.TryResolveCreateAssetType(args.Type!.Value, out var assetType, out var typeErrorMessage))
+                if (!AssetTypeResolver.TryResolveCreateAssetType(typeArgs.Type.Value, out var assetType, out var typeErrorMessage))
                 {
                     failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, typeErrorMessage);
                     return false;
@@ -125,8 +125,16 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return true;
             }
 
+            if (!(args is AssetSchemaByTargetArgs targetArgs))
+            {
+                failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(
+                    operation.Id,
+                    $"Unsupported asset schema selection type: {args.GetType().FullName}.");
+                return false;
+            }
+
             if (!UnityObjectReferenceContractMapper.TryMap(
-                    args.Target,
+                    targetArgs.Target,
                     "args.target",
                     operation.AliasReferences,
                     out var targetReference,

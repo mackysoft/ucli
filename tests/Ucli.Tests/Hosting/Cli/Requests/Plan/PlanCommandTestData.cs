@@ -54,7 +54,7 @@ internal static class PlanCommandTestData
                 ApplicationFailure.FromCode(
                     ExecuteRequestErrorCodes.OperationContractViolation,
                     ContractViolationMessage,
-                    new IpcExecuteStepId("step-1")),
+                    "/opResults/0"),
             ],
             new PlanExecutionOutput(
                 requestId: RequestGuid,
@@ -84,7 +84,7 @@ internal static class PlanCommandTestData
                 ApplicationFailure.InvalidInput(
                     "Operation args are invalid.",
                     ValidationErrorCodes.OperationArgsInvalid,
-                    new IpcExecuteStepId("step-1")),
+                    "/steps/0"),
             ],
             new PlanExecutionOutput(
                 requestId: RequestGuid,
@@ -129,7 +129,6 @@ internal static class PlanCommandTestData
     private static OperationExecutionOperationResult CreateSuccessOperationResult ()
     {
         return new OperationExecutionOperationResult(
-            OpId: new IpcExecuteStepId("step-1"),
             Op: UcliPrimitiveOperationNames.GoDescribe,
             Phase: IpcExecuteOperationPhase.Plan,
             Applied: false,
@@ -140,7 +139,6 @@ internal static class PlanCommandTestData
     private static OperationExecutionOperationResult CreateViolationOperationResult ()
     {
         return new OperationExecutionOperationResult(
-            OpId: new IpcExecuteStepId("step-1"),
             Op: UcliPrimitiveOperationNames.ProjectRefresh,
             Phase: IpcExecuteOperationPhase.Plan,
             Applied: false,
@@ -157,7 +155,7 @@ internal static class PlanCommandTestData
     private static OperationExecutionContractViolation CreateContractViolation ()
     {
         return new OperationExecutionContractViolation(
-            OpId: new IpcExecuteStepId("step-1"),
+            InstancePath: "/opResults/0",
             Operation: UcliPrimitiveOperationNames.ProjectRefresh,
             ExpectedFact: "assurance.mayDirty=false",
             ObservedResult: "opResults[].changed=true",

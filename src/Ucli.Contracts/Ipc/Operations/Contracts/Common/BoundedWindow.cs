@@ -1,9 +1,10 @@
 using System.Text.Json.Serialization;
-using MackySoft.Ucli.Contracts.Operations;
+
+using MackySoft.JsonSchema.Generation.Annotations;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
-[UcliDescription("Bounded result window metadata.")]
+[Description("Bounded result window metadata.")]
 public sealed record BoundedWindow
 {
     /// <summary> Initializes internally consistent bounded result metadata. </summary>
@@ -117,25 +118,28 @@ public sealed record BoundedWindow
         }
     }
 
-    [UcliRequired]
-    [UcliDescription("Maximum number of items requested for this response window, or null when unbounded.")]
-    public int? Limit { get; }
+    [JsonInclude]
+    [JsonRequired]
+    [Description("Maximum number of items requested for this response window, or null when unbounded.")]
+    public int? Limit { get; private init; }
 
-    [UcliRequired]
-    [UcliJsonAllowNull]
-    [UcliDescription("Opaque cursor used to start this response window, or null for the first window.")]
-    public string? Cursor { get; }
+    [JsonInclude]
+    [JsonRequired]
+    [Description("Opaque cursor used to start this response window, or null for the first window.")]
+    public string? Cursor { get; private init; }
 
-    [UcliRequired]
-    [UcliJsonAllowNull]
-    [UcliDescription("Opaque cursor for the next response window, or null when the result is complete.")]
-    public string? NextCursor { get; }
+    [JsonInclude]
+    [JsonRequired]
+    [Description("Opaque cursor for the next response window, or null when the result is complete.")]
+    public string? NextCursor { get; private init; }
 
-    [UcliRequired]
-    [UcliDescription("Whether this response window reached the end of the result set.")]
-    public bool IsComplete { get; }
+    [JsonInclude]
+    [JsonRequired]
+    [Description("Whether this response window reached the end of the result set.")]
+    public bool IsComplete { get; private init; }
 
-    [UcliRequired]
-    [UcliDescription("Total number of items in the result set when known.")]
-    public int? TotalCount { get; }
+    [JsonInclude]
+    [JsonRequired]
+    [Description("Total number of items in the result set when known.")]
+    public int? TotalCount { get; private init; }
 }

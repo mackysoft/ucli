@@ -1,5 +1,4 @@
 using MackySoft.Ucli.Application.Features.Status.Common.Contracts;
-using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 
@@ -17,27 +16,10 @@ internal static class StatusCommandResultFactory
 
         if (executionResult.IsSuccess)
         {
-            var output = executionResult.Output!;
             return CommandResult.Success(
                 command: UcliCommandNames.Status,
                 message: "uCLI status retrieval completed.",
-                payload: new
-                {
-                    daemonStatus = TextVocabulary.GetText(output.DaemonStatus),
-                    unityVersion = output.UnityVersion,
-                    serverVersion = output.ServerVersion,
-                    lifecycleState = output.LifecycleState,
-                    blockingReason = output.BlockingReason,
-                    compileState = output.CompileState,
-                    generations = output.Generations,
-                    canAcceptExecutionRequests = output.CanAcceptExecutionRequests,
-                    editorMode = output.EditorMode,
-                    observedAtUtc = output.ObservedAtUtc,
-                    actionRequired = output.ActionRequired,
-                    primaryDiagnostic = output.PrimaryDiagnostic,
-                    playMode = output.PlayMode,
-                    timeoutMilliseconds = output.TimeoutMilliseconds,
-                });
+                payload: executionResult.Output!);
         }
 
         return CommandResultFactory.FromExecutionError(UcliCommandNames.Status, executionResult.Error!);

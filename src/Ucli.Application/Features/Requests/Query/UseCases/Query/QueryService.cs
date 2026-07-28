@@ -301,7 +301,6 @@ internal sealed class QueryService : IQueryService
         JsonElement result)
     {
         return OperationExecutionModelMapper.CreatePlanResult(
-            opId: operation.OperationId,
             op: operation.OperationName,
             applied: false,
             changed: false,

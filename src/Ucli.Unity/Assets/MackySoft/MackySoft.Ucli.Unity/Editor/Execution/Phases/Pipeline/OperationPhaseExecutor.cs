@@ -239,9 +239,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             for (var i = 0; i < sourceSteps.Count; i++)
             {
                 var sourceStep = sourceSteps[i];
-                var kind = sourceStep.Kind!.Value;
+                var kind = sourceStep.Kind;
                 steps[i] = new NormalizedRequestStep(
-                    Id: sourceStep.Id!,
+                    Id: sourceStep.Id,
                     Kind: kind,
                     OperationName: kind == IpcExecuteStepKind.Edit
                         ? "edit"

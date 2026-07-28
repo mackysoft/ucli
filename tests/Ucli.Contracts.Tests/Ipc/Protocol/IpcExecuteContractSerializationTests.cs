@@ -134,7 +134,6 @@ public sealed class IpcExecuteContractSerializationTests
         var exception = Assert.Throws<ArgumentException>(() => new IpcExecuteResponse(
             [
                 new IpcExecuteOperationResult(
-                    OpId: new IpcExecuteStepId("edit-1"),
                     Op: IpcExecutePostReadSourceRules.EditOperationName,
                     Phase: IpcExecuteOperationPhase.Call,
                     Applied: true,
@@ -174,7 +173,6 @@ public sealed class IpcExecuteContractSerializationTests
         var exception = Assert.Throws<ArgumentException>(() => new IpcExecuteResponse(
             [
                 new IpcExecuteOperationResult(
-                    OpId: new IpcExecuteStepId("step-1"),
                     Op: UcliPrimitiveOperationNames.ProjectRefresh,
                     Phase: IpcExecuteOperationPhase.Call,
                     Applied: true,
@@ -188,7 +186,7 @@ public sealed class IpcExecuteContractSerializationTests
             contractViolations:
             [
                 new IpcExecuteContractViolation(
-                    OpId: new IpcExecuteStepId("another-step"),
+                    InstancePath: "/opResults/1",
                     Operation: UcliPrimitiveOperationNames.ProjectRefresh,
                     ExpectedFact: "assurance.mayDirty=false",
                     ObservedResult: "opResults[].changed=true",
@@ -196,38 +194,6 @@ public sealed class IpcExecuteContractSerializationTests
             ]));
 
         Assert.Equal("contractViolations", exception.ParamName);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void RequiredProjectIdentity_PublicSurface_CannotBypassConstructorValidation ()
-    {
-        var projectIdentityConstructor = Assert.Single(typeof(IpcProjectIdentity).GetConstructors());
-        Assert.Collection(
-            projectIdentityConstructor.GetParameters(),
-            parameter => Assert.Equal(typeof(string), parameter.ParameterType),
-            parameter => Assert.Equal(typeof(ProjectFingerprint), parameter.ParameterType),
-            parameter => Assert.Equal(typeof(string), parameter.ParameterType));
-        Assert.Empty(typeof(IpcProjectIdentity).GetMember("Unknown"));
-        Assert.Null(typeof(IpcProjectIdentity).GetProperty(nameof(IpcProjectIdentity.ProjectPath))!.SetMethod);
-        Assert.Null(typeof(IpcProjectIdentity).GetProperty(nameof(IpcProjectIdentity.ProjectFingerprint))!.SetMethod);
-        Assert.Null(typeof(IpcProjectIdentity).GetProperty(nameof(IpcProjectIdentity.UnityVersion))!.SetMethod);
-
-        var executeResponseConstructor = Assert.Single(typeof(IpcExecuteResponse).GetConstructors());
-        Assert.Collection(
-            executeResponseConstructor.GetParameters(),
-            parameter => Assert.Equal(typeof(IReadOnlyList<IpcExecuteOperationResult>), parameter.ParameterType),
-            parameter => Assert.Equal(typeof(IpcProjectIdentity), parameter.ParameterType),
-            parameter => Assert.Equal(typeof(string), parameter.ParameterType),
-            parameter => Assert.Equal(typeof(IpcExecuteReadPostcondition), parameter.ParameterType),
-            parameter => Assert.Equal(typeof(IpcExecutePostReadSource), parameter.ParameterType),
-            parameter => Assert.Equal(typeof(IReadOnlyList<IpcExecuteContractViolation>), parameter.ParameterType));
-        Assert.Null(typeof(IpcExecuteResponse).GetProperty(nameof(IpcExecuteResponse.OpResults))!.SetMethod);
-        Assert.Null(typeof(IpcExecuteResponse).GetProperty(nameof(IpcExecuteResponse.Project))!.SetMethod);
-        Assert.Null(typeof(IpcExecuteResponse).GetProperty(nameof(IpcExecuteResponse.PlanToken))!.SetMethod);
-        Assert.Null(typeof(IpcExecuteResponse).GetProperty(nameof(IpcExecuteResponse.ReadPostcondition))!.SetMethod);
-        Assert.Null(typeof(IpcExecuteResponse).GetProperty(nameof(IpcExecuteResponse.PostReadSource))!.SetMethod);
-        Assert.Null(typeof(IpcExecuteResponse).GetProperty(nameof(IpcExecuteResponse.ContractViolations))!.SetMethod);
     }
 
     [Fact]
@@ -283,7 +249,6 @@ public sealed class IpcExecuteContractSerializationTests
             opResults:
             [
                 new IpcExecuteOperationResult(
-                    OpId: new IpcExecuteStepId("op-1"),
                     Op: UcliPrimitiveOperationNames.Resolve,
                     Phase: IpcExecuteOperationPhase.Call,
                     Applied: true,
@@ -311,7 +276,6 @@ public sealed class IpcExecuteContractSerializationTests
                 .HasString("unityVersion", "6000.1.4f1"))
             .HasString("planToken", "issued-token")
             .HasProperty("opResults", 0, opResult => opResult
-                .HasString("opId", "op-1")
                 .HasString("op", UcliPrimitiveOperationNames.Resolve)
                 .HasString("phase", TextVocabulary.GetText(IpcExecuteOperationPhase.Call))
                 .HasBoolean("applied", true)
@@ -376,7 +340,6 @@ public sealed class IpcExecuteContractSerializationTests
         var response = new IpcExecuteResponse(
             [
                 new IpcExecuteOperationResult(
-                    OpId: new IpcExecuteStepId("step-1"),
                     Op: UcliPrimitiveOperationNames.ProjectRefresh,
                     Phase: IpcExecuteOperationPhase.Call,
                     Applied: true,
@@ -390,7 +353,7 @@ public sealed class IpcExecuteContractSerializationTests
             contractViolations:
             [
                 new IpcExecuteContractViolation(
-                    OpId: new IpcExecuteStepId("step-1"),
+                    InstancePath: "/opResults/0",
                     Operation: UcliPrimitiveOperationNames.ProjectRefresh,
                     ExpectedFact: "assurance.mayDirty=false",
                     ObservedResult: "opResults[].changed=true",
@@ -401,7 +364,7 @@ public sealed class IpcExecuteContractSerializationTests
         JsonAssert.For(jsonElement)
             .HasArrayLength("contractViolations", 1)
             .HasProperty("contractViolations", 0, violation => violation
-                .HasString("opId", "step-1")
+                .HasString("instancePath", "/opResults/0")
                 .HasString("operation", UcliPrimitiveOperationNames.ProjectRefresh)
                 .HasString("expectedFact", "assurance.mayDirty=false")
                 .HasString("observedResult", "opResults[].changed=true")
@@ -413,7 +376,7 @@ public sealed class IpcExecuteContractSerializationTests
 
         Assert.NotNull(roundTrip);
         var violationResult = Assert.Single(roundTrip.ContractViolations!);
-        Assert.Equal("step-1", violationResult.OpId.Value);
+        Assert.Equal("/opResults/0", violationResult.InstancePath);
         Assert.Equal(UcliPrimitiveOperationNames.ProjectRefresh, violationResult.Operation);
         Assert.Equal("assurance.mayDirty=false", violationResult.ExpectedFact);
         Assert.Equal("opResults[].changed=true", violationResult.ObservedResult);
@@ -449,7 +412,6 @@ public sealed class IpcExecuteContractSerializationTests
         var payload = IpcPayloadCodec.SerializeToElement(
             new IpcResolveOperationResult(new UnityGlobalObjectId(GlobalObjectIdText)));
         var opResult = IpcExecuteOperationResultFactory.CreatePlanResult(
-            opId: new IpcExecuteStepId("resolve"),
             op: UcliPrimitiveOperationNames.Resolve,
             applied: false,
             changed: false,
@@ -467,7 +429,6 @@ public sealed class IpcExecuteContractSerializationTests
         var json = IpcPayloadCodec.SerializeToElement(opResult);
 
         JsonAssert.For(json)
-            .HasString("opId", "resolve")
             .HasString("op", UcliPrimitiveOperationNames.Resolve)
             .HasString("phase", TextVocabulary.GetText(IpcExecuteOperationPhase.Plan))
             .HasBoolean("applied", false)
@@ -481,21 +442,6 @@ public sealed class IpcExecuteContractSerializationTests
                 .HasString("message", "Scene query skipped GameObjects whose names contain '/'."))
             .HasProperty("result", result => result
                 .HasString("globalObjectId", GlobalObjectIdText));
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void IpcExecuteOperationResult_Constructor_WithNullOperationId_ThrowsArgumentNullException ()
-    {
-        var exception = Assert.Throws<ArgumentNullException>(() => new IpcExecuteOperationResult(
-            OpId: null!,
-            Op: UcliPrimitiveOperationNames.Resolve,
-            Phase: IpcExecuteOperationPhase.Call,
-            Applied: false,
-            Changed: false,
-            Touched: []));
-
-        Assert.Equal("OpId", exception.ParamName);
     }
 
     [Fact]
@@ -514,7 +460,6 @@ public sealed class IpcExecuteContractSerializationTests
         var touched = new[] { touchedResource };
         var diagnostics = new[] { diagnostic };
         var result = new IpcExecuteOperationResult(
-            new IpcExecuteStepId("resolve"),
             UcliPrimitiveOperationNames.Resolve,
             IpcExecuteOperationPhase.Call,
             Applied: false,
@@ -553,21 +498,6 @@ public sealed class IpcExecuteContractSerializationTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void IpcExecutePostReadSourceStep_Constructor_WithNullOperationId_ThrowsArgumentNullException ()
-    {
-        var exception = Assert.Throws<ArgumentNullException>(() => new IpcExecutePostReadSourceStep(
-            OpId: null!,
-            SourceKind: IpcExecutePostReadSourceKind.Operation,
-            PlayModeMutation: false,
-            Commit: null,
-            PersistenceExpected: false,
-            ExpectedPostState: IpcExecuteExpectedPostState.Unavailable));
-
-        Assert.Equal("OpId", exception.ParamName);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
     public void IpcExecuteReadPostconditionRequirement_Constructor_WithDefaultTimestamp_ThrowsArgumentException ()
     {
         var exception = Assert.Throws<ArgumentException>(() => new IpcExecuteReadPostconditionRequirement(
@@ -595,19 +525,6 @@ public sealed class IpcExecuteContractSerializationTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void IpcExecuteReadPostconditionRequirement_PublicSurface_RequiresConstructorValidatedScenePath ()
-    {
-        var constructor = Assert.Single(typeof(IpcExecuteReadPostconditionRequirement).GetConstructors());
-        Assert.Collection(
-            constructor.GetParameters(),
-            parameter => Assert.Equal(typeof(IpcExecuteReadPostconditionSurface), parameter.ParameterType),
-            parameter => Assert.Equal(typeof(DateTimeOffset), parameter.ParameterType),
-            parameter => Assert.Equal(typeof(UnityScenePath), parameter.ParameterType));
-        Assert.Null(typeof(IpcExecuteReadPostconditionRequirement).GetProperty(nameof(IpcExecuteReadPostconditionRequirement.ScenePath))!.SetMethod);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
     public void IpcResolveOperationResult_SerializesWithCamelCaseContractFields ()
     {
         var payload = new IpcResolveOperationResult(new UnityGlobalObjectId(GlobalObjectIdText));
@@ -620,29 +537,11 @@ public sealed class IpcExecuteContractSerializationTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void IpcResolveSelectorArgsSchema_UsesCanonicalResolveSelectorPropertyNames ()
-    {
-        using var jsonDocument = JsonDocument.Parse(IpcResolveSelectorArgsSchema.Json);
-
-        var properties = jsonDocument.RootElement.GetProperty("properties");
-        Assert.True(properties.TryGetProperty(IpcResolveSelectorPropertyNames.GlobalObjectId, out _));
-        Assert.True(properties.TryGetProperty(IpcResolveSelectorPropertyNames.AssetGuid, out _));
-        Assert.True(properties.TryGetProperty(IpcResolveSelectorPropertyNames.AssetPath, out _));
-        Assert.True(properties.TryGetProperty(IpcResolveSelectorPropertyNames.ProjectAssetPath, out _));
-        Assert.True(properties.TryGetProperty(IpcResolveSelectorPropertyNames.Scene, out _));
-        Assert.True(properties.TryGetProperty(IpcResolveSelectorPropertyNames.Prefab, out _));
-        Assert.True(properties.TryGetProperty(IpcResolveSelectorPropertyNames.HierarchyPath, out _));
-        Assert.True(properties.TryGetProperty(IpcResolveSelectorPropertyNames.ComponentType, out _));
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
     public void IpcExecuteResponse_SerializesReadPostconditionContract ()
     {
         var response = new IpcExecuteResponse(
             [
                 new IpcExecuteOperationResult(
-                    OpId: new IpcExecuteStepId("query-1"),
                     Op: UcliPrimitiveOperationNames.SceneQuery,
                     Phase: IpcExecuteOperationPhase.Call,
                     Applied: true,
@@ -695,14 +594,12 @@ public sealed class IpcExecuteContractSerializationTests
         var response = new IpcExecuteResponse(
             [
                 new IpcExecuteOperationResult(
-                    OpId: new IpcExecuteStepId("edit-1"),
                     Op: IpcExecutePostReadSourceRules.EditOperationName,
                     Phase: IpcExecuteOperationPhase.Call,
                     Applied: true,
                     Changed: true,
                     Touched: []),
                 new IpcExecuteOperationResult(
-                    OpId: new IpcExecuteStepId("op-1"),
                     Op: UcliPrimitiveOperationNames.SceneOpen,
                     Phase: IpcExecuteOperationPhase.Call,
                     Applied: true,
@@ -716,14 +613,12 @@ public sealed class IpcExecuteContractSerializationTests
                 IpcExecutePostReadSource.CurrentSchemaVersion,
                 [
                     new IpcExecutePostReadSourceStep(
-                        OpId: new IpcExecuteStepId("edit-1"),
                         SourceKind: IpcExecutePostReadSourceKind.Edit,
                         PlayModeMutation: false,
                         Commit: IpcExecutePostReadCommit.Context,
                         PersistenceExpected: true,
                         ExpectedPostState: IpcExecuteExpectedPostState.Deterministic),
                     new IpcExecutePostReadSourceStep(
-                        OpId: new IpcExecuteStepId("op-1"),
                         SourceKind: IpcExecutePostReadSourceKind.Operation,
                         PlayModeMutation: false,
                         Commit: null,
@@ -738,14 +633,12 @@ public sealed class IpcExecuteContractSerializationTests
                 .HasInt32("schemaVersion", 1)
                 .HasArrayLength("steps", 2)
                 .HasProperty("steps", 0, step => step
-                    .HasString("opId", "edit-1")
                     .HasString("sourceKind", TextVocabulary.GetText(IpcExecutePostReadSourceKind.Edit))
                     .HasBoolean("playModeMutation", false)
                     .HasString("commit", TextVocabulary.GetText(IpcExecutePostReadCommit.Context))
                     .HasBoolean("persistenceExpected", true)
                     .HasString("expectedPostState", TextVocabulary.GetText(IpcExecuteExpectedPostState.Deterministic)))
                 .HasProperty("steps", 1, step => step
-                    .HasString("opId", "op-1")
                     .HasString("sourceKind", TextVocabulary.GetText(IpcExecutePostReadSourceKind.Operation))
                     .IsNull("commit")
                     .HasBoolean("persistenceExpected", false)
@@ -759,7 +652,6 @@ public sealed class IpcExecuteContractSerializationTests
         var response = new IpcExecuteResponse(
             [
                 new IpcExecuteOperationResult(
-                    OpId: new IpcExecuteStepId("query-1"),
                     Op: UcliPrimitiveOperationNames.SceneQuery,
                     Phase: IpcExecuteOperationPhase.Call,
                     Applied: true,
@@ -773,7 +665,7 @@ public sealed class IpcExecuteContractSerializationTests
             contractViolations:
             [
                 new IpcExecuteContractViolation(
-                    OpId: new IpcExecuteStepId("query-1"),
+                    InstancePath: "/opResults/0",
                     Operation: UcliPrimitiveOperationNames.SceneQuery,
                     ExpectedFact: "operation.kind=query",
                     ObservedResult: "opResults[].applied=true",
@@ -784,7 +676,7 @@ public sealed class IpcExecuteContractSerializationTests
         JsonAssert.For(json)
             .HasArrayLength("contractViolations", 1)
             .HasProperty("contractViolations", 0, violation => violation
-                .HasString("opId", "query-1")
+                .HasString("instancePath", "/opResults/0")
                 .HasString("operation", UcliPrimitiveOperationNames.SceneQuery)
                 .HasString("expectedFact", "operation.kind=query")
                 .HasString("observedResult", "opResults[].applied=true")

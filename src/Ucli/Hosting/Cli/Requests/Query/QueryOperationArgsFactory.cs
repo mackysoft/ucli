@@ -26,17 +26,15 @@ internal static class QueryOperationArgsFactory
     /// <summary> Creates <c>ucli.asset.schema</c> args for a type selector. </summary>
     public static JsonElement CreateAssetSchemaType (string typeId)
     {
-        return IpcPayloadCodec.SerializeToElement(new AssetSchemaArgs(
-            type: new UnityTypeId(typeId),
-            target: null));
+        return IpcPayloadCodec.SerializeToElement<AssetSchemaArgs>(
+            new AssetSchemaByTypeArgs(new UnityTypeId(typeId)));
     }
 
     /// <summary> Creates <c>ucli.asset.schema</c> args for a target selector. </summary>
     public static JsonElement CreateAssetSchemaTarget (AssetReferenceArgs target)
     {
         ArgumentNullException.ThrowIfNull(target);
-        return IpcPayloadCodec.SerializeToElement(new AssetSchemaArgs(
-            type: null,
-            target));
+        return IpcPayloadCodec.SerializeToElement<AssetSchemaArgs>(
+            new AssetSchemaByTargetArgs(target));
     }
 }

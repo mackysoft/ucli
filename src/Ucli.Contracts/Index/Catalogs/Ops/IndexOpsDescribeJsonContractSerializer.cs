@@ -69,21 +69,7 @@ internal static class IndexOpsDescribeJsonContractSerializer
             return null;
         }
 
-        return new IndexOpEntryJsonContract(
-            Name: operation.Name,
-            Kind: operation.Kind,
-            Policy: operation.Policy,
-            ArgsSchemaJson: ReadSchemaJsonOrNull(operationElement, "argsSchema"),
-            ResultSchemaJson: ReadSchemaJsonOrNull(operationElement, "resultSchema"),
-            Exposure: operation.Exposure,
-            PlayModeSupport: operation.PlayModeSupport)
-        {
-            Description = operation.Description,
-            Inputs = operation.Inputs,
-            ResultContract = operation.ResultContract,
-            Assurance = operation.Assurance,
-            CodeContract = operation.CodeContract,
-        };
+        return operation;
     }
 
     private static string? ReadNullableString (
@@ -102,19 +88,6 @@ internal static class IndexOpsDescribeJsonContractSerializer
         }
 
         return property.GetString();
-    }
-
-    private static string? ReadSchemaJsonOrNull (
-        JsonElement element,
-        string propertyName)
-    {
-        if (!element.TryGetProperty(propertyName, out var property)
-            || property.ValueKind == JsonValueKind.Null)
-        {
-            return null;
-        }
-
-        return JsonSerializer.Serialize(property);
     }
 
     private static JsonElement ReadRequiredProperty (

@@ -5,6 +5,7 @@
   "exitCode": 3,
   "message": "Mode must be auto, daemon, or oneshot.",
   "payload": {
+    "payloadKind": "detailed",
     "requestId": "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
     "project": {
       "projectPath": "<projectPath>",
@@ -17,7 +18,7 @@
     {
       "code": "INVALID_ARGUMENT",
       "message": "Mode must be auto, daemon, or oneshot.",
-      "opId": null
+      "instancePath": null
     }
   ]
 }

@@ -233,13 +233,11 @@ namespace MackySoft.Ucli.Unity.Tests
             var steps = response.Payload.GetProperty("postReadSource").GetProperty("steps");
             Assert.That(steps.GetArrayLength(), Is.EqualTo(2));
             var rawSource = GetArrayElement(steps, 0);
-            Assert.That(rawSource.GetProperty("opId").GetString(), Is.EqualTo("raw-1"));
             Assert.That(rawSource.GetProperty("sourceKind").GetString(), Is.EqualTo(TextVocabulary.GetText(IpcExecutePostReadSourceKind.Operation)));
             Assert.That(rawSource.GetProperty("commit").ValueKind, Is.EqualTo(JsonValueKind.Null));
             Assert.That(rawSource.GetProperty("persistenceExpected").GetBoolean(), Is.False);
             Assert.That(rawSource.GetProperty("expectedPostState").GetString(), Is.EqualTo(TextVocabulary.GetText(IpcExecuteExpectedPostState.Unavailable)));
             var refreshSource = GetArrayElement(steps, 1);
-            Assert.That(refreshSource.GetProperty("opId").GetString(), Is.EqualTo("refresh"));
             Assert.That(refreshSource.GetProperty("sourceKind").GetString(), Is.EqualTo(TextVocabulary.GetText(IpcExecutePostReadSourceKind.Refresh)));
             Assert.That(refreshSource.GetProperty("commit").ValueKind, Is.EqualTo(JsonValueKind.Null));
             Assert.That(refreshSource.GetProperty("persistenceExpected").GetBoolean(), Is.True);
@@ -284,7 +282,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var opResult = GetSingleArrayElement(response.Payload.GetProperty("opResults"));
             Assert.That(opResult.GetProperty("changed").GetBoolean(), Is.True);
             var violation = GetSingleArrayElement(response.Payload.GetProperty("contractViolations"));
-            Assert.That(violation.GetProperty("opId").GetString(), Is.EqualTo("step-1"));
+            Assert.That(violation.GetProperty("instancePath").GetString(), Is.EqualTo("/opResults/0"));
             Assert.That(violation.GetProperty("operation").GetString(), Is.EqualTo(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.ProjectRefresh));
             Assert.That(violation.GetProperty("expectedFact").GetString(), Is.EqualTo("assurance.mayDirty=false"));
             Assert.That(violation.GetProperty("observedResult").GetString(), Is.EqualTo("opResults[].changed=true"));
@@ -750,14 +748,15 @@ namespace MackySoft.Ucli.Unity.Tests
                         new
                         {
                             kind = "edit",
-                            id = "deleteGoodRootDirectly",
                             on = new
                             {
-                                scene = scenePath,
+                                kind = "scene",
+                                path = scenePath,
                             },
                             select = new
                             {
-                                gameObject = "GoodRoot",
+                                kind = "gameObject",
+                                path = "GoodRoot",
                                 cardinality = "one",
                             },
                             actions = new object[]
@@ -772,20 +771,18 @@ namespace MackySoft.Ucli.Unity.Tests
                         new
                         {
                             kind = "edit",
-                            id = "deleteMissingFirst",
                             on = new
                             {
-                                scene = scenePath,
+                                kind = "scene",
+                                path = scenePath,
                             },
                             select = new
                             {
-                                from = new
+                                kind = "from",
+                                op = UcliPrimitiveOperationNames.SceneQuery,
+                                args = new
                                 {
-                                    op = UcliPrimitiveOperationNames.SceneQuery,
-                                    args = new
-                                    {
-                                        pathPrefix = "Missing",
-                                    },
+                                    pathPrefix = "Missing",
                                 },
                                 cardinality = "first",
                             },
@@ -806,14 +803,12 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(response.Status, Is.EqualTo(IpcResponseStatus.Error));
             Assert.That(response.Errors.Count, Is.EqualTo(1));
             Assert.That(response.Errors[0].Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
-            Assert.That(response.Errors[0].OpId?.Value, Is.EqualTo("deleteMissingFirst"));
+            Assert.That(response.Errors[0].InstancePath, Is.EqualTo("/steps/1"));
             var opResults = response.Payload.GetProperty("opResults");
             Assert.That(opResults.GetArrayLength(), Is.EqualTo(2));
             var cleanResult = opResults[0];
-            Assert.That(cleanResult.GetProperty("opId").GetString(), Is.EqualTo("deleteGoodRootDirectly"));
             Assert.That(cleanResult.GetProperty("diagnostics").GetArrayLength(), Is.EqualTo(0));
             var failedResult = opResults[1];
-            Assert.That(failedResult.GetProperty("opId").GetString(), Is.EqualTo("deleteMissingFirst"));
             Assert.That(failedResult.GetProperty("op").GetString(), Is.EqualTo("edit"));
             var diagnostic = GetSingleArrayElement(failedResult.GetProperty("diagnostics"));
             Assert.That(diagnostic.GetProperty("code").GetString(), Is.EqualTo(ExecuteRequestErrorCodes.HierarchyPathUnrepresentableObjects.Value));
@@ -1134,7 +1129,7 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator Dispatch_WhenNormalizationFails_ReturnsNormalizationError () => UniTask.ToCoroutine(async () =>
         {
             var normalizer = new StubExecuteRequestNormalizer(ExecuteRequestNormalizationResult.Failure(
-                new ExecuteRequestNormalizationError(UcliCoreErrorCodes.InvalidArgument, "invalid request", new IpcExecuteStepId("op-1"))));
+                new ExecuteRequestNormalizationError(UcliCoreErrorCodes.InvalidArgument, "invalid request", "/steps/0")));
             var phaseExecutor = new SpyOperationPhaseExecutor(CreateSuccessTrace(CreateNormalizedRequest()));
             var dispatcher = CreateDispatcher(normalizer, phaseExecutor);
             var context = new ExecuteDispatchContext(Guid.NewGuid(), ProjectIdentity);
@@ -1145,7 +1140,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(response.Status, Is.EqualTo(IpcResponseStatus.Error));
             Assert.That(response.Errors.Count, Is.EqualTo(1));
             Assert.That(response.Errors[0].Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
-            Assert.That(response.Errors[0].OpId?.Value, Is.EqualTo("op-1"));
+            Assert.That(response.Errors[0].InstancePath, Is.EqualTo("/steps/0"));
             AssertEmptyOpResultsPayload(response.Payload);
             Assert.That(phaseExecutor.CallCount, Is.EqualTo(0));
         });
@@ -1203,7 +1198,7 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator Dispatch_WhenNormalizationFails_DoesNotWaitForReadiness () => UniTask.ToCoroutine(async () =>
         {
             var normalizer = new SpyExecuteRequestNormalizer(ExecuteRequestNormalizationResult.Failure(
-                new ExecuteRequestNormalizationError(UcliCoreErrorCodes.InvalidArgument, "invalid request", new IpcExecuteStepId("op-1"))));
+                new ExecuteRequestNormalizationError(UcliCoreErrorCodes.InvalidArgument, "invalid request", "/steps/0")));
             var phaseExecutor = new SpyOperationPhaseExecutor(CreateSuccessTrace(CreateNormalizedRequest()));
             var readinessGate = StubUnityEditorReadinessGate.CreatePending();
             var dispatcher = CreateDispatcher(normalizer, phaseExecutor, readinessGate);
@@ -1295,7 +1290,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(response.Status, Is.EqualTo(IpcResponseStatus.Error));
             Assert.That(response.Errors.Count, Is.EqualTo(1));
             Assert.That(response.Errors[0].Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
-            Assert.That(response.Errors[0].OpId?.Value, Is.EqualTo("op-1"));
+            Assert.That(response.Errors[0].InstancePath, Is.EqualTo("/steps/0"));
             Assert.That(response.Payload.TryGetProperty("opResults", out var opResults), Is.True);
             Assert.That(opResults.GetArrayLength(), Is.EqualTo(2));
             Assert.That(response.Payload.TryGetProperty("operationTraces", out _), Is.False);
@@ -1343,7 +1338,6 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(response.Status, Is.EqualTo(IpcResponseStatus.Error));
             var opResult = GetSingleArrayElement(response.Payload.GetProperty("opResults"));
-            Assert.That(opResult.GetProperty("opId").GetString(), Is.EqualTo("edit-1"));
             Assert.That(opResult.GetProperty("op").GetString(), Is.EqualTo("edit"));
             Assert.That(opResult.GetProperty("phase").GetString(), Is.EqualTo(TextVocabulary.GetText(IpcExecuteOperationPhase.Call)));
         });
@@ -1365,14 +1359,12 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(response.Status, Is.EqualTo(IpcResponseStatus.Ok));
             var opResult = GetSingleArrayElement(response.Payload.GetProperty("opResults"));
-            Assert.That(opResult.GetProperty("opId").GetString(), Is.EqualTo("edit-1"));
             Assert.That(opResult.GetProperty("op").GetString(), Is.EqualTo("edit"));
             Assert.That(opResult.GetProperty("phase").GetString(), Is.EqualTo(TextVocabulary.GetText(IpcExecuteOperationPhase.Plan)));
             Assert.That(opResult.GetProperty("applied").GetBoolean(), Is.False);
             Assert.That(opResult.GetProperty("changed").GetBoolean(), Is.False);
             Assert.That(opResult.GetProperty("touched").GetArrayLength(), Is.EqualTo(0));
             var sourceStep = GetSingleArrayElement(response.Payload.GetProperty("postReadSource").GetProperty("steps"));
-            Assert.That(sourceStep.GetProperty("opId").GetString(), Is.EqualTo("edit-1"));
             Assert.That(sourceStep.GetProperty("sourceKind").GetString(), Is.EqualTo(TextVocabulary.GetText(IpcExecutePostReadSourceKind.Edit)));
             Assert.That(sourceStep.GetProperty("commit").GetString(), Is.EqualTo(TextVocabulary.GetText(IpcExecutePostReadCommit.None)));
             Assert.That(sourceStep.GetProperty("persistenceExpected").GetBoolean(), Is.False);
@@ -1480,7 +1472,6 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(response.Payload.TryGetProperty("operationTraces", out _), Is.False);
 
             var opResult = GetSingleArrayElement(opResults);
-            Assert.That(opResult.GetProperty("opId").GetString(), Is.EqualTo("op-1"));
             Assert.That(opResult.GetProperty("op").GetString(), Is.EqualTo(operationName));
             Assert.That(opResult.GetProperty("phase").GetString(), Is.EqualTo(TextVocabulary.GetText(IpcExecuteOperationPhase.Plan)));
             Assert.That(opResult.GetProperty("applied").GetBoolean(), Is.False);
@@ -1689,7 +1680,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 steps[i] = new
                 {
                     kind = "op",
-                    id = operations[i].OperationId,
                     op = operations[i].OperationName,
                     args = new { },
                 };
@@ -1711,7 +1701,6 @@ namespace MackySoft.Ucli.Unity.Tests
                     Element: JsonSerializer.SerializeToElement(new
                     {
                         kind = "op",
-                        id = operations[i].OperationId,
                         op = operations[i].OperationName,
                         args = new { },
                     }));
@@ -1729,14 +1718,15 @@ namespace MackySoft.Ucli.Unity.Tests
                 Element: JsonSerializer.SerializeToElement(new
                 {
                     kind = "edit",
-                    id = stepId,
                     on = new
                     {
-                        scene = "Assets/Scenes/Main.unity",
+                        kind = "scene",
+                        path = "Assets/Scenes/Main.unity",
                     },
                     select = new
                     {
-                        gameObject = "Root",
+                        kind = "gameObject",
+                        path = "Root",
                         cardinality = "one",
                     },
                     actions = Array.Empty<object>(),
@@ -1755,7 +1745,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 var isEditStep = sourceStep.Kind == IpcExecuteStepKind.Edit;
                 steps[i] = new NormalizedRequestStep(
                     Id: sourceStep.Id!,
-                    Kind: sourceStep.Kind ?? IpcExecuteStepKind.Op,
+                    Kind: sourceStep.Kind,
                     OperationName: isEditStep ? "edit" : sourceStep.OperationName!,
                     PrimitiveCount: isEditStep ? editPrimitiveCount : 1)
                 {
@@ -1773,7 +1763,6 @@ namespace MackySoft.Ucli.Unity.Tests
             if (isEditStep)
             {
                 return new IpcExecutePostReadSourceStep(
-                    OpId: sourceStep.Id!,
                     SourceKind: IpcExecutePostReadSourceKind.Edit,
                     PlayModeMutation: false,
                     Commit: IpcExecutePostReadCommit.None,
@@ -1785,7 +1774,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 ? IpcExecutePostReadSourceKind.Refresh
                 : IpcExecutePostReadSourceKind.Operation;
             return new IpcExecutePostReadSourceStep(
-                OpId: sourceStep.Id!,
                 SourceKind: sourceKind,
                 PlayModeMutation: false,
                 Commit: null,

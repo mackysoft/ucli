@@ -42,7 +42,6 @@ internal static class CallCommandTestData
                 opResults:
                 [
                     new OperationExecutionOperationResult(
-                        OpId: new IpcExecuteStepId("step-1"),
                         Op: "edit",
                         Phase: IpcExecuteOperationPhase.Call,
                         Applied: true,
@@ -63,7 +62,7 @@ internal static class CallCommandTestData
                 ApplicationFailure.FromCode(
                     ExecuteRequestErrorCodes.OperationContractViolation,
                     ContractViolationMessage,
-                    new IpcExecuteStepId("step-1")),
+                    "/opResults/0"),
             ],
             new CallExecutionOutput(
                 requestId: RequestGuid,
@@ -108,7 +107,6 @@ internal static class CallCommandTestData
         bool applied)
     {
         return new OperationExecutionOperationResult(
-            OpId: new IpcExecuteStepId("step-1"),
             Op: UcliPrimitiveOperationNames.GoDescribe,
             Phase: phase,
             Applied: applied,
@@ -121,7 +119,6 @@ internal static class CallCommandTestData
         bool applied)
     {
         return new OperationExecutionOperationResult(
-            OpId: new IpcExecuteStepId("step-1"),
             Op: UcliPrimitiveOperationNames.ProjectRefresh,
             Phase: phase,
             Applied: applied,
@@ -138,7 +135,7 @@ internal static class CallCommandTestData
     private static OperationExecutionContractViolation CreateContractViolation (IpcApplicationState applicationState)
     {
         return new OperationExecutionContractViolation(
-            OpId: new IpcExecuteStepId("step-1"),
+            InstancePath: "/opResults/0",
             Operation: UcliPrimitiveOperationNames.ProjectRefresh,
             ExpectedFact: "assurance.mayDirty=false",
             ObservedResult: "opResults[].changed=true",
@@ -151,7 +148,6 @@ internal static class CallCommandTestData
             IpcExecutePostReadSource.CurrentSchemaVersion,
             [
                 new OperationExecutionPostReadSourceStep(
-                    OpId: new IpcExecuteStepId("step-1"),
                     SourceKind: IpcExecutePostReadSourceKind.Edit,
                     PlayModeMutation: false,
                     Commit: IpcExecutePostReadCommit.Context,

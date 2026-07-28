@@ -1,9 +1,10 @@
 using System.Text.Json.Serialization;
-using MackySoft.Ucli.Contracts.Operations;
+
+using MackySoft.JsonSchema.Generation.Annotations;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
-[UcliDescription("Scene query operation result.")]
+[Description("Scene query operation result.")]
 public sealed record SceneQueryResult
 {
     /// <summary> Initializes a scene query result with an owned snapshot of the matches. </summary>
@@ -20,11 +21,13 @@ public sealed record SceneQueryResult
         Matches = ContractArgumentGuard.RequireItems(matches, nameof(matches));
     }
 
-    [UcliRequired]
-    [UcliDescription("Scene asset path that was queried.")]
-    public SceneAssetPath Scene { get; }
+    [JsonInclude]
+    [JsonRequired]
+    [Description("Scene asset path that was queried.")]
+    public SceneAssetPath Scene { get; private init; }
 
-    [UcliRequired]
-    [UcliDescription("Matched scene objects or components.")]
-    public IReadOnlyList<SceneQueryMatch> Matches { get; }
+    [JsonInclude]
+    [JsonRequired]
+    [Description("Matched scene objects or components.")]
+    public IReadOnlyList<SceneQueryMatch> Matches { get; private init; }
 }

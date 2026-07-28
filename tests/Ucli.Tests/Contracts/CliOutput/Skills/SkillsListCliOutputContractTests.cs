@@ -1,5 +1,4 @@
 using System.Text.Json;
-using MackySoft.Ucli.Tests.Schemas;
 
 namespace MackySoft.Ucli.Tests;
 
@@ -68,7 +67,6 @@ public sealed class SkillsListCliOutputContractTests
             .EnumerateArray()
             .Select(static skill => skill.GetProperty("skillName").GetString())
             .ToArray());
-        SkillsListPayloadSchemaTestSupport.AssertPayloadMatchesSchema(outputJson.RootElement);
     }
 
     [Fact]
@@ -126,7 +124,6 @@ public sealed class SkillsListCliOutputContractTests
             .EnumerateArray()
             .Select(static skill => skill.GetProperty("skillName").GetString() ?? string.Empty)
             .ToArray());
-        SkillsListPayloadSchemaTestSupport.AssertPayloadMatchesSchema(outputJson.RootElement);
     }
 
     [Theory]

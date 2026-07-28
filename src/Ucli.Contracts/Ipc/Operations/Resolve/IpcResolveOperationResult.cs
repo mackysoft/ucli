@@ -1,10 +1,11 @@
 using System.Text.Json.Serialization;
-using MackySoft.Ucli.Contracts.Operations;
+
+using MackySoft.JsonSchema.Generation.Annotations;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
 /// <summary> Represents the result payload returned by one <c>ucli.resolve</c> operation result. </summary>
-[UcliDescription("Resolve operation result.")]
+[Description("Resolve operation result.")]
 public sealed record IpcResolveOperationResult
 {
     [JsonConstructor]
@@ -19,7 +20,8 @@ public sealed record IpcResolveOperationResult
     }
 
     /// <summary> Gets the resolved GlobalObjectId string. </summary>
-    [UcliRequired]
-    [UcliDescription("Resolved Unity GlobalObjectId.")]
-    public UnityGlobalObjectId GlobalObjectId { get; }
+    [JsonInclude]
+    [JsonRequired]
+    [Description("Resolved Unity GlobalObjectId.")]
+    public UnityGlobalObjectId GlobalObjectId { get; private init; }
 }

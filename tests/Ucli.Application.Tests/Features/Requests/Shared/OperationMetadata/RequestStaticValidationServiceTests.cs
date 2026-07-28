@@ -132,7 +132,7 @@ public sealed class RequestStaticValidationServiceTests
     {
         return new ValidateRequest(
             ProtocolVersion: 1,
-            Steps: Array.Empty<ValidateRequestStep?>());
+            Steps: Array.Empty<ValidateRequestStep>());
     }
 
 }

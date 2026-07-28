@@ -117,7 +117,7 @@ internal sealed class CallService : ICallService
                     ApplicationFailure.InvalidInput(
                         dangerousValidationFailure.Message,
                         dangerousValidationFailure.Code,
-                        dangerousValidationFailure.OpId),
+                        dangerousValidationFailure.InstancePath),
                 ],
                 baseOutput);
         }

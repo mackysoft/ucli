@@ -1,9 +1,11 @@
 using System.Text.Json.Serialization;
 using MackySoft.Ucli.Contracts.Operations;
 
+using MackySoft.JsonSchema.Generation.Annotations;
+
 namespace MackySoft.Ucli.Contracts.Ipc;
 
-[UcliDescription("Prefab instance property override operation arguments.")]
+[Description("Prefab instance property override operation arguments.")]
 public sealed record PrefabOverrideArgs
 {
     [JsonConstructor]
@@ -19,17 +21,19 @@ public sealed record PrefabOverrideArgs
             : ContractArgumentGuard.RequireItems(propertyPaths, nameof(propertyPaths));
     }
 
-    [UcliRequired]
-    [UcliDescription("Prefab instance component target.")]
-    [UcliInputConstraint(UcliOperationInputConstraintKind.ReferenceResolvable, TargetKind = UcliOperationReferenceTargetKind.Component)]
-    public ComponentReferenceArgs Target { get; }
+    [JsonInclude]
+    [JsonRequired]
+    [Description("Prefab instance component target.")]
+    [UcliReferenceResolvable(UcliOperationReferenceTargetKind.Component)]
+    public ComponentReferenceArgs Target { get; private init; }
 
-    [UcliRequired]
-    [UcliDescription("Prefab asset path that receives or provides the property override.")]
-    [UcliInputConstraint(UcliOperationInputConstraintKind.AssetExists, AssetKind = UcliOperationAssetKind.Prefab)]
-    public PrefabAssetPath TargetAssetPath { get; }
+    [JsonInclude]
+    [JsonRequired]
+    [Description("Prefab asset path that receives or provides the property override.")]
+    [UcliAssetExists(UcliOperationAssetKind.Prefab)]
+    public PrefabAssetPath TargetAssetPath { get; private init; }
 
-    [UcliDescription("Exact SerializedProperty paths changed by a preceding set action. Omit to use all request-attributed paths.")]
-    [UcliInputConstraint(UcliOperationInputConstraintKind.SerializedProperty, Access = UcliOperationSerializedPropertyAccess.Write)]
+    [Description("Exact SerializedProperty paths changed by a preceding set action. Omit to use all request-attributed paths.")]
+    [UcliSerializedProperty(UcliOperationSerializedPropertyAccess.Write)]
     public IReadOnlyList<SerializedPropertyPath>? PropertyPaths { get; }
 }

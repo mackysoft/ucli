@@ -41,7 +41,6 @@ public sealed class RefreshCommandPayloadTests
                 .HasInt32("schemaVersion", 1)
                 .HasArrayLength("steps", 1)
                 .HasProperty("steps", 0, step => step
-                    .HasString("opId", "refresh")
                     .HasString("sourceKind", TextVocabulary.GetText(IpcExecutePostReadSourceKind.Refresh))
                     .HasBoolean("playModeMutation", false)
                     .HasValueKind("commit", JsonValueKind.Null)
@@ -59,7 +58,7 @@ public sealed class RefreshCommandPayloadTests
             [
                 ApplicationFailure.InternalError(
                     "Unity execution failed.",
-                    opId: new IpcExecuteStepId("refresh")),
+                    instancePath: "/steps/0"),
             ],
             "uCLI refresh failed.");
         var service = new RecordingRefreshService((_, _) => ValueTask.FromResult(failureResult));
@@ -86,7 +85,7 @@ public sealed class RefreshCommandPayloadTests
             .HasProperty("errors", 0, error => error
                 .HasString("code", UcliCoreErrorCodes.InternalError.Value)
                 .HasString("message", "Unity execution failed.")
-                .HasString("opId", "refresh"));
+                .HasString("instancePath", "/steps/0"));
     }
 
     [Fact]

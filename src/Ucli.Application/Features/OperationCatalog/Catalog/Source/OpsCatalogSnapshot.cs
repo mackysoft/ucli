@@ -63,11 +63,10 @@ internal sealed record OpsCatalogSnapshot
             return false;
         }
 
-        if (!IndexCatalogContractValidator.TryProjectOpsEntries(
+        if (!IndexOperationCatalogContractValidator.TryProjectOpsEntries(
                 operations,
                 propertyName,
                 allowEditLoweringOnlyEntries,
-                requireCanonicalLiterals: false,
                 out var validatedOperations,
                 out error))
         {

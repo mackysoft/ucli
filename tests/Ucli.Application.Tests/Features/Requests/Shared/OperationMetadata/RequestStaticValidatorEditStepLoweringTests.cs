@@ -6,35 +6,6 @@ using static MackySoft.Ucli.Application.Tests.RequestStaticValidatorTestSupport;
 
 public sealed class RequestStaticValidatorEditStepLoweringTests
 {
-    [Fact]
-    [Trait("Size", "Small")]
-    public async Task Validate_WhenOperationsAreNotProvided_StillValidatesEditLowering ()
-    {
-        var validator = CreateValidator();
-        var request = CreateRequest(
-            steps:
-            [
-                CreateEditStep(
-                    stepId: "edit-invalid",
-                    """
-                    {
-                      "kind": "edit",
-                      "id": "edit-invalid",
-                      "actions": []
-                    }
-                    """),
-            ]);
-
-        var result = await validator.ValidateAsync(
-            request,
-            RequestStaticValidationCatalog.Unavailable,
-            CreateConfig(OperationPolicy.Safe, "^ucli\\."),
-            CancellationToken.None);
-
-        Assert.False(result.IsValid);
-        AssertContainsError(result, ValidationErrorCodes.EditStepInvalid);
-    }
-
     [Theory]
     [Trait("Size", "Small")]
     [InlineData("applyPrefabOverrides")]
@@ -47,16 +18,17 @@ public sealed class RequestStaticValidatorEditStepLoweringTests
             steps:
             [
                 CreateEditStep(
-                    stepId: "edit-prefab-override",
+                    stepIndex: 0,
                     $$"""
                     {
                       "kind": "edit",
-                      "id": "edit-prefab-override",
                       "on": {
-                        "scene": "Assets/Scenes/Main.unity"
+                        "kind": "scene",
+                        "path": "Assets/Scenes/Main.unity"
                       },
                       "select": {
-                        "gameObject": "Root/Spawner",
+                        "kind": "gameObject",
+                        "path": "Root/Spawner",
                         "component": "Game.EnemySpawner, Assembly-CSharp",
                         "cardinality": "one"
                       },

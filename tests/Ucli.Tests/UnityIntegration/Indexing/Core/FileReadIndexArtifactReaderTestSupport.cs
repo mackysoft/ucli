@@ -1,6 +1,5 @@
 using System.Text;
 using MackySoft.FileSystem;
-using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.UnityIntegration.Indexing.Core;
@@ -69,16 +68,16 @@ internal static class FileReadIndexArtifactReaderTestSupport
         var json = Write(contract);
         var describeHash = Sha256Digest.Compute(Encoding.UTF8.GetBytes(json));
         WriteText(UcliStoragePathResolver.ResolveOpsDescribePath(storageRoot, fingerprint, describeKey), json);
-        if (!TextVocabulary.TryGetValue<UcliOperationKind>(operation.Kind, out var kind)
-            || !TextVocabulary.TryGetValue<OperationPolicy>(operation.Policy, out var policy))
+        if (!operation.Kind.HasValue
+            || !operation.Policy.HasValue)
         {
-            throw new InvalidOperationException("Operation fixture must use canonical kind and policy literals.");
+            throw new InvalidOperationException("Operation fixture must declare kind and policy.");
         }
 
         return new ValidatedOpsCatalogEntry(
             operation.Name!,
-            kind,
-            policy,
+            operation.Kind.Value,
+            operation.Policy.Value,
             operation.Description!,
             describeKey,
             describeHash);

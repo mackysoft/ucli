@@ -1,10 +1,13 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Serialization;
+using MackySoft.JsonSchema.Generation.Annotations;
 
 namespace MackySoft.Ucli.Contracts.Cryptography;
 
 /// <summary> Represents one canonical lowercase hexadecimal SHA-256 digest. </summary>
 [JsonConverter(typeof(Sha256DigestJsonConverter))]
+[Length(64, 64)]
+[Pattern("^[0-9a-f]{64}$")]
 public sealed class Sha256Digest : IEquatable<Sha256Digest>
 {
     private readonly string value;

@@ -357,7 +357,7 @@ public sealed class IpcDaemonReachabilityProbeTests
                     new IpcError(
                         errorCode,
                         "Session authentication rejected.",
-                        OpId: null),
+                        InstancePath: null),
                 ]));
         var daemonPingClient = new IpcDaemonPingClient(
             transportClient,

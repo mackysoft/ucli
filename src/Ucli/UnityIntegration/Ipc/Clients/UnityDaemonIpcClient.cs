@@ -1,12 +1,11 @@
 using System.Runtime.ExceptionServices;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Acquisition;
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.ErrorCodes;
 using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Execution.UnityRequest;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Features.Daemon.Common.Ipc;
 using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.UnityIntegration.Ipc.Dispatch;

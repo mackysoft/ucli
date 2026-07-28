@@ -1,36 +1,23 @@
 using System.Text.Json.Serialization;
-using MackySoft.Ucli.Contracts.Operations;
+using MackySoft.JsonSchema.Generation.Annotations;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
-[UcliDescription("GameObject creation operation arguments.")]
-[UcliExclusiveRequiredPropertySet("scene")]
-[UcliExclusiveRequiredPropertySet("parent")]
-public sealed record GoCreateArgs
+/// <summary> Base contract for one concrete GameObject creation placement. </summary>
+[Description("GameObject creation operation arguments.")]
+public abstract record GoCreateArgs
 {
-    [JsonConstructor]
-    public GoCreateArgs (
-        string name,
-        SceneAssetPath? scene,
-        GameObjectReferenceArgs? parent)
+    /// <summary> Initializes the shared GameObject creation contract. </summary>
+    /// <param name="name"> The name assigned to the created GameObject. </param>
+    protected GoCreateArgs (string name)
     {
         Name = ContractArgumentGuard.RequireValue(name, nameof(name));
-        Scene = scene;
-        Parent = parent;
     }
 
-    [UcliRequired]
-    [UcliDescription("Name assigned to the created GameObject.")]
-    [UcliInputConstraint(UcliOperationInputConstraintKind.NonEmpty)]
-    public string Name { get; }
-
-    [UcliDescription("Scene asset path that receives the new root GameObject.")]
-    [UcliInputConstraint(UcliOperationInputConstraintKind.AssetExists, AssetKind = UcliOperationAssetKind.Scene)]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public SceneAssetPath? Scene { get; }
-
-    [UcliDescription("Optional parent GameObject reference.")]
-    [UcliInputConstraint(UcliOperationInputConstraintKind.ReferenceResolvable, TargetKind = UcliOperationReferenceTargetKind.GameObject)]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public GameObjectReferenceArgs? Parent { get; }
+    /// <summary> Gets the name assigned to the created GameObject. </summary>
+    [JsonInclude]
+    [JsonRequired]
+    [Description("Name assigned to the created GameObject.")]
+    [Length(1, int.MaxValue)]
+    public string Name { get; private init; }
 }

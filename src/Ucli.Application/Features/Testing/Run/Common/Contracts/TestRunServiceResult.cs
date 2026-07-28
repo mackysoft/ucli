@@ -88,25 +88,6 @@ internal sealed record TestRunServiceResult
     /// <summary> Gets the machine-readable error code when execution fails. </summary>
     public UcliCode? ErrorCode => Failure?.Code;
 
-    /// <summary> Gets the serialized result value used by command payload mapping. </summary>
-    public string? ResultValue => Result switch
-    {
-        null => null,
-        TestRunResultKind.Pass => "pass",
-        TestRunResultKind.Fail => "fail",
-        _ => null,
-    };
-
-    /// <summary> Gets the serialized error-kind value used by command payload mapping. </summary>
-    public string? ErrorKindValue => ErrorKind switch
-    {
-        null => null,
-        TestRunErrorKind.InvalidInput => "invalidInput",
-        TestRunErrorKind.InfraError => "infraError",
-        TestRunErrorKind.ToolError => "toolError",
-        _ => null,
-    };
-
     /// <summary> Creates a success result with pass state. </summary>
     /// <param name="message"> The user-facing message. </param>
     /// <param name="runId"> The run identifier. </param>

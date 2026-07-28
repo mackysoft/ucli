@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
+using MackySoft.Text.Vocabularies;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Phases;
 using MackySoft.Ucli.Unity.Execution.Requests;
@@ -35,15 +36,11 @@ namespace MackySoft.Ucli.Unity.Tests
             var requestOperation = CreateOperation(
                 opId: "op-ensure",
                 opName: UcliPrimitiveOperationNames.CompEnsure,
-                args: new
-                {
-                    target = new
-                    {
-                        scene = scenePath,
-                        hierarchyPath = "Root",
-                    },
-                    type = IndexTypeIdFormatter.Format(typeof(CompOperationTestComponent)),
-                },
+                args: new ComponentEnsureArgs(
+                    new SceneHierarchyReferenceArgs(
+                        new SceneAssetPath(scenePath),
+                        new UnityHierarchyPath("Root")),
+                    new UnityComponentTypeId(IndexTypeIdFormatter.Format(typeof(CompOperationTestComponent)))),
                 alias: "ensured");
             var context = scope.CreateExecutionContext();
 
@@ -68,27 +65,19 @@ namespace MackySoft.Ucli.Unity.Tests
             var firstRequest = CreateOperation(
                 opId: "op-ensure-1",
                 opName: UcliPrimitiveOperationNames.CompEnsure,
-                args: new
-                {
-                    target = new
-                    {
-                        scene = scenePath,
-                        hierarchyPath = "Root",
-                    },
-                    type = IndexTypeIdFormatter.Format(typeof(CompOperationTestComponent)),
-                });
+                args: new ComponentEnsureArgs(
+                    new SceneHierarchyReferenceArgs(
+                        new SceneAssetPath(scenePath),
+                        new UnityHierarchyPath("Root")),
+                    new UnityComponentTypeId(IndexTypeIdFormatter.Format(typeof(CompOperationTestComponent)))));
             var secondRequest = CreateOperation(
                 opId: "op-ensure-2",
                 opName: UcliPrimitiveOperationNames.CompEnsure,
-                args: new
-                {
-                    target = new
-                    {
-                        scene = scenePath,
-                        hierarchyPath = "Root",
-                    },
-                    type = IndexTypeIdFormatter.Format(typeof(CompOperationTestComponent)),
-                },
+                args: new ComponentEnsureArgs(
+                    new SceneHierarchyReferenceArgs(
+                        new SceneAssetPath(scenePath),
+                        new UnityHierarchyPath("Root")),
+                    new UnityComponentTypeId(IndexTypeIdFormatter.Format(typeof(CompOperationTestComponent)))),
                 alias: "ensured");
             var context = scope.CreateExecutionContext();
 
@@ -122,35 +111,24 @@ namespace MackySoft.Ucli.Unity.Tests
             var ensureRequest = CreateOperation(
                 opId: "op-ensure",
                 opName: UcliPrimitiveOperationNames.CompEnsure,
-                args: new
-                {
-                    target = new
-                    {
-                        @var = "root",
-                    },
-                    type = componentTypeId,
-                },
+                args: new ComponentEnsureArgs(
+                    new UcliAliasReferenceArgs(new UcliPlanAlias("root")),
+                    new UnityComponentTypeId(componentTypeId)),
                 alias: "ensured");
             var setRequest = CreateOperation(
                 opId: "op-set",
                 opName: UcliPrimitiveOperationNames.CompSet,
-                args: new
-                {
-                    target = new
+                args: new ComponentSetArgs(
+                    new SceneComponentReferenceArgs(
+                        new SceneAssetPath(scenePath),
+                        new UnityHierarchyPath("Renamed"),
+                        new UnityComponentTypeId(componentTypeId)),
+                    new[]
                     {
-                        scene = scenePath,
-                        hierarchyPath = "Renamed",
-                        componentType = componentTypeId,
-                    },
-                    sets = new object[]
-                    {
-                        new
-                        {
-                            path = "integerValue",
-                            value = 42,
-                        },
-                    },
-                });
+                        new SerializedObjectSetItemArgs(
+                            new SerializedPropertyPath("integerValue"),
+                            JsonSerializer.SerializeToElement(42)),
+                    }));
 
             var ensureResult = await ensureOperation.PlanAsync(ensureRequest, context, CancellationToken.None);
             var setResult = await setOperation.PlanAsync(setRequest, context, CancellationToken.None);
@@ -180,64 +158,42 @@ namespace MackySoft.Ucli.Unity.Tests
             var ensureRequest = CreateOperation(
                 opId: "op-ensure",
                 opName: UcliPrimitiveOperationNames.CompEnsure,
-                args: new
-                {
-                    target = new
-                    {
-                        scene = scenePath,
-                        hierarchyPath = "Root",
-                    },
-                    type = componentTypeId,
-                },
+                args: new ComponentEnsureArgs(
+                    new SceneHierarchyReferenceArgs(
+                        new SceneAssetPath(scenePath),
+                        new UnityHierarchyPath("Root")),
+                    new UnityComponentTypeId(componentTypeId)),
                 alias: "ensured");
             var firstSetRequest = CreateOperation(
                 opId: "op-set-before-delete",
                 opName: UcliPrimitiveOperationNames.CompSet,
-                args: new
-                {
-                    target = new
+                args: new ComponentSetArgs(
+                    new UcliAliasReferenceArgs(new UcliPlanAlias("ensured")),
+                    new[]
                     {
-                        @var = "ensured",
-                    },
-                    sets = new object[]
-                    {
-                        new
-                        {
-                            path = "integerValue",
-                            value = 42,
-                        },
-                    },
-                });
+                        new SerializedObjectSetItemArgs(
+                            new SerializedPropertyPath("integerValue"),
+                            JsonSerializer.SerializeToElement(42)),
+                    }));
             var deleteRequest = CreateOperation(
                 opId: "op-delete",
                 opName: UcliPrimitiveOperationNames.GoDelete,
-                args: new
-                {
-                    target = new
-                    {
-                        scene = scenePath,
-                        hierarchyPath = "Root",
-                    },
-                },
+                args: new GoTargetArgs(
+                    new SceneHierarchyReferenceArgs(
+                        new SceneAssetPath(scenePath),
+                        new UnityHierarchyPath("Root"))),
                 sourceKind: NormalizedOperation.SourceStepKind.Edit);
             var secondSetRequest = CreateOperation(
                 opId: "op-set-after-delete",
                 opName: UcliPrimitiveOperationNames.CompSet,
-                args: new
-                {
-                    target = new
+                args: new ComponentSetArgs(
+                    new UcliAliasReferenceArgs(new UcliPlanAlias("ensured")),
+                    new[]
                     {
-                        @var = "ensured",
-                    },
-                    sets = new object[]
-                    {
-                        new
-                        {
-                            path = "integerValue",
-                            value = 43,
-                        },
-                    },
-                });
+                        new SerializedObjectSetItemArgs(
+                            new SerializedPropertyPath("integerValue"),
+                            JsonSerializer.SerializeToElement(43)),
+                    }));
 
             var ensureResult = await ensureOperation.PlanAsync(ensureRequest, context, CancellationToken.None);
             var firstSetResult = await setOperation.PlanAsync(firstSetRequest, context, CancellationToken.None);
@@ -278,27 +234,19 @@ namespace MackySoft.Ucli.Unity.Tests
             var ensureRequest = CreateOperation(
                 opId: "op-ensure-existing",
                 opName: UcliPrimitiveOperationNames.CompEnsure,
-                args: new
-                {
-                    target = new
-                    {
-                        scene = scenePath,
-                        hierarchyPath = "Root",
-                    },
-                    type = componentTypeId,
-                },
+                args: new ComponentEnsureArgs(
+                    new SceneHierarchyReferenceArgs(
+                        new SceneAssetPath(scenePath),
+                        new UnityHierarchyPath("Root")),
+                    new UnityComponentTypeId(componentTypeId)),
                 alias: "existing");
             var deleteRequest = CreateOperation(
                 opId: "op-delete-owner",
                 opName: UcliPrimitiveOperationNames.GoDelete,
-                args: new
-                {
-                    target = new
-                    {
-                        scene = scenePath,
-                        hierarchyPath = "Root",
-                    },
-                },
+                args: new GoTargetArgs(
+                    new SceneHierarchyReferenceArgs(
+                        new SceneAssetPath(scenePath),
+                        new UnityHierarchyPath("Root"))),
                 sourceKind: NormalizedOperation.SourceStepKind.Edit);
 
             var ensureResult = await ensureOperation.PlanAsync(ensureRequest, context, CancellationToken.None);
@@ -325,15 +273,11 @@ namespace MackySoft.Ucli.Unity.Tests
             var requestOperation = CreateOperation(
                 opId: "op-ensure",
                 opName: UcliPrimitiveOperationNames.CompEnsure,
-                args: new
-                {
-                    target = new
-                    {
-                        scene = scenePath,
-                        hierarchyPath = "Root",
-                    },
-                    type = IndexTypeIdFormatter.Format(typeof(CompOperationTestComponent)),
-                },
+                args: new ComponentEnsureArgs(
+                    new SceneHierarchyReferenceArgs(
+                        new SceneAssetPath(scenePath),
+                        new UnityHierarchyPath("Root")),
+                    new UnityComponentTypeId(IndexTypeIdFormatter.Format(typeof(CompOperationTestComponent)))),
                 alias: "ensured");
             var context = scope.CreateExecutionContext();
 
@@ -354,10 +298,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 opName: UcliPrimitiveOperationNames.CompSet,
                 args: new
                 {
-                    target = new
-                    {
-                        @var = "target",
-                    },
+                    target = IpcPayloadCodec.SerializeToElement<ComponentReferenceArgs>(
+                        new UcliAliasReferenceArgs(new UcliPlanAlias("target"))),
                     sets = new object[]
                     {
                         new
@@ -390,36 +332,26 @@ namespace MackySoft.Ucli.Unity.Tests
             var ensureRequest = CreateOperation(
                 opId: "op-ensure",
                 opName: UcliPrimitiveOperationNames.CompEnsure,
-                args: new
-                {
-                    target = new
-                    {
-                        scene = scenePath,
-                        hierarchyPath = "Root",
-                    },
-                    type = componentTypeId,
-                },
+                args: new ComponentEnsureArgs(
+                    new SceneHierarchyReferenceArgs(
+                        new SceneAssetPath(scenePath),
+                        new UnityHierarchyPath("Root")),
+                    new UnityComponentTypeId(componentTypeId)),
                 alias: "ensured");
             var setRequest = CreateOperation(
                 opId: "op-set",
                 opName: UcliPrimitiveOperationNames.CompSet,
-                args: new
-                {
-                    target = new
+                args: new ComponentSetArgs(
+                    new SceneComponentReferenceArgs(
+                        new SceneAssetPath(scenePath),
+                        new UnityHierarchyPath("Root"),
+                        new UnityComponentTypeId(componentTypeId)),
+                    new[]
                     {
-                        scene = scenePath,
-                        hierarchyPath = "Root",
-                        componentType = componentTypeId,
-                    },
-                    sets = new object[]
-                    {
-                        new
-                        {
-                            path = "integerValue",
-                            value = 5,
-                        },
-                    },
-                });
+                        new SerializedObjectSetItemArgs(
+                            new SerializedPropertyPath("integerValue"),
+                            JsonSerializer.SerializeToElement(5)),
+                    }));
             var context = scope.CreateExecutionContext();
 
             var ensureResult = await ensureOperation.PlanAsync(ensureRequest, context, CancellationToken.None);
@@ -445,15 +377,11 @@ namespace MackySoft.Ucli.Unity.Tests
             var requestOperation = CreateOperation(
                 opId: "op-ensure",
                 opName: UcliPrimitiveOperationNames.CompEnsure,
-                args: new
-                {
-                    target = new
-                    {
-                        scene = scenePath,
-                        hierarchyPath = "Root",
-                    },
-                    type = IndexTypeIdFormatter.Format(typeof(GameObject)),
-                });
+                args: new ComponentEnsureArgs(
+                    new SceneHierarchyReferenceArgs(
+                        new SceneAssetPath(scenePath),
+                        new UnityHierarchyPath("Root")),
+                    new UnityComponentTypeId(IndexTypeIdFormatter.Format(typeof(GameObject)))));
 
             var result = await operation.ValidateAsync(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
 
@@ -480,55 +408,36 @@ namespace MackySoft.Ucli.Unity.Tests
             var requestOperation = CreateOperation(
                 opId: "op-set",
                 opName: UcliPrimitiveOperationNames.CompSet,
-                args: new
-                {
-                    target = new
+                args: new ComponentSetArgs(
+                    new UcliAliasReferenceArgs(new UcliPlanAlias("target")),
+                    new[]
                     {
-                        @var = "target",
-                    },
-                    sets = new object[]
-                    {
-                        new
-                        {
-                            path = "integerValue",
-                            value = 42,
-                        },
-                        new
-                        {
-                            path = "floatValue",
-                            value = 3.5,
-                        },
-                        new
-                        {
-                            path = "text",
-                            value = "updated",
-                        },
-                        new
-                        {
-                            path = "enumValue",
-                            value = "Second",
-                        },
-                        new
-                        {
-                            path = "objectReferenceValue",
-                            value = new
-                            {
-                                @var = "other",
-                            },
-                        },
-                        new
-                        {
-                            path = "nestedValue",
-                            value = new
+                        new SerializedObjectSetItemArgs(
+                            new SerializedPropertyPath("integerValue"),
+                            JsonSerializer.SerializeToElement(42)),
+                        new SerializedObjectSetItemArgs(
+                            new SerializedPropertyPath("floatValue"),
+                            JsonSerializer.SerializeToElement(3.5)),
+                        new SerializedObjectSetItemArgs(
+                            new SerializedPropertyPath("text"),
+                            JsonSerializer.SerializeToElement("updated")),
+                        new SerializedObjectSetItemArgs(
+                            new SerializedPropertyPath("enumValue"),
+                            JsonSerializer.SerializeToElement("Second")),
+                        new SerializedObjectSetItemArgs(
+                            new SerializedPropertyPath("objectReferenceValue"),
+                            IpcPayloadCodec.SerializeToElement<UnityObjectReferenceArgs>(
+                                new UcliAliasReferenceArgs(new UcliPlanAlias("other")))),
+                        new SerializedObjectSetItemArgs(
+                            new SerializedPropertyPath("nestedValue"),
+                            JsonSerializer.SerializeToElement(new
                             {
                                 number = 9,
                                 label = "nested",
-                            },
-                        },
-                        new
-                        {
-                            path = "nestedList",
-                            value = new object[]
+                            })),
+                        new SerializedObjectSetItemArgs(
+                            new SerializedPropertyPath("nestedList"),
+                            JsonSerializer.SerializeToElement(new object[]
                             {
                                 new
                                 {
@@ -540,17 +449,13 @@ namespace MackySoft.Ucli.Unity.Tests
                                     number = 2,
                                     label = "b",
                                 },
-                            },
-                        },
-                        new
-                        {
-                            path = "nestedList.Array.data[0].number",
-                            value = 10,
-                        },
-                        new
-                        {
-                            path = "managedReferenceValue",
-                            value = new
+                            })),
+                        new SerializedObjectSetItemArgs(
+                            new SerializedPropertyPath("nestedList.Array.data[0].number"),
+                            JsonSerializer.SerializeToElement(10)),
+                        new SerializedObjectSetItemArgs(
+                            new SerializedPropertyPath("managedReferenceValue"),
+                            JsonSerializer.SerializeToElement(new
                             {
                                 type = managedTypeId,
                                 value = new
@@ -558,12 +463,10 @@ namespace MackySoft.Ucli.Unity.Tests
                                     amount = 7,
                                     note = "managed",
                                 },
-                            },
-                        },
-                        new
-                        {
-                            path = "curveValue",
-                            value = new
+                            })),
+                        new SerializedObjectSetItemArgs(
+                            new SerializedPropertyPath("curveValue"),
+                            JsonSerializer.SerializeToElement(new
                             {
                                 keys = new object[]
                                 {
@@ -580,12 +483,10 @@ namespace MackySoft.Ucli.Unity.Tests
                                 },
                                 preWrapMode = "Loop",
                                 postWrapMode = "PingPong",
-                            },
-                        },
-                        new
-                        {
-                            path = "gradientValue",
-                            value = new
+                            })),
+                        new SerializedObjectSetItemArgs(
+                            new SerializedPropertyPath("gradientValue"),
+                            JsonSerializer.SerializeToElement(new
                             {
                                 colorKeys = new object[]
                                 {
@@ -626,12 +527,10 @@ namespace MackySoft.Ucli.Unity.Tests
                                     },
                                 },
                                 mode = "Blend",
-                            },
-                        },
-                        new
-                        {
-                            path = "boundsValue",
-                            value = new
+                            })),
+                        new SerializedObjectSetItemArgs(
+                            new SerializedPropertyPath("boundsValue"),
+                            JsonSerializer.SerializeToElement(new
                             {
                                 center = new
                                 {
@@ -645,15 +544,11 @@ namespace MackySoft.Ucli.Unity.Tests
                                     y = 5f,
                                     z = 6f,
                                 },
-                            },
-                        },
-                        new
-                        {
-                            path = "hashValue",
-                            value = hashText,
-                        },
-                    },
-                });
+                            })),
+                        new SerializedObjectSetItemArgs(
+                            new SerializedPropertyPath("hashValue"),
+                            JsonSerializer.SerializeToElement(hashText)),
+                    }));
 
             var result = await operation.CallAsync(requestOperation, context, CancellationToken.None);
 
@@ -702,21 +597,14 @@ namespace MackySoft.Ucli.Unity.Tests
             var requestOperation = CreateOperation(
                 opId: "op-set",
                 opName: UcliPrimitiveOperationNames.CompSet,
-                args: new
-                {
-                    target = new
+                args: new ComponentSetArgs(
+                    new UcliAliasReferenceArgs(new UcliPlanAlias("target")),
+                    new[]
                     {
-                        @var = "target",
-                    },
-                    sets = new object[]
-                    {
-                        new
-                        {
-                            path = "integerValue",
-                            value = 42,
-                        },
-                    },
-                });
+                        new SerializedObjectSetItemArgs(
+                            new SerializedPropertyPath("integerValue"),
+                            JsonSerializer.SerializeToElement(42)),
+                    }));
 
             var planResult = await operation.PlanAsync(requestOperation, context, CancellationToken.None);
 
@@ -756,24 +644,15 @@ namespace MackySoft.Ucli.Unity.Tests
             var requestOperation = CreateOperation(
                 opId: "op-set",
                 opName: UcliPrimitiveOperationNames.CompSet,
-                args: new
-                {
-                    target = new
+                args: new ComponentSetArgs(
+                    new UcliAliasReferenceArgs(new UcliPlanAlias("host")),
+                    new[]
                     {
-                        @var = "host",
-                    },
-                    sets = new object[]
-                    {
-                        new
-                        {
-                            path = "objectReferenceValue",
-                            value = new
-                            {
-                                @var = "child",
-                            },
-                        },
-                    },
-                });
+                        new SerializedObjectSetItemArgs(
+                            new SerializedPropertyPath("objectReferenceValue"),
+                            IpcPayloadCodec.SerializeToElement<UnityObjectReferenceArgs>(
+                                new UcliAliasReferenceArgs(new UcliPlanAlias("child")))),
+                    }));
 
             var result = await operation.CallAsync(requestOperation, context, CancellationToken.None);
 
@@ -801,26 +680,18 @@ namespace MackySoft.Ucli.Unity.Tests
             var requestOperation = CreateOperation(
                 opId: "op-set",
                 opName: UcliPrimitiveOperationNames.CompSet,
-                args: new
-                {
-                    target = new
+                args: new ComponentSetArgs(
+                    new SceneComponentReferenceArgs(
+                        new SceneAssetPath(scenePath),
+                        new UnityHierarchyPath("Root"),
+                        new UnityComponentTypeId(IndexTypeIdFormatter.Format(typeof(CompOperationTestComponent)))),
+                    new[]
                     {
-                        scene = scenePath,
-                        hierarchyPath = "Root",
-                        componentType = IndexTypeIdFormatter.Format(typeof(CompOperationTestComponent)),
-                    },
-                    sets = new object[]
-                    {
-                        new
-                        {
-                            path = "objectReferenceValue",
-                            value = new
-                            {
-                                @var = "child",
-                            },
-                        },
-                    },
-                },
+                        new SerializedObjectSetItemArgs(
+                            new SerializedPropertyPath("objectReferenceValue"),
+                            IpcPayloadCodec.SerializeToElement<UnityObjectReferenceArgs>(
+                                new UcliAliasReferenceArgs(new UcliPlanAlias("child")))),
+                    }),
                 sourceKind: NormalizedOperation.SourceStepKind.Op);
 
             var result = await operation.CallAsync(requestOperation, context, CancellationToken.None);
@@ -851,25 +722,17 @@ namespace MackySoft.Ucli.Unity.Tests
             var requestOperation = CreateOperation(
                 opId: "op-set",
                 opName: UcliPrimitiveOperationNames.CompSet,
-                args: new
-                {
-                    target = new
+                args: new ComponentSetArgs(
+                    new UcliAliasReferenceArgs(new UcliPlanAlias("host")),
+                    new[]
                     {
-                        @var = "host",
-                    },
-                    sets = new object[]
-                    {
-                        new
-                        {
-                            path = "objectReferenceValue",
-                            value = new
-                            {
-                                scene = scenePath,
-                                hierarchyPath = "PreviewOnly",
-                            },
-                        },
-                    },
-                });
+                        new SerializedObjectSetItemArgs(
+                            new SerializedPropertyPath("objectReferenceValue"),
+                            IpcPayloadCodec.SerializeToElement<UnityObjectReferenceArgs>(
+                                new SceneHierarchyReferenceArgs(
+                                    new SceneAssetPath(scenePath),
+                                    new UnityHierarchyPath("PreviewOnly")))),
+                    }));
 
             var result = await operation.PlanAsync(requestOperation, context, CancellationToken.None);
 
@@ -906,25 +769,17 @@ namespace MackySoft.Ucli.Unity.Tests
             var requestOperation = CreateOperation(
                 opId: "op-set",
                 opName: UcliPrimitiveOperationNames.CompSet,
-                args: new
-                {
-                    target = new
+                args: new ComponentSetArgs(
+                    new UcliAliasReferenceArgs(new UcliPlanAlias("host")),
+                    new[]
                     {
-                        @var = "host",
-                    },
-                    sets = new object[]
-                    {
-                        new
-                        {
-                            path = "objectReferenceValue",
-                            value = new
-                            {
-                                scene = scenePath,
-                                hierarchyPath = "PreviewOnly",
-                            },
-                        },
-                    },
-                });
+                        new SerializedObjectSetItemArgs(
+                            new SerializedPropertyPath("objectReferenceValue"),
+                            IpcPayloadCodec.SerializeToElement<UnityObjectReferenceArgs>(
+                                new SceneHierarchyReferenceArgs(
+                                    new SceneAssetPath(scenePath),
+                                    new UnityHierarchyPath("PreviewOnly")))),
+                    }));
 
             var result = await operation.CallAsync(requestOperation, context, CancellationToken.None);
 
@@ -1035,10 +890,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 args: new
                 {
                     mode = "atomic",
-                    target = new
-                    {
-                        @var = "target",
-                    },
+                    target = IpcPayloadCodec.SerializeToElement<ComponentReferenceArgs>(
+                        new UcliAliasReferenceArgs(new UcliPlanAlias("target"))),
                     sets = new object[]
                     {
                         new
@@ -1071,21 +924,14 @@ namespace MackySoft.Ucli.Unity.Tests
             var requestOperation = CreateOperation(
                 opId: "op-set",
                 opName: UcliPrimitiveOperationNames.CompSet,
-                args: new
-                {
-                    target = new
+                args: new ComponentSetArgs(
+                    new UcliAliasReferenceArgs(new UcliPlanAlias("target")),
+                    new[]
                     {
-                        @var = "target",
-                    },
-                    sets = new object[]
-                    {
-                        new
-                        {
-                            path = "m_Script",
-                            value = (string?)null,
-                        },
-                    },
-                });
+                        new SerializedObjectSetItemArgs(
+                            new SerializedPropertyPath("m_Script"),
+                            JsonSerializer.SerializeToElement((string?)null)),
+                    }));
 
             var result = await operation.CallAsync(requestOperation, context, CancellationToken.None);
 
@@ -1109,21 +955,14 @@ namespace MackySoft.Ucli.Unity.Tests
             var requestOperation = CreateOperation(
                 opId: "op-set",
                 opName: UcliPrimitiveOperationNames.CompSet,
-                args: new
-                {
-                    target = new
+                args: new ComponentSetArgs(
+                    new UcliAliasReferenceArgs(new UcliPlanAlias("target")),
+                    new[]
                     {
-                        @var = "target",
-                    },
-                    sets = new object[]
-                    {
-                        new
-                        {
-                            path = "integerValue",
-                            value = 1,
-                        },
-                    },
-                });
+                        new SerializedObjectSetItemArgs(
+                            new SerializedPropertyPath("integerValue"),
+                            JsonSerializer.SerializeToElement(1)),
+                    }));
 
             var result = await operation.PlanAsync(requestOperation, context, CancellationToken.None);
 
@@ -1145,34 +984,23 @@ namespace MackySoft.Ucli.Unity.Tests
             var ensureRequest = CreateOperation(
                 opId: "op-ensure",
                 opName: UcliPrimitiveOperationNames.CompEnsure,
-                args: new
-                {
-                    target = new
-                    {
-                        scene = scenePath,
-                        hierarchyPath = "Root",
-                    },
-                    type = IndexTypeIdFormatter.Format(typeof(CompOperationTestComponent)),
-                },
+                args: new ComponentEnsureArgs(
+                    new SceneHierarchyReferenceArgs(
+                        new SceneAssetPath(scenePath),
+                        new UnityHierarchyPath("Root")),
+                    new UnityComponentTypeId(IndexTypeIdFormatter.Format(typeof(CompOperationTestComponent)))),
                 alias: "ensured");
             var setRequest = CreateOperation(
                 opId: "op-set",
                 opName: UcliPrimitiveOperationNames.CompSet,
-                args: new
-                {
-                    target = new
+                args: new ComponentSetArgs(
+                    new UcliAliasReferenceArgs(new UcliPlanAlias("ensured")),
+                    new[]
                     {
-                        @var = "ensured",
-                    },
-                    sets = new object[]
-                    {
-                        new
-                        {
-                            path = "integerValue",
-                            value = 99,
-                        },
-                    },
-                });
+                        new SerializedObjectSetItemArgs(
+                            new SerializedPropertyPath("integerValue"),
+                            JsonSerializer.SerializeToElement(99)),
+                    }));
 
             var ensureResult = await ensureOperation.PlanAsync(ensureRequest, context, CancellationToken.None);
             var setResult = await setOperation.PlanAsync(setRequest, context, CancellationToken.None);
@@ -1199,31 +1027,22 @@ namespace MackySoft.Ucli.Unity.Tests
             var firstEnsureRequest = CreateOperation(
                 opId: "op-ensure-1",
                 opName: UcliPrimitiveOperationNames.CompEnsure,
-                args: new
-                {
-                    target = new
-                    {
-                        scene = scenePath,
-                        hierarchyPath = "Root",
-                    },
-                    type = typeId,
-                },
+                args: new ComponentEnsureArgs(
+                    new SceneHierarchyReferenceArgs(
+                        new SceneAssetPath(scenePath),
+                        new UnityHierarchyPath("Root")),
+                    new UnityComponentTypeId(typeId)),
                 alias: "ensured");
             var setRequest = CreateOperation(
                 opId: "op-set",
                 opName: UcliPrimitiveOperationNames.CompSet,
-                args: new
-                {
-                    target = new
+                args: new ComponentSetArgs(
+                    new UcliAliasReferenceArgs(new UcliPlanAlias("ensured")),
+                    new[]
                     {
-                        @var = "ensured",
-                    },
-                    sets = new object[]
-                    {
-                        new
-                        {
-                            path = "nestedList",
-                            value = new object[]
+                        new SerializedObjectSetItemArgs(
+                            new SerializedPropertyPath("nestedList"),
+                            JsonSerializer.SerializeToElement(new object[]
                             {
                                 new
                                 {
@@ -1235,41 +1054,28 @@ namespace MackySoft.Ucli.Unity.Tests
                                     number = 20,
                                     label = "second",
                                 },
-                            },
-                        },
-                    },
-                });
+                            })),
+                    }));
             var secondEnsureRequest = CreateOperation(
                 opId: "op-ensure-2",
                 opName: UcliPrimitiveOperationNames.CompEnsure,
-                args: new
-                {
-                    target = new
-                    {
-                        scene = scenePath,
-                        hierarchyPath = "Root",
-                    },
-                    type = typeId,
-                },
+                args: new ComponentEnsureArgs(
+                    new SceneHierarchyReferenceArgs(
+                        new SceneAssetPath(scenePath),
+                        new UnityHierarchyPath("Root")),
+                    new UnityComponentTypeId(typeId)),
                 alias: "ensuredAgain");
             var secondSetRequest = CreateOperation(
                 opId: "op-set-2",
                 opName: UcliPrimitiveOperationNames.CompSet,
-                args: new
-                {
-                    target = new
+                args: new ComponentSetArgs(
+                    new UcliAliasReferenceArgs(new UcliPlanAlias("ensuredAgain")),
+                    new[]
                     {
-                        @var = "ensuredAgain",
-                    },
-                    sets = new object[]
-                    {
-                        new
-                        {
-                            path = "nestedList.Array.data[1].number",
-                            value = 30,
-                        },
-                    },
-                });
+                        new SerializedObjectSetItemArgs(
+                            new SerializedPropertyPath("nestedList.Array.data[1].number"),
+                            JsonSerializer.SerializeToElement(30)),
+                    }));
 
             var firstEnsureResult = await ensureOperation.PlanAsync(firstEnsureRequest, context, CancellationToken.None);
             var firstSetResult = await setOperation.PlanAsync(setRequest, context, CancellationToken.None);
@@ -1304,61 +1110,42 @@ namespace MackySoft.Ucli.Unity.Tests
             var firstRequest = CreateOperation(
                 opId: "op-set-alias-1",
                 opName: UcliPrimitiveOperationNames.CompSet,
-                args: new
-                {
-                    target = new
+                args: new ComponentSetArgs(
+                    new UcliAliasReferenceArgs(new UcliPlanAlias("target")),
+                    new[]
                     {
-                        @var = "target",
-                    },
-                    sets = new object[]
-                    {
-                        new
-                        {
-                            path = "nestedList",
-                            value = new object[]
+                        new SerializedObjectSetItemArgs(
+                            new SerializedPropertyPath("nestedList"),
+                            JsonSerializer.SerializeToElement(new object[]
                             {
                                 new
                                 {
                                     number = 10,
                                     label = "first",
                                 },
-                            },
-                        },
-                    },
-                });
+                            })),
+                    }));
             var secondRequest = CreateOperation(
                 opId: "op-set-alias-2",
                 opName: UcliPrimitiveOperationNames.CompSet,
-                args: new
-                {
-                    target = new
+                args: new ComponentSetArgs(
+                    new UcliAliasReferenceArgs(new UcliPlanAlias("target")),
+                    new[]
                     {
-                        @var = "target",
-                    },
-                    sets = new object[]
-                    {
-                        new
-                        {
-                            path = "integerValue",
-                            value = 5,
-                        },
-                    },
-                });
+                        new SerializedObjectSetItemArgs(
+                            new SerializedPropertyPath("integerValue"),
+                            JsonSerializer.SerializeToElement(5)),
+                    }));
             var thirdRequest = CreateOperation(
                 opId: "op-set-global",
                 opName: UcliPrimitiveOperationNames.CompSet,
-                args: new
-                {
-                    target = new
+                args: new ComponentSetArgs(
+                    new GlobalObjectIdReferenceArgs(new UnityGlobalObjectId(globalObjectId)),
+                    new[]
                     {
-                        globalObjectId,
-                    },
-                    sets = new object[]
-                    {
-                        new
-                        {
-                            path = "nestedList",
-                            value = new object[]
+                        new SerializedObjectSetItemArgs(
+                            new SerializedPropertyPath("nestedList"),
+                            JsonSerializer.SerializeToElement(new object[]
                             {
                                 new
                                 {
@@ -1370,28 +1157,19 @@ namespace MackySoft.Ucli.Unity.Tests
                                     number = 20,
                                     label = "second",
                                 },
-                            },
-                        },
-                    },
-                });
+                            })),
+                    }));
             var fourthRequest = CreateOperation(
                 opId: "op-set-alias-3",
                 opName: UcliPrimitiveOperationNames.CompSet,
-                args: new
-                {
-                    target = new
+                args: new ComponentSetArgs(
+                    new UcliAliasReferenceArgs(new UcliPlanAlias("target")),
+                    new[]
                     {
-                        @var = "target",
-                    },
-                    sets = new object[]
-                    {
-                        new
-                        {
-                            path = "nestedList.Array.data[1].number",
-                            value = 30,
-                        },
-                    },
-                });
+                        new SerializedObjectSetItemArgs(
+                            new SerializedPropertyPath("nestedList.Array.data[1].number"),
+                            JsonSerializer.SerializeToElement(30)),
+                    }));
 
             var firstResult = await operation.PlanAsync(firstRequest, context, CancellationToken.None);
             var secondResult = await operation.PlanAsync(secondRequest, context, CancellationToken.None);
@@ -1430,6 +1208,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 {
                     target = new
                     {
+                        kind = Vocabulary.GetText(UcliReferenceKind.GlobalObjectId),
                         globalObjectId = nonCanonicalGlobalObjectId,
                     },
                     sets = new object[]
@@ -1444,21 +1223,14 @@ namespace MackySoft.Ucli.Unity.Tests
             var secondRequest = CreateOperation(
                 opId: "op-set-canonical",
                 opName: UcliPrimitiveOperationNames.CompSet,
-                args: new
-                {
-                    target = new
+                args: new ComponentSetArgs(
+                    new GlobalObjectIdReferenceArgs(new UnityGlobalObjectId(canonicalGlobalObjectId)),
+                    new[]
                     {
-                        globalObjectId = canonicalGlobalObjectId,
-                    },
-                    sets = new object[]
-                    {
-                        new
-                        {
-                            path = "floatValue",
-                            value = 2.5f,
-                        },
-                    },
-                });
+                        new SerializedObjectSetItemArgs(
+                            new SerializedPropertyPath("floatValue"),
+                            JsonSerializer.SerializeToElement(2.5f)),
+                    }));
             var context = scope.CreateExecutionContext();
 
             var firstResult = await operation.PlanAsync(firstRequest, context, CancellationToken.None);
@@ -1530,10 +1302,10 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(schema.GetProperty("properties").ValueKind, Is.EqualTo(JsonValueKind.Array));
         });
 
-        private static NormalizedOperation CreateOperation (
+        private static NormalizedOperation CreateOperation<TArgs> (
             string opId,
             string opName,
-            object args,
+            TArgs args,
             string? alias = null,
             NormalizedOperation.SourceStepKind sourceKind = NormalizedOperation.SourceStepKind.Edit)
         {
@@ -1542,7 +1314,9 @@ namespace MackySoft.Ucli.Unity.Tests
                     ? OperationExecutionKey.ForEditPrimitive(new IpcExecuteStepId(opId), primitiveIndex: 0)
                     : OperationExecutionKey.ForRawStep(new IpcExecuteStepId(opId)),
                 Op: opName,
-                Args: JsonSerializer.SerializeToElement(args),
+                Args: JsonSerializer.SerializeToElement(
+                    args,
+                    IpcJsonSerializerOptions.StrictPropertyNames),
                 As: alias == null
                     ? null
                     : RequestLocalAliasIdentity.FromPublicAlias(new UcliPlanAlias(alias)),

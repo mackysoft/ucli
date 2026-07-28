@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Contracts.Configuration;
+
 namespace MackySoft.Ucli.Application.Tests.Execution.ReadIndex;
 
 public sealed class IndexCatalogContractValidatorOpsDescribeAssuranceTests
@@ -8,7 +10,7 @@ public sealed class IndexCatalogContractValidatorOpsDescribeAssuranceTests
     {
         var entry = IndexCatalogContractValidatorOpsTestSupport.CreateValidOpsEntry() with
         {
-            Kind = "query",
+            Kind = UcliOperationKind.Query,
             Assurance = new UcliOperationAssuranceContract(
                 sideEffects: Array.Empty<UcliOperationSideEffect>(),
                 touchedKinds: [UcliTouchedResourceKind.Scene],
@@ -34,7 +36,7 @@ public sealed class IndexCatalogContractValidatorOpsDescribeAssuranceTests
     {
         var entry = IndexCatalogContractValidatorOpsTestSupport.CreateValidOpsEntry() with
         {
-            Policy = "advanced",
+            Policy = OperationPolicy.Advanced,
             Assurance = new UcliOperationAssuranceContract(
                 sideEffects: Array.Empty<UcliOperationSideEffect>(),
                 touchedKinds: Array.Empty<UcliTouchedResourceKind>(),

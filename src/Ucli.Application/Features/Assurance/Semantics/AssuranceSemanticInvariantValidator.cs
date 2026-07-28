@@ -59,7 +59,8 @@ internal sealed class AssuranceSemanticInvariantValidator
         List<AssuranceSemanticInvariantViolation> violations)
     {
         var reports = new Dictionary<string, ReportInfo>(StringComparer.Ordinal);
-        if (!payload.TryGetProperty("reports", out var reportsElement) || reportsElement.ValueKind != JsonValueKind.Object)
+        if (!payload.TryGetProperty("reports", out var reportsElement)
+            || reportsElement.ValueKind != JsonValueKind.Object)
         {
             AddViolation(violations, "$.reports", "Assurance payload reports must be an object.");
             return reports;
@@ -82,7 +83,6 @@ internal sealed class AssuranceSemanticInvariantValidator
             }
 
             ValidateOptionalDigest(reportProperty.Value, reportPath, violations);
-
             reports[reportProperty.Name] = new ReportInfo(path, uri);
         }
 

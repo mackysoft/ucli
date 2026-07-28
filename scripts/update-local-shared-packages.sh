@@ -8,7 +8,7 @@ Usage:
 
 Description:
   1. Read MackySoft.Ucli.Contracts and MackySoft.Ucli.Infrastructure versions from src/Ucli.Unity/Assets/packages.config.
-  2. Require uCLI-owned packages to use the same version and external foundation packages to use 0.1.0.
+  2. Require uCLI-owned packages to use the same version and external foundation packages to use their fixed versions.
   3. Restore external dependencies from nuget.org in an empty temporary global package cache.
   4. Pack only the two uCLI-owned shared packages, optionally copying them to a verification output.
   5. Restore src/Ucli.Unity/Assets/packages.config from separate uCLI-owned and nuget.org sources.
@@ -106,6 +106,8 @@ fi
 
 filesystem_package_id="MackySoft.FileSystem"
 filesystem_package_version="0.1.0"
+json_schema_package_id="MackySoft.JsonSchema.Generation"
+json_schema_package_version="0.3.0"
 contracts_package_id="MackySoft.Ucli.Contracts"
 infrastructure_package_id="MackySoft.Ucli.Infrastructure"
 contracts_csproj="${repository_root}/src/Ucli.Contracts/Ucli.Contracts.csproj"
@@ -136,6 +138,7 @@ read_package_version() {
 }
 
 configured_filesystem_package_version="$(read_package_version "${filesystem_package_id}")"
+configured_json_schema_package_version="$(read_package_version "${json_schema_package_id}")"
 contracts_package_version="$(read_package_version "${contracts_package_id}")"
 infrastructure_package_version="$(read_package_version "${infrastructure_package_id}")"
 
@@ -156,6 +159,11 @@ fi
 
 if [[ "${configured_filesystem_package_version}" != "${filesystem_package_version}" ]]; then
   echo "ERROR: ${filesystem_package_id} must use fixed version ${filesystem_package_version}. Actual: ${configured_filesystem_package_version}" >&2
+  exit 1
+fi
+
+if [[ "${configured_json_schema_package_version}" != "${json_schema_package_version}" ]]; then
+  echo "ERROR: ${json_schema_package_id} must use fixed version ${json_schema_package_version}. Actual: ${configured_json_schema_package_version}" >&2
   exit 1
 fi
 
@@ -181,6 +189,7 @@ find "${repository_local_package_source}" \
   -type f \
   \( -name "MackySoft.FileSystem.*.nupkg" \
      -o -name "MackySoft.Json.Canonicalization.*.nupkg" \
+     -o -name "MackySoft.JsonSchema.Generation.*.nupkg" \
      -o -name "MackySoft.Text.Vocabularies.*.nupkg" \
      -o -name "MackySoft.Text.Vocabularies.Json.*.nupkg" \) \
   -delete
@@ -215,6 +224,7 @@ cat > "${active_unity_nuget_config}" <<EOF
       <package pattern="MackySoft.AgentSkills*" />
       <package pattern="MackySoft.FileSystem" />
       <package pattern="MackySoft.Json.Canonicalization" />
+      <package pattern="MackySoft.JsonSchema.Generation" />
       <package pattern="MackySoft.Text.Vocabularies" />
       <package pattern="MackySoft.Text.Vocabularies.Json" />
       <package pattern="Microsoft.*" />
@@ -339,4 +349,4 @@ else
   echo "[8/9] Skip prune step (use --prune to enable)"
 fi
 
-echo "[9/9] Completed local package refresh for shared packages ${shared_package_version} and external foundation packages ${filesystem_package_version}"
+echo "[9/9] Completed local package refresh for shared packages ${shared_package_version}, external foundation packages ${filesystem_package_version}, and ${json_schema_package_id} ${json_schema_package_version}"

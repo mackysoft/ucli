@@ -1,13 +1,14 @@
 using System.Text.Json.Serialization;
+using MackySoft.JsonSchema.Generation.Annotations;
+using MackySoft.Ucli.Contracts.Json;
 using MackySoft.Ucli.Contracts.Operations;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
 /// <summary> Represents a path prefix that identifies the Unity <c>Assets</c> root or one of its descendants. </summary>
 [JsonConverter(typeof(UcliStringValueJsonConverterFactory))]
-[UcliDescription("Path prefix that identifies the Unity Assets root or one of its descendants.")]
-[UcliInputConstraint(UcliOperationInputConstraintKind.NonEmpty)]
-[UcliInputConstraint(UcliOperationInputConstraintKind.ProjectRelativePath)]
+[Length(1, int.MaxValue)]
+[UcliProjectRelativePath]
 public sealed class UnityAssetPathPrefix : UcliStringValue
 {
     /// <summary> Initializes a normalized path prefix for filtering assets below the Unity <c>Assets</c> root. </summary>

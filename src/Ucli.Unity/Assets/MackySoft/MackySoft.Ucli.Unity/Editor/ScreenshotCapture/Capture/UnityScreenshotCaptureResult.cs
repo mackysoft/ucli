@@ -49,7 +49,7 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Capture
 
             return new UnityScreenshotCaptureResult(
                 response: null,
-                new IpcError(code, message, OpId: null));
+                new IpcError(code, message, InstancePath: null));
         }
     }
 }

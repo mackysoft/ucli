@@ -166,7 +166,6 @@ internal static class EvalCommandAssert
         JsonAssert.For(document.RootElement)
             .HasProperty("steps", 0, step => step
                 .HasString("kind", "op")
-                .HasString("id", "eval")
                 .HasString("op", UcliPrimitiveOperationNames.CsEval)
                 .HasProperty("args", args => args
                     .HasString("source", expectedSource)));

@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Json;
 
 namespace MackySoft.Ucli.Contracts.Tests.Ipc.Common;
 
@@ -17,8 +18,27 @@ public sealed class IpcPayloadCodecContractTests
         var jsonElement = IpcPayloadCodec.SerializeToElement(payload);
 
         JsonAssert.For(jsonElement)
-            .MatchesSchema(PayloadEnvelopeSchema, nameof(PayloadEnvelope))
             .HasString("serverVersion", "v1");
+        Assert.Single(jsonElement.EnumerateObject());
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void SerializePublicRawOperationResultToElement_UsesRegisteredObjectContract ()
+    {
+        var result = IpcPayloadCodec.SerializePublicRawOperationResultToElement(
+            new PayloadEnvelope(ServerVersion: "v1"));
+
+        JsonAssert.For(result)
+            .HasString("serverVersion", "v1");
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void SerializePublicRawOperationResultToElement_WithNullResult_RejectsPayload ()
+    {
+        Assert.Throws<ArgumentNullException>(
+            () => IpcPayloadCodec.SerializePublicRawOperationResultToElement<PayloadEnvelope>(null!));
     }
 
     [Fact]
@@ -43,23 +63,25 @@ public sealed class IpcPayloadCodecContractTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void ReferenceValues_RoundTripAssetGuidAsStandardJsonGuid ()
+    public void AssetReferenceArgs_RoundTripsAssetGuidVariantAsStandardJsonGuid ()
     {
-        using var document = JsonDocument.Parse("{\"var\":\"created\",\"assetGuid\":\"11111111-1111-1111-1111-111111111111\"}");
+        var expectedAssetGuid = Guid.Parse("11111111-1111-1111-1111-111111111111");
+        AssetReferenceArgs expected = new AssetGuidReferenceArgs(expectedAssetGuid);
+        var payload = IpcPayloadCodec.SerializeToElement(expected);
 
         var result = IpcPayloadCodec.TryDeserialize<AssetReferenceArgs>(
-            document.RootElement,
+            payload,
             out var args,
             out var error);
 
         Assert.True(result, error.Message);
-        Assert.Equal("created", args.Alias!.Value);
-        Assert.Equal(Guid.Parse("11111111-1111-1111-1111-111111111111"), args.AssetGuid);
-
-        var payload = IpcPayloadCodec.SerializeToElement(args);
+        var assetGuidReference = Assert.IsType<AssetGuidReferenceArgs>(args);
+        Assert.Equal(expectedAssetGuid, assetGuidReference.AssetGuid);
 
         JsonAssert.For(payload)
-            .HasString("var", "created")
+            .HasString(
+                UcliOperationContractPropertyNames.Kind,
+                TextVocabulary.GetText(UcliReferenceKind.AssetGuid))
             .HasString("assetGuid", "11111111-1111-1111-1111-111111111111");
     }
 
@@ -67,10 +89,14 @@ public sealed class IpcPayloadCodecContractTests
     [Trait("Size", "Small")]
     public void ResolveSelectorArgs_WhenJsonAssetGuidIsEmpty_ReturnsDeserializeFailed ()
     {
-        using var document = JsonDocument.Parse("{\"assetGuid\":\"00000000-0000-0000-0000-000000000000\"}");
+        var payload = JsonSerializer.SerializeToElement(new
+        {
+            kind = TextVocabulary.GetText(UcliReferenceKind.AssetGuid),
+            assetGuid = Guid.Empty,
+        });
 
         var result = IpcPayloadCodec.TryDeserialize<ResolveSelectorArgs>(
-            document.RootElement,
+            payload,
             out var args,
             out var error);
 
@@ -198,6 +224,90 @@ public sealed class IpcPayloadCodecContractTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void TryDeserializeStrict_WithRequestLocalAliasVariant_ReturnsAlias ()
+    {
+        using var document = JsonDocument.Parse(
+            $$"""{"kind":"{{TextVocabulary.GetText(UcliReferenceKind.Alias)}}","var":"created"}""");
+
+        var result = IpcPayloadCodec.TryDeserializeStrict<AssetReferenceArgs>(
+            document.RootElement,
+            out var reference,
+            out var error);
+
+        Assert.True(result, error.Message);
+        Assert.IsType<UcliAliasReferenceArgs>(reference);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void TryDeserializePublicRawOperationArgs_WithRequestLocalAliasVariant_ReturnsDeserializeFailed ()
+    {
+        using var document = JsonDocument.Parse(
+            $$"""{"kind":"{{TextVocabulary.GetText(UcliReferenceKind.Alias)}}","var":"created"}""");
+
+        var result = IpcPayloadCodec.TryDeserializePublicRawOperationArgs<AssetReferenceArgs>(
+            document.RootElement,
+            out var reference,
+            out var error);
+
+        Assert.False(result);
+        Assert.Null(reference);
+        Assert.Equal(IpcPayloadReadErrorKind.DeserializeFailed, error.Kind);
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData("null", IpcPayloadReadErrorKind.NullPayload)]
+    [InlineData("[]", IpcPayloadReadErrorKind.DeserializeFailed)]
+    [InlineData("\"text\"", IpcPayloadReadErrorKind.DeserializeFailed)]
+    public void TryDeserializePublicRawOperationArgs_WithNonObjectRoot_RejectsPayload (
+        string json,
+        IpcPayloadReadErrorKind expectedErrorKind)
+    {
+        using var document = JsonDocument.Parse(json);
+
+        var result = IpcPayloadCodec.TryDeserializePublicRawOperationArgs<ScenePathArgs>(
+            document.RootElement,
+            out var args,
+            out var error);
+
+        Assert.False(result);
+        Assert.Null(args);
+        Assert.Equal(expectedErrorKind, error.Kind);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void TryDeserializePublicRawOperationArgs_WithNestedDiscriminatorAfterDataProperties_ReturnsModel ()
+    {
+        using var document = JsonDocument.Parse(
+            $$"""
+            {
+              "sets": [
+                {
+                  "value": true,
+                  "path": "m_Enabled"
+                }
+              ],
+              "target": {
+                "assetPath": "Assets/Data.asset",
+                "kind": "{{Vocabulary.GetText(UcliReferenceKind.AssetPath)}}"
+              }
+            }
+            """);
+
+        var result = IpcPayloadCodec.TryDeserializePublicRawOperationArgs<AssetSetArgs>(
+            document.RootElement,
+            out var args,
+            out var error);
+
+        Assert.True(result, error.Message);
+        var target = Assert.IsType<AssetPathReferenceArgs>(args.Target);
+        Assert.Equal("Assets/Data.asset", target.AssetPath.Value);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void TryDeserialize_WhenSemanticStringValueRejectsInput_ReturnsDeserializeFailed ()
     {
         using var document = JsonDocument.Parse("""{"value":"bad"}""");
@@ -266,8 +376,4 @@ public sealed class IpcPayloadCodecContractTests
             throw new NotSupportedException();
         }
     }
-
-    private static JsonSchemaNode PayloadEnvelopeSchema => JsonSchemaNode.Object(
-        builder => builder.Required("serverVersion", JsonSchemaNode.Value(JsonSchemaType.String)),
-        allowAdditionalProperties: false);
 }

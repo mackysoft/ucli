@@ -177,7 +177,7 @@ public sealed class UcliOperationAssuranceContractValidatorTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void JsonConverter_WhenContractIsValid_RoundTripsTypedValuesAndProjection ()
+    public void JsonContract_WhenValid_RoundTripsTypedValuesAndProjection ()
     {
         var assurance = JsonSerializer.Deserialize<UcliOperationAssuranceContract>(
             ValidAssetMutationJson,
@@ -198,66 +198,30 @@ public sealed class UcliOperationAssuranceContractValidatorTests
         Assert.Equal("observesLiveUnity", document.RootElement.GetProperty("planMode").GetString());
     }
 
-    [Fact]
-    [Trait("Size", "Small")]
-    public void JsonConverter_WhenSideEffectIsUnsupported_RejectsAtBoundary ()
-    {
-        var json = ValidAssetMutationJson.Replace("assetContentMutation", "not-supported", StringComparison.Ordinal);
-
-        Assert.Throws<JsonException>(
-            () => JsonSerializer.Deserialize<UcliOperationAssuranceContract>(json, IpcJsonSerializerOptions.Default));
-    }
-
     [Theory]
     [InlineData("\"mayDirty\": true", "\"mayDirty\": false")]
     [InlineData("\"mayPersist\": false", "\"mayPersist\": true")]
     [Trait("Size", "Small")]
-    public void JsonConverter_WhenProjectionDoesNotMatchSideEffects_RejectsAtBoundary (
+    public void JsonContract_WhenProjectionDoesNotMatchSideEffects_RejectsAtBoundary (
         string currentProjection,
         string invalidProjection)
     {
         var json = ValidAssetMutationJson.Replace(currentProjection, invalidProjection, StringComparison.Ordinal);
 
-        Assert.Throws<JsonException>(
+        Assert.Throws<ArgumentException>(
             () => JsonSerializer.Deserialize<UcliOperationAssuranceContract>(json, IpcJsonSerializerOptions.Default));
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void JsonConverter_WhenRequiredPropertyIsMissing_RejectsAtBoundary ()
+    public void JsonContract_WhenRequiredPropertyIsMissing_RejectsAtBoundary ()
     {
         var json = ValidAssetMutationJson.Replace(
             "  \"failureSemantics\": \"Failure may leave a partial mutation.\",\n",
             string.Empty,
             StringComparison.Ordinal);
 
-        Assert.Throws<JsonException>(
-            () => JsonSerializer.Deserialize<UcliOperationAssuranceContract>(json, IpcJsonSerializerOptions.Default));
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void JsonConverter_WhenPropertyIsDuplicated_RejectsAtBoundary ()
-    {
-        var json = ValidAssetMutationJson.Replace(
-            "  \"mayDirty\": true,",
-            "  \"mayDirty\": true,\n  \"mayDirty\": true,",
-            StringComparison.Ordinal);
-
-        Assert.Throws<JsonException>(
-            () => JsonSerializer.Deserialize<UcliOperationAssuranceContract>(json, IpcJsonSerializerOptions.Default));
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void JsonConverter_WhenUnknownPropertyExists_RejectsAtBoundary ()
-    {
-        var json = ValidAssetMutationJson.Replace(
-            "  \"sideEffects\":",
-            "  \"unknown\": true,\n  \"sideEffects\":",
-            StringComparison.Ordinal);
-
-        Assert.Throws<JsonException>(
+        Assert.Throws<ArgumentException>(
             () => JsonSerializer.Deserialize<UcliOperationAssuranceContract>(json, IpcJsonSerializerOptions.Default));
     }
 

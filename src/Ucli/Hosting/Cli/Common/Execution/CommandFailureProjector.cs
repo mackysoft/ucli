@@ -7,8 +7,6 @@ namespace MackySoft.Ucli.Hosting.Cli.Common.Execution;
 /// <summary> Projects classified application failures to the public CLI command-result contract. </summary>
 internal static class CommandFailureProjector
 {
-    private static readonly object EmptyPayload = new();
-
     /// <summary> Creates one failed command result from classified failures. </summary>
     public static CommandResult Create (
         string command,
@@ -30,7 +28,7 @@ internal static class CommandFailureProjector
             Status: CommandResultStatus.Error,
             ExitCode: ApplicationOutcomeCliExitCodeMapper.ToExitCode(ApplicationFailureOutcomeResolver.Resolve(failures)),
             Message: message,
-            Payload: payload ?? EmptyPayload,
+            Payload: payload ?? EmptyCommandPayload.Instance,
             Errors: CreateErrors(failures));
     }
 
@@ -58,7 +56,7 @@ internal static class CommandFailureProjector
                 throw new ArgumentException("Failure collection must not contain null entries.", nameof(failures));
             }
 
-            errors[i] = new CommandError(failure.Code, failure.Message, failure.OpId);
+            errors[i] = new CommandError(failure.Code, failure.Message, failure.InstancePath);
         }
 
         return errors;

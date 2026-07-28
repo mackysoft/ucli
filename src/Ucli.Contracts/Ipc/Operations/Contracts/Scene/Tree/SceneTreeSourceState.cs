@@ -1,10 +1,9 @@
 using System.Text.Json.Serialization;
-using MackySoft.Ucli.Contracts.Operations;
-using MackySoft.Ucli.Contracts.Text;
+
+using MackySoft.JsonSchema.Generation.Annotations;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
-[UcliDescription("Source state used to build a scene tree result.")]
 public sealed record SceneTreeSourceState
 {
     [JsonConstructor]
@@ -21,12 +20,14 @@ public sealed record SceneTreeSourceState
         IsDirty = isDirty;
     }
 
-    [UcliRequired]
-    [UcliDescription("Source kind used to build the scene tree. Values are temporaryScene, loadedScene, persistedPreview, and readIndex.")]
+    [JsonInclude]
+    [JsonRequired]
+    [Description("Source kind used to build the scene tree.")]
     [JsonConverter(typeof(VocabularyJsonConverterFactory))]
-    public SceneTreeSourceStateKind Kind { get; }
+    public SceneTreeSourceStateKind Kind { get; private init; }
 
-    [UcliRequired]
-    [UcliDescription("Whether the source scene contained unsaved Unity editor changes when the tree was read.")]
-    public bool IsDirty { get; }
+    [JsonInclude]
+    [JsonRequired]
+    [Description("Whether the source scene contained unsaved Unity editor changes when the tree was read.")]
+    public bool IsDirty { get; private init; }
 }

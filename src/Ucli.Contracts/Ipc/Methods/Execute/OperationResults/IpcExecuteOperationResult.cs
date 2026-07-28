@@ -5,7 +5,6 @@ using MackySoft.Ucli.Contracts.Text;
 namespace MackySoft.Ucli.Contracts.Ipc;
 
 /// <summary> Represents one public-step result within an <c>execute</c> response payload. </summary>
-/// <param name="OpId"> The public step identifier that corresponds to request <c>steps[].id</c>. </param>
 /// <param name="Op"> The public step name reported to clients. </param>
 /// <param name="Phase"> The final phase reached by the step. </param>
 /// <param name="Applied"> Whether the step has been applied. </param>
@@ -17,7 +16,6 @@ public sealed record IpcExecuteOperationResult
     /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="Phase" /> is not defined by the contract. </exception>
     [JsonConstructor]
     public IpcExecuteOperationResult (
-        IpcExecuteStepId OpId,
         string Op,
         IpcExecuteOperationPhase Phase,
         bool Applied,
@@ -29,15 +27,12 @@ public sealed record IpcExecuteOperationResult
             throw new ArgumentOutOfRangeException(nameof(Phase), Phase, "Operation phase must be specified.");
         }
 
-        this.OpId = OpId ?? throw new ArgumentNullException(nameof(OpId));
         this.Op = ContractArgumentGuard.RequireValue(Op, nameof(Op));
         this.Phase = Phase;
         this.Applied = Applied;
         this.Changed = Changed;
         this.Touched = ContractArgumentGuard.RequireItems(Touched, nameof(Touched));
     }
-
-    public IpcExecuteStepId OpId { get; }
 
     public string Op { get; }
 

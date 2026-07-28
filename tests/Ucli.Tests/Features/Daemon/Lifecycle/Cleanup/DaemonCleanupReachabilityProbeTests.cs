@@ -28,7 +28,7 @@ public sealed class DaemonCleanupReachabilityProbeTests
                 new IpcError(
                     errorCode,
                     "The endpoint returned a regular IPC error response.",
-                    OpId: null),
+                    InstancePath: null),
             ]));
         var pingClient = new IpcDaemonPingClient(
             transportClient,

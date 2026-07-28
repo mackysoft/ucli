@@ -7,19 +7,17 @@ using MackySoft.Ucli.Contracts.Ipc;
 
 public sealed class OperationAuthorizationServiceTests
 {
-    private const string ArgsSchemaJson = """{"type":"object"}""";
-
     private static readonly AuthorizationCase[] AllowedAuthorizationCases =
     [
-        new(UcliPrimitiveOperationNames.SceneOpen, UcliOperationKind.Command, OperationPolicy.Safe, OperationPolicy.Safe, "^ucli\\."),
-        new(UcliPrimitiveOperationNames.CsEval, UcliOperationKind.Mutation, OperationPolicy.Dangerous, OperationPolicy.Dangerous, "^ucli\\."),
+        new(UcliPrimitiveOperationNames.SceneOpen, OperationPolicy.Safe, OperationPolicy.Safe, "^ucli\\."),
+        new(UcliPrimitiveOperationNames.CsEval, OperationPolicy.Dangerous, OperationPolicy.Dangerous, "^ucli\\."),
     ];
 
     private static readonly DeniedAuthorizationCase[] DeniedAuthorizationCases =
     [
-        new(UcliPrimitiveOperationNames.SceneSave, UcliOperationKind.Mutation, OperationPolicy.Advanced, OperationPolicy.Safe, "^ucli\\.", ExpectedMessageContains: null),
-        new(UcliPrimitiveOperationNames.SceneOpen, UcliOperationKind.Command, OperationPolicy.Safe, OperationPolicy.Safe, "^myorg\\.", ExpectedMessageContains: null),
-        new(UcliPrimitiveOperationNames.SceneOpen, UcliOperationKind.Command, OperationPolicy.Safe, OperationPolicy.Safe, "[", ExpectedMessageContains: "invalid regex"),
+        new(UcliPrimitiveOperationNames.SceneSave, OperationPolicy.Advanced, OperationPolicy.Safe, "^ucli\\.", ExpectedMessageContains: null),
+        new(UcliPrimitiveOperationNames.SceneOpen, OperationPolicy.Safe, OperationPolicy.Safe, "^myorg\\.", ExpectedMessageContains: null),
+        new(UcliPrimitiveOperationNames.SceneOpen, OperationPolicy.Safe, OperationPolicy.Safe, "[", ExpectedMessageContains: "invalid regex"),
     ];
 
     [Fact]
@@ -31,7 +29,6 @@ public sealed class OperationAuthorizationServiceTests
             var service = new OperationAuthorizationService();
             var operation = CreateOperation(
                 testCase.OperationName,
-                testCase.OperationKind,
                 testCase.RequiredPolicy);
             var config = CreateConfig(testCase.ConfiguredPolicy, testCase.AllowlistPattern);
 
@@ -51,7 +48,6 @@ public sealed class OperationAuthorizationServiceTests
             var service = new OperationAuthorizationService();
             var operation = CreateOperation(
                 testCase.OperationName,
-                testCase.OperationKind,
                 testCase.RequiredPolicy);
             var config = CreateConfig(testCase.ConfiguredPolicy, testCase.AllowlistPattern);
 
@@ -73,7 +69,6 @@ public sealed class OperationAuthorizationServiceTests
         var service = new OperationAuthorizationService();
         var operation = CreateOperation(
             UcliPrimitiveOperationNames.SceneSave,
-            UcliOperationKind.Mutation,
             OperationPolicy.Advanced);
         var config = CreateConfig(OperationPolicy.Safe, "^ucli\\.");
 
@@ -91,12 +86,14 @@ public sealed class OperationAuthorizationServiceTests
         Assert.DoesNotContain("ucli query", result.Message, StringComparison.OrdinalIgnoreCase);
     }
 
-    private static UcliOperationDescriptor CreateOperation (
+    private static UcliOperationAuthorizationDescriptor CreateOperation (
         string name,
-        UcliOperationKind kind,
         OperationPolicy policy)
     {
-        return new UcliOperationDescriptor(name, kind, policy, ArgsSchemaJson);
+        return new UcliOperationAuthorizationDescriptor(
+            name,
+            policy,
+            UcliOperationExposure.Public);
     }
 
     private static UcliConfig CreateConfig (
@@ -113,14 +110,12 @@ public sealed class OperationAuthorizationServiceTests
 
     private sealed record AuthorizationCase (
         string OperationName,
-        UcliOperationKind OperationKind,
         OperationPolicy RequiredPolicy,
         OperationPolicy ConfiguredPolicy,
         string AllowlistPattern);
 
     private sealed record DeniedAuthorizationCase (
         string OperationName,
-        UcliOperationKind OperationKind,
         OperationPolicy RequiredPolicy,
         OperationPolicy ConfiguredPolicy,
         string AllowlistPattern,

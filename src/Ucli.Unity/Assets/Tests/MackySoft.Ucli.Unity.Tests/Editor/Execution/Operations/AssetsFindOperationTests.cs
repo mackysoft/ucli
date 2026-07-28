@@ -421,21 +421,14 @@ namespace MackySoft.Ucli.Unity.Tests
             var setRequest = CreateOperation(
                 opId: "op-set",
                 opName: UcliPrimitiveOperationNames.AssetSet,
-                args: new
-                {
-                    target = new
+                args: new AssetSetArgs(
+                    new AssetPathReferenceArgs(new UnityAssetPath(assetPath)),
+                    new[]
                     {
-                        assetPath,
-                    },
-                    sets = new object[]
-                    {
-                        new
-                        {
-                            path = "m_Name",
-                            value = renamedName,
-                        },
-                    },
-                });
+                        new SerializedObjectSetItemArgs(
+                            new SerializedPropertyPath("m_Name"),
+                            JsonSerializer.SerializeToElement(renamedName)),
+                    }));
             var findRequest = CreateOperation(
                 opId: "op-find",
                 args: new
@@ -467,21 +460,14 @@ namespace MackySoft.Ucli.Unity.Tests
             var setRequest = CreateOperation(
                 opId: "op-set",
                 opName: UcliPrimitiveOperationNames.AssetSet,
-                args: new
-                {
-                    target = new
+                args: new AssetSetArgs(
+                    new AssetPathReferenceArgs(new UnityAssetPath(assetPath)),
+                    new[]
                     {
-                        assetPath,
-                    },
-                    sets = new object[]
-                    {
-                        new
-                        {
-                            path = "m_Name",
-                            value = renamedName,
-                        },
-                    },
-                });
+                        new SerializedObjectSetItemArgs(
+                            new SerializedPropertyPath("m_Name"),
+                            JsonSerializer.SerializeToElement(renamedName)),
+                    }));
             var findRequest = CreateOperation(
                 opId: "op-find",
                 args: new
@@ -634,15 +620,17 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(EditorSceneManager.SaveScene(scene, scenePath), Is.True);
         }
 
-        private static NormalizedOperation CreateOperation (
+        private static NormalizedOperation CreateOperation<TArgs> (
             string opId,
-            object args,
+            TArgs args,
             string opName = UcliPrimitiveOperationNames.AssetsFind)
         {
             return new NormalizedOperation(
                 ExecutionKey: OperationExecutionKey.ForRawStep(new IpcExecuteStepId(opId)),
                 Op: opName,
-                Args: JsonSerializer.SerializeToElement(args),
+                Args: JsonSerializer.SerializeToElement(
+                    args,
+                    IpcJsonSerializerOptions.StrictPropertyNames),
                 As: null,
                 Expect: null,
                 AliasReferences: OperationAliasReferenceMap.Empty,

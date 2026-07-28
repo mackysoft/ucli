@@ -18,11 +18,8 @@ internal sealed class CommandResultWriter : ICommandResultWriter
 
     /// <summary> Writes the specified command result to standard output in JSON format. </summary>
     /// <param name="result"> The command result to serialize. </param>
-    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="result" /> is <see langword="null" />. </exception>
     public void WriteToStandardOutput (CommandResult result)
     {
-        ArgumentNullException.ThrowIfNull(result);
-
         Console.Out.Write(jsonContractWriter.Write(result));
     }
 

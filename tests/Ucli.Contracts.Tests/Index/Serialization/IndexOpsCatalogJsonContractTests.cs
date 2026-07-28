@@ -1,5 +1,6 @@
 using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Configuration;
 using static MackySoft.Tests.JsonTextAssert;
 
 namespace MackySoft.Ucli.Contracts.Tests.Index;
@@ -18,8 +19,8 @@ public sealed class IndexOpsCatalogJsonContractTests
             [
                 new IndexOpsCatalogEntryJsonContract(
                     Name: UcliPrimitiveOperationNames.GoDescribe,
-                    Kind: "query",
-                    Policy: "safe",
+                    Kind: UcliOperationKind.Query,
+                    Policy: OperationPolicy.Safe,
                     Description: "Returns a GameObject description.",
                     DescribeKey: new string('a', 64),
                     DescribeHash: new string('b', 64)),
@@ -34,8 +35,8 @@ public sealed class IndexOpsCatalogJsonContractTests
         Assert.NotNull(deserialized.Entries);
         Assert.Single(deserialized.Entries);
         Assert.Equal(UcliPrimitiveOperationNames.GoDescribe, deserialized.Entries[0].Name);
-        Assert.Equal("query", deserialized.Entries[0].Kind);
-        Assert.Equal("safe", deserialized.Entries[0].Policy);
+        Assert.Equal(UcliOperationKind.Query, deserialized.Entries[0].Kind);
+        Assert.Equal(OperationPolicy.Safe, deserialized.Entries[0].Policy);
         Assert.Equal("Returns a GameObject description.", deserialized.Entries[0].Description);
         Assert.Equal(new string('a', 64), deserialized.Entries[0].DescribeKey);
         Assert.Equal(new string('b', 64), deserialized.Entries[0].DescribeHash);
@@ -53,15 +54,15 @@ public sealed class IndexOpsCatalogJsonContractTests
             [
                 new IndexOpsCatalogEntryJsonContract(
                     Name: "z.op",
-                    Kind: "mutation",
-                    Policy: "dangerous",
+                    Kind: UcliOperationKind.Mutation,
+                    Policy: OperationPolicy.Dangerous,
                     Description: "Runs z operation.",
                     DescribeKey: new string('f', 64),
                     DescribeHash: new string('9', 64)),
                 new IndexOpsCatalogEntryJsonContract(
                     Name: "a.op",
-                    Kind: "query",
-                    Policy: "safe",
+                    Kind: UcliOperationKind.Query,
+                    Policy: OperationPolicy.Safe,
                     Description: "Runs a operation.",
                     DescribeKey: new string('a', 64),
                     DescribeHash: new string('1', 64)),

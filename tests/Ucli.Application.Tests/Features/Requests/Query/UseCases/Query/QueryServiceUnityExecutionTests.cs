@@ -67,7 +67,6 @@ public sealed class QueryServiceUnityExecutionTests
             opResults:
             [
                 new IpcExecuteOperationResult(
-                    OpId: new IpcExecuteStepId("comp.schema"),
                     Op: UcliPrimitiveOperationNames.CompSchema,
                     Phase: IpcExecuteOperationPhase.Plan,
                     Applied: false,

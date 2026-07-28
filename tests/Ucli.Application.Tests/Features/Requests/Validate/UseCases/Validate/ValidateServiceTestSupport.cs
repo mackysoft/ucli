@@ -12,7 +12,7 @@ internal static class ValidateServiceTestSupport
             requestJson: """{"protocolVersion":1,"steps":[]}""",
             request: new ValidateRequest(
                 ProtocolVersion: 1,
-                Steps: Array.Empty<ValidateRequestStep?>()),
+                Steps: Array.Empty<ValidateRequestStep>()),
             projectContext: ProjectContextTestFactory.CreateTemporaryFixtureProject(config));
     }
 

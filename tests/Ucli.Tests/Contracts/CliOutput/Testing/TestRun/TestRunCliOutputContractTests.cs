@@ -48,7 +48,6 @@ public sealed class TestRunCliOutputContractTests
             expectedCode: ProjectContextErrorCodes.ProjectPathNotFound);
         JsonAssert.For(outputJson.RootElement)
             .HasProperty("payload", payload => payload
-                .IsNull("result")
                 .HasString("errorKind", "invalidInput")
                 .IsNull("runId")
                 .IsNull("artifactsDir")
@@ -105,7 +104,6 @@ public sealed class TestRunCliOutputContractTests
             expectedCode: "INVALID_ARGUMENT");
         JsonAssert.For(outputJson.RootElement)
             .HasProperty("payload", payload => payload
-                .IsNull("result")
                 .HasString("errorKind", "invalidInput")
                 .IsNull("runId")
                 .IsNull("artifactsDir")

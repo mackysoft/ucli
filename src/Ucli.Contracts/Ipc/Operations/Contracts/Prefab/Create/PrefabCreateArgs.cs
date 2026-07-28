@@ -1,9 +1,11 @@
 using System.Text.Json.Serialization;
 using MackySoft.Ucli.Contracts.Operations;
 
+using MackySoft.JsonSchema.Generation.Annotations;
+
 namespace MackySoft.Ucli.Contracts.Ipc;
 
-[UcliDescription("Prefab creation operation arguments.")]
+[Description("Prefab creation operation arguments.")]
 public sealed record PrefabCreateArgs
 {
     [JsonConstructor]
@@ -15,13 +17,15 @@ public sealed record PrefabCreateArgs
         Path = ContractArgumentGuard.RequireNotNull(path, nameof(path));
     }
 
-    [UcliRequired]
-    [UcliDescription("Source scene GameObject reference.")]
-    [UcliInputConstraint(UcliOperationInputConstraintKind.ReferenceResolvable, TargetKind = UcliOperationReferenceTargetKind.GameObject)]
-    public SceneGameObjectReferenceArgs Target { get; }
+    [JsonInclude]
+    [JsonRequired]
+    [Description("Source scene GameObject reference.")]
+    [UcliReferenceResolvable(UcliOperationReferenceTargetKind.GameObject)]
+    public SceneGameObjectReferenceArgs Target { get; private init; }
 
-    [UcliRequired]
-    [UcliDescription("Prefab asset path to create.")]
-    [UcliInputConstraint(UcliOperationInputConstraintKind.AssetCreatable, AssetKind = UcliOperationAssetKind.Prefab)]
-    public PrefabAssetPath Path { get; }
+    [JsonInclude]
+    [JsonRequired]
+    [Description("Prefab asset path to create.")]
+    [UcliAssetCreatable(UcliOperationAssetKind.Prefab)]
+    public PrefabAssetPath Path { get; private init; }
 }

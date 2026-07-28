@@ -1,8 +1,11 @@
+using System.Text.Json.Serialization.Metadata;
 using ConsoleAppFramework;
+using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Contracts;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Features.Daemon.UseCases.Start;
 using MackySoft.Ucli.Application.Shared.Execution;
-using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 using MackySoft.Ucli.Hosting.Cli.Common.Streaming;
@@ -13,6 +16,19 @@ namespace MackySoft.Ucli.Hosting.Cli.Daemon;
 /// <summary> Provides the daemon start CLI command entry point. </summary>
 internal sealed class DaemonStartCommand
 {
+    /// <summary> Gets the serializer contract used by successful <c>daemon start</c> payloads. </summary>
+    public static JsonTypeInfo SuccessPayloadTypeInfo { get; } =
+        CliOutputJsonSerializerOptions.Default.GetTypeInfo(typeof(DaemonStartExecutionOutput));
+
+    /// <summary> Gets the serializer contract used by failed <c>daemon start</c> payloads. </summary>
+    public static JsonTypeInfo ErrorPayloadTypeInfo { get; } =
+        CommandErrorPayload.TypeInfo<DaemonStartErrorCommandPayload>();
+
+    public static object CreateEmptyErrorPayload ()
+    {
+        return CommandErrorPayload.Empty<DaemonStartErrorCommandPayload>();
+    }
+
     private readonly IDaemonStartService daemonStartService;
 
     private readonly ICommandResultWriter commandResultWriter;
@@ -56,9 +72,7 @@ internal sealed class DaemonStartCommand
         var formatResult = CliStreamEntryFormatOptionNormalizer.Normalize(format);
         if (!formatResult.IsSuccess)
         {
-            var errorResult = CommandResultFactory.FromExecutionError(
-                UcliCommandNames.DaemonStart,
-                formatResult.Error!);
+            var errorResult = CreateExecutionErrorResult(formatResult.Error!);
             commandResultWriter.WriteToStandardOutput(errorResult);
             return errorResult.ExitCode;
         }
@@ -66,9 +80,7 @@ internal sealed class DaemonStartCommand
         var normalizedTimeoutResult = TimeoutOptionNormalizer.Normalize(timeout);
         if (!normalizedTimeoutResult.IsSuccess)
         {
-            var errorResult = CommandResultFactory.FromExecutionError(
-                UcliCommandNames.DaemonStart,
-                normalizedTimeoutResult.Error!);
+            var errorResult = CreateExecutionErrorResult(normalizedTimeoutResult.Error!);
             commandResultWriter.WriteToStandardOutput(errorResult);
             return errorResult.ExitCode;
         }
@@ -76,9 +88,7 @@ internal sealed class DaemonStartCommand
         var normalizedEditorModeResult = DaemonEditorModeOptionNormalizer.Normalize(editorMode);
         if (!normalizedEditorModeResult.IsSuccess)
         {
-            var errorResult = CommandResultFactory.FromExecutionError(
-                UcliCommandNames.DaemonStart,
-                normalizedEditorModeResult.Error!);
+            var errorResult = CreateExecutionErrorResult(normalizedEditorModeResult.Error!);
             commandResultWriter.WriteToStandardOutput(errorResult);
             return errorResult.ExitCode;
         }
@@ -86,9 +96,7 @@ internal sealed class DaemonStartCommand
         var normalizedOnStartupBlockedResult = DaemonStartupBlockedProcessPolicyOptionNormalizer.Normalize(onStartupBlocked);
         if (!normalizedOnStartupBlockedResult.IsSuccess)
         {
-            var errorResult = CommandResultFactory.FromExecutionError(
-                UcliCommandNames.DaemonStart,
-                normalizedOnStartupBlockedResult.Error!);
+            var errorResult = CreateExecutionErrorResult(normalizedOnStartupBlockedResult.Error!);
             commandResultWriter.WriteToStandardOutput(errorResult);
             return errorResult.ExitCode;
         }
@@ -125,37 +133,52 @@ internal sealed class DaemonStartCommand
             return CommandResult.Success(
                 command: UcliCommandNames.DaemonStart,
                 message: "uCLI daemon start completed.",
-                payload: new
-                {
-                    startStatus = TextVocabulary.GetText(output.StartStatus),
-                    daemonStatus = TextVocabulary.GetText(output.DaemonStatus),
-                    lifecycleState = output.LifecycleState,
-                    blockingReason = output.BlockingReason,
-                    canAcceptExecutionRequests = output.CanAcceptExecutionRequests,
-                    timeoutMilliseconds = output.TimeoutMilliseconds,
-                    session = output.Session,
-                });
+                payload: output);
         }
 
         if (executionResult.FailureOutput is null)
         {
-            return CommandResultFactory.FromExecutionError(UcliCommandNames.DaemonStart, executionResult.Error!);
+            return CreateExecutionErrorResult(executionResult.Error!);
         }
 
         var failureOutput = executionResult.FailureOutput;
         return CommandFailureProjector.Create(
             UcliCommandNames.DaemonStart,
             ApplicationFailure.FromExecutionError(executionResult.Error!),
-            payload: new
-            {
-                startStatus = TextVocabulary.GetText(DaemonStartStatus.Failed),
-                daemonStatus = TextVocabulary.GetText(failureOutput.DaemonStatus),
-                timeoutMilliseconds = failureOutput.TimeoutMilliseconds,
-                session = (object?)null,
-                startup = failureOutput.Startup,
-                diagnosis = failureOutput.Diagnosis,
-                retryDisposition = failureOutput.RetryDisposition,
-                safeToRetryImmediately = failureOutput.SafeToRetryImmediately,
-            });
+            payload: CommandErrorPayload.Detailed(new DaemonStartErrorCommandPayload(
+                StartStatus: DaemonStartErrorStatus.Failed,
+                DaemonStatus: failureOutput.DaemonStatus,
+                TimeoutMilliseconds: failureOutput.TimeoutMilliseconds,
+                Session: null,
+                Startup: failureOutput.Startup,
+                Diagnosis: failureOutput.Diagnosis,
+                RetryDisposition: failureOutput.RetryDisposition,
+                SafeToRetryImmediately: failureOutput.SafeToRetryImmediately)));
+    }
+
+    private static CommandResult CreateExecutionErrorResult (ExecutionError error)
+    {
+        return CommandFailureProjector.Create(
+            UcliCommandNames.DaemonStart,
+            ApplicationFailure.FromExecutionError(error),
+            CreateEmptyErrorPayload());
+    }
+
+    private sealed record DaemonStartErrorCommandPayload (
+        DaemonStartErrorStatus StartStatus,
+        DaemonStatusKind DaemonStatus,
+        int TimeoutMilliseconds,
+        DaemonSessionOutput? Session,
+        DaemonStartupObservationOutput? Startup,
+        DaemonDiagnosisOutput? Diagnosis,
+        DaemonStartupRetryDisposition RetryDisposition,
+        bool SafeToRetryImmediately)
+        : CommandErrorPayload<DaemonStartErrorCommandPayload>;
+
+    [VocabularyDefinition]
+    private enum DaemonStartErrorStatus
+    {
+        [VocabularyText("failed")]
+        Failed = 0,
     }
 }

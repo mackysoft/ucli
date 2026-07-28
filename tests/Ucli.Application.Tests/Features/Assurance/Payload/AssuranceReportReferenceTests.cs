@@ -87,54 +87,6 @@ public sealed class AssuranceReportReferenceTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void BuildExecutionOutput_ExposesTypedReadOnlyReportSnapshot ()
-    {
-        var report = AssuranceReportReference.FromPath("artifacts/report.json", digest: null);
-        var source = new Dictionary<BuildArtifactKind, AssuranceReportReference>
-        {
-            [BuildArtifactKind.Build] = report,
-        };
-        var output = new BuildExecutionOutput(
-            Verdict: AssuranceVerdict.Pass,
-            Project: ProjectIdentityInfoTestFactory.Create(),
-            Build: AssuranceExecutionOutputTestFactory.CreateBuildOutput(),
-            Verifiers: [],
-            Claims: [],
-            Reports: source,
-            ResidualRisks: []);
-
-        source.Add(BuildArtifactKind.BuildLog, report);
-
-        var snapshot = Assert.IsType<ReadOnlyDictionary<BuildArtifactKind, AssuranceReportReference>>(output.Reports);
-        Assert.Same(report, snapshot[BuildArtifactKind.Build]);
-        Assert.False(snapshot.ContainsKey(BuildArtifactKind.BuildLog));
-        Assert.Throws<NotSupportedException>(() =>
-            ((IDictionary<BuildArtifactKind, AssuranceReportReference>)snapshot).Add(BuildArtifactKind.BuildReport, report));
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void BuildExecutionOutput_WithUndefinedReportKey_ThrowsArgumentException ()
-    {
-        var reports = new Dictionary<BuildArtifactKind, AssuranceReportReference>
-        {
-            [default] = AssuranceReportReference.FromPath("artifacts/report.json", digest: null),
-        };
-
-        var exception = Assert.Throws<ArgumentException>(() => new BuildExecutionOutput(
-            Verdict: AssuranceVerdict.Pass,
-            Project: ProjectIdentityInfoTestFactory.Create(),
-            Build: AssuranceExecutionOutputTestFactory.CreateBuildOutput(),
-            Verifiers: [],
-            Claims: [],
-            Reports: reports,
-            ResidualRisks: []));
-
-        Assert.Equal("Reports", exception.ParamName);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
     public void ExecutionOutputs_WithNullReports_ThrowArgumentNullException ()
     {
         var constructors = new Action[]

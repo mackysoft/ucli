@@ -13,7 +13,6 @@
     },
     "opResults": [
       {
-        "opId": "step-1",
         "op": "ucli.go.describe",
         "phase": "plan",
         "applied": false,

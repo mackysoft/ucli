@@ -1,20 +1,11 @@
 using System.Reflection;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Json;
 
 namespace MackySoft.Ucli.Contracts.Tests.Ipc.Values;
 
 public sealed class UnityPathValueTests
 {
-    public static TheoryData<Type> AssetPathValueTypes => new()
-    {
-        typeof(UnityAssetPath),
-        typeof(SceneAssetPath),
-        typeof(UnityScenePath),
-        typeof(PrefabAssetPath),
-        typeof(ProjectSettingsAssetPath),
-        typeof(UnityAssetPathPrefix),
-    };
-
     public static TheoryData<Type, string, string> NormalizedPathCases => new()
     {
         { typeof(UnityAssetPath), @"Assets\Data\Settings.asset", "Assets/Data/Settings.asset" },
@@ -72,22 +63,6 @@ public sealed class UnityPathValueTests
         var argumentException = Assert.IsAssignableFrom<ArgumentException>(exception.InnerException);
 
         Assert.Equal("value", argumentException.ParamName);
-    }
-
-    [Theory]
-    [MemberData(nameof(AssetPathValueTypes))]
-    [Trait("Size", "Small")]
-    public void Metadata_WhenAssetPathTypeIsInspected_DeclaresOnlyLexicalConstraints (Type valueType)
-    {
-        var constraints = valueType.GetCustomAttributes<UcliInputConstraintAttribute>();
-
-        Assert.Equal(
-            new[]
-            {
-                UcliOperationInputConstraintKind.NonEmpty,
-                UcliOperationInputConstraintKind.ProjectRelativePath,
-            },
-            constraints.Select(static constraint => constraint.Kind));
     }
 
     [Fact]

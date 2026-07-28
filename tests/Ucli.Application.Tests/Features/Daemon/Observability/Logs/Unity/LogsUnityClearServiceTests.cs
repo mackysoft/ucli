@@ -23,6 +23,7 @@ public sealed class LogsUnityClearServiceTests
             CancellationToken.None);
 
         Assert.True(result.IsSuccess, result.Error?.Message);
+        Assert.Equal(LogsUnityClearStatus.Cleared, result.Output!.ClearStatus);
         Assert.Equal(4500, result.Output!.TimeoutMilliseconds);
         DaemonCommandExecutionContextResolverAssert.ResolvedFor(
             resolver,

@@ -62,16 +62,16 @@ internal static class ExecuteResponseConverter
         out string errorMessage)
     {
         errorMessage = string.Empty;
-        var violationOpIds = new HashSet<IpcExecuteStepId>();
+        var violationInstancePaths = new HashSet<string>(StringComparer.Ordinal);
         if (payload.ContractViolations != null)
         {
             for (var violationIndex = 0; violationIndex < payload.ContractViolations.Count; violationIndex++)
             {
-                violationOpIds.Add(payload.ContractViolations[violationIndex].OpId);
+                violationInstancePaths.Add(payload.ContractViolations[violationIndex].InstancePath);
             }
         }
 
-        var errorOpIds = new HashSet<IpcExecuteStepId>();
+        var errorInstancePaths = new HashSet<string>(StringComparer.Ordinal);
         for (var errorIndex = 0; errorIndex < errors.Count; errorIndex++)
         {
             var error = errors[errorIndex];
@@ -80,46 +80,46 @@ internal static class ExecuteResponseConverter
                 continue;
             }
 
-            if (error.OpId == null)
+            if (error.InstancePath == null)
             {
-                errorMessage = $"Execute response envelope is invalid. The 'errors[{errorIndex}].opId' field must match a contract violation operation.";
+                errorMessage = $"Execute response envelope is invalid. The 'errors[{errorIndex}].instancePath' field must match a contract violation result.";
                 return false;
             }
 
-            errorOpIds.Add(error.OpId);
+            errorInstancePaths.Add(error.InstancePath);
         }
 
-        if (violationOpIds.Count == 0 && errorOpIds.Count == 0)
+        if (violationInstancePaths.Count == 0 && errorInstancePaths.Count == 0)
         {
             return true;
         }
 
-        if (violationOpIds.Count == 0)
+        if (violationInstancePaths.Count == 0)
         {
             errorMessage = "Execute response payload is invalid. The 'contractViolations' field must contain at least one item when OPERATION_CONTRACT_VIOLATION is reported.";
             return false;
         }
 
-        if (errorOpIds.Count == 0)
+        if (errorInstancePaths.Count == 0)
         {
             errorMessage = "Execute response envelope is invalid. OPERATION_CONTRACT_VIOLATION must be reported when 'contractViolations' contains items.";
             return false;
         }
 
-        foreach (var violationOpId in violationOpIds)
+        foreach (var violationInstancePath in violationInstancePaths)
         {
-            if (!errorOpIds.Contains(violationOpId))
+            if (!errorInstancePaths.Contains(violationInstancePath))
             {
-                errorMessage = $"Execute response envelope is invalid. OPERATION_CONTRACT_VIOLATION is missing for contract violation opId '{violationOpId}'.";
+                errorMessage = $"Execute response envelope is invalid. OPERATION_CONTRACT_VIOLATION is missing for contract violation at '{violationInstancePath}'.";
                 return false;
             }
         }
 
-        foreach (var errorOpId in errorOpIds)
+        foreach (var errorInstancePath in errorInstancePaths)
         {
-            if (!violationOpIds.Contains(errorOpId))
+            if (!violationInstancePaths.Contains(errorInstancePath))
             {
-                errorMessage = $"Execute response payload is invalid. The 'contractViolations' field is missing an item for OPERATION_CONTRACT_VIOLATION opId '{errorOpId}'.";
+                errorMessage = $"Execute response payload is invalid. The 'contractViolations' field is missing an item for OPERATION_CONTRACT_VIOLATION at '{errorInstancePath}'.";
                 return false;
             }
         }

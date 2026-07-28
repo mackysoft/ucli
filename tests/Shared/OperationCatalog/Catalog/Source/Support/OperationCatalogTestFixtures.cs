@@ -1,5 +1,7 @@
 using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Source;
+using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Operations;
 
 namespace MackySoft.Ucli.TestSupport;
 
@@ -59,83 +61,110 @@ internal static class OperationCatalogTestFixtures
     }
 
     public static IndexOpEntryJsonContract CreateGoDescribeEntry (
-        string argsSchemaJson = """{"type":"object"}""",
         IReadOnlyList<UcliOperationSideEffect>? sideEffects = null)
     {
+        var assurance = CreateSafeQueryAssurance(sideEffects ?? [UcliOperationSideEffect.ObservesUnityState]);
+        var describe = CreateDescribe<GoDescribeArgs, GameObjectDescriptionResult>(
+            UcliPrimitiveOperationNames.GoDescribe,
+            "Returns a GameObject description including components and child hierarchy.",
+            assurance);
         return new IndexOpEntryJsonContract(
             Name: UcliPrimitiveOperationNames.GoDescribe,
-            Kind: "query",
-            Policy: "safe",
-            ArgsSchemaJson: argsSchemaJson,
-            ResultSchemaJson: """{"type":"object"}""")
+            Kind: UcliOperationKind.Query,
+            Policy: OperationPolicy.Safe,
+            ArgsContract: describe.ArgsContract,
+            ResultContract: describe.ResultContract)
         {
-            Description = "Returns a GameObject description including components and child hierarchy.",
-            Inputs = Array.Empty<UcliOperationInputContract>(),
-            ResultContract = UcliOperationResultContract.One<GameObjectDescriptionResult>("GameObject description result."),
-            Assurance = CreateSafeQueryAssurance(sideEffects ?? [UcliOperationSideEffect.ObservesUnityState]),
+            Description = describe.Description,
+            Assurance = describe.Assurance,
         };
     }
 
     public static IndexOpEntryJsonContract CreateSceneSaveEntry ()
     {
+        var assurance = new UcliOperationAssuranceContract(
+            sideEffects: [UcliOperationSideEffect.SceneSave],
+            touchedKinds: [UcliTouchedResourceKind.Scene],
+            planMode: UcliOperationPlanMode.ObservesLiveUnity,
+            planSemantics: "Observe save-relevant project state without writing project files.",
+            callSemantics: "Persist save-relevant Unity state.",
+            touchedContract: "Reports resources known to be saved.",
+            readPostconditionContract: "Saved resource read surfaces may be stale after a successful call.",
+            failureSemantics: "Save failure may leave partial or indeterminate project file changes.",
+            dangerousNotes: ["This operation can persist Unity project files without transactional rollback."]);
+        var describe = CreateDescribe<ScenePathArgs, UcliNoResult>(
+            UcliPrimitiveOperationNames.SceneSave,
+            "Saves a Unity scene asset.",
+            assurance);
         return new IndexOpEntryJsonContract(
             Name: UcliPrimitiveOperationNames.SceneSave,
-            Kind: "mutation",
-            Policy: "advanced",
-            ArgsSchemaJson: """{"type":"object"}""")
+            Kind: UcliOperationKind.Mutation,
+            Policy: OperationPolicy.Advanced,
+            ArgsContract: describe.ArgsContract)
         {
-            Description = "Saves a Unity scene asset.",
-            Inputs = Array.Empty<UcliOperationInputContract>(),
-            ResultContract = UcliOperationResultContract.NoResult("No operation-specific result is emitted."),
-            Assurance = new UcliOperationAssuranceContract(
-                sideEffects: [UcliOperationSideEffect.SceneSave],
-                touchedKinds: [UcliTouchedResourceKind.Scene],
-                planMode: UcliOperationPlanMode.ObservesLiveUnity,
-                planSemantics: "Observe save-relevant project state without writing project files.",
-                callSemantics: "Persist save-relevant Unity state.",
-                touchedContract: "Reports resources known to be saved.",
-                readPostconditionContract: "Saved resource read surfaces may be stale after a successful call.",
-                failureSemantics: "Save failure may leave partial or indeterminate project file changes.",
-                dangerousNotes: ["This operation can persist Unity project files without transactional rollback."]),
+            Description = describe.Description,
+            Assurance = describe.Assurance,
         };
     }
 
     public static IndexOpEntryJsonContract CreateCsEvalEntry (string? name = null)
     {
+        var operationName = name ?? UcliPrimitiveOperationNames.CsEval;
+        var assurance = new UcliOperationAssuranceContract(
+            sideEffects:
+            [
+                UcliOperationSideEffect.ArbitrarySourceExecution,
+                UcliOperationSideEffect.ExternalProcess,
+                UcliOperationSideEffect.FilesystemWrite,
+                UcliOperationSideEffect.DestructiveScope,
+            ],
+            touchedKinds:
+            [
+                UcliTouchedResourceKind.Scene,
+                UcliTouchedResourceKind.Prefab,
+                UcliTouchedResourceKind.Asset,
+                UcliTouchedResourceKind.ProjectSettings,
+            ],
+            planMode: UcliOperationPlanMode.ValidationOnly,
+            planSemantics: "Validate source shape without executing user code.",
+            callSemantics: "Compile and execute caller-provided C# source.",
+            touchedContract: "Touched resources are reported only when declared by the executed source.",
+            readPostconditionContract: "Arbitrary source execution can affect read surfaces outside the public raw contract.",
+            failureSemantics: "Execution failure may leave effects caused by arbitrary source before the failure.",
+            dangerousNotes: ["This operation permits arbitrary source execution."]);
+        var describe = CreateDescribe<CsEvalArgs, CsEvalResult>(
+            operationName,
+            "Executes arbitrary C# source inside the Unity Editor process.",
+            assurance);
         return new IndexOpEntryJsonContract(
-            Name: name ?? UcliPrimitiveOperationNames.CsEval,
-            Kind: "mutation",
-            Policy: "dangerous",
-            ArgsSchemaJson: """{"type":"object"}""",
-            ResultSchemaJson: """{"type":"object"}""",
-            PlayModeSupport: "allowed")
+            Name: operationName,
+            Kind: UcliOperationKind.Mutation,
+            Policy: OperationPolicy.Dangerous,
+            ArgsContract: describe.ArgsContract,
+            ResultContract: describe.ResultContract,
+            PlayModeSupport: UcliOperationPlayModeSupport.Allowed)
         {
-            Description = "Executes arbitrary C# source inside the Unity Editor process.",
-            Inputs = Array.Empty<UcliOperationInputContract>(),
-            ResultContract = UcliOperationResultContract.One<object>("C# evaluation result."),
-            Assurance = new UcliOperationAssuranceContract(
-                sideEffects:
-                [
-                    UcliOperationSideEffect.ArbitrarySourceExecution,
-                    UcliOperationSideEffect.ExternalProcess,
-                    UcliOperationSideEffect.FilesystemWrite,
-                    UcliOperationSideEffect.DestructiveScope,
-                ],
-                touchedKinds:
-                [
-                    UcliTouchedResourceKind.Scene,
-                    UcliTouchedResourceKind.Prefab,
-                    UcliTouchedResourceKind.Asset,
-                    UcliTouchedResourceKind.ProjectSettings,
-                ],
-                planMode: UcliOperationPlanMode.ValidationOnly,
-                planSemantics: "Validate source shape without executing user code.",
-                callSemantics: "Compile and execute caller-provided C# source.",
-                touchedContract: "Touched resources are reported only when declared by the executed source.",
-                readPostconditionContract: "Arbitrary source execution can affect read surfaces outside the public raw contract.",
-                failureSemantics: "Execution failure may leave effects caused by arbitrary source before the failure.",
-                dangerousNotes: ["This operation permits arbitrary source execution."]),
+            Description = describe.Description,
+            Assurance = describe.Assurance,
         };
+    }
+
+    private static UcliOperationDescribeContract CreateDescribe<TArgs, TResult> (
+        string operationName,
+        string description,
+        UcliOperationAssuranceContract assurance)
+    {
+        var serializerOptions = IpcJsonSerializerOptions.PublicRawOperationContracts;
+        var generationResult = UcliOperationJsonContractGenerator.Generate(
+            operationName,
+            serializerOptions.GetTypeInfo(typeof(TArgs)),
+            typeof(TResult) == typeof(UcliNoResult)
+                ? null
+                : serializerOptions.GetTypeInfo(typeof(TResult)));
+        return UcliOperationDescribeContractBuilder.Create(
+            generationResult,
+            description,
+            assurance);
     }
 
     private static UcliOperationAssuranceContract CreateSafeQueryAssurance (IReadOnlyList<UcliOperationSideEffect> sideEffects)

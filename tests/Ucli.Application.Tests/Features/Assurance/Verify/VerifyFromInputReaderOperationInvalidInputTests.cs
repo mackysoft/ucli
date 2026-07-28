@@ -29,7 +29,6 @@ public sealed class VerifyFromInputReaderOperationInvalidInputTests
         yield return new InvalidInputCase(
             CreateValidInputJson("""
                 {
-                  "opId": "op-1",
                   "op": "Scene.Touch",
                   "phase": "unknown",
                   "applied": true,
@@ -48,7 +47,6 @@ public sealed class VerifyFromInputReaderOperationInvalidInputTests
         yield return new InvalidInputCase(
             CreateValidInputJson("""
                 {
-                  "opId": "op-1",
                   "op": "Scene.Touch",
                   "phase": "call",
                   "applied": true,
@@ -74,7 +72,6 @@ public sealed class VerifyFromInputReaderOperationInvalidInputTests
         yield return new InvalidInputCase(
             CreateValidInputJson("""
                 {
-                  "opId": "op-1",
                   "op": "Scene.Touch",
                   "phase": "call",
                   "applied": true,
@@ -100,7 +97,6 @@ public sealed class VerifyFromInputReaderOperationInvalidInputTests
         yield return new InvalidInputCase(
             CreateValidInputJson("""
                 {
-                  "opId": "op-1",
                   "op": "Scene.Touch",
                   "phase": "call",
                   "applied": true,
@@ -126,7 +122,6 @@ public sealed class VerifyFromInputReaderOperationInvalidInputTests
         yield return new InvalidInputCase(
             CreateValidInputJson("""
                 {
-                  "opId": "op-1",
                   "op": "Scene.Touch",
                   "phase": "call",
                   "applied": true,
@@ -145,7 +140,6 @@ public sealed class VerifyFromInputReaderOperationInvalidInputTests
         yield return new InvalidInputCase(
             CreateValidInputJson("""
                 {
-                  "opId": "op-1",
                   "op": "Scene.Touch",
                   "phase": "call",
                   "applied": true,

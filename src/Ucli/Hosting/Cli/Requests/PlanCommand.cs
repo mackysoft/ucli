@@ -64,8 +64,7 @@ internal sealed class PlanCommand
         var normalizedReadIndexModeResult = ReadIndexModeOptionNormalizer.Normalize(readIndexMode);
         if (!normalizedReadIndexModeResult.IsSuccess)
         {
-            var errorResult = CommandResultFactory.FromExecutionError(
-                UcliCommandNames.Plan,
+            var errorResult = PlanCommandResultFactory.CreateExecutionError(
                 normalizedReadIndexModeResult.Error!);
             commandResultWriter.WriteToStandardOutput(errorResult);
             return errorResult.ExitCode;
@@ -73,8 +72,7 @@ internal sealed class PlanCommand
 
         if (allowPlayMode && readIndexMode != null)
         {
-            var errorResult = CommandResultFactory.FromExecutionError(
-                UcliCommandNames.Plan,
+            var errorResult = PlanCommandResultFactory.CreateExecutionError(
                 ExecutionError.InvalidArgument("--allowPlayMode cannot be combined with --readIndexMode."));
             commandResultWriter.WriteToStandardOutput(errorResult);
             return errorResult.ExitCode;

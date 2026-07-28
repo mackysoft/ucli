@@ -49,7 +49,6 @@ internal static class TestRunCommandAssert
     {
         JsonAssert.For(rootElement)
             .HasProperty("payload", payload => payload
-                .IsNull("result")
                 .HasString("errorKind", "invalidInput")
                 .IsNull("runId")
                 .IsNull("artifactsDir")

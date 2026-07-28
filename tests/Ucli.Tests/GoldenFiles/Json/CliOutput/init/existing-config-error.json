@@ -9,7 +9,7 @@
     {
       "code": "INVALID_ARGUMENT",
       "message": "Initialization failed because template files already exist. Use --force to overwrite: <workspace>/.ucli/config.json",
-      "opId": null
+      "instancePath": null
     }
   ]
 }

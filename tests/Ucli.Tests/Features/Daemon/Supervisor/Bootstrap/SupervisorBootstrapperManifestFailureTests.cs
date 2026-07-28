@@ -290,7 +290,7 @@ public sealed class SupervisorBootstrapperManifestFailureTests
                 new IpcError(
                     IpcSessionErrorCodes.SessionTokenInvalid,
                     "Session token is invalid.",
-                    OpId: null),
+                    InstancePath: null),
             ]);
     }
 

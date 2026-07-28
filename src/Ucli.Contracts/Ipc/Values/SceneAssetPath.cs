@@ -1,14 +1,15 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Serialization;
+using MackySoft.JsonSchema.Generation.Annotations;
+using MackySoft.Ucli.Contracts.Json;
 using MackySoft.Ucli.Contracts.Operations;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
 /// <summary> Represents a project-relative path to a Unity scene asset. </summary>
 [JsonConverter(typeof(UcliStringValueJsonConverterFactory))]
-[UcliDescription("Project-relative path to a Unity scene asset.")]
-[UcliInputConstraint(UcliOperationInputConstraintKind.NonEmpty)]
-[UcliInputConstraint(UcliOperationInputConstraintKind.ProjectRelativePath)]
+[Length(1, int.MaxValue)]
+[UcliProjectRelativePath]
 public sealed class SceneAssetPath : UcliStringValue
 {
     /// <summary> Initializes a new instance of the <see cref="SceneAssetPath" /> class. </summary>

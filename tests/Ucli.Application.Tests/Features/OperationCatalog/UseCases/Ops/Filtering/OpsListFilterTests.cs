@@ -25,9 +25,9 @@ public sealed class OpsListFilterTests
             out _));
         var snapshot = CreateListSnapshot(
             CreateSceneSaveEntry(),
-            CreateSceneSaveEntry() with { Name = "custom.scene.query", Kind = "query", Policy = "safe", Assurance = CreateGoDescribeEntry().Assurance },
-            CreateSceneSaveEntry() with { Name = "custom.asset.mutation", Kind = "mutation", Policy = "advanced" },
-            CreateSceneSaveEntry() with { Name = "custom.scene.dangerous", Kind = "mutation", Policy = "dangerous", Assurance = CreateDangerousMutationAssurance() });
+            CreateSceneSaveEntry() with { Name = "custom.scene.query", Kind = UcliOperationKind.Query, Policy = OperationPolicy.Safe, Assurance = CreateGoDescribeEntry().Assurance },
+            CreateSceneSaveEntry() with { Name = "custom.asset.mutation", Kind = UcliOperationKind.Mutation, Policy = OperationPolicy.Advanced },
+            CreateSceneSaveEntry() with { Name = "custom.scene.dangerous", Kind = UcliOperationKind.Mutation, Policy = OperationPolicy.Dangerous, Assurance = CreateDangerousMutationAssurance() });
 
         var result = filter!.Apply(snapshot.Operations);
 

@@ -1,9 +1,11 @@
 using System.Text.Json.Serialization;
 using MackySoft.Ucli.Contracts.Operations;
 
+using MackySoft.JsonSchema.Generation.Annotations;
+
 namespace MackySoft.Ucli.Contracts.Ipc;
 
-[UcliDescription("Scene path operation arguments.")]
+[Description("Scene path operation arguments.")]
 public sealed record ScenePathArgs
 {
     [JsonConstructor]
@@ -12,7 +14,9 @@ public sealed record ScenePathArgs
         Path = ContractArgumentGuard.RequireNotNull(path, nameof(path));
     }
 
-    [UcliRequired]
-    [UcliInputConstraint(UcliOperationInputConstraintKind.AssetExists, AssetKind = UcliOperationAssetKind.Scene)]
-    public SceneAssetPath Path { get; }
+    [JsonInclude]
+    [JsonRequired]
+    [Description("Project-relative path to a Unity scene asset.")]
+    [UcliAssetExists(UcliOperationAssetKind.Scene)]
+    public SceneAssetPath Path { get; private init; }
 }

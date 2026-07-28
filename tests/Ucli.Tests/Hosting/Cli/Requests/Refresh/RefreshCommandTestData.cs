@@ -43,7 +43,7 @@ internal static class RefreshCommandTestData
         string observedResult = "opResults[].changed=true")
     {
         return new OperationExecutionContractViolation(
-            OpId: new IpcExecuteStepId("refresh"),
+            InstancePath: "/opResults/0",
             Operation: UcliPrimitiveOperationNames.ProjectRefresh,
             ExpectedFact: expectedFact,
             ObservedResult: observedResult,
@@ -56,7 +56,6 @@ internal static class RefreshCommandTestData
             IpcExecutePostReadSource.CurrentSchemaVersion,
             [
                 new OperationExecutionPostReadSourceStep(
-                    OpId: new IpcExecuteStepId("refresh"),
                     SourceKind: IpcExecutePostReadSourceKind.Refresh,
                     PlayModeMutation: false,
                     Commit: null,
@@ -69,7 +68,6 @@ internal static class RefreshCommandTestData
         IReadOnlyList<OperationExecutionTouchedResource>? touched = null)
     {
         return new OperationExecutionOperationResult(
-            OpId: new IpcExecuteStepId("refresh"),
             Op: UcliPrimitiveOperationNames.ProjectRefresh,
             Phase: IpcExecuteOperationPhase.Call,
             Applied: true,

@@ -179,10 +179,10 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             validationState = default;
             failure = null;
 
-            if (args.Parent == null)
+            if (args is GoCreateInSceneArgs inSceneArgs)
             {
                 if (!GoOperationUtilities.TryResolveScene(
-                    args.Scene!.Value,
+                    inSceneArgs.Scene.Value,
                     executionContext,
                     allowTemporaryState,
                     out var scene,
@@ -196,12 +196,20 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     args.Name,
                     scene,
                     parent: null,
-                    new OperationResource(UcliTouchedResourceKind.Scene, args.Scene.Value));
+                    new OperationResource(UcliTouchedResourceKind.Scene, inSceneArgs.Scene.Value));
                 return true;
             }
 
+            if (!(args is GoCreateUnderParentArgs underParentArgs))
+            {
+                failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(
+                    operation.Id,
+                    $"Unsupported GameObject creation placement type: {args.GetType().FullName}.");
+                return false;
+            }
+
             if (!UnityObjectReferenceContractMapper.TryMap(
-                    args.Parent,
+                    underParentArgs.Parent,
                     "args.parent",
                     operation.AliasReferences,
                     out var parentReference,

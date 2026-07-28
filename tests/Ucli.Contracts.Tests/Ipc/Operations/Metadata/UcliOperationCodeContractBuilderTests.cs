@@ -48,14 +48,14 @@ public sealed class UcliOperationCodeContractBuilderTests
         Assert.Equal("Log message.", Assert.Single(method.Parameters!).Description);
     }
 
-    [UcliDescription("Sample code context.")]
+    [UcliCodeDescription("Sample code context.")]
     private sealed class SampleCodeContext
     {
-        [UcliDescription("Sample value.")]
+        [UcliCodeDescription("Sample value.")]
         public string Value => string.Empty;
 
-        [UcliDescription("Records a log message.")]
-        public void Log ([UcliDescription("Log message.")] string message)
+        [UcliCodeDescription("Records a log message.")]
+        public void Log ([UcliCodeDescription("Log message.")] string message)
         {
         }
     }

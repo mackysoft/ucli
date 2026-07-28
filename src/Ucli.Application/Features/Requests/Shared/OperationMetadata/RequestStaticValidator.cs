@@ -1,20 +1,18 @@
 using MackySoft.Ucli.Application.Shared.Configuration;
-using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.ContractReading;
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 
-/// <summary> Performs static request validation for protocol, structure, and operation authorization. </summary>
+/// <summary>Performs static request validation for protocol and operation-specific product semantics.</summary>
 internal sealed class RequestStaticValidator : IRequestStaticValidator
 {
     private readonly IOperationAuthorizationService operationAuthorizationService;
 
-    /// <summary> Initializes a new instance of the <see cref="RequestStaticValidator" /> class. </summary>
-    /// <param name="operationAuthorizationService"> The operation authorization dependency. </param>
-    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="operationAuthorizationService" /> is <see langword="null" />. </exception>
+    /// <summary>Initializes a new instance of the <see cref="RequestStaticValidator" /> class.</summary>
+    /// <param name="operationAuthorizationService">The operation authorization dependency.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="operationAuthorizationService" /> is <see langword="null" />.</exception>
     public RequestStaticValidator (
         IOperationAuthorizationService operationAuthorizationService)
     {
@@ -32,23 +30,15 @@ internal sealed class RequestStaticValidator : IRequestStaticValidator
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(catalog);
         ArgumentNullException.ThrowIfNull(config);
+        ArgumentNullException.ThrowIfNull(request.Steps);
 
         var errors = new List<ValidationError>();
         if (request.ProtocolVersion != IpcProtocol.CurrentVersion)
         {
             errors.Add(new ValidationError(
-                Code: IpcProtocolErrorCodes.ProtocolVersionMismatch,
-                Message: $"protocolVersion must be {IpcProtocol.CurrentVersion}. Actual: {request.ProtocolVersion}.",
-                OpId: null));
-        }
-
-        if (request.Steps is null)
-        {
-            errors.Add(new ValidationError(
-                Code: ValidationErrorCodes.StepsRequired,
-                Message: "steps is required.",
-                OpId: null));
-            return ValidationResult.Invalid(errors);
+                IpcProtocolErrorCodes.ProtocolVersionMismatch,
+                $"protocolVersion must be {IpcProtocol.CurrentVersion}. Actual: {request.ProtocolVersion}.",
+                "/protocolVersion"));
         }
 
         if (request.Steps.Count == 0)
@@ -59,89 +49,53 @@ internal sealed class RequestStaticValidator : IRequestStaticValidator
         }
 
         Dictionary<string, UcliOperationDescriptor>? operationsByName = null;
+        Dictionary<string, UcliOperationAuthorizationDescriptor>? authorizationOperationsByName =
+            null;
         if (catalog.IsAvailable)
         {
-            operationsByName = new Dictionary<string, UcliOperationDescriptor>(catalog.Operations.Count, StringComparer.Ordinal);
+            operationsByName = new Dictionary<string, UcliOperationDescriptor>(
+                catalog.Operations.Count,
+                StringComparer.Ordinal);
             for (var i = 0; i < catalog.Operations.Count; i++)
             {
-                var operationDescriptor = catalog.Operations[i];
                 cancellationToken.ThrowIfCancellationRequested();
+                var operationDescriptor = catalog.Operations[i];
                 operationsByName[operationDescriptor.Name] = operationDescriptor;
+            }
+
+            authorizationOperationsByName =
+                new Dictionary<string, UcliOperationAuthorizationDescriptor>(
+                    catalog.AuthorizationOperations.Count,
+                    StringComparer.Ordinal);
+            for (var i = 0; i < catalog.AuthorizationOperations.Count; i++)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var operation = catalog.AuthorizationOperations[i];
+                authorizationOperationsByName[operation.Name] = operation;
             }
         }
 
         var authorizationCache = new Dictionary<string, OperationAuthorizationResult>(StringComparer.Ordinal);
-        var usedStepIds = new HashSet<IpcExecuteStepId>();
-        foreach (var step in request.Steps)
+        for (var i = 0; i < request.Steps.Count; i++)
         {
             cancellationToken.ThrowIfCancellationRequested();
-
-            if (step is null)
-            {
-                errors.Add(new ValidationError(
-                    Code: ValidationErrorCodes.StepIdRequired,
-                    Message: "step.id is required.",
-                    OpId: null));
-                errors.Add(new ValidationError(
-                    Code: ValidationErrorCodes.StepKindRequired,
-                    Message: "step.kind is required.",
-                    OpId: null));
-                continue;
-            }
-
-            var stepId = step.StepId;
-            if (stepId == null)
-            {
-                errors.Add(new ValidationError(
-                    Code: ValidationErrorCodes.StepIdRequired,
-                    Message: "step.id is required.",
-                    OpId: null));
-            }
-            else if (!usedStepIds.Add(stepId))
-            {
-                errors.Add(new ValidationError(
-                    Code: ValidationErrorCodes.StepIdDuplicated,
-                    Message: $"step.id '{stepId}' is duplicated.",
-                    OpId: stepId));
-            }
-
-            if (step.Kind is null)
-            {
-                errors.Add(new ValidationError(
-                    Code: ValidationErrorCodes.StepKindRequired,
-                    Message: "step.kind is required.",
-                    OpId: stepId));
-                continue;
-            }
+            var step = request.Steps[i];
+            var stepPath = $"/steps/{step.StepIndex}";
 
             switch (step.Kind)
             {
                 case IpcExecuteStepKind.Op:
-                    if (!StringValueNormalizer.TryTrimToNonEmpty(step.Op, out var normalizedOperationName))
-                    {
-                        errors.Add(new ValidationError(
-                            Code: ValidationErrorCodes.OperationNameRequired,
-                            Message: "step.op is required.",
-                            OpId: stepId));
-                        continue;
-                    }
+                    var operationName = step.Op
+                        ?? throw new InvalidOperationException(
+                            $"Normalized operation step at '{stepPath}' has no operation name.");
+                    var operationPath = stepPath + "/op";
 
-                    if ((operationsByName != null)
-                        && operationsByName.TryGetValue(normalizedOperationName, out var operationDescriptor))
+                    if (operationsByName != null
+                        && operationsByName.TryGetValue(operationName, out var operationDescriptor))
                     {
-                        if (TryCreateExposureValidationError(
-                                operationDescriptor,
-                                stepId,
-                                isImplicitEditOperation: false,
-                                out var exposureError))
-                        {
-                            errors.Add(exposureError!);
-                            continue;
-                        }
-
-                        var argsValidationFailure = TryValidateOperationArgs(
-                            step,
-                            stepId,
+                        var argsValidationFailure = OperationArgsSchemaEvaluator.TryValidate(
+                            step.Args,
+                            stepPath + "/args",
                             operationDescriptor,
                             errors);
                         if (argsValidationFailure is not null)
@@ -150,13 +104,13 @@ internal sealed class RequestStaticValidator : IRequestStaticValidator
                         }
                     }
 
-                    if (operationsByName != null)
+                    if (authorizationOperationsByName != null)
                     {
                         await ValidateReferencedOperationAsync(
-                                normalizedOperationName,
-                                stepId,
+                                operationName,
+                                operationPath,
                                 isImplicitEditOperation: false,
-                                operationsByName,
+                                authorizationOperationsByName,
                                 authorizationCache,
                                 config,
                                 errors,
@@ -167,52 +121,48 @@ internal sealed class RequestStaticValidator : IRequestStaticValidator
 
                 case IpcExecuteStepKind.Edit:
                     if (!RequestEditStepLowerPreviewBuilder.TryBuild(
-                        step.Element,
-                        request.AllowPlayMode,
-                        out var operationNames,
-                        out var errorMessage))
+                            step.EditContract,
+                            request.AllowPlayMode,
+                            out var operationNames,
+                            out var errorMessage))
                     {
                         errors.Add(new ValidationError(
-                            Code: ValidationErrorCodes.EditStepInvalid,
-                            Message: errorMessage,
-                            OpId: stepId));
+                            ValidationErrorCodes.EditStepInvalid,
+                            errorMessage,
+                            stepPath));
                         continue;
                     }
 
-                    if (operationsByName == null)
+                    if (authorizationOperationsByName == null)
                     {
                         break;
                     }
 
                     var uniqueOperationNames = new HashSet<string>(StringComparer.Ordinal);
-                    foreach (var operationName in operationNames)
+                    foreach (var requiredOperationName in operationNames)
                     {
                         cancellationToken.ThrowIfCancellationRequested();
-                        if (!uniqueOperationNames.Add(operationName))
+                        if (!uniqueOperationNames.Add(requiredOperationName))
                         {
                             continue;
                         }
 
                         await ValidateReferencedOperationAsync(
-                                operationName,
-                                stepId,
+                                requiredOperationName,
+                                stepPath,
                                 isImplicitEditOperation: true,
-                                operationsByName,
+                                authorizationOperationsByName,
                                 authorizationCache,
                                 config,
                                 errors,
                                 cancellationToken)
                             .ConfigureAwait(false);
                     }
-
                     break;
 
                 default:
-                    errors.Add(new ValidationError(
-                        Code: ValidationErrorCodes.StepKindInvalid,
-                        Message: $"step.kind '{step.Kind}' is unsupported.",
-                        OpId: stepId));
-                    break;
+                    throw new InvalidOperationException(
+                        $"Normalized request step at '{stepPath}' has unsupported kind '{step.Kind}'.");
             }
         }
 
@@ -221,59 +171,18 @@ internal sealed class RequestStaticValidator : IRequestStaticValidator
             : ValidationResult.Invalid(errors);
     }
 
-    private static ValidationResult? TryValidateOperationArgs (
-        ValidateRequestStep step,
-        IpcExecuteStepId? stepId,
-        UcliOperationDescriptor operationDescriptor,
-        ICollection<ValidationError> errors)
-    {
-        ArgumentNullException.ThrowIfNull(step);
-        ArgumentNullException.ThrowIfNull(operationDescriptor);
-        ArgumentNullException.ThrowIfNull(errors);
-
-        if (!step.Element.TryGetProperty("args", out var argsElement)
-            || argsElement.ValueKind != System.Text.Json.JsonValueKind.Object)
-        {
-            errors.Add(new ValidationError(
-                Code: ValidationErrorCodes.OperationArgsInvalid,
-                Message: $"Step '{stepId}' property 'args' must be an object.",
-                OpId: stepId));
-            return null;
-        }
-
-        if (OperationArgsStaticSchemaValidator.TryValidate(
-            operationDescriptor.ArgsSchemaJson,
-            argsElement,
-            out var schemaInvalid,
-            out var error))
-        {
-            return null;
-        }
-
-        if (schemaInvalid)
-        {
-            return ValidationResult.Failure(ExecutionError.InternalError(
-                $"Static validation could not validate args for operation '{operationDescriptor.Name}'. {error}"));
-        }
-
-        errors.Add(new ValidationError(
-            Code: ValidationErrorCodes.OperationArgsInvalid,
-            Message: $"Step '{stepId}' args for operation '{operationDescriptor.Name}' are invalid. {error}",
-            OpId: stepId));
-        return null;
-    }
-
     private async ValueTask ValidateReferencedOperationAsync (
         string operationName,
-        IpcExecuteStepId? stepId,
+        string instancePath,
         bool isImplicitEditOperation,
-        IReadOnlyDictionary<string, UcliOperationDescriptor> operationsByName,
+        IReadOnlyDictionary<string, UcliOperationAuthorizationDescriptor> operationsByName,
         IDictionary<string, OperationAuthorizationResult> authorizationCache,
         UcliConfig config,
         ICollection<ValidationError> errors,
         CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(operationName);
+        ArgumentException.ThrowIfNullOrWhiteSpace(instancePath);
         ArgumentNullException.ThrowIfNull(operationsByName);
         ArgumentNullException.ThrowIfNull(authorizationCache);
         ArgumentNullException.ThrowIfNull(config);
@@ -282,18 +191,18 @@ internal sealed class RequestStaticValidator : IRequestStaticValidator
         if (!operationsByName.TryGetValue(operationName, out var descriptor))
         {
             var message = isImplicitEditOperation
-                ? $"Edit step '{stepId}' requires operation '{operationName}', but it is not registered."
+                ? $"Edit step requires operation '{operationName}', but it is not registered."
                 : $"Operation '{operationName}' is not registered.";
             errors.Add(new ValidationError(
-                Code: ValidationErrorCodes.OperationNotFound,
-                Message: message,
-                OpId: stepId));
+                ValidationErrorCodes.OperationNotFound,
+                message,
+                instancePath));
             return;
         }
 
         if (TryCreateExposureValidationError(
                 descriptor,
-                stepId,
+                instancePath,
                 isImplicitEditOperation,
                 out var exposureError))
         {
@@ -312,31 +221,25 @@ internal sealed class RequestStaticValidator : IRequestStaticValidator
         if (!authorizationResult.IsAllowed)
         {
             var message = isImplicitEditOperation
-                ? $"Edit step '{stepId}' requires operation '{operationName}'. {authorizationResult.Message}"
+                ? $"Edit step requires operation '{operationName}'. {authorizationResult.Message}"
                 : authorizationResult.Message;
             errors.Add(new ValidationError(
-                Code: authorizationResult.ErrorCode ?? OperationAuthorizationErrorCodes.OperationNotAllowed,
-                Message: message,
-                OpId: stepId));
+                authorizationResult.ErrorCode ?? OperationAuthorizationErrorCodes.OperationNotAllowed,
+                message,
+                instancePath));
         }
     }
 
     private static bool TryCreateExposureValidationError (
-        UcliOperationDescriptor operation,
-        IpcExecuteStepId? stepId,
+        UcliOperationAuthorizationDescriptor operation,
+        string instancePath,
         bool isImplicitEditOperation,
         out ValidationError? error)
     {
-        ArgumentNullException.ThrowIfNull(operation);
+        ArgumentException.ThrowIfNullOrWhiteSpace(instancePath);
 
-        if (operation.Exposure == UcliOperationExposure.Public)
-        {
-            error = null;
-            return false;
-        }
-
-        if (operation.Exposure == UcliOperationExposure.EditLoweringOnly
-            && isImplicitEditOperation)
+        if (operation.Exposure == UcliOperationExposure.Public
+            || (operation.Exposure == UcliOperationExposure.EditLoweringOnly && isImplicitEditOperation))
         {
             error = null;
             return false;
@@ -347,13 +250,13 @@ internal sealed class RequestStaticValidator : IRequestStaticValidator
             : $"Operation '{operation.Name}' has unsupported exposure '{operation.Exposure}'.";
         if (isImplicitEditOperation)
         {
-            message = $"Edit step '{stepId}' requires operation '{operation.Name}'. {message}";
+            message = $"Edit step requires operation '{operation.Name}'. {message}";
         }
 
         error = new ValidationError(
-            Code: UcliCoreErrorCodes.InvalidArgument,
-            Message: message,
-            OpId: stepId);
+            UcliCoreErrorCodes.InvalidArgument,
+            message,
+            instancePath);
         return true;
     }
 }

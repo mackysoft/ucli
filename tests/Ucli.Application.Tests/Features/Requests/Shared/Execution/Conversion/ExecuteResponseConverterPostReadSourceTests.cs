@@ -13,7 +13,6 @@ public sealed class ExecuteResponseConverterPostReadSourceTests
         var response = CreateResponse(CreateExecuteResponse(
             [
                 new IpcExecuteOperationResult(
-                    OpId: new IpcExecuteStepId("edit-1"),
                     Op: "edit",
                     Phase: IpcExecuteOperationPhase.Call,
                     Applied: true,
@@ -24,7 +23,6 @@ public sealed class ExecuteResponseConverterPostReadSourceTests
                 IpcExecutePostReadSource.CurrentSchemaVersion,
                 [
                     new IpcExecutePostReadSourceStep(
-                        OpId: new IpcExecuteStepId("edit-1"),
                         SourceKind: IpcExecutePostReadSourceKind.Edit,
                         PlayModeMutation: false,
                         Commit: IpcExecutePostReadCommit.Project,
@@ -38,7 +36,6 @@ public sealed class ExecuteResponseConverterPostReadSourceTests
         Assert.NotNull(result.PostReadSource);
         Assert.Equal(1, result.PostReadSource!.SchemaVersion);
         var sourceStep = Assert.Single(result.PostReadSource.Steps);
-        Assert.Equal("edit-1", sourceStep.OpId.Value);
         Assert.Equal(IpcExecutePostReadSourceKind.Edit, sourceStep.SourceKind);
         Assert.Equal(IpcExecutePostReadCommit.Project, sourceStep.Commit);
         Assert.True(sourceStep.PersistenceExpected);
@@ -74,7 +71,6 @@ public sealed class ExecuteResponseConverterPostReadSourceTests
               },
               "opResults": [
                 {
-                  "opId": "edit-1",
                   "op": "edit",
                   "phase": "call",
                   "applied": true,
@@ -87,7 +83,6 @@ public sealed class ExecuteResponseConverterPostReadSourceTests
                 "schemaVersion": 1,
                 "steps": [
                   {
-                    "opId": "edit-1",
                     "sourceKind": "unsupported",
                     "playModeMutation": false,
                     "commit": "context",
@@ -131,7 +126,6 @@ public sealed class ExecuteResponseConverterPostReadSourceTests
         var response = CreateResponse(CreatePostReadSourcePayload(
             """
             {
-              "opId": "edit-1",
               "sourceKind": "operation",
               "playModeMutation": false,
               "commit": null,
@@ -156,7 +150,6 @@ public sealed class ExecuteResponseConverterPostReadSourceTests
         var response = CreateResponse(CreatePostReadSourcePayload(
             """
             {
-              "opId": "edit-1",
               "sourceKind": "edit",
               "playModeMutation": false,
               "commit": "context",
@@ -187,7 +180,6 @@ public sealed class ExecuteResponseConverterPostReadSourceTests
               },
               "opResults": [
                 {
-                  "opId": "edit-1",
                   "op": "edit",
                   "phase": "call",
                   "applied": true,
@@ -218,7 +210,6 @@ public sealed class ExecuteResponseConverterPostReadSourceTests
             new(
                 """
                 {
-                  "opId": "edit-1",
                   "sourceKind": "edit",
                   "commit": "context",
                   "persistenceExpected": true,
@@ -229,7 +220,6 @@ public sealed class ExecuteResponseConverterPostReadSourceTests
             new(
                 """
                 {
-                  "opId": "edit-1",
                   "sourceKind": "edit",
                   "playModeMutation": false,
                   "persistenceExpected": true,
@@ -240,7 +230,6 @@ public sealed class ExecuteResponseConverterPostReadSourceTests
             new(
                 """
                 {
-                  "opId": "edit-1",
                   "sourceKind": "edit",
                   "playModeMutation": false,
                   "commit": "context",
@@ -269,7 +258,6 @@ public sealed class ExecuteResponseConverterPostReadSourceTests
           },
           "opResults": [
             {
-              "opId": "edit-1",
               "op": "{{op}}",
               "phase": "call",
               "applied": true,

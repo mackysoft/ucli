@@ -14,12 +14,11 @@ internal sealed class OperationAuthorizationService : IOperationAuthorizationSer
     /// <returns> A task that resolves to the authorization evaluation result. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="operation" /> or <paramref name="config" /> is <see langword="null" />. </exception>
     public ValueTask<OperationAuthorizationResult> AuthorizeAsync (
-        UcliOperationDescriptor operation,
+        UcliOperationAuthorizationDescriptor operation,
         UcliConfig config,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        ArgumentNullException.ThrowIfNull(operation);
         ArgumentNullException.ThrowIfNull(config);
 
         if (!IsPolicyAllowed(operation.Policy, config.OperationPolicy))
@@ -63,7 +62,7 @@ internal sealed class OperationAuthorizationService : IOperationAuthorizationSer
     /// <param name="config"> The configuration that blocked execution. </param>
     /// <returns> The user-facing policy failure message. </returns>
     private static string CreatePolicyBlockedMessage (
-        UcliOperationDescriptor operation,
+        UcliOperationAuthorizationDescriptor operation,
         UcliConfig config)
     {
         var requiredPolicy = TextVocabulary.GetText(operation.Policy);

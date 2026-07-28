@@ -1,9 +1,11 @@
 using System.Text.Json.Serialization;
 using MackySoft.Ucli.Contracts.Operations;
 
+using MackySoft.JsonSchema.Generation.Annotations;
+
 namespace MackySoft.Ucli.Contracts.Ipc;
 
-[UcliDescription("Component ensure operation arguments.")]
+[Description("Component ensure operation arguments.")]
 public sealed record ComponentEnsureArgs
 {
     [JsonConstructor]
@@ -15,12 +17,14 @@ public sealed record ComponentEnsureArgs
         Type = ContractArgumentGuard.RequireNotNull(type, nameof(type));
     }
 
-    [UcliRequired]
-    [UcliDescription("Target GameObject that should contain the component.")]
-    [UcliInputConstraint(UcliOperationInputConstraintKind.ReferenceResolvable, TargetKind = UcliOperationReferenceTargetKind.GameObject)]
-    public GameObjectReferenceArgs Target { get; }
+    [JsonInclude]
+    [JsonRequired]
+    [Description("Target GameObject that should contain the component.")]
+    [UcliReferenceResolvable(UcliOperationReferenceTargetKind.GameObject)]
+    public GameObjectReferenceArgs Target { get; private init; }
 
-    [UcliRequired]
-    [UcliDescription("Component type identifier to ensure.")]
-    public UnityComponentTypeId Type { get; }
+    [JsonInclude]
+    [JsonRequired]
+    [Description("Component type identifier to ensure.")]
+    public UnityComponentTypeId Type { get; private init; }
 }

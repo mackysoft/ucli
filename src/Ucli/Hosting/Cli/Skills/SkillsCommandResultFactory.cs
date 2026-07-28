@@ -1,9 +1,14 @@
+using System.Text.Json.Serialization.Metadata;
 using MackySoft.AgentSkills.Doctor;
+using MackySoft.AgentSkills.Distribution;
 using MackySoft.AgentSkills.Hosting.Commands;
+using MackySoft.AgentSkills.Hosts.Contracts;
+using MackySoft.AgentSkills.Installation.Results;
+using MackySoft.AgentSkills.Installation.Targeting;
 using MackySoft.AgentSkills.OperationReports.Contracts;
 using MackySoft.AgentSkills.OperationReports.Literals;
 using MackySoft.AgentSkills.Shared;
-using MackySoft.Ucli.Application.Shared.Execution;
+using MackySoft.AgentSkills.Shared.Text;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 
@@ -14,6 +19,50 @@ internal static class SkillsCommandResultFactory
 {
     private const string PrivateVarPath = "/private/var";
     private const string VarPath = "/var";
+
+    /// <summary> Gets the serializer contract used by successful <c>skills export</c> payloads. </summary>
+    public static JsonTypeInfo ExportSuccessPayloadTypeInfo { get; } =
+        CliOutputJsonSerializerOptions.Default.GetTypeInfo(typeof(SkillsExportCommandPayload));
+
+    /// <summary> Gets the serializer contract used by failed <c>skills export</c> payloads. </summary>
+    public static JsonTypeInfo ExportErrorPayloadTypeInfo { get; } =
+        CliOutputJsonSerializerOptions.Default.GetTypeInfo(typeof(EmptyCommandPayload));
+
+    /// <summary> Gets the serializer contract used by successful <c>skills install</c> payloads. </summary>
+    public static JsonTypeInfo InstallSuccessPayloadTypeInfo { get; } =
+        CliOutputJsonSerializerOptions.Default.GetTypeInfo(typeof(SkillsInstallCommandPayload));
+
+    /// <summary> Gets the serializer contract used by failed <c>skills install</c> payloads. </summary>
+    public static JsonTypeInfo InstallErrorPayloadTypeInfo { get; } = ExportErrorPayloadTypeInfo;
+
+    /// <summary> Gets the serializer contract used by successful <c>skills update</c> payloads. </summary>
+    public static JsonTypeInfo UpdateSuccessPayloadTypeInfo { get; } =
+        CliOutputJsonSerializerOptions.Default.GetTypeInfo(typeof(SkillsUpdateCommandPayload));
+
+    /// <summary> Gets the serializer contract used by failed <c>skills update</c> payloads. </summary>
+    public static JsonTypeInfo UpdateErrorPayloadTypeInfo { get; } = ExportErrorPayloadTypeInfo;
+
+    /// <summary> Gets the serializer contract used by successful <c>skills uninstall</c> payloads. </summary>
+    public static JsonTypeInfo UninstallSuccessPayloadTypeInfo { get; } =
+        CliOutputJsonSerializerOptions.Default.GetTypeInfo(typeof(SkillsUninstallCommandPayload));
+
+    /// <summary> Gets the serializer contract used by failed <c>skills uninstall</c> payloads. </summary>
+    public static JsonTypeInfo UninstallErrorPayloadTypeInfo { get; } = ExportErrorPayloadTypeInfo;
+
+    /// <summary> Gets the serializer contract used by successful <c>skills prune</c> payloads. </summary>
+    public static JsonTypeInfo PruneSuccessPayloadTypeInfo { get; } =
+        CliOutputJsonSerializerOptions.Default.GetTypeInfo(typeof(SkillsPruneCommandPayload));
+
+    /// <summary> Gets the serializer contract used by failed <c>skills prune</c> payloads. </summary>
+    public static JsonTypeInfo PruneErrorPayloadTypeInfo { get; } = ExportErrorPayloadTypeInfo;
+
+    /// <summary> Gets the serializer contract used by successful <c>skills doctor</c> payloads. </summary>
+    public static JsonTypeInfo DoctorSuccessPayloadTypeInfo { get; } =
+        CliOutputJsonSerializerOptions.Default.GetTypeInfo(typeof(SkillsDoctorCommandPayload));
+
+    /// <summary> Gets the serializer contract used by failed <c>skills doctor</c> payloads. </summary>
+    public static JsonTypeInfo DoctorErrorPayloadTypeInfo { get; } =
+        CommandErrorPayload.TypeInfo<SkillsDoctorCommandPayload>();
 
     /// <summary> Creates a command result from the shared Agent Skills command runtime result. </summary>
     public static CommandResult Create (AgentSkillsCommandResult result)
@@ -30,7 +79,7 @@ internal static class SkillsCommandResultFactory
             SkillListReport report => CommandResult.Success(
                 result.Command,
                 "uCLI official SKILL package list retrieval completed.",
-                CreateListPayload(report)),
+                SkillsListCommandPayloadFactory.Create(report)),
             SkillExportReport report => CommandResult.Success(
                 result.Command,
                 "uCLI official SKILL packages exported.",
@@ -42,8 +91,9 @@ internal static class SkillsCommandResultFactory
             SkillDoctorReport report => CreateDoctor(result.Command, report),
             _ => CommandFailureProjector.Create(
                 result.Command,
-                ApplicationFailure.InternalError($"Unsupported Agent Skills command payload: {result.Payload?.GetType().FullName ?? "(null)"}"),
-                new { }),
+                ApplicationFailure.InternalError(
+                    $"Unsupported Agent Skills command payload: {result.Payload?.GetType().FullName ?? "(null)"}"),
+                CreateSkillFailurePayload(result.Command)),
         };
     }
 
@@ -61,61 +111,20 @@ internal static class SkillsCommandResultFactory
         return CommandFailureProjector.Create(
             command,
             SkillFailureApplicationFailureMapper.Map(failure),
-            new { });
+            CreateSkillFailurePayload(command));
     }
 
-    private static object CreateListPayload (SkillListReport report)
+    private static SkillsExportCommandPayload CreateExportPayload (SkillExportReport report)
     {
-        return new
-        {
-            categories = report.Categories,
-            skillNames = report.SkillNames,
-            availableCategories = report.AvailableCategories
-                .Select(static category => new
-                {
-                    category = category.Category,
-                    skillCount = category.SkillCount,
-                })
-                .ToArray(),
-            skills = report.Skills
-                .Select(static skill => new
-                {
-                    skillName = skill.SkillName,
-                    skill.DisplayName,
-                    skill.Description,
-                    dependencies = skill.Dependencies,
-                    category = skill.Category,
-                    catalogId = skill.CatalogId,
-                    skillBundleVersion = skill.SkillBundleVersion,
-                    contentDigest = skill.ContentDigest,
-                    hostArtifacts = skill.HostArtifacts,
-                })
-                .ToArray(),
-            supportedHosts = report.SupportedHosts
-                .Select(static host => new
-                {
-                    host = host.Host,
-                    projectTargetDirectory = host.ProjectDefaultTargetPath,
-                    userTargetDirectory = host.UserDefaultTargetPath,
-                    host.ReloadGuidance,
-                })
-                .ToArray(),
-        };
-    }
-
-    private static object CreateExportPayload (SkillExportReport report)
-    {
-        return new
-        {
-            host = report.Host,
-            categories = report.Categories,
-            skillNames = report.SkillNames,
-            format = report.Format,
-            outputRoot = ToDisplayPath(report.OutputPath),
-            skills = report.Skills,
-            skillCount = report.SkillCount,
-            reloadGuidance = report.ReloadGuidance,
-        };
+        return new SkillsExportCommandPayload(
+            UcliSkillCommandVocabularyMapper.Map<SkillHostKind, UcliOfficialSkillHost>(report.Host),
+            report.Categories,
+            report.SkillNames,
+            UcliSkillCommandVocabularyMapper.Map<SkillExportFormat, UcliSkillExportFormat>(report.Format),
+            ToDisplayPath(report.OutputPath),
+            report.Skills,
+            report.SkillCount,
+            report.ReloadGuidance);
     }
 
     private static object CreateOperationPayload (
@@ -123,97 +132,74 @@ internal static class SkillsCommandResultFactory
         SkillOperationReport report)
     {
         var targetRoot = ToDisplayPath(report.TargetRoot);
-        var actions = CreateActionPayloads(report.Actions, targetRoot);
         var repositoryRoot = report.RepositoryRoot is null ? null : ToDisplayPath(report.RepositoryRoot);
 
         return command switch
         {
-            UcliCommandNames.SkillsInstall => new
-            {
-                host = report.Host,
-                categories = report.Categories,
-                skillNames = report.SkillNames,
-                scope = report.Scope,
+            UcliCommandNames.SkillsInstall => new SkillsInstallCommandPayload(
+                UcliSkillCommandVocabularyMapper.Map<SkillHostKind, UcliOfficialSkillHost>(report.Host),
+                report.Categories,
+                report.SkillNames,
+                UcliSkillCommandVocabularyMapper.Map<SkillScopeKind, UcliSkillScope>(report.Scope),
                 repositoryRoot,
                 targetRoot,
                 report.DryRun,
                 report.Force,
-                printDiff = HasDiffs(report),
-                reloadGuidance = report.ReloadGuidance,
-                actions,
-                createdCount = CountAction(report, "created"),
-                updatedCount = CountAction(report, "updated"),
-                noOpCount = CountAction(report, "noOp"),
-                blockedCount = CountBlocked(report),
-            },
-            UcliCommandNames.SkillsUpdate => new
-            {
-                host = report.Host,
-                categories = report.Categories,
-                skillNames = report.SkillNames,
-                scope = report.Scope,
+                HasDiffs(report),
+                report.ReloadGuidance,
+                CreateActionPayloads<UcliSkillInstallAction>(report.Actions, targetRoot),
+                CountAction(report, SkillInstallActionKind.Created),
+                CountAction(report, SkillInstallActionKind.Updated),
+                CountAction(report, SkillInstallActionKind.NoOp),
+                CountBlocked(report)),
+            UcliCommandNames.SkillsUpdate => new SkillsUpdateCommandPayload(
+                UcliSkillCommandVocabularyMapper.Map<SkillHostKind, UcliOfficialSkillHost>(report.Host),
+                report.Categories,
+                report.SkillNames,
+                UcliSkillCommandVocabularyMapper.Map<SkillScopeKind, UcliSkillScope>(report.Scope),
                 repositoryRoot,
                 targetRoot,
                 report.DryRun,
                 report.Force,
-                printDiff = HasDiffs(report),
-                reloadGuidance = report.ReloadGuidance,
-                actions,
-                createdCount = CountAction(report, "created"),
-                updatedCount = CountAction(report, "updated"),
-                noOpCount = CountAction(report, "noOp"),
-                blockedCount = CountBlocked(report),
-            },
-            UcliCommandNames.SkillsUninstall => new
-            {
-                host = report.Host,
-                categories = report.Categories,
-                skillNames = report.SkillNames,
-                scope = report.Scope,
+                HasDiffs(report),
+                report.ReloadGuidance,
+                CreateActionPayloads<UcliSkillUpdateAction>(report.Actions, targetRoot),
+                CountAction(report, SkillUpdateActionKind.Created),
+                CountAction(report, SkillUpdateActionKind.Updated),
+                CountAction(report, SkillUpdateActionKind.NoOp),
+                CountBlocked(report)),
+            UcliCommandNames.SkillsUninstall => new SkillsUninstallCommandPayload(
+                UcliSkillCommandVocabularyMapper.Map<SkillHostKind, UcliOfficialSkillHost>(report.Host),
+                report.Categories,
+                report.SkillNames,
+                UcliSkillCommandVocabularyMapper.Map<SkillScopeKind, UcliSkillScope>(report.Scope),
                 repositoryRoot,
                 targetRoot,
                 report.DryRun,
                 report.Force,
-                reloadGuidance = report.ReloadGuidance,
-                actions,
-                deletedCount = CountAction(report, "deleted"),
-                noOpCount = CountAction(report, "noOp"),
-                skippedUnmanagedCount = CountAction(report, "skippedUnmanaged"),
-                blockedCount = CountBlocked(report),
-            },
-            UcliCommandNames.SkillsPrune => new
-            {
-                host = report.Host,
-                categories = report.Categories,
-                skillNames = report.SkillNames,
-                scope = report.Scope,
+                report.ReloadGuidance,
+                CreateActionPayloads<UcliSkillUninstallAction>(report.Actions, targetRoot),
+                CountAction(report, SkillUninstallActionKind.Deleted),
+                CountAction(report, SkillUninstallActionKind.NoOp),
+                CountAction(report, SkillUninstallActionKind.SkippedUnmanaged),
+                CountBlocked(report)),
+            UcliCommandNames.SkillsPrune => new SkillsPruneCommandPayload(
+                UcliSkillCommandVocabularyMapper.Map<SkillHostKind, UcliOfficialSkillHost>(report.Host),
+                report.Categories,
+                report.SkillNames,
+                UcliSkillCommandVocabularyMapper.Map<SkillScopeKind, UcliSkillScope>(report.Scope),
                 repositoryRoot,
                 targetRoot,
                 report.DryRun,
                 report.Force,
-                reloadGuidance = report.ReloadGuidance,
-                actions,
-                deletedCount = CountAction(report, "deleted"),
-                skippedCurrentCount = CountAction(report, "skippedCurrent"),
-                skippedForeignCatalogCount = CountAction(report, "skippedForeignCatalog"),
-                skippedUnmanagedCount = CountAction(report, "skippedUnmanaged"),
-                blockedCount = CountBlocked(report),
-            },
-            _ => new
-            {
-                host = report.Host,
-                categories = report.Categories,
-                skillNames = report.SkillNames,
-                scope = report.Scope,
-                repositoryRoot,
-                targetRoot,
-                report.DryRun,
-                report.Force,
-                reloadGuidance = report.ReloadGuidance,
-                actions,
-                actionCounts = report.ActionCounts,
-                statusCounts = report.StatusCounts,
-            },
+                report.ReloadGuidance,
+                CreateActionPayloads<UcliSkillPruneAction>(report.Actions, targetRoot),
+                CountAction(report, SkillPruneActionKind.Deleted),
+                CountAction(report, SkillPruneActionKind.SkippedCurrent),
+                CountAction(report, SkillPruneActionKind.SkippedForeignCatalog),
+                CountAction(report, SkillPruneActionKind.SkippedUnmanaged),
+                CountBlocked(report)),
+            _ => throw new InvalidOperationException($"Unsupported Agent Skills operation command: {command}."),
         };
     }
 
@@ -222,26 +208,23 @@ internal static class SkillsCommandResultFactory
         SkillDoctorReport report)
     {
         var targetRoot = ToDisplayPath(report.TargetRoot);
-        var payload = new
-        {
-            host = report.Host,
-            categories = report.Categories,
-            skillNames = report.SkillNames,
-            scope = report.Scope,
-            repositoryRoot = report.RepositoryRoot is null ? null : ToDisplayPath(report.RepositoryRoot),
+        var payload = new SkillsDoctorCommandPayload(
+            UcliSkillCommandVocabularyMapper.Map<SkillHostKind, UcliOfficialSkillHost>(report.Host),
+            report.Categories,
+            report.SkillNames,
+            UcliSkillCommandVocabularyMapper.Map<SkillScopeKind, UcliSkillScope>(report.Scope),
+            report.RepositoryRoot is null ? null : ToDisplayPath(report.RepositoryRoot),
             targetRoot,
-            reloadGuidance = report.ReloadGuidance,
+            report.ReloadGuidance,
             report.IsHealthy,
-            diagnostics = report.Diagnostics
-                .Select(static diagnostic => new
-                {
-                    severity = diagnostic.Severity,
+            report.Diagnostics
+                .Select(static diagnostic => new SkillsDoctorDiagnosticCommandPayload(
+                    UcliSkillCommandVocabularyMapper.Map<SkillDoctorSeverity, UcliSkillDoctorSeverity>(
+                        diagnostic.Severity),
                     diagnostic.Code,
                     diagnostic.Message,
-                    diagnostic.SkillName,
-                })
-                .ToArray(),
-        };
+                    diagnostic.SkillName))
+                .ToArray());
 
         if (report.IsHealthy)
         {
@@ -266,7 +249,7 @@ internal static class SkillsCommandResultFactory
         return CommandFailureProjector.Create(
             command,
             "uCLI skills doctor reported errors.",
-            payload,
+            CommandErrorPayload.Detailed(payload),
             failures);
     }
 
@@ -280,27 +263,32 @@ internal static class SkillsCommandResultFactory
             UcliCommandNames.SkillsUpdate => report.DryRun ? "uCLI official SKILL update plan generated." : "uCLI official SKILL packages updated.",
             UcliCommandNames.SkillsUninstall => report.DryRun ? "uCLI official SKILL uninstall plan generated." : "uCLI official SKILL packages uninstalled.",
             UcliCommandNames.SkillsPrune => report.DryRun ? "uCLI official SKILL prune plan generated." : "uCLI official SKILL packages pruned.",
-            _ => "uCLI official SKILL operation completed.",
+            _ => throw new InvalidOperationException($"Unsupported Agent Skills operation command: {command}."),
         };
     }
 
-    private static object[] CreateActionPayloads (
+    private static IReadOnlyList<SkillsOperationActionCommandPayload<TAction>> CreateActionPayloads<TAction> (
         IReadOnlyList<SkillOperationActionReport> actions,
         string targetRoot)
+        where TAction : struct, Enum
     {
         return actions
-            .Select(action => new
-            {
-                skillName = action.SkillName,
-                action = action.Action,
+            .Select(action => new SkillsOperationActionCommandPayload<TAction>(
+                action.SkillName,
+                UcliSkillCommandVocabularyMapper.Parse<TAction>(
+                    action.Action,
+                    nameof(SkillOperationActionReport)),
                 targetRoot,
-                blockedReason = action.BlockedReason,
-                diffs = CreateDiffPayloads(action.FileDiffs),
-            })
+                action.BlockedReason is null
+                    ? null
+                    : UcliSkillCommandVocabularyMapper.Map<SkillBlockedReason, UcliSkillBlockedReason>(
+                        action.BlockedReason.Value),
+                CreateDiffPayloads(action.FileDiffs)))
             .ToArray();
     }
 
-    private static object[] CreateDiffPayloads (IReadOnlyList<SkillOperationFileDiffReport> fileDiffs)
+    private static IReadOnlyList<SkillsOperationDiffCommandPayload> CreateDiffPayloads (
+        IReadOnlyList<SkillOperationFileDiffReport> fileDiffs)
     {
         if (fileDiffs.Count == 0)
         {
@@ -309,26 +297,24 @@ internal static class SkillsCommandResultFactory
 
         return
         [
-            new
-            {
-                files = fileDiffs
-                    .Select(static file => new
-                    {
-                        relativePath = file.RelativePath,
-                        changeKind = file.ChangeKind,
-                        beforeContent = file.BeforeContent,
-                        afterContent = file.AfterContent,
-                    })
-                    .ToArray(),
-            },
+            new SkillsOperationDiffCommandPayload(
+                fileDiffs
+                    .Select(static file => new SkillsOperationFileDiffCommandPayload(
+                        file.RelativePath,
+                        UcliSkillCommandVocabularyMapper.Map<SkillDiffChangeKind, UcliSkillDiffChangeKind>(
+                            file.ChangeKind),
+                        file.BeforeContent,
+                        file.AfterContent))
+                    .ToArray()),
         ];
     }
 
-    private static int CountAction (
+    private static int CountAction<TAction> (
         SkillOperationReport report,
-        string action)
+        TAction action)
+        where TAction : struct, Enum
     {
-        return report.Actions.Count(candidate => string.Equals(candidate.Action, action, StringComparison.Ordinal));
+        return report.Actions.Count(candidate => ContractLiteralCodec.Matches(candidate.Action, action));
     }
 
     private static int CountBlocked (SkillOperationReport report)
@@ -341,6 +327,13 @@ internal static class SkillsCommandResultFactory
     private static bool HasDiffs (SkillOperationReport report)
     {
         return report.Actions.Any(static action => action.FileDiffs.Count > 0);
+    }
+
+    private static object CreateSkillFailurePayload (string command)
+    {
+        return string.Equals(command, UcliCommandNames.SkillsDoctor, StringComparison.Ordinal)
+            ? CommandErrorPayload.Empty<SkillsDoctorCommandPayload>()
+            : EmptyCommandPayload.Instance;
     }
 
     private static string ToDisplayPath (string path)

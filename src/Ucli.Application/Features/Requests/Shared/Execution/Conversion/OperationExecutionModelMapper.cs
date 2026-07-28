@@ -26,7 +26,6 @@ internal static class OperationExecutionModelMapper
         ArgumentNullException.ThrowIfNull(opResult);
 
         return new OperationExecutionOperationResult(
-            OpId: opResult.OpId,
             Op: opResult.Op,
             Phase: opResult.Phase,
             Applied: opResult.Applied,
@@ -66,7 +65,7 @@ internal static class OperationExecutionModelMapper
         {
             var violation = contractViolations[i];
             mappedViolations[i] = new OperationExecutionContractViolation(
-                OpId: violation.OpId,
+                InstancePath: violation.InstancePath,
                 Operation: violation.Operation,
                 ExpectedFact: violation.ExpectedFact,
                 ObservedResult: violation.ObservedResult,
@@ -84,7 +83,7 @@ internal static class OperationExecutionModelMapper
         return new OperationExecutionError(
             Code: error.Code,
             Message: error.Message,
-            OpId: error.OpId);
+            InstancePath: error.InstancePath);
     }
 
     /// <summary> Maps one optional post-read source contract. </summary>
@@ -101,7 +100,6 @@ internal static class OperationExecutionModelMapper
         {
             var step = steps[i];
             mappedSteps[i] = new OperationExecutionPostReadSourceStep(
-                OpId: step.OpId,
                 SourceKind: step.SourceKind,
                 PlayModeMutation: step.PlayModeMutation,
                 Commit: step.Commit,
@@ -114,19 +112,16 @@ internal static class OperationExecutionModelMapper
 
     /// <summary> Creates one plan-phase operation result without exposing IPC DTOs from service results. </summary>
     public static OperationExecutionOperationResult CreatePlanResult (
-        IpcExecuteStepId opId,
         string op,
         bool applied,
         bool changed,
         IReadOnlyList<OperationExecutionTouchedResource> touched,
         JsonElement? result = null)
     {
-        ArgumentNullException.ThrowIfNull(opId);
         ArgumentException.ThrowIfNullOrWhiteSpace(op);
         ArgumentNullException.ThrowIfNull(touched);
 
         return new OperationExecutionOperationResult(
-            OpId: opId,
             Op: op,
             Phase: IpcExecuteOperationPhase.Plan,
             Applied: applied,

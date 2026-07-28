@@ -1,6 +1,6 @@
+using System.Text.Json.Serialization.Metadata;
 using ConsoleAppFramework;
 using MackySoft.Ucli.Application.Features.Daemon.UseCases.Inventory;
-using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 using MackySoft.Ucli.Hosting.Cli.Options;
@@ -10,6 +10,14 @@ namespace MackySoft.Ucli.Hosting.Cli.Daemon;
 /// <summary> Provides the daemon list CLI command entry point. </summary>
 internal sealed class DaemonListCommand
 {
+    /// <summary> Gets the serializer contract used by successful <c>daemon list</c> payloads. </summary>
+    public static JsonTypeInfo SuccessPayloadTypeInfo { get; } =
+        CliOutputJsonSerializerOptions.Default.GetTypeInfo(typeof(DaemonListExecutionOutput));
+
+    /// <summary> Gets the serializer contract used by failed <c>daemon list</c> payloads. </summary>
+    public static JsonTypeInfo ErrorPayloadTypeInfo { get; } =
+        CliOutputJsonSerializerOptions.Default.GetTypeInfo(typeof(EmptyCommandPayload));
+
     private readonly IDaemonListService daemonListService;
 
     private readonly ICommandResultWriter commandResultWriter;
@@ -76,17 +84,7 @@ internal sealed class DaemonListCommand
                 message: output.IsComplete
                     ? "uCLI daemon list retrieval completed."
                     : "uCLI daemon list retrieval completed with partial results.",
-                payload: new
-                {
-                    timeoutMilliseconds = output.TimeoutMilliseconds,
-                    projectRelativePath = output.ProjectRelativePath,
-                    isComplete = output.IsComplete,
-                    completionReason = output.CompletionReason.HasValue
-                        ? TextVocabulary.GetText(output.CompletionReason.Value)
-                        : null,
-                    remainingWorktreeCount = output.RemainingWorktreeCount,
-                    items = output.Items.Select(DaemonCommandOutputProjector.ToListItem).ToArray(),
-                });
+                payload: output);
         }
 
         return CommandResultFactory.FromExecutionError(UcliCommandNames.DaemonList, executionResult.Error!);

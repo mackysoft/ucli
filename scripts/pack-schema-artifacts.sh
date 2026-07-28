@@ -5,7 +5,7 @@ usage() {
   cat >&2 <<'EOF'
 Usage: scripts/pack-schema-artifacts.sh --version <version> [--repo-root <path>] [--output <dir>]
 
-Creates MackySoft.Ucli.Schemas.<version>.zip with schemas/v1 as the archive root.
+Creates MackySoft.Ucli.Schemas.<version>.zip with schemas as the archive root.
 EOF
 }
 
@@ -60,7 +60,7 @@ if [[ -z "${output_dir}" ]]; then
 fi
 
 schema_root="${repository_root}/schemas"
-schema_manifest="${schema_root}/v1/schema-manifest.json"
+schema_manifest="${schema_root}/schema-manifest.json"
 if [[ ! -f "${schema_manifest}" ]]; then
   echo "Schema manifest does not exist: ${schema_manifest}" >&2
   exit 1

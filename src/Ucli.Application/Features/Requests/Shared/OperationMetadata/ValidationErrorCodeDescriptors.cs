@@ -16,42 +16,6 @@ internal static class ValidationErrorCodeDescriptors
     public static IReadOnlyList<UcliErrorDescriptor> All { get; } =
     [
         CreateValidationDescriptor(
-            ValidationErrorCodes.StepsRequired,
-            "steps is missing or empty.",
-            "The request does not contain any executable operation steps.",
-            ["requestParsing", "staticValidation"]),
-
-        CreateValidationDescriptor(
-            ValidationErrorCodes.StepIdRequired,
-            "stepId is missing.",
-            "At least one operation step lacks the identifier required for reporting and result correlation.",
-            ["staticValidation"]),
-
-        CreateValidationDescriptor(
-            ValidationErrorCodes.StepIdDuplicated,
-            "stepId appears multiple times.",
-            "The request contains duplicate step identifiers, so results cannot be correlated unambiguously.",
-            ["staticValidation"]),
-
-        CreateValidationDescriptor(
-            ValidationErrorCodes.StepKindRequired,
-            "step kind is missing.",
-            "At least one operation step lacks the kind discriminator required to parse it.",
-            ["requestParsing", "staticValidation"]),
-
-        CreateValidationDescriptor(
-            ValidationErrorCodes.StepKindInvalid,
-            "step kind is unsupported.",
-            "At least one operation step declares a kind that this uCLI build does not understand.",
-            ["requestParsing", "staticValidation"]),
-
-        CreateValidationDescriptor(
-            ValidationErrorCodes.OperationNameRequired,
-            "Operation name is missing.",
-            "An operation step does not specify the operation contract it wants to execute.",
-            ["staticValidation"]),
-
-        CreateValidationDescriptor(
             ValidationErrorCodes.OperationNotFound,
             "Operation name is not registered.",
             "The request references an operation that is not present in the active operation catalog.",
@@ -86,7 +50,7 @@ internal static class ValidationErrorCodeDescriptors
             impliesNotApplied: true,
             mayBeIndeterminate: false,
             safeToRetry: UcliErrorRetryClass.No,
-            inspect: ["errors[].code", "errors[].opId", "errors[].message", "payload.requestId"],
+            inspect: ["errors[].code", "errors[].instancePath", "errors[].message"],
             nextActions:
             [
                 new UcliErrorNextActionDescriptor(

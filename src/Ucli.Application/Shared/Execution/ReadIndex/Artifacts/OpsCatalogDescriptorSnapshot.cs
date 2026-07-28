@@ -1,7 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
-using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Cryptography;
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
 
@@ -124,8 +122,10 @@ internal sealed record OpsCatalogDescriptorSnapshot : IReadIndexArtifactSnapshot
         if (entry == null
             || string.IsNullOrWhiteSpace(entry.Name)
             || string.IsNullOrWhiteSpace(entry.Description)
-            || !TextVocabulary.TryGetValue<UcliOperationKind>(entry.Kind, out var kind)
-            || !TextVocabulary.TryGetValue<OperationPolicy>(entry.Policy, out var policy)
+            || !entry.Kind.HasValue
+            || !TextVocabulary.IsDefined(entry.Kind.Value)
+            || !entry.Policy.HasValue
+            || !TextVocabulary.IsDefined(entry.Policy.Value)
             || !Sha256Digest.TryParse(entry.DescribeKey, out var describeKey)
             || !Sha256Digest.TryParse(entry.DescribeHash, out var describeHash))
         {
@@ -134,8 +134,8 @@ internal sealed record OpsCatalogDescriptorSnapshot : IReadIndexArtifactSnapshot
 
         projectedEntry = new ValidatedOpsCatalogEntry(
             entry.Name,
-            kind,
-            policy,
+            entry.Kind.Value,
+            entry.Policy.Value,
             entry.Description,
             describeKey,
             describeHash);

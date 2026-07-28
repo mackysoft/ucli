@@ -419,11 +419,9 @@ namespace MackySoft.Ucli.Unity.Tests
             var createRequest = CreateOperation(
                 opId: "op-create",
                 opName: UcliPrimitiveOperationNames.GoCreate,
-                args: new
-                {
-                    name = "CreatedRoot",
-                    scene = scenePath,
-                },
+                args: (GoCreateArgs)new GoCreateInSceneArgs(
+                    "CreatedRoot",
+                    new SceneAssetPath(scenePath)),
                 sourceKind: NormalizedOperation.SourceStepKind.Edit);
             var createResult = await createOperation.PlanAsync(createRequest, context, CancellationToken.None);
 
@@ -466,11 +464,9 @@ namespace MackySoft.Ucli.Unity.Tests
             var createRequest = CreateOperation(
                 opId: "op-create",
                 opName: UcliPrimitiveOperationNames.GoCreate,
-                args: new
-                {
-                    name = "CreatedRoot",
-                    scene = scenePath,
-                },
+                args: (GoCreateArgs)new GoCreateInSceneArgs(
+                    "CreatedRoot",
+                    new SceneAssetPath(scenePath)),
                 sourceKind: NormalizedOperation.SourceStepKind.Edit);
             var saveRequest = CreateOperation(
                 opId: "op-save",
@@ -925,11 +921,9 @@ namespace MackySoft.Ucli.Unity.Tests
             var createRequest = CreateOperation(
                 opId: "op-create",
                 opName: UcliPrimitiveOperationNames.GoCreate,
-                args: new
-                {
-                    name = "CreatedRoot",
-                    scene = scenePath,
-                },
+                args: (GoCreateArgs)new GoCreateInSceneArgs(
+                    "CreatedRoot",
+                    new SceneAssetPath(scenePath)),
                 sourceKind: NormalizedOperation.SourceStepKind.Edit);
             var createResult = await createOperation.PlanAsync(createRequest, context, CancellationToken.None);
 
@@ -982,15 +976,11 @@ namespace MackySoft.Ucli.Unity.Tests
             var ensureRequest = CreateOperation(
                 opId: "op-ensure",
                 opName: UcliPrimitiveOperationNames.CompEnsure,
-                args: new
-                {
-                    target = new
-                    {
-                        scene = scenePath,
-                        hierarchyPath = "Root",
-                    },
-                    type = componentTypeId,
-                },
+                args: new ComponentEnsureArgs(
+                    new SceneHierarchyReferenceArgs(
+                        new SceneAssetPath(scenePath),
+                        new UnityHierarchyPath("Root")),
+                    new UnityComponentTypeId(componentTypeId)),
                 sourceKind: NormalizedOperation.SourceStepKind.Edit);
             var ensureResult = await ensureOperation.PlanAsync(ensureRequest, context, CancellationToken.None);
             AssertSuccess(ensureResult, applied: false, changed: true);
@@ -1045,11 +1035,9 @@ namespace MackySoft.Ucli.Unity.Tests
             var createRequest = CreateOperation(
                 opId: "op-create",
                 opName: UcliPrimitiveOperationNames.GoCreate,
-                args: new
-                {
-                    name = "CreatedAfterQuery",
-                    scene = scenePath,
-                });
+                args: (GoCreateArgs)new GoCreateInSceneArgs(
+                    "CreatedAfterQuery",
+                    new SceneAssetPath(scenePath)));
             var createResult = await createOperation.PlanAsync(createRequest, context, CancellationToken.None);
 
             AssertInvalidArgument(createResult, "op-create");
@@ -1188,10 +1176,10 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(diagnostic.CoverageImpact, Is.EqualTo(IpcExecuteDiagnosticCoverageImpact.Partial));
         });
 
-        private static NormalizedOperation CreateOperation (
+        private static NormalizedOperation CreateOperation<TArgs> (
             string opId,
             string opName,
-            object args,
+            TArgs args,
             NormalizedOperation.SourceStepKind sourceKind = NormalizedOperation.SourceStepKind.Op)
         {
             return new NormalizedOperation(
@@ -1199,7 +1187,9 @@ namespace MackySoft.Ucli.Unity.Tests
                     ? OperationExecutionKey.ForEditPrimitive(new IpcExecuteStepId(opId), primitiveIndex: 0)
                     : OperationExecutionKey.ForRawStep(new IpcExecuteStepId(opId)),
                 Op: opName,
-                Args: JsonSerializer.SerializeToElement(args),
+                Args: JsonSerializer.SerializeToElement(
+                    args,
+                    IpcJsonSerializerOptions.StrictPropertyNames),
                 As: null,
                 Expect: null,
                 AliasReferences: OperationAliasReferenceMap.Empty,

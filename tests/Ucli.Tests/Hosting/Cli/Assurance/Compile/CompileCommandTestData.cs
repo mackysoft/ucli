@@ -8,6 +8,9 @@ namespace MackySoft.Ucli.Tests;
 
 internal static class CompileCommandTestData
 {
+    private const string CompileSummaryReport = "compile.summary";
+    private const string CompileDiagnosticsReport = "compile.diagnostics";
+
     private static readonly AssuranceVerifierId CompileVerifierId = new("compile");
 
     public static JsonGoldenFileNormalization CreateGoldenNormalization ()
@@ -45,7 +48,7 @@ internal static class CompileCommandTestData
                     Required: true,
                     PrimaryClaims: CompileClaimCodes.All,
                     Effects: AssuranceEffectSets.Compile,
-                    ReportRef: "compile.summary"),
+                    ReportRef: CompileSummaryReport),
             ],
             Claims:
             [
@@ -54,7 +57,10 @@ internal static class CompileCommandTestData
                     compileStatus,
                     "Unity script compilation completed without compiler errors.",
                     "unityCompile",
-                    new CompileEvidenceOutput(CompileEvidenceKind.ScriptCompilation, "compile.diagnostics", compile.ScriptCompilation)),
+                    new CompileEvidenceOutput(
+                        CompileEvidenceKind.ScriptCompilation,
+                        CompileDiagnosticsReport,
+                        compile.ScriptCompilation)),
                 CreateClaim(
                     CompileClaimCodes.UnityDomainReloadSettled,
                     AssuranceClaimStatus.Passed,
@@ -70,8 +76,12 @@ internal static class CompileCommandTestData
             ],
             Reports: new Dictionary<string, AssuranceReportReference>(StringComparer.Ordinal)
             {
-                ["compile.summary"] = AssuranceReportReference.FromPath("/tmp/ucli/compile/summary.json", digest: null),
-                ["compile.diagnostics"] = AssuranceReportReference.FromPath("/tmp/ucli/compile/diagnostics.json", digest: null),
+                [CompileSummaryReport] = AssuranceReportReference.FromPath(
+                    "/tmp/ucli/compile/summary.json",
+                    digest: null),
+                [CompileDiagnosticsReport] = AssuranceReportReference.FromPath(
+                    "/tmp/ucli/compile/diagnostics.json",
+                    digest: null),
             },
             ResidualRisks: [],
             RequestedMode: AssuranceRequestedExecutionMode.Auto,

@@ -181,7 +181,7 @@ public sealed class VerifyAssuranceSemanticInvariantRuleTests
           "claims": [
             {{claimJson}}
           ],
-          "reports": {},
+          "reports": [],
           "residualRisks": []
         }
         """;

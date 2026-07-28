@@ -1,8 +1,6 @@
 using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Access;
 using MackySoft.Ucli.Application.Features.OperationCatalog.Common.Contracts;
 
-using MackySoft.Ucli.Contracts.Text;
-
 namespace MackySoft.Ucli.Application.Features.OperationCatalog.UseCases.Ops.Projection;
 
 /// <summary> Implements mapping from catalog snapshots to command-facing <c>ops list</c> results. </summary>
@@ -29,8 +27,8 @@ internal sealed class OpsListResultMapper : IOpsListResultMapper
             .OrderBy(static operation => operation.Name, StringComparer.Ordinal)
             .Select(static operation => new OpsOperationListItem(
                 Name: operation.Name,
-                Kind: TextVocabulary.GetText(operation.Kind),
-                Policy: TextVocabulary.GetText(operation.Policy),
+                Kind: operation.Kind,
+                Policy: operation.Policy,
                 Description: operation.Description))
             .ToArray();
 

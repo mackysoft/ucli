@@ -155,33 +155,32 @@ public sealed class DaemonDiagnosisJsonContractSerializerTests
         var json = DaemonDiagnosisJsonContractSerializer.Serialize(contract);
         using var jsonDocument = JsonDocument.Parse(json);
 
-        JsonAssert.For(jsonDocument.RootElement)
-            .MatchesSchema(DiagnosisJsonSchema, nameof(DiagnosisJsonSchema));
-    }
-
-    private static JsonSchemaNode DiagnosisJsonSchema => JsonSchemaNode.Object(
-        builder => builder
-            .Required("reason", JsonSchemaNode.Value(JsonSchemaType.String))
-            .Required("message", JsonSchemaNode.Value(JsonSchemaType.String))
-            .Required("reportedBy", JsonSchemaNode.Value(JsonSchemaType.String))
-            .Required("isInferred", JsonSchemaNode.Value(JsonSchemaType.Boolean))
-            .Required("updatedAtUtc", JsonSchemaNode.Value(JsonSchemaType.String))
-            .Required("processId", JsonSchemaNode.Value(JsonSchemaType.Int32))
-            .Required("editorInstancePath", JsonSchemaNode.Union(JsonSchemaType.String, JsonSchemaType.Null))
-            .Required("sessionIssuedAtUtc", JsonSchemaNode.Value(JsonSchemaType.String))
-            .Required("processStartedAtUtc", JsonSchemaNode.Union(JsonSchemaType.String, JsonSchemaType.Null))
-            .Required("unityLogPath", JsonSchemaNode.Union(JsonSchemaType.String, JsonSchemaType.Null))
-            .Required("startupPhase", JsonSchemaNode.Union(JsonSchemaType.String, JsonSchemaType.Null))
-            .Required("actionRequired", JsonSchemaNode.Union(JsonSchemaType.String, JsonSchemaType.Null))
-            .RequiredObject(
+        var root = jsonDocument.RootElement;
+        Assert.Equal(
+            [
+                "actionRequired",
+                "editorInstancePath",
+                "isInferred",
+                "message",
                 "primaryDiagnostic",
-                builder => builder
-                    .Required("kind", JsonSchemaNode.Union(JsonSchemaType.String, JsonSchemaType.Null))
-                    .Required("code", JsonSchemaNode.Union(JsonSchemaType.String, JsonSchemaType.Null))
-                    .Required("file", JsonSchemaNode.Union(JsonSchemaType.String, JsonSchemaType.Null))
-                    .Required("line", JsonSchemaNode.Union(JsonSchemaType.Int32, JsonSchemaType.Null))
-                    .Required("column", JsonSchemaNode.Union(JsonSchemaType.Int32, JsonSchemaType.Null))
-                    .Required("message", JsonSchemaNode.Union(JsonSchemaType.String, JsonSchemaType.Null)),
-                allowAdditionalProperties: false),
-        allowAdditionalProperties: false);
+                "processId",
+                "processStartedAtUtc",
+                "reason",
+                "reportedBy",
+                "sessionIssuedAtUtc",
+                "startupPhase",
+                "unityLogPath",
+                "updatedAtUtc",
+            ],
+            root.EnumerateObject()
+                .Select(static property => property.Name)
+                .Order(StringComparer.Ordinal)
+                .ToArray());
+        JsonAssert.For(root)
+            .HasString("reason", "shutdownRequested")
+            .HasString("reportedBy", "unity")
+            .HasProperty("primaryDiagnostic", static diagnostic => diagnostic
+                .HasString("kind", "compiler")
+                .HasString("code", "CS1739"));
+    }
 }

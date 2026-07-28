@@ -52,6 +52,9 @@ public sealed class VerifyCommandGoldenOutputTests
             1);
         Assert.Equal(
             TextVocabulary.GetText(verdict),
-            outputJson.RootElement.GetProperty("payload").GetProperty("verdict").GetString());
+            outputJson.RootElement
+                .GetProperty("payload")
+                .GetProperty("verdict")
+                .GetString());
     }
 }

@@ -53,7 +53,7 @@ public sealed class ValidateServiceSharedPreflightTests
             new ValidationError(
                 ValidationErrorCodes.OperationArgsInvalid,
                 "Operation args are invalid.",
-                new IpcExecuteStepId("step-1")),
+                "/steps/0/args"),
         ];
         var preflightService = new RecordingRequestStaticValidationPreflightService
         {

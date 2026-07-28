@@ -82,7 +82,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return OperationPhaseStepResult.Success(
                 applied: false,
                 changed: false,
-                result: IpcPayloadCodec.SerializeToElement(schemaEntry));
+                result: SerializeResultToElement(schemaEntry));
         }
 
         private static bool TryValidateArguments (

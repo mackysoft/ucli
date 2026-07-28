@@ -145,15 +145,15 @@ internal static class BuildRunCliOutputFixtureFactory
             ResidualRisks: []);
     }
 
-    private static IReadOnlyDictionary<BuildArtifactKind, AssuranceReportReference> CreateReports ()
+    private static BuildReportsOutput CreateReports ()
     {
-        return new Dictionary<BuildArtifactKind, AssuranceReportReference>
-        {
-            [BuildArtifactKind.Build] = AssuranceReportReference.FromPath("build.json", BuildDigest),
-            [BuildArtifactKind.BuildReport] = AssuranceReportReference.FromPath("build-report.json", BuildReportDigest),
-            [BuildArtifactKind.BuildOutputManifest] = AssuranceReportReference.FromPath("output-manifest.json", BuildOutputManifestArtifactDigest),
-            [BuildArtifactKind.BuildLog] = AssuranceReportReference.FromPath("build.log", BuildLogDigest),
-        };
+        return new BuildReportsOutput(
+            Build: AssuranceReportReference.FromPath("build.json", BuildDigest),
+            BuildReport: AssuranceReportReference.FromPath("build-report.json", BuildReportDigest),
+            BuildOutputManifest: AssuranceReportReference.FromPath(
+                "output-manifest.json",
+                BuildOutputManifestArtifactDigest),
+            BuildLog: AssuranceReportReference.FromPath("build.log", BuildLogDigest));
     }
 
     private static BuildGenerationsOutput CreateGenerations ()

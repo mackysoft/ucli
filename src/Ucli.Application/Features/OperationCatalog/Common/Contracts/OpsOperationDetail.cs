@@ -1,5 +1,5 @@
-using System.Text.Json;
 using System.Text.Json.Serialization;
+using MackySoft.Ucli.Contracts.Configuration;
 
 namespace MackySoft.Ucli.Application.Features.OperationCatalog.Common.Contracts;
 
@@ -9,50 +9,46 @@ internal sealed class OpsOperationDetail
     /// <summary> Initializes a new instance of the <see cref="OpsOperationDetail" /> class. </summary>
     public OpsOperationDetail (
         string name,
-        string kind,
-        string policy,
-        string playModeSupport,
+        UcliOperationKind kind,
+        OperationPolicy policy,
+        UcliOperationPlayModeSupport playModeSupport,
         string description,
-        IReadOnlyList<UcliOperationInputContract> inputs,
-        UcliOperationResultContract resultContract,
+        UcliOperationJsonContract argsContract,
+        UcliOperationJsonContract? resultContract,
         UcliOperationAssuranceContract assurance,
-        UcliOperationCodeContract? codeContract,
-        JsonElement argsSchema,
-        JsonElement? resultSchema)
+        UcliOperationCodeContract? codeContract)
     {
         Name = name;
         Kind = kind;
         Policy = policy;
         PlayModeSupport = playModeSupport;
         Description = description;
-        Inputs = inputs;
+        ArgsContract = argsContract;
         ResultContract = resultContract;
         Assurance = assurance;
         CodeContract = codeContract;
-        ArgsSchema = argsSchema;
-        ResultSchema = resultSchema;
     }
 
     /// <summary> Gets the operation name. </summary>
     public string Name { get; }
 
-    /// <summary> Gets the operation kind literal. </summary>
-    public string Kind { get; }
+    /// <summary> Gets the operation kind. </summary>
+    public UcliOperationKind Kind { get; }
 
-    /// <summary> Gets the operation policy literal. </summary>
-    public string Policy { get; }
+    /// <summary> Gets the operation policy. </summary>
+    public OperationPolicy Policy { get; }
 
-    /// <summary> Gets the Play Mode support literal for public raw operation execution. </summary>
-    public string PlayModeSupport { get; }
+    /// <summary> Gets the Play Mode support for public raw operation execution. </summary>
+    public UcliOperationPlayModeSupport PlayModeSupport { get; }
 
     /// <summary> Gets the operation purpose description. </summary>
     public string Description { get; }
 
-    /// <summary> Gets input contracts used to build <c>steps[].args</c>. </summary>
-    public IReadOnlyList<UcliOperationInputContract> Inputs { get; }
+    /// <summary> Gets the generated operation argument contract. </summary>
+    public UcliOperationJsonContract ArgsContract { get; }
 
-    /// <summary> Gets the contract for interpreting <c>opResults[].result</c>. </summary>
-    public UcliOperationResultContract ResultContract { get; }
+    /// <summary> Gets the generated operation result contract, or <see langword="null" /> when no result is emitted. </summary>
+    public UcliOperationJsonContract? ResultContract { get; }
 
     /// <summary> Gets machine-readable assurance metadata. </summary>
     public UcliOperationAssuranceContract Assurance { get; }
@@ -61,9 +57,4 @@ internal sealed class OpsOperationDetail
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public UcliOperationCodeContract? CodeContract { get; }
 
-    /// <summary> Gets the JSON schema object for operation arguments. </summary>
-    public JsonElement ArgsSchema { get; }
-
-    /// <summary> Gets the JSON schema object for operation result, or <see langword="null" /> when no result is emitted. </summary>
-    public JsonElement? ResultSchema { get; }
 }

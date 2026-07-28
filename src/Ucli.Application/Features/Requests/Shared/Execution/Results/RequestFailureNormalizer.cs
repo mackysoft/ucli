@@ -63,7 +63,7 @@ internal static class RequestFailureNormalizer
         return ApplicationFailure.FromCode(
             error.Code,
             error.Message,
-            error.OpId);
+            error.InstancePath);
     }
 
     /// <summary> Converts raw operation execution errors into application failures. </summary>
@@ -104,7 +104,10 @@ internal static class RequestFailureNormalizer
                 throw new ArgumentException("Validation errors must not contain null entries.", nameof(validationErrors));
             }
 
-            errors[i] = ApplicationFailure.InvalidInput(validationError.Message, validationError.Code, validationError.OpId);
+            errors[i] = ApplicationFailure.InvalidInput(
+                validationError.Message,
+                validationError.Code,
+                validationError.InstancePath);
         }
 
         return errors;

@@ -1,5 +1,6 @@
 using ConsoleAppFramework;
 using MackySoft.Ucli.Application.Features.Requests.Call.UseCases.Call;
+using MackySoft.Ucli.Application.Shared.Execution;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
@@ -101,7 +102,10 @@ internal sealed class EvalCommand
 
     private int WriteExecutionError (ExecutionError error)
     {
-        var commandResult = CommandResultFactory.FromExecutionError(UcliCommandNames.Eval, error);
+        var commandResult = CommandFailureProjector.Create(
+            UcliCommandNames.Eval,
+            ApplicationFailure.FromExecutionError(error),
+            Projection.CallExecutionPayloadProjector.CreateEmptyError());
         commandResultWriter.WriteToStandardOutput(commandResult);
         return commandResult.ExitCode;
     }

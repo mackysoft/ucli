@@ -172,7 +172,6 @@ ucli call --withPlan > result.json <<'JSON'
   "steps": [
     {
       "kind": "op",
-      "id": "findAssets",
       "op": "ucli.assets.find",
       "args": {
         "pathPrefix": "Assets",
@@ -222,7 +221,7 @@ For request commands, inspect `payload.opResults` to determine which steps appli
 For assurance commands, inspect `payload.verdict`, `payload.verifiers[]`, `payload.claims[]`, `payload.reports`, and `payload.residualRisks[]`.
 Use `ucli codes describe IPC_TIMEOUT` or another code value to read the static meaning of machine-readable codes.
 
-Published JSON schemas are available for tools that validate uCLI output. They cover the common envelope and each command payload; operation-specific `opResults[].result` follows the `resultSchema` shown by `ucli ops describe`. Treat verifier verdicts and evidence references as returned result data, not as something JSON Schema alone can decide.
+Published JSON schemas are available for tools that validate uCLI output. They cover the common envelope and each command payload; operation-specific `opResults[].result` follows the `resultContract.schema` shown by `ucli ops describe`. Treat verifier verdicts and evidence references as returned result data, not as something JSON Schema alone can decide.
 
 ## 🔍 Reading Project State
 
@@ -314,7 +313,6 @@ ucli call --withPlan <<'JSON'
   "steps": [
     {
       "kind": "op",
-      "id": "openMainScene",
       "op": "ucli.scene.open",
       "args": {
         "path": "Assets/Scenes/Main.unity"
@@ -322,12 +320,13 @@ ucli call --withPlan <<'JSON'
     },
     {
       "kind": "edit",
-      "id": "editSpawner",
       "on": {
-        "scene": "Assets/Scenes/Main.unity"
+        "kind": "scene",
+        "path": "Assets/Scenes/Main.unity"
       },
       "select": {
-        "gameObject": "Root/Enemies/Spawner",
+        "kind": "gameObject",
+        "path": "Root/Enemies/Spawner",
         "component": "Game.EnemySpawner, Assembly-CSharp",
         "cardinality": "one"
       },
@@ -453,7 +452,6 @@ Use `op` when the operation you need is already in the operation catalog.
 ```json
 {
   "kind": "op",
-  "id": "openMainScene",
   "op": "ucli.scene.open",
   "args": {
     "path": "Assets/Scenes/Main.unity"
@@ -474,12 +472,13 @@ Use `edit` for common Unity edits where you want to name a context, select targe
 ```json
 {
   "kind": "edit",
-  "id": "editSpawner",
   "on": {
-    "scene": "Assets/Scenes/Main.unity"
+    "kind": "scene",
+    "path": "Assets/Scenes/Main.unity"
   },
   "select": {
-    "gameObject": "Root/Enemies/Spawner",
+    "kind": "gameObject",
+    "path": "Root/Enemies/Spawner",
     "component": "Game.EnemySpawner, Assembly-CSharp",
     "cardinality": "one"
   },
@@ -509,10 +508,10 @@ Use `edit` for common Unity edits where you want to name a context, select targe
 
 | Context | JSON | Use it for |
 | --- | --- | --- |
-| Scene | `{ "scene": "Assets/Scenes/Main.unity" }` | GameObjects and components in a scene. |
-| Prefab | `{ "prefab": "Assets/Prefabs/Enemy.prefab" }` | GameObjects and components in a prefab stage. |
-| Asset | `{ "asset": "Assets/Data/GameBalance.asset" }` | A main asset such as a ScriptableObject. |
-| Project | `{ "project": true }` | Project-scoped assets such as `ProjectSettings/TagManager.asset`. |
+| Scene | `{ "kind": "scene", "path": "Assets/Scenes/Main.unity" }` | GameObjects and components in a scene. |
+| Prefab | `{ "kind": "prefab", "path": "Assets/Prefabs/Enemy.prefab" }` | GameObjects and components in a prefab stage. |
+| Asset | `{ "kind": "asset", "path": "Assets/Data/GameBalance.asset" }` | A main asset such as a ScriptableObject. |
+| Project | `{ "kind": "project" }` | Project-scoped assets such as `ProjectSettings/TagManager.asset`. |
 
 ### 🎯 Selectors
 
@@ -520,7 +519,8 @@ For scene and prefab contexts, select a GameObject by hierarchy path. Add `compo
 
 ```json
 {
-  "gameObject": "Root/Enemies/Spawner",
+  "kind": "gameObject",
+  "path": "Root/Enemies/Spawner",
   "component": "Game.EnemySpawner, Assembly-CSharp",
   "cardinality": "one"
 }
@@ -530,7 +530,7 @@ For an asset context, select the asset itself:
 
 ```json
 {
-  "self": true,
+  "kind": "self",
   "cardinality": "one"
 }
 ```
@@ -539,9 +539,8 @@ For project-scoped settings, select the project asset path:
 
 ```json
 {
-  "projectAsset": {
-    "path": "ProjectSettings/TagManager.asset"
-  },
+  "kind": "projectAsset",
+  "path": "ProjectSettings/TagManager.asset",
   "cardinality": "one"
 }
 ```
@@ -550,12 +549,11 @@ For a scene context, select a set produced by `ucli.scene.query`:
 
 ```json
 {
-  "from": {
-    "op": "ucli.scene.query",
-    "args": {
-      "pathPrefix": "Root/Enemies",
-      "componentType": "Game.EnemySpawner, Assembly-CSharp"
-    }
+  "kind": "from",
+  "op": "ucli.scene.query",
+  "args": {
+    "pathPrefix": "Root/Enemies",
+    "componentType": "Game.EnemySpawner, Assembly-CSharp"
   },
   "cardinality": "all"
 }
@@ -579,12 +577,13 @@ For a scene context, select a set produced by `ucli.scene.query`:
 ```json
 {
   "kind": "edit",
-  "id": "ensureSpawner",
   "on": {
-    "scene": "Assets/Scenes/Main.unity"
+    "kind": "scene",
+    "path": "Assets/Scenes/Main.unity"
   },
   "select": {
-    "gameObject": "Root/Enemies/Spawner",
+    "kind": "gameObject",
+    "path": "Root/Enemies/Spawner",
     "cardinality": "one"
   },
   "actions": [
@@ -643,13 +642,13 @@ For a scene context, select a set produced by `ucli.scene.query`:
 Direct operation steps that take a `target` use one of these selector shapes:
 
 ```json
-{ "globalObjectId": "GlobalObjectId_V1-..." }
-{ "assetGuid": "01234567-89ab-cdef-0123-456789abcdef" }
-{ "assetPath": "Assets/Data/GameBalance.asset" }
-{ "projectAssetPath": "ProjectSettings/TagManager.asset" }
-{ "scene": "Assets/Scenes/Main.unity", "hierarchyPath": "Root/Enemies/Spawner" }
-{ "scene": "Assets/Scenes/Main.unity", "hierarchyPath": "Root/Enemies/Spawner", "componentType": "Game.EnemySpawner, Assembly-CSharp" }
-{ "prefab": "Assets/Prefabs/Enemy.prefab", "hierarchyPath": "Root/Visual" }
+{ "kind": "globalObjectId", "globalObjectId": "GlobalObjectId_V1-..." }
+{ "kind": "assetGuid", "assetGuid": "01234567-89ab-cdef-0123-456789abcdef" }
+{ "kind": "assetPath", "assetPath": "Assets/Data/GameBalance.asset" }
+{ "kind": "projectAssetPath", "projectAssetPath": "ProjectSettings/TagManager.asset" }
+{ "kind": "sceneHierarchy", "scene": "Assets/Scenes/Main.unity", "hierarchyPath": "Root/Enemies/Spawner" }
+{ "kind": "sceneComponent", "scene": "Assets/Scenes/Main.unity", "hierarchyPath": "Root/Enemies/Spawner", "componentType": "Game.EnemySpawner, Assembly-CSharp" }
+{ "kind": "prefabHierarchy", "prefab": "Assets/Prefabs/Enemy.prefab", "hierarchyPath": "Root/Visual" }
 ```
 
 Asset GUIDs use the standard hyphenated JSON representation emitted by `System.Text.Json`.
@@ -663,10 +662,10 @@ Direct `set` operations use `sets`, while edit steps use the shorter `values` fo
 ```json
 {
   "kind": "op",
-  "id": "setSpawnerRaw",
   "op": "ucli.comp.set",
   "args": {
     "target": {
+      "kind": "sceneComponent",
       "scene": "Assets/Scenes/Main.unity",
       "hierarchyPath": "Root/Enemies/Spawner",
       "componentType": "Game.EnemySpawner, Assembly-CSharp"
@@ -695,7 +694,7 @@ ucli ops describe ucli.comp.set
 Use `ops describe` to check:
 
 - operation kind and policy
-- inputs, constraints, result data, and JSON input/result shape
+- generated argument/result contracts, uCLI semantic annotations, and their shared contract digests
 - `readIndex` source and freshness metadata
 
 README examples show common operations only. The installed Unity plugin's operation catalog is the authoritative list for that project.
@@ -802,14 +801,15 @@ Request/result rules:
 
 | Rule | Why it matters |
 | --- | --- |
-| Put `[UcliDescription]` on every Args/Result type and every public property. | `ops describe` shows these descriptions to callers. |
-| Use `[UcliRequired]` for required properties. Do not use C# `required` for the uCLI JSON shape. | uCLI uses the attribute when publishing and validating request JSON. |
-| Leave optional properties nullable and omit `[UcliRequired]`. | Optional inputs stay optional in the published JSON shape. |
+| Put `[Description]` on every Args/Result type and every public property. | The same provider result supplies descriptions to JSON Schema and operation type metadata. |
+| Express required members with the effective `System.Text.Json` contract, normally `[JsonRequired]` or C# `required`. | Contract generation reads `JsonPropertyInfo.IsRequired`; there is no second requiredness annotation. |
+| Express optional and nullable values in the CLR type and converter contract. | Contract generation reads the same nullability used by runtime serialization. |
 | Use `[JsonConstructor]` when the type has a non-default constructor. | uCLI deserializes `steps[].args` with `System.Text.Json` before validation. |
 | Use `[JsonPropertyName]` when the JSON member name must differ from the C# property name. | `ops describe` and JSON validation use the JSON name. |
 | Use `[JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]` for optional result or selector properties that should be omitted when absent. | Omitted and explicit `null` have different meanings in the published JSON shape. |
-| Use `[UcliJsonAllowNull]` only when explicit JSON `null` is valid for a reference-type property. | Nullable value types such as `int?` already allow JSON `null`; nullable reference syntax alone does not change runtime validation. |
-| Use `[UcliJsonAnyValue]` only for intentional arbitrary JSON value slots, such as a serialized property value. | It disables structural validation for that property. |
+| Use `JsonElement`, `JsonNode`, or `object` only for an intentional arbitrary JSON slot. | The actual runtime type, not a schema-only annotation, declares that the value is unconstrained. |
+| Use a `[VocabularyDefinition]` type with `VocabularyJsonConverterFactory` for finite strings. | Runtime serialization and generated `enum` or `const` values share one typed vocabulary. |
+| Use `JsonTypeInfo.PolymorphismOptions`, `[JsonPolymorphic]`, or `[JsonDerivedType]` for tagged unions. | Runtime deserialization and generated `oneOf` branches share one discriminator contract. |
 
 Use existing semantic value types before adding new plain strings:
 
@@ -826,13 +826,13 @@ Use existing semantic value types before adding new plain strings:
 
 User-defined semantic value objects are supported for string-shaped values that remain JSON strings in requests and results.
 Create one only when the same meaning appears in multiple Args/Result types or when the meaning is important enough to name for callers.
-For one-off meaning, keep a normal property and put `[UcliDescription]` and `[UcliInputConstraint]` on that property instead.
+For one-off meaning, keep a normal property and put `[Description]` and, when applicable, one concrete uCLI semantic annotation on that property.
 If you need a new string-shaped semantic value:
 
 - Derive from `UcliStringValue`.
 - Define a public `string` constructor.
 - Add `[JsonConverter(typeof(UcliStringValueJsonConverterFactory))]`.
-- Add `[UcliDescription]`.
+- Put `[Description]` on every Args/Result property that uses the value type. The property description is authoritative for that use.
 - Put intrinsic constraints such as path syntax on the value type.
 - Put project-state constraints such as `AssetExists` or `AssetCreatable` on the Args property whose operation requires them.
 
@@ -840,12 +840,13 @@ Do not use arbitrary custom scalar wrappers unless uCLI has a supported base typ
 
 ```csharp
 using System.Text.Json.Serialization;
+using MackySoft.JsonSchema.Generation.Annotations;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Json;
 
 [JsonConverter(typeof(UcliStringValueJsonConverterFactory))]
-[UcliDescription("Addressable asset key used by this project.")]
-[UcliInputConstraint(UcliOperationInputConstraintKind.NonEmpty)]
-public sealed record AddressableKey : UcliStringValue
+[Length(1, int.MaxValue)]
+public sealed class AddressableKey : UcliStringValue
 {
     [JsonConstructor]
     public AddressableKey (string value)
@@ -854,7 +855,7 @@ public sealed record AddressableKey : UcliStringValue
     }
 }
 
-[UcliDescription("Arguments for setting an Addressables label.")]
+[Description("Arguments for setting an Addressables label.")]
 public sealed record SetAddressableLabelArgs
 {
     [JsonConstructor]
@@ -866,52 +867,50 @@ public sealed record SetAddressableLabelArgs
         Label = label;
     }
 
-    [UcliRequired]
-    [UcliDescription("Addressable key to update.")]
+    [JsonRequired]
+    [Description("Addressable key to update.")]
     public AddressableKey Key { get; init; }
 
-    [UcliRequired]
-    [UcliDescription("Label to assign.")]
-    [UcliInputConstraint(UcliOperationInputConstraintKind.NonEmpty)]
+    [JsonRequired]
+    [Description("Label to assign.")]
+    [Length(1, int.MaxValue)]
     public string Label { get; init; }
 }
 ```
 
 `AddressableKey` remains a JSON string in `steps[].args`.
-Because `Key` has its own `[UcliDescription]`, `ops describe` uses the property description for that input.
-If the property does not declare `[UcliDescription]`, uCLI falls back to the `UcliStringValue` type description.
-The `NonEmpty` constraint comes from the value type and appears in `ops describe` as input metadata.
+Because `Key` has its own `[Description]`, the generated contract uses the property description for that input.
+Every public Args/Result property must declare its own description; do not rely on a mapped `UcliStringValue` subtype to provide a fallback description.
+`Length` is structural metadata in the same provider Contract Model that emits Schema and operation type metadata.
 
-Input constraints describe the meaning of values in `ops describe`.
-Put `[UcliInputConstraint]` on a semantic value type when every use of that type has the same meaning, or on a property when the meaning is specific to one operation.
+uCLI semantic annotations describe Unity-specific meaning that is not present in the JSON shape. Each attribute represents one valid meaning and uses a typed vocabulary parameter when it needs a finite value.
 
-| Constraint kind | Required parameter | Use it for |
+| Annotation | Typed parameter | Use it for |
 | --- | --- | --- |
-| `NonEmpty` | none | Non-empty strings, arrays, or objects. |
-| `Range` | `Min`, `Max`, or both | Inclusive numeric bounds. |
-| `ProjectRelativePath` | none | Paths relative to the Unity project. |
-| `AssetExists` | `AssetKind` | Existing asset, scene, prefab, or project settings paths. |
-| `AssetCreatable` | `AssetKind` | Asset or prefab paths that an operation may create. |
-| `GlobalObjectId` | none | Unity GlobalObjectId strings. |
-| `HierarchyPath` | none | Unity scene or prefab hierarchy paths. |
-| `ReferenceResolvable` | `TargetKind` | Object references that must resolve to an asset, GameObject, or component. |
-| `TypeExists` | none | Unity type identifiers that must resolve in the project. |
-| `TypeAssignableTo` | `TypeKind` | Unity type identifiers assignable to a specific Unity kind, such as component. |
-| `SerializedProperty` | `Access` | SerializedProperty paths that must be writable for the operation. |
-| `AssetGuid` | none | Non-empty Unity asset GUID values. |
-| `Cursor` | none | Opaque bounded-window cursors returned by read operations. |
+| `[UcliProjectRelativePath]` | none | Paths relative to the Unity project. |
+| `[UcliAssetExists]` | `UcliOperationAssetKind` | Existing asset, scene, prefab, or project settings paths. |
+| `[UcliAssetCreatable]` | `UcliOperationAssetKind` | Asset or prefab paths that an operation may create. |
+| `[UcliGlobalObjectId]` | none | Unity GlobalObjectId strings. |
+| `[UcliAssetGuid]` | none | Unity Asset GUID values. |
+| `[UcliHierarchyPath]` | none | Unity scene or prefab hierarchy paths. |
+| `[UcliReferenceResolvable]` | `UcliOperationReferenceTargetKind` | References that must resolve to an asset, GameObject, or component. |
+| `[UcliTypeExists]` | none | Unity type identifiers that must resolve in the project. |
+| `[UcliTypeAssignableTo]` | `UcliOperationTypeKind` | Unity type identifiers assignable to a supported Unity kind. |
+| `[UcliSerializedProperty]` | `UcliOperationSerializedPropertyAccess` | SerializedProperty paths that require a supported access capability. |
+| `[UcliCursor]` | none | Opaque bounded-window cursors returned by read operations. |
+
+Use `[Length]`, `[ItemCount]`, `[PropertyCount]`, `[UcliInt32Minimum]`, or `[UcliInt32Range]` for structural bounds supported by the current contract types. Do not repeat those facts as uCLI semantic annotations.
 
 For object references and selectors, prefer existing reference types such as `AssetReferenceArgs`, `GameObjectReferenceArgs`, `SceneGameObjectReferenceArgs`, `ComponentReferenceArgs`, and `ResolveSelectorArgs`.
-If an operation needs a new reference object, use `[UcliExclusiveRequiredPropertySet]` on the object type to define mutually exclusive selector shapes.
-Use `[UcliPropertyRequires]` when one property requires other properties.
+If an operation needs a new tagged union, make the actual `System.Text.Json` contract polymorphic. Do not maintain a separate branch list or serialized-property-name annotation for Schema generation.
 
 Declare operation behavior deliberately:
 
 | Behavior field | Values | Use it for |
 | --- | --- | --- |
-| `declaredKind` | `Query`, `Command`, `Mutation` | The operation's public intent. |
+| `kind` | `Query`, `Command`, `Mutation` | The operation's public intent. |
 | `UcliOperationAssuranceContract` | side effects, dirty/persist flags, touched kinds, plan mode | Behavior facts that help callers decide whether an operation is acceptable. |
-| `UcliOperationPlanMode` | `ValidationOnly`, `ObservesLiveUnity` | How much the `Plan` phase may do before `Call`. |
+| `UcliOperationPlanMode` | `ValidationOnly`, `ObservesLiveUnity`, `MayCreatePreviewState` | How much the `Plan` phase may do before `Call`; preview state is limited to edit-lowering operations. |
 | `UcliOperationCodeContract` | source forms, entry point, source-visible API, return constraints | Required for operations that accept source code. Arbitrary source execution is dangerous. |
 | `UcliOperationExposure` | `Public`, `EditLoweringOnly`, `Internal` | Whether callers can select the operation directly or only through higher-level edit flows. |
 
@@ -937,12 +936,14 @@ using System;
 using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.JsonSchema.Generation.Annotations;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Operations;
 using MackySoft.Ucli.Unity.Execution.Phases;
 using MackySoft.Ucli.Unity.Execution.Requests;
 
-[UcliDescription("Arguments for counting GameObjects in a scene.")]
+[Description("Arguments for counting GameObjects in a scene.")]
 public sealed record CountSceneObjectsArgs
 {
     [JsonConstructor]
@@ -951,13 +952,13 @@ public sealed record CountSceneObjectsArgs
         Path = path;
     }
 
-    [UcliRequired]
-    [UcliDescription("Scene asset path to inspect.")]
-    [UcliInputConstraint(UcliOperationInputConstraintKind.AssetExists, AssetKind = UcliOperationAssetKind.Scene)]
+    [JsonRequired]
+    [Description("Scene asset path to inspect.")]
+    [UcliAssetExists(UcliOperationAssetKind.Scene)]
     public SceneAssetPath Path { get; init; }
 }
 
-[UcliDescription("GameObject count result.")]
+[Description("GameObject count result.")]
 public sealed record CountSceneObjectsResult
 {
     [JsonConstructor]
@@ -966,8 +967,8 @@ public sealed record CountSceneObjectsResult
         Count = count;
     }
 
-    [UcliRequired]
-    [UcliDescription("Number of GameObjects found in the scene.")]
+    [JsonRequired]
+    [Description("Number of GameObjects found in the scene.")]
     public int Count { get; init; }
 }
 
@@ -977,7 +978,7 @@ internal sealed class CountSceneObjectsOperation : UcliOperation<CountSceneObjec
     public override UcliOperationMetadata Metadata { get; } =
         UcliOperationMetadata.Create<CountSceneObjectsArgs, CountSceneObjectsResult>(
             operationName: "game.scene.countGameObjects",
-            declaredKind: UcliOperationKind.Query,
+            kind: UcliOperationKind.Query,
             description: "Counts GameObjects in a Unity scene.",
             assurance: new UcliOperationAssuranceContract(
                 Array.Empty<UcliOperationSideEffect>(),

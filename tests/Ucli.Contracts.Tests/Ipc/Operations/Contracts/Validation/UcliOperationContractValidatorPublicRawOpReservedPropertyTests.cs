@@ -7,10 +7,12 @@ public sealed class UcliOperationContractValidatorPublicRawOpReservedPropertyTes
 {
     [Fact]
     [Trait("Size", "Small")]
-    public void TryValidatePublicRawOpReservedProperties_WhenNonAliasPropertyUsesVar_ReturnsFalse ()
+    public void GeneratedContract_WhenCamelCaseNamingMapsClrVarToReservedName_IsRejected ()
     {
+        var generationResult = Generate<CamelCaseReservedVarArgs>();
+
         var isValid = UcliOperationContractValidator.TryValidatePublicRawOpReservedProperties(
-            typeof(ReservedVarArgs),
+            generationResult,
             out var errorMessage);
 
         Assert.False(isValid);
@@ -19,49 +21,88 @@ public sealed class UcliOperationContractValidatorPublicRawOpReservedPropertyTes
 
     [Fact]
     [Trait("Size", "Small")]
-    public void TryValidatePublicRawOpReservedProperties_WhenTopLevelAliasTypeUsesVar_ReturnsFalse ()
+    public void GeneratedContract_WhenNestedDefinitionExposesReservedName_IsRejected ()
     {
+        var generationResult = Generate<NestedReservedVarArgs>();
+
         var isValid = UcliOperationContractValidator.TryValidatePublicRawOpReservedProperties(
-            typeof(TopLevelPlanAliasVarArgs),
-            out var errorMessage);
+            generationResult,
+            out _);
 
         Assert.False(isValid);
-        Assert.Equal("Operation contract property 'args.var' uses internal request-local alias type 'UcliPlanAlias'.", errorMessage);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void TryValidatePublicRawOpReservedProperties_WhenCustomAliasPropertyUsesAliasType_ReturnsFalse ()
+    public void GeneratedContract_WhenPolymorphismDiscriminatorUsesReservedName_IsRejected ()
     {
+        var generationResult = Generate<ReservedDiscriminatorArgs>();
+
         var isValid = UcliOperationContractValidator.TryValidatePublicRawOpReservedProperties(
-            typeof(CustomPlanAliasArgs),
+            generationResult,
             out var errorMessage);
 
         Assert.False(isValid);
-        Assert.Equal("Operation contract property 'args.alias' uses internal request-local alias type 'UcliPlanAlias'.", errorMessage);
+        Assert.Equal("Operation contract property 'args.var' uses reserved public raw-op property name 'var'.", errorMessage);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void TryValidatePublicRawOpReservedProperties_WhenAliasReferenceTypeUsesVar_ReturnsTrue ()
+    public void GeneratedContract_WhenJsonPropertyNameMapsClrVarToNonReservedName_IsAccepted ()
     {
+        var generationResult = Generate<RenamedReservedVarArgs>();
+
         var isValid = UcliOperationContractValidator.TryValidatePublicRawOpReservedProperties(
-            typeof(ReferenceArgs),
+            generationResult,
             out var errorMessage);
 
         Assert.True(isValid, errorMessage);
-        Assert.Equal(string.Empty, errorMessage);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void TryValidatePublicRawOpReservedProperties_WhenCustomReferenceLikeTypeUsesVarAlias_ReturnsFalse ()
+    public void GeneratedContract_WhenJsonIgnoreRemovesClrVar_IsAccepted ()
     {
+        var generationResult = Generate<IgnoredReservedVarArgs>();
+
         var isValid = UcliOperationContractValidator.TryValidatePublicRawOpReservedProperties(
-            typeof(CustomReferenceLikeArgs),
+            generationResult,
             out var errorMessage);
 
-        Assert.False(isValid);
-        Assert.Equal("Operation contract property 'args.target.var' uses internal request-local alias type 'UcliPlanAlias'.", errorMessage);
+        Assert.True(isValid, errorMessage);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void GeneratedContract_WhenPublicResolverRemovesAliasVariant_IsAccepted ()
+    {
+        var generationResult = Generate<ReferenceArgs>();
+
+        var isValid = UcliOperationContractValidator.TryValidatePublicRawOpReservedProperties(
+            generationResult,
+            out var errorMessage);
+
+        Assert.True(isValid, errorMessage);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void GeneratedContract_WhenConverterProjectsNestedClrVarAsScalar_IsAccepted ()
+    {
+        var generationResult = Generate<ConvertedNestedArgs>();
+
+        var isValid = UcliOperationContractValidator.TryValidatePublicRawOpReservedProperties(
+            generationResult,
+            out var errorMessage);
+
+        Assert.True(isValid, errorMessage);
+    }
+
+    private static UcliOperationJsonContractGenerationResult Generate<TArgs> ()
+    {
+        return UcliOperationJsonContractGenerator.Generate(
+            "test.reserved-property",
+            IpcJsonSerializerOptions.PublicRawOperationContracts.GetTypeInfo(typeof(TArgs)),
+            resultTypeInfo: null);
     }
 }

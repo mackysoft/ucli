@@ -44,6 +44,6 @@ public sealed class EvalCommandPayloadTests
         JsonAssert.For(outputJson.RootElement)
             .HasProperty("errors", 0, error => error
                 .HasString("code", OperationAuthorizationErrorCodes.OperationNotAllowed.Value)
-                .HasString("opId", "eval"));
+                .HasString("instancePath", "/steps/0"));
     }
 }

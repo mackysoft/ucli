@@ -172,7 +172,7 @@ public sealed class RequestPreparationServiceTests
     {
         return new ValidateRequest(
             ProtocolVersion: 1,
-            Steps: Array.Empty<ValidateRequestStep?>());
+            Steps: Array.Empty<ValidateRequestStep>());
     }
 
     private static string CreateNormalizedRequestJson ()

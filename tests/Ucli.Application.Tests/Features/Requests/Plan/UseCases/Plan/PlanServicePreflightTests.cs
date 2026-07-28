@@ -108,7 +108,7 @@ public sealed class PlanServicePreflightTests
             new ValidationError(
                 ValidationErrorCodes.OperationArgsInvalid,
                 "Operation args are invalid.",
-                new IpcExecuteStepId("step-1")),
+                "/steps/0/args"),
         ];
         var service = CreateService(
             staticPreflightService: new RecordingRequestStaticValidationPreflightService

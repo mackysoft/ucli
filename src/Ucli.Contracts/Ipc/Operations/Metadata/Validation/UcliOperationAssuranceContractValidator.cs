@@ -9,8 +9,8 @@ internal static class UcliOperationAssuranceContractValidator
 {
     public static bool TryValidate (
         UcliOperationAssuranceContract? assurance,
-        string? operationKind,
-        string? operationPolicy,
+        UcliOperationKind? operationKind,
+        OperationPolicy? operationPolicy,
         UcliOperationCodeContract? codeContract,
         string ownerName,
         bool allowMayCreatePreviewState,
@@ -55,24 +55,24 @@ internal static class UcliOperationAssuranceContractValidator
 
     private static bool TryValidateOperationKind (
         UcliOperationAssuranceContract assurance,
-        string? operationKind,
+        UcliOperationKind? operationKind,
         UcliOperationCodeContract? codeContract,
         string ownerName,
         out string errorMessage)
     {
-        if (operationKind == null)
+        if (!operationKind.HasValue)
         {
             errorMessage = string.Empty;
             return true;
         }
 
-        if (!VocabularyInputParser.TryParseIgnoreCase<UcliOperationKind>(operationKind, out var parsedKind))
+        if (!TextVocabulary.IsDefined(operationKind.Value))
         {
             errorMessage = $"{ownerName} has unsupported operation kind metadata.";
             return false;
         }
 
-        if (parsedKind == UcliOperationKind.Query
+        if (operationKind.Value == UcliOperationKind.Query
             && (codeContract != null
                 || assurance.MayDirty
                 || assurance.MayPersist
@@ -105,26 +105,26 @@ internal static class UcliOperationAssuranceContractValidator
     }
 
     private static bool TryValidateDeclaredPolicy (
-        string? operationPolicy,
+        OperationPolicy? operationPolicy,
         OperationPolicy derivedPolicy,
         string ownerName,
         out string errorMessage)
     {
-        if (operationPolicy == null)
+        if (!operationPolicy.HasValue)
         {
             errorMessage = string.Empty;
             return true;
         }
 
-        if (!VocabularyInputParser.TryParseIgnoreCase<OperationPolicy>(operationPolicy, out var parsedPolicy))
+        if (!TextVocabulary.IsDefined(operationPolicy.Value))
         {
             errorMessage = $"{ownerName} has unsupported operation policy metadata.";
             return false;
         }
 
-        if (parsedPolicy != derivedPolicy)
+        if (operationPolicy.Value != derivedPolicy)
         {
-            errorMessage = $"{ownerName} policy '{operationPolicy}' does not match derived policy '{TextVocabulary.GetText(derivedPolicy)}'.";
+            errorMessage = $"{ownerName} policy '{TextVocabulary.GetText(operationPolicy.Value)}' does not match derived policy '{TextVocabulary.GetText(derivedPolicy)}'.";
             return false;
         }
 

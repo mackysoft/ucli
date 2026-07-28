@@ -11,6 +11,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="JsonSchema.Net" Version="[8.0.5]" />
     <PackageReference Include="MackySoft.Json.Canonicalization" Version="[0.1.0]" />
     <PackageReference Include="MackySoft.FileSystem" Version="[0.1.0]" />
     <PackageReference Include="MackySoft.Text.Vocabularies" Version="[0.1.0]" />

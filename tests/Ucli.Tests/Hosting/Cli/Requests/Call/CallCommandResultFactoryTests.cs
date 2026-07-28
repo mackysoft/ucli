@@ -47,7 +47,9 @@ public sealed class CallCommandResultFactoryTests
             ]));
 
         using var json = JsonDocument.Parse(ResultWriter.Write(result));
-        Assert.False(json.RootElement.GetProperty("payload").EnumerateObject().MoveNext());
+        Assert.Equal(
+            "empty",
+            json.RootElement.GetProperty("payload").GetProperty("payloadKind").GetString());
     }
 
     [Fact]

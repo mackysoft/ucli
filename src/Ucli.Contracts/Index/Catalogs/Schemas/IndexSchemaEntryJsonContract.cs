@@ -1,10 +1,10 @@
 using System.Text.Json.Serialization;
-using MackySoft.Ucli.Contracts.Operations;
+using MackySoft.JsonSchema.Generation.Annotations;
 
 namespace MackySoft.Ucli.Contracts.Index;
 
 /// <summary> Represents one schema entry contract in <c>schemas.catalog.json</c>. </summary>
-[UcliDescription("Serialized object schema entry.")]
+[Description("Serialized object schema entry.")]
 internal sealed record IndexSchemaEntryJsonContract
 {
     [JsonConstructor]
@@ -23,27 +23,27 @@ internal sealed record IndexSchemaEntryJsonContract
     }
 
     /// <summary> Gets the schema-key value, for example <c>comp:&lt;typeId&gt;</c>. </summary>
-    [UcliRequired]
-    [UcliDescription("Schema key, such as comp:<typeId> or asset:<typeId>.")]
+    [JsonRequired]
+    [Description("Schema key, such as comp:<typeId> or asset:<typeId>.")]
     public string? SchemaKey { get; init; }
 
     /// <summary> Gets the schema-kind literal value. </summary>
-    [UcliRequired]
-    [UcliDescription("Schema kind literal.")]
+    [JsonRequired]
+    [Description("Schema kind literal.")]
     public string? Kind { get; init; }
 
     /// <summary> Gets the stable type identifier value. </summary>
-    [UcliRequired]
-    [UcliDescription("Stable Unity type identifier.")]
+    [JsonRequired]
+    [Description("Stable Unity type identifier.")]
     public string? TypeId { get; init; }
 
     /// <summary> Gets the display-name value. </summary>
-    [UcliRequired]
-    [UcliDescription("Display name for the type.")]
+    [JsonRequired]
+    [Description("Display name for the type.")]
     public string? DisplayName { get; init; }
 
     /// <summary> Gets the schema property entries. </summary>
-    [UcliRequired]
-    [UcliDescription("Serialized properties exposed by this schema.")]
+    [JsonRequired]
+    [Description("Serialized properties exposed by this schema.")]
     public IReadOnlyList<IndexSchemaPropertyEntryJsonContract>? Properties { get; init; }
 }

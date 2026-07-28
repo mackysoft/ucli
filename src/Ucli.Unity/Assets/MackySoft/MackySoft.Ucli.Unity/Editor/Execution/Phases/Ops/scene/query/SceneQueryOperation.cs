@@ -99,7 +99,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return Task.FromResult(OperationPhaseStepResult.Success(
                 applied: false,
                 changed: false,
-                result: IpcPayloadCodec.SerializeToElement(payload)).WithDiagnostics(diagnostics));
+                result: SerializeResultToElement(payload)).WithDiagnostics(diagnostics));
         }
 
         private static bool TryValidate (

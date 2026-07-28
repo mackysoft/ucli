@@ -25,7 +25,6 @@ public sealed class CallServiceWorkflowTests
                     opResults:
                     [
                         new IpcExecuteOperationResult(
-                            OpId: new IpcExecuteStepId("step-1"),
                             Op: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe,
                             Phase: IpcExecuteOperationPhase.Call,
                             Applied: true,
@@ -92,7 +91,6 @@ public sealed class CallServiceWorkflowTests
                     opResults:
                     [
                         new IpcExecuteOperationResult(
-                            OpId: new IpcExecuteStepId("step-1"),
                             Op: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe,
                             Phase: IpcExecuteOperationPhase.Plan,
                             Applied: false,
@@ -107,7 +105,6 @@ public sealed class CallServiceWorkflowTests
                     opResults:
                     [
                         new IpcExecuteOperationResult(
-                            OpId: new IpcExecuteStepId("step-1"),
                             Op: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe,
                             Phase: IpcExecuteOperationPhase.Call,
                             Applied: true,
@@ -140,15 +137,13 @@ public sealed class CallServiceWorkflowTests
         Assert.NotNull(result.Output);
         Assert.NotNull(result.Output!.Plan);
         Assert.Equal("issued-plan-token", result.Output.Plan!.PlanToken);
-        var executePair = CallServiceInvocationAssert.PlanThenCallDispatched(
+        CallServiceInvocationAssert.PlanThenCallDispatched(
             ipcRequestExecutor,
             expectedCallPlanToken: "issued-plan-token",
             expectedAllowDangerous: false,
             expectedAllowPlayMode: true);
 
         Assert.Equal(RequestId, result.Output.RequestId);
-        Assert.False(executePair.PlanRequest.ExecuteArguments.TryGetProperty("requestId", out _));
-        Assert.False(executePair.CallRequest.ExecuteArguments.TryGetProperty("requestId", out _));
     }
 
     [Fact]
@@ -174,7 +169,6 @@ public sealed class CallServiceWorkflowTests
                     opResults:
                     [
                         new IpcExecuteOperationResult(
-                            OpId: new IpcExecuteStepId("step-1"),
                             Op: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe,
                             Phase: IpcExecuteOperationPhase.Plan,
                             Applied: false,
@@ -189,7 +183,6 @@ public sealed class CallServiceWorkflowTests
                     opResults:
                     [
                         new IpcExecuteOperationResult(
-                            OpId: new IpcExecuteStepId("step-1"),
                             Op: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe,
                             Phase: IpcExecuteOperationPhase.Call,
                             Applied: true,

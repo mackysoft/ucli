@@ -1,9 +1,11 @@
 using System.Text.Json.Serialization;
 using MackySoft.Ucli.Contracts.Operations;
 
+using MackySoft.JsonSchema.Generation.Annotations;
+
 namespace MackySoft.Ucli.Contracts.Ipc;
 
-[UcliDescription("Scene query operation arguments.")]
+[Description("Scene query operation arguments.")]
 public sealed record SceneQueryArgs
 {
     [JsonConstructor]
@@ -17,16 +19,17 @@ public sealed record SceneQueryArgs
         ComponentType = componentType;
     }
 
-    [UcliRequired]
-    [UcliDescription("Scene asset path to query.")]
-    [UcliInputConstraint(UcliOperationInputConstraintKind.AssetExists, AssetKind = UcliOperationAssetKind.Scene)]
-    public SceneAssetPath Scene { get; }
+    [JsonInclude]
+    [JsonRequired]
+    [Description("Scene asset path to query.")]
+    [UcliAssetExists(UcliOperationAssetKind.Scene)]
+    public SceneAssetPath Scene { get; private init; }
 
-    [UcliDescription("Optional hierarchy path prefix filter.")]
+    [Description("Optional hierarchy path prefix filter.")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public UnityHierarchyPath? PathPrefix { get; }
 
-    [UcliDescription("Optional component type identifier filter.")]
+    [Description("Optional component type identifier filter.")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public UnityComponentTypeId? ComponentType { get; }
 }

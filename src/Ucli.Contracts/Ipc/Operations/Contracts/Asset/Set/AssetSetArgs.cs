@@ -1,9 +1,11 @@
 using System.Text.Json.Serialization;
 using MackySoft.Ucli.Contracts.Operations;
 
+using MackySoft.JsonSchema.Generation.Annotations;
+
 namespace MackySoft.Ucli.Contracts.Ipc;
 
-[UcliDescription("Asset property set operation arguments.")]
+[Description("Asset property set operation arguments.")]
 public sealed record AssetSetArgs
 {
     [JsonConstructor]
@@ -15,14 +17,16 @@ public sealed record AssetSetArgs
         Sets = ContractArgumentGuard.RequireItems(sets, nameof(sets));
     }
 
-    [UcliRequired]
-    [UcliDescription("Target asset to modify.")]
-    [UcliInputConstraint(UcliOperationInputConstraintKind.ReferenceResolvable, TargetKind = UcliOperationReferenceTargetKind.Asset)]
-    public AssetReferenceArgs Target { get; }
+    [JsonInclude]
+    [JsonRequired]
+    [Description("Target asset to modify.")]
+    [UcliReferenceResolvable(UcliOperationReferenceTargetKind.Asset)]
+    public AssetReferenceArgs Target { get; private init; }
 
-    [UcliRequired]
-    [UcliDescription("Serialized property assignments.")]
-    [UcliInputConstraint(UcliOperationInputConstraintKind.NonEmpty)]
-    [UcliInputConstraint(UcliOperationInputConstraintKind.SerializedProperty, Access = UcliOperationSerializedPropertyAccess.Write)]
-    public IReadOnlyList<SerializedObjectSetItemArgs> Sets { get; }
+    [JsonInclude]
+    [JsonRequired]
+    [Description("Serialized property assignments.")]
+    [ItemCount(1, int.MaxValue)]
+    [UcliSerializedProperty(UcliOperationSerializedPropertyAccess.Write)]
+    public IReadOnlyList<SerializedObjectSetItemArgs> Sets { get; private init; }
 }

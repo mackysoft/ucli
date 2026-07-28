@@ -174,12 +174,13 @@ internal sealed class QueryAssetSchemaCommand
             return false;
         }
 
-        var target = new AssetReferenceArgs(
-            alias: null,
-            globalObjectId: typedGlobalObjectId,
-            assetGuid: typedAssetGuid,
-            assetPath: typedAssetPath,
-            projectAssetPath: typedProjectAssetPath);
+        AssetReferenceArgs target = typedGlobalObjectId switch
+        {
+            not null => new GlobalObjectIdReferenceArgs(typedGlobalObjectId),
+            _ when typedAssetGuid.HasValue => new AssetGuidReferenceArgs(typedAssetGuid.Value),
+            _ when typedAssetPath is not null => new AssetPathReferenceArgs(typedAssetPath),
+            _ => new ProjectAssetPathReferenceArgs(typedProjectAssetPath!),
+        };
         args = QueryOperationArgsFactory.CreateAssetSchemaTarget(target);
         return true;
     }

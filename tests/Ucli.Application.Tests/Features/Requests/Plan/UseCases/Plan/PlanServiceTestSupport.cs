@@ -100,7 +100,7 @@ internal static class PlanServiceTestSupport
                 """,
             request: new ValidateRequest(
                 ProtocolVersion: 1,
-                Steps: Array.Empty<ValidateRequestStep?>()),
+                Steps: Array.Empty<ValidateRequestStep>()),
             projectContext: ProjectContextTestFactory.CreateRepositoryFixtureProject());
     }
 

@@ -1,4 +1,6 @@
+using System.Text.Json;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Contracts;
+using MackySoft.Ucli.Application.Features.Assurance.Build.Payload;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Assurance;
@@ -18,7 +20,6 @@ public sealed class BuildRunCommandResultFactoryTests
         Assert.Equal(CommandResultStatus.Ok, result.Status);
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
         Assert.Empty(result.Errors);
-        Assert.Same(output, result.Payload);
     }
 
     [Fact]
@@ -36,7 +37,6 @@ public sealed class BuildRunCommandResultFactoryTests
         Assert.Equal(CommandResultStatus.Ok, result.Status);
         Assert.Equal(1, result.ExitCode);
         Assert.Empty(result.Errors);
-        Assert.Same(output, result.Payload);
     }
 
     [Fact]
@@ -50,7 +50,32 @@ public sealed class BuildRunCommandResultFactoryTests
         Assert.Equal(CommandResultStatus.Ok, result.Status);
         Assert.Equal(1, result.ExitCode);
         Assert.Empty(result.Errors);
-        Assert.Same(output, result.Payload);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Create_WithoutBuildReport_OmitsConditionalReportProperty ()
+    {
+        var source = BuildRunTestData.CreateOutput();
+        var output = new BuildExecutionOutput(
+            source.Verdict,
+            source.Project,
+            source.Build,
+            source.Verifiers,
+            source.Claims,
+            new BuildReportsOutput(
+                Build: source.Reports.Build,
+                BuildReport: null,
+                BuildOutputManifest: source.Reports.BuildOutputManifest,
+                BuildLog: source.Reports.BuildLog),
+            source.ResidualRisks);
+
+        var result = BuildRunCommandResultFactory.Create(BuildExecutionResult.Success(output));
+        var payload = JsonSerializer.SerializeToElement(
+            result.Payload,
+            CliOutputJsonSerializerOptions.Default);
+
+        Assert.False(payload.GetProperty("reports").TryGetProperty("buildReport", out _));
     }
 
     [Fact]
@@ -77,8 +102,10 @@ public sealed class BuildRunCommandResultFactoryTests
         Assert.Equal(CommandResultStatus.Error, result.Status);
         var error = Assert.Single(result.Errors);
         Assert.Equal(BuildErrorCodes.BuildDirtyStatePresent, error.Code);
-        var payload = Assert.IsAssignableFrom<IReadOnlyDictionary<string, object?>>(result.Payload);
-        Assert.True(payload.ContainsKey("project"));
-        Assert.Same(dirtyState, payload["dirtyState"]);
+        var payload = JsonSerializer.SerializeToElement(
+            result.Payload,
+            CliOutputJsonSerializerOptions.Default);
+        Assert.Equal(JsonValueKind.Object, payload.GetProperty("project").ValueKind);
+        Assert.True(payload.GetProperty("dirtyState").GetProperty("dirty").GetBoolean());
     }
 }

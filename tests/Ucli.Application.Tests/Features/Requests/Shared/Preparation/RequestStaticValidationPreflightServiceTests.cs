@@ -123,7 +123,7 @@ public sealed class RequestStaticValidationPreflightServiceTests
             new ValidationError(
                 ValidationErrorCodes.OperationArgsInvalid,
                 "Operation args are invalid.",
-                new IpcExecuteStepId("step-1")),
+                "/steps/0/args"),
         ];
         var validator = new RecordingRequestStaticValidator
         {
@@ -203,7 +203,7 @@ public sealed class RequestStaticValidationPreflightServiceTests
             requestJson: """{"protocolVersion":1,"steps":[]}""",
             request: new ValidateRequest(
                 ProtocolVersion: 1,
-                Steps: Array.Empty<ValidateRequestStep?>()),
+                Steps: Array.Empty<ValidateRequestStep>()),
             projectContext: ProjectContextTestFactory.CreateTemporaryFixtureProject());
     }
 

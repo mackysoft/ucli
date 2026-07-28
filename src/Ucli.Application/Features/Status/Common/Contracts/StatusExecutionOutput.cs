@@ -18,8 +18,8 @@ namespace MackySoft.Ucli.Application.Features.Status.Common.Contracts;
 /// <param name="ObservedAtUtc"> The daemon lifecycle observation timestamp when available. </param>
 /// <param name="ActionRequired"> The normalized user action required by the lifecycle blocker when available. </param>
 /// <param name="PrimaryDiagnostic"> The primary lifecycle diagnostic when available. </param>
-/// <param name="TimeoutMilliseconds"> The effective timeout in milliseconds used for daemon status probing. </param>
 /// <param name="PlayMode"> The Play Mode snapshot when daemon ping details are available. </param>
+/// <param name="TimeoutMilliseconds"> The effective timeout in milliseconds used for daemon status probing. </param>
 internal sealed record StatusExecutionOutput (
     DaemonStatusKind DaemonStatus,
     string UnityVersion,
@@ -30,8 +30,8 @@ internal sealed record StatusExecutionOutput (
     IpcUnityGenerationSnapshot? Generations,
     bool CanAcceptExecutionRequests,
     DaemonEditorMode? EditorMode,
-    int TimeoutMilliseconds,
     DateTimeOffset? ObservedAtUtc,
     DaemonDiagnosisActionRequired? ActionRequired,
     DaemonPrimaryDiagnosticOutput? PrimaryDiagnostic,
-    IpcPlayModeSnapshot? PlayMode);
+    IpcPlayModeSnapshot? PlayMode,
+    int TimeoutMilliseconds);

@@ -33,16 +33,6 @@ public sealed record IpcExecuteResponse
             : ContractArgumentGuard.RequireItems(contractViolations, nameof(contractViolations));
         if (postReadSource != null || contractViolationSnapshot is { Count: > 0 })
         {
-            var operationById = new Dictionary<IpcExecuteStepId, string>(opResultSnapshot.Count);
-            for (var index = 0; index < opResultSnapshot.Count; index++)
-            {
-                var opResult = opResultSnapshot[index];
-                if (!operationById.TryAdd(opResult.OpId, opResult.Op))
-                {
-                    throw new ArgumentException($"The 'opResults[{index}].opId' value is duplicated.", nameof(opResults));
-                }
-            }
-
             if (postReadSource != null)
             {
                 if (postReadSource.Steps.Count != opResultSnapshot.Count)
@@ -50,22 +40,11 @@ public sealed record IpcExecuteResponse
                     throw new ArgumentException("The 'postReadSource.steps' entries must correspond one-to-one with 'opResults'.", nameof(postReadSource));
                 }
 
-                var sourceIds = new HashSet<IpcExecuteStepId>();
                 for (var index = 0; index < postReadSource.Steps.Count; index++)
                 {
                     var sourceStep = postReadSource.Steps[index];
-                    if (!operationById.TryGetValue(sourceStep.OpId, out var operationName))
-                    {
-                        throw new ArgumentException($"The 'postReadSource.steps[{index}].opId' value does not match 'opResults'.", nameof(postReadSource));
-                    }
-
-                    if (!sourceIds.Add(sourceStep.OpId))
-                    {
-                        throw new ArgumentException($"The 'postReadSource.steps[{index}].opId' value is duplicated.", nameof(postReadSource));
-                    }
-
                     if (!IpcExecutePostReadSourceRules.IsCompatibleWithOperation(
-                            operationName,
+                            opResultSnapshot[index].Op,
                             sourceStep.SourceKind,
                             sourceStep.PlayModeMutation,
                             sourceStep.Commit,
@@ -82,10 +61,28 @@ public sealed record IpcExecuteResponse
                 for (var index = 0; index < contractViolationSnapshot.Count; index++)
                 {
                     var violation = contractViolationSnapshot[index];
-                    if (!operationById.TryGetValue(violation.OpId, out var operationName)
-                        || !string.Equals(violation.Operation, operationName, StringComparison.Ordinal))
+                    var matchesOperation = false;
+                    for (var opResultIndex = 0; opResultIndex < opResultSnapshot.Count; opResultIndex++)
                     {
-                        throw new ArgumentException($"The 'contractViolations[{index}]' identity does not match 'opResults'.", nameof(contractViolations));
+                        if (string.Equals(
+                                violation.InstancePath,
+                                $"/opResults/{opResultIndex}",
+                                StringComparison.Ordinal)
+                            && string.Equals(
+                                violation.Operation,
+                                opResultSnapshot[opResultIndex].Op,
+                                StringComparison.Ordinal))
+                        {
+                            matchesOperation = true;
+                            break;
+                        }
+                    }
+
+                    if (!matchesOperation)
+                    {
+                        throw new ArgumentException(
+                            $"The 'contractViolations[{index}]' instance path and operation do not match 'opResults'.",
+                            nameof(contractViolations));
                     }
                 }
             }

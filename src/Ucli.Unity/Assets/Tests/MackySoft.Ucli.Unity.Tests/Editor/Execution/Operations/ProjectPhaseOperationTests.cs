@@ -368,21 +368,14 @@ namespace MackySoft.Ucli.Unity.Tests
             var setRequest = CreateOperation(
                 opId: "op-set",
                 opName: UcliPrimitiveOperationNames.AssetSet,
-                args: new
-                {
-                    target = new
+                args: new AssetSetArgs(
+                    new AssetPathReferenceArgs(new UnityAssetPath(assetPath)),
+                    new[]
                     {
-                        assetPath,
-                    },
-                    sets = new object[]
-                    {
-                        new
-                        {
-                            path = "speed",
-                            value = 42.0f,
-                        },
-                    },
-                });
+                        new SerializedObjectSetItemArgs(
+                            new SerializedPropertyPath("speed"),
+                            JsonSerializer.SerializeToElement(42.0f)),
+                    }));
 
             var setResult = await setOperation.PlanAsync(setRequest, executionContext, CancellationToken.None);
 
@@ -415,15 +408,11 @@ namespace MackySoft.Ucli.Unity.Tests
             var prefabCreateRequest = CreateOperation(
                 opId: "op-prefab-create",
                 opName: UcliPrimitiveOperationNames.PrefabCreate,
-                args: new
-                {
-                    target = new
-                    {
-                        scene = scenePath,
-                        hierarchyPath = "Root",
-                    },
-                    path = prefabPath,
-                });
+                args: new PrefabCreateArgs(
+                    new SceneHierarchyReferenceArgs(
+                        new SceneAssetPath(scenePath),
+                        new UnityHierarchyPath("Root")),
+                    new PrefabAssetPath(prefabPath)));
             var saveRequest = CreateOperation(
                 opId: "op-save",
                 opName: UcliPrimitiveOperationNames.ProjectSave,
@@ -541,15 +530,11 @@ namespace MackySoft.Ucli.Unity.Tests
             var prefabCreateRequest = CreateOperation(
                 opId: "op-prefab-create",
                 opName: UcliPrimitiveOperationNames.PrefabCreate,
-                args: new
-                {
-                    target = new
-                    {
-                        scene = scenePath,
-                        hierarchyPath = "Root",
-                    },
-                    path = prefabPath,
-                });
+                args: new PrefabCreateArgs(
+                    new SceneHierarchyReferenceArgs(
+                        new SceneAssetPath(scenePath),
+                        new UnityHierarchyPath("Root")),
+                    new PrefabAssetPath(prefabPath)));
             var saveRequest = CreateOperation(
                 opId: "op-save",
                 opName: UcliPrimitiveOperationNames.ProjectSave,
@@ -610,15 +595,17 @@ namespace MackySoft.Ucli.Unity.Tests
             return UnityAssetPathUtility.ResolveProjectRelativePath(assetPath).Value;
         }
 
-        private static NormalizedOperation CreateOperation (
+        private static NormalizedOperation CreateOperation<TArgs> (
             string opId,
             string opName,
-            object args)
+            TArgs args)
         {
             return new NormalizedOperation(
                 ExecutionKey: OperationExecutionKey.ForRawStep(new IpcExecuteStepId(opId)),
                 Op: opName,
-                Args: JsonSerializer.SerializeToElement(args),
+                Args: JsonSerializer.SerializeToElement(
+                    args,
+                    IpcJsonSerializerOptions.StrictPropertyNames),
                 As: null,
                 Expect: null,
                 AliasReferences: OperationAliasReferenceMap.Empty,

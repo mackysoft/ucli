@@ -1,10 +1,10 @@
 using System.Text.Json.Serialization;
-using MackySoft.Ucli.Contracts.Operations;
-using MackySoft.Ucli.Contracts.Text;
+
+using MackySoft.JsonSchema.Generation.Annotations;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
-[UcliDescription("C# eval compile or entry point diagnostic.")]
+[Description("C# eval compile or entry point diagnostic.")]
 public sealed record CsEvalDiagnostic
 {
     [JsonConstructor]
@@ -36,23 +36,26 @@ public sealed record CsEvalDiagnostic
             : null;
     }
 
-    [UcliRequired]
-    [UcliDescription("Diagnostic severity.")]
-    public UcliDiagnosticSeverity Severity { get; }
+    [JsonInclude]
+    [JsonRequired]
+    [Description("Diagnostic severity.")]
+    public UcliDiagnosticSeverity Severity { get; private init; }
 
-    [UcliRequired]
-    [UcliDescription("Diagnostic identifier.")]
-    public string Id { get; }
+    [JsonInclude]
+    [JsonRequired]
+    [Description("Diagnostic identifier.")]
+    public string Id { get; private init; }
 
-    [UcliRequired]
-    [UcliDescription("Diagnostic message.")]
-    public string Message { get; }
+    [JsonInclude]
+    [JsonRequired]
+    [Description("Diagnostic message.")]
+    public string Message { get; private init; }
 
-    [UcliDescription("One-based source line when available.")]
+    [Description("One-based source line when available.")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public int? Line { get; }
 
-    [UcliDescription("One-based source column when available.")]
+    [Description("One-based source column when available.")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public int? Column { get; }
 }

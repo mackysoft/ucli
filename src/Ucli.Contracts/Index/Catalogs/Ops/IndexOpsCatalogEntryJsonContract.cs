@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Contracts.Configuration;
+
 namespace MackySoft.Ucli.Contracts.Index;
 
 /// <summary> Represents one lightweight operation descriptor stored in <c>ops.catalog.json</c>. </summary>
@@ -9,8 +11,8 @@ namespace MackySoft.Ucli.Contracts.Index;
 /// <param name="DescribeHash"> The SHA-256 lower-hex hash of the matching describe artifact JSON. </param>
 internal sealed record IndexOpsCatalogEntryJsonContract (
     string? Name,
-    string? Kind,
-    string? Policy,
+    UcliOperationKind? Kind,
+    OperationPolicy? Policy,
     string? Description,
     string? DescribeKey,
     string? DescribeHash);

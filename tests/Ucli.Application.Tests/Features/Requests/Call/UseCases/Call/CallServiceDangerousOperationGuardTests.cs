@@ -22,7 +22,6 @@ public sealed class CallServiceDangerousOperationGuardTests
                     opResults:
                     [
                         new IpcExecuteOperationResult(
-                            OpId: new IpcExecuteStepId("step-1"),
                             Op: dangerousOperationName,
                             Phase: IpcExecuteOperationPhase.Plan,
                             Applied: false,
@@ -37,7 +36,6 @@ public sealed class CallServiceDangerousOperationGuardTests
                     opResults:
                     [
                         new IpcExecuteOperationResult(
-                            OpId: new IpcExecuteStepId("step-1"),
                             Op: dangerousOperationName,
                             Phase: IpcExecuteOperationPhase.Call,
                             Applied: true,
@@ -84,7 +82,6 @@ public sealed class CallServiceDangerousOperationGuardTests
                     opResults:
                     [
                         new IpcExecuteOperationResult(
-                            OpId: new IpcExecuteStepId("step-1"),
                             Op: dangerousOperationName,
                             Phase: IpcExecuteOperationPhase.Call,
                             Applied: true,
@@ -145,7 +142,7 @@ public sealed class CallServiceDangerousOperationGuardTests
         Assert.Empty(result.Output.OpResults);
         var error = Assert.Single(result.Errors);
         Assert.Equal(OperationAuthorizationErrorCodes.OperationNotAllowed, error.Code);
-        Assert.Equal("step-1", error.OpId?.Value);
+        Assert.Equal("/steps/0/op", error.InstancePath);
     }
 
     [Fact]
@@ -179,6 +176,6 @@ public sealed class CallServiceDangerousOperationGuardTests
         Assert.Equal(ApplicationOutcome.InvalidArgument, result.Outcome);
         var error = Assert.Single(result.Errors);
         Assert.Equal(OperationAuthorizationErrorCodes.OperationNotAllowed, error.Code);
-        Assert.Equal("edit-1", error.OpId?.Value);
+        Assert.Equal("/steps/0", error.InstancePath);
     }
 }

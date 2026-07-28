@@ -1,4 +1,5 @@
 using System.Text.Json;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Acquisition;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Observation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -80,7 +81,7 @@ internal static class UnityDaemonIpcClientTestSupport
         {
             Assert.Equal(expected.Errors[i].Code, actual.Errors[i].Code);
             Assert.Equal(expected.Errors[i].Message, actual.Errors[i].Message);
-            Assert.Equal(expected.Errors[i].OpId, actual.Errors[i].OpId);
+            Assert.Equal(expected.Errors[i].InstancePath, actual.Errors[i].InstancePath);
         }
     }
 

@@ -9,48 +9,427 @@
               "src/Ucli.Application",
               "src/Ucli.Contracts",
               "src/Ucli.Infrastructure",
-              "src/Ucli.Unity/Assets/MackySoft/MackySoft.Ucli.Unity",
-              "src/Ucli.Unity/Assets/Tests",
-              "tests",
+              "src/Ucli.Unity/Assets/MackySoft/MackySoft.Ucli.Unity/Editor",
               "tools/Ucli.SchemaGenerator"
             ]
           },
           {
             "pathExact": [
-              "src/Ucli.Unity/MackySoft.Ucli.Unity.Editor.csproj",
-              "src/Ucli.Unity/MackySoft.Ucli.Unity.Tests.Editor.csproj",
-              "src/Ucli.Unity/MackySoft.Ucli.Unity.Tests.Runtime.csproj"
-            ]
-          },
-          {
-            "projectExact": [
-              "src/Ucli/Ucli.csproj"
-            ],
-            "pathPrefix": [
-              "ConsoleAppFramework"
+              "src/Ucli.Unity/MackySoft.Ucli.Unity.Editor.csproj"
             ]
           }
         ]
       }
     ],
-    "external": [
+    "external": []
+  },
+  "classifiers": {
+    "codeKind": [
       {
+        "label": "GeneralProductCode",
+        "matches": [
+          {
+            "pathPrefix": [
+              "src",
+              "tools"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "ContractDefinition",
+        "matches": [
+          {
+            "pathPrefix": [
+              "src/Ucli.Contracts/Index/Catalogs/Schemas",
+              "src/Ucli.Contracts/Index/Lookups/SceneTreeLite",
+              "src/Ucli.Contracts/Ipc/Operations/Contracts",
+              "src/Ucli.Contracts/Ipc/Values"
+            ]
+          },
+          {
+            "pathExact": [
+              "src/Ucli.Contracts/Cryptography/Sha256Digest.cs",
+              "src/Ucli.Contracts/Ipc/ContractReading/ExecuteArguments/UcliRequestJsonContracts.cs",
+              "src/Ucli.Contracts/Ipc/Operations/Resolve/IpcResolveOperationResult.cs",
+              "src/Ucli.Contracts/Schemas/UcliStaticSchemaManifest.cs"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "ContractGeneration",
+        "matches": [
+          {
+            "pathPrefix": [
+              "src/Ucli.Contracts/Ipc/Operations/Contracts/Generation",
+              "src/Ucli.Contracts/Ipc/Operations/Contracts/Validation",
+              "src/Ucli.Contracts/Json/Generation",
+              "src/Ucli.Contracts/Json/Metadata"
+            ]
+          },
+          {
+            "pathExact": [
+              "src/Ucli.Contracts/Operations/Metadata/Describe/UcliOperationJsonContract.cs",
+              "src/Ucli/Hosting/Composition/Schemas/UcliStaticSchemaSetGenerator.cs",
+              "tools/Ucli.SchemaGenerator/Program.cs"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "SchemaEvaluation",
+        "matches": [
+          {
+            "pathExact": [
+              "src/Ucli.Application/Features/Requests/Shared/OperationMetadata/OperationArgsSchemaEvaluator.cs",
+              "src/Ucli.Application/Shared/Execution/ReadIndex/Validation/OperationJsonContractAcceptanceValidator.cs",
+              "src/Ucli/Hosting/Cli/Schemas/UcliStaticSchemaArtifactValidator.cs"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "UnityCompilation",
+        "matches": [
+          {
+            "pathPrefix": [
+              "src/Ucli.Unity/Assets/MackySoft/MackySoft.Ucli.Unity/Editor/Execution/CsEval"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "ProjectManifest",
+        "matches": [
+          {
+            "pathExact": [
+              "src/Ucli.Application/Ucli.Application.csproj",
+              "src/Ucli.Contracts/Ucli.Contracts.csproj",
+              "src/Ucli.Infrastructure/Ucli.Infrastructure.csproj",
+              "src/Ucli/Ucli.csproj",
+              "src/Ucli.Unity/Assets/MackySoft/MackySoft.Ucli.Unity/Editor/MackySoft.Ucli.Unity.Editor.asmdef",
+              "src/Ucli.Unity/MackySoft.Ucli.Unity.Editor.csproj",
+              "tools/Ucli.SchemaGenerator/Ucli.SchemaGenerator.csproj"
+            ]
+          }
+        ]
+      }
+    ],
+    "domain": [
+      {
+        "label": "Application",
+        "matches": [
+          {
+            "namespacePrefix": [
+              "MackySoft.Ucli.Application"
+            ]
+          },
+          {
+            "pathPrefix": [
+              "src/Ucli.Application"
+            ]
+          },
+          {
+            "projectExact": [
+              "src/Ucli.Application/Ucli.Application.csproj"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "Contracts",
         "matches": [
           {
             "assemblyExact": [
-              "ConsoleAppFramework",
-              "MackySoft.AgentSkills",
-              "Microsoft.Bcl.AsyncInterfaces",
-              "Microsoft.CodeAnalysis",
-              "Microsoft.CodeAnalysis.CSharp",
-              "Microsoft.CodeCoverage",
+              "MackySoft.Ucli.Contracts"
+            ]
+          },
+          {
+            "namespacePrefix": [
+              "MackySoft.Ucli.Contracts"
+            ]
+          },
+          {
+            "pathPrefix": [
+              "src/Ucli.Contracts"
+            ]
+          },
+          {
+            "projectExact": [
+              "src/Ucli.Contracts/Ucli.Contracts.csproj"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "Cli",
+        "matches": [
+          {
+            "namespacePrefix": [
+              "MackySoft.Ucli.Hosting"
+            ]
+          },
+          {
+            "pathPrefix": [
+              "src/Ucli/"
+            ]
+          },
+          {
+            "projectExact": [
+              "src/Ucli/Ucli.csproj"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "Infrastructure",
+        "matches": [
+          {
+            "assemblyExact": [
+              "MackySoft.Ucli.Infrastructure"
+            ]
+          },
+          {
+            "namespacePrefix": [
+              "MackySoft.Ucli.Infrastructure"
+            ]
+          },
+          {
+            "pathPrefix": [
+              "src/Ucli.Infrastructure"
+            ]
+          },
+          {
+            "projectExact": [
+              "src/Ucli.Infrastructure/Ucli.Infrastructure.csproj"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "Unity",
+        "matches": [
+          {
+            "namespacePrefix": [
+              "MackySoft.Ucli.Unity"
+            ]
+          },
+          {
+            "pathPrefix": [
+              "src/Ucli.Unity"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "SchemaGenerator",
+        "matches": [
+          {
+            "namespacePrefix": [
+              "MackySoft.Ucli.SchemaGenerator"
+            ]
+          },
+          {
+            "pathPrefix": [
+              "tools/Ucli.SchemaGenerator"
+            ]
+          },
+          {
+            "projectExact": [
+              "tools/Ucli.SchemaGenerator/Ucli.SchemaGenerator.csproj"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "JsonSchemaAnnotations",
+        "matches": [
+          {
+            "namespacePrefix": [
+              "MackySoft.JsonSchema.Generation.Annotations"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "JsonSchemaGeneration",
+        "matches": [
+          {
+            "assemblyExact": [
+              "MackySoft.JsonSchema.Generation"
+            ]
+          },
+          {
+            "namespacePrefix": [
+              "MackySoft.JsonSchema.Generation"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "JsonSchemaValidation",
+        "matches": [
+          {
+            "assemblyExact": [
+              "Humanizer",
+              "Json.More",
+              "JsonPointer.Net",
+              "JsonSchema.Net"
+            ]
+          },
+          {
+            "namespacePrefix": [
+              "Humanizer",
+              "Json.More",
+              "Json.Pointer",
+              "Json.Schema"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "JsonCanonicalization",
+        "matches": [
+          {
+            "assemblyExact": [
+              "MackySoft.Json.Canonicalization"
+            ]
+          },
+          {
+            "namespacePrefix": [
+              "MackySoft.Json.Canonicalization"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "FileSystem",
+        "matches": [
+          {
+            "assemblyExact": [
+              "MackySoft.FileSystem"
+            ]
+          },
+          {
+            "namespacePrefix": [
+              "MackySoft.FileSystem"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "TextContracts",
+        "matches": [
+          {
+            "assemblyExact": [
+              "MackySoft.Text",
+              "MackySoft.Text.Json",
+              "MackySoft.Text.Vocabularies",
+              "MackySoft.Text.Vocabularies.Json"
+            ]
+          },
+          {
+            "namespacePrefix": [
+              "MackySoft.Text"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "DependencyInjection",
+        "matches": [
+          {
+            "assemblyExact": [
               "Microsoft.Extensions.DependencyInjection",
-              "Microsoft.Extensions.DependencyInjection.Abstractions",
+              "Microsoft.Extensions.DependencyInjection.Abstractions"
+            ]
+          },
+          {
+            "namespacePrefix": [
+              "Microsoft.Extensions.DependencyInjection"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "CliFramework",
+        "matches": [
+          {
+            "assemblyExact": [
+              "ConsoleAppFramework"
+            ]
+          },
+          {
+            "namespacePrefix": [
+              "ConsoleAppFramework"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "AgentSkills",
+        "matches": [
+          {
+            "assemblyExact": [
+              "MackySoft.AgentSkills",
+              "MackySoft.AgentSkills.ConsoleAppFramework",
+              "MackySoft.AgentSkills.Hosting"
+            ]
+          },
+          {
+            "namespacePrefix": [
+              "MackySoft.AgentSkills"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "UnityRuntime",
+        "matches": [
+          {
+            "assemblyExact": [
+              "UniTask",
+              "Unity.Mathematics",
+              "UnityEditor",
+              "UnityEditor.CoreModule",
+              "UnityEngine",
+              "UnityEngine.CoreModule"
+            ]
+          },
+          {
+            "namespacePrefix": [
+              "Cysharp",
+              "UnityEditor",
+              "UnityEngine"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "Roslyn",
+        "matches": [
+          {
+            "assemblyExact": [
+              "Microsoft.CodeAnalysis",
+              "Microsoft.CodeAnalysis.CSharp"
+            ]
+          },
+          {
+            "namespacePrefix": [
+              "Microsoft.CodeAnalysis"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "DotNetRuntime",
+        "matches": [
+          {
+            "assemblyExact": [
+              "Microsoft.Bcl.AsyncInterfaces",
               "Microsoft.Extensions.Logging.Abstractions",
-              "Microsoft.NET.Test.Sdk",
-              "Microsoft.TestPlatform.ObjectModel",
-              "Microsoft.TestPlatform.TestHost",
-              "Newtonsoft.Json",
+              "netstandard",
               "System.Buffers",
               "System.Collections",
               "System.Collections.Concurrent",
@@ -60,152 +439,28 @@
               "System.Diagnostics.Process",
               "System.Diagnostics.TraceSource",
               "System.IO",
-              "System.IO.FileSystem.AccessControl",
               "System.Linq",
               "System.Memory",
               "System.Net.Sockets",
               "System.Numerics.Vectors",
               "System.Private.CoreLib",
               "System.Reflection",
-              "System.Reflection.Metadata",
               "System.Runtime",
               "System.Runtime.CompilerServices.Unsafe",
               "System.Runtime.Extensions",
               "System.Runtime.InteropServices",
               "System.Security.Cryptography",
-              "System.Security.Cryptography.Algorithms",
-              "System.Security.Cryptography.Primitives",
-              "System.Security.AccessControl",
-              "System.Security.Principal.Windows",
               "System.Text.Encoding",
-              "System.Text.Encoding.CodePages",
               "System.Text.Encodings.Web",
               "System.Text.Json",
               "System.Text.RegularExpressions",
               "System.Threading",
-              "System.Threading.Tasks.Extensions",
-              "System.Xml.ReaderWriter",
-              "UniTask",
-              "Unity.Mathematics",
-              "UnityEditor",
-              "UnityEditor.CoreModule",
-              "UnityEditor.TestRunner",
-              "UnityEngine",
-              "UnityEngine.AnimationModule",
-              "UnityEngine.CoreModule",
-              "UnityEngine.SceneManagementModule",
-              "UnityEngine.TestRunner",
-              "UnityEngine.UI",
-              "netstandard",
-              "nunit.framework",
-              "xunit.abstractions",
-              "xunit.analyzers",
-              "xunit.assert",
-              "xunit.core",
-              "xunit.extensibility.core",
-              "xunit.extensibility.execution",
-              "xunit.runner.visualstudio"
+              "System.Threading.Tasks.Extensions"
             ]
           },
           {
-            "pathPrefix": [
-              "src/Ucli.Unity/Assets/Packages",
-              "src/Ucli.Unity/Library/PackageCache"
-            ]
-          }
-        ]
-      }
-    ]
-  },
-  "classifiers": {
-    "codeKind": [],
-    "domain": [
-      {
-        "label": "Application",
-        "matches": [
-          {
-            "pathPrefix": [
-              "src/Ucli.Application"
-            ]
-          }
-        ]
-      },
-      {
-        "label": "Cli",
-        "matches": [
-          {
-            "pathPrefix": [
-              "src/Ucli/"
-            ]
-          },
-          {
-            "projectExact": [
-              "src/Ucli/Ucli.csproj"
-            ],
-            "pathPrefix": [
-              "ConsoleAppFramework"
-            ]
-          }
-        ]
-      },
-      {
-        "label": "Contracts",
-        "matches": [
-          {
-            "pathPrefix": [
-              "src/Ucli.Contracts"
-            ]
-          }
-        ]
-      },
-      {
-        "label": "Infrastructure",
-        "matches": [
-          {
-            "pathPrefix": [
-              "src/Ucli.Infrastructure"
-            ]
-          }
-        ]
-      },
-      {
-        "label": "Tests",
-        "matches": [
-          {
-            "pathPrefix": [
-              "src/Ucli.Unity/Assets/Tests",
-              "tests"
-            ]
-          },
-          {
-            "pathExact": [
-              "src/Ucli.Unity/MackySoft.Ucli.Unity.Tests.Editor.csproj",
-              "src/Ucli.Unity/MackySoft.Ucli.Unity.Tests.Runtime.csproj"
-            ]
-          }
-        ]
-      },
-      {
-        "label": "Tools",
-        "matches": [
-          {
-            "pathPrefix": [
-              "tools/Ucli.SchemaGenerator"
-            ]
-          }
-        ]
-      },
-      {
-        "label": "Unity",
-        "matches": [
-          {
-            "pathPrefix": [
-              "src/Ucli.Unity/Assets/MackySoft/MackySoft.Ucli.Unity"
-            ]
-          },
-          {
-            "pathExact": [
-              "src/Ucli.Unity/MackySoft.Ucli.Unity.Editor.csproj"
+            "namespacePrefix": [
+              "System"
             ]
           }
         ]
@@ -284,38 +539,6 @@
             ],
             "pathExact": [
               "src/Ucli.Application/Ucli.Application.csproj"
-            ]
-          }
-        ]
-      },
-      {
-        "label": "ApplicationTests",
-        "matches": [
-          {
-            "namespacePrefix": [
-              "MackySoft.Ucli.Application.Tests",
-              "MackySoft.Ucli.TestSupport"
-            ],
-            "pathPrefix": [
-              "tests/Ucli.Application.Tests"
-            ]
-          },
-          {
-            "pathExact": [
-              "tests/Ucli.Application.Tests/Ucli.Application.Tests.csproj"
-            ]
-          }
-        ]
-      },
-      {
-        "label": "SharedTestSupport",
-        "matches": [
-          {
-            "namespacePrefix": [
-              "MackySoft.Ucli.TestSupport"
-            ],
-            "pathPrefix": [
-              "tests/Shared"
             ]
           }
         ]
@@ -436,26 +659,6 @@
         ]
       },
       {
-        "label": "CliHostTests",
-        "matches": [
-          {
-            "namespacePrefix": [
-              "MackySoft.Tests",
-              "MackySoft.Ucli.TestSupport",
-              "MackySoft.Ucli.Tests"
-            ],
-            "pathPrefix": [
-              "tests/Ucli.Tests"
-            ]
-          },
-          {
-            "pathExact": [
-              "tests/Ucli.Tests/Ucli.Tests.csproj"
-            ]
-          }
-        ]
-      },
-      {
         "label": "Contracts",
         "matches": [
           {
@@ -479,24 +682,6 @@
         ]
       },
       {
-        "label": "ContractsTests",
-        "matches": [
-          {
-            "namespacePrefix": [
-              "MackySoft.Ucli.Contracts.Tests"
-            ],
-            "pathPrefix": [
-              "tests/Ucli.Contracts.Tests"
-            ]
-          },
-          {
-            "pathExact": [
-              "tests/Ucli.Contracts.Tests/Ucli.Contracts.Tests.csproj"
-            ]
-          }
-        ]
-      },
-      {
         "label": "Infrastructure",
         "matches": [
           {
@@ -515,44 +700,6 @@
           {
             "pathPrefix": [
               "src/Ucli.Infrastructure/Compatibility"
-            ]
-          }
-        ]
-      },
-      {
-        "label": "InfrastructureTests",
-        "matches": [
-          {
-            "namespacePrefix": [
-              "MackySoft.Ucli.Infrastructure.Tests"
-            ],
-            "pathPrefix": [
-              "tests/Ucli.Infrastructure.Tests"
-            ]
-          },
-          {
-            "pathExact": [
-              "tests/Ucli.Infrastructure.Tests/Ucli.Infrastructure.Tests.csproj"
-            ]
-          }
-        ]
-      },
-      {
-        "label": "TestsHelper",
-        "matches": [
-          {
-            "namespacePrefix": [
-              "MackySoft.Tests",
-              "MackySoft.Ucli.Tests",
-              "MackySoft.Ucli.Tests.Helper"
-            ],
-            "pathPrefix": [
-              "tests/Tests.Helper"
-            ]
-          },
-          {
-            "pathExact": [
-              "tests/Tests.Helper/Tests.Helper.csproj"
             ]
           }
         ]
@@ -716,15 +863,15 @@
               "MackySoft.Ucli.Unity.Compatibility",
               "MackySoft.Ucli.Unity.SceneInspection"
             ],
-              "pathPrefix": [
-                "src/Ucli.Unity/Assets/MackySoft/MackySoft.Ucli.Unity/Editor/BuildAudit",
-                "src/Ucli.Unity/Assets/MackySoft/MackySoft.Ucli.Unity/Editor/BuildPipeline",
-                "src/Ucli.Unity/Assets/MackySoft/MackySoft.Ucli.Unity/Editor/BuildProfiles",
-                "src/Ucli.Unity/Assets/MackySoft/MackySoft.Ucli.Unity/Editor/BuildPreconditions",
-                "src/Ucli.Unity/Assets/MackySoft/MackySoft.Ucli.Unity/Editor/BuildRunner",
-                "src/Ucli.Unity/Assets/MackySoft/MackySoft.Ucli.Unity/Editor/Compatibility",
-                "src/Ucli.Unity/Assets/MackySoft/MackySoft.Ucli.Unity/Editor/SceneInspection"
-              ]
+            "pathPrefix": [
+              "src/Ucli.Unity/Assets/MackySoft/MackySoft.Ucli.Unity/Editor/BuildAudit",
+              "src/Ucli.Unity/Assets/MackySoft/MackySoft.Ucli.Unity/Editor/BuildPipeline",
+              "src/Ucli.Unity/Assets/MackySoft/MackySoft.Ucli.Unity/Editor/BuildProfiles",
+              "src/Ucli.Unity/Assets/MackySoft/MackySoft.Ucli.Unity/Editor/BuildPreconditions",
+              "src/Ucli.Unity/Assets/MackySoft/MackySoft.Ucli.Unity/Editor/BuildRunner",
+              "src/Ucli.Unity/Assets/MackySoft/MackySoft.Ucli.Unity/Editor/Compatibility",
+              "src/Ucli.Unity/Assets/MackySoft/MackySoft.Ucli.Unity/Editor/SceneInspection"
+            ]
           },
           {
             "namespacePrefix": [
@@ -752,33 +899,532 @@
             ]
           }
         ]
-      },
-      {
-        "label": "UnityTests",
-        "matches": [
-          {
-            "namespacePrefix": [
-              "MackySoft.Ucli.Unity.Tests"
-            ],
-            "pathPrefix": [
-              "src/Ucli.Unity/Assets/Tests"
-            ]
-          },
-          {
-            "pathExact": [
-              "src/Ucli.Unity/Assets/Tests/MackySoft.Ucli.Unity.Tests/Editor/Ipc/Diagnostics/DaemonLogs/NoOpDaemonLogger.cs",
-              "src/Ucli.Unity/Assets/Tests/MackySoft.Ucli.Unity.Tests/Editor/MackySoft.Ucli.Unity.Tests.Editor.asmdef",
-              "src/Ucli.Unity/Assets/Tests/MackySoft.Ucli.Unity.Tests/Runtime/MackySoft.Ucli.Unity.Tests.Runtime.asmdef",
-              "src/Ucli.Unity/MackySoft.Ucli.Unity.Tests.Editor.csproj",
-              "src/Ucli.Unity/MackySoft.Ucli.Unity.Tests.Runtime.csproj"
-            ]
-          }
-        ]
       }
     ]
   },
   "policies": {
     "dependencies": [
+      {
+        "from": {
+          "domain": [
+            "Application"
+          ],
+          "layer": [
+            "ApplicationFeatures"
+          ],
+          "codeKind": [
+            "ContractGeneration"
+          ]
+        },
+        "allow": [
+          {
+            "subject": "owned",
+            "domain": [
+              "Application"
+            ],
+            "layer": [
+              "ApplicationFeatures"
+            ]
+          },
+          {
+            "subject": "owned",
+            "domain": [
+              "Contracts"
+            ],
+            "layer": [
+              "Contracts"
+            ]
+          },
+          {
+            "subject": "external",
+            "domain": [
+              "JsonSchemaGeneration"
+            ]
+          }
+        ]
+      },
+      {
+        "from": {
+          "domain": [
+            "Application"
+          ],
+          "layer": [
+            "ApplicationFeatures"
+          ],
+          "codeKind": [
+            "SchemaEvaluation"
+          ]
+        },
+        "allow": [
+          {
+            "subject": "owned",
+            "domain": [
+              "Application"
+            ],
+            "layer": [
+              "ApplicationFeatures"
+            ]
+          },
+          {
+            "subject": "external",
+            "domain": [
+              "JsonSchemaValidation"
+            ]
+          }
+        ]
+      },
+      {
+        "from": {
+          "domain": [
+            "Application"
+          ],
+          "layer": [
+            "ApplicationShared"
+          ],
+          "codeKind": [
+            "SchemaEvaluation"
+          ]
+        },
+        "allow": [
+          {
+            "subject": "owned",
+            "domain": [
+              "Application"
+            ],
+            "layer": [
+              "ApplicationShared"
+            ]
+          },
+          {
+            "subject": "external",
+            "domain": [
+              "JsonSchemaValidation"
+            ]
+          }
+        ]
+      },
+      {
+        "from": {
+          "domain": [
+            "Contracts"
+          ],
+          "layer": [
+            "Contracts"
+          ],
+          "codeKind": [
+            "ContractGeneration"
+          ]
+        },
+        "allow": [
+          {
+            "subject": "owned",
+            "domain": [
+              "Contracts"
+            ],
+            "layer": [
+              "Contracts"
+            ]
+          },
+          {
+            "subject": "external",
+            "domain": [
+              "JsonSchemaGeneration"
+            ]
+          }
+        ]
+      },
+      {
+        "from": {
+          "domain": [
+            "Contracts"
+          ],
+          "layer": [
+            "Contracts"
+          ],
+          "codeKind": [
+            "ContractDefinition"
+          ]
+        },
+        "allow": [
+          {
+            "subject": "owned",
+            "domain": [
+              "Contracts"
+            ],
+            "layer": [
+              "Contracts"
+            ]
+          },
+          {
+            "subject": "external",
+            "domain": [
+              "JsonSchemaAnnotations"
+            ]
+          }
+        ]
+      },
+      {
+        "from": {
+          "domain": [
+            "Cli"
+          ],
+          "layer": [
+            "CliComposition"
+          ],
+          "codeKind": [
+            "ContractGeneration"
+          ]
+        },
+        "allow": [
+          {
+            "subject": "owned",
+            "domain": [
+              "Cli"
+            ],
+            "layer": [
+              "CliComposition"
+            ],
+            "codeKind": [
+              "ContractGeneration"
+            ]
+          },
+          {
+            "subject": "owned",
+            "domain": [
+              "Contracts"
+            ],
+            "layer": [
+              "Contracts"
+            ]
+          },
+          {
+            "subject": "external",
+            "domain": [
+              "JsonSchemaGeneration"
+            ]
+          }
+        ]
+      },
+      {
+        "from": {
+          "domain": [
+            "Cli"
+          ],
+          "layer": [
+            "CliCommandHost"
+          ],
+          "codeKind": [
+            "GeneralProductCode"
+          ]
+        },
+        "allow": [
+          {
+            "subject": "owned",
+            "domain": [
+              "Cli"
+            ],
+            "layer": [
+              "CliCommandHost"
+            ]
+          },
+          {
+            "subject": "external",
+            "domain": [
+              "Cli",
+              "Contracts",
+              "DotNetRuntime",
+              "FileSystem",
+              "Infrastructure",
+              "TextContracts"
+            ]
+          }
+        ]
+      },
+      {
+        "from": {
+          "domain": [
+            "Cli"
+          ],
+          "layer": [
+            "CliCommandHost"
+          ],
+          "codeKind": [
+            "SchemaEvaluation"
+          ]
+        },
+        "allow": [
+          {
+            "subject": "owned",
+            "domain": [
+              "Cli"
+            ],
+            "layer": [
+              "CliCommandHost"
+            ]
+          },
+          {
+            "subject": "external",
+            "domain": [
+              "JsonSchemaValidation"
+            ]
+          }
+        ]
+      },
+      {
+        "from": {
+          "domain": [
+            "SchemaGenerator"
+          ],
+          "layer": [
+            "Tools"
+          ],
+          "codeKind": [
+            "ContractGeneration"
+          ]
+        },
+        "allow": [
+          {
+            "subject": "owned",
+            "domain": [
+              "Cli"
+            ],
+            "layer": [
+              "CliComposition"
+            ],
+            "codeKind": [
+              "ContractGeneration"
+            ]
+          },
+          {
+            "subject": "owned",
+            "domain": [
+              "SchemaGenerator"
+            ],
+            "layer": [
+              "Tools"
+            ]
+          },
+          {
+            "subject": "external",
+            "domain": [
+              "JsonSchemaGeneration"
+            ]
+          }
+        ]
+      },
+      {
+        "from": {
+          "domain": [
+            "Contracts"
+          ],
+          "layer": [
+            "Contracts"
+          ],
+          "codeKind": [
+            "ProjectManifest"
+          ]
+        },
+        "allow": [
+          {
+            "subject": "external",
+            "domain": [
+              "DotNetRuntime",
+              "JsonSchemaGeneration",
+              "TextContracts"
+            ]
+          }
+        ]
+      },
+      {
+        "from": {
+          "domain": [
+            "Application"
+          ],
+          "layer": [
+            "ApplicationBootstrap"
+          ],
+          "codeKind": [
+            "ProjectManifest"
+          ]
+        },
+        "allow": [
+          {
+            "subject": "owned",
+            "domain": [
+              "Contracts"
+            ],
+            "layer": [
+              "Contracts"
+            ],
+            "codeKind": [
+              "ProjectManifest"
+            ]
+          },
+          {
+            "subject": "external",
+            "domain": [
+              "Contracts",
+              "DependencyInjection",
+              "DotNetRuntime",
+              "FileSystem",
+              "JsonCanonicalization",
+              "JsonSchemaValidation",
+              "TextContracts"
+            ]
+          }
+        ]
+      },
+      {
+        "from": {
+          "domain": [
+            "Cli"
+          ],
+          "layer": [
+            "CliComposition"
+          ],
+          "codeKind": [
+            "ProjectManifest"
+          ]
+        },
+        "allow": [
+          {
+            "subject": "owned",
+            "domain": [
+              "Application",
+              "Contracts"
+            ],
+            "codeKind": [
+              "ProjectManifest"
+            ]
+          },
+          {
+            "subject": "external",
+            "domain": [
+              "AgentSkills",
+              "Application",
+              "CliFramework",
+              "Contracts",
+              "DependencyInjection",
+              "DotNetRuntime",
+              "FileSystem",
+              "Infrastructure",
+              "JsonCanonicalization",
+              "JsonSchemaGeneration",
+              "JsonSchemaValidation",
+              "TextContracts"
+            ]
+          }
+        ]
+      },
+      {
+        "from": {
+          "domain": [
+            "Unity"
+          ],
+          "layer": [
+            "UnitySupport"
+          ],
+          "codeKind": [
+            "ProjectManifest"
+          ]
+        },
+        "allow": [
+          {
+            "subject": "owned",
+            "domain": [
+              "Contracts"
+            ],
+            "codeKind": [
+              "ProjectManifest"
+            ]
+          },
+          {
+            "subject": "external",
+            "domain": [
+              "Contracts",
+              "DependencyInjection",
+              "DotNetRuntime",
+              "FileSystem",
+              "Infrastructure",
+              "JsonSchemaGeneration",
+              "Roslyn",
+              "TextContracts",
+              "UnityRuntime"
+            ]
+          }
+        ]
+      },
+      {
+        "from": {
+          "domain": [
+            "SchemaGenerator"
+          ],
+          "layer": [
+            "Tools"
+          ],
+          "codeKind": [
+            "ProjectManifest"
+          ]
+        },
+        "allow": [
+          {
+            "subject": "owned",
+            "domain": [
+              "Cli"
+            ],
+            "layer": [
+              "CliComposition"
+            ],
+            "codeKind": [
+              "ProjectManifest"
+            ]
+          },
+          {
+            "subject": "owned",
+            "domain": [
+              "Application"
+            ],
+            "layer": [
+              "ApplicationBootstrap"
+            ],
+            "codeKind": [
+              "ProjectManifest"
+            ]
+          },
+          {
+            "subject": "owned",
+            "domain": [
+              "Contracts"
+            ],
+            "layer": [
+              "Contracts"
+            ],
+            "codeKind": [
+              "ProjectManifest"
+            ]
+          },
+          {
+            "subject": "owned",
+            "domain": [
+              "Infrastructure"
+            ],
+            "layer": [
+              "Infrastructure"
+            ],
+            "codeKind": [
+              "ProjectManifest"
+            ]
+          },
+          {
+            "subject": "external",
+            "domain": [
+              "DotNetRuntime",
+              "FileSystem",
+              "JsonSchemaGeneration"
+            ]
+          }
+        ]
+      },
       {
         "from": {
           "layer": [
@@ -787,6 +1433,7 @@
         },
         "allow": [
           {
+            "subject": "owned",
             "layer": [
               "ApplicationBootstrap",
               "ApplicationDiagnostics",
@@ -794,9 +1441,6 @@
               "ApplicationShared",
               "Contracts"
             ]
-          },
-          {
-            "subject": "external"
           }
         ]
       },
@@ -808,15 +1452,13 @@
         },
         "allow": [
           {
+            "subject": "owned",
             "layer": [
               "ApplicationDiagnostics",
               "ApplicationFeatures",
               "ApplicationShared",
               "Contracts"
             ]
-          },
-          {
-            "subject": "external"
           }
         ]
       },
@@ -828,15 +1470,13 @@
         },
         "allow": [
           {
+            "subject": "owned",
             "layer": [
               "ApplicationDiagnostics",
               "ApplicationFeatures",
               "ApplicationShared",
               "Contracts"
             ]
-          },
-          {
-            "subject": "external"
           }
         ]
       },
@@ -848,60 +1488,12 @@
         },
         "allow": [
           {
+            "subject": "owned",
             "layer": [
               "ApplicationDiagnostics",
               "ApplicationShared",
               "Contracts"
             ]
-          },
-          {
-            "subject": "external"
-          }
-        ]
-      },
-      {
-        "from": {
-          "layer": [
-            "ApplicationTests"
-          ]
-        },
-        "allow": [
-          {
-            "layer": [
-              "ApplicationBootstrap",
-              "ApplicationDiagnostics",
-              "ApplicationFeatures",
-              "ApplicationShared",
-              "ApplicationTests",
-              "Contracts",
-              "SharedTestSupport",
-              "TestsHelper"
-            ]
-          },
-          {
-            "subject": "external"
-          }
-        ]
-      },
-      {
-        "from": {
-          "layer": [
-            "SharedTestSupport"
-          ]
-        },
-        "allow": [
-          {
-            "layer": [
-              "ApplicationDiagnostics",
-              "ApplicationFeatures",
-              "ApplicationShared",
-              "Contracts",
-              "SharedTestSupport",
-              "TestsHelper"
-            ]
-          },
-          {
-            "subject": "external"
           }
         ]
       },
@@ -913,6 +1505,7 @@
         },
         "allow": [
           {
+            "subject": "owned",
             "layer": [
               "ApplicationDiagnostics",
               "ApplicationFeatures",
@@ -921,9 +1514,6 @@
               "Contracts",
               "Infrastructure"
             ]
-          },
-          {
-            "subject": "external"
           }
         ]
       },
@@ -935,6 +1525,7 @@
         },
         "allow": [
           {
+            "subject": "owned",
             "layer": [
               "ApplicationDiagnostics",
               "ApplicationFeatures",
@@ -945,9 +1536,6 @@
               "Contracts",
               "Infrastructure"
             ]
-          },
-          {
-            "subject": "external"
           }
         ]
       },
@@ -959,6 +1547,7 @@
         },
         "allow": [
           {
+            "subject": "owned",
             "layer": [
               "ApplicationBootstrap",
               "ApplicationDiagnostics",
@@ -971,39 +1560,6 @@
               "Contracts",
               "Infrastructure"
             ]
-          },
-          {
-            "subject": "external"
-          }
-        ]
-      },
-      {
-        "from": {
-          "layer": [
-            "CliHostTests"
-          ]
-        },
-        "allow": [
-          {
-            "layer": [
-              "ApplicationBootstrap",
-              "ApplicationDiagnostics",
-              "ApplicationFeatures",
-              "ApplicationShared",
-              "CliAdapters",
-              "CliCommandHost",
-              "CliComposition",
-              "CliHostTests",
-              "CliRoot",
-              "CliSupervisor",
-              "Contracts",
-              "Infrastructure",
-              "SharedTestSupport",
-              "TestsHelper"
-            ]
-          },
-          {
-            "subject": "external"
           }
         ]
       },
@@ -1015,6 +1571,7 @@
         },
         "allow": [
           {
+            "subject": "owned",
             "layer": [
               "CliAdapters",
               "CliCommandHost",
@@ -1023,9 +1580,6 @@
               "CliSupervisor",
               "Contracts"
             ]
-          },
-          {
-            "subject": "external"
           }
         ]
       },
@@ -1037,14 +1591,12 @@
         },
         "allow": [
           {
+            "subject": "owned",
             "layer": [
               "CliAdapters",
               "CliComposition",
               "CliSupervisor"
             ]
-          },
-          {
-            "subject": "external"
           }
         ]
       },
@@ -1056,31 +1608,10 @@
         },
         "allow": [
           {
+            "subject": "owned",
             "layer": [
               "Contracts"
             ]
-          },
-          {
-            "subject": "external"
-          }
-        ]
-      },
-      {
-        "from": {
-          "layer": [
-            "ContractsTests"
-          ]
-        },
-        "allow": [
-          {
-            "layer": [
-              "Contracts",
-              "ContractsTests",
-              "TestsHelper"
-            ]
-          },
-          {
-            "subject": "external"
           }
         ]
       },
@@ -1092,50 +1623,11 @@
         },
         "allow": [
           {
+            "subject": "owned",
             "layer": [
               "Contracts",
               "Infrastructure"
             ]
-          },
-          {
-            "subject": "external"
-          }
-        ]
-      },
-      {
-        "from": {
-          "layer": [
-            "InfrastructureTests"
-          ]
-        },
-        "allow": [
-          {
-            "layer": [
-              "Contracts",
-              "Infrastructure",
-              "InfrastructureTests",
-              "TestsHelper"
-            ]
-          },
-          {
-            "subject": "external"
-          }
-        ]
-      },
-      {
-        "from": {
-          "layer": [
-            "TestsHelper"
-          ]
-        },
-        "allow": [
-          {
-            "layer": [
-              "TestsHelper"
-            ]
-          },
-          {
-            "subject": "external"
           }
         ]
       },
@@ -1147,13 +1639,10 @@
         },
         "allow": [
           {
+            "subject": "owned",
             "layer": [
-              "Contracts",
               "Tools"
             ]
-          },
-          {
-            "subject": "external"
           }
         ]
       },
@@ -1165,6 +1654,7 @@
         },
         "allow": [
           {
+            "subject": "owned",
             "layer": [
               "Contracts",
               "Infrastructure",
@@ -1174,9 +1664,6 @@
               "UnityRuntime",
               "UnitySupport"
             ]
-          },
-          {
-            "subject": "external"
           }
         ]
       },
@@ -1188,15 +1675,13 @@
         },
         "allow": [
           {
+            "subject": "owned",
             "layer": [
               "Contracts",
               "Infrastructure",
               "UnityIndex",
               "UnitySupport"
             ]
-          },
-          {
-            "subject": "external"
           }
         ]
       },
@@ -1208,6 +1693,7 @@
         },
         "allow": [
           {
+            "subject": "owned",
             "layer": [
               "Contracts",
               "Infrastructure",
@@ -1219,9 +1705,6 @@
               "UnityScreenshotCapture",
               "UnitySupport"
             ]
-          },
-          {
-            "subject": "external"
           }
         ]
       },
@@ -1233,14 +1716,12 @@
         },
         "allow": [
           {
+            "subject": "owned",
             "layer": [
               "Contracts",
               "Infrastructure",
               "UnityProject"
             ]
-          },
-          {
-            "subject": "external"
           }
         ]
       },
@@ -1252,13 +1733,11 @@
         },
         "allow": [
           {
+            "subject": "owned",
             "layer": [
               "Contracts",
               "UnityRuntime"
             ]
-          },
-          {
-            "subject": "external"
           }
         ]
       },
@@ -1270,6 +1749,7 @@
         },
         "allow": [
           {
+            "subject": "owned",
             "layer": [
               "Contracts",
               "Infrastructure",
@@ -1277,9 +1757,6 @@
               "UnityRuntime",
               "UnityScreenshotCapture"
             ]
-          },
-          {
-            "subject": "external"
           }
         ]
       },
@@ -1291,6 +1768,7 @@
         },
         "allow": [
           {
+            "subject": "owned",
             "layer": [
               "Contracts",
               "Infrastructure",
@@ -1299,35 +1777,192 @@
               "UnityRuntime",
               "UnitySupport"
             ]
-          },
-          {
-            "subject": "external"
           }
         ]
       },
       {
         "from": {
-          "layer": [
-            "UnityTests"
+          "domain": [
+            "Application"
           ]
         },
         "allow": [
           {
-            "layer": [
+            "subject": "external",
+            "domain": [
               "Contracts",
-              "Infrastructure",
-              "UnityExecution",
-              "UnityIndex",
-              "UnityIpc",
-              "UnityProject",
-              "UnityRuntime",
-              "UnityScreenshotCapture",
-              "UnitySupport",
-              "UnityTests"
+              "DependencyInjection",
+              "DotNetRuntime",
+              "FileSystem",
+              "JsonCanonicalization",
+              "TextContracts"
             ]
-          },
+          }
+        ]
+      },
+      {
+        "from": {
+          "domain": [
+            "Contracts"
+          ]
+        },
+        "allow": [
           {
-            "subject": "external"
+            "subject": "external",
+            "domain": [
+              "DotNetRuntime",
+              "TextContracts"
+            ]
+          }
+        ]
+      },
+      {
+        "from": {
+          "domain": [
+            "Infrastructure"
+          ]
+        },
+        "allow": [
+          {
+            "subject": "external",
+            "domain": [
+              "Contracts",
+              "DotNetRuntime",
+              "FileSystem",
+              "TextContracts"
+            ]
+          }
+        ]
+      },
+      {
+        "from": {
+          "domain": [
+            "Cli"
+          ]
+        },
+        "allow": [
+          {
+            "subject": "external",
+            "domain": [
+              "Application",
+              "Contracts",
+              "DependencyInjection",
+              "DotNetRuntime",
+              "FileSystem",
+              "Infrastructure",
+              "TextContracts"
+            ]
+          }
+        ]
+      },
+      {
+        "from": {
+          "domain": [
+            "Cli"
+          ],
+          "layer": [
+            "CliCommandHost"
+          ]
+        },
+        "allow": [
+          {
+            "subject": "external",
+            "domain": [
+              "AgentSkills",
+              "CliFramework"
+            ]
+          }
+        ]
+      },
+      {
+        "from": {
+          "domain": [
+            "Cli"
+          ],
+          "layer": [
+            "CliComposition"
+          ]
+        },
+        "allow": [
+          {
+            "subject": "external",
+            "domain": [
+              "AgentSkills"
+            ]
+          }
+        ]
+      },
+      {
+        "from": {
+          "domain": [
+            "Cli"
+          ],
+          "layer": [
+            "CliRoot"
+          ]
+        },
+        "allow": [
+          {
+            "subject": "external",
+            "domain": [
+              "CliFramework"
+            ]
+          }
+        ]
+      },
+      {
+        "from": {
+          "domain": [
+            "Unity"
+          ]
+        },
+        "allow": [
+          {
+            "subject": "external",
+            "domain": [
+              "Contracts",
+              "DependencyInjection",
+              "DotNetRuntime",
+              "FileSystem",
+              "Infrastructure",
+              "TextContracts",
+              "Unity",
+              "UnityRuntime"
+            ]
+          }
+        ]
+      },
+      {
+        "from": {
+          "domain": [
+            "Unity"
+          ],
+          "codeKind": [
+            "UnityCompilation"
+          ]
+        },
+        "allow": [
+          {
+            "subject": "external",
+            "domain": [
+              "Roslyn"
+            ]
+          }
+        ]
+      },
+      {
+        "from": {
+          "domain": [
+            "SchemaGenerator"
+          ]
+        },
+        "allow": [
+          {
+            "subject": "external",
+            "domain": [
+              "DotNetRuntime",
+              "FileSystem"
+            ]
           }
         ]
       }
@@ -1335,6 +1970,7 @@
   },
   "coverage": {
     "ownedSubjectsMustClassify": [
+      "codeKind",
       "domain",
       "layer"
     ],
@@ -1342,22 +1978,29 @@
       {
         "matches": [
           {
+            "projectExact": [
+              "src/Ucli/Ucli.csproj",
+              "src/Ucli.Application/Ucli.Application.csproj",
+              "src/Ucli.Contracts/Ucli.Contracts.csproj",
+              "src/Ucli.Infrastructure/Ucli.Infrastructure.csproj",
+              "tools/Ucli.SchemaGenerator/Ucli.SchemaGenerator.csproj"
+            ],
             "pathPrefix": [
-              "src/Ucli/",
-              "src/Ucli.Application",
-              "src/Ucli.Contracts",
-              "src/Ucli.Infrastructure",
-              "src/Ucli.Unity/Assets/MackySoft/MackySoft.Ucli.Unity",
-              "src/Ucli.Unity/Assets/Tests",
-              "tests",
-              "tools/Ucli.SchemaGenerator"
+              "src",
+              "tools"
+            ]
+          },
+          {
+            "assemblyExact": [
+              "MackySoft.Ucli.Unity.Editor"
+            ],
+            "pathPrefix": [
+              "src/Ucli.Unity/Assets/MackySoft/MackySoft.Ucli.Unity/Editor"
             ]
           },
           {
             "pathExact": [
-              "src/Ucli.Unity/MackySoft.Ucli.Unity.Editor.csproj",
-              "src/Ucli.Unity/MackySoft.Ucli.Unity.Tests.Editor.csproj",
-              "src/Ucli.Unity/MackySoft.Ucli.Unity.Tests.Runtime.csproj"
+              "src/Ucli.Unity/MackySoft.Ucli.Unity.Editor.csproj"
             ]
           }
         ]

@@ -4,9 +4,64 @@ using MackySoft.Ucli.Contracts.Text;
 namespace MackySoft.Ucli.Contracts.Operations;
 
 /// <summary> Describes machine-readable assurance metadata for one primitive operation. </summary>
-[JsonConverter(typeof(UcliOperationAssuranceContractJsonConverter))]
 public sealed class UcliOperationAssuranceContract
 {
+    /// <summary> Initializes assurance metadata from its complete JSON contract. </summary>
+    /// <param name="sideEffects"> The side effects that can happen during <c>call</c>. </param>
+    /// <param name="mayDirty"> Whether <c>call</c> can dirty Unity objects or project state. </param>
+    /// <param name="mayPersist"> Whether <c>call</c> can persist Unity objects or write directly to the filesystem. </param>
+    /// <param name="touchedKinds"> The touched-resource kinds that can be reported. </param>
+    /// <param name="planMode"> The plan behavior. </param>
+    /// <param name="planSemantics"> The plan-phase semantic contract. </param>
+    /// <param name="callSemantics"> The call-phase semantic contract. </param>
+    /// <param name="touchedContract"> The touched-resource reporting contract. </param>
+    /// <param name="readPostconditionContract"> The post-mutation read-surface contract. </param>
+    /// <param name="failureSemantics"> The timeout, cancellation, and partial-apply contract. </param>
+    /// <param name="dangerousNotes"> Notes that describe out-of-contract or dangerous areas. </param>
+    /// <exception cref="ArgumentException">
+    /// Thrown when one value violates the assurance contract or a projection does not match
+    /// <paramref name="sideEffects" />.
+    /// </exception>
+    /// <exception cref="ArgumentNullException"> Thrown when a required collection is <see langword="null" />. </exception>
+    /// <exception cref="ArgumentOutOfRangeException"> Thrown when a finite contract value is undefined. </exception>
+    [JsonConstructor]
+    public UcliOperationAssuranceContract (
+        IReadOnlyList<UcliOperationSideEffect> sideEffects,
+        bool mayDirty,
+        bool mayPersist,
+        IReadOnlyList<UcliTouchedResourceKind> touchedKinds,
+        UcliOperationPlanMode planMode,
+        string planSemantics,
+        string callSemantics,
+        string touchedContract,
+        string readPostconditionContract,
+        string failureSemantics,
+        IReadOnlyList<string> dangerousNotes)
+        : this(
+            sideEffects,
+            touchedKinds,
+            planMode,
+            planSemantics,
+            callSemantics,
+            touchedContract,
+            readPostconditionContract,
+            failureSemantics,
+            dangerousNotes)
+    {
+        if (mayDirty != MayDirty)
+        {
+            throw new ArgumentException(
+                "Value must match the projection derived from sideEffects.",
+                nameof(mayDirty));
+        }
+        if (mayPersist != MayPersist)
+        {
+            throw new ArgumentException(
+                "Value must match the projection derived from sideEffects.",
+                nameof(mayPersist));
+        }
+    }
+
     /// <summary> Initializes validated assurance metadata from typed contract values. </summary>
     /// <param name="sideEffects"> The side effects that can happen during <c>call</c>. </param>
     /// <param name="touchedKinds"> The touched-resource kinds that can be reported. </param>
@@ -68,37 +123,59 @@ public sealed class UcliOperationAssuranceContract
     }
 
     /// <summary> Gets the side effects that can happen during <c>call</c>. </summary>
-    public IReadOnlyList<UcliOperationSideEffect> SideEffects { get; }
+    [JsonInclude]
+    [JsonRequired]
+    public IReadOnlyList<UcliOperationSideEffect> SideEffects { get; private set; }
 
     /// <summary> Gets whether <c>call</c> can dirty Unity objects or project state. </summary>
-    public bool MayDirty { get; }
+    [JsonInclude]
+    [JsonRequired]
+    public bool MayDirty { get; private set; }
 
     /// <summary> Gets the broad persistence projection for Unity saves and direct filesystem writes. </summary>
-    public bool MayPersist { get; }
+    [JsonInclude]
+    [JsonRequired]
+    public bool MayPersist { get; private set; }
 
     /// <summary> Gets touched-resource kinds that can be reported. </summary>
-    public IReadOnlyList<UcliTouchedResourceKind> TouchedKinds { get; }
+    [JsonInclude]
+    [JsonRequired]
+    public IReadOnlyList<UcliTouchedResourceKind> TouchedKinds { get; private set; }
 
     /// <summary> Gets the plan behavior. </summary>
-    public UcliOperationPlanMode PlanMode { get; }
+    [JsonInclude]
+    [JsonRequired]
+    public UcliOperationPlanMode PlanMode { get; private set; }
 
     /// <summary> Gets the plan-phase semantic contract. </summary>
-    public string PlanSemantics { get; }
+    [JsonInclude]
+    [JsonRequired]
+    public string PlanSemantics { get; private set; }
 
     /// <summary> Gets the call-phase semantic contract. </summary>
-    public string CallSemantics { get; }
+    [JsonInclude]
+    [JsonRequired]
+    public string CallSemantics { get; private set; }
 
     /// <summary> Gets the touched-resource reporting contract. </summary>
-    public string TouchedContract { get; }
+    [JsonInclude]
+    [JsonRequired]
+    public string TouchedContract { get; private set; }
 
     /// <summary> Gets the post-mutation read-surface contract. </summary>
-    public string ReadPostconditionContract { get; }
+    [JsonInclude]
+    [JsonRequired]
+    public string ReadPostconditionContract { get; private set; }
 
     /// <summary> Gets the timeout, cancellation, and partial-apply contract. </summary>
-    public string FailureSemantics { get; }
+    [JsonInclude]
+    [JsonRequired]
+    public string FailureSemantics { get; private set; }
 
     /// <summary> Gets notes that describe out-of-contract or dangerous areas. </summary>
-    public IReadOnlyList<string> DangerousNotes { get; }
+    [JsonInclude]
+    [JsonRequired]
+    public IReadOnlyList<string> DangerousNotes { get; private set; }
 
     private static IReadOnlyList<UcliOperationSideEffect> CopySideEffects (
         IReadOnlyList<UcliOperationSideEffect> sideEffects,

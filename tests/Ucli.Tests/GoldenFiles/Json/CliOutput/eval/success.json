@@ -13,7 +13,6 @@
     },
     "opResults": [
       {
-        "opId": "eval",
         "op": "ucli.cs.eval",
         "phase": "call",
         "applied": true,
@@ -52,7 +51,6 @@
       },
       "opResults": [
         {
-          "opId": "eval",
           "op": "ucli.cs.eval",
           "phase": "plan",
           "applied": false,

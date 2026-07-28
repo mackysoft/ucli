@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Source;
+using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 using static MackySoft.Ucli.TestSupport.OperationCatalogTestFixtures;
 
@@ -278,8 +279,8 @@ public sealed class PersistedOpsCatalogReaderTests
             [
                 new IndexOpsCatalogEntryJsonContract(
                     Name: UcliPrimitiveOperationNames.GoDescribe,
-                    Kind: "query",
-                    Policy: "safe",
+                    Kind: UcliOperationKind.Query,
+                    Policy: OperationPolicy.Safe,
                     Description: "Returns a GameObject description.",
                     DescribeKey: describeIdentity,
                     DescribeHash: describeIdentity),

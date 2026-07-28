@@ -22,7 +22,6 @@ internal static class VerifyFromInputReaderTestSupport
     {
         return $$"""
         {
-          "opId": "op-1",
           "op": "{{op}}",
           "phase": "call",
           "applied": true,
@@ -56,7 +55,6 @@ internal static class VerifyFromInputReaderTestSupport
               "schemaVersion": 1,
               "steps": [
                 {
-                  "opId": "op-1",
                   "sourceKind": "edit",
                   "playModeMutation": false,
                   "commit": "context",

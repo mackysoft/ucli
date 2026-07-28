@@ -248,7 +248,6 @@ internal sealed class ResolveService : IResolveService
     private static OperationExecutionOperationResult CreateResolveOperationResult (UnityGlobalObjectId globalObjectId)
     {
         return OperationExecutionModelMapper.CreatePlanResult(
-            opId: ResolveOperationId,
             op: UcliPrimitiveOperationNames.Resolve,
             applied: false,
             changed: false,

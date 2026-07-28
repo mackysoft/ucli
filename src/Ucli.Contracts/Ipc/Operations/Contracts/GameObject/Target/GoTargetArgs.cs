@@ -1,9 +1,11 @@
 using System.Text.Json.Serialization;
 using MackySoft.Ucli.Contracts.Operations;
 
+using MackySoft.JsonSchema.Generation.Annotations;
+
 namespace MackySoft.Ucli.Contracts.Ipc;
 
-[UcliDescription("GameObject target operation arguments.")]
+[Description("GameObject target operation arguments.")]
 public sealed record GoTargetArgs
 {
     [JsonConstructor]
@@ -12,8 +14,9 @@ public sealed record GoTargetArgs
         Target = ContractArgumentGuard.RequireNotNull(target, nameof(target));
     }
 
-    [UcliRequired]
-    [UcliDescription("Target GameObject reference.")]
-    [UcliInputConstraint(UcliOperationInputConstraintKind.ReferenceResolvable, TargetKind = UcliOperationReferenceTargetKind.GameObject)]
-    public GameObjectReferenceArgs Target { get; }
+    [JsonInclude]
+    [JsonRequired]
+    [Description("Target GameObject reference.")]
+    [UcliReferenceResolvable(UcliOperationReferenceTargetKind.GameObject)]
+    public GameObjectReferenceArgs Target { get; private init; }
 }

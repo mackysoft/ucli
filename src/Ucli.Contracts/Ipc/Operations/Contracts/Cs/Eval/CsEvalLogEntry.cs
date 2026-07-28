@@ -1,10 +1,10 @@
 using System.Text.Json.Serialization;
-using MackySoft.Ucli.Contracts.Operations;
-using MackySoft.Ucli.Contracts.Text;
+
+using MackySoft.JsonSchema.Generation.Annotations;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
-[UcliDescription("C# eval log entry.")]
+[Description("C# eval log entry.")]
 public sealed record CsEvalLogEntry
 {
     [JsonConstructor]
@@ -21,11 +21,13 @@ public sealed record CsEvalLogEntry
         Message = ContractArgumentGuard.RequireValue(message, nameof(message));
     }
 
-    [UcliRequired]
-    [UcliDescription("Log level.")]
-    public CsEvalLogLevel Level { get; }
+    [JsonInclude]
+    [JsonRequired]
+    [Description("Log level.")]
+    public CsEvalLogLevel Level { get; private init; }
 
-    [UcliRequired]
-    [UcliDescription("Log message text.")]
-    public string Message { get; }
+    [JsonInclude]
+    [JsonRequired]
+    [Description("Log message text.")]
+    public string Message { get; private init; }
 }

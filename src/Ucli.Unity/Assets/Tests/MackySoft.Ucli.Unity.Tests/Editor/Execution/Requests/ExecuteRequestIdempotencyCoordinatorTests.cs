@@ -409,10 +409,10 @@ namespace MackySoft.Ucli.Unity.Tests
         public void FingerprintCalculator_WhenArgumentsPropertyOrderDiffers_ReturnsSameFingerprint ()
         {
             using var firstDocument = JsonDocument.Parse(
-                "{\"ops\":[{\"id\":\"op-1\",\"op\":\"__RESOLVE_OP__\",\"args\":{\"b\":2,\"a\":1}}],\"protocolVersion\":1,\"requestId\":\"9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62\"}"
+                "{\"steps\":[{\"kind\":\"op\",\"op\":\"__RESOLVE_OP__\",\"args\":{\"b\":2,\"a\":1}}],\"protocolVersion\":1}"
                     .Replace("__RESOLVE_OP__", UcliPrimitiveOperationNames.Resolve, StringComparison.Ordinal));
             using var secondDocument = JsonDocument.Parse(
-                "{\"requestId\":\"9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62\",\"protocolVersion\":1,\"ops\":[{\"args\":{\"a\":1,\"b\":2},\"op\":\"__RESOLVE_OP__\",\"id\":\"op-1\"}]}"
+                "{\"protocolVersion\":1,\"steps\":[{\"args\":{\"a\":1,\"b\":2},\"op\":\"__RESOLVE_OP__\",\"kind\":\"op\"}]}"
                     .Replace("__RESOLVE_OP__", UcliPrimitiveOperationNames.Resolve, StringComparison.Ordinal));
             var firstRequest = new IpcExecuteRequest(UcliCommandIds.Call.Name, firstDocument.RootElement.Clone());
             var secondRequest = new IpcExecuteRequest(UcliCommandIds.Call.Name, secondDocument.RootElement.Clone());
@@ -428,10 +428,10 @@ namespace MackySoft.Ucli.Unity.Tests
         public void FingerprintCalculator_WhenArgumentsUseDistinctExactInt64Values_ReturnsDifferentFingerprint ()
         {
             using var firstDocument = JsonDocument.Parse(
-                "{\"protocolVersion\":1,\"ops\":[{\"id\":\"op-1\",\"op\":\"__RESOLVE_OP__\",\"args\":{\"number\":9007199254740992}}]}"
+                "{\"protocolVersion\":1,\"steps\":[{\"kind\":\"op\",\"op\":\"__RESOLVE_OP__\",\"args\":{\"number\":9007199254740992}}]}"
                     .Replace("__RESOLVE_OP__", UcliPrimitiveOperationNames.Resolve, StringComparison.Ordinal));
             using var secondDocument = JsonDocument.Parse(
-                "{\"protocolVersion\":1,\"ops\":[{\"id\":\"op-1\",\"op\":\"__RESOLVE_OP__\",\"args\":{\"number\":9007199254740993}}]}"
+                "{\"protocolVersion\":1,\"steps\":[{\"kind\":\"op\",\"op\":\"__RESOLVE_OP__\",\"args\":{\"number\":9007199254740993}}]}"
                     .Replace("__RESOLVE_OP__", UcliPrimitiveOperationNames.Resolve, StringComparison.Ordinal));
             var firstRequest = new IpcExecuteRequest(UcliCommandIds.Call.Name, firstDocument.RootElement.Clone());
             var secondRequest = new IpcExecuteRequest(UcliCommandIds.Call.Name, secondDocument.RootElement.Clone());
@@ -447,7 +447,7 @@ namespace MackySoft.Ucli.Unity.Tests
         public void FingerprintCalculator_WhenPlanTokenDiffers_ReturnsDifferentFingerprint ()
         {
             using var document = JsonDocument.Parse(
-                "{\"protocolVersion\":1,\"requestId\":\"9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62\",\"ops\":[{\"id\":\"op-1\",\"op\":\"__RESOLVE_OP__\",\"args\":{}}]}"
+                "{\"protocolVersion\":1,\"steps\":[{\"kind\":\"op\",\"op\":\"__RESOLVE_OP__\",\"args\":{}}]}"
                     .Replace("__RESOLVE_OP__", UcliPrimitiveOperationNames.Resolve, StringComparison.Ordinal));
             var firstRequest = new IpcExecuteRequest(UcliCommandIds.Call.Name, document.RootElement.Clone())
             {
@@ -469,7 +469,7 @@ namespace MackySoft.Ucli.Unity.Tests
         public void FingerprintCalculator_WhenAllowDangerousDiffers_ReturnsDifferentFingerprint ()
         {
             using var document = JsonDocument.Parse(
-                "{\"protocolVersion\":1,\"requestId\":\"9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62\",\"ops\":[{\"id\":\"op-1\",\"op\":\"__RESOLVE_OP__\",\"args\":{}}]}"
+                "{\"protocolVersion\":1,\"steps\":[{\"kind\":\"op\",\"op\":\"__RESOLVE_OP__\",\"args\":{}}]}"
                     .Replace("__RESOLVE_OP__", UcliPrimitiveOperationNames.Resolve, StringComparison.Ordinal));
             var firstRequest = new IpcExecuteRequest(UcliCommandIds.Call.Name, document.RootElement.Clone())
             {
@@ -491,7 +491,7 @@ namespace MackySoft.Ucli.Unity.Tests
         public void FingerprintCalculator_WhenAllowPlayModeDiffers_ReturnsDifferentFingerprint ()
         {
             using var document = JsonDocument.Parse(
-                "{\"protocolVersion\":1,\"requestId\":\"9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62\",\"ops\":[{\"id\":\"op-1\",\"op\":\"__RESOLVE_OP__\",\"args\":{}}]}"
+                "{\"protocolVersion\":1,\"steps\":[{\"kind\":\"op\",\"op\":\"__RESOLVE_OP__\",\"args\":{}}]}"
                     .Replace("__RESOLVE_OP__", UcliPrimitiveOperationNames.Resolve, StringComparison.Ordinal));
             var firstRequest = new IpcExecuteRequest(UcliCommandIds.Call.Name, document.RootElement.Clone())
             {
@@ -513,7 +513,7 @@ namespace MackySoft.Ucli.Unity.Tests
         public void FingerprintCalculator_WhenPlanTokenOnlyDiffersByOuterWhitespace_ReturnsSameFingerprint ()
         {
             using var document = JsonDocument.Parse(
-                "{\"protocolVersion\":1,\"requestId\":\"9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62\",\"ops\":[{\"id\":\"op-1\",\"op\":\"__RESOLVE_OP__\",\"args\":{}}]}"
+                "{\"protocolVersion\":1,\"steps\":[{\"kind\":\"op\",\"op\":\"__RESOLVE_OP__\",\"args\":{}}]}"
                     .Replace("__RESOLVE_OP__", UcliPrimitiveOperationNames.Resolve, StringComparison.Ordinal));
             var firstRequest = new IpcExecuteRequest(UcliCommandIds.Call.Name, document.RootElement.Clone())
             {
@@ -535,7 +535,7 @@ namespace MackySoft.Ucli.Unity.Tests
         public void FingerprintCalculator_WhenFailFastDiffers_ReturnsDifferentFingerprint ()
         {
             using var document = JsonDocument.Parse(
-                "{\"protocolVersion\":1,\"requestId\":\"9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62\",\"ops\":[{\"id\":\"op-1\",\"op\":\"__RESOLVE_OP__\",\"args\":{}}]}"
+                "{\"protocolVersion\":1,\"steps\":[{\"kind\":\"op\",\"op\":\"__RESOLVE_OP__\",\"args\":{}}]}"
                     .Replace("__RESOLVE_OP__", UcliPrimitiveOperationNames.Resolve, StringComparison.Ordinal));
             var firstRequest = new IpcExecuteRequest(UcliCommandIds.Call.Name, document.RootElement.Clone())
             {

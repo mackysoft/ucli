@@ -1,9 +1,11 @@
 using System.Text.Json.Serialization;
 using MackySoft.Ucli.Contracts.Operations;
 
+using MackySoft.JsonSchema.Generation.Annotations;
+
 namespace MackySoft.Ucli.Contracts.Ipc;
 
-[UcliDescription("C# eval operation arguments.")]
+[Description("C# eval operation arguments.")]
 public sealed record CsEvalArgs
 {
     [JsonConstructor]
@@ -13,8 +15,9 @@ public sealed record CsEvalArgs
         Source = ContractArgumentGuard.RequireValue(source, nameof(source));
     }
 
-    [UcliRequired]
-    [UcliDescription("C# source to compile in memory. Accepts either a complete compilation unit or a Run method body snippet.")]
-    [UcliInputConstraint(UcliOperationInputConstraintKind.NonEmpty)]
-    public string Source { get; }
+    [JsonInclude]
+    [JsonRequired]
+    [Description("C# source to compile in memory. Accepts either a complete compilation unit or a Run method body snippet.")]
+    [Length(1, int.MaxValue)]
+    public string Source { get; private init; }
 }

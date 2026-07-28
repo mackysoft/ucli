@@ -115,12 +115,12 @@ public sealed class RequestCommandResultFactoryContractViolationTests
             .HasProperty("errors", 0, error => error
                 .HasString("code", ExecuteRequestErrorCodes.OperationContractViolation.Value)
                 .HasString("message", "Operation contract violation.")
-                .HasString("opId", "query-1"))
+                .HasString("instancePath", "/opResults/0"))
             .HasProperty("payload", payload => payload
                 .HasArrayLength("opResults", 1)
                 .HasArrayLength("contractViolations", 1)
                 .HasProperty("contractViolations", 0, violation => violation
-                    .HasString("opId", "query-1")
+                    .HasString("instancePath", "/opResults/0")
                     .HasString("operation", UcliPrimitiveOperationNames.AssetsFind)
                     .HasString("expectedFact", "operation.kind=query")
                     .HasString("observedResult", "opResults[].applied=true")
@@ -132,13 +132,13 @@ public sealed class RequestCommandResultFactoryContractViolationTests
         return ApplicationFailure.ContractViolation(
             "Operation contract violation.",
             ExecuteRequestErrorCodes.OperationContractViolation,
-            new IpcExecuteStepId("query-1"));
+            "/opResults/0");
     }
 
     private static OperationExecutionContractViolation CreateContractViolation ()
     {
         return new OperationExecutionContractViolation(
-            OpId: new IpcExecuteStepId("query-1"),
+            InstancePath: "/opResults/0",
             Operation: UcliPrimitiveOperationNames.AssetsFind,
             ExpectedFact: "operation.kind=query",
             ObservedResult: "opResults[].applied=true",
@@ -148,7 +148,6 @@ public sealed class RequestCommandResultFactoryContractViolationTests
     private static OperationExecutionOperationResult CreateOpResult ()
     {
         return new OperationExecutionOperationResult(
-            OpId: new IpcExecuteStepId("query-1"),
             Op: UcliPrimitiveOperationNames.AssetsFind,
             Phase: IpcExecuteOperationPhase.Plan,
             Applied: true,

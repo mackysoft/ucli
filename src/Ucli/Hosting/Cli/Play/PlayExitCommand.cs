@@ -41,9 +41,9 @@ internal sealed class PlayExitCommand
         var timeoutNormalizationResult = TimeoutOptionNormalizer.Normalize(timeout);
         if (!timeoutNormalizationResult.IsSuccess)
         {
-            var invalidTimeoutResult = CommandResultFactory.FromExecutionError(
-                UcliCommandNames.PlayExit,
-                timeoutNormalizationResult.Error!);
+            var invalidTimeoutResult =
+                PlayExitCommandResultFactory.CreateExecutionError(
+                    timeoutNormalizationResult.Error!);
             commandResultWriter.WriteToStandardOutput(invalidTimeoutResult);
             return invalidTimeoutResult.ExitCode;
         }

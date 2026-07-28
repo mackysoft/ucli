@@ -1,0 +1,64 @@
+using System.Text.Json.Serialization.Metadata;
+using MackySoft.FileSystem;
+using MackySoft.Ucli.Contracts.Json;
+using MackySoft.Ucli.Contracts.Schemas;
+using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
+using MackySoft.Ucli.Hosting.Cli.Common.Startup;
+
+namespace MackySoft.Ucli.Hosting.Composition.Schemas;
+
+/// <summary>
+/// Registers the effective success and error payload contracts from the public command catalog.
+/// </summary>
+internal static class UcliCommandPayloadSchemaRegistrationCatalog
+{
+    private static readonly IReadOnlyList<UcliStaticSchemaRegistration> Registrations =
+        CreateRegistrations();
+
+    public static IReadOnlyList<UcliStaticSchemaRegistration> GetAll ()
+    {
+        return Registrations;
+    }
+
+    private static IReadOnlyList<UcliStaticSchemaRegistration> CreateRegistrations ()
+    {
+        var outputContracts = UcliCommandCatalog.OutputContracts;
+        var registrations = new List<UcliStaticSchemaRegistration>(
+            outputContracts.Count * 2);
+
+        for (var i = 0; i < outputContracts.Count; i++)
+        {
+            var outputContract = outputContracts[i];
+            if (outputContract.SuccessPayloadTypeInfo != null)
+            {
+                registrations.Add(Create(
+                    outputContract.SuccessPayloadTypeInfo,
+                    outputContract.Command,
+                    CommandResultStatus.Ok));
+            }
+
+            registrations.Add(Create(
+                outputContract.ErrorPayloadTypeInfo,
+                outputContract.Command,
+                CommandResultStatus.Error));
+        }
+
+        return registrations.AsReadOnly();
+    }
+
+    private static UcliStaticSchemaRegistration Create (
+        JsonTypeInfo typeInfo,
+        string command,
+        CommandResultStatus status)
+    {
+        var statusText = TextVocabulary.GetText(status);
+        var runtimePayloadType = UcliNonNullJsonObject.MakeValueType(typeInfo.Type);
+        return new UcliStaticSchemaRegistration(
+            "cli-output.payload." + command + "." + statusText,
+            RootRelativePath.Parse(
+                "cli-output/payload/" + command + "." + statusText + ".schema.json"),
+            UcliStaticSchemaKind.CliOutputPayload,
+            CliOutputJsonSerializerOptions.Default.GetTypeInfo(runtimePayloadType),
+            new UcliStaticSchemaManifestMetadata(command, status));
+    }
+}

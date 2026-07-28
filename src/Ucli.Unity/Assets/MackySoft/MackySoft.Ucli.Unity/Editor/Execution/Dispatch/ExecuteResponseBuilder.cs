@@ -35,9 +35,9 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
             }
 
             var issuedAtUtc = DateTimeOffset.UtcNow;
-            var contractViolations = OperationContractViolationDetector.Detect(trace.OperationTraces);
+            var contractViolations = OperationContractViolationDetector.Detect(trace.Steps, trace.OperationTraces);
             var payloadModel = CreateExecutePayload(context.Project, trace.Steps, trace.OperationTraces, trace.PlanToken, issuedAtUtc, contractViolations);
-            var errors = CreateErrors(trace.Errors, contractViolations);
+            var errors = CreateErrors(trace.Steps, trace.Errors, contractViolations);
             return new IpcResponse(
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: context.RequestId,
@@ -50,14 +50,14 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
         /// <param name="context"> The request-level dispatch context. </param>
         /// <param name="code"> The error code. </param>
         /// <param name="message"> The error message. </param>
-        /// <param name="opId"> The related operation identifier. </param>
+        /// <param name="instancePath"> The RFC 6901 path of the related value when available. </param>
         /// <returns> The error response envelope. </returns>
         /// <exception cref="ArgumentNullException"> Thrown when <paramref name="context" /> is <see langword="null" />. </exception>
         public static IpcResponse CreateErrorResponse (
             ExecuteDispatchContext context,
             UcliCode code,
             string message,
-            IpcExecuteStepId? opId)
+            string? instancePath)
         {
             if (context == null)
             {
@@ -71,7 +71,7 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
                 payload: IpcPayloadCodec.SerializeToElement(CreateEmptyExecutePayload(context.Project)),
                 errors: new[]
                 {
-                    new IpcError(code, message, opId),
+                    new IpcError(code, message, instancePath),
                 });
         }
 
@@ -116,7 +116,6 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
                 if (step.PrimitiveCount == 0)
                 {
                     opResults[stepIndex] = IpcExecuteOperationResultFactory.CreatePlanResult(
-                        opId: step.Id,
                         op: step.OperationName,
                         applied: false,
                         changed: false,
@@ -138,7 +137,6 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
                 var diagnostics = AggregateDiagnostics(step.Diagnostics, step.PrimitiveCount, operationTraces, operationTraceIndex);
 
                 opResults[stepIndex] = IpcExecuteOperationResultFactory.Create(
-                    opId: step.Id,
                     op: step.OperationName,
                     phase: MapOperationPhase(lastPhase),
                     applied: applied,
@@ -334,9 +332,14 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
         /// <returns> The mapped IPC errors. </returns>
         /// <exception cref="ArgumentNullException"> Thrown when <paramref name="failures" /> is <see langword="null" />. </exception>
         private static IpcError[] CreateErrors (
+            IReadOnlyList<NormalizedRequestStep> steps,
             IReadOnlyList<OperationFailure> failures,
             IReadOnlyList<IpcExecuteContractViolation> contractViolations)
         {
+            if (steps == null)
+            {
+                throw new ArgumentNullException(nameof(steps));
+            }
             if (failures == null)
             {
                 throw new ArgumentNullException(nameof(failures));
@@ -347,20 +350,29 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
                 throw new ArgumentNullException(nameof(contractViolations));
             }
 
+            var requestPathByStepId = new Dictionary<IpcExecuteStepId, string>();
+            for (var stepIndex = 0; stepIndex < steps.Count; stepIndex++)
+            {
+                requestPathByStepId.Add(steps[stepIndex].Id, "/steps/" + stepIndex);
+            }
+
             var violationErrorCount = CountUniqueViolationOperations(contractViolations);
             var errors = new IpcError[failures.Count + violationErrorCount];
             for (var i = 0; i < failures.Count; i++)
             {
                 var failure = failures[i];
-                errors[i] = new IpcError(failure.Code, failure.Message, failure.OpId);
+                errors[i] = new IpcError(
+                    failure.Code,
+                    failure.Message,
+                    failure.OpId == null ? null : requestPathByStepId[failure.OpId]);
             }
 
             var errorIndex = failures.Count;
-            var seenViolationOpIds = new HashSet<IpcExecuteStepId>();
+            var seenViolationPaths = new HashSet<string>(StringComparer.Ordinal);
             for (var i = 0; i < contractViolations.Count; i++)
             {
                 var violation = contractViolations[i];
-                if (!seenViolationOpIds.Add(violation.OpId))
+                if (!seenViolationPaths.Add(violation.InstancePath))
                 {
                     continue;
                 }
@@ -368,7 +380,7 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
                 errors[errorIndex] = new IpcError(
                     ExecuteRequestErrorCodes.OperationContractViolation,
                     ContractViolationMessage,
-                    violation.OpId);
+                    violation.InstancePath);
                 errorIndex++;
             }
 
@@ -377,13 +389,13 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
 
         private static int CountUniqueViolationOperations (IReadOnlyList<IpcExecuteContractViolation> contractViolations)
         {
-            var opIds = new HashSet<IpcExecuteStepId>();
+            var instancePaths = new HashSet<string>(StringComparer.Ordinal);
             for (var i = 0; i < contractViolations.Count; i++)
             {
-                opIds.Add(contractViolations[i].OpId);
+                instancePaths.Add(contractViolations[i].InstancePath);
             }
 
-            return opIds.Count;
+            return instancePaths.Count;
         }
 
         /// <summary> Maps one internal operation phase to its IPC contract value. </summary>

@@ -149,7 +149,6 @@ public sealed class UcliServiceCollectionExtensionsTests
                   "residualRisks": []
                 }
               ],
-              "reports": {},
               "residualRisks": []
             }
             """);

@@ -97,7 +97,6 @@ internal static class OperationExecuteServiceTestSupport
     public static IpcExecuteOperationResult CreatePlanOperationResult ()
     {
         return new IpcExecuteOperationResult(
-            OpId: new IpcExecuteStepId("refresh"),
             Op: UcliPrimitiveOperationNames.ProjectRefresh,
             Phase: IpcExecuteOperationPhase.Plan,
             Applied: false,
@@ -111,7 +110,6 @@ internal static class OperationExecuteServiceTestSupport
         bool changed = true)
     {
         return new IpcExecuteOperationResult(
-            OpId: new IpcExecuteStepId("refresh"),
             Op: UcliPrimitiveOperationNames.ProjectRefresh,
             Phase: IpcExecuteOperationPhase.Call,
             Applied: true,

@@ -1,9 +1,10 @@
 using System.Text.Json.Serialization;
-using MackySoft.Ucli.Contracts.Operations;
+
+using MackySoft.JsonSchema.Generation.Annotations;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
-[UcliDescription("Single asset search match.")]
+[Description("Single asset search match.")]
 public sealed record AssetsFindMatch
 {
     /// <exception cref="ArgumentException"> Thrown when <paramref name="assetGuid" /> is <see cref="Guid.Empty" /> or <paramref name="name" /> is empty or whitespace. </exception>
@@ -30,18 +31,21 @@ public sealed record AssetsFindMatch
         TypeId = typeId ?? throw new ArgumentNullException(nameof(typeId));
     }
 
-    [UcliRequired]
-    [UcliDescription("Unity project relative asset path.")]
-    public UnityAssetPath AssetPath { get; }
+    [JsonInclude]
+    [JsonRequired]
+    [Description("Unity project relative asset path.")]
+    public UnityAssetPath AssetPath { get; private init; }
 
-    [UcliDescription("Unity asset GUID, or null when a planned asset has not been imported yet.")]
+    [Description("Unity asset GUID, or null when a planned asset has not been imported yet.")]
     public Guid? AssetGuid { get; }
 
-    [UcliRequired]
-    [UcliDescription("Asset object name.")]
-    public string Name { get; }
+    [JsonInclude]
+    [JsonRequired]
+    [Description("Asset object name.")]
+    public string Name { get; private init; }
 
-    [UcliRequired]
-    [UcliDescription("Asset type identifier.")]
-    public UnityTypeId TypeId { get; }
+    [JsonInclude]
+    [JsonRequired]
+    [Description("Asset type identifier.")]
+    public UnityTypeId TypeId { get; private init; }
 }

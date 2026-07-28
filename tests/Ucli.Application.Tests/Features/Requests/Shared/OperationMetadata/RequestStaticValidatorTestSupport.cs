@@ -16,8 +16,6 @@ internal static class RequestStaticValidatorTestSupport
     public static readonly InvalidRequestCase[] InvalidRequestCases =
     [
         new("protocol-version-mismatch", IpcProtocolErrorCodes.ProtocolVersionMismatch),
-        new("steps-required", ValidationErrorCodes.StepsRequired),
-        new("step-id-duplicated", ValidationErrorCodes.StepIdDuplicated),
         new("operation-not-found", ValidationErrorCodes.OperationNotFound),
         new("operation-not-allowed", OperationAuthorizationErrorCodes.OperationNotAllowed),
         new("edit-step-invalid", ValidationErrorCodes.EditStepInvalid),
@@ -44,14 +42,14 @@ internal static class RequestStaticValidatorTestSupport
 
     public static ValidateRequest CreateRequest (
         int protocolVersion = IpcProtocol.CurrentVersion,
-        IReadOnlyList<ValidateRequestStep?>? steps = null,
+        IReadOnlyList<ValidateRequestStep>? steps = null,
         bool allowPlayMode = false)
     {
         return new ValidateRequest(
             ProtocolVersion: protocolVersion,
             Steps: steps ??
             [
-                CreateOpStep("step-1", UcliPrimitiveOperationNames.SceneOpen, new
+                CreateOpStep(0, UcliPrimitiveOperationNames.SceneOpen, new
                 {
                     path = "Assets/Scenes/Main.unity",
                 }),
@@ -64,30 +62,15 @@ internal static class RequestStaticValidatorTestSupport
         return scenario switch
         {
             "protocol-version-mismatch" => CreateRequest(protocolVersion: IpcProtocol.CurrentVersion + 1),
-            "steps-required" => new ValidateRequest(
-                ProtocolVersion: IpcProtocol.CurrentVersion,
-                Steps: null),
-            "step-id-duplicated" => CreateRequest(
-                steps:
-                [
-                    CreateOpStep("dup", UcliPrimitiveOperationNames.SceneOpen, new
-                    {
-                        path = "Assets/Scenes/Main.unity",
-                    }),
-                    CreateOpStep("dup", UcliPrimitiveOperationNames.SceneTree, new
-                    {
-                        path = "Assets/Scenes/Main.unity",
-                    }),
-                ]),
             "operation-not-found" => CreateRequest(
                 steps:
                 [
-                    CreateOpStep("step-1", "ucli.unknown"),
+                    CreateOpStep(0, "ucli.unknown"),
                 ]),
             "operation-not-allowed" => CreateRequest(
                 steps:
                 [
-                    CreateOpStep("step-1", UcliPrimitiveOperationNames.SceneSave, new
+                    CreateOpStep(0, UcliPrimitiveOperationNames.SceneSave, new
                     {
                         path = "Assets/Scenes/Main.unity",
                     }),
@@ -96,16 +79,17 @@ internal static class RequestStaticValidatorTestSupport
                 steps:
                 [
                     CreateEditStep(
-                        stepId: "edit-1",
+                        stepIndex: 0,
                         """
                         {
                           "kind": "edit",
-                          "id": "edit-1",
                           "on": {
-                            "scene": "Assets/Scenes/Main.unity"
+                            "kind": "scene",
+                            "path": "Assets/Scenes/Main.unity"
                           },
                           "select": {
-                            "gameObject": "Root/Spawner",
+                            "kind": "gameObject",
+                            "path": "Root/Spawner",
                             "cardinality": "one"
                           },
                           "actions": [
@@ -126,73 +110,78 @@ internal static class RequestStaticValidatorTestSupport
     }
 
     public static ValidateRequestStep CreateOpStep (
-        string stepId,
+        int stepIndex,
         string operationName,
         object? args = null)
     {
-        var stepElement = JsonSerializer.SerializeToElement(new
-        {
-            kind = "op",
-            id = stepId,
-            op = operationName,
-            args = args ?? new
-            {
-            },
-        });
-
         return new ValidateRequestStep(
             Kind: IpcExecuteStepKind.Op,
-            StepId: new IpcExecuteStepId(stepId),
+            StepIndex: stepIndex,
             Op: operationName,
-            Element: stepElement);
+            Args: JsonSerializer.SerializeToElement(args ?? new
+            {
+            }));
     }
 
     public static ValidateRequestStep CreateOpStep (
-        string stepId,
+        int stepIndex,
         string operationName,
         string argsJson)
     {
         using var argsDocument = JsonDocument.Parse(argsJson);
-        var stepElement = JsonSerializer.SerializeToElement(new
-        {
-            kind = "op",
-            id = stepId,
-            op = operationName,
-            args = argsDocument.RootElement.Clone(),
-        });
-
         return new ValidateRequestStep(
             Kind: IpcExecuteStepKind.Op,
-            StepId: new IpcExecuteStepId(stepId),
+            StepIndex: stepIndex,
             Op: operationName,
-            Element: stepElement);
+            Args: argsDocument.RootElement.Clone());
     }
 
     public static ValidateRequestStep CreateEditStep (
-        string stepId,
+        int stepIndex,
         string stepJson)
     {
-        using var document = JsonDocument.Parse(stepJson);
+        using var stepDocument = JsonDocument.Parse(stepJson);
+        var requestElement = JsonSerializer.SerializeToElement(new
+        {
+            protocolVersion = IpcProtocol.CurrentVersion,
+            steps = new[]
+            {
+                stepDocument.RootElement,
+            },
+        });
+        if (!IpcExecuteArgumentsContractReader.TryRead(
+                requestElement,
+                out var request,
+                out var error))
+        {
+            throw new InvalidOperationException(error.Message);
+        }
+
+        var edit = Assert.Single(request.Steps!)!;
         return new ValidateRequestStep(
             Kind: IpcExecuteStepKind.Edit,
-            StepId: new IpcExecuteStepId(stepId),
+            StepIndex: stepIndex,
             Op: null,
-            Element: document.RootElement.Clone());
+            Args: default)
+        {
+            EditContract = edit.EditContract,
+        };
     }
 
-    public static ValidateRequestStep CreateSceneEnsureEditStep (string stepId)
+    public static ValidateRequestStep CreateSceneEnsureEditStep (int stepIndex)
     {
         return CreateEditStep(
-            stepId: stepId,
+            stepIndex,
             """
             {
               "kind": "edit",
-              "id": "__STEP_ID__",
               "on": {
-                "scene": "Assets/Scenes/Main.unity"
+                "kind": "scene",
+                "path": "Assets/Scenes/Main.unity"
               },
               "select": {
-                "gameObject": "Root/Spawner",
+                "kind": "gameObject",
+                "path": "Root/Spawner",
                 "cardinality": "one"
               },
               "actions": [
@@ -203,23 +192,24 @@ internal static class RequestStaticValidatorTestSupport
               ],
               "commit": "none"
             }
-            """.Replace("__STEP_ID__", stepId, StringComparison.Ordinal));
+            """);
     }
 
     public static ValidateRequestStep CreateAssetSetEditStep (
-        string stepId,
+        int stepIndex,
         string contextKind)
     {
         var on = contextKind switch
         {
             "asset" => """
                 "on": {
-                  "asset": "Assets/Data/Config.asset"
+                  "kind": "asset",
+                  "path": "Assets/Data/Config.asset"
                 }
                 """,
             "project" => """
                 "on": {
-                  "project": true
+                  "kind": "project"
                 }
                 """,
             _ => throw new ArgumentOutOfRangeException(nameof(contextKind), contextKind, "Unsupported edit context kind."),
@@ -228,15 +218,14 @@ internal static class RequestStaticValidatorTestSupport
         {
             "asset" => """
                 "select": {
-                  "self": true,
+                  "kind": "self",
                   "cardinality": "one"
                 }
                 """,
             "project" => """
                 "select": {
-                  "projectAsset": {
-                    "path": "ProjectSettings/TagManager.asset"
-                  },
+                  "kind": "projectAsset",
+                  "path": "ProjectSettings/TagManager.asset",
                   "cardinality": "one"
                 }
                 """,
@@ -244,11 +233,10 @@ internal static class RequestStaticValidatorTestSupport
         };
 
         return CreateEditStep(
-            stepId: stepId,
+            stepIndex,
             $$"""
             {
               "kind": "edit",
-              "id": "{{stepId}}",
               {{on}},
               {{select}},
               "actions": [

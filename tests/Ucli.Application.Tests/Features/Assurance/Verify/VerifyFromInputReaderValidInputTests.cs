@@ -46,7 +46,7 @@ public sealed class VerifyFromInputReaderValidInputTests
         Assert.Equal(DefaultProjectFingerprint, input.ProjectFingerprint);
         Assert.Equal(1, input.ReadPostconditionRequirementCount);
         var opResult = Assert.Single(input.OpResults);
-        Assert.Equal("op-1", opResult.OpId.Value);
+        Assert.Equal(0, opResult.Index);
         Assert.Equal("edit", opResult.Op);
         Assert.True(opResult.Applied);
         Assert.True(opResult.Changed);
@@ -77,7 +77,6 @@ public sealed class VerifyFromInputReaderValidInputTests
                   "schemaVersion": 1,
                   "steps": [
                     {
-                      "opId": "op-1",
                       "sourceKind": "refresh",
                       "playModeMutation": false,
                       "commit": null,

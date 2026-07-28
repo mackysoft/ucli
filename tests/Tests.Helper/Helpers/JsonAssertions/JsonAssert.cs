@@ -152,22 +152,6 @@ internal sealed class JsonAssertion
         return this;
     }
 
-    public JsonAssertion MatchesSchema (JsonSchemaNode schema, string? schemaName = null)
-    {
-        ArgumentNullException.ThrowIfNull(schema);
-
-        var errors = JsonSchemaValidator.Validate(
-            element: context.Value,
-            schema: schema,
-            path: context.Path);
-        if (errors.Count > 0)
-        {
-            throw new XunitException(JsonSchemaValidationMessageBuilder.Build(errors, schemaName));
-        }
-
-        return this;
-    }
-
     private static void ApplyNestedAssertion (Action<JsonAssertion> assertion, JsonAssertionContext nestedContext)
     {
         ArgumentNullException.ThrowIfNull(assertion);

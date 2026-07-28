@@ -92,7 +92,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return OperationPhaseStepResult.Success(
                 applied: false,
                 changed: false,
-                result: IpcPayloadCodec.SerializeToElement(new AssetsFindResult(payloadMatches, windowedMatches.Window)));
+                result: SerializeResultToElement(new AssetsFindResult(payloadMatches, windowedMatches.Window)));
         }
 
         private static bool TryValidate (
@@ -133,7 +133,24 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 }
             }
 
-            var windowOptions = BoundedWindowOptions.CreateBounded(args.Limit, args.Cursor);
+            if (!BoundedWindowOptions.TryCreate(
+                    all: false,
+                    args.Limit,
+                    args.Cursor,
+                    out var windowOptions,
+                    out var windowFailure))
+            {
+                var message = windowFailure switch
+                {
+                    BoundedWindowOptionsCreationFailure.LimitOutOfRange =>
+                        $"Operation 'args.limit' must be between 1 and {BoundedWindowConstants.MaxLimit}.",
+                    BoundedWindowOptionsCreationFailure.InvalidCursor =>
+                        "Operation 'args.cursor' must use a canonical bounded-window cursor.",
+                    _ => throw new InvalidOperationException($"Unexpected bounded-window failure: {windowFailure}."),
+                };
+                failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, message);
+                return false;
+            }
 
             validationState = new ValidationState(
                 new AssetsFindSearchEngine.SearchCriteria(

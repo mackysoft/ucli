@@ -1,6 +1,7 @@
 using System.Net.Sockets;
 using System.Text.Json;
 using MackySoft.FileSystem;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Acquisition;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Observation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Foundation;
@@ -894,7 +895,7 @@ public sealed class DaemonIpcRequestSenderTests
                 new IpcError(
                     IpcSessionErrorCodes.SessionTokenInvalid,
                     "Session token is invalid.",
-                    OpId: null),
+                    InstancePath: null),
             ]);
     }
 

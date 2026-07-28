@@ -16,7 +16,7 @@ internal static class UcliCoreErrorCodeDescriptors
             impliesNotApplied: true,
             mayBeIndeterminate: false,
             safeToRetry: UcliErrorRetryClass.No,
-            inspect: ["errors[].code", "errors[].message", "errors[].opId"],
+            inspect: ["errors[].code", "errors[].message", "errors[].instancePath"],
             nextActions:
             [
                 new UcliErrorNextActionDescriptor(

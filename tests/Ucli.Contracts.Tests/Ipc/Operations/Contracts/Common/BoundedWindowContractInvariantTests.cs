@@ -139,15 +139,4 @@ public sealed class BoundedWindowContractInvariantTests
         Assert.Throws<ArgumentException>(() => BoundedWindowOptions.CreateBounded(1, "not-a-cursor"));
     }
 
-    [Theory]
-    [Trait("Size", "Small")]
-    [InlineData(nameof(BoundedWindow.Limit))]
-    [InlineData(nameof(BoundedWindow.Cursor))]
-    [InlineData(nameof(BoundedWindow.NextCursor))]
-    [InlineData(nameof(BoundedWindow.IsComplete))]
-    [InlineData(nameof(BoundedWindow.TotalCount))]
-    public void Property_DoesNotExposeStateMutation (string propertyName)
-    {
-        Assert.Null(typeof(BoundedWindow).GetProperty(propertyName)!.SetMethod);
-    }
 }

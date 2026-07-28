@@ -1,5 +1,4 @@
 using System.Text.Json;
-using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
@@ -172,10 +171,29 @@ public sealed class DaemonSessionJsonContractSerializerTests
         var json = DaemonSessionJsonContractSerializer.Serialize(contract);
         using var jsonDocument = JsonDocument.Parse(json);
 
-        JsonAssert.For(jsonDocument.RootElement)
-            .MatchesSchema(SessionJsonSchema, nameof(SessionJsonSchema));
-        Assert.False(jsonDocument.RootElement.TryGetProperty("runtimeKind", out _));
-        Assert.True(jsonDocument.RootElement.TryGetProperty("editorInstanceId", out var editorInstanceId));
+        var root = jsonDocument.RootElement;
+        Assert.Equal(
+            [
+                "canShutdownProcess",
+                "editorInstanceId",
+                "editorMode",
+                "endpointAddress",
+                "endpointTransportKind",
+                "issuedAtUtc",
+                "ownerKind",
+                "ownerProcessId",
+                "processId",
+                "processStartedAtUtc",
+                "projectFingerprint",
+                "schemaVersion",
+                "sessionGenerationId",
+                "sessionToken",
+            ],
+            root.EnumerateObject()
+                .Select(static property => property.Name)
+                .Order(StringComparer.Ordinal)
+                .ToArray());
+        Assert.True(root.TryGetProperty("editorInstanceId", out var editorInstanceId));
         Assert.Equal(EditorInstanceId, editorInstanceId.GetGuid());
     }
 
@@ -257,26 +275,6 @@ public sealed class DaemonSessionJsonContractSerializerTests
         var json = DaemonSessionJsonContractSerializer.Serialize(contract);
         using var jsonDocument = JsonDocument.Parse(json);
 
-        JsonAssert.For(jsonDocument.RootElement)
-            .MatchesSchema(SessionJsonSchema, nameof(SessionJsonSchema));
         Assert.False(jsonDocument.RootElement.TryGetProperty("editorInstanceId", out _));
     }
-
-    private static JsonSchemaNode SessionJsonSchema => JsonSchemaNode.Object(
-        builder => builder
-            .Required("schemaVersion", JsonSchemaNode.Value(JsonSchemaType.Int32))
-            .Required("sessionGenerationId", JsonSchemaNode.Value(JsonSchemaType.String))
-            .Required("sessionToken", JsonSchemaNode.Value(JsonSchemaType.String))
-            .Required("projectFingerprint", JsonSchemaNode.Value(JsonSchemaType.String))
-            .Required("issuedAtUtc", JsonSchemaNode.Value(JsonSchemaType.String))
-            .Required("editorMode", JsonSchemaNode.Value(JsonSchemaType.String))
-            .Required("ownerKind", JsonSchemaNode.Value(JsonSchemaType.String))
-            .Required("canShutdownProcess", JsonSchemaNode.Value(JsonSchemaType.Boolean))
-            .Required("endpointTransportKind", JsonSchemaNode.Value(JsonSchemaType.String))
-            .Required("endpointAddress", JsonSchemaNode.Value(JsonSchemaType.String))
-            .Required("processId", JsonSchemaNode.Value(JsonSchemaType.Int32))
-            .Required("processStartedAtUtc", JsonSchemaNode.Union(JsonSchemaType.String, JsonSchemaType.Null))
-            .Required("ownerProcessId", JsonSchemaNode.Value(JsonSchemaType.Int32))
-            .Optional("editorInstanceId", JsonSchemaNode.Value(JsonSchemaType.String)),
-        allowAdditionalProperties: false);
 }

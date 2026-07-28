@@ -1,5 +1,3 @@
-using MackySoft.Ucli.Application.Features.Assurance.Verify.Vocabulary;
-
 namespace MackySoft.Ucli.Application.Shared.Execution;
 
 /// <summary> Defines machine-readable failure codes that map to invalid argument outcomes. </summary>

@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Operations;
 
 namespace MackySoft.Ucli.Contracts.Index;
@@ -7,28 +8,24 @@ namespace MackySoft.Ucli.Contracts.Index;
 /// <param name="Name"> The operation name. </param>
 /// <param name="Kind"> The operation-kind literal. </param>
 /// <param name="Policy"> The operation-policy literal. </param>
-/// <param name="ArgsSchemaJson"> The JSON object text that describes operation args. </param>
-/// <param name="ResultSchemaJson"> The JSON object text that describes operation result, or <see langword="null" /> when no result is emitted. </param>
+/// <param name="ArgsContract"> The generated operation argument contract. </param>
+/// <param name="ResultContract">
+/// The generated operation result contract, or <see langword="null" /> when no result is emitted.
+/// </param>
 /// <param name="PlayModeSupport"> The Play Mode support literal for public raw operation execution. </param>
 public sealed record IndexOpEntryJsonContract (
     string? Name,
-    string? Kind,
-    string? Policy,
-    string? ArgsSchemaJson,
+    UcliOperationKind? Kind,
+    OperationPolicy? Policy,
+    UcliOperationJsonContract? ArgsContract,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    string? ResultSchemaJson = null,
+    UcliOperationJsonContract? ResultContract = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    string? Exposure = null,
-    string? PlayModeSupport = "disallowed")
+    UcliOperationExposure? Exposure = null,
+    UcliOperationPlayModeSupport? PlayModeSupport = UcliOperationPlayModeSupport.Disallowed)
 {
     /// <summary> Gets or initializes the operation purpose description. </summary>
     public string? Description { get; init; }
-
-    /// <summary> Gets or initializes input contracts used to build <c>steps[].args</c>. </summary>
-    public IReadOnlyList<UcliOperationInputContract>? Inputs { get; init; }
-
-    /// <summary> Gets or initializes the contract for interpreting <c>opResults[].result</c>. </summary>
-    public UcliOperationResultContract? ResultContract { get; init; }
 
     /// <summary> Gets or initializes machine-readable assurance metadata. </summary>
     public UcliOperationAssuranceContract? Assurance { get; init; }

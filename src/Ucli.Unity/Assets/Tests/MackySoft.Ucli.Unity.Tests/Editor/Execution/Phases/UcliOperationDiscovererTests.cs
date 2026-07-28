@@ -76,15 +76,8 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(operations[0].Metadata.ArgsType, Is.EqualTo(typeof(GenericDiscoverableArgs)));
             Assert.That(operations[0].Metadata.ResultType, Is.EqualTo(typeof(UcliNoResult)));
             Assert.That(operations[0].Metadata.DescribeContract.Description, Is.EqualTo("Generic operation used to verify custom operation authoring."));
-            var inputs = operations[0].Metadata.DescribeContract.Inputs;
-            Assert.That(inputs, Is.Not.Null);
-            if (inputs == null)
-            {
-                throw new AssertionException("The generic operation describe contract did not expose its input.");
-            }
-
-            Assert.That(inputs.Count, Is.EqualTo(1));
-            Assert.That(inputs[0].Name, Is.EqualTo("path"));
+            Assert.That(operations[0].Metadata.DescribeContract.ArgsContract, Is.Not.Null);
+            Assert.That(operations[0].Metadata.DescribeContract.ResultContract, Is.Null);
         }
 
         [Test]
@@ -162,27 +155,6 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void UcliOperationMetadata_WhenEmittedResultTypeNameDoesNotMatch_ThrowsArgumentException ()
-        {
-            Assert.Throws<ArgumentException>(() =>
-            {
-                _ = UcliOperationMetadata.Create<GenericDiscoverableArgs, GenericDiscoverableResult>(
-                    operationName: "ucli.tests.result-contract-mismatch",
-                    kind: UcliOperationKind.Query,
-                    describeContract: new UcliOperationDescribeContract(
-                        "Result contract mismatch operation.",
-                        Array.Empty<UcliOperationInputContract>(),
-                        new UcliOperationResultContract(
-                            emitted: true,
-                            resultType: "DifferentResult",
-                            description: "Wrong result contract."),
-                        CreateValidationOnlyAssurance(),
-                        codeContract: null));
-            });
-        }
-
-        [Test]
-        [Category("Size.Small")]
         public void UcliOperationMetadata_WhenArgsUseReservedRawOpPropertyName_ThrowsArgumentException ()
         {
             Assert.Throws<ArgumentException>(() =>
@@ -197,14 +169,28 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void UcliOperationMetadata_WhenArgsUseRequestLocalAliasType_ThrowsArgumentException ()
+        public void UcliOperationMetadata_WhenArgsRootIsNotObject_ThrowsArgumentException ()
         {
             Assert.Throws<ArgumentException>(() =>
             {
-                _ = UcliOperationMetadata.Create<ReservedAliasTypeArgs, UcliNoResult>(
-                    operationName: "ucli.tests.reserved-alias-type",
+                _ = UcliOperationMetadata.Create<string, UcliNoResult>(
+                    operationName: "ucli.tests.scalar-args",
                     kind: UcliOperationKind.Query,
-                    description: "Reserved alias type operation.",
+                    description: "Invalid scalar args operation.",
+                    assurance: CreateValidationOnlyAssurance());
+            });
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void UcliOperationMetadata_WhenResultRootIsNotObject_ThrowsArgumentException ()
+        {
+            Assert.Throws<ArgumentException>(() =>
+            {
+                _ = UcliOperationMetadata.Create<UcliEmptyArgs, string>(
+                    operationName: "ucli.tests.scalar-result",
+                    kind: UcliOperationKind.Query,
+                    description: "Invalid scalar result operation.",
                     assurance: CreateValidationOnlyAssurance());
             });
         }
@@ -266,105 +252,20 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void UcliOperationMetadata_WhenFactoryAndConstructorsAreInspected_DoNotExposePolicyParameter ()
-        {
-            var factoryHasPolicyParameter = typeof(UcliOperationMetadata)
-                .GetMethods(BindingFlags.Public | BindingFlags.Static)
-                .Where(static method => method.Name == nameof(UcliOperationMetadata.Create))
-                .SelectMany(static method => method.GetParameters())
-                .Any(IsPolicyParameter);
-            var constructorHasPolicyParameter = typeof(UcliOperationMetadata)
-                .GetConstructors(BindingFlags.Public | BindingFlags.Instance)
-                .SelectMany(static constructor => constructor.GetParameters())
-                .Any(IsPolicyParameter);
-
-            Assert.That(factoryHasPolicyParameter, Is.False);
-            Assert.That(constructorHasPolicyParameter, Is.False);
-        }
-
-        [Test]
-        [Category("Size.Small")]
-        public void UcliOperationMetadata_WhenDescribeVariantFieldUsesRequestLocalAliasArgsPath_ThrowsArgumentException ()
-        {
-            Assert.Throws<ArgumentException>(() =>
-            {
-                _ = UcliOperationMetadata.Create<GenericDiscoverableArgs, UcliNoResult>(
-                    operationName: "ucli.tests.describe-alias-path",
-                    kind: UcliOperationKind.Query,
-                    describeContract: new UcliOperationDescribeContract(
-                        "Describe alias path operation.",
-                        new[]
-                        {
-                            new UcliOperationInputContract(
-                                "target",
-                                "object",
-                                "Target reference.",
-                                Array.Empty<UcliOperationInputConstraintContract>(),
-                                variants: new[]
-                                {
-                                    new UcliOperationInputVariantContract(
-                                        "byAlias",
-                                        "Use request-local alias.",
-                                        new[]
-                                        {
-                                            new UcliOperationInputVariantFieldContract(
-                                                "var",
-                                                "$.target.var",
-                                                "Request-local alias.",
-                                                Array.Empty<UcliOperationInputConstraintContract>()),
-                                        }),
-                                }),
-                        },
-                        UcliOperationResultContract.NoResult("This operation does not emit operation-specific result data."),
-                        CreateValidationOnlyAssurance(),
-                        codeContract: null));
-            });
-        }
-
-        [Test]
-        [Category("Size.Small")]
         public void UcliOperationMetadata_WhenDescribeContractIsMutatedAfterCreation_DoesNotExposeMutation ()
         {
-            var fieldConstraint = new UcliOperationInputConstraintContract("globalObjectId");
-            var variantField = new UcliOperationInputVariantFieldContract(
-                "globalObjectId",
-                "$.target.globalObjectId",
-                "Resolved Unity GlobalObjectId.",
-                new[] { fieldConstraint });
-            var input = new UcliOperationInputContract(
-                "target",
-                "object",
-                "Target reference.",
-                Array.Empty<UcliOperationInputConstraintContract>(),
-                variants: new[]
-                {
-                    new UcliOperationInputVariantContract(
-                        "byGlobalObjectId",
-                        "Use an exact Unity GlobalObjectId.",
-                        new[] { variantField }),
-                });
-            var describeContract = new UcliOperationDescribeContract(
-                "Defensive copy operation.",
-                new[] { input },
-                UcliOperationResultContract.NoResult("This operation does not emit operation-specific result data."),
-                CreateValidationOnlyAssurance(),
-                codeContract: null);
-
             var metadata = UcliOperationMetadata.Create<GenericDiscoverableArgs, UcliNoResult>(
                 operationName: "ucli.tests.describe-defensive-copy",
                 kind: UcliOperationKind.Query,
-                describeContract: describeContract);
+                description: "Defensive copy operation.",
+                assurance: CreateValidationOnlyAssurance());
+            var firstRead = metadata.DescribeContract;
+            firstRead.Description = "Mutated description.";
 
-            input.ArgsPath = "$.target.var";
-            variantField.ArgsPath = "$.target.var";
-            fieldConstraint.Kind = "hierarchyPath";
-            metadata.DescribeContract.Inputs![0].ArgsPath = "$.target.var";
-            metadata.DescribeContract.Inputs![0].Variants![0].Fields![0].ArgsPath = "$.target.var";
-            metadata.DescribeContract.Inputs![0].Variants![0].Fields![0].Constraints![0].Kind = "hierarchyPath";
+            var secondRead = metadata.DescribeContract;
 
-            Assert.That(metadata.DescribeContract.Inputs![0].ArgsPath, Is.Null);
-            Assert.That(metadata.DescribeContract.Inputs![0].Variants![0].Fields![0].ArgsPath, Is.EqualTo("$.target.globalObjectId"));
-            Assert.That(metadata.DescribeContract.Inputs![0].Variants![0].Fields![0].Constraints![0].Kind, Is.EqualTo("globalObjectId"));
+            Assert.That(secondRead.Description, Is.EqualTo("Defensive copy operation."));
+            Assert.That(secondRead.ArgsContract, Is.Not.Null);
         }
 
         [Test]
@@ -415,179 +316,6 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void Discover_WhenBuiltInOperationsAreRead_ReturnsConcreteArgsSchemas ()
-        {
-            var operations = UcliOperationDiscoverer.Discover(operationServiceProvider);
-
-            var resolveMetadata = FindMetadata(operations, UcliPrimitiveOperationNames.Resolve);
-            using var resolveSchemaDocument = JsonDocument.Parse(resolveMetadata.ArgsSchemaJson);
-            var resolveProperties = resolveSchemaDocument.RootElement.GetProperty("properties");
-            Assert.That(
-                resolveProperties.TryGetProperty("globalObjectId", out _),
-                Is.True);
-            Assert.That(resolveProperties.TryGetProperty("projectAssetPath", out _), Is.True);
-            Assert.That(resolveProperties.TryGetProperty("prefab", out _), Is.True);
-            Assert.That(resolveProperties.TryGetProperty("componentType", out _), Is.True);
-            AssertContainsNoUnsupportedSchemaKeyword(resolveSchemaDocument.RootElement);
-
-            var compEnsureMetadata = FindMetadata(operations, UcliPrimitiveOperationNames.CompEnsure);
-            using var compEnsureSchemaDocument = JsonDocument.Parse(compEnsureMetadata.ArgsSchemaJson);
-            var compEnsureTargetProperties = compEnsureSchemaDocument.RootElement.GetProperty("properties").GetProperty("target").GetProperty("properties");
-            Assert.That(compEnsureTargetProperties.TryGetProperty("prefab", out _), Is.True);
-            AssertContainsNoUnsupportedSchemaKeyword(compEnsureSchemaDocument.RootElement);
-
-            var compSetMetadata = FindMetadata(operations, UcliPrimitiveOperationNames.CompSet);
-            using var compSetSchemaDocument = JsonDocument.Parse(compSetMetadata.ArgsSchemaJson);
-            var compSetProperties = compSetSchemaDocument.RootElement.GetProperty("properties");
-            Assert.That(compSetProperties.TryGetProperty("target", out _), Is.True);
-            Assert.That(compSetProperties.GetProperty("sets").GetProperty("type").GetString(), Is.EqualTo("array"));
-            var compSetTargetProperties = compSetProperties.GetProperty("target").GetProperty("properties");
-            Assert.That(compSetTargetProperties.TryGetProperty("scene", out _), Is.True);
-            Assert.That(compSetTargetProperties.TryGetProperty("prefab", out _), Is.True);
-            Assert.That(compSetTargetProperties.TryGetProperty("componentType", out _), Is.True);
-            AssertContainsNoUnsupportedSchemaKeyword(compSetSchemaDocument.RootElement);
-
-            var prefabCreateMetadata = FindMetadata(operations, UcliPrimitiveOperationNames.PrefabCreate);
-            using var prefabCreateSchemaDocument = JsonDocument.Parse(prefabCreateMetadata.ArgsSchemaJson);
-            var prefabCreateProperties = prefabCreateSchemaDocument.RootElement.GetProperty("properties");
-            Assert.That(prefabCreateProperties.TryGetProperty("target", out _), Is.True);
-            Assert.That(prefabCreateProperties.TryGetProperty("path", out _), Is.True);
-            Assert.That(prefabCreateSchemaDocument.RootElement.GetProperty("required").GetArrayLength(), Is.EqualTo(2));
-
-            var prefabOpenMetadata = FindMetadata(operations, UcliPrimitiveOperationNames.PrefabOpen);
-            Assert.That(prefabOpenMetadata.Kind, Is.EqualTo(UcliOperationKind.Command));
-            using var prefabOpenSchemaDocument = JsonDocument.Parse(prefabOpenMetadata.ArgsSchemaJson);
-            var prefabOpenProperties = prefabOpenSchemaDocument.RootElement.GetProperty("properties");
-            Assert.That(prefabOpenProperties.TryGetProperty("path", out _), Is.True);
-            Assert.That(prefabOpenSchemaDocument.RootElement.GetProperty("required").GetArrayLength(), Is.EqualTo(1));
-
-            var goCreateMetadata = FindMetadata(operations, UcliPrimitiveOperationNames.GoCreate);
-            using var goCreateSchemaDocument = JsonDocument.Parse(goCreateMetadata.ArgsSchemaJson);
-            var goCreateParentProperties = goCreateSchemaDocument.RootElement.GetProperty("properties").GetProperty("parent").GetProperty("properties");
-            Assert.That(goCreateParentProperties.TryGetProperty("prefab", out _), Is.True);
-            AssertContainsNoUnsupportedSchemaKeyword(goCreateSchemaDocument.RootElement);
-
-            var goDeleteMetadata = FindMetadata(operations, UcliPrimitiveOperationNames.GoDelete);
-            using var goDeleteSchemaDocument = JsonDocument.Parse(goDeleteMetadata.ArgsSchemaJson);
-            var goDeleteTargetProperties = goDeleteSchemaDocument.RootElement.GetProperty("properties").GetProperty("target").GetProperty("properties");
-            Assert.That(goDeleteTargetProperties.TryGetProperty("componentType", out _), Is.False);
-
-            var goReparentMetadata = FindMetadata(operations, UcliPrimitiveOperationNames.GoReparent);
-            using var goReparentSchemaDocument = JsonDocument.Parse(goReparentMetadata.ArgsSchemaJson);
-            var goReparentProperties = goReparentSchemaDocument.RootElement.GetProperty("properties");
-            Assert.That(goReparentProperties.GetProperty("target").GetProperty("properties").TryGetProperty("componentType", out _), Is.False);
-            Assert.That(goReparentProperties.GetProperty("parent").GetProperty("properties").TryGetProperty("componentType", out _), Is.False);
-
-            var sceneQueryMetadata = FindMetadata(operations, UcliPrimitiveOperationNames.SceneQuery);
-            using var sceneQuerySchemaDocument = JsonDocument.Parse(sceneQueryMetadata.ArgsSchemaJson);
-            Assert.That(sceneQuerySchemaDocument.RootElement.GetProperty("additionalProperties").GetBoolean(), Is.False);
-            var sceneQueryProperties = sceneQuerySchemaDocument.RootElement.GetProperty("properties");
-            Assert.That(sceneQueryProperties.TryGetProperty("scene", out _), Is.True);
-            Assert.That(sceneQueryProperties.TryGetProperty("pathPrefix", out _), Is.True);
-            Assert.That(sceneQueryProperties.TryGetProperty("componentType", out _), Is.True);
-            Assert.That(sceneQueryProperties.EnumerateObject().Count(), Is.EqualTo(3));
-            Assert.That(sceneQuerySchemaDocument.RootElement.GetProperty("required").GetArrayLength(), Is.EqualTo(1));
-            Assert.That(sceneQuerySchemaDocument.RootElement.GetProperty("required")[0].GetString(), Is.EqualTo("scene"));
-
-            var assetCreateMetadata = FindMetadata(operations, UcliPrimitiveOperationNames.AssetCreate);
-            using var assetCreateSchemaDocument = JsonDocument.Parse(assetCreateMetadata.ArgsSchemaJson);
-            var assetCreateProperties = assetCreateSchemaDocument.RootElement.GetProperty("properties");
-            Assert.That(assetCreateProperties.TryGetProperty("type", out _), Is.True);
-            Assert.That(assetCreateProperties.TryGetProperty("path", out _), Is.True);
-
-            var assetSetMetadata = FindMetadata(operations, UcliPrimitiveOperationNames.AssetSet);
-            using var assetSetSchemaDocument = JsonDocument.Parse(assetSetMetadata.ArgsSchemaJson);
-            var assetSetProperties = assetSetSchemaDocument.RootElement.GetProperty("properties");
-            Assert.That(assetSetProperties.TryGetProperty("target", out _), Is.True);
-            Assert.That(assetSetProperties.GetProperty("sets").GetProperty("type").GetString(), Is.EqualTo("array"));
-            var assetSetTargetProperties = assetSetProperties.GetProperty("target").GetProperty("properties");
-            Assert.That(assetSetTargetProperties.TryGetProperty("projectAssetPath", out _), Is.True);
-
-            var assetSchemaMetadata = FindMetadata(operations, UcliPrimitiveOperationNames.AssetSchema);
-            using var assetSchemaDocument = JsonDocument.Parse(assetSchemaMetadata.ArgsSchemaJson);
-            var assetSchemaProperties = assetSchemaDocument.RootElement.GetProperty("properties");
-            Assert.That(assetSchemaProperties.TryGetProperty("type", out _), Is.True);
-            Assert.That(assetSchemaProperties.TryGetProperty("target", out _), Is.True);
-            AssertContainsNoUnsupportedSchemaKeyword(assetSchemaDocument.RootElement);
-
-            var goDescribeMetadata = FindMetadata(operations, UcliPrimitiveOperationNames.GoDescribe);
-            using var goDescribeSchemaDocument = JsonDocument.Parse(goDescribeMetadata.ArgsSchemaJson);
-            var goDescribeTargetProperties = goDescribeSchemaDocument.RootElement.GetProperty("properties").GetProperty("target").GetProperty("properties");
-            Assert.That(goDescribeTargetProperties.TryGetProperty("prefab", out _), Is.True);
-            AssertContainsNoUnsupportedSchemaKeyword(goDescribeSchemaDocument.RootElement);
-        }
-
-        [Test]
-        [Category("Size.Small")]
-        public void Discover_WhenAssetsFindOperationIsRead_ReturnsConcreteArgsSchema ()
-        {
-            var operations = UcliOperationDiscoverer.Discover(operationServiceProvider);
-
-            var metadata = FindMetadata(operations, UcliPrimitiveOperationNames.AssetsFind);
-            using var schemaDocument = JsonDocument.Parse(metadata.ArgsSchemaJson);
-            var root = schemaDocument.RootElement;
-            Assert.That(root.GetProperty("additionalProperties").GetBoolean(), Is.False);
-            AssertContainsNoUnsupportedSchemaKeyword(root);
-            var properties = root.GetProperty("properties");
-            Assert.That(properties.TryGetProperty("type", out var typeProperty), Is.True);
-            Assert.That(typeProperty.GetProperty("type").GetString(), Is.EqualTo("string"));
-            Assert.That(properties.TryGetProperty("pathPrefix", out var pathPrefixProperty), Is.True);
-            Assert.That(pathPrefixProperty.GetProperty("type").GetString(), Is.EqualTo("string"));
-            Assert.That(properties.TryGetProperty("nameContains", out var nameContainsProperty), Is.True);
-            Assert.That(nameContainsProperty.GetProperty("type").GetString(), Is.EqualTo("string"));
-            Assert.That(properties.TryGetProperty("limit", out var limitProperty), Is.True);
-            Assert.That(limitProperty.GetProperty("type")[0].GetString(), Is.EqualTo("integer"));
-            Assert.That(properties.TryGetProperty("cursor", out var cursorProperty), Is.True);
-            Assert.That(cursorProperty.GetProperty("type").GetString(), Is.EqualTo("string"));
-        }
-
-        [Test]
-        [Category("Size.Small")]
-        public void Discover_WhenAssetsFindOperationIsRead_ReturnsWindowResultSchema ()
-        {
-            var operations = UcliOperationDiscoverer.Discover(operationServiceProvider);
-
-            var metadata = FindMetadata(operations, UcliPrimitiveOperationNames.AssetsFind);
-            using var schemaDocument = JsonDocument.Parse(metadata.ResultSchemaJson!);
-            var windowProperties = schemaDocument.RootElement
-                .GetProperty("properties")
-                .GetProperty("window")
-                .GetProperty("properties");
-
-            Assert.That(windowProperties.TryGetProperty("limit", out _), Is.True);
-            Assert.That(windowProperties.GetProperty("cursor").GetProperty("type")[0].GetString(), Is.EqualTo("string"));
-            Assert.That(windowProperties.GetProperty("cursor").GetProperty("type")[1].GetString(), Is.EqualTo("null"));
-            Assert.That(windowProperties.GetProperty("nextCursor").GetProperty("type")[0].GetString(), Is.EqualTo("string"));
-            Assert.That(windowProperties.GetProperty("nextCursor").GetProperty("type")[1].GetString(), Is.EqualTo("null"));
-            Assert.That(windowProperties.TryGetProperty("isComplete", out _), Is.True);
-            Assert.That(windowProperties.TryGetProperty("totalCount", out _), Is.True);
-            Assert.That(windowProperties.TryGetProperty("after", out _), Is.False);
-        }
-
-        [Test]
-        [Category("Size.Small")]
-        public void Discover_WhenSceneTreeOperationIsRead_ReturnsWindowArgsSchema ()
-        {
-            var operations = UcliOperationDiscoverer.Discover(operationServiceProvider);
-
-            var metadata = FindMetadata(operations, UcliPrimitiveOperationNames.SceneTree);
-            using var schemaDocument = JsonDocument.Parse(metadata.ArgsSchemaJson);
-            var root = schemaDocument.RootElement;
-            Assert.That(root.GetProperty("additionalProperties").GetBoolean(), Is.False);
-            AssertContainsNoUnsupportedSchemaKeyword(root);
-            var properties = root.GetProperty("properties");
-            Assert.That(properties.TryGetProperty("path", out var pathProperty), Is.True);
-            Assert.That(pathProperty.GetProperty("type").GetString(), Is.EqualTo("string"));
-            Assert.That(properties.TryGetProperty("depth", out var depthProperty), Is.True);
-            Assert.That(depthProperty.GetProperty("type")[0].GetString(), Is.EqualTo("integer"));
-            Assert.That(properties.TryGetProperty("limit", out var limitProperty), Is.True);
-            Assert.That(limitProperty.GetProperty("type")[0].GetString(), Is.EqualTo("integer"));
-            Assert.That(properties.TryGetProperty("cursor", out var cursorProperty), Is.True);
-            Assert.That(cursorProperty.GetProperty("type").GetString(), Is.EqualTo("string"));
-        }
-
-        [Test]
-        [Category("Size.Small")]
         public void BuildCatalog_WhenCsEvalOperationIsDiscovered_IncludesPublicDangerousOperation ()
         {
             var operations = UcliOperationDiscoverer.Discover(operationServiceProvider);
@@ -604,11 +332,11 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(metadata.PlayModeSupport, Is.EqualTo(UcliOperationPlayModeSupport.Allowed));
             Assert.That(metadata.Kind, Is.EqualTo(UcliOperationKind.Mutation));
             Assert.That(metadata.Policy, Is.EqualTo(OperationPolicy.Dangerous));
-            Assert.That(metadata.ArgsSchemaJson, Does.Contain("\"source\""));
-            Assert.That(metadata.ResultSchemaJson, Does.Contain("\"sourceKind\""));
             var describeContract = metadata.DescribeContract;
+            Assert.That(describeContract.ArgsContract, Is.Not.Null);
+            Assert.That(describeContract.ResultContract, Is.Not.Null);
             var catalogEntry = FindCatalogEntry(snapshot.Catalog.Operations!, UcliPrimitiveOperationNames.CsEval);
-            Assert.That(catalogEntry.PlayModeSupport, Is.EqualTo("allowed"));
+            Assert.That(catalogEntry.PlayModeSupport, Is.EqualTo(UcliOperationPlayModeSupport.Allowed));
             Assert.That(describeContract.CodeContract, Is.Not.Null);
             Assert.That(describeContract.CodeContract!.Language, Is.EqualTo(UcliCodeLanguage.CSharp));
             Assert.That(describeContract.CodeContract.EntryPoint!.MatchRule, Does.Contain("exactly one"));
@@ -653,74 +381,28 @@ namespace MackySoft.Ucli.Unity.Tests
                 snapshot.RequestValidationCatalog.Operations!.Select(static entry => entry.Name),
                 Is.EquivalentTo(new[] { "ucli.tests.public", "ucli.tests.edit-lowering-only" }));
             var editOnlyEntry = snapshot.RequestValidationCatalog.Operations!.Single(static entry => entry.Name == "ucli.tests.edit-lowering-only");
-            Assert.That(editOnlyEntry.Exposure, Is.EqualTo("editLoweringOnly"));
+            Assert.That(editOnlyEntry.Exposure, Is.EqualTo(UcliOperationExposure.EditLoweringOnly));
         }
 
         [Test]
         [Category("Size.Small")]
-        public void BuildCatalog_WhenBuiltInOperationsAreExported_RemovesVarSelectorsFromPublicSchemas ()
+        public void BuildCatalog_WhenBuiltInOperationsAreExported_PublicSchemasDoNotDeclareRequestLocalVar ()
         {
             var operations = UcliOperationDiscoverer.Discover(operationServiceProvider);
 
             var snapshot = UcliOperationCatalogSnapshotBuilder.Build(operations);
 
-            var sceneOpenEntry = FindCatalogEntry(snapshot.Catalog.Operations!, UcliPrimitiveOperationNames.SceneOpen);
-            Assert.That(sceneOpenEntry.Kind, Is.EqualTo("command"));
-            Assert.That(sceneOpenEntry.Policy, Is.EqualTo("advanced"));
-            Assert.That(sceneOpenEntry.Description, Is.Not.Null.And.Not.Empty);
-            Assert.That(sceneOpenEntry.ResultContract, Is.Not.Null);
-            Assert.That(sceneOpenEntry.ResultContract!.Emitted, Is.False);
-            Assert.That(sceneOpenEntry.Assurance, Is.Not.Null);
-            Assert.That(sceneOpenEntry.Assurance!.SideEffects, Does.Contain(UcliOperationSideEffect.EditorStateChange));
-            Assert.That(sceneOpenEntry.Assurance.SideEffects, Does.Contain(UcliOperationSideEffect.OpensSceneInEditor));
-            Assert.That(sceneOpenEntry.Assurance!.PlanMode, Is.EqualTo(UcliOperationPlanMode.ObservesLiveUnity));
-            Assert.That(sceneOpenEntry.Assurance.PlanSemantics, Does.Contain("scene path"));
-            Assert.That(sceneOpenEntry.Assurance.CallSemantics, Does.Contain("Open the requested scene"));
-            Assert.That(sceneOpenEntry.Assurance.TouchedContract, Does.Contain("observed editor context"));
-            Assert.That(sceneOpenEntry.Assurance.DangerousNotes, Is.Not.Empty);
-
-            var goDeleteEntry = FindCatalogEntry(snapshot.Catalog.Operations!, UcliPrimitiveOperationNames.GoDelete);
-            Assert.That(goDeleteEntry.Assurance, Is.Not.Null);
-            Assert.That(goDeleteEntry.Assurance!.PlanMode, Is.EqualTo(UcliOperationPlanMode.ObservesLiveUnity));
-
-            var goReparentEntry = FindCatalogEntry(snapshot.Catalog.Operations!, UcliPrimitiveOperationNames.GoReparent);
-            Assert.That(goReparentEntry.Assurance, Is.Not.Null);
-            Assert.That(goReparentEntry.Assurance!.PlanMode, Is.EqualTo(UcliOperationPlanMode.ObservesLiveUnity));
-
-            var projectRefreshEntry = FindCatalogEntry(snapshot.Catalog.Operations!, UcliPrimitiveOperationNames.ProjectRefresh);
-            Assert.That(projectRefreshEntry.Kind, Is.EqualTo("command"));
-            Assert.That(projectRefreshEntry.Assurance, Is.Not.Null);
-            Assert.That(projectRefreshEntry.Assurance!.SideEffects, Does.Contain(UcliOperationSideEffect.AssetDatabaseRefresh));
-            Assert.That(projectRefreshEntry.Assurance.SideEffects, Does.Contain(UcliOperationSideEffect.AssetImport));
-            Assert.That(projectRefreshEntry.Assurance.SideEffects, Does.Contain(UcliOperationSideEffect.ScriptCompilation));
-            Assert.That(projectRefreshEntry.Assurance.SideEffects, Does.Contain(UcliOperationSideEffect.DomainReload));
-            Assert.That(projectRefreshEntry.Assurance.SideEffects, Does.Contain(UcliOperationSideEffect.AssetContentMutation));
-            Assert.That(projectRefreshEntry.Assurance.SideEffects, Does.Contain(UcliOperationSideEffect.AssetSave));
-            Assert.That(projectRefreshEntry.Assurance.MayDirty, Is.True);
-            Assert.That(projectRefreshEntry.Assurance.MayPersist, Is.True);
-            Assert.That(projectRefreshEntry.Assurance.ReadPostconditionContract, Does.Contain("readIndex"));
-            Assert.That(projectRefreshEntry.Assurance.DangerousNotes, Is.Not.Empty);
-
-            var publicOperationNames = snapshot.Catalog.Operations!.Select(static entry => entry.Name).ToArray();
-            Assert.That(publicOperationNames, Does.Not.Contain(UcliPrimitiveOperationNames.PrefabCreate));
-            Assert.That(publicOperationNames, Does.Not.Contain(UcliPrimitiveOperationNames.AssetCreate));
-            Assert.That(publicOperationNames, Does.Not.Contain(UcliPrimitiveOperationNames.AssetSet));
-            Assert.That(publicOperationNames, Does.Not.Contain(UcliPrimitiveOperationNames.GoCreate));
-            Assert.That(publicOperationNames, Does.Not.Contain(UcliPrimitiveOperationNames.CompEnsure));
-            Assert.That(publicOperationNames, Does.Not.Contain(UcliPrimitiveOperationNames.CompSet));
-
-            var goDescribeSchemaJson = FindCatalogSchema(snapshot.Catalog.Operations!, UcliPrimitiveOperationNames.GoDescribe);
-            using var goDescribeSchemaDocument = JsonDocument.Parse(goDescribeSchemaJson);
-            var goDescribeTargetProperties = goDescribeSchemaDocument.RootElement.GetProperty("properties").GetProperty("target").GetProperty("properties");
-            Assert.That(goDescribeTargetProperties.TryGetProperty("var", out _), Is.False);
-            AssertContainsNoUnsupportedSchemaKeyword(goDescribeSchemaDocument.RootElement);
-
+            Assert.That(snapshot.Catalog.Operations, Is.Not.Null.And.Not.Empty);
             for (var i = 0; i < snapshot.Catalog.Operations!.Count; i++)
             {
-                using var schemaDocument = JsonDocument.Parse(snapshot.Catalog.Operations[i].ArgsSchemaJson!);
-                AssertContainsNoVarBranch(schemaDocument.RootElement);
-                AssertContainsNoVarVariantField(snapshot.Catalog.Operations[i].Inputs);
-                Assert.That(snapshot.Catalog.Operations[i].Assurance!.PlanMode, Is.Not.EqualTo("mayCreatePreviewState"));
+                var argsContract = snapshot.Catalog.Operations[i].ArgsContract;
+                Assert.That(argsContract, Is.Not.Null);
+                Assert.That(
+                    SchemaDeclaresProperty(
+                        argsContract!.Value.Schema.ToJsonElement(),
+                        UcliOperationContractPropertyNames.Alias),
+                    Is.False,
+                    $"Public operation schema declared request-local property '{UcliOperationContractPropertyNames.Alias}': {snapshot.Catalog.Operations[i].Name}");
             }
         }
 
@@ -736,7 +418,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 snapshot.Catalog.Operations!.Any(static entry => entry.Name == UcliPrimitiveOperationNames.PrefabRevertOverrides),
                 Is.False);
             var entry = FindCatalogEntry(snapshot.RequestValidationCatalog.Operations!, UcliPrimitiveOperationNames.PrefabRevertOverrides);
-            Assert.That(entry.Exposure, Is.EqualTo("editLoweringOnly"));
+            Assert.That(entry.Exposure, Is.EqualTo(UcliOperationExposure.EditLoweringOnly));
             Assert.That(entry.Assurance, Is.Not.Null);
             Assert.That(entry.Assurance!.TouchedKinds, Does.Contain(UcliTouchedResourceKind.Scene));
             Assert.That(entry.Assurance.TouchedContract, Does.Contain("scene resource"));
@@ -788,10 +470,11 @@ namespace MackySoft.Ucli.Unity.Tests
         [UcliOperation]
         private sealed class DiscoverableOperation : IUcliOperation
         {
-            public UcliOperationMetadata Metadata { get; } = new UcliOperationMetadata(
+            public UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<UcliEmptyArgs, UcliNoResult>(
                 operationName: "ucli.tests.discover",
                 kind: UcliOperationKind.Query,
-                describeContract: CreateDescribeContract("ucli.tests.discover"));
+                description: "ucli.tests.discover test operation.",
+                assurance: CreateValidationOnlyAssurance());
 
             public Task<OperationPhaseStepResult> ValidateAsync (
                 NormalizedOperation operation,
@@ -865,10 +548,11 @@ namespace MackySoft.Ucli.Unity.Tests
 
             public RegisteredOperationDependency Dependency { get; }
 
-            public UcliOperationMetadata Metadata { get; } = new UcliOperationMetadata(
+            public UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<UcliEmptyArgs, UcliNoResult>(
                 operationName: "ucli.tests.registered-dependency",
                 kind: UcliOperationKind.Query,
-                describeContract: CreateDescribeContract("ucli.tests.registered-dependency"));
+                description: "ucli.tests.registered-dependency test operation.",
+                assurance: CreateValidationOnlyAssurance());
 
             public Task<OperationPhaseStepResult> ValidateAsync (
                 NormalizedOperation operation,
@@ -903,10 +587,11 @@ namespace MackySoft.Ucli.Unity.Tests
                 _ = dependency ?? throw new ArgumentNullException(nameof(dependency));
             }
 
-            public UcliOperationMetadata Metadata { get; } = new UcliOperationMetadata(
+            public UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<UcliEmptyArgs, UcliNoResult>(
                 operationName: "ucli.tests.unregistered-concrete-dependency",
                 kind: UcliOperationKind.Query,
-                describeContract: CreateDescribeContract("ucli.tests.unregistered-concrete-dependency"));
+                description: "ucli.tests.unregistered-concrete-dependency test operation.",
+                assurance: CreateValidationOnlyAssurance());
 
             public Task<OperationPhaseStepResult> ValidateAsync (
                 NormalizedOperation operation,
@@ -940,10 +625,11 @@ namespace MackySoft.Ucli.Unity.Tests
             {
             }
 
-            public UcliOperationMetadata Metadata { get; } = new UcliOperationMetadata(
+            public UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<UcliEmptyArgs, UcliNoResult>(
                 operationName: "ucli.tests.private-constructor",
                 kind: UcliOperationKind.Query,
-                describeContract: CreateDescribeContract("ucli.tests.private-constructor"));
+                description: "ucli.tests.private-constructor test operation.",
+                assurance: CreateValidationOnlyAssurance());
 
             public Task<OperationPhaseStepResult> ValidateAsync (
                 NormalizedOperation operation,
@@ -1101,43 +787,25 @@ namespace MackySoft.Ucli.Unity.Tests
             }
         }
 
-        [UcliDescription("Generic discoverable operation args.")]
         private sealed class GenericDiscoverableArgs
         {
-            [UcliRequired]
-            [UcliDescription("Scene asset path to inspect.")]
+            [JsonRequired]
             public SceneAssetPath? Path { get; set; }
         }
 
-        [UcliDescription("Generic discoverable operation result.")]
         private sealed class GenericDiscoverableResult
         {
         }
 
-        [UcliDescription("Reserved var args.")]
         private sealed class ReservedVarArgs
         {
-            [UcliDescription("Reserved property name.")]
             [JsonPropertyName(UcliOperationContractPropertyNames.Alias)]
             public string? Alias { get; set; }
-        }
-
-        [UcliDescription("Reserved alias type args.")]
-        private sealed class ReservedAliasTypeArgs
-        {
-            [UcliDescription("Reserved alias type.")]
-            public UcliPlanAlias? Alias { get; set; }
         }
 
         [UcliOperation]
         private sealed class InvalidAttributedType
         {
-        }
-
-        private static bool IsPolicyParameter (ParameterInfo parameter)
-        {
-            return string.Equals(parameter.Name, "policy", StringComparison.Ordinal)
-                || string.Equals(parameter.Name, "operationPolicy", StringComparison.Ordinal);
         }
 
         private static UcliOperationMetadata FindMetadata (
@@ -1187,16 +855,10 @@ namespace MackySoft.Ucli.Unity.Tests
                 UcliOperationMetadata.Create<UcliEmptyArgs, UcliNoResult>(
                     operationName: operationName,
                     kind: UcliOperationKind.Query,
-                    describeContract: CreateDescribeContract(operationName),
+                    description: $"{operationName} test operation.",
+                    assurance: CreateValidationOnlyAssurance(),
                     exposure: exposure),
                 operation);
-        }
-
-        private static string FindCatalogSchema (
-            IReadOnlyList<IndexOpEntryJsonContract> operations,
-            string operationName)
-        {
-            return FindCatalogEntry(operations, operationName).ArgsSchemaJson!;
         }
 
         private static IndexOpEntryJsonContract FindCatalogEntry (
@@ -1215,121 +877,44 @@ namespace MackySoft.Ucli.Unity.Tests
             return null!;
         }
 
-        private static void AssertContainsNoVarBranch (JsonElement element)
+        private static bool SchemaDeclaresProperty (
+            JsonElement schemaNode,
+            string propertyName)
         {
-            switch (element.ValueKind)
+            if (schemaNode.ValueKind == JsonValueKind.Array)
             {
-                case JsonValueKind.Object:
-                    foreach (var property in element.EnumerateObject())
-                    {
-                        Assert.That(property.Name, Is.Not.EqualTo("var"));
-                        AssertContainsNoVarBranch(property.Value);
-                    }
-
-                    return;
-
-                case JsonValueKind.Array:
-                    foreach (var item in element.EnumerateArray())
-                    {
-                        if (item.ValueKind == JsonValueKind.String)
-                        {
-                            Assert.That(item.GetString(), Is.Not.EqualTo("var"));
-                        }
-                        else
-                        {
-                            AssertContainsNoVarBranch(item);
-                        }
-                    }
-
-                    return;
-
-                default:
-                    return;
-            }
-        }
-
-        private static void AssertContainsNoVarVariantField (IReadOnlyList<UcliOperationInputContract>? inputs)
-        {
-            if (inputs == null)
-            {
-                return;
-            }
-
-            for (var inputIndex = 0; inputIndex < inputs.Count; inputIndex++)
-            {
-                var variants = inputs[inputIndex].Variants;
-                if (variants == null)
+                foreach (var item in schemaNode.EnumerateArray())
                 {
-                    continue;
+                    if (SchemaDeclaresProperty(item, propertyName))
+                    {
+                        return true;
+                    }
                 }
 
-                for (var variantIndex = 0; variantIndex < variants.Count; variantIndex++)
-                {
-                    var fields = variants[variantIndex].Fields;
-                    if (fields == null)
-                    {
-                        continue;
-                    }
-
-                    for (var fieldIndex = 0; fieldIndex < fields.Count; fieldIndex++)
-                    {
-                        Assert.That(fields[fieldIndex].Name, Is.Not.EqualTo("var"));
-                        Assert.That(fields[fieldIndex].ArgsPath, Does.Not.EndWith(".var"));
-                    }
-                }
+                return false;
             }
-        }
 
-        private static void AssertContainsNoUnsupportedSchemaKeyword (JsonElement element)
-        {
-            AssertContainsOnlySupportedSchemaKeywords(element);
-        }
+            if (schemaNode.ValueKind != JsonValueKind.Object)
+            {
+                return false;
+            }
 
-        private static void AssertContainsOnlySupportedSchemaKeywords (JsonElement schemaNode)
-        {
-            Assert.That(schemaNode.ValueKind, Is.EqualTo(JsonValueKind.Object));
             foreach (var property in schemaNode.EnumerateObject())
             {
-                Assert.That(IsSupportedSchemaKeyword(property.Name), Is.True, $"Unsupported schema keyword: {property.Name}");
-                switch (property.Name)
+                if (property.NameEquals("properties")
+                    && property.Value.ValueKind == JsonValueKind.Object
+                    && property.Value.TryGetProperty(propertyName, out _))
                 {
-                    case "properties":
-                    case "$defs":
-                        AssertSchemaMapUsesSupportedKeywords(property.Value);
-                        break;
+                    return true;
+                }
 
-                    case "items":
-                        AssertContainsOnlySupportedSchemaKeywords(property.Value);
-                        break;
+                if (SchemaDeclaresProperty(property.Value, propertyName))
+                {
+                    return true;
                 }
             }
-        }
 
-        private static void AssertSchemaMapUsesSupportedKeywords (JsonElement mapElement)
-        {
-            Assert.That(mapElement.ValueKind, Is.EqualTo(JsonValueKind.Object));
-            foreach (var entry in mapElement.EnumerateObject())
-            {
-                AssertContainsOnlySupportedSchemaKeywords(entry.Value);
-            }
-        }
-
-        private static bool IsSupportedSchemaKeyword (string keyword)
-        {
-            switch (keyword)
-            {
-                case "type":
-                case "properties":
-                case "required":
-                case "additionalProperties":
-                case "items":
-                case "$ref":
-                case "$defs":
-                    return true;
-
-                default:
-                    return false;
-            }
+            return false;
         }
 
         private static UcliOperationAssuranceContract CreateValidationOnlyAssurance ()
@@ -1374,14 +959,5 @@ namespace MackySoft.Ucli.Unity.Tests
                 dangerousNotes: new[] { "Changes Play Mode runtime state and is not persisted." });
         }
 
-        private static UcliOperationDescribeContract CreateDescribeContract (string operationName)
-        {
-            return new UcliOperationDescribeContract(
-                $"{operationName} test operation.",
-                Array.Empty<UcliOperationInputContract>(),
-                UcliOperationResultContract.NoResult("This test operation does not emit operation-specific result data."),
-                CreateValidationOnlyAssurance(),
-                codeContract: null);
-        }
     }
 }

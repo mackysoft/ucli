@@ -5,6 +5,7 @@
   "exitCode": 3,
   "message": "Static validation failed.",
   "payload": {
+    "payloadKind": "detailed",
     "project": {
       "projectPath": "<projectPath>",
       "projectFingerprint": "<projectFingerprint>",
@@ -22,8 +23,8 @@
   "errors": [
     {
       "code": "OPERATION_ARGS_INVALID",
-      "message": "Step \u0027step-1\u0027 args for operation \u0027ucli.go.describe\u0027 are invalid. Property \u0027args.path\u0027 is required.",
-      "opId": "step-1"
+      "message": "Arguments for operation \u0027ucli.go.describe\u0027 do not satisfy its JSON Schema.",
+      "instancePath": "/steps/0/args"
     }
   ]
 }

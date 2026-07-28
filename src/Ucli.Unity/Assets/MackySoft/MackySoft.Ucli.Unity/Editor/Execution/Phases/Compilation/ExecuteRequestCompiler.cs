@@ -55,10 +55,16 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             compiledStep = default!;
             operations = Array.Empty<NormalizedOperation>();
             diagnostics = Array.Empty<OperationDiagnostic>();
+            var instancePath = GetStepInstancePath(step.Id);
 
             if (step.Kind == IpcExecuteStepKind.Op)
             {
-                if (!RawOperationPlayModeSupportValidator.TryValidate(operationRegistry, step, allowPlayMode, out error))
+                if (!RawOperationPlayModeSupportValidator.TryValidate(
+                        operationRegistry,
+                        step,
+                        instancePath,
+                        allowPlayMode,
+                        out error))
                 {
                     return false;
                 }
@@ -72,34 +78,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             error = ExecuteRequestNormalizationError.InvalidArgument(
-                message: $"Step '{step.Id}' has unsupported kind.",
-                opId: step.Id);
+                message: $"Request step at '{instancePath}' has unsupported kind.",
+                instancePath);
             return false;
-        }
-
-        private static bool TryValidateOpStep (
-            IpcExecuteStepContract step,
-            out ExecuteRequestNormalizationError error)
-        {
-            if (step.OperationName == null)
-            {
-                error = ExecuteRequestNormalizationError.InvalidArgument(
-                    message: "Step operation name is required.",
-                    opId: step.Id);
-                return false;
-            }
-
-            if (!step.Element.TryGetProperty("args", out var argsElement)
-                || argsElement.ValueKind != JsonValueKind.Object)
-            {
-                error = ExecuteRequestNormalizationError.InvalidArgument(
-                    message: $"Step '{step.Id}' property 'args' must be an object.",
-                    opId: step.Id);
-                return false;
-            }
-
-            error = default!;
-            return true;
         }
 
         private static bool TryCompileOpStep (
@@ -110,17 +91,19 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         {
             compiledStep = default!;
             operations = Array.Empty<NormalizedOperation>();
-            if (!TryValidateOpStep(step, out error))
+            var operationName = step.OperationName
+                ?? throw new InvalidOperationException("A normalized operation step has no operation name.");
+            if (step.OperationArgs.ValueKind != JsonValueKind.Object)
             {
-                return false;
+                throw new InvalidOperationException("A normalized operation step has no argument object.");
             }
 
             operations = new[]
             {
                 new NormalizedOperation(
-                    ExecutionKey: OperationExecutionKey.ForRawStep(step.Id!),
-                    Op: step.OperationName!,
-                    Args: step.Element.GetProperty("args").Clone(),
+                    ExecutionKey: OperationExecutionKey.ForRawStep(step.Id),
+                    Op: operationName,
+                    Args: step.OperationArgs.Clone(),
                     As: null,
                     Expect: null,
                     AliasReferences: OperationAliasReferenceMap.Empty,
@@ -128,12 +111,12 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     AllowExplicitPrefabAssetMutation: false),
             };
             compiledStep = new NormalizedRequestStep(
-                Id: step.Id!,
+                Id: step.Id,
                 Kind: IpcExecuteStepKind.Op,
-                OperationName: step.OperationName!,
+                OperationName: operationName,
                 PrimitiveCount: operations.Count)
             {
-                PostReadSourceStep = CreateOperationPostReadSourceStep(step.Id!, step.OperationName!),
+                PostReadSourceStep = CreateOperationPostReadSourceStep(operationName),
             };
             error = default!;
             return true;
@@ -151,13 +134,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             compiledStep = default!;
             operations = Array.Empty<NormalizedOperation>();
             diagnostics = Array.Empty<OperationDiagnostic>();
-            if (!IpcEditStepContractReader.TryRead(step.Element, out var editStep, out var editErrorMessage))
-            {
-                error = ExecuteRequestNormalizationError.InvalidArgument(
-                    message: editErrorMessage,
-                    opId: step.Id);
-                return false;
-            }
+            var editStep = step.EditContract
+                ?? throw new InvalidOperationException("A normalized edit step has no execution model.");
 
             var stepOperations = new List<NormalizedOperation>(editStep.Actions.Count + 4);
             var shouldReleaseImplicitExecutionContextOnNoTargets =
@@ -224,14 +202,12 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         }
 
         private static IpcExecutePostReadSourceStep CreateOperationPostReadSourceStep (
-            IpcExecuteStepId opId,
             string operationName)
         {
             var sourceKind = string.Equals(operationName, UcliPrimitiveOperationNames.ProjectRefresh, StringComparison.Ordinal)
                 ? IpcExecutePostReadSourceKind.Refresh
                 : IpcExecutePostReadSourceKind.Operation;
             return new IpcExecutePostReadSourceStep(
-                OpId: opId,
                 SourceKind: sourceKind,
                 PlayModeMutation: false,
                 Commit: null,
@@ -247,7 +223,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 && editStep.Context.Kind == IpcEditStepContract.ContextKind.Scene;
             var persistenceExpected = IsPersistenceExpected(editStep);
             return new IpcExecutePostReadSourceStep(
-                OpId: editStep.Id,
                 SourceKind: IpcExecutePostReadSourceKind.Edit,
                 PlayModeMutation: isPlayModeSceneMutation,
                 Commit: MapPostReadCommit(editStep.Commit),
@@ -318,8 +293,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     }
 
                     error = ExecuteRequestNormalizationError.InvalidArgument(
-                        $"Edit step '{step.Id}' mutates scene context '{step.Context.Path}', but the scene is not loaded. Add 'ucli.scene.open' before this step.",
-                        step.Id);
+                        $"Edit step mutates scene context '{step.Context.Path}', but the scene is not loaded. Add 'ucli.scene.open' before this step.",
+                        GetStepInstancePath(step.Id));
                     return false;
 
                 case IpcEditStepContract.ContextKind.Prefab:
@@ -335,8 +310,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     }
 
                     error = ExecuteRequestNormalizationError.InvalidArgument(
-                        $"Edit step '{step.Id}' mutates prefab context '{step.Context.Path}', but the prefab is not opened. Add 'ucli.prefab.open' before this step.",
-                        step.Id);
+                        $"Edit step mutates prefab context '{step.Context.Path}', but the prefab is not opened. Add 'ucli.prefab.open' before this step.",
+                        GetStepInstancePath(step.Id));
                     return false;
 
                 default:
@@ -400,8 +375,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     }
 
                     error = ExecuteRequestNormalizationError.InvalidArgument(
-                        $"Edit step '{step.Id}' saves scene context '{step.Context.Path}', but the scene is not loaded. Add 'ucli.scene.open' before this step.",
-                        step.Id);
+                        $"Edit step saves scene context '{step.Context.Path}', but the scene is not loaded. Add 'ucli.scene.open' before this step.",
+                        GetStepInstancePath(step.Id));
                     return false;
 
                 case UcliPrimitiveOperationNames.PrefabSave:
@@ -417,8 +392,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     }
 
                     error = ExecuteRequestNormalizationError.InvalidArgument(
-                        $"Edit step '{step.Id}' saves prefab context '{step.Context.Path}', but the prefab is not opened. Add 'ucli.prefab.open' before this step.",
-                        step.Id);
+                        $"Edit step saves prefab context '{step.Context.Path}', but the prefab is not opened. Add 'ucli.prefab.open' before this step.",
+                        GetStepInstancePath(step.Id));
                     return false;
 
                 default:
@@ -451,7 +426,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                         return true;
                     }
 
-                    error = ExecuteRequestNormalizationError.InvalidArgument(sceneErrorMessage, step.Id);
+                    error = ExecuteRequestNormalizationError.InvalidArgument(
+                        sceneErrorMessage,
+                        GetStepInstancePath(step.Id));
                     return false;
 
                 case IpcEditStepContract.ContextKind.Prefab:
@@ -460,7 +437,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                         return true;
                     }
 
-                    error = ExecuteRequestNormalizationError.InvalidArgument(prefabErrorMessage, step.Id);
+                    error = ExecuteRequestNormalizationError.InvalidArgument(
+                        prefabErrorMessage,
+                        GetStepInstancePath(step.Id));
                     return false;
 
                 default:
@@ -488,7 +467,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             {
                 if (!TryCreateSceneQueryArguments(step, out var queryArguments, out var errorMessage))
                 {
-                    error = ExecuteRequestNormalizationError.InvalidArgument(errorMessage, step.Id);
+                    error = ExecuteRequestNormalizationError.InvalidArgument(
+                        errorMessage,
+                        GetStepInstancePath(step.Id));
                     return false;
                 }
 
@@ -501,7 +482,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                         out diagnostics,
                         out errorMessage))
                 {
-                    error = ExecuteRequestNormalizationError.InvalidArgument(errorMessage, step.Id);
+                    error = ExecuteRequestNormalizationError.InvalidArgument(
+                        errorMessage,
+                        GetStepInstancePath(step.Id));
                     return false;
                 }
 
@@ -512,7 +495,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 }
             }
 
-            if (!TryApplyCardinality(step.Id, step.Selection.Cardinality, selectedTargets, out error))
+            if (!TryApplyCardinality(
+                    GetStepInstancePath(step.Id),
+                    step.Selection.Cardinality,
+                    selectedTargets,
+                    out error))
             {
                 return false;
             }
@@ -537,16 +524,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            if (!IpcSceneQueryArgsContractReader.TryReadForEditSelection(step.Selection.SourceArgs, out var parsedArgs, out errorMessage))
-            {
-                return false;
-            }
-
             UnityComponentTypeId? componentTypeId = null;
             Type? componentRuntimeType = null;
-            if (parsedArgs.ComponentType != null)
+            if (step.Selection.SourceComponentType != null)
             {
-                componentTypeId = new UnityComponentTypeId(parsedArgs.ComponentType);
+                componentTypeId = new UnityComponentTypeId(step.Selection.SourceComponentType);
                 if (!ComponentTypeResolver.TryResolveComponentType(componentTypeId.Value, out componentRuntimeType, out errorMessage))
                 {
                     return false;
@@ -554,7 +536,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             queryArguments = new SceneQuerySelectionEngine.QueryArguments(
-                parsedArgs.PathPrefix,
+                step.Selection.SourcePathPrefix,
                 componentTypeId,
                 componentRuntimeType);
             errorMessage = string.Empty;
@@ -569,13 +551,17 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         {
             if (!TryBuildDirectSelectionTarget(step, out var target, out var errorMessage))
             {
-                error = ExecuteRequestNormalizationError.InvalidArgument(errorMessage, step.Id);
+                error = ExecuteRequestNormalizationError.InvalidArgument(
+                    errorMessage,
+                    GetStepInstancePath(step.Id));
                 return false;
             }
 
             if (!TryResolveDirectSelectionTargetPresence(target, executionContext, out var hasMatch, out errorMessage))
             {
-                error = ExecuteRequestNormalizationError.InvalidArgument(errorMessage, step.Id);
+                error = ExecuteRequestNormalizationError.InvalidArgument(
+                    errorMessage,
+                    GetStepInstancePath(step.Id));
                 return false;
             }
 
@@ -629,7 +615,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         }
 
         private static bool TryApplyCardinality (
-            IpcExecuteStepId stepId,
+            string instancePath,
             IpcEditStepContract.CardinalityKind cardinality,
             List<SelectionTarget> selectedTargets,
             out ExecuteRequestNormalizationError error)
@@ -640,8 +626,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     if (selectedTargets.Count != 1)
                     {
                         error = ExecuteRequestNormalizationError.InvalidArgument(
-                            $"Edit step '{stepId}' cardinality 'one' requires exactly one target.",
-                            stepId);
+                            "Edit step cardinality 'one' requires exactly one target.",
+                            instancePath);
                         return false;
                     }
 
@@ -651,8 +637,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     if (selectedTargets.Count == 0)
                     {
                         error = ExecuteRequestNormalizationError.InvalidArgument(
-                            $"Edit step '{stepId}' cardinality 'first' requires at least one target.",
-                            stepId);
+                            "Edit step cardinality 'first' requires at least one target.",
+                            instancePath);
                         return false;
                     }
 
@@ -663,8 +649,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     if (selectedTargets.Count > 1)
                     {
                         error = ExecuteRequestNormalizationError.InvalidArgument(
-                            $"Edit step '{stepId}' cardinality 'atMostOne' requires zero or one target.",
-                            stepId);
+                            "Edit step cardinality 'atMostOne' requires zero or one target.",
+                            instancePath);
                         return false;
                     }
 
@@ -696,8 +682,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 }
 
                 error = ExecuteRequestNormalizationError.InvalidArgument(
-                    $"Edit step '{step.Id}' action '{TextVocabulary.GetText(actionKind)}' requires the selection to resolve to at most one target.",
-                    step.Id);
+                    $"Edit action '{TextVocabulary.GetText(actionKind)}' requires the selection to resolve to at most one target.",
+                    GetStepInstancePath(step.Id));
                 return false;
             }
 
@@ -777,7 +763,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 default:
                     error = ExecuteRequestNormalizationError.InvalidArgument(
                         $"Unsupported edit action kind '{action.Kind}'.",
-                        step.Id);
+                        GetStepInstancePath(step.Id));
                     return false;
             }
         }
@@ -806,7 +792,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             {
                 error = ExecuteRequestNormalizationError.InvalidArgument(
                     errorMessage,
-                    step.Id);
+                    GetStepInstancePath(step.Id));
                 return false;
             }
 
@@ -850,7 +836,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             {
                 error = ExecuteRequestNormalizationError.InvalidArgument(
                     errorMessage,
-                    step.Id);
+                    GetStepInstancePath(step.Id));
                 return false;
             }
 
@@ -899,7 +885,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             {
                 error = ExecuteRequestNormalizationError.InvalidArgument(
                     errorMessage,
-                    step.Id);
+                    GetStepInstancePath(step.Id));
                 return false;
             }
 
@@ -944,7 +930,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             {
                 error = ExecuteRequestNormalizationError.InvalidArgument(
                     errorMessage,
-                    step.Id);
+                    GetStepInstancePath(step.Id));
                 return false;
             }
 
@@ -985,7 +971,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             {
                 error = ExecuteRequestNormalizationError.InvalidArgument(
                     errorMessage,
-                    step.Id);
+                    GetStepInstancePath(step.Id));
                 return false;
             }
 
@@ -1029,7 +1015,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             {
                 error = ExecuteRequestNormalizationError.InvalidArgument(
                     errorMessage,
-                    step.Id);
+                    GetStepInstancePath(step.Id));
                 return false;
             }
 
@@ -1072,7 +1058,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             {
                 error = ExecuteRequestNormalizationError.InvalidArgument(
                     errorMessage,
-                    step.Id);
+                    GetStepInstancePath(step.Id));
                 return false;
             }
 
@@ -1120,7 +1106,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             {
                 error = ExecuteRequestNormalizationError.InvalidArgument(
                     errorMessage,
-                    step.Id);
+                    GetStepInstancePath(step.Id));
                 return false;
             }
 
@@ -1297,7 +1283,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             {
                 error = ExecuteRequestNormalizationError.InvalidArgument(
                     $"Edit action target binding was not found: {targetLiteral}.",
-                    step.Id);
+                    GetStepInstancePath(step.Id));
                 return false;
             }
 
@@ -1319,7 +1305,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 {
                     error = ExecuteRequestNormalizationError.InvalidArgument(
                         $"Edit action parent binding was not found: {parentLiteral}.",
-                        step.Id);
+                        GetStepInstancePath(step.Id));
                     return false;
                 }
 
@@ -1331,7 +1317,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             {
                 error = ExecuteRequestNormalizationError.InvalidArgument(
                     "Edit action 'reparent' can use direct parent paths only in scene or prefab context.",
-                    step.Id);
+                    GetStepInstancePath(step.Id));
                 target = default;
                 return false;
             }
@@ -1425,28 +1411,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         private static JsonElement CreateAliasReference (UcliPlanAlias alias)
         {
-            using var stream = new MemoryStream();
-            using (var writer = new Utf8JsonWriter(stream))
-            {
-                writer.WriteStartObject();
-                writer.WriteString("var", alias.Value);
-                writer.WriteEndObject();
-            }
-
-            return ParseElement(stream);
+            return IpcPayloadCodec.SerializeToElement<UnityObjectReferenceArgs>(
+                new UcliAliasReferenceArgs(alias));
         }
 
         private static JsonElement CreateAssetPathSelector (string assetPath)
         {
-            using var stream = new MemoryStream();
-            using (var writer = new Utf8JsonWriter(stream))
-            {
-                writer.WriteStartObject();
-                writer.WriteString("assetPath", assetPath);
-                writer.WriteEndObject();
-            }
-
-            return ParseElement(stream);
+            return IpcPayloadCodec.SerializeToElement<UnityObjectReferenceArgs>(
+                new AssetPathReferenceArgs(new UnityAssetPath(assetPath)));
         }
 
         private static JsonElement CreateAssetSaveArgs (JsonElement targetReference)
@@ -1465,15 +1437,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         private static JsonElement CreateProjectAssetPathSelector (string assetPath)
         {
-            using var stream = new MemoryStream();
-            using (var writer = new Utf8JsonWriter(stream))
-            {
-                writer.WriteStartObject();
-                writer.WriteString("projectAssetPath", assetPath);
-                writer.WriteEndObject();
-            }
-
-            return ParseElement(stream);
+            return IpcPayloadCodec.SerializeToElement<UnityObjectReferenceArgs>(
+                new ProjectAssetPathReferenceArgs(new ProjectSettingsAssetPath(assetPath)));
         }
 
         /// <summary>
@@ -1488,21 +1453,12 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             string hierarchyPath,
             string? componentType)
         {
-            using var stream = new MemoryStream();
-            using (var writer = new Utf8JsonWriter(stream))
-            {
-                writer.WriteStartObject();
-                writer.WriteString("scene", scenePath);
-                writer.WriteString("hierarchyPath", hierarchyPath);
-                if (!string.IsNullOrWhiteSpace(componentType))
-                {
-                    writer.WriteString("componentType", componentType);
-                }
-
-                writer.WriteEndObject();
-            }
-
-            return ParseElement(stream);
+            var scene = new SceneAssetPath(scenePath);
+            var hierarchy = new UnityHierarchyPath(hierarchyPath);
+            UnityObjectReferenceArgs reference = string.IsNullOrWhiteSpace(componentType)
+                ? new SceneHierarchyReferenceArgs(scene, hierarchy)
+                : new SceneComponentReferenceArgs(scene, hierarchy, new UnityComponentTypeId(componentType));
+            return IpcPayloadCodec.SerializeToElement(reference);
         }
 
         /// <summary>
@@ -1517,21 +1473,12 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             string hierarchyPath,
             string? componentType)
         {
-            using var stream = new MemoryStream();
-            using (var writer = new Utf8JsonWriter(stream))
-            {
-                writer.WriteStartObject();
-                writer.WriteString("prefab", prefabPath);
-                writer.WriteString("hierarchyPath", hierarchyPath);
-                if (!string.IsNullOrWhiteSpace(componentType))
-                {
-                    writer.WriteString("componentType", componentType);
-                }
-
-                writer.WriteEndObject();
-            }
-
-            return ParseElement(stream);
+            var prefab = new PrefabAssetPath(prefabPath);
+            var hierarchy = new UnityHierarchyPath(hierarchyPath);
+            UnityObjectReferenceArgs reference = string.IsNullOrWhiteSpace(componentType)
+                ? new PrefabHierarchyReferenceArgs(prefab, hierarchy)
+                : new PrefabComponentReferenceArgs(prefab, hierarchy, new UnityComponentTypeId(componentType));
+            return IpcPayloadCodec.SerializeToElement(reference);
         }
 
         private static JsonElement CreateSetArgs (
@@ -1624,17 +1571,17 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             string name,
             JsonElement parentReference)
         {
-            using var stream = new MemoryStream();
-            using (var writer = new Utf8JsonWriter(stream))
+            if (!IpcPayloadCodec.TryDeserializeStrict(
+                    parentReference,
+                    out GameObjectReferenceArgs parent,
+                    out var readError))
             {
-                writer.WriteStartObject();
-                writer.WriteString("name", name);
-                writer.WritePropertyName("parent");
-                parentReference.WriteTo(writer);
-                writer.WriteEndObject();
+                throw new InvalidOperationException(
+                    $"Compiled parent reference does not match the GameObject reference contract. {readError.Message}");
             }
 
-            return ParseElement(stream);
+            return IpcPayloadCodec.SerializeToElement<GoCreateArgs>(
+                new GoCreateUnderParentArgs(name, parent));
         }
 
         private static JsonElement CreateAssetCreateArgs (
@@ -1700,6 +1647,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             return ParseElement(stream);
+        }
+
+        private static string GetStepInstancePath (IpcExecuteStepId stepId)
+        {
+            return $"/steps/{stepId.Value}";
         }
 
         private static JsonElement ParseElement (MemoryStream stream)

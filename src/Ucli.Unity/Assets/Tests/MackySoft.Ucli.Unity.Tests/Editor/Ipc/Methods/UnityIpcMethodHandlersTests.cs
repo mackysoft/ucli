@@ -9,9 +9,11 @@ using Cysharp.Threading.Tasks;
 using MackySoft.Text.Vocabularies;
 using TextVocabulary = MackySoft.Text.Vocabularies.Vocabulary;
 using MackySoft.Ucli.Contracts;
+using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Operations;
 using MackySoft.Ucli.Contracts.Testing;
 using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Infrastructure.Ipc;
@@ -512,7 +514,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(IpcPayloadCodec.TryDeserialize(response.Payload, out IpcOpsReadResponse payload, out _), Is.True);
             Assert.That(payload.Operations.Select(static operation => operation.Name), Does.Contain(UcliPrimitiveOperationNames.AssetSave));
             var assetSave = payload.Operations.Single(static operation => operation.Name == UcliPrimitiveOperationNames.AssetSave);
-            Assert.That(assetSave.Exposure, Is.EqualTo("editLoweringOnly"));
+            Assert.That(assetSave.Exposure, Is.EqualTo(UcliOperationExposure.EditLoweringOnly));
         });
 
         [UnityTest]
@@ -2002,29 +2004,44 @@ namespace MackySoft.Ucli.Unity.Tests
                         GeneratedAtUtc: DateTimeOffset.Parse("2026-03-08T00:00:00+00:00"),
                         Operations: new[]
                         {
-                            new IndexOpEntryJsonContract(
-                                Name: UcliPrimitiveOperationNames.GoDescribe,
-                                Kind: "query",
-                                Policy: "safe",
-                                ArgsSchemaJson: "{\"type\":\"object\"}"),
+                            CreateOpsReadEntry<GoDescribeArgs>(
+                                UcliPrimitiveOperationNames.GoDescribe,
+                                UcliOperationKind.Query,
+                                OperationPolicy.Safe),
                         }),
                     new IpcOpsReadResponse(
                         GeneratedAtUtc: DateTimeOffset.Parse("2026-03-08T00:00:00+00:00"),
                         Operations: new[]
                         {
-                            new IndexOpEntryJsonContract(
-                                Name: UcliPrimitiveOperationNames.GoDescribe,
-                                Kind: "query",
-                                Policy: "safe",
-                                ArgsSchemaJson: "{\"type\":\"object\"}"),
-                            new IndexOpEntryJsonContract(
-                                Name: UcliPrimitiveOperationNames.AssetSave,
-                                Kind: "mutation",
-                                Policy: "advanced",
-                                ArgsSchemaJson: "{\"type\":\"object\"}",
-                                Exposure: "editLoweringOnly"),
+                            CreateOpsReadEntry<GoDescribeArgs>(
+                                UcliPrimitiveOperationNames.GoDescribe,
+                                UcliOperationKind.Query,
+                                OperationPolicy.Safe),
+                            CreateOpsReadEntry<AssetSaveArgs>(
+                                UcliPrimitiveOperationNames.AssetSave,
+                                UcliOperationKind.Mutation,
+                                OperationPolicy.Advanced,
+                                UcliOperationExposure.EditLoweringOnly),
                         })),
                 readinessGate);
+        }
+
+        private static IndexOpEntryJsonContract CreateOpsReadEntry<TArgs> (
+            string operationName,
+            UcliOperationKind kind,
+            OperationPolicy policy,
+            UcliOperationExposure? exposure = null)
+        {
+            var generationResult = UcliOperationJsonContractGenerator.Generate(
+                operationName,
+                IpcJsonSerializerOptions.PublicRawOperationContracts.GetTypeInfo(typeof(TArgs)),
+                resultTypeInfo: null);
+            return new IndexOpEntryJsonContract(
+                operationName,
+                kind,
+                policy,
+                generationResult.ArgsContract,
+                Exposure: exposure);
         }
 
         private static TestRunUnityIpcMethodHandler CreateTestRunHandler (IUnityTestRunService testRunService)

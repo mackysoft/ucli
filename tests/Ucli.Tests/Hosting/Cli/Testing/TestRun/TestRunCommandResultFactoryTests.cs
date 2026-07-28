@@ -1,15 +1,12 @@
 using System.Text.Json;
 using MackySoft.FileSystem;
-using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 using MackySoft.Ucli.Contracts.Storage;
-using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 using MackySoft.Ucli.Hosting.Cli.Testing;
 
 namespace MackySoft.Ucli.Tests;
 
 public sealed class TestRunCommandResultFactoryTests
 {
-    private static readonly CommandResultJsonContractWriter ResultWriter = new();
     private static readonly AbsolutePath ArtifactsDirectory = AbsolutePath.Parse(
         Path.Combine(Path.GetTempPath(), "ucli-test-run-result-factory", "artifacts"));
     private static readonly AbsolutePath SummaryJsonPath = AbsolutePath.Resolve(
@@ -35,11 +32,9 @@ public sealed class TestRunCommandResultFactoryTests
         Assert.Equal(serviceResult.Message, result.Message);
         Assert.Empty(result.Errors);
 
-        using var json = JsonDocument.Parse(ResultWriter.Write(result));
-        var payload = json.RootElement.GetProperty("payload");
+        var payload = SerializePayload(result);
         JsonAssert.For(payload)
             .HasString("result", "fail")
-            .IsNull("errorKind")
             .HasString("runId", RunIdTestValues.TestText)
             .HasString("artifactsDir", ArtifactsDirectory.Value)
             .HasString("summaryJsonPath", SummaryJsonPath.Value);
@@ -67,12 +62,10 @@ public sealed class TestRunCommandResultFactoryTests
         Assert.Single(result.Errors);
         Assert.Equal(errorCode, result.Errors[0].Code);
         Assert.Equal(message, result.Errors[0].Message);
-        Assert.Null(result.Errors[0].OpId);
+        Assert.Null(result.Errors[0].InstancePath);
 
-        using var json = JsonDocument.Parse(ResultWriter.Write(result));
-        var payload = json.RootElement.GetProperty("payload");
+        var payload = SerializePayload(result);
         JsonAssert.For(payload)
-            .IsNull("result")
             .HasString("errorKind", "toolError")
             .HasString("runId", RunIdTestValues.TestText)
             .HasString("artifactsDir", ArtifactsDirectory.Value)
@@ -99,10 +92,8 @@ public sealed class TestRunCommandResultFactoryTests
         Assert.Equal(DaemonErrorCodes.DaemonStartupBlocked, result.Errors[0].Code);
         Assert.NotNull(serviceResult.Failure!.StartupFailure);
 
-        using var json = JsonDocument.Parse(ResultWriter.Write(result));
-        var payload = json.RootElement.GetProperty("payload");
+        var payload = SerializePayload(result);
         JsonAssert.For(payload)
-            .IsNull("result")
             .HasString("errorKind", "toolError")
             .HasProperty("startup", startup => startup
                 .HasString("startupStatus", "blocked")
@@ -142,10 +133,8 @@ public sealed class TestRunCommandResultFactoryTests
         Assert.Equal(UcliCoreErrorCodes.InvalidArgument, error.Code);
         Assert.Equal(message, error.Message);
 
-        using var json = JsonDocument.Parse(ResultWriter.Write(result));
-        var payload = json.RootElement.GetProperty("payload");
+        var payload = SerializePayload(result);
         JsonAssert.For(payload)
-            .IsNull("result")
             .HasString("errorKind", "infraError")
             .HasString("runId", RunIdTestValues.TestText)
             .HasString("artifactsDir", ArtifactsDirectory.Value)
@@ -184,5 +173,12 @@ public sealed class TestRunCommandResultFactoryTests
                 PrimaryDiagnostic: null),
             RetryDisposition: DaemonStartupRetryDisposition.RetryAfterFix,
             SafeToRetryImmediately: false);
+    }
+
+    private static JsonElement SerializePayload (CommandResult result)
+    {
+        return JsonSerializer.SerializeToElement(
+            result.Payload,
+            CliOutputJsonSerializerOptions.Default);
     }
 }

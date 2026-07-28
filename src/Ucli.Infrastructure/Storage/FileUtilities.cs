@@ -190,6 +190,32 @@ public static class FileUtilities
             FileOptions.Asynchronous | FileOptions.SequentialScan);
     }
 
+    /// <summary> Gets whether a regular filesystem entry currently exists at one guarded file path. </summary>
+    internal static bool FileExists (AbsolutePath path)
+    {
+        if (path == null)
+        {
+            throw new ArgumentNullException(nameof(path));
+        }
+        return File.Exists(path.Value);
+    }
+
+    /// <summary> Writes exact bytes to one guarded file path. </summary>
+    internal static void WriteAllBytes (
+        AbsolutePath path,
+        byte[] contents)
+    {
+        if (path == null)
+        {
+            throw new ArgumentNullException(nameof(path));
+        }
+        if (contents == null)
+        {
+            throw new ArgumentNullException(nameof(contents));
+        }
+        File.WriteAllBytes(path.Value, contents);
+    }
+
     /// <summary> Writes text atomically to one guarded target file path. </summary>
     internal static async ValueTask WriteAllTextAtomicallyAsync (
         AbsolutePath path,

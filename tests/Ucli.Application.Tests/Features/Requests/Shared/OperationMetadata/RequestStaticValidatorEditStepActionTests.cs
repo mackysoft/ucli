@@ -14,16 +14,17 @@ public sealed class RequestStaticValidatorEditStepActionTests
             steps:
             [
                 CreateEditStep(
-                    stepId: "edit-1",
+                    stepIndex: 0,
                     """
                     {
                       "kind": "edit",
-                      "id": "edit-1",
                       "on": {
-                        "scene": "Assets/Scenes/Main.unity"
+                        "kind": "scene",
+                        "path": "Assets/Scenes/Main.unity"
                       },
                       "select": {
-                        "gameObject": "Root/Spawner",
+                        "kind": "gameObject",
+                        "path": "Root/Spawner",
                         "cardinality": "one"
                       },
                       "actions": [
@@ -61,16 +62,17 @@ public sealed class RequestStaticValidatorEditStepActionTests
             steps:
             [
                 CreateEditStep(
-                    stepId: "edit-prefab-create-prefab",
+                    stepIndex: 0,
                     """
                     {
                       "kind": "edit",
-                      "id": "edit-prefab-create-prefab",
                       "on": {
-                        "prefab": "Assets/Prefabs/Enemy.prefab"
+                        "kind": "prefab",
+                        "path": "Assets/Prefabs/Enemy.prefab"
                       },
                       "select": {
-                        "gameObject": "Enemy",
+                        "kind": "gameObject",
+                        "path": "Enemy",
                         "cardinality": "one"
                       },
                       "actions": [

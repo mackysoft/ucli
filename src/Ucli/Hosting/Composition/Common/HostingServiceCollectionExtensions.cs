@@ -8,6 +8,7 @@ using MackySoft.Ucli.Hosting.Cli.Requests.Call.Preflight;
 using MackySoft.Ucli.Hosting.Cli.Requests.Eval.Input;
 using MackySoft.Ucli.Hosting.Cli.Requests.Input;
 using MackySoft.Ucli.Hosting.Cli.Requests.Plan.Preflight;
+using MackySoft.Ucli.Hosting.Cli.Schemas;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace MackySoft.Ucli.Hosting.Composition.Common;
@@ -26,6 +27,8 @@ internal static class HostingServiceCollectionExtensions
         services.AddSingleton<IRequestInputReader, RequestInputReader>();
         services.AddSingleton<IJsonContractWriter<CommandResult>, CommandResultJsonContractWriter>();
         services.AddSingleton<ICommandResultWriter, CommandResultWriter>();
+        services.AddSingleton<IInstalledStaticSchemaSetProvider>(
+            static _ => InstalledStaticSchemaSetProvider.CreateForRunningApplication());
         services.AddSingleton<CliStreamEntryWriterFactory>();
         services.AddSingleton<IUserRequestJsonNormalizer, UserRequestJsonNormalizer>();
         services.AddSingleton<IEvalSourceInputReader, EvalSourceInputReader>();

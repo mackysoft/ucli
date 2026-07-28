@@ -34,7 +34,7 @@ public sealed class ValidateRequestJsonParserRequestShapeTests
               "requestId": "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62"
             """);
 
-        ValidateRequestJsonParserTestSupport.AssertInvalidArgument(requestJson, "unknown", "requestId");
+        ValidateRequestJsonParserTestSupport.AssertInvalidArgument(requestJson, "requestId");
     }
 
     [Fact]
@@ -57,6 +57,6 @@ public sealed class ValidateRequestJsonParserRequestShapeTests
             }
             """;
 
-        ValidateRequestJsonParserTestSupport.AssertInvalidArgument(requestJson, "protocolVersion", "integer");
+        ValidateRequestJsonParserTestSupport.AssertInvalidArgument(requestJson, "protocolVersion");
     }
 }

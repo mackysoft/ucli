@@ -13,7 +13,6 @@ using MackySoft.Ucli.Application.Shared.Execution.UnityRequest;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.Authorization;
-using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Infrastructure.Execution;
 using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.Infrastructure.Storage;
@@ -31,12 +30,6 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
     private const string CleanupShutdownRequestedBy = "ucli-oneshot-cleanup";
     private const string ForceKillExitUnconfirmedDiagnostic =
         "Unity oneshot process could not be confirmed stopped after forced termination.";
-
-    private delegate ValueTask<IpcResponse> SendPreparedIpcRequestAsync (
-        ResolvedUnityProjectContext unityProject,
-        IpcRequestEnvelope request,
-        TimeSpan timeout,
-        CancellationToken cancellationToken);
 
     private static readonly TimeSpan StartupRetryDelay = TimeSpan.FromMilliseconds(50);
 
@@ -144,7 +137,12 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
         UnityIpcDispatchRequest dispatchRequest,
         ExecutionDeadline deadline,
         IpcResponseMode responseMode,
-        SendPreparedIpcRequestAsync sendPreparedRequestAsync,
+        Func<
+            ResolvedUnityProjectContext,
+            IpcRequestEnvelope,
+            TimeSpan,
+            CancellationToken,
+            ValueTask<IpcResponse>> sendPreparedRequestAsync,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(unityProject);

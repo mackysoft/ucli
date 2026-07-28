@@ -1,9 +1,11 @@
 using System.Text.Json.Serialization;
 using MackySoft.Ucli.Contracts.Operations;
 
+using MackySoft.JsonSchema.Generation.Annotations;
+
 namespace MackySoft.Ucli.Contracts.Ipc;
 
-[UcliDescription("Prefab path operation arguments.")]
+[Description("Prefab path operation arguments.")]
 public sealed record PrefabPathArgs
 {
     [JsonConstructor]
@@ -12,7 +14,9 @@ public sealed record PrefabPathArgs
         Path = ContractArgumentGuard.RequireNotNull(path, nameof(path));
     }
 
-    [UcliRequired]
-    [UcliInputConstraint(UcliOperationInputConstraintKind.AssetExists, AssetKind = UcliOperationAssetKind.Prefab)]
-    public PrefabAssetPath Path { get; }
+    [JsonInclude]
+    [JsonRequired]
+    [Description("Project-relative path to a Unity prefab asset.")]
+    [UcliAssetExists(UcliOperationAssetKind.Prefab)]
+    public PrefabAssetPath Path { get; private init; }
 }

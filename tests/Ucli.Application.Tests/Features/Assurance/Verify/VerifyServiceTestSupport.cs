@@ -268,7 +268,6 @@ internal static class VerifyServiceTestSupport
             },
             "opResults": [
               {
-                  "opId": "op-1",
                   "op": "{{op}}",
                   "phase": "call",
                   "applied": {{JsonSerializer.Serialize(applied)}},
@@ -288,7 +287,6 @@ internal static class VerifyServiceTestSupport
               "schemaVersion": 1,
               "steps": [
                 {
-                  "opId": "op-1",
                   "sourceKind": "{{sourceKind}}",
                   "playModeMutation": false,
                   "commit": {{commitJson}},
@@ -346,7 +344,6 @@ internal static class VerifyServiceTestSupport
             },
             "opResults": [
               {
-                "opId": "edit-1",
                 "op": "edit",
                 "phase": "call",
                 "applied": true,
@@ -355,7 +352,6 @@ internal static class VerifyServiceTestSupport
                 "diagnostics": []
               },
               {
-                "opId": "raw-1",
                 "op": "ucli.scene.open",
                 "phase": "call",
                 "applied": true,
@@ -375,7 +371,6 @@ internal static class VerifyServiceTestSupport
               "schemaVersion": 1,
               "steps": [
                 {
-                  "opId": "edit-1",
                   "sourceKind": "edit",
                   "playModeMutation": false,
                   "commit": "none",
@@ -383,7 +378,6 @@ internal static class VerifyServiceTestSupport
                   "expectedPostState": "deterministic"
                 },
                 {
-                  "opId": "raw-1",
                   "sourceKind": "operation",
                   "playModeMutation": false,
                   "commit": null,

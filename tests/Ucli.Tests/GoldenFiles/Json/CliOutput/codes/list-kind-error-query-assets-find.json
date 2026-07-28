@@ -196,12 +196,6 @@
         "summary": "An operation result violated declared assurance facts."
       },
       {
-        "code": "OPERATION_NAME_REQUIRED",
-        "kind": "error",
-        "category": "requestValidation",
-        "summary": "Operation name is missing."
-      },
-      {
         "code": "OPERATION_NOT_FOUND",
         "kind": "error",
         "category": "requestValidation",
@@ -260,36 +254,6 @@
         "kind": "error",
         "category": "session",
         "summary": "The IPC request omitted the required session token."
-      },
-      {
-        "code": "STEPS_REQUIRED",
-        "kind": "error",
-        "category": "requestValidation",
-        "summary": "steps is missing or empty."
-      },
-      {
-        "code": "STEP_ID_DUPLICATED",
-        "kind": "error",
-        "category": "requestValidation",
-        "summary": "stepId appears multiple times."
-      },
-      {
-        "code": "STEP_ID_REQUIRED",
-        "kind": "error",
-        "category": "requestValidation",
-        "summary": "stepId is missing."
-      },
-      {
-        "code": "STEP_KIND_INVALID",
-        "kind": "error",
-        "category": "requestValidation",
-        "summary": "step kind is unsupported."
-      },
-      {
-        "code": "STEP_KIND_REQUIRED",
-        "kind": "error",
-        "category": "requestValidation",
-        "summary": "step kind is missing."
       },
       {
         "code": "UNITY_PROJECT_ALREADY_OPEN",

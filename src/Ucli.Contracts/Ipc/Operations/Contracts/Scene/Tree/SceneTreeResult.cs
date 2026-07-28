@@ -1,10 +1,11 @@
 using System.Text.Json.Serialization;
 using MackySoft.Ucli.Contracts.Index;
-using MackySoft.Ucli.Contracts.Operations;
+
+using MackySoft.JsonSchema.Generation.Annotations;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
-[UcliDescription("Scene tree operation result.")]
+[Description("Scene tree operation result.")]
 public sealed record SceneTreeResult
 {
     [JsonConstructor]
@@ -20,19 +21,23 @@ public sealed record SceneTreeResult
         Window = window ?? throw new ArgumentNullException(nameof(window));
     }
 
-    [UcliRequired]
-    [UcliDescription("Scene asset path that was described.")]
-    public UnityScenePath Path { get; }
+    [JsonInclude]
+    [JsonRequired]
+    [Description("Scene asset path that was described.")]
+    public UnityScenePath Path { get; private init; }
 
-    [UcliRequired]
-    [UcliDescription("Root GameObjects in the scene.")]
-    public IReadOnlyList<IndexSceneTreeLiteNodeJsonContract> Roots { get; }
+    [JsonInclude]
+    [JsonRequired]
+    [Description("Root GameObjects in the scene.")]
+    public IReadOnlyList<IndexSceneTreeLiteNodeJsonContract> Roots { get; private init; }
 
-    [UcliRequired]
-    [UcliDescription("Source state used to build the scene tree.")]
-    public SceneTreeSourceState SourceState { get; }
+    [JsonInclude]
+    [JsonRequired]
+    [Description("Source state used to build the scene tree.")]
+    public SceneTreeSourceState SourceState { get; private init; }
 
-    [UcliRequired]
-    [UcliDescription("Bounded result window metadata.")]
-    public BoundedWindow Window { get; }
+    [JsonInclude]
+    [JsonRequired]
+    [Description("Bounded result window metadata.")]
+    public BoundedWindow Window { get; private init; }
 }

@@ -12,7 +12,7 @@ internal static class UnityRequestResponseTestFactory
         for (var i = 0; i < response.Errors.Count; i++)
         {
             var error = response.Errors[i];
-            errors[i] = new OperationExecutionError(error.Code, error.Message, error.OpId);
+            errors[i] = new OperationExecutionError(error.Code, error.Message, error.InstancePath);
         }
 
         return new UnityRequestResponse(

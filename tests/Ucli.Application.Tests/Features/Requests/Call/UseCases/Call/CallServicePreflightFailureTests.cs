@@ -25,7 +25,7 @@ public sealed class CallServicePreflightFailureTests
                 new ValidationError(
                     ValidationErrorCodes.OperationArgsInvalid,
                     "Operation args are invalid.",
-                    new IpcExecuteStepId("step-1")),
+                    "/steps/0/args"),
             ]);
         var service = CreateService(
             preflightResult,

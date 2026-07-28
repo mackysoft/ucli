@@ -90,6 +90,9 @@ internal static class UcliCommandNames
     /// <summary> Gets the top-level command name for ops. </summary>
     public const string Ops = "ops";
 
+    /// <summary> Gets the top-level command name for static schemas. </summary>
+    public const string Schema = "schema";
+
     /// <summary> Gets the top-level command name for codes. </summary>
     public const string Codes = "codes";
 
@@ -119,6 +122,15 @@ internal static class UcliCommandNames
 
     /// <summary> Gets the command name for <c>ops describe</c> result payloads. </summary>
     public const string OpsDescribe = "ops.describe";
+
+    /// <summary> Gets the command name for <c>schema list</c> result payloads. </summary>
+    public const string SchemaList = "schema.list";
+
+    /// <summary> Gets the command name for <c>schema get</c> result payloads. </summary>
+    public const string SchemaGet = "schema.get";
+
+    /// <summary> Gets the command name for <c>schema export</c> result payloads. </summary>
+    public const string SchemaExport = "schema.export";
 
     /// <summary> Gets the command name for <c>codes list</c> result payloads. </summary>
     public const string CodesList = "codes.list";
@@ -179,6 +191,9 @@ internal static class UcliCommandNames
 
     /// <summary> Gets the nested command name for <c>ops describe</c>. </summary>
     public const string DescribeSubcommand = "describe";
+
+    /// <summary> Gets the nested command name for retrieving one item. </summary>
+    public const string GetSubcommand = "get";
 
     /// <summary> Gets the nested command name for <c>skills export</c>. </summary>
     public const string ExportSubcommand = "export";

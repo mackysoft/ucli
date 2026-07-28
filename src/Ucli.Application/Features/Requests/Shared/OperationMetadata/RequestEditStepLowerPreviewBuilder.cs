@@ -1,4 +1,3 @@
-using System.Text.Json;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.ContractReading;
 
@@ -8,20 +7,21 @@ namespace MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 internal static class RequestEditStepLowerPreviewBuilder
 {
     /// <summary> Builds one referenced-operation preview for one public <c>kind:"edit"</c> step. </summary>
-    /// <param name="stepElement"> The raw edit-step JSON element. </param>
+    /// <param name="stepContract"> The validated edit execution model. </param>
     /// <param name="operationNames"> The primitive operation names referenced by the step when structural lowering succeeds. </param>
     /// <param name="errorMessage"> The structural validation error message when the step cannot be lowered. </param>
     /// <returns> <see langword="true" /> when the edit step can be structurally lowered into primitive operation names; otherwise <see langword="false" />. </returns>
     public static bool TryBuild (
-        JsonElement stepElement,
+        IpcEditStepContract? stepContract,
         bool allowPlayMode,
         out IReadOnlyList<string> operationNames,
         out string errorMessage)
     {
         operationNames = Array.Empty<string>();
         errorMessage = string.Empty;
-        if (!IpcEditStepContractReader.TryRead(stepElement, out var stepContract, out errorMessage))
+        if (stepContract == null)
         {
+            errorMessage = "The validated edit execution model is missing.";
             return false;
         }
 

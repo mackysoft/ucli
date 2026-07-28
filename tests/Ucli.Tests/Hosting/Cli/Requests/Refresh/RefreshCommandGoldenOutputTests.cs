@@ -21,7 +21,7 @@ public sealed class RefreshCommandGoldenOutputTests
                 ApplicationFailure.FromCode(
                     ExecuteRequestErrorCodes.OperationContractViolation,
                     ContractViolationMessage,
-                    new IpcExecuteStepId("refresh")),
+                    "/opResults/0"),
             ],
             ContractViolationMessage,
             contractViolations:
@@ -56,7 +56,7 @@ public sealed class RefreshCommandGoldenOutputTests
                 ApplicationFailure.FromCode(
                     ExecuteRequestErrorCodes.OperationContractViolation,
                     ContractViolationMessage,
-                    new IpcExecuteStepId("refresh")),
+                    "/opResults/0"),
             ],
             ContractViolationMessage,
             contractViolations:

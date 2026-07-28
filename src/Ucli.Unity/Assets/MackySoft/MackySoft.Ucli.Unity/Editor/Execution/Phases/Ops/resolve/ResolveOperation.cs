@@ -115,7 +115,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return Task.FromResult(OperationPhaseStepResult.Success(
                 applied: false,
                 changed: false,
-                result: IpcPayloadCodec.SerializeToElement(new IpcResolveOperationResult(globalObjectId))));
+                result: SerializeResultToElement(new IpcResolveOperationResult(globalObjectId))));
         }
 
         /// <summary> Stores one resolved reference to alias store when alias is specified. </summary>

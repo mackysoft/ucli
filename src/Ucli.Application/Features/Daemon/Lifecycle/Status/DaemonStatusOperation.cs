@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Acquisition;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.LaunchAttempts;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;

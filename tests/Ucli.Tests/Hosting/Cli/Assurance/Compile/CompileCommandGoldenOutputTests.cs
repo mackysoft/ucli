@@ -46,7 +46,10 @@ public sealed class CompileCommandGoldenOutputTests
             1);
         Assert.Equal(
             TextVocabulary.GetText(AssuranceVerdict.Fail),
-            outputJson.RootElement.GetProperty("payload").GetProperty("verdict").GetString());
+            outputJson.RootElement
+                .GetProperty("payload")
+                .GetProperty("verdict")
+                .GetString());
 
         JsonGoldenFileAssert.Matches(
             CliOutputGoldenFiles.GetPath("compile", "compile-error.json"),

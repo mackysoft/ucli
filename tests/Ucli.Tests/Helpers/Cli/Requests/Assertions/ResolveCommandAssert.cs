@@ -54,7 +54,6 @@ internal static class ResolveCommandAssert
                     .HasString("unityVersion", ProjectIdentityInfoTestFactory.UnityVersion))
                 .HasArrayLength("opResults", 1)
                 .HasProperty("opResults", 0, op => op
-                    .HasString("opId", "resolve")
                     .HasString("op", UcliPrimitiveOperationNames.Resolve)
                     .HasString("phase", TextVocabulary.GetText(IpcExecuteOperationPhase.Plan))
                     .HasBoolean("applied", false)

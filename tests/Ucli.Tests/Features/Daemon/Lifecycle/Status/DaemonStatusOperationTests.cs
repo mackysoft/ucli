@@ -1,4 +1,5 @@
 using MackySoft.FileSystem;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Acquisition;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.LaunchAttempts;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
@@ -7,7 +8,6 @@ namespace MackySoft.Ucli.Tests.Daemon;
 
 using System.Net.Sockets;
 using MackySoft.Tests;
-using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Tests.Helpers.Daemon;

@@ -1,9 +1,10 @@
 using System.Text.Json.Serialization;
-using MackySoft.Ucli.Contracts.Operations;
+
+using MackySoft.JsonSchema.Generation.Annotations;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
-[UcliDescription("Component type operation arguments.")]
+[Description("Component type operation arguments.")]
 public sealed record ComponentTypeArgs
 {
     [JsonConstructor]
@@ -12,6 +13,8 @@ public sealed record ComponentTypeArgs
         Type = ContractArgumentGuard.RequireNotNull(type, nameof(type));
     }
 
-    [UcliRequired]
-    public UnityComponentTypeId Type { get; }
+    [JsonInclude]
+    [JsonRequired]
+    [Description("Unity type identifier assignable to a Component type.")]
+    public UnityComponentTypeId Type { get; private init; }
 }

@@ -59,7 +59,7 @@ public sealed class PhaseExecutionPreflightServiceTests
             new ValidationError(
                 ValidationErrorCodes.OperationArgsInvalid,
                 "Operation args are invalid.",
-                new IpcExecuteStepId("step-1")),
+                "/steps/0/args"),
         ];
         var service = new PhaseExecutionPreflightService(
             new RecordingOperationCatalog
@@ -293,24 +293,18 @@ public sealed class PhaseExecutionPreflightServiceTests
     private static PreparedRequestContext CreatePreparedRequestContext ()
     {
         return new PreparedRequestContext(
-            requestJson: """{"protocolVersion":1,"steps":[{"kind":"op","id":"step-1","op":"ucli.scene.open","args":{"path":"Assets/Scenes/Main.unity"}}]}""",
+            requestJson: """{"protocolVersion":1,"steps":[{"kind":"op","op":"ucli.scene.open","args":{"path":"Assets/Scenes/Main.unity"}}]}""",
             request: new ValidateRequest(
                 ProtocolVersion: 1,
                 Steps:
                 [
                     new ValidateRequestStep(
                         Kind: MackySoft.Ucli.Contracts.Ipc.ContractReading.IpcExecuteStepKind.Op,
-                        StepId: new IpcExecuteStepId("step-1"),
+                        StepIndex: 0,
                         Op: "ucli.scene.open",
-                        Element: System.Text.Json.JsonSerializer.SerializeToElement(new
+                        Args: System.Text.Json.JsonSerializer.SerializeToElement(new
                         {
-                            kind = "op",
-                            id = "step-1",
-                            op = "ucli.scene.open",
-                            args = new
-                            {
-                                path = "Assets/Scenes/Main.unity",
-                            },
+                            path = "Assets/Scenes/Main.unity",
                         })),
                 ]),
             projectContext: ProjectContextTestFactory.CreateTemporaryFixtureProject());

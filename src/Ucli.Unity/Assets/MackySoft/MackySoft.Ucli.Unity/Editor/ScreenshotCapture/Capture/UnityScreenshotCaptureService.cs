@@ -130,7 +130,7 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Capture
                     new IpcError(
                         ScreenshotErrorCodes.ScreenshotRequiresGuiSession,
                         "Screenshot capture requires a registered GUI Editor session.",
-                        OpId: null));
+                        InstancePath: null));
             }
 
             if (IpcScreenshotCapture.IsSuccessfulCaptureState(snapshot.State))
@@ -157,7 +157,7 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Capture
                 new IpcError(
                     ScreenshotErrorCodes.ScreenshotCaptureUnsupported,
                     "Screenshot capture requires a stable Editor presentation state outside lifecycle transitions.",
-                    OpId: null));
+                    InstancePath: null));
         }
 
     }
