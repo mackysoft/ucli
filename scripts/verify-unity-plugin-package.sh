@@ -30,7 +30,7 @@ filesystem_package_id="MackySoft.FileSystem"
 filesystem_package_version="0.1.0"
 canonicalization_package_id="MackySoft.Json.Canonicalization"
 json_schema_package_id="MackySoft.JsonSchema.Generation"
-json_schema_package_version="0.3.0"
+json_schema_package_version="0.3.1"
 foundation_package_ids=(
   "${filesystem_package_id}"
   "${canonicalization_package_id}"

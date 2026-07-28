@@ -107,7 +107,7 @@ fi
 filesystem_package_id="MackySoft.FileSystem"
 filesystem_package_version="0.1.0"
 json_schema_package_id="MackySoft.JsonSchema.Generation"
-json_schema_package_version="0.3.0"
+json_schema_package_version="0.3.1"
 contracts_package_id="MackySoft.Ucli.Contracts"
 infrastructure_package_id="MackySoft.Ucli.Infrastructure"
 contracts_csproj="${repository_root}/src/Ucli.Contracts/Ucli.Contracts.csproj"

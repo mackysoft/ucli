@@ -36,7 +36,7 @@ filesystem_package_version="0.1.0"
 canonicalization_package_id="MackySoft.Json.Canonicalization"
 canonicalization_package_version="0.1.0"
 json_schema_package_id="MackySoft.JsonSchema.Generation"
-json_schema_package_version="0.3.0"
+json_schema_package_version="0.3.1"
 schema_validation_package_id="JsonSchema.Net"
 schema_validation_package_version="8.0.5"
 
@@ -447,24 +447,37 @@ if output.get("command") != "schema.list" or output.get("status") != "ok":
 
 payload = output.get("payload")
 schemas = payload.get("schemas") if isinstance(payload, dict) else None
-if not isinstance(schemas, list) or not any(
-    isinstance(schema, dict) and schema.get("name") == "cli-output.envelope"
+actual_names = {
+    schema.get("name")
     for schema in schemas
-):
+    if isinstance(schema, dict)
+} if isinstance(schemas, list) else set()
+required_names = {
+    "cli-output.envelope",
+    "common.artifact-ref",
+    "common.execution-ref",
+}
+missing_names = sorted(required_names - actual_names)
+if missing_names:
     print(
-        "Installed ucli schema list did not expose cli-output.envelope.",
+        "Installed ucli schema list did not expose: " + ", ".join(missing_names),
         file=sys.stderr,
     )
     sys.exit(1)
 PY
 
-schema_get_output="${verification_root}/schema-get.json"
-"${tool_path}/ucli" schema get cli-output.envelope > "${schema_get_output}"
-python3 - "${schema_get_output}" <<'PY'
+for schema_name in \
+  "cli-output.envelope" \
+  "common.artifact-ref" \
+  "common.execution-ref"; do
+  schema_get_output="${verification_root}/schema-get-${schema_name}.json"
+  "${tool_path}/ucli" schema get "${schema_name}" > "${schema_get_output}"
+  python3 - "${schema_get_output}" "${schema_name}" <<'PY'
 import json
 import sys
 
 output_path = sys.argv[1]
+expected_name = sys.argv[2]
 with open(output_path, encoding="utf-8") as output_file:
     output = json.load(output_file)
 
@@ -475,7 +488,7 @@ if output.get("command") != "schema.get" or output.get("status") != "ok":
 payload = output.get("payload")
 if (
     not isinstance(payload, dict)
-    or payload.get("name") != "cli-output.envelope"
+    or payload.get("name") != expected_name
     or not isinstance(payload.get("document"), dict)
 ):
     print(
@@ -484,6 +497,7 @@ if (
     )
     sys.exit(1)
 PY
+done
 
 list_host_independent_skill_files() {
   local relative_path
