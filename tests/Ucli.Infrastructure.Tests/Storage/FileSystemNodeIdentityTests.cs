@@ -12,9 +12,10 @@ public sealed class FileSystemNodeIdentityTests
             VolumeOrDevice: 1,
             NodeIdentifier: new FileSystemNodeIdentifier(Low: 2, High: 3),
             LinkCount: 1,
-            IsRegularFile: true,
-            IsDirectory: false,
-            IsReparsePoint: false);
+            Classification: new FileSystemNodeClassification(
+                IsRegularFile: true,
+                IsDirectory: false,
+                IsReparsePoint: false));
         var replacement = expected with
         {
             NodeIdentifier = new FileSystemNodeIdentifier(Low: 2, High: 4),

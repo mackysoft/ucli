@@ -62,9 +62,10 @@ internal static class WindowsFileSystemNodeIdentityReader
                 identityInformation.fileId.low,
                 identityInformation.fileId.high),
             nodeInformation.numberOfLinks,
-            IsRegularFile(attributes),
-            (attributes & FileAttributes.Directory) != 0,
-            (attributes & FileAttributes.ReparsePoint) != 0);
+            new FileSystemNodeClassification(
+                IsRegularFile(attributes),
+                (attributes & FileAttributes.Directory) != 0,
+                (attributes & FileAttributes.ReparsePoint) != 0));
     }
 
     private static bool IsRegularFile (FileAttributes attributes)

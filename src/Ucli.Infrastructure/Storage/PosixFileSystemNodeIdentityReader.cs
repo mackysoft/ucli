@@ -124,9 +124,10 @@ internal static class PosixFileSystemNodeIdentityReader
                 BitConverter.ToUInt64(fileStatus, startIndex: 8),
                 High: 0),
             linkCount,
-            nodeType == RegularFileType,
-            nodeType == DirectoryType,
-            nodeType == SymbolicLinkType);
+            new FileSystemNodeClassification(
+                nodeType == RegularFileType,
+                nodeType == DirectoryType,
+                nodeType == SymbolicLinkType));
     }
 
     private static FileStatusLayout GetLinuxFileStatusLayout ()

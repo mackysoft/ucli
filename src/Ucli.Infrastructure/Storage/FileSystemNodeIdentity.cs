@@ -5,21 +5,29 @@ internal readonly record struct FileSystemNodeIdentifier (
     ulong Low,
     ulong High);
 
+/// <summary> Carries the node characteristics needed to reject links and non-file destinations. </summary>
+internal readonly record struct FileSystemNodeClassification (
+    bool IsRegularFile,
+    bool IsDirectory,
+    bool IsReparsePoint);
+
 /// <summary> Identifies one physical filesystem node, its node kind, and its directory-entry link count. </summary>
 internal readonly record struct FileSystemNodeIdentity (
     ulong VolumeOrDevice,
     FileSystemNodeIdentifier NodeIdentifier,
     ulong LinkCount,
-    bool IsRegularFile,
-    bool IsDirectory,
-    bool IsReparsePoint)
+    FileSystemNodeClassification Classification)
 {
+    public bool IsRegularFile => Classification.IsRegularFile;
+
+    public bool IsDirectory => Classification.IsDirectory;
+
+    public bool IsReparsePoint => Classification.IsReparsePoint;
+
     public bool IsSamePhysicalNodeAs (FileSystemNodeIdentity other)
     {
         return VolumeOrDevice == other.VolumeOrDevice
             && NodeIdentifier == other.NodeIdentifier
-            && IsRegularFile == other.IsRegularFile
-            && IsDirectory == other.IsDirectory
-            && IsReparsePoint == other.IsReparsePoint;
+            && Classification == other.Classification;
     }
 }
