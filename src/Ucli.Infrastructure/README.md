@@ -21,6 +21,7 @@ dotnet add package MackySoft.Ucli.Infrastructure --version <version>
 ## What This Package Provides
 
 - uCLI-specific filesystem I/O and storage layout services.
+- Atomic publication and local verification of finalized immutable artifact files.
 - Process liveness probing utilities.
 - Project and index fingerprint helpers.
 - IPC transport path utilities.
