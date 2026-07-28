@@ -24,9 +24,18 @@ dotnet add package MackySoft.Ucli.Contracts --version <version>
 - `UcliNoResult` for operations that intentionally omit `opResults[].result`.
 - Protocol constants and shared protocol metadata.
 - Configuration and storage contract models.
+- `ArtifactRef` for finalized immutable byte sequences and `ExecutionRef` for long-lived logical executions.
 - JSON serialization helpers for uCLI contract types.
 - uCLI vocabulary declarations backed by `MackySoft.Text.Vocabularies` and its JSON adapter.
 - Shared data shapes used by the CLI, Unity plugin, and infrastructure package.
+
+## Artifact and Execution References
+
+`ArtifactRef` identifies one finalized byte sequence by its product kind, media type, SHA-256 digest, byte count, UTC publication time, and a closed location variant. `PathArtifactRef` carries a repository-relative path, `UriArtifactRef` carries an absolute artifact URI, and `PathAndUriArtifactRef` carries both locators for the same bytes. Their shared `locationKind` discriminator is derived from the `ArtifactLocationKind` text vocabulary.
+
+`ExecutionRef` identifies one long-lived logical execution by `(kind, id)` and the immutable definition digest fixed at registration. Its tagged lifecycle variants keep terminal-record references out of active and recovery JSON, and require a finalized `ArtifactRef` in terminal JSON. Feature code owns its state vocabulary, state transitions, and the deterministic mapping from feature state to the common lifecycle.
+
+Use `IpcJsonSerializerOptions` when exchanging these contracts across the CLI and Unity boundary. Their generated Draft 2020-12 schemas are delivered as `common.artifact-ref` and `common.execution-ref`.
 
 ## Operation Contracts
 

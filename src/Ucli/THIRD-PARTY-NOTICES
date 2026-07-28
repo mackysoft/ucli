@@ -39,12 +39,12 @@ This distribution of uCLI includes the following third-party software:
    third-party notices and license texts are included under
    third-party/MackySoft.Json.Canonicalization/0.1.0/.
 
-8. MackySoft.JsonSchema.Generation 0.3.0
+8. MackySoft.JsonSchema.Generation 0.3.1
    Product-independent JSON contract modeling and deterministic JSON Schema
    generation from https://github.com/mackysoft/dotnet-foundations.
    Licensed under the MIT License.
    The provider license is distributed at
-   third-party/MackySoft.JsonSchema.Generation/0.3.0/LICENSE.
+   third-party/MackySoft.JsonSchema.Generation/0.3.1/LICENSE.
 
 9. JsonSchema.Net 8.0.5
    Copyright (c) .NET Foundation and Contributors.

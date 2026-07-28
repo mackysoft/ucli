@@ -29,12 +29,13 @@
       "playModeState": "stopped"
     },
     "artifact": {
+      "locationKind": "path",
       "kind": "screenshot",
       "mediaType": "image/png",
       "path": ".ucli/local/projects/<projectStorageKey>/artifacts/screenshot/<captureStorageKey>/screenshot.png",
       "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "sizeBytes": 48321,
-      "createdAtUtc": "2026-07-11T01:02:03+00:00"
+      "createdAtUtc": "2026-07-11T01:02:03.0000000Z"
     }
   },
   "errors": []

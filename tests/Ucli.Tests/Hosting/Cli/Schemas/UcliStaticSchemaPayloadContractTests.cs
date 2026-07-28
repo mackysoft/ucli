@@ -2,6 +2,8 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using Json.Schema;
 using MackySoft.FileSystem;
+using MackySoft.Ucli.Contracts.Cryptography;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Schemas;
 using MackySoft.Ucli.Hosting.Cli.Schemas;
 
@@ -19,7 +21,8 @@ public sealed class UcliStaticSchemaPayloadContractTests
             .Where(static entry => entry.Kind is
                 UcliStaticSchemaKind.SchemaSetMetadata
                 or UcliStaticSchemaKind.CliOutputEnvelope
-                or UcliStaticSchemaKind.CliOutputPayload)
+                or UcliStaticSchemaKind.CliOutputPayload
+                or UcliStaticSchemaKind.CommonDefinition)
             .Where(entry => BuildSchema(schemaSet, entry.Name)
                 .Evaluate(JsonSerializer.SerializeToElement<object?>(null))
                 .IsValid)
@@ -29,6 +32,204 @@ public sealed class UcliStaticSchemaPayloadContractTests
         Assert.True(
             failures.Length == 0,
             "The following public object roots accepted null: " + string.Join(", ", failures));
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public void CommonReferenceSchemas_AgreeWithActualSerializedContracts ()
+    {
+        var schemaSet = UcliStaticSchemaSetLoader.Load(
+            AbsolutePath.Parse(TestRepositoryPaths.GetFullPath("schemas")));
+        var artifactSchema = BuildSchema(schemaSet, "common.artifact-ref");
+        var executionSchema = BuildSchema(schemaSet, "common.execution-ref");
+        ArtifactRef terminalRecord = new PathArtifactRef(
+            new ArtifactKind("programRun.terminalRecord"),
+            new ArtifactMediaType("application/json"),
+            new ArtifactPath(".ucli/local/program-runs/terminal-record.json"),
+            Sha256Digest.Parse(new string('a', 64)),
+            sizeBytes: 128,
+            new DateTimeOffset(2026, 7, 28, 12, 0, 0, TimeSpan.Zero));
+        ArtifactRef remotelyLocatedArtifact = new UriArtifactRef(
+            new ArtifactKind("report"),
+            new ArtifactMediaType("application/json"),
+            new ArtifactUri("https://artifacts.example.test/reports/report.json"),
+            Sha256Digest.Parse(new string('c', 64)),
+            sizeBytes: 256,
+            new DateTimeOffset(2026, 7, 28, 12, 1, 0, TimeSpan.Zero));
+        ArtifactRef multiplyLocatedEditorLog = new PathAndUriArtifactRef(
+            new ArtifactKind("testRun.editorLog"),
+            new ArtifactMediaType("text/plain; charset=UTF-8"),
+            new ArtifactPath(".ucli/local/test-runs/editor.log"),
+            new ArtifactUri("https://artifacts.example.test/test-runs/editor.log"),
+            Sha256Digest.Parse(new string('d', 64)),
+            sizeBytes: 512,
+            new DateTimeOffset(2026, 7, 28, 12, 2, 0, TimeSpan.Zero));
+        var active = new ActiveExecutionRef(
+            new ExecutionKind("programRun"),
+            Guid.Parse("8b8b657d-f631-4509-af40-88f6af40f53b"),
+            Sha256Digest.Parse(new string('b', 64)),
+            new ExecutionState("running"),
+            new ExecutionStatusLocator(
+                ".ucli/local/program-runs/8b8b657df6314509af4088f6af40f53b/status.json"));
+        var recovery = new RecoveryExecutionRef(
+            active.Kind,
+            active.Id,
+            active.DefinitionDigest,
+            new ExecutionState("recovering"),
+            active.StatusLocator);
+        var terminal = new TerminalExecutionRef(
+            active.Kind,
+            active.Id,
+            active.DefinitionDigest,
+            new ExecutionState("completed"),
+            statusLocator: null,
+            terminalRecord);
+
+        var artifactJson = JsonSerializer.SerializeToElement<ArtifactRef>(
+            terminalRecord,
+            IpcJsonSerializerOptions.StrictPropertyNames);
+        var remotelyLocatedArtifactJson = JsonSerializer.SerializeToElement<ArtifactRef>(
+            remotelyLocatedArtifact,
+            IpcJsonSerializerOptions.StrictPropertyNames);
+        var multiplyLocatedEditorLogJson = JsonSerializer.SerializeToElement<ArtifactRef>(
+            multiplyLocatedEditorLog,
+            IpcJsonSerializerOptions.StrictPropertyNames);
+        var activeJson = JsonSerializer.SerializeToElement<ExecutionRef>(
+            active,
+            IpcJsonSerializerOptions.StrictPropertyNames);
+        var recoveryJson = JsonSerializer.SerializeToElement<ExecutionRef>(
+            recovery,
+            IpcJsonSerializerOptions.StrictPropertyNames);
+        var terminalJson = JsonSerializer.SerializeToElement<ExecutionRef>(
+            terminal,
+            IpcJsonSerializerOptions.StrictPropertyNames);
+
+        Assert.True(artifactSchema.Evaluate(artifactJson).IsValid);
+        Assert.True(artifactSchema.Evaluate(remotelyLocatedArtifactJson).IsValid);
+        Assert.True(artifactSchema.Evaluate(multiplyLocatedEditorLogJson).IsValid);
+        Assert.True(executionSchema.Evaluate(activeJson).IsValid);
+        Assert.True(executionSchema.Evaluate(recoveryJson).IsValid);
+        Assert.True(executionSchema.Evaluate(terminalJson).IsValid);
+
+        var artifactWithoutLocator = JsonNode.Parse(artifactJson.GetRawText())!.AsObject();
+        Assert.True(artifactWithoutLocator.Remove("path"));
+        Assert.False(artifactSchema
+            .Evaluate(JsonSerializer.SerializeToElement(artifactWithoutLocator))
+            .IsValid);
+
+        var artifactWithoutLocationKind =
+            JsonNode.Parse(artifactJson.GetRawText())!.AsObject();
+        Assert.True(artifactWithoutLocationKind.Remove("locationKind"));
+        Assert.False(artifactSchema
+            .Evaluate(JsonSerializer.SerializeToElement(artifactWithoutLocationKind))
+            .IsValid);
+
+        var activeWithTerminalRecord = JsonNode.Parse(activeJson.GetRawText())!.AsObject();
+        activeWithTerminalRecord["terminalRecordRef"] =
+            JsonNode.Parse(artifactJson.GetRawText());
+        Assert.False(executionSchema
+            .Evaluate(JsonSerializer.SerializeToElement(activeWithTerminalRecord))
+            .IsValid);
+
+        var activeWithoutStatusLocator = JsonNode.Parse(activeJson.GetRawText())!.AsObject();
+        Assert.True(activeWithoutStatusLocator.Remove("statusLocator"));
+        Assert.False(executionSchema
+            .Evaluate(JsonSerializer.SerializeToElement(activeWithoutStatusLocator))
+            .IsValid);
+
+        var terminalWithoutRecord = JsonNode.Parse(terminalJson.GetRawText())!.AsObject();
+        Assert.True(terminalWithoutRecord.Remove("terminalRecordRef"));
+        Assert.False(executionSchema
+            .Evaluate(JsonSerializer.SerializeToElement(terminalWithoutRecord))
+            .IsValid);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public void CommonArtifactReferenceSchema_AgreesWithRuntimeLexicalRejections ()
+    {
+        var schemaSet = UcliStaticSchemaSetLoader.Load(
+            AbsolutePath.Parse(TestRepositoryPaths.GetFullPath("schemas")));
+        var artifactSchema = BuildSchema(schemaSet, "common.artifact-ref");
+        ArtifactRef artifact = new PathAndUriArtifactRef(
+            new ArtifactKind(TextVocabulary.GetText(ScreenshotArtifactKind.Screenshot)),
+            new ArtifactMediaType(TextVocabulary.GetText(ScreenshotArtifactMediaType.Png)),
+            new ArtifactPath(".ucli/local/screenshots/game.png"),
+            new ArtifactUri("https://artifacts.example.test/screenshots/game.png"),
+            Sha256Digest.Parse(new string('a', 64)),
+            sizeBytes: 128,
+            new DateTimeOffset(2026, 7, 28, 12, 0, 0, TimeSpan.Zero));
+        var serialized = JsonSerializer.SerializeToElement(
+            artifact,
+            IpcJsonSerializerOptions.StrictPropertyNames);
+
+        var invalidPath = JsonNode.Parse(serialized.GetRawText())!.AsObject();
+        invalidPath["path"] = ".ucli/local/\u0080game.png";
+        AssertRejectedBySchemaAndStrictDeserializer<ArtifactRef>(
+            artifactSchema,
+            invalidPath);
+
+        var invalidPublicationTime =
+            JsonNode.Parse(serialized.GetRawText())!.AsObject();
+        invalidPublicationTime["createdAtUtc"] =
+            "2026-99-99T99:99:99.0000000Z";
+        AssertRejectedBySchemaAndStrictDeserializer<ArtifactRef>(
+            artifactSchema,
+            invalidPublicationTime);
+
+        var finalLineFeedCases = new (string PropertyName, string Value)[]
+        {
+            ("path", ".ucli/local/screenshots/game.png\n"),
+            ("uri", "https://artifacts.example.test/screenshots/game.png\n"),
+            (
+                "kind",
+                TextVocabulary.GetText(ScreenshotArtifactKind.Screenshot) + "\n"),
+            (
+                "mediaType",
+                TextVocabulary.GetText(ScreenshotArtifactMediaType.Png) + "\n"),
+        };
+        foreach (var testCase in finalLineFeedCases)
+        {
+            var invalid = JsonNode.Parse(serialized.GetRawText())!.AsObject();
+            invalid[testCase.PropertyName] = testCase.Value;
+            AssertRejectedBySchemaAndStrictDeserializer<ArtifactRef>(
+                artifactSchema,
+                invalid);
+        }
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public void CommonExecutionReferenceSchema_AgreesWithRuntimeLexicalRejections ()
+    {
+        var schemaSet = UcliStaticSchemaSetLoader.Load(
+            AbsolutePath.Parse(TestRepositoryPaths.GetFullPath("schemas")));
+        var executionSchema = BuildSchema(schemaSet, "common.execution-ref");
+        ExecutionRef execution = new ActiveExecutionRef(
+            new ExecutionKind("programRun"),
+            Guid.Parse("8b8b657d-f631-4509-af40-88f6af40f53b"),
+            Sha256Digest.Parse(new string('b', 64)),
+            new ExecutionState("running"),
+            new ExecutionStatusLocator(
+                ".ucli/local/program-runs/8b8b657df6314509af4088f6af40f53b/status.json"));
+        var serialized = JsonSerializer.SerializeToElement(
+            execution,
+            IpcJsonSerializerOptions.StrictPropertyNames);
+        var finalLineFeedCases = new (string PropertyName, string Value)[]
+        {
+            ("kind", execution.Kind.Value + "\n"),
+            ("state", execution.State.Value + "\n"),
+            ("statusLocator", execution.StatusLocator!.Value + "\n"),
+        };
+
+        foreach (var testCase in finalLineFeedCases)
+        {
+            var invalid = JsonNode.Parse(serialized.GetRawText())!.AsObject();
+            invalid[testCase.PropertyName] = testCase.Value;
+            AssertRejectedBySchemaAndStrictDeserializer<ExecutionRef>(
+                executionSchema,
+                invalid);
+        }
     }
 
     [Fact]
@@ -198,6 +399,19 @@ public sealed class UcliStaticSchemaPayloadContractTests
                     Fetch = null!,
                 },
             });
+    }
+
+    private static void AssertRejectedBySchemaAndStrictDeserializer<TContract> (
+        global::Json.Schema.JsonSchema schema,
+        JsonObject instance)
+    {
+        var json = JsonSerializer.SerializeToElement(instance);
+
+        Assert.False(schema.Evaluate(json).IsValid);
+        Assert.Throws<JsonException>(() =>
+            JsonSerializer.Deserialize<TContract>(
+                json,
+                IpcJsonSerializerOptions.StrictPropertyNames));
     }
 
     private static string ReadRequiredString (

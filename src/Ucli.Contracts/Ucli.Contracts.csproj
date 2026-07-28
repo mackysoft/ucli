@@ -15,7 +15,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="MackySoft.JsonSchema.Generation" Version="[0.3.0]" />
+    <PackageReference Include="MackySoft.JsonSchema.Generation" Version="[0.3.1]" />
     <PackageReference Include="MackySoft.Text.Vocabularies" Version="[0.1.0]" />
     <PackageReference Include="MackySoft.Text.Vocabularies.Json" Version="[0.1.0]" />
     <PackageReference Include="System.Text.Json" Version="8.0.5" />

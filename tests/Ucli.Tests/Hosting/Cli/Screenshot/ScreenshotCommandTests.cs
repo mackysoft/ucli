@@ -1,4 +1,3 @@
-using MackySoft.Ucli.Application.Features.Screenshot.Artifacts;
 using MackySoft.Ucli.Application.Features.Screenshot.Capture;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -114,12 +113,19 @@ public sealed class ScreenshotCommandTests
                     .HasInt32("playModeGeneration", 13))
                 .HasString("playModeState", "stopped"))
             .HasProperty("artifact", artifact => artifact
-                .HasString("kind", "screenshot")
-                .HasString("mediaType", "image/png")
+                .HasString(
+                    "locationKind",
+                    TextVocabulary.GetText(ArtifactLocationKind.Path))
+                .HasString(
+                    "kind",
+                    TextVocabulary.GetText(ScreenshotArtifactKind.Screenshot))
+                .HasString(
+                    "mediaType",
+                    TextVocabulary.GetText(ScreenshotArtifactMediaType.Png))
                 .HasString("path", ".ucli/local/projects/<projectStorageKey>/artifacts/screenshot/<captureStorageKey>/screenshot.png")
                 .HasString("digest", new string('a', 64))
                 .HasInt32("sizeBytes", 4096)
-                .HasString("createdAtUtc", "2026-07-11T01:02:03+00:00"));
+                .HasString("createdAtUtc", "2026-07-11T01:02:03.0000000Z"));
     }
 
     [Fact]
@@ -179,10 +185,12 @@ public sealed class ScreenshotCommandTests
                         IpcPlayModeTransition.None,
                         IsPlaying: false,
                         IsPlayingOrWillChangePlaymode: false))),
-            new ScreenshotArtifact(
-                ".ucli/local/projects/<projectStorageKey>/artifacts/screenshot/<captureStorageKey>/screenshot.png",
+            new PathArtifactRef(
+                new ArtifactKind(TextVocabulary.GetText(ScreenshotArtifactKind.Screenshot)),
+                new ArtifactMediaType(TextVocabulary.GetText(ScreenshotArtifactMediaType.Png)),
+                new ArtifactPath(".ucli/local/projects/<projectStorageKey>/artifacts/screenshot/<captureStorageKey>/screenshot.png"),
                 Sha256Digest.Parse(new string('a', 64)),
-                4096,
+                sizeBytes: 4096,
                 new DateTimeOffset(2026, 7, 11, 1, 2, 3, TimeSpan.Zero)));
     }
 }

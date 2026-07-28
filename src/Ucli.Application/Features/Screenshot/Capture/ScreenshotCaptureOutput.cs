@@ -1,4 +1,3 @@
-using MackySoft.Ucli.Application.Features.Screenshot.Artifacts;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Features.Screenshot.Capture;
@@ -13,7 +12,7 @@ internal sealed record ScreenshotCaptureOutput
     public ScreenshotCaptureOutput (
         ProjectIdentityInfo project,
         IpcScreenshotCapture capture,
-        ScreenshotArtifact artifact)
+        PathArtifactRef artifact)
     {
         Project = project ?? throw new ArgumentNullException(nameof(project));
         Capture = capture ?? throw new ArgumentNullException(nameof(capture));
@@ -27,5 +26,5 @@ internal sealed record ScreenshotCaptureOutput
     public IpcScreenshotCapture Capture { get; }
 
     /// <summary> Gets the committed PNG artifact. </summary>
-    public ScreenshotArtifact Artifact { get; }
+    public PathArtifactRef Artifact { get; }
 }

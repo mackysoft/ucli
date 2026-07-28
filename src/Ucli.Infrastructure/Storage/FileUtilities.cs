@@ -457,6 +457,34 @@ public static class FileUtilities
         AbsolutePath directoryPath,
         out AbsolutePath temporaryPath)
     {
+        return OpenAtomicTemporaryFileInDirectory(
+            directoryPath,
+            FileAccess.Write,
+            FileShare.None,
+            out temporaryPath);
+    }
+
+    /// <summary>
+    /// Creates and exclusively reserves a short-named temporary file that remains readable through the creating
+    /// handle and permits a create-only rename while that handle is retained.
+    /// </summary>
+    internal static FileStream OpenAtomicReadWriteTemporaryFileInDirectory (
+        AbsolutePath directoryPath,
+        out AbsolutePath temporaryPath)
+    {
+        return OpenAtomicTemporaryFileInDirectory(
+            directoryPath,
+            FileAccess.ReadWrite,
+            FileShare.Read | FileShare.Delete,
+            out temporaryPath);
+    }
+
+    private static FileStream OpenAtomicTemporaryFileInDirectory (
+        AbsolutePath directoryPath,
+        FileAccess access,
+        FileShare share,
+        out AbsolutePath temporaryPath)
+    {
         if (directoryPath is null)
         {
             throw new ArgumentNullException(nameof(directoryPath));
@@ -472,8 +500,8 @@ public static class FileUtilities
                 var stream = new FileStream(
                     candidatePath.Value,
                     FileMode.CreateNew,
-                    FileAccess.Write,
-                    FileShare.None,
+                    access,
+                    share,
                     FileReadBufferSize,
                     FileOptions.Asynchronous);
                 temporaryPath = candidatePath;

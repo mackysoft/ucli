@@ -93,6 +93,7 @@ public static class UcliJsonContractGenerator
             CreateCodeMapper(),
             CreateProjectFingerprintMapper(),
             CreateDateTimeOffsetMapper(),
+            CreateArtifactPublicationTimeMapper(),
         ];
     }
 
@@ -130,6 +131,14 @@ public static class UcliJsonContractGenerator
             "ucli.stj-date-time-offset",
             typeof(DateTimeOffset),
             converterType);
+    }
+
+    private static IJsonContractTypeMapper CreateArtifactPublicationTimeMapper ()
+    {
+        return CreateStringScalarMapper(
+            "ucli.artifact-publication-time",
+            typeof(DateTimeOffset),
+            typeof(ArtifactPublicationTimeJsonConverter));
     }
 
     private static IJsonContractTypeMapper CreateStringScalarMapper (

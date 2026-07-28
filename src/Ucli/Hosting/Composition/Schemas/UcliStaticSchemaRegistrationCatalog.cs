@@ -2,6 +2,7 @@ using System.Text.Json.Serialization.Metadata;
 using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.ContractReading;
+using MackySoft.Ucli.Contracts.Json;
 using MackySoft.Ucli.Contracts.Schemas;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 
@@ -30,8 +31,17 @@ internal static class UcliStaticSchemaRegistrationCatalog
 
     private static List<UcliStaticSchemaRegistration> CreateCoreRegistrations ()
     {
-        var registrations = new List<UcliStaticSchemaRegistration>
-        {
+        var registrations = new List<UcliStaticSchemaRegistration>();
+        registrations.AddRange(CreateSchemaSetRegistrations());
+        registrations.AddRange(CreateCommonReferenceRegistrations());
+        registrations.AddRange(CreateRequestRegistrations());
+        return registrations;
+    }
+
+    private static IReadOnlyList<UcliStaticSchemaRegistration> CreateSchemaSetRegistrations ()
+    {
+        return
+        [
             Metadata<UcliStaticSchemaManifest>(
                 "schema.manifest",
                 "schema-manifest.schema.json"),
@@ -39,8 +49,13 @@ internal static class UcliStaticSchemaRegistrationCatalog
                 "cli-output.envelope",
                 "cli-output/envelope.schema.json",
                 UcliStaticSchemaKind.CliOutputEnvelope),
-        };
-        registrations.Add(
+        ];
+    }
+
+    private static IReadOnlyList<UcliStaticSchemaRegistration> CreateRequestRegistrations ()
+    {
+        return
+        [
             RequestDocument<UcliRequestJsonContract>(
                 "request.envelope",
                 "request/request-envelope.schema.json",
@@ -50,8 +65,23 @@ internal static class UcliStaticSchemaRegistrationCatalog
                     StandardInputUsage(UcliCommandNames.Plan),
                     StandardInputUsage(UcliCommandNames.Validate),
                 ],
-                dynamicValidationSources: [UcliCommandNames.OpsDescribe]));
-        return registrations;
+                dynamicValidationSources: [UcliCommandNames.OpsDescribe]),
+        ];
+    }
+
+    private static IReadOnlyList<UcliStaticSchemaRegistration> CreateCommonReferenceRegistrations ()
+    {
+        return
+        [
+            NonNullDocument<ArtifactRef>(
+                "common.artifact-ref",
+                "common/artifact-ref.schema.json",
+                UcliStaticSchemaKind.CommonDefinition),
+            NonNullDocument<ExecutionRef>(
+                "common.execution-ref",
+                "common/execution-ref.schema.json",
+                UcliStaticSchemaKind.CommonDefinition),
+        ];
     }
 
     private static UcliStaticSchemaRegistration Metadata<T> (
@@ -77,6 +107,20 @@ internal static class UcliStaticSchemaRegistrationCatalog
             kind,
             ResolveTypeInfo<T>(),
             CreatePayloadMetadata(command, status));
+    }
+
+    private static UcliStaticSchemaRegistration NonNullDocument<T> (
+        string name,
+        string path,
+        UcliStaticSchemaKind kind)
+    {
+        var rootType = UcliNonNullJsonObject.MakeValueType(typeof(T));
+        return Document(
+            name,
+            path,
+            kind,
+            CliOutputJsonSerializerOptions.Default.GetTypeInfo(rootType),
+            metadata: null);
     }
 
     private static UcliStaticSchemaRegistration Document (

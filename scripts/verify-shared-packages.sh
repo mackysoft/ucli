@@ -29,7 +29,7 @@ package_dir="$(cd "${package_dir}" && pwd)"
 filesystem_package_id="MackySoft.FileSystem"
 filesystem_package_version="0.1.0"
 json_schema_package_id="MackySoft.JsonSchema.Generation"
-json_schema_dependency_version_range="[0.3.0]"
+json_schema_dependency_version_range="[0.3.1]"
 
 temp_dir="$(mktemp -d)"
 trap 'rm -rf "${temp_dir}"' EXIT
@@ -214,8 +214,10 @@ EXPECTED_VERSION="${expected_version}" perl -0pi -e '
 ' "${consumer_project_path}"
 cat > "${consumer_dir}/Class1.cs" <<'EOF'
 using System;
+using System.Text.Json;
 using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts;
+using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Ipc;
 
@@ -240,9 +242,48 @@ namespace UcliSharedPackageConsumer
                 return 1;
             }
 
+            var publicationTime = new DateTimeOffset(
+                2026,
+                7,
+                28,
+                12,
+                34,
+                56,
+                TimeSpan.Zero);
+            ArtifactRef terminalRecord = new PathArtifactRef(
+                new ArtifactKind("packageConsumer.terminalRecord"),
+                new ArtifactMediaType("application/json"),
+                new ArtifactPath(".ucli/local/package-consumer/terminal-record.json"),
+                Sha256Digest.Compute(new byte[] { 1, 2, 3 }),
+                sizeBytes: 3,
+                publicationTime);
+            ExecutionRef execution = new TerminalExecutionRef(
+                new ExecutionKind("packageConsumer"),
+                new Guid("8b8b657d-f631-4509-af40-88f6af40f53b"),
+                Sha256Digest.Compute(new byte[] { 4, 5, 6 }),
+                new ExecutionState("completed"),
+                statusLocator: null,
+                terminalRecord);
+            var executionJson = JsonSerializer.Serialize(
+                execution,
+                IpcJsonSerializerOptions.StrictPropertyNames);
+            var roundTrippedExecution = JsonSerializer.Deserialize<ExecutionRef>(
+                executionJson,
+                IpcJsonSerializerOptions.StrictPropertyNames);
+            if (!execution.Equals(roundTrippedExecution))
+            {
+                return 1;
+            }
+
+            using var executionDocument = JsonDocument.Parse(executionJson);
+            var serializedLifecycle = executionDocument.RootElement
+                .GetProperty("lifecycle")
+                .GetString();
             Console.WriteLine($"contractDigest={argsContract.ContractDigest}");
             Console.WriteLine($"schemaBytes={schemaUtf8.Length}");
             Console.WriteLine($"typeMetadataCharacters={typeMetadataText.Length}");
+            Console.WriteLine($"artifactKind={terminalRecord.Kind}");
+            Console.WriteLine($"executionLifecycle={serializedLifecycle}");
             return 0;
         }
 
@@ -285,10 +326,66 @@ consumer_output="$(
 for expected_output_pattern in \
   '^contractDigest=[^[:space:]]+$' \
   '^schemaBytes=[1-9][0-9]*$' \
-  '^typeMetadataCharacters=[1-9][0-9]*$'; do
+  '^typeMetadataCharacters=[1-9][0-9]*$' \
+  '^artifactKind=packageConsumer\.terminalRecord$' \
+  '^executionLifecycle=terminal$'; do
   if ! grep -Eq "${expected_output_pattern}" <<< "${consumer_output}"; then
     echo "Shared package consumer did not observe the generated contract output matching ${expected_output_pattern}." >&2
     printf '%s\n' "${consumer_output}" >&2
+    exit 1
+  fi
+done
+
+cat > "${consumer_dir}/ExternalDerivedReferences.cs" <<'EOF'
+using System;
+using MackySoft.Ucli.Contracts;
+using MackySoft.Ucli.Contracts.Cryptography;
+
+namespace UcliSharedPackageConsumer
+{
+    public sealed record ExternalArtifactRef : ArtifactRef
+    {
+        public ExternalArtifactRef ()
+            : base(
+                new ArtifactKind("external"),
+                new ArtifactMediaType("application/octet-stream"),
+                Sha256Digest.Compute(Array.Empty<byte>()),
+                sizeBytes: 0,
+                DateTimeOffset.UnixEpoch)
+        {
+        }
+    }
+
+    public sealed record ExternalExecutionRef : ExecutionRef
+    {
+        public ExternalExecutionRef ()
+            : base(
+                new ExecutionKind("external"),
+                Guid.Empty,
+                Sha256Digest.Compute(Array.Empty<byte>()),
+                new ExecutionState("running"),
+                statusLocator: null)
+        {
+        }
+    }
+}
+EOF
+closed_union_build_log="${temp_dir}/closed-union-build.log"
+if dotnet build "${consumer_project_path}" \
+  --framework net8.0 \
+  --configuration Release \
+  --no-restore \
+  --verbosity minimal \
+  >"${closed_union_build_log}" 2>&1; then
+  echo "External package consumer unexpectedly derived from the closed reference unions." >&2
+  exit 1
+fi
+for expected_external_type in \
+  'ExternalArtifactRef' \
+  'ExternalExecutionRef'; do
+  if ! grep -F "${expected_external_type}" "${closed_union_build_log}" >/dev/null; then
+    echo "Closed reference union compile failure did not identify ${expected_external_type}." >&2
+    cat "${closed_union_build_log}" >&2
     exit 1
   fi
 done

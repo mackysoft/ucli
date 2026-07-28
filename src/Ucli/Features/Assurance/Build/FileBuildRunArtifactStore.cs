@@ -1,5 +1,4 @@
 using System.Buffers;
-using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -11,7 +10,6 @@ using MackySoft.Ucli.Contracts.Assurance.Build;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
-using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Infrastructure.Cryptography;
 using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Infrastructure.Storage;
@@ -23,16 +21,6 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
 {
     private const int FileStreamBufferSize = 81920;
     private const string OutputEntryIdPrefix = "output-";
-    private const int PosixFileStatusBufferSize = 256;
-    private const int PosixFileTypeMask = 0xF000;
-    private const int PosixRegularFileType = 0x8000;
-    private const int LinuxFileModeOffset = 24;
-    private const int LinuxArm64FileModeOffset = 16;
-    private const int LinuxDeviceOffset = 0;
-    private const int LinuxInodeOffset = 8;
-    private const int MacOsDeviceOffset = 0;
-    private const int MacOsFileModeOffset = 4;
-    private const int MacOsInodeOffset = 8;
     private const string BuildRunAccountingLockFileName = ".account.lock";
     private const string BuildRunPreparationLockFileName = ".prepare.lock";
 
@@ -462,8 +450,7 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
             sourcePath,
             stream,
             sourceIdentity,
-            "BuildReport source file",
-            EnsureReadableBuildReportSourceFile);
+            "BuildReport source file");
         IpcBuildReportArtifact? buildReport;
         try
         {
@@ -1065,8 +1052,7 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
                 sourcePath,
                 sourceStream,
                 sourceIdentity,
-                "Build output file",
-                EnsureReadableOutputFile);
+                "Build output file");
 
             using var destinationStream = new FileStream(
                 destinationPath.Value,
@@ -1098,110 +1084,38 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
         FileSystemAccessBoundary.EnsureSecureFile(destinationPath);
     }
 
-    private static OutputFileIdentity CaptureSourceFileIdentity (
+    private static FileSystemNodeIdentity CaptureSourceFileIdentity (
         AbsolutePath sourcePath,
         string sourceKind)
     {
-        if (!CanCapturePosixFileIdentity())
+        var identity = FileSystemNodeIdentityReader.ReadPath(sourcePath, sourceKind);
+        if (!identity.IsRegularFile || identity.IsReparsePoint)
         {
-            return OutputFileIdentity.Unavailable;
+            throw new IOException(
+                $"{sourceKind} must be a regular physical file: {sourcePath.Value}");
         }
 
-        var buffer = ArrayPool<byte>.Shared.Rent(PosixFileStatusBufferSize);
-        try
-        {
-            if (LStat(sourcePath.Value, buffer) != 0)
-            {
-                throw new IOException($"{sourceKind} identity could not be inspected: {sourcePath.Value}. errno={Marshal.GetLastWin32Error()}");
-            }
-
-            return ReadOutputFileIdentity(buffer);
-        }
-        finally
-        {
-            ArrayPool<byte>.Shared.Return(buffer);
-        }
+        return identity;
     }
 
     private static void EnsureOpenedSourceFileMatchesIdentity (
         AbsolutePath sourcePath,
         FileStream sourceStream,
-        OutputFileIdentity expectedIdentity,
-        string sourceKind,
-        Action<AbsolutePath> validateWhenIdentityUnavailable)
+        FileSystemNodeIdentity expectedIdentity,
+        string sourceKind)
     {
-        if (!expectedIdentity.IsAvailable)
-        {
-            validateWhenIdentityUnavailable(sourcePath);
-            return;
-        }
-
-        var actualIdentity = CaptureOpenedSourceFileIdentity(sourcePath, sourceStream, sourceKind);
-        if (!actualIdentity.IsRegularFile)
+        var actualIdentity = FileSystemNodeIdentityReader.ReadHandle(
+            sourceStream,
+            sourceKind);
+        if (!actualIdentity.IsRegularFile || actualIdentity.IsReparsePoint)
         {
             throw new IOException($"{sourceKind} must be a regular file after opening: {sourcePath.Value}");
         }
 
-        if (actualIdentity.Device != expectedIdentity.Device || actualIdentity.Inode != expectedIdentity.Inode)
+        if (actualIdentity != expectedIdentity)
         {
             throw new IOException($"{sourceKind} changed before it could be read: {sourcePath.Value}");
         }
-    }
-
-    private static OutputFileIdentity CaptureOpenedSourceFileIdentity (
-        AbsolutePath sourcePath,
-        FileStream sourceStream,
-        string sourceKind)
-    {
-        var buffer = ArrayPool<byte>.Shared.Rent(PosixFileStatusBufferSize);
-        try
-        {
-            if (FStat(sourceStream.SafeFileHandle.DangerousGetHandle(), buffer) != 0)
-            {
-                throw new IOException($"Opened {sourceKind} identity could not be inspected: {sourcePath.Value}. errno={Marshal.GetLastWin32Error()}");
-            }
-
-            return ReadOutputFileIdentity(buffer);
-        }
-        finally
-        {
-            ArrayPool<byte>.Shared.Return(buffer);
-        }
-    }
-
-    private static OutputFileIdentity ReadOutputFileIdentity (byte[] buffer)
-    {
-        if (OperatingSystem.IsLinux())
-        {
-            return new OutputFileIdentity(
-                IsAvailable: true,
-                Device: BitConverter.ToUInt64(buffer, LinuxDeviceOffset),
-                Inode: BitConverter.ToUInt64(buffer, LinuxInodeOffset),
-                Mode: BitConverter.ToInt32(buffer, GetLinuxFileModeOffset()));
-        }
-
-        if (OperatingSystem.IsMacOS())
-        {
-            return new OutputFileIdentity(
-                IsAvailable: true,
-                Device: BitConverter.ToUInt32(buffer, MacOsDeviceOffset),
-                Inode: BitConverter.ToUInt64(buffer, MacOsInodeOffset),
-                Mode: BitConverter.ToUInt16(buffer, MacOsFileModeOffset));
-        }
-
-        return OutputFileIdentity.Unavailable;
-    }
-
-    private static int GetLinuxFileModeOffset ()
-    {
-        return RuntimeInformation.ProcessArchitecture == Architecture.Arm64
-            ? LinuxArm64FileModeOffset
-            : LinuxFileModeOffset;
-    }
-
-    private static bool CanCapturePosixFileIdentity ()
-    {
-        return OperatingSystem.IsLinux() || OperatingSystem.IsMacOS();
     }
 
     private static async ValueTask<long> AddArtifactFileEntryAsync (
@@ -1563,17 +1477,6 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
         }
     }
 
-    private readonly record struct OutputFileIdentity (
-        bool IsAvailable,
-        ulong Device,
-        ulong Inode,
-        int Mode)
-    {
-        public static OutputFileIdentity Unavailable => default;
-
-        public bool IsRegularFile => (Mode & PosixFileTypeMask) == PosixRegularFileType;
-    }
-
     private sealed record ResolvedOutputSourceEntry (
         AbsolutePath SourcePath,
         string Kind);
@@ -1645,15 +1548,4 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
         {
         }
     }
-
-    [DllImport("libc", SetLastError = true, EntryPoint = "lstat")]
-    private static extern int LStat (
-        string path,
-        byte[] fileStatus);
-
-    [DllImport("libc", SetLastError = true, EntryPoint = "fstat")]
-    private static extern int FStat (
-        IntPtr fileDescriptor,
-        byte[] fileStatus);
-
 }
