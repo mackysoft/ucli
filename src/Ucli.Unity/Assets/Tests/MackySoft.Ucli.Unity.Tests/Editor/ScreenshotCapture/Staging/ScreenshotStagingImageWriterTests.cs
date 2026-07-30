@@ -10,7 +10,6 @@ using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Unity.Project;
 using MackySoft.Ucli.Unity.ScreenshotCapture.Staging;
 using NUnit.Framework;
-using UnityEngine;
 
 namespace MackySoft.Ucli.Unity.Tests
 {
@@ -21,9 +20,6 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private static readonly Guid SecondCaptureId =
             Guid.Parse("22222222-2222-2222-2222-222222222222");
-
-        private static readonly Guid SymlinkCaptureId =
-            Guid.Parse("33333333-3333-3333-3333-333333333333");
 
         [Test]
         [Category("Size.Small")]
@@ -77,15 +73,12 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(File.ReadAllBytes(path), Is.EqualTo(original));
         }
 
+#if UNITY_EDITOR_OSX
         [Test]
         [Category("Size.Small")]
         public void WriteAtomicAsync_WithSymlinkCaptureDirectory_RejectsWrite ()
         {
-            if (Application.platform != RuntimePlatform.OSXEditor)
-            {
-                Assert.Ignore("Symbolic-link staging boundary test is implemented for macOS Editor.");
-            }
-
+            var captureId = Guid.Parse("33333333-3333-3333-3333-333333333333");
             using var scope = new TemporaryScreenshotDirectory();
             var writer = scope.CreateWriter();
             var screenshotWorkDirectory = UcliStoragePathResolver.ResolveScreenshotWorkDirectory(
@@ -97,7 +90,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var captureDirectory = UcliStoragePathResolver.ResolveScreenshotCaptureStagingDirectory(
                 scope.ProjectAbsolutePath,
                 TemporaryScreenshotDirectory.ProjectFingerprint,
-                SymlinkCaptureId);
+                captureId);
             using (var process = Process.Start(new ProcessStartInfo
             {
                 FileName = "/bin/ln",
@@ -118,9 +111,10 @@ namespace MackySoft.Ucli.Unity.Tests
             }
 
             Assert.ThrowsAsync<IOException>(() =>
-                writer.WriteAtomicAsync(SymlinkCaptureId, new byte[] { 1, 2, 3, 4 }, CancellationToken.None));
+                writer.WriteAtomicAsync(captureId, new byte[] { 1, 2, 3, 4 }, CancellationToken.None));
             Assert.That(File.Exists(Path.Combine(outsideDirectory, "capture.rgba")), Is.False);
         }
+#endif
 
         private sealed class TemporaryScreenshotDirectory : IDisposable
         {

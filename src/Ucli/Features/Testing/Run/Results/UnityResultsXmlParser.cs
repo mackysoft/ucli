@@ -69,7 +69,7 @@ internal sealed class UnityResultsXmlParser : IUnityResultsXmlParser
             var fullName = ReadRequiredAttribute(testCase, "fullname");
             var resultValue = ReadRequiredAttribute(testCase, "result");
             var durationValue = ReadRequiredAttribute(testCase, "duration");
-            var result = ConvertResult(resultValue);
+            var result = ConvertTestCaseResult(resultValue);
             var durationMilliseconds = ParseDurationMilliseconds(durationValue);
             var categories = ReadCategories(testCase);
 
@@ -161,7 +161,7 @@ internal sealed class UnityResultsXmlParser : IUnityResultsXmlParser
     /// <summary> Converts Unity result attribute values to the public test-case result vocabulary. </summary>
     /// <param name="resultValue"> The raw result value. </param>
     /// <returns> The normalized test-case result. </returns>
-    private static TestCaseResult ConvertResult (string resultValue)
+    private static TestCaseResult ConvertTestCaseResult (string resultValue)
     {
         var normalizedResultValue = resultValue.Trim();
 
@@ -186,6 +186,33 @@ internal sealed class UnityResultsXmlParser : IUnityResultsXmlParser
         }
 
         throw new InvalidDataException($"result attribute contains an unsupported Unity test result: {resultValue}");
+    }
+
+    /// <summary> Converts Unity test-run result states to the public test-case result vocabulary. </summary>
+    /// <param name="resultValue"> The raw test-run result state. </param>
+    /// <returns> The normalized test-case result. </returns>
+    private static TestCaseResult ConvertTestRunResult (string resultValue)
+    {
+        var normalizedResultValue = resultValue.Trim();
+
+        if (string.Equals(normalizedResultValue, "Skipped:Ignored", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(normalizedResultValue, "Skipped:Explicit", StringComparison.OrdinalIgnoreCase))
+        {
+            return TestCaseResult.Skipped;
+        }
+
+        if (string.Equals(normalizedResultValue, "Failed:Error", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(normalizedResultValue, "Failed:Cancelled", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(normalizedResultValue, "Failed:Invalid", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(normalizedResultValue, "Failed(Child)", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(normalizedResultValue, "Failed(SetUp)", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(normalizedResultValue, "Failed:Error(SetUp)", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(normalizedResultValue, "Failed:Error(TearDown)", StringComparison.OrdinalIgnoreCase))
+        {
+            return TestCaseResult.Fail;
+        }
+
+        return ConvertTestCaseResult(normalizedResultValue);
     }
 
     /// <summary> Reads category values from one test-case element. </summary>
@@ -312,11 +339,13 @@ internal sealed class UnityResultsXmlParser : IUnityResultsXmlParser
                 continue;
             }
 
-            var containerResult = ConvertResult(resultValue);
+            var containerResult = IsElement(container, TestRunElementName)
+                ? ConvertTestRunResult(resultValue)
+                : ConvertTestCaseResult(resultValue);
             var descendantResults = container
                 .Descendants()
                 .Where(static element => IsElement(element, TestCaseElementName))
-                .Select(static element => ConvertResult(ReadRequiredAttribute(element, ResultAttributeName)))
+                .Select(static element => ConvertTestCaseResult(ReadRequiredAttribute(element, ResultAttributeName)))
                 .ToArray();
             var isGrounded = containerResult switch
             {

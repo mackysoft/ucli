@@ -16,7 +16,7 @@ public sealed class UnityResultsConverterTests
         scope.WriteFile(
             "results.xml",
             """
-            <test-run testcasecount="2" total="2" passed="1" failed="1" skipped="0" inconclusive="0" result="Failed">
+            <test-run testcasecount="2" total="2" passed="1" failed="1" skipped="0" inconclusive="0" result="Failed(Child)">
               <test-case fullname="Cafe.Tests.Passed" result="Passed" duration="0.2">
                 <properties>
                   <property name="Category" value="smoke" />
@@ -152,6 +152,33 @@ public sealed class UnityResultsConverterTests
 
     [Fact]
     [Trait("Size", "Medium")]
+    public async Task Convert_WithUnityCompositeIgnoredContainer_WritesIncompleteVerdict ()
+    {
+        using var scope = CreateSessionScope("ignored-test-run", out var session);
+        scope.WriteFile(
+            "results.xml",
+            """
+            <test-run testcasecount="1" total="1" passed="0" failed="0" skipped="1" inconclusive="0" result="Skipped:Ignored">
+              <test-suite result="Skipped" label="Ignored">
+                <test-case fullname="Cafe.Tests.Ignored" result="Skipped" label="Ignored" duration="0" />
+              </test-suite>
+            </test-run>
+            """);
+
+        var converter = CreateConverter();
+
+        var result = await converter.ConvertAsync(session, allowEmptyTestRun: false, CancellationToken.None);
+
+        var success = Assert.IsType<UnityResultsConversionSuccess>(result);
+        Assert.Equal(Verdict.Incomplete, success.Verdict);
+        Assert.Equal(1, success.ReportedTestCaseCount);
+
+        using var summaryDocument = JsonDocument.Parse(File.ReadAllText(session.Paths.SummaryJsonPath.Value));
+        Assert.Equal(1, summaryDocument.RootElement.GetProperty("counts").GetProperty("skipped").GetInt32());
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
     public async Task Convert_WithInvalidXml_ReturnsInvalidResultsXmlFailure ()
     {
         using var scope = CreateSessionScope("invalid-xml", out var session);
@@ -166,16 +193,18 @@ public sealed class UnityResultsConverterTests
         Assert.Contains("Failed to parse results.xml", failure.ErrorMessage, StringComparison.Ordinal);
     }
 
-    [Fact]
+    [Theory]
     [Trait("Size", "Medium")]
-    public async Task Convert_WithUnknownTestResult_ReturnsInvalidResultsXmlFailure ()
+    [InlineData("Unexpected")]
+    [InlineData("Skipped:Ignored")]
+    public async Task Convert_WithUnsupportedTestCaseResult_ReturnsInvalidResultsXmlFailure (string testCaseResult)
     {
         using var scope = CreateSessionScope("unknown-test-result", out var session);
         scope.WriteFile(
             "results.xml",
-            """
+            $"""
             <test-run>
-              <test-case fullname="Cafe.Tests.Unknown" result="Unexpected" duration="0" />
+              <test-case fullname="Cafe.Tests.Unknown" result="{testCaseResult}" duration="0" />
             </test-run>
             """);
 
