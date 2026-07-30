@@ -65,7 +65,6 @@ internal sealed class VerifyCodeCatalogContributor : ICodeCatalogContributor
             AppearsIn: ClaimAppearsIn,
             AppliesTo: AppliesToVerify,
             CoverageImpact: null,
-            VerdictSemantics: null,
             ExecutionSemantics: null,
             Inspect: Inspect,
             RelatedCodes: []);
@@ -84,7 +83,6 @@ internal sealed class VerifyCodeCatalogContributor : ICodeCatalogContributor
             AppearsIn: RiskAppearsIn,
             AppliesTo: AppliesToVerify,
             CoverageImpact: "blocking",
-            VerdictSemantics: "blocking residual risk fails the verify verdict",
             ExecutionSemantics: null,
             Inspect: RiskInspect,
             RelatedCodes: []);

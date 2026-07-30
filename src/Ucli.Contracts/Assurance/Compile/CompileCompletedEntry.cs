@@ -13,7 +13,7 @@ public sealed record CompileCompletedEntry
     [JsonConstructor]
     public CompileCompletedEntry (
         Guid RunId,
-        AssuranceVerdict Verdict,
+        Verdict Verdict,
         int ErrorCount,
         int WarningCount,
         string SummaryJsonPath,
@@ -48,7 +48,7 @@ public sealed record CompileCompletedEntry
 
     [JsonInclude]
     [JsonRequired]
-    public AssuranceVerdict Verdict { get; private init; }
+    public Verdict Verdict { get; private init; }
 
     public int ErrorCount { get; }
 

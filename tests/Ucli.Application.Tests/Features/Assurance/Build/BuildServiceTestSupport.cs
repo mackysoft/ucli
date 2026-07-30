@@ -1,19 +1,15 @@
 using System.Text.Json;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Artifacts;
-using MackySoft.Ucli.Application.Features.Assurance.Build.Catalog;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Contracts;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Execution;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Payload;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Profiles;
-using MackySoft.Ucli.Application.Features.Assurance.Build.Semantics;
-using MackySoft.Ucli.Application.Features.Assurance.Semantics;
 using MackySoft.Ucli.Application.Shared.Context;
 using MackySoft.Ucli.Application.Shared.EnvironmentVariables;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts.Assurance.Build;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
-using CodeCatalogModel = MackySoft.Ucli.Application.Features.CodeCatalog.Catalog.CodeCatalog;
 
 namespace MackySoft.Ucli.Application.Tests.Features.Assurance.Build;
 
@@ -336,8 +332,8 @@ internal static class BuildServiceTestSupport
 
         var result = await service.ExecuteAsync(CreateInput(), progressSink);
 
-        Assert.False(result.IsSuccess);
-        var error = Assert.Single(result.Errors);
+        var failed = Assert.IsType<BuildExecutionResult.FailedResult>(result);
+        var error = failed.Failure;
         Assert.Equal(BuildErrorCodes.BuildRunnerInvocationFailed, error.Code);
         EventSequenceAssert.EmittedEventsInOrder(
             progressSink.Entries,
@@ -576,12 +572,12 @@ internal static class BuildServiceTestSupport
         {
             foreach (var evidence in claim.Evidence)
             {
-                if (evidence.EvidenceRef == null)
+                if (evidence is not BuildReferencedInlineEvidenceOutput referencedEvidence)
                 {
                     continue;
                 }
 
-                var reference = evidence.EvidenceRef.Value switch
+                var reference = referencedEvidence.EvidenceRef switch
                 {
                     BuildArtifactKind.Build => output.Reports.Build,
                     BuildArtifactKind.BuildReport => output.Reports.BuildReport,
@@ -592,14 +588,6 @@ internal static class BuildServiceTestSupport
                 Assert.NotNull(reference);
             }
         }
-    }
-
-    public static AssuranceSemanticInvariantValidator CreateBuildSemanticInvariantValidator ()
-    {
-        return new AssuranceSemanticInvariantValidator(
-            new CodeCatalogModel([new BuildCodeCatalogContributor()]),
-            [new BuildAssuranceSemanticInvariantRule()],
-            [new BuildAssuranceSemanticInvariantRule()]);
     }
 
     public static string CreateExpectedPlayerLocationPathName (

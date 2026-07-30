@@ -32,12 +32,35 @@ internal static class VerifyCommandResultFactory
     {
         ArgumentNullException.ThrowIfNull(executionResult);
 
-        if (executionResult.IsSuccess)
+        return executionResult switch
         {
-            return CreateSuccess(executionResult);
-        }
+            VerifyExecutionResult.CompletedResult completed => CreateSuccess(completed),
+            VerifyExecutionResult.FailedResult failed => CreateFailure(failed),
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(executionResult),
+                executionResult.GetType(),
+                "Verify execution result variant is unsupported."),
+        };
+    }
 
-        var startupFailure = StartupFailureFinder.FindInFailures(executionResult.Errors);
+    /// <summary> Creates one command result for <c>verify</c> from a normalized execution error. </summary>
+    public static CommandResult CreateExecutionError (ExecutionError error)
+    {
+        ArgumentNullException.ThrowIfNull(error);
+        return Create(VerifyExecutionResult.Failed(error, project: null));
+    }
+
+    private static CommandResult CreateSuccess (VerifyExecutionResult.CompletedResult executionResult)
+    {
+        return CommandResult.CompletedWithVerdict(
+            UcliCommandNames.Verify,
+            executionResult.Message,
+            executionResult.Output);
+    }
+
+    private static CommandResult CreateFailure (VerifyExecutionResult.FailedResult executionResult)
+    {
+        var startupFailure = StartupFailureFinder.FindInFailures([executionResult.Failure]);
         return CommandFailureProjector.Create(
             UcliCommandNames.Verify,
             executionResult.Message,
@@ -47,29 +70,7 @@ internal static class VerifyCommandResultFactory
                 startupFailure?.Diagnosis,
                 startupFailure?.RetryDisposition,
                 startupFailure?.SafeToRetryImmediately)),
-            executionResult.Errors);
-    }
-
-    /// <summary> Creates one command result for <c>verify</c> from a normalized execution error. </summary>
-    public static CommandResult CreateExecutionError (ExecutionError error)
-    {
-        ArgumentNullException.ThrowIfNull(error);
-        return Create(VerifyExecutionResult.Failure(error));
-    }
-
-    private static CommandResult CreateSuccess (VerifyExecutionResult executionResult)
-    {
-        var output = executionResult.Output!;
-        return new CommandResult(
-            ProtocolVersion: IpcProtocol.CurrentVersion,
-            Command: UcliCommandNames.Verify,
-            Status: CommandResultStatus.Ok,
-            ExitCode: output.Verdict == AssuranceVerdict.Pass
-                ? (int)CliExitCode.Success
-                : 1,
-            Message: executionResult.Message,
-            Payload: output,
-            Errors: []);
+            [executionResult.Failure]);
     }
 
     private sealed record VerifyFailureCommandPayload (

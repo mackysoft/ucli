@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Features.Assurance.Build.Artifacts;
+using MackySoft.Ucli.Application.Features.Assurance.Build.Contracts;
 using MackySoft.Ucli.Contracts.Assurance.Build;
 using MackySoft.Ucli.Contracts.Ipc;
 using static MackySoft.Ucli.Application.Tests.Features.Assurance.Build.BuildServiceTestSupport;
@@ -23,10 +24,9 @@ public sealed class BuildServiceArtifactAccountingTests
 
         var result = await service.ExecuteAsync(CreateInput(timeoutMilliseconds: 50));
 
-        Assert.False(result.IsSuccess);
-        var error = Assert.Single(result.Errors);
+        var failed = Assert.IsType<BuildExecutionResult.FailedResult>(result);
+        var error = failed.Failure;
         Assert.Equal(ExecutionErrorCodes.IpcTimeout, error.Code);
-        Assert.Null(result.Output);
     }
 
     [Fact]
@@ -82,9 +82,9 @@ public sealed class BuildServiceArtifactAccountingTests
 
         var result = await service.ExecuteAsync(CreateInput());
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal(0, result.Output!.Build.Output.EntryCount);
-        Assert.Equal(0, result.Output.Build.Output.FileCount);
-        Assert.Equal(0, result.Output.Build.Output.TotalBytes);
+        var completed = Assert.IsType<BuildExecutionResult.CompletedResult>(result);
+        Assert.Equal(0, completed.Output.Build.Output.EntryCount);
+        Assert.Equal(0, completed.Output.Build.Output.FileCount);
+        Assert.Equal(0, completed.Output.Build.Output.TotalBytes);
     }
 }

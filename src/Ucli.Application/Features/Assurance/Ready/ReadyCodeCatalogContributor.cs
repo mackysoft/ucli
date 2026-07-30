@@ -47,7 +47,6 @@ internal sealed class ReadyCodeCatalogContributor : ICodeCatalogContributor
             AppearsIn: ClaimAppearsIn,
             AppliesTo: AppliesToReady,
             CoverageImpact: null,
-            VerdictSemantics: null,
             ExecutionSemantics: null,
             Inspect: Inspect,
             RelatedCodes: []);

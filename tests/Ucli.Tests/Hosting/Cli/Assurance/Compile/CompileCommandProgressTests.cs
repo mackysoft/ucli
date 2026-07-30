@@ -19,7 +19,7 @@ public sealed class CompileCommandProgressTests
                 CompileProgressEventNames.Completed,
                 CreateCompletedEntry(),
                 cancellationToken);
-            return CompileExecutionResult.Success(CreateOutput());
+            return CompileExecutionResult.Completed(CreateOutput());
         });
         var command = new CompileCommand(service, CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
 
@@ -49,7 +49,7 @@ public sealed class CompileCommandProgressTests
                 CompileProgressEventNames.Completed,
                 CreateCompletedEntry(),
                 cancellationToken);
-            return CompileExecutionResult.Success(CreateOutput());
+            return CompileExecutionResult.Completed(CreateOutput());
         });
         var command = new CompileCommand(service, CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
 

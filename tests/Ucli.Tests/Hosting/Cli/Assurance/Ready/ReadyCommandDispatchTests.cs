@@ -13,7 +13,7 @@ public sealed class ReadyCommandDispatchTests
     [Trait("Size", "Small")]
     public async Task Ready_MapsOptionsToServiceInputAndCancellationToken ()
     {
-        var service = new RecordingReadyService((_, _) => ValueTask.FromResult(ReadyExecutionResult.Success(CreateOutput())));
+        var service = new RecordingReadyService((_, _) => ValueTask.FromResult<ReadyExecutionResult>(ReadyExecutionResult.Completed(CreateOutput(Verdict.Pass))));
         var command = new ReadyCommand(service, CommandResultTestWriter.Create());
         using var cancellationTokenSource = new CancellationTokenSource();
 
@@ -39,7 +39,7 @@ public sealed class ReadyCommandDispatchTests
     [Trait("Size", "Small")]
     public async Task Ready_WithReadIndexTarget_MapsReadIndexModeToServiceInput ()
     {
-        var service = new RecordingReadyService((_, _) => ValueTask.FromResult(ReadyExecutionResult.Success(CreateOutput())));
+        var service = new RecordingReadyService((_, _) => ValueTask.FromResult<ReadyExecutionResult>(ReadyExecutionResult.Completed(CreateOutput(Verdict.Pass))));
         var command = new ReadyCommand(service, CommandResultTestWriter.Create());
 
         var result = await CommandResultCapture.ExecuteAsync(() => command.ReadyAsync(
@@ -57,7 +57,7 @@ public sealed class ReadyCommandDispatchTests
     [Trait("Size", "Small")]
     public async Task Ready_WhenTargetIsOmitted_UsesExecutionTarget ()
     {
-        var service = new RecordingReadyService((_, _) => ValueTask.FromResult(ReadyExecutionResult.Success(CreateOutput())));
+        var service = new RecordingReadyService((_, _) => ValueTask.FromResult<ReadyExecutionResult>(ReadyExecutionResult.Completed(CreateOutput(Verdict.Pass))));
         var command = new ReadyCommand(service, CommandResultTestWriter.Create());
 
         var result = await CommandResultCapture.ExecuteAsync(() => command.ReadyAsync(

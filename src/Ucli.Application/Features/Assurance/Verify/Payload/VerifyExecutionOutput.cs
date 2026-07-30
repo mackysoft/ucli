@@ -1,17 +1,15 @@
 using System.Collections.ObjectModel;
-using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.Application.Features.Assurance.Semantics;
 
 namespace MackySoft.Ucli.Application.Features.Assurance.Verify.Payload;
 
 /// <summary> Represents the verify assurance payload emitted by the <c>verify</c> command. </summary>
-internal sealed record VerifyExecutionOutput
+internal sealed record VerifyExecutionOutput : IVerdictResult
 {
-    /// <summary> Initializes a verify assurance payload with a defined verdict. </summary>
+    /// <summary> Initializes a verify assurance payload and derives its verdict from the supplied evidence. </summary>
     /// <param name="Reports"> The report map to copy with ordinal key semantics. </param>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="Reports" /> is <see langword="null" />. </exception>
-    /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="Verdict" /> is not defined by the assurance contract. </exception>
     public VerifyExecutionOutput (
-        AssuranceVerdict Verdict,
         ProjectIdentityInfo Project,
         IReadOnlyList<VerifyVerifierOutput> Verifiers,
         IReadOnlyList<VerifyClaimOutput> Claims,
@@ -20,47 +18,29 @@ internal sealed record VerifyExecutionOutput
         VerifyProfileOutput Profile,
         int TimeoutMilliseconds)
     {
-        if (!TextVocabulary.IsDefined(Verdict))
-        {
-            throw new ArgumentOutOfRangeException(nameof(Verdict), Verdict, "Verdict must be defined by the assurance contract.");
-        }
         ArgumentNullException.ThrowIfNull(Reports);
         ArgumentNullException.ThrowIfNull(Project);
         ArgumentNullException.ThrowIfNull(Verifiers);
         ArgumentNullException.ThrowIfNull(Claims);
         ArgumentNullException.ThrowIfNull(ResidualRisks);
-        if (Verifiers.Any(static item => item is null))
-        {
-            throw new ArgumentException("Verifiers must not contain null.", nameof(Verifiers));
-        }
-
-        if (Claims.Any(static item => item is null))
-        {
-            throw new ArgumentException("Claims must not contain null.", nameof(Claims));
-        }
-
         if (Reports.Any(static item => string.IsNullOrWhiteSpace(item.Key) || item.Value is null))
         {
             throw new ArgumentException("Reports must contain non-empty keys and non-null references.", nameof(Reports));
         }
 
-        if (ResidualRisks.Any(static item => item is null))
-        {
-            throw new ArgumentException("Residual risks must not contain null.", nameof(ResidualRisks));
-        }
-
-        this.Verdict = Verdict;
         this.Project = Project;
         this.Verifiers = Array.AsReadOnly(Verifiers.ToArray());
         this.Claims = Array.AsReadOnly(Claims.ToArray());
         this.Reports = new ReadOnlyDictionary<string, AssuranceReportReference>(
             new Dictionary<string, AssuranceReportReference>(Reports, StringComparer.Ordinal));
         this.ResidualRisks = Array.AsReadOnly(ResidualRisks.ToArray());
+        Verdict = AssuranceVerdictCalculator.Calculate(this.Verifiers, this.Claims, this.ResidualRisks);
+        EnsureReportReferencesResolve(this.Verifiers, this.Claims, this.Reports);
         this.Profile = Profile ?? throw new ArgumentNullException(nameof(Profile));
         this.TimeoutMilliseconds = TimeoutMilliseconds;
     }
 
-    public AssuranceVerdict Verdict { get; }
+    public Verdict Verdict { get; }
 
     public ProjectIdentityInfo Project { get; }
 
@@ -76,4 +56,35 @@ internal sealed record VerifyExecutionOutput
     public VerifyProfileOutput Profile { get; }
 
     public int TimeoutMilliseconds { get; }
+
+    private static void EnsureReportReferencesResolve (
+        IReadOnlyList<VerifyVerifierOutput> verifiers,
+        IReadOnlyList<VerifyClaimOutput> claims,
+        IReadOnlyDictionary<string, AssuranceReportReference> reports)
+    {
+        foreach (var verifier in verifiers)
+        {
+            if (verifier.ReportRef != null
+                && !reports.ContainsKey(verifier.ReportRef.Value))
+            {
+                throw new ArgumentException(
+                    $"Verifier '{verifier.Id}' reportRef '{verifier.ReportRef}' does not resolve to a report.",
+                    nameof(Reports));
+            }
+        }
+
+        foreach (var claim in claims)
+        {
+            foreach (var evidence in claim.Evidence)
+            {
+                if (evidence is VerifyReferencedEvidenceOutput referenced
+                    && !reports.ContainsKey(referenced.EvidenceRef.Value))
+                {
+                    throw new ArgumentException(
+                        $"Claim '{claim.Id}' evidenceRef '{referenced.EvidenceRef}' does not resolve to a report.",
+                        nameof(Reports));
+                }
+            }
+        }
+    }
 }

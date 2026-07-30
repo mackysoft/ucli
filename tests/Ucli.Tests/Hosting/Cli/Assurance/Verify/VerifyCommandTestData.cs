@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Application.Features.Assurance.Compile.Payload;
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Vocabulary;
 using MackySoft.Ucli.Application.Features.Assurance.Ready;
 using MackySoft.Ucli.Application.Features.Assurance.Semantics;
@@ -8,8 +9,6 @@ namespace MackySoft.Ucli.Tests;
 
 internal static class VerifyCommandTestData
 {
-    private const string CompileSummaryReport = "compile.summary";
-
     private static readonly AssuranceVerifierId CompileVerifierId = new("compile");
     private static readonly AssuranceVerifierId ReadyVerifierId = new("ready.lifecycle");
 
@@ -21,14 +20,26 @@ internal static class VerifyCommandTestData
             .NormalizeStringPropertyValue("unityVersion", "<unityVersion>");
     }
 
-    public static VerifyExecutionOutput CreateOutput (
-        AssuranceVerdict verdict = AssuranceVerdict.Pass)
+    public static VerifyExecutionOutput CreateOutput (Verdict verdict)
     {
-        var compileClaimStatus = verdict == AssuranceVerdict.Pass
+        var compileClaimStatus = verdict == Verdict.Pass
             ? AssuranceClaimStatus.Passed
-            : AssuranceClaimStatus.Failed;
+            : verdict == Verdict.Fail
+                ? AssuranceClaimStatus.Failed
+                : AssuranceClaimStatus.Indeterminate;
+        var readyEvidence = (ReadyLifecycleEvidenceOutput)ReadyCommandTestData
+            .CreateOutput(Verdict.Pass)
+            .Claims
+            .Single()
+            .Evidence
+            .Single();
+        var compileOutput = CompileCommandTestData.CreateOutput(
+            verdict == Verdict.Fail ? 1 : 0);
+        var compileEvidence = (CompileScriptEvidenceOutput)compileOutput.Claims
+            .Single(static claim => claim.Id == CompileClaimCodes.UnityCompileNoErrors)
+            .Evidence
+            .Single();
         return new VerifyExecutionOutput(
-            Verdict: verdict,
             Project: ProjectIdentityInfoTestFactory.Create(
                 projectFingerprint: ProjectFingerprintTestFactory.Create("<projectFingerprint>"),
                 unityVersion: "<unityVersion>"),
@@ -40,17 +51,16 @@ internal static class VerifyCommandTestData
                     Deterministic: false,
                     Required: true,
                     PrimaryClaims: [ReadyClaimCodes.UnityReadyExecution],
-                    Effects: []),
+                    Effects: [],
+                    ReportRef: null),
                 new VerifyVerifierOutput(
                     Id: CompileVerifierId,
                     Kind: AssuranceVerifierKind.Compile,
                     Deterministic: false,
                     Required: true,
                     PrimaryClaims: [CompileClaimCodes.UnityCompileNoErrors],
-                    Effects: AssuranceEffectSets.Compile)
-                {
-                    ReportRef = CompileSummaryReport,
-                },
+                    Effects: AssuranceEffectSets.Compile,
+                    ReportRef: AssuranceReportIds.CompileSummary),
             ],
             Claims:
             [
@@ -65,13 +75,12 @@ internal static class VerifyCommandTestData
                     {
                         ["target"] = "execution",
                     },
-                    Evidence: [],
-                    ResidualRisks: [])
-                {
-                    Validity = new ReadyClaimValidityOutput(
-                        Kind: ReadyValidityKind.ProbeOnly,
-                        GuaranteesReusableSession: false),
-                },
+                    Validity: ReadyClaimValidityOutput.ProbeOnly(),
+                    Evidence:
+                    [
+                        VerifyReadyLifecycleEvidenceOutput.Create(readyEvidence),
+                    ],
+                    ResidualRisks: []),
                 new VerifyClaimOutput(
                     Id: CompileClaimCodes.UnityCompileNoErrors,
                     Status: compileClaimStatus,
@@ -83,27 +92,26 @@ internal static class VerifyCommandTestData
                     {
                         ["kind"] = "unityCompile",
                     },
+                    Validity: null,
                     Evidence:
                     [
-                        new VerifyEvidenceOutput("compileSummary")
-                        {
-                            EvidenceRef = CompileSummaryReport,
-                        },
+                        VerifyScriptEvidenceOutput.Create(compileEvidence),
                     ],
                     ResidualRisks: []),
             ],
             Reports: new Dictionary<string, AssuranceReportReference>(StringComparer.Ordinal)
             {
-                [CompileSummaryReport] = AssuranceReportReference.FromPath(
+                [AssuranceReportIds.CompileSummary.Value] = AssuranceReportReference.FromPath(
                     $".ucli/local/compile/{RunIdTestValues.CompileText}/summary.json",
+                    digest: null),
+                [AssuranceReportIds.CompileDiagnostics.Value] = AssuranceReportReference.FromPath(
+                    $".ucli/local/compile/{RunIdTestValues.CompileText}/diagnostics.json",
                     digest: null),
             },
             ResidualRisks: [],
-            Profile: new VerifyProfileOutput(
-                Source: VerifyProfileSource.BuiltIn,
-                Name: "built-in:default",
-                Path: null,
-                Digest: Sha256Digest.Parse("1111111111111111111111111111111111111111111111111111111111111111")),
+            Profile: VerifyProfileOutput.BuiltIn(
+                "built-in:default",
+                Sha256Digest.Parse("1111111111111111111111111111111111111111111111111111111111111111")),
             TimeoutMilliseconds: 120000);
     }
 

@@ -12,7 +12,7 @@ public sealed class CompileCommandDispatchTests
     [Trait("Size", "Small")]
     public async Task Compile_MapsOptionsToServiceInputAndCancellationToken ()
     {
-        var service = new RecordingCompileService((_, _, _) => ValueTask.FromResult(CompileExecutionResult.Success(CreateOutput())));
+        var service = new RecordingCompileService((_, _, _) => ValueTask.FromResult<CompileExecutionResult>(CompileExecutionResult.Completed(CreateOutput())));
         var command = new CompileCommand(service, CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
         using var cancellationTokenSource = new CancellationTokenSource();
 

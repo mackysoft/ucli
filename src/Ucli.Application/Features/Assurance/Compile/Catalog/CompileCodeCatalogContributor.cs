@@ -48,7 +48,6 @@ internal sealed class CompileCodeCatalogContributor : ICodeCatalogContributor
             AppearsIn: ClaimAppearsIn,
             AppliesTo: AppliesToCompile,
             CoverageImpact: null,
-            VerdictSemantics: null,
             ExecutionSemantics: null,
             Inspect: Inspect,
             RelatedCodes: []);

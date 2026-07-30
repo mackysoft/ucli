@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Application.Features.Assurance.Ready;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 
 namespace MackySoft.Ucli.Application.Tests.Features.Assurance.Ready;
@@ -18,8 +19,8 @@ public sealed class ReadyServiceFailureTests
 
         var result = await service.ExecuteAsync(CreateExecutionInput(UnityExecutionMode.Daemon));
 
-        Assert.False(result.IsSuccess);
-        var error = Assert.Single(result.Errors);
+        var failed = Assert.IsType<ReadyExecutionResult.FailedResult>(result);
+        var error = failed.Failure;
         Assert.Equal(UnityExecutionModeDecisionErrorCodes.DaemonNotRunning, error.Code);
     }
 
@@ -41,8 +42,8 @@ public sealed class ReadyServiceFailureTests
 
         var result = await service.ExecuteAsync(CreateExecutionInput(UnityExecutionMode.Daemon));
 
-        Assert.False(result.IsSuccess);
-        var error = Assert.Single(result.Errors);
+        var failed = Assert.IsType<ReadyExecutionResult.FailedResult>(result);
+        var error = failed.Failure;
         Assert.Equal(ExecutionErrorCodes.IpcTimeout, error.Code);
     }
 
@@ -64,8 +65,8 @@ public sealed class ReadyServiceFailureTests
 
         var result = await service.ExecuteAsync(CreateExecutionInput(failFast: true));
 
-        Assert.False(result.IsSuccess);
-        var error = Assert.Single(result.Errors);
+        var failed = Assert.IsType<ReadyExecutionResult.FailedResult>(result);
+        var error = failed.Failure;
         Assert.Equal(DaemonErrorCodes.DaemonStartupBlocked, error.Code);
         Assert.Same(startupFailure, error.StartupFailure);
     }
@@ -84,8 +85,8 @@ public sealed class ReadyServiceFailureTests
 
         var result = await service.ExecuteAsync(CreateExecutionInput());
 
-        Assert.False(result.IsSuccess);
-        var error = Assert.Single(result.Errors);
+        var failed = Assert.IsType<ReadyExecutionResult.FailedResult>(result);
+        var error = failed.Failure;
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
         Assert.Contains("projectFingerprint mismatch", error.Message, StringComparison.Ordinal);
     }

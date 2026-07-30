@@ -1,32 +1,21 @@
 using System.Text.Json.Serialization;
 using MackySoft.Ucli.Contracts.Cryptography;
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Assurance;
 
-/// <summary> Represents the <c>verify.started</c> and <c>verify.completed</c> stream payload. </summary>
-public sealed record VerifyProgressEntry
+/// <summary> Provides the profile identity shared by verify progress events. </summary>
+public abstract record VerifyProgressEntry
 {
-    /// <summary> Initializes one verify progress entry. </summary>
-    /// <exception cref="ArgumentNullException"> Thrown when a required reference value is <see langword="null" />. </exception>
-    /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="StepCount" /> is negative or <paramref name="Verdict" /> has an undefined value. </exception>
-    [JsonConstructor]
-    public VerifyProgressEntry (
+    protected VerifyProgressEntry (
         VerifyProfileSource ProfileSource,
         string ProfileName,
         string? ProfilePath,
         Sha256Digest ProfileDigest,
-        int StepCount,
-        AssuranceVerdict? Verdict)
+        int StepCount)
     {
         if (!TextVocabulary.IsDefined(ProfileSource))
         {
             throw new ArgumentOutOfRangeException(nameof(ProfileSource), ProfileSource, "Verify profile source must be defined.");
-        }
-
-        if (Verdict.HasValue && !TextVocabulary.IsDefined(Verdict.Value))
-        {
-            throw new ArgumentOutOfRangeException(nameof(Verdict), Verdict, "Verdict must be defined by the assurance contract.");
         }
         if (StepCount < 0)
         {
@@ -38,7 +27,6 @@ public sealed record VerifyProgressEntry
         this.ProfilePath = ProfilePath;
         this.ProfileDigest = ProfileDigest ?? throw new ArgumentNullException(nameof(ProfileDigest));
         this.StepCount = StepCount;
-        this.Verdict = Verdict;
     }
 
     public VerifyProfileSource ProfileSource { get; }
@@ -50,6 +38,43 @@ public sealed record VerifyProgressEntry
     public Sha256Digest ProfileDigest { get; }
 
     public int StepCount { get; }
+}
 
-    public AssuranceVerdict? Verdict { get; }
+/// <summary> Represents the <c>verify.started</c> stream payload. </summary>
+public sealed record VerifyStartedEntry : VerifyProgressEntry
+{
+    [JsonConstructor]
+    public VerifyStartedEntry (
+        VerifyProfileSource ProfileSource,
+        string ProfileName,
+        string? ProfilePath,
+        Sha256Digest ProfileDigest,
+        int StepCount)
+        : base(ProfileSource, ProfileName, ProfilePath, ProfileDigest, StepCount)
+    {
+    }
+}
+
+/// <summary> Represents the <c>verify.completed</c> stream payload. </summary>
+public sealed record VerifyCompletedEntry : VerifyProgressEntry
+{
+    [JsonConstructor]
+    public VerifyCompletedEntry (
+        VerifyProfileSource ProfileSource,
+        string ProfileName,
+        string? ProfilePath,
+        Sha256Digest ProfileDigest,
+        int StepCount,
+        Verdict Verdict)
+        : base(ProfileSource, ProfileName, ProfilePath, ProfileDigest, StepCount)
+    {
+        if (!TextVocabulary.IsDefined(Verdict))
+        {
+            throw new ArgumentOutOfRangeException(nameof(Verdict), Verdict, "Verdict must be defined by the assurance contract.");
+        }
+
+        this.Verdict = Verdict;
+    }
+
+    public Verdict Verdict { get; }
 }

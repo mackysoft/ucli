@@ -1,6 +1,4 @@
 using System.Text.Json;
-using System.Text.Json.Nodes;
-using MackySoft.Ucli.Contracts.Assurance.Build;
 
 namespace MackySoft.Ucli.Tests;
 
@@ -34,31 +32,6 @@ internal static class BuildRunCliOutputContractTestSupport
     {
         using var document = ReadGoldenDocument(fileName);
         return document.RootElement.GetProperty("payload").Clone();
-    }
-
-    public static JsonElement CreateMutatedSuccessPayload (string caseName)
-    {
-        var payloadNode = JsonNode.Parse(ReadGoldenPayload("success.json").GetRawText())!.AsObject();
-        switch (caseName)
-        {
-            case "missing-report-ref":
-                payloadNode["reports"]!.AsObject().Remove(TextVocabulary.GetText(BuildArtifactKind.BuildReport));
-                break;
-            case "digest-only-entry":
-                payloadNode["reports"]![TextVocabulary.GetText(BuildArtifactKind.BuildLog)]!.AsObject().Remove("path");
-                break;
-            case "invalid-digest":
-                payloadNode["reports"]![TextVocabulary.GetText(BuildArtifactKind.BuildLog)]!["digest"] = "sha256:dddd";
-                break;
-            case "manifest-ref-mismatch":
-                payloadNode["build"]!["output"]!["manifestRef"] = TextVocabulary.GetText(BuildArtifactKind.Build);
-                break;
-            default:
-                throw new ArgumentOutOfRangeException(nameof(caseName), caseName, "Unknown invalid build invariant case.");
-        }
-
-        using var document = JsonDocument.Parse(payloadNode.ToJsonString());
-        return document.RootElement.Clone();
     }
 
     public static string GetClaimStatus (

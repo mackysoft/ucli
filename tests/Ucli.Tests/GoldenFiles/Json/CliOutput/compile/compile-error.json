@@ -45,7 +45,6 @@
         "evidence": [
           {
             "kind": "scriptCompilation",
-            "evidenceRef": "compile.diagnostics",
             "data": {
               "started": true,
               "completed": true,
@@ -63,7 +62,8 @@
                   "message": "; expected"
                 }
               }
-            }
+            },
+            "evidenceRef": "compile.diagnostics"
           }
         ],
         "residualRisks": []

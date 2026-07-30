@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Features.Assurance.Build.Artifacts;
+using MackySoft.Ucli.Application.Features.Assurance.Build.Contracts;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using static MackySoft.Ucli.Application.Tests.Features.Assurance.Build.BuildServiceExecuteMethodRunnerTestSupport;
@@ -24,8 +25,8 @@ public sealed class BuildServiceExecuteMethodRunnerArtifactValidationTests
             IpcBuildLogCompletionReason.Completed,
             artifactStore);
 
-        Assert.False(result.IsSuccess);
-        var error = Assert.Single(result.Errors);
+        var failed = Assert.IsType<BuildExecutionResult.FailedResult>(result);
+        var error = failed.Failure;
         Assert.Equal(BuildErrorCodes.BuildRunnerResultInvalid, error.Code);
     }
 
@@ -46,8 +47,8 @@ public sealed class BuildServiceExecuteMethodRunnerArtifactValidationTests
             IpcBuildLogCompletionReason.Completed,
             artifactStore);
 
-        Assert.False(result.IsSuccess);
-        var error = Assert.Single(result.Errors);
+        var failed = Assert.IsType<BuildExecutionResult.FailedResult>(result);
+        var error = failed.Failure;
         Assert.Equal(BuildErrorCodes.BuildReportMissing, error.Code);
     }
 
@@ -68,8 +69,8 @@ public sealed class BuildServiceExecuteMethodRunnerArtifactValidationTests
             IpcBuildLogCompletionReason.Completed,
             artifactStore);
 
-        Assert.False(result.IsSuccess);
-        var error = Assert.Single(result.Errors);
+        var failed = Assert.IsType<BuildExecutionResult.FailedResult>(result);
+        var error = failed.Failure;
         Assert.Equal(BuildErrorCodes.BuildReportMissing, error.Code);
     }
 }

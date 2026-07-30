@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Application.Features.Assurance.Build.Contracts;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Profiles;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using static MackySoft.Ucli.Application.Tests.Features.Assurance.Build.BuildServiceTestSupport;
@@ -25,8 +26,8 @@ public sealed class BuildServiceRuntimePolicyTests
 
         var result = await service.ExecuteAsync(CreateInput());
 
-        Assert.False(result.IsSuccess);
-        var error = Assert.Single(result.Errors);
+        var failed = Assert.IsType<BuildExecutionResult.FailedResult>(result);
+        var error = failed.Failure;
         Assert.Equal(BuildErrorCodes.BuildRuntimePolicyViolation, error.Code);
     }
 
@@ -49,8 +50,8 @@ public sealed class BuildServiceRuntimePolicyTests
 
         var result = await service.ExecuteAsync(CreateInput());
 
-        Assert.False(result.IsSuccess);
-        var error = Assert.Single(result.Errors);
+        var failed = Assert.IsType<BuildExecutionResult.FailedResult>(result);
+        var error = failed.Failure;
         Assert.Equal(BuildErrorCodes.BuildRuntimePolicyViolation, error.Code);
     }
 }

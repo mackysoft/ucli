@@ -2,7 +2,6 @@ using System.Text.Json;
 using MackySoft.Ucli.Contracts.Assurance;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Tests.Assurance;
 
@@ -29,13 +28,12 @@ public sealed class CompileVerifyFiniteContractTests
     {
         Assert.Equal(
             "ProfileSource",
-            Assert.Throws<ArgumentOutOfRangeException>(() => new VerifyProgressEntry(
+            Assert.Throws<ArgumentOutOfRangeException>(() => new VerifyStartedEntry(
                 default,
                 "default",
                 null,
                 ProfileDigest,
-                1,
-                null)).ParamName);
+                1)).ParamName);
         Assert.Equal(
             "Kind",
             Assert.Throws<ArgumentOutOfRangeException>(() => new VerifyStepProgressEntry(
@@ -89,13 +87,12 @@ public sealed class CompileVerifyFiniteContractTests
     [Trait("Size", "Small")]
     public void ProgressContracts_SerializeFiniteValuesAsContractLiterals ()
     {
-        var profile = IpcPayloadCodec.SerializeToElement(new VerifyProgressEntry(
+        var profile = IpcPayloadCodec.SerializeToElement(new VerifyStartedEntry(
             VerifyProfileSource.File,
             "project",
             "verify.json",
             ProfileDigest,
-            1,
-            null));
+            1));
         var step = IpcPayloadCodec.SerializeToElement(new VerifyStepProgressEntry(
             VerifyStepKind.Test,
             Required: true,

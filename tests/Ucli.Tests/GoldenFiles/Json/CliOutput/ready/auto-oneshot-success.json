@@ -39,8 +39,7 @@
           "sessionKind": "transientProbe"
         },
         "validity": {
-          "kind": "probeOnly",
-          "guaranteesReusableSession": false
+          "kind": "probeOnly"
         },
         "evidence": [
           {

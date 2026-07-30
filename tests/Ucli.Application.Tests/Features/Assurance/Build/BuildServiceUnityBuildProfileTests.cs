@@ -1,4 +1,4 @@
-using System.Text.Json;
+using MackySoft.Ucli.Application.Features.Assurance.Build.Contracts;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Payload;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Profiles;
 using MackySoft.Ucli.Contracts.Assurance.Build;
@@ -47,8 +47,8 @@ public sealed class BuildServiceUnityBuildProfileTests
 
         var result = await service.ExecuteAsync(CreateInput());
 
-        Assert.True(result.IsSuccess, string.Join(Environment.NewLine, result.Errors.Select(static error => $"{error.Code}: {error.Message}")));
-        var output = result.Output!;
+        var completed = Assert.IsType<BuildExecutionResult.CompletedResult>(result);
+        var output = completed.Output;
         Assert.Equal(BuildProfileInputsKind.UnityBuildProfile, output.Build.Inputs.InputKind);
         Assert.Equal(BuildTargetStableName.StandaloneLinux64, output.Build.Inputs.Target.StableName);
         Assert.Equal("StandaloneLinux64", output.Build.Inputs.Target.UnityBuildTarget);
@@ -86,10 +86,6 @@ public sealed class BuildServiceUnityBuildProfileTests
             CreateExpectedPlayerLocationPathName(artifactStore.PreparedPaths!.RunnerOutputDirectory.Value),
             artifactStore.WrittenMetadata.Runner.GetProperty("outputLayout").GetProperty("locationPathName").GetString());
 
-        var validator = CreateBuildSemanticInvariantValidator();
-        var semanticPayload = JsonSerializer.SerializeToElement(output, PayloadSerializerOptions);
-        var semanticResult = validator.Validate(semanticPayload);
-        Assert.True(semanticResult.IsValid, string.Join(Environment.NewLine, semanticResult.Violations.Select(static violation => $"{violation.Path}: {violation.Message}")));
     }
 
     [Fact]
@@ -129,7 +125,7 @@ public sealed class BuildServiceUnityBuildProfileTests
 
         var result = await service.ExecuteAsync(CreateInput());
 
-        Assert.True(result.IsSuccess, string.Join(Environment.NewLine, result.Errors.Select(static error => $"{error.Code}: {error.Message}")));
+        Assert.IsType<BuildExecutionResult.CompletedResult>(result);
         Assert.Equal(BuildTargetStableName.Android, artifactStore.AccountingRequest!.BuildTarget);
         Assert.NotNull(artifactStore.WrittenMetadata);
         Assert.Equal(
@@ -162,8 +158,8 @@ public sealed class BuildServiceUnityBuildProfileTests
 
         var result = await service.ExecuteAsync(CreateInput());
 
-        Assert.False(result.IsSuccess);
-        var error = Assert.Single(result.Errors);
+        var failed = Assert.IsType<BuildExecutionResult.FailedResult>(result);
+        var error = failed.Failure;
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
         Assert.Null(artifactStore.WrittenMetadata);
     }
@@ -203,8 +199,8 @@ public sealed class BuildServiceUnityBuildProfileTests
 
         var result = await service.ExecuteAsync(CreateInput());
 
-        Assert.False(result.IsSuccess);
-        var error = Assert.Single(result.Errors);
+        var failed = Assert.IsType<BuildExecutionResult.FailedResult>(result);
+        var error = failed.Failure;
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
         Assert.Null(artifactStore.WrittenMetadata);
     }

@@ -26,9 +26,9 @@ public sealed class CompileServiceStartupDiagnosticsTests
             Mode: UnityExecutionMode.Oneshot,
             TimeoutMilliseconds: 10000), progressSink);
 
-        Assert.True(result.IsSuccess);
-        var output = result.Output!;
-        Assert.Equal(AssuranceVerdict.Fail, output.Verdict);
+        var completed = Assert.IsType<CompileExecutionResult.CompletedResult>(result);
+        var output = completed.Output;
+        Assert.Equal(Verdict.Fail, output.Verdict);
         Assert.Equal(CompileRefreshOrigin.DiagnosticsRead, output.Compile.Refresh.Origin);
         Assert.False(output.Compile.Refresh.Requested);
         Assert.Equal(1, output.Compile.ScriptCompilation.Diagnostics.ErrorCount);
@@ -66,8 +66,8 @@ public sealed class CompileServiceStartupDiagnosticsTests
             Mode: UnityExecutionMode.Oneshot,
             TimeoutMilliseconds: 10000));
 
-        Assert.True(result.IsSuccess);
-        var diagnostic = result.Output!.Compile.ScriptCompilation.Diagnostics.PrimaryDiagnostic!;
+        var completed = Assert.IsType<CompileExecutionResult.CompletedResult>(result);
+        var diagnostic = completed.Output.Compile.ScriptCompilation.Diagnostics.PrimaryDiagnostic!;
         Assert.Equal(DaemonDiagnosisPrimaryDiagnosticKind.Compiler, diagnostic.Kind);
         Assert.Null(diagnostic.Code);
         Assert.Contains("script compilation", diagnostic.Message, StringComparison.OrdinalIgnoreCase);
@@ -95,10 +95,10 @@ public sealed class CompileServiceStartupDiagnosticsTests
             Mode: UnityExecutionMode.Oneshot,
             TimeoutMilliseconds: 10000));
 
-        Assert.False(result.IsSuccess);
+        var failed = Assert.IsType<CompileExecutionResult.FailedResult>(result);
         Assert.Equal(0, artifactStore.ReadCount);
         Assert.Equal(0, artifactStore.WriteCount);
-        var error = Assert.Single(result.Errors);
+        var error = failed.Failure;
         Assert.Equal(DaemonErrorCodes.DaemonStartupBlocked, error.Code);
         Assert.NotNull(error.StartupFailure);
     }

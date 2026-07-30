@@ -19,7 +19,7 @@ public sealed class BuildRunCommandProgressTests
                     BuildRunTestData.CreateCompletedEntry(),
                     cancellationToken)
                 .ConfigureAwait(false);
-            return BuildExecutionResult.Success(BuildRunTestData.CreateOutput());
+            return BuildExecutionResult.Completed(BuildRunTestData.CreatePassedOutput());
         });
         var command = new BuildRunCommand(service, CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
 
@@ -58,7 +58,7 @@ public sealed class BuildRunCommandProgressTests
                     BuildRunTestData.CreateCompletedEntry(),
                     cancellationToken)
                 .ConfigureAwait(false);
-            return BuildExecutionResult.Success(BuildRunTestData.CreateOutput());
+            return BuildExecutionResult.Completed(BuildRunTestData.CreatePassedOutput());
         });
         var command = new BuildRunCommand(service, CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
 

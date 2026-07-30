@@ -17,7 +17,8 @@ public sealed class CompileServiceRecoveryTests
             unityRequestExecutor: new RecordingUnityRequestExecutor(UnityRequestExecutionResult.Failure(new UnityRequestFailure(
                 UnityRequestFailureKind.General,
                 ExecutionErrorCodes.IpcTimeout,
-                "Unity compile request timed out."))),
+                "Unity compile request timed out.",
+                startupFailure: null))),
             artifactStore: new StubCompileRunArtifactStore(CompileRunArtifactReadResult.Success(CreateSummary(runId: OtherRunId))));
 
         var result = await service.ExecuteAsync(new CompileCommandInput(
@@ -25,8 +26,8 @@ public sealed class CompileServiceRecoveryTests
             Mode: UnityExecutionMode.Oneshot,
             TimeoutMilliseconds: 10000));
 
-        Assert.False(result.IsSuccess);
-        var error = Assert.Single(result.Errors);
+        var failed = Assert.IsType<CompileExecutionResult.FailedResult>(result);
+        var error = failed.Failure;
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
         Assert.Contains("runId mismatch", error.Message, StringComparison.Ordinal);
     }
@@ -47,8 +48,8 @@ public sealed class CompileServiceRecoveryTests
             Mode: UnityExecutionMode.Oneshot,
             TimeoutMilliseconds: 10000));
 
-        Assert.False(result.IsSuccess);
-        var error = Assert.Single(result.Errors);
+        var failed = Assert.IsType<CompileExecutionResult.FailedResult>(result);
+        var error = failed.Failure;
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
         Assert.Contains("Unity compile payload is invalid.", error.Message, StringComparison.Ordinal);
     }
@@ -62,7 +63,7 @@ public sealed class CompileServiceRecoveryTests
         var service = CreateService(
             unityRequestExecutor: new RecordingUnityRequestExecutor(UnityRequestExecutionResult.Success(new UnityRequestResponse(
                 JsonSerializer.SerializeToElement(new { }),
-                [new OperationExecutionError(ExecutionErrorCodes.IpcTimeout, "Unity compile assurance timed out.", null)]))),
+                [new OperationExecutionError(ExecutionErrorCodes.IpcTimeout, "Unity compile assurance timed out.", InstancePath: null)]))),
             artifactStore: artifactStore);
 
         var result = await service.ExecuteAsync(new CompileCommandInput(
@@ -70,9 +71,9 @@ public sealed class CompileServiceRecoveryTests
             Mode: UnityExecutionMode.Oneshot,
             TimeoutMilliseconds: 10000), progressSink);
 
-        Assert.True(result.IsSuccess);
+        var completed = Assert.IsType<CompileExecutionResult.CompletedResult>(result);
         Assert.Equal(1, artifactStore.ReadCount);
-        Assert.Equal(AssuranceVerdict.Fail, result.Output!.Verdict);
+        Assert.Equal(Verdict.Fail, completed.Output.Verdict);
         EventSequenceAssert.EmittedEventsInOrder(
             progressSink.Entries,
             CompileProgressEventNames.Started,
@@ -86,13 +87,14 @@ public sealed class CompileServiceRecoveryTests
         var resultWithoutProgress = await CreateService(
                 unityRequestExecutor: new RecordingUnityRequestExecutor(UnityRequestExecutionResult.Success(new UnityRequestResponse(
                     JsonSerializer.SerializeToElement(new { }),
-                    [new OperationExecutionError(ExecutionErrorCodes.IpcTimeout, "Unity compile assurance timed out.", null)]))),
+                    [new OperationExecutionError(ExecutionErrorCodes.IpcTimeout, "Unity compile assurance timed out.", InstancePath: null)]))),
                 artifactStore: new StubCompileRunArtifactStore(CompileRunArtifactReadResult.Success(CreateSummary(errorCount: 1))))
             .ExecuteAsync(new CompileCommandInput(
                 ProjectPath: null,
                 Mode: UnityExecutionMode.Oneshot,
                 TimeoutMilliseconds: 10000));
-        AssertCompileOutputsMatch(result.Output!, resultWithoutProgress.Output!);
+        var completedWithoutProgress = Assert.IsType<CompileExecutionResult.CompletedResult>(resultWithoutProgress);
+        AssertCompileOutputsMatch(completed.Output, completedWithoutProgress.Output);
     }
 
     private static void AssertCompileOutputsMatch (

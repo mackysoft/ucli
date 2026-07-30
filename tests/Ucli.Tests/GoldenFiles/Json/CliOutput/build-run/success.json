@@ -145,11 +145,11 @@
         "evidence": [
           {
             "kind": "buildProfile",
-            "evidenceRef": "build",
             "data": {
               "path": "/workspace/UnityProject/.ucli/build/player.json",
               "digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
-            }
+            },
+            "evidenceRef": "build"
           }
         ],
         "residualRisks": []
@@ -166,10 +166,31 @@
         },
         "evidence": [
           {
-            "kind": "unityLifecycleRead",
+            "kind": "readyLifecycleSnapshot",
             "data": {
-              "lifecycleState": "ready",
-              "compileGeneration": 1
+              "serverVersion": "0.5.0",
+              "unityVersion": "6000.1.4f1",
+              "projectFingerprint": "6c997854157f1c37233ad17eacb2ee2357866912f2d6ac6d62f1ec477b95f262",
+              "state": {
+                "editorMode": "gui",
+                "lifecycleState": "ready",
+                "compileState": "ready",
+                "generations": {
+                  "compileGeneration": 12,
+                  "domainReloadGeneration": 7,
+                  "assetRefreshGeneration": 0,
+                  "playModeGeneration": 1
+                },
+                "playMode": {
+                  "state": "stopped",
+                  "transition": "none",
+                  "isPlaying": false,
+                  "isPlayingOrWillChangePlaymode": false
+                }
+              },
+              "observedAtUtc": "2026-05-21T00:00:00+00:00",
+              "actionRequired": null,
+              "primaryDiagnostic": null
             }
           }
         ],
@@ -189,16 +210,18 @@
         "evidence": [
           {
             "kind": "buildInput",
-            "evidenceRef": "build",
             "data": {
+              "inputKind": "explicit",
               "buildTarget": "standaloneLinux64",
               "unityBuildTarget": "StandaloneLinux64",
+              "unityBuildTargetGroup": "Standalone",
               "sceneSource": "explicit",
               "scenes": [
                 "Assets/Scenes/Main.unity"
               ],
               "buildOptions": "Development"
-            }
+            },
+            "evidenceRef": "build"
           }
         ],
         "residualRisks": []
@@ -215,7 +238,18 @@
         },
         "evidence": [
           {
-            "kind": "unityBuildPipeline",
+            "kind": "buildRunner",
+            "data": {
+              "kind": "buildPipeline",
+              "method": null,
+              "invocation": {
+                "arguments": {},
+                "environment": {
+                  "variables": [],
+                  "secrets": []
+                }
+              }
+            },
             "evidenceRef": "build"
           }
         ],
@@ -233,15 +267,15 @@
         },
         "evidence": [
           {
-            "kind": "unityBuildPipeline",
-            "evidenceRef": "buildReport",
+            "kind": "buildReportSummary",
             "data": {
               "result": "succeeded",
               "durationMilliseconds": 2500,
               "errorCount": 0,
               "warningCount": 1,
               "reportRef": "buildReport"
-            }
+            },
+            "evidenceRef": "buildReport"
           }
         ],
         "residualRisks": []
@@ -259,15 +293,15 @@
         },
         "evidence": [
           {
-            "kind": "unityBuildReportRead",
-            "evidenceRef": "buildReport",
+            "kind": "buildReportSummary",
             "data": {
               "result": "succeeded",
               "durationMilliseconds": 2500,
               "errorCount": 0,
               "warningCount": 1,
               "reportRef": "buildReport"
-            }
+            },
+            "evidenceRef": "buildReport"
           }
         ],
         "residualRisks": []
@@ -285,12 +319,12 @@
         },
         "evidence": [
           {
-            "kind": "unityBuildReportRead",
-            "evidenceRef": "build",
+            "kind": "buildRunnerResult",
             "data": {
               "source": "buildPipelineBuildReport",
               "status": "succeeded"
-            }
+            },
+            "evidenceRef": "build"
           }
         ],
         "residualRisks": []
@@ -307,7 +341,14 @@
         },
         "evidence": [
           {
-            "kind": "unityBuildReportRead",
+            "kind": "buildReportSummary",
+            "data": {
+              "result": "succeeded",
+              "durationMilliseconds": 2500,
+              "errorCount": 0,
+              "warningCount": 1,
+              "reportRef": "buildReport"
+            },
             "evidenceRef": "buildReport"
           }
         ],
@@ -327,15 +368,15 @@
         },
         "evidence": [
           {
-            "kind": "outputManifestWrite",
-            "evidenceRef": "build",
+            "kind": "buildOutputAccounting",
             "data": {
               "manifestRef": "buildOutputManifest",
               "manifestDigest": "5676e19e1fc5c210fba288de8bed4841cbd2efbc2bc352653fd6306505e83264",
               "entryCount": 1,
               "fileCount": 2,
               "totalBytes": 33
-            }
+            },
+            "evidenceRef": "build"
           }
         ],
         "residualRisks": []
@@ -352,7 +393,14 @@
         },
         "evidence": [
           {
-            "kind": "outputManifestWrite",
+            "kind": "buildOutputManifest",
+            "data": {
+              "manifestRef": "buildOutputManifest",
+              "manifestDigest": "5676e19e1fc5c210fba288de8bed4841cbd2efbc2bc352653fd6306505e83264",
+              "entryCount": 1,
+              "fileCount": 2,
+              "totalBytes": 33
+            },
             "evidenceRef": "buildOutputManifest"
           }
         ],
@@ -372,8 +420,7 @@
         },
         "evidence": [
           {
-            "kind": "unityLogWindowRead",
-            "evidenceRef": "buildLog",
+            "kind": "buildLogSummary",
             "data": {
               "reportRef": "buildLog",
               "entryCount": 3,
@@ -386,7 +433,8 @@
                 "cursorStart": null,
                 "cursorEnd": null
               }
-            }
+            },
+            "evidenceRef": "buildLog"
           }
         ],
         "residualRisks": []
@@ -406,7 +454,6 @@
         "evidence": [
           {
             "kind": "projectMutationAudit",
-            "evidenceRef": "build",
             "data": {
               "mode": "forbid",
               "coverage": "full",
@@ -414,7 +461,8 @@
               "beforeDigest": "1111111111111111111111111111111111111111111111111111111111111111",
               "afterDigest": "1111111111111111111111111111111111111111111111111111111111111111",
               "items": []
-            }
+            },
+            "evidenceRef": "build"
           }
         ],
         "residualRisks": []
@@ -435,7 +483,6 @@
         "evidence": [
           {
             "kind": "generationSnapshot",
-            "evidenceRef": "build",
             "data": {
               "before": {
                 "compileGeneration": 1,
@@ -455,7 +502,8 @@
                 "assetRefreshGeneration": 1,
                 "playModeGeneration": 1
               }
-            }
+            },
+            "evidenceRef": "build"
           }
         ],
         "residualRisks": []

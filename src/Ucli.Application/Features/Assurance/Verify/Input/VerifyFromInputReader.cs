@@ -396,6 +396,6 @@ internal static class VerifyFromInputReader
         string message,
         UcliCode code)
     {
-        return VerifyFromInputReadResult.Failure(ApplicationFailure.InvalidInput(message, code));
+        return VerifyFromInputReadResult.Failure(ApplicationFailure.InvalidInput(message, code, instancePath: null, startupFailure: null));
     }
 }

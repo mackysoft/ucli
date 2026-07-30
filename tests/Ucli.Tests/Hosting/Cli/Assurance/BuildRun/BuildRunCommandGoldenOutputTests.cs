@@ -10,7 +10,7 @@ public sealed class BuildRunCommandGoldenOutputTests
     [Trait("Size", "Medium")]
     public async Task Run_WithPassOutput_MatchesGolden ()
     {
-        var service = new RecordingBuildService((_, _, _) => ValueTask.FromResult(BuildExecutionResult.Success(BuildRunTestData.CreateOutput())));
+        var service = new RecordingBuildService((_, _, _) => ValueTask.FromResult<BuildExecutionResult>(BuildExecutionResult.Completed(BuildRunTestData.CreatePassedOutput())));
         var command = new BuildRunCommand(service, CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
 
         var result = await CommandResultCapture.ExecuteWithErrorAsync(() => command.RunAsync(

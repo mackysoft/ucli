@@ -119,9 +119,9 @@ public sealed class VerifyServicePostReadTests
             Mode: UnityExecutionMode.Auto,
             TimeoutMilliseconds: 10000));
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal(AssuranceVerdict.Fail, result.Output!.Verdict);
-        var claim = Assert.Single(result.Output.Claims, static claim => claim.Id == VerifyClaimCodes.ReadSurfaceSafe);
+        var completed = Assert.IsType<VerifyExecutionResult.CompletedResult>(result);
+        Assert.Equal(Verdict.Fail, completed.Output.Verdict);
+        var claim = Assert.Single(completed.Output.Claims, static claim => claim.Id == VerifyClaimCodes.ReadSurfaceSafe);
         Assert.True(claim.Required);
         Assert.Equal(AssuranceClaimStatus.Failed, claim.Status);
         Assert.Equal(AssuranceCoverage.Full, claim.Coverage);
@@ -149,9 +149,9 @@ public sealed class VerifyServicePostReadTests
             Mode: UnityExecutionMode.Auto,
             TimeoutMilliseconds: 10000));
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal(AssuranceVerdict.Pass, result.Output!.Verdict);
-        var claim = Assert.Single(result.Output.Claims, static claim => claim.Id == VerifyClaimCodes.PostMutationObserved);
+        var completed = Assert.IsType<VerifyExecutionResult.CompletedResult>(result);
+        Assert.Equal(Verdict.Pass, completed.Output.Verdict);
+        var claim = Assert.Single(completed.Output.Claims, static claim => claim.Id == VerifyClaimCodes.PostMutationObserved);
         Assert.True(claim.Required);
         Assert.Equal(AssuranceClaimStatus.Passed, claim.Status);
         Assert.Equal(AssuranceCoverage.Full, claim.Coverage);
@@ -159,9 +159,9 @@ public sealed class VerifyServicePostReadTests
 
     [Fact]
     [Trait("Size", "Medium")]
-    public async Task Execute_WithRawOperationPostStateUnavailable_ReturnsOutOfScopeClaim ()
+    public async Task Execute_WithRawOperationPostStateUnavailable_ReturnsOutOfScopeClaimAndIncompleteVerdict ()
     {
-        using var scope = TestDirectories.CreateTempScope("ucli-verify", nameof(Execute_WithRawOperationPostStateUnavailable_ReturnsOutOfScopeClaim));
+        using var scope = TestDirectories.CreateTempScope("ucli-verify", nameof(Execute_WithRawOperationPostStateUnavailable_ReturnsOutOfScopeClaimAndIncompleteVerdict));
         WriteRequiredPostReadProfile(scope);
         var fromPath = scope.WriteFile(
             "from.json",
@@ -185,9 +185,9 @@ public sealed class VerifyServicePostReadTests
             Mode: UnityExecutionMode.Auto,
             TimeoutMilliseconds: 10000));
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal(AssuranceVerdict.Pass, result.Output!.Verdict);
-        var claim = Assert.Single(result.Output.Claims);
+        var completed = Assert.IsType<VerifyExecutionResult.CompletedResult>(result);
+        Assert.Equal(Verdict.Incomplete, completed.Output.Verdict);
+        var claim = Assert.Single(completed.Output.Claims);
         Assert.Equal(VerifyClaimCodes.PostMutationObserved, claim.Id);
         Assert.False(claim.Required);
         Assert.Equal(AssuranceClaimStatus.OutOfScope, claim.Status);
@@ -219,9 +219,9 @@ public sealed class VerifyServicePostReadTests
             Mode: UnityExecutionMode.Auto,
             TimeoutMilliseconds: 10000));
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal(AssuranceVerdict.Incomplete, result.Output!.Verdict);
-        var claim = Assert.Single(result.Output.Claims);
+        var completed = Assert.IsType<VerifyExecutionResult.CompletedResult>(result);
+        Assert.Equal(Verdict.Incomplete, completed.Output.Verdict);
+        var claim = Assert.Single(completed.Output.Claims);
         Assert.Equal(VerifyClaimCodes.PostMutationObserved, claim.Id);
         Assert.True(claim.Required);
         Assert.Equal(AssuranceClaimStatus.Unverified, claim.Status);
@@ -245,9 +245,9 @@ public sealed class VerifyServicePostReadTests
             Mode: UnityExecutionMode.Auto,
             TimeoutMilliseconds: 10000));
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal(AssuranceVerdict.Incomplete, result.Output!.Verdict);
-        var claim = Assert.Single(result.Output.Claims);
+        var completed = Assert.IsType<VerifyExecutionResult.CompletedResult>(result);
+        Assert.Equal(Verdict.Incomplete, completed.Output.Verdict);
+        var claim = Assert.Single(completed.Output.Claims);
         Assert.Equal(VerifyClaimCodes.PostMutationObserved, claim.Id);
         Assert.True(claim.Required);
         Assert.Equal(AssuranceClaimStatus.Unverified, claim.Status);
@@ -271,9 +271,9 @@ public sealed class VerifyServicePostReadTests
             Mode: UnityExecutionMode.Auto,
             TimeoutMilliseconds: 10000));
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal(AssuranceVerdict.Incomplete, result.Output!.Verdict);
-        var claim = Assert.Single(result.Output.Claims, static claim => claim.Id == VerifyClaimCodes.ReadSurfaceSafe);
+        var completed = Assert.IsType<VerifyExecutionResult.CompletedResult>(result);
+        Assert.Equal(Verdict.Incomplete, completed.Output.Verdict);
+        var claim = Assert.Single(completed.Output.Claims, static claim => claim.Id == VerifyClaimCodes.ReadSurfaceSafe);
         Assert.Equal(AssuranceClaimStatus.Indeterminate, claim.Status);
         Assert.Equal(AssuranceCoverage.None, claim.Coverage);
     }
@@ -305,10 +305,10 @@ public sealed class VerifyServicePostReadTests
             Mode: UnityExecutionMode.Auto,
             TimeoutMilliseconds: 10000));
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal(AssuranceVerdict.Fail, result.Output!.Verdict);
-        var risk = Assert.Single(result.Output.ResidualRisks);
-        Assert.Equal(VerifyRiskCodes.FromDiagnosticCoverageUnbound.Value, risk.Code);
+        var completed = Assert.IsType<VerifyExecutionResult.CompletedResult>(result);
+        Assert.Equal(Verdict.Incomplete, completed.Output.Verdict);
+        var risk = Assert.Single(completed.Output.ResidualRisks);
+        Assert.Equal(VerifyRiskCodes.FromDiagnosticCoverageUnbound, risk.Code);
         Assert.True(risk.Blocking);
     }
 
@@ -329,12 +329,12 @@ public sealed class VerifyServicePostReadTests
             Mode: UnityExecutionMode.Auto,
             TimeoutMilliseconds: 10000));
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal(AssuranceVerdict.Fail, result.Output!.Verdict);
-        var observedClaim = Assert.Single(result.Output.Claims, static claim => claim.Id == VerifyClaimCodes.PostMutationObserved);
+        var completed = Assert.IsType<VerifyExecutionResult.CompletedResult>(result);
+        Assert.Equal(Verdict.Incomplete, completed.Output.Verdict);
+        var observedClaim = Assert.Single(completed.Output.Claims, static claim => claim.Id == VerifyClaimCodes.PostMutationObserved);
         Assert.Equal(AssuranceCoverage.Full, observedClaim.Coverage);
-        var risk = Assert.Single(result.Output.ResidualRisks);
-        Assert.Equal(VerifyRiskCodes.FromDiagnosticCoverageUnbound.Value, risk.Code);
+        var risk = Assert.Single(completed.Output.ResidualRisks);
+        Assert.Equal(VerifyRiskCodes.FromDiagnosticCoverageUnbound, risk.Code);
         Assert.True(risk.Blocking);
     }
 

@@ -24,8 +24,8 @@ public sealed class ReadyServiceInputValidationTests
 
         var result = await service.ExecuteAsync(input);
 
-        Assert.False(result.IsSuccess);
-        var error = Assert.Single(result.Errors);
+        var failed = Assert.IsType<ReadyExecutionResult.FailedResult>(result);
+        var error = failed.Failure;
         Assert.Equal(UcliCoreErrorCodes.InvalidArgument, error.Code);
         Assert.Contains("--readIndexMode", error.Message, StringComparison.Ordinal);
     }
@@ -40,8 +40,8 @@ public sealed class ReadyServiceInputValidationTests
             mode: UnityExecutionMode.Daemon,
             readIndexMode: ReadIndexMode.AllowStale));
 
-        Assert.False(result.IsSuccess);
-        var error = Assert.Single(result.Errors);
+        var failed = Assert.IsType<ReadyExecutionResult.FailedResult>(result);
+        var error = failed.Failure;
         Assert.Equal(UcliCoreErrorCodes.InvalidArgument, error.Code);
         Assert.Contains("--mode daemon", error.Message, StringComparison.Ordinal);
     }
@@ -56,8 +56,8 @@ public sealed class ReadyServiceInputValidationTests
             mode: UnityExecutionMode.Auto,
             readIndexMode: ReadIndexMode.Disabled));
 
-        Assert.False(result.IsSuccess);
-        var error = Assert.Single(result.Errors);
+        var failed = Assert.IsType<ReadyExecutionResult.FailedResult>(result);
+        var error = failed.Failure;
         Assert.Equal(UcliCoreErrorCodes.InvalidArgument, error.Code);
         Assert.Contains("allowStale or requireFresh", error.Message, StringComparison.Ordinal);
     }

@@ -1,6 +1,4 @@
-using MackySoft.Ucli.Application.Features.Assurance;
 using MackySoft.Ucli.Application.Features.Assurance.Ready;
-using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 
@@ -11,15 +9,15 @@ internal static class ReadyCommandTestData
     private static readonly AssuranceVerifierId LifecycleVerifierId = new("ready.lifecycle");
     private static readonly AssuranceVerifierId ReadIndexVerifierId = new("ready.readIndex");
 
-    public static ReadyExecutionOutput CreateOutput (
-        AssuranceVerdict verdict = AssuranceVerdict.Pass)
+    public static ReadyExecutionOutput CreateOutput (Verdict verdict)
     {
         var lifecycle = CreateLifecycle();
-        var claimStatus = verdict == AssuranceVerdict.Pass
+        var claimStatus = verdict == Verdict.Pass
             ? AssuranceClaimStatus.Passed
-            : AssuranceClaimStatus.Failed;
+            : verdict == Verdict.Fail
+                ? AssuranceClaimStatus.Failed
+                : AssuranceClaimStatus.Indeterminate;
         return new ReadyExecutionOutput(
-            Verdict: verdict,
             Project: ProjectIdentityInfoTestFactory.Create(
                 projectFingerprint: ProjectFingerprintTestFactory.Create("<projectFingerprint>")),
             Verifiers:
@@ -44,14 +42,10 @@ internal static class ReadyCommandTestData
                         AssuranceRequestedExecutionMode.Auto,
                         AssuranceResolvedExecutionMode.Oneshot,
                         AssuranceSessionKind.TransientProbe),
-                    Validity: new ReadyClaimValidityOutput(
-                        ReadyValidityKind.ProbeOnly,
-                        GuaranteesReusableSession: false),
+                    Validity: ReadyClaimValidityOutput.ProbeOnly(),
                     Evidence:
                     [
-                        new ReadyEvidenceOutput(
-                            Kind: "lifecycleSnapshot",
-                            Data: lifecycle),
+                        ReadyLifecycleEvidenceOutput.Create(lifecycle),
                     ],
                     ResidualRisks: []),
             ],
@@ -70,7 +64,6 @@ internal static class ReadyCommandTestData
     {
         var readIndex = new ReadyReadIndexOutput(ReadyReadIndexMode.AllowStale, CreateReadIndexArtifacts());
         return new ReadyExecutionOutput(
-            Verdict: AssuranceVerdict.Pass,
             Project: ProjectIdentityInfoTestFactory.Create(
                 projectFingerprint: ProjectFingerprintTestFactory.Create("<projectFingerprint>")),
             Verifiers:
@@ -95,14 +88,10 @@ internal static class ReadyCommandTestData
                         AssuranceRequestedExecutionMode.Auto,
                         AssuranceResolvedExecutionMode.NotApplicable,
                         AssuranceSessionKind.ArtifactOnly),
-                    Validity: new ReadyClaimValidityOutput(
-                        ReadyValidityKind.ProbeOnly,
-                        GuaranteesReusableSession: false),
+                    Validity: ReadyClaimValidityOutput.ProbeOnly(),
                     Evidence:
                     [
-                        new ReadyEvidenceOutput(
-                            Kind: "readIndexSummary",
-                            Data: readIndex),
+                        ReadyReadIndexEvidenceOutput.Create(readIndex),
                     ],
                     ResidualRisks: []),
             ],

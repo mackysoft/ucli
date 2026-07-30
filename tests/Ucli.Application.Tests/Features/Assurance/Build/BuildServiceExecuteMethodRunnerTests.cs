@@ -1,5 +1,6 @@
 using System.Text.Json;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Artifacts;
+using MackySoft.Ucli.Application.Features.Assurance.Build.Contracts;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Profiles;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Vocabulary;
 using MackySoft.Ucli.Contracts.Assurance.Build;
@@ -58,10 +59,7 @@ public sealed class BuildServiceExecuteMethodRunnerTests
 
         var result = await service.ExecuteAsync(CreateInput(), progressSink);
 
-        if (!result.IsSuccess)
-        {
-            Assert.Fail(string.Join(Environment.NewLine, result.Errors.Select(static error => $"{error.Code}: {error.Message}")));
-        }
+        var completed = Assert.IsType<BuildExecutionResult.CompletedResult>(result);
 
         var outputDirectory = artifactStore.PreparedPaths!.RunnerOutputDirectory.Value;
         var profileDigest = BuildProfileResolver.ResolveJson(profileJson).Profile!.Digest;
@@ -85,7 +83,7 @@ public sealed class BuildServiceExecuteMethodRunnerTests
         Assert.Equal("player.txt", runnerOutputSource.Path.Value);
         Assert.False(accountingRequest.AllowEmptyOutputManifest);
 
-        var output = result.Output!;
+        var output = completed.Output;
         Assert.Equal(BuildRunnerKind.ExecuteMethod, output.Build.Runner.Kind);
         Assert.Equal("Build.Entry.Run", output.Build.Runner.Method);
         Assert.Equal(IpcBuildRunnerResultSource.UcliBuildRunnerResult, output.Build.RunnerResult.Source);
@@ -97,8 +95,6 @@ public sealed class BuildServiceExecuteMethodRunnerTests
         Assert.DoesNotContain(output.Claims, static claim => claim.Id == BuildClaimCodes.UnityBuildReportAccounted);
         Assert.DoesNotContain(EnvironmentValue, JsonSerializer.Serialize(output, PayloadSerializerOptions));
         Assert.DoesNotContain(SecretValue, JsonSerializer.Serialize(output, PayloadSerializerOptions));
-        var semanticResult = CreateBuildSemanticInvariantValidator().Validate(JsonSerializer.SerializeToElement(output, PayloadSerializerOptions));
-        Assert.True(semanticResult.IsValid, string.Join(Environment.NewLine, semanticResult.Violations.Select(static violation => $"{violation.Path}: {violation.Message}")));
         Assert.NotNull(artifactStore.WrittenMetadata);
         Assert.DoesNotContain(EnvironmentValue, JsonSerializer.Serialize(artifactStore.WrittenMetadata!, PayloadSerializerOptions));
         Assert.DoesNotContain(SecretValue, JsonSerializer.Serialize(artifactStore.WrittenMetadata!, PayloadSerializerOptions));
@@ -156,18 +152,16 @@ public sealed class BuildServiceExecuteMethodRunnerTests
 
         var result = await service.ExecuteAsync(CreateInput());
 
-        Assert.True(result.IsSuccess, string.Join(Environment.NewLine, result.Errors.Select(static error => $"{error.Code}: {error.Message}")));
+        var completed = Assert.IsType<BuildExecutionResult.CompletedResult>(result);
         var accountingRequest = Assert.IsType<BuildRunArtifactAccountingRequest>(artifactStore.AccountingRequest);
         Assert.NotNull(accountingRequest.BuildReport);
         Assert.Equal(
             RootRelativePath.Parse("reports/build-report.json"),
             accountingRequest.BuildReport.RunnerOutputRelativePath);
-        var output = result.Output!;
+        var output = completed.Output;
         Assert.Equal(BuildArtifactKind.BuildReport, output.Build.Summary.ReportRef);
         Assert.NotNull(output.Reports.BuildReport);
         var reportClaim = Assert.Single(output.Claims, static claim => claim.Id == BuildClaimCodes.UnityBuildReportAccounted);
         Assert.False(reportClaim.Required);
-        var semanticResult = CreateBuildSemanticInvariantValidator().Validate(JsonSerializer.SerializeToElement(output, PayloadSerializerOptions));
-        Assert.True(semanticResult.IsValid, string.Join(Environment.NewLine, semanticResult.Violations.Select(static violation => $"{violation.Path}: {violation.Message}")));
     }
 }

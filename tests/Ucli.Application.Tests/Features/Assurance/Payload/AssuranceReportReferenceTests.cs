@@ -3,7 +3,6 @@ using MackySoft.Ucli.Application.Features.Assurance.Build.Payload;
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Payload;
 using MackySoft.Ucli.Application.Features.Assurance.Ready;
 using MackySoft.Ucli.Application.Features.Assurance.Verify.Payload;
-using MackySoft.Ucli.Contracts.Assurance.Build;
 using MackySoft.Ucli.Contracts.Cryptography;
 
 namespace MackySoft.Ucli.Application.Tests.Features.Assurance.Payload;
@@ -92,7 +91,6 @@ public sealed class AssuranceReportReferenceTests
         var constructors = new Action[]
         {
             static () => new BuildExecutionOutput(
-                Verdict: AssuranceVerdict.Pass,
                 Project: null!,
                 Build: null!,
                 Verifiers: [],
@@ -100,7 +98,6 @@ public sealed class AssuranceReportReferenceTests
                 Reports: null!,
                 ResidualRisks: []),
             static () => new CompileExecutionOutput(
-                Verdict: AssuranceVerdict.Pass,
                 Project: null!,
                 Verifiers: [],
                 Claims: [],
@@ -112,7 +109,6 @@ public sealed class AssuranceReportReferenceTests
                 TimeoutMilliseconds: 1,
                 Compile: null!),
             static () => new ReadyExecutionOutput(
-                Verdict: AssuranceVerdict.Pass,
                 Project: null!,
                 Verifiers: [],
                 Claims: [],
@@ -126,7 +122,6 @@ public sealed class AssuranceReportReferenceTests
                 Lifecycle: null,
                 ReadIndex: null),
             static () => new VerifyExecutionOutput(
-                Verdict: AssuranceVerdict.Pass,
                 Project: null!,
                 Verifiers: [],
                 Claims: [],
@@ -143,6 +138,33 @@ public sealed class AssuranceReportReferenceTests
                 Assert.Throws<ArgumentNullException>(constructor).ParamName));
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public void CompileAndVerifyOutputs_WithUnresolvedTypedReportReference_ThrowArgumentException ()
+    {
+        var constructors = new Action[]
+        {
+            () => CreateCompileOutput(
+                verifierReportRef: new AssuranceReportId("missing"),
+                evidenceRef: new AssuranceReportId("report")),
+            () => CreateCompileOutput(
+                verifierReportRef: new AssuranceReportId("report"),
+                evidenceRef: new AssuranceReportId("missing")),
+            () => CreateVerifyOutput(
+                verifierReportRef: new AssuranceReportId("missing"),
+                evidenceRef: new AssuranceReportId("report")),
+            () => CreateVerifyOutput(
+                verifierReportRef: new AssuranceReportId("report"),
+                evidenceRef: new AssuranceReportId("missing")),
+        };
+
+        Assert.All(
+            constructors,
+            constructor => Assert.Equal(
+                "Reports",
+                Assert.Throws<ArgumentException>(constructor).ParamName));
+    }
+
     private static IReadOnlyList<IReadOnlyDictionary<string, AssuranceReportReference>> CreateReportSnapshots (
         IReadOnlyDictionary<string, AssuranceReportReference> reports)
     {
@@ -150,7 +172,6 @@ public sealed class AssuranceReportReferenceTests
         return
         [
             new CompileExecutionOutput(
-                Verdict: AssuranceVerdict.Pass,
                 Project: project,
                 Verifiers: [],
                 Claims: [],
@@ -162,7 +183,6 @@ public sealed class AssuranceReportReferenceTests
                 TimeoutMilliseconds: 1,
                 Compile: AssuranceExecutionOutputTestFactory.CreateCompileOutput()).Reports,
             new ReadyExecutionOutput(
-                Verdict: AssuranceVerdict.Pass,
                 Project: project,
                 Verifiers: [],
                 Claims: [],
@@ -176,7 +196,6 @@ public sealed class AssuranceReportReferenceTests
                 Lifecycle: null,
                 ReadIndex: null).Reports,
             new VerifyExecutionOutput(
-                Verdict: AssuranceVerdict.Pass,
                 Project: project,
                 Verifiers: [],
                 Claims: [],
@@ -185,5 +204,99 @@ public sealed class AssuranceReportReferenceTests
                 Profile: AssuranceExecutionOutputTestFactory.CreateVerifyProfileOutput(),
                 TimeoutMilliseconds: 1).Reports,
         ];
+    }
+
+    private static CompileExecutionOutput CreateCompileOutput (
+        AssuranceReportId verifierReportRef,
+        AssuranceReportId evidenceRef)
+    {
+        var verifierId = new AssuranceVerifierId("compile");
+        var claimId = new UcliCode("COMPILE_CLAIM");
+        return new CompileExecutionOutput(
+            Project: ProjectIdentityInfoTestFactory.Create(),
+            Verifiers:
+            [
+                new CompileVerifierOutput(
+                    verifierId,
+                    Deterministic: true,
+                    Required: true,
+                    PrimaryClaims: [claimId],
+                    Effects: [],
+                    ReportRef: verifierReportRef),
+            ],
+            Claims:
+            [
+                new CompileClaimOutput(
+                    claimId,
+                    AssuranceClaimStatus.Passed,
+                    AssuranceCoverage.Full,
+                    Required: true,
+                    verifierId,
+                    "statement",
+                    new Dictionary<string, object?>(StringComparer.Ordinal),
+                    [
+                        CompileScriptEvidenceOutput.Create(
+                            evidenceRef,
+                            AssuranceExecutionOutputTestFactory.CreateCompileOutput().ScriptCompilation),
+                    ],
+                    []),
+            ],
+            Reports: CreateSingleReportMap(),
+            ResidualRisks: [],
+            RequestedMode: AssuranceRequestedExecutionMode.Auto,
+            ResolvedMode: AssuranceResolvedExecutionMode.Oneshot,
+            SessionKind: AssuranceSessionKind.TransientProbe,
+            TimeoutMilliseconds: 1,
+            Compile: AssuranceExecutionOutputTestFactory.CreateCompileOutput());
+    }
+
+    private static VerifyExecutionOutput CreateVerifyOutput (
+        AssuranceReportId verifierReportRef,
+        AssuranceReportId evidenceRef)
+    {
+        var verifierId = new AssuranceVerifierId("verify");
+        var claimId = new UcliCode("VERIFY_CLAIM");
+        var compileEvidence = CompileScriptEvidenceOutput.Create(
+            evidenceRef,
+            AssuranceExecutionOutputTestFactory.CreateCompileOutput().ScriptCompilation);
+        return new VerifyExecutionOutput(
+            Project: ProjectIdentityInfoTestFactory.Create(),
+            Verifiers:
+            [
+                new VerifyVerifierOutput(
+                    verifierId,
+                    AssuranceVerifierKind.Compile,
+                    Deterministic: true,
+                    Required: true,
+                    PrimaryClaims: [claimId],
+                    Effects: [],
+                    ReportRef: verifierReportRef),
+            ],
+            Claims:
+            [
+                new VerifyClaimOutput(
+                    claimId,
+                    AssuranceClaimStatus.Passed,
+                    AssuranceCoverage.Full,
+                    Required: true,
+                    verifierId,
+                    "statement",
+                    new Dictionary<string, object?>(StringComparer.Ordinal),
+                    Validity: null,
+                    [VerifyScriptEvidenceOutput.Create(compileEvidence)],
+                    []),
+            ],
+            Reports: CreateSingleReportMap(),
+            ResidualRisks: [],
+            Profile: AssuranceExecutionOutputTestFactory.CreateVerifyProfileOutput(),
+            TimeoutMilliseconds: 1);
+    }
+
+    private static IReadOnlyDictionary<string, AssuranceReportReference> CreateSingleReportMap ()
+    {
+        return new Dictionary<string, AssuranceReportReference>(StringComparer.Ordinal)
+        {
+            ["report"] = AssuranceReportReference.FromPath("artifacts/report.json", digest: null),
+        };
     }
 }

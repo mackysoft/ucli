@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Application.Features.Assurance.Build.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using static MackySoft.Ucli.Application.Tests.Features.Assurance.Build.BuildServiceTestSupport;
 
@@ -27,22 +28,20 @@ public sealed class BuildServiceFailurePayloadTests
             Input: input);
         var response = new UnityRequestResponse(
             IpcPayloadCodec.SerializeToElement(errorPayload),
-            [new OperationExecutionError(BuildErrorCodes.BuildDirtyStatePresent, "Dirty scene state is present.", null)]);
+            [new OperationExecutionError(BuildErrorCodes.BuildDirtyStatePresent, "Dirty scene state is present.", InstancePath: null)]);
         var service = CreateService(
             requestExecutor: new RecordingUnityRequestExecutor(_ => UnityRequestExecutionResult.Success(response)),
             artifactStore: new StubBuildRunArtifactStore(tempDirectory.FullPath));
 
         var result = await service.ExecuteAsync(CreateInput());
 
-        Assert.False(result.IsSuccess);
-        var error = Assert.Single(result.Errors);
+        var failed = Assert.IsType<BuildExecutionResult.DirtyStateFailedResult>(result);
+        var error = failed.Failure;
         Assert.Equal(BuildErrorCodes.BuildDirtyStatePresent, error.Code);
-        Assert.NotNull(result.DirtyState);
-        Assert.True(result.DirtyState!.Dirty);
-        var item = Assert.Single(result.DirtyState.Items);
+        Assert.True(failed.DirtyState.Dirty);
+        var item = Assert.Single(failed.DirtyState.Items);
         Assert.Equal(IpcBuildDirtyStateItemKind.Scene, item.Kind);
         Assert.Equal(new ProjectMutationAuditPath("Assets/Scenes/Main.unity"), item.Path);
-        Assert.Null(result.Output);
     }
 
     [Fact]
@@ -61,19 +60,18 @@ public sealed class BuildServiceFailurePayloadTests
             Input: CreateInputProbe());
         var response = new UnityRequestResponse(
             IpcPayloadCodec.SerializeToElement(errorPayload),
-            [new OperationExecutionError(BuildErrorCodes.BuildDirtyStateIndeterminate, "Dirty state coverage is partial.", null)]);
+            [new OperationExecutionError(BuildErrorCodes.BuildDirtyStateIndeterminate, "Dirty state coverage is partial.", InstancePath: null)]);
         var service = CreateService(
             requestExecutor: new RecordingUnityRequestExecutor(_ => UnityRequestExecutionResult.Success(response)),
             artifactStore: new StubBuildRunArtifactStore(tempDirectory.FullPath));
 
         var result = await service.ExecuteAsync(CreateInput());
 
-        Assert.False(result.IsSuccess);
-        var error = Assert.Single(result.Errors);
+        var failed = Assert.IsType<BuildExecutionResult.DirtyStateFailedResult>(result);
+        var error = failed.Failure;
         Assert.Equal(BuildErrorCodes.BuildDirtyStateIndeterminate, error.Code);
-        Assert.NotNull(result.DirtyState);
-        Assert.Equal(IpcBuildDirtyStateCoverage.Partial, result.DirtyState!.Coverage);
-        Assert.Empty(result.DirtyState.Items);
+        Assert.Equal(IpcBuildDirtyStateCoverage.Partial, failed.DirtyState.Coverage);
+        Assert.Empty(failed.DirtyState.Items);
     }
 
     [Fact]
@@ -97,17 +95,15 @@ public sealed class BuildServiceFailurePayloadTests
             Input: CreateInputProbe());
         var response = new UnityRequestResponse(
             IpcPayloadCodec.SerializeToElement(errorPayload),
-            [new OperationExecutionError(BuildErrorCodes.BuildArtifactWriteFailed, "Artifact write failed.", null)]);
+            [new OperationExecutionError(BuildErrorCodes.BuildArtifactWriteFailed, "Artifact write failed.", InstancePath: null)]);
         var service = CreateService(
             requestExecutor: new RecordingUnityRequestExecutor(_ => UnityRequestExecutionResult.Success(response)),
             artifactStore: new StubBuildRunArtifactStore(tempDirectory.FullPath));
 
         var result = await service.ExecuteAsync(CreateInput());
 
-        Assert.False(result.IsSuccess);
-        var error = Assert.Single(result.Errors);
+        var failed = Assert.IsType<BuildExecutionResult.FailedResult>(result);
+        var error = failed.Failure;
         Assert.Equal(BuildErrorCodes.BuildArtifactWriteFailed, error.Code);
-        Assert.Null(result.DirtyState);
-        Assert.Null(result.Output);
     }
 }

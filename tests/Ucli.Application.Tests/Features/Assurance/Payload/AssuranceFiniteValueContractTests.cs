@@ -56,7 +56,6 @@ public sealed class AssuranceFiniteValueContractTests
     {
         var testCases = new (Action Construct, string ParameterName)[]
         {
-            (static () => new ReadyClaimValidityOutput(default, false), "Kind"),
             (static () => ReadyReadIndexArtifactOutput.Failed(
                 default,
                 required: true,

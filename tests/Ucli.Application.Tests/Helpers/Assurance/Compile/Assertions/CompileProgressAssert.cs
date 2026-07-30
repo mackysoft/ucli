@@ -17,7 +17,7 @@ internal static class CompileProgressAssert
         Assert.Equal(CompileRefreshOrigin.AssetDatabaseRefresh, refreshEntry.RefreshOrigin);
         Assert.Equal("hostDispatch", refreshEntry.ObservationSource);
         var completedEntry = Assert.IsType<CompileCompletedEntry>(progressSink.Entries[2].Payload);
-        Assert.Equal(AssuranceVerdict.Pass, completedEntry.Verdict);
+        Assert.Equal(Verdict.Pass, completedEntry.Verdict);
         Assert.Equal(0, completedEntry.ErrorCount);
     }
 

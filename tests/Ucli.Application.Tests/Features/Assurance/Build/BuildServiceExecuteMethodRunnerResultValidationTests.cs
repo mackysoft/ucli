@@ -1,5 +1,6 @@
 using System.Text.Json.Nodes;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Artifacts;
+using MackySoft.Ucli.Application.Features.Assurance.Build.Contracts;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Profiles;
 using MackySoft.Ucli.Contracts.Ipc;
 using static MackySoft.Ucli.Application.Tests.Features.Assurance.Build.BuildServiceExecuteMethodRunnerTestSupport;
@@ -52,8 +53,8 @@ public sealed class BuildServiceExecuteMethodRunnerResultValidationTests
 
         var result = await service.ExecuteAsync(CreateInput());
 
-        Assert.False(result.IsSuccess);
-        var error = Assert.Single(result.Errors);
+        var failed = Assert.IsType<BuildExecutionResult.FailedResult>(result);
+        var error = failed.Failure;
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
     }
 
@@ -79,8 +80,8 @@ public sealed class BuildServiceExecuteMethodRunnerResultValidationTests
 
         var result = await service.ExecuteAsync(CreateInput());
 
-        Assert.False(result.IsSuccess);
-        var error = Assert.Single(result.Errors);
+        var failed = Assert.IsType<BuildExecutionResult.FailedResult>(result);
+        var error = failed.Failure;
         Assert.Equal(BuildErrorCodes.BuildRunnerResultMissing, error.Code);
     }
 
@@ -96,8 +97,8 @@ public sealed class BuildServiceExecuteMethodRunnerResultValidationTests
                 runnerResult["outputs"] = new JsonArray();
             });
 
-        Assert.False(result.IsSuccess);
-        var error = Assert.Single(result.Errors);
+        var failed = Assert.IsType<BuildExecutionResult.FailedResult>(result);
+        var error = failed.Failure;
         Assert.Equal(BuildErrorCodes.BuildRunnerResultInvalid, error.Code);
     }
 
@@ -108,8 +109,8 @@ public sealed class BuildServiceExecuteMethodRunnerResultValidationTests
         var result = await ExecuteWithMalformedExecuteMethodRunnerResultPayloadAsync(
             static payload => payload["runnerResult"]!.AsObject()["outputs"] = null);
 
-        Assert.False(result.IsSuccess);
-        var error = Assert.Single(result.Errors);
+        var failed = Assert.IsType<BuildExecutionResult.FailedResult>(result);
+        var error = failed.Failure;
         Assert.Equal(BuildErrorCodes.BuildRunnerResultInvalid, error.Code);
     }
 
@@ -120,8 +121,8 @@ public sealed class BuildServiceExecuteMethodRunnerResultValidationTests
         var result = await ExecuteWithMalformedExecuteMethodRunnerResultPayloadAsync(
             static payload => payload["runnerResult"]!.AsObject().Remove("outputs"));
 
-        Assert.False(result.IsSuccess);
-        var error = Assert.Single(result.Errors);
+        var failed = Assert.IsType<BuildExecutionResult.FailedResult>(result);
+        var error = failed.Failure;
         Assert.Equal(BuildErrorCodes.BuildRunnerResultInvalid, error.Code);
     }
 
@@ -133,8 +134,8 @@ public sealed class BuildServiceExecuteMethodRunnerResultValidationTests
     {
         var result = await ExecuteWithMalformedExecuteMethodRunnerResultPayloadAsync(payload => MutateInvalidRunnerResultShape(caseName, payload));
 
-        Assert.False(result.IsSuccess);
-        var error = Assert.Single(result.Errors);
+        var failed = Assert.IsType<BuildExecutionResult.FailedResult>(result);
+        var error = failed.Failure;
         Assert.Equal(BuildErrorCodes.BuildRunnerResultInvalid, error.Code);
     }
 
@@ -146,8 +147,8 @@ public sealed class BuildServiceExecuteMethodRunnerResultValidationTests
     {
         var result = await ExecuteWithMalformedExecuteMethodRunnerResultRawPayloadAsync(payloadJson => MutateDuplicateRunnerResultProperty(caseName, payloadJson));
 
-        Assert.False(result.IsSuccess);
-        var error = Assert.Single(result.Errors);
+        var failed = Assert.IsType<BuildExecutionResult.FailedResult>(result);
+        var error = failed.Failure;
         Assert.Equal(BuildErrorCodes.BuildRunnerResultInvalid, error.Code);
     }
 
@@ -170,7 +171,7 @@ public sealed class BuildServiceExecuteMethodRunnerResultValidationTests
             completionReason,
             artifactStore);
 
-        Assert.True(result.IsSuccess, string.Join(Environment.NewLine, result.Errors.Select(static error => $"{error.Code}: {error.Message}")));
+        Assert.IsType<BuildExecutionResult.CompletedResult>(result);
         var accountingRequest = Assert.IsType<BuildRunArtifactAccountingRequest>(artifactStore.AccountingRequest);
         Assert.Empty(accountingRequest.OutputSources);
         Assert.True(accountingRequest.AllowEmptyOutputManifest);
@@ -195,8 +196,8 @@ public sealed class BuildServiceExecuteMethodRunnerResultValidationTests
             runnerResult["warningCount"] = warningCount;
         });
 
-        Assert.False(result.IsSuccess);
-        var error = Assert.Single(result.Errors);
+        var failed = Assert.IsType<BuildExecutionResult.FailedResult>(result);
+        var error = failed.Failure;
         Assert.Equal(BuildErrorCodes.BuildRunnerResultInvalid, error.Code);
     }
 
@@ -217,8 +218,8 @@ public sealed class BuildServiceExecuteMethodRunnerResultValidationTests
             };
         });
 
-        Assert.False(result.IsSuccess);
-        var error = Assert.Single(result.Errors);
+        var failed = Assert.IsType<BuildExecutionResult.FailedResult>(result);
+        var error = failed.Failure;
         Assert.Equal(BuildErrorCodes.BuildRunnerResultInvalid, error.Code);
     }
 }

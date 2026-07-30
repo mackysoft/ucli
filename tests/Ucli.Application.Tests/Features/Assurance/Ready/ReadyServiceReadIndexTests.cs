@@ -19,9 +19,9 @@ public sealed class ReadyServiceReadIndexTests
 
         var result = await service.ExecuteAsync(CreateReadIndexInput(readIndexMode: ReadIndexMode.AllowStale));
 
-        Assert.True(result.IsSuccess);
-        var output = Assert.IsType<ReadyExecutionOutput>(result.Output);
-        Assert.Equal(AssuranceVerdict.Pass, output.Verdict);
+        var completed = Assert.IsType<ReadyExecutionResult.CompletedResult>(result);
+        var output = completed.Output;
+        Assert.Equal(Verdict.Pass, output.Verdict);
         Assert.Equal(AssuranceResolvedExecutionMode.NotApplicable, output.ResolvedMode);
         Assert.Equal(AssuranceSessionKind.ArtifactOnly, output.SessionKind);
         Assert.Null(output.Lifecycle);
@@ -32,8 +32,7 @@ public sealed class ReadyServiceReadIndexTests
             output.ReadIndex.Artifacts.Select(static artifact => artifact.Name));
         Assert.All(output.ReadIndex.Artifacts, static artifact => Assert.True(artifact.Required));
         var claim = Assert.Single(output.Claims);
-        Assert.Equal(ReadyValidityKind.ProbeOnly, claim.Validity.Kind);
-        Assert.False(claim.Validity.GuaranteesReusableSession);
+        Assert.IsType<ProbeOnlyReadyClaimValidityOutput>(claim.Validity);
     }
 
     [Fact]
@@ -45,9 +44,9 @@ public sealed class ReadyServiceReadIndexTests
 
         var result = await service.ExecuteAsync(CreateReadIndexInput(readIndexMode: ReadIndexMode.RequireFresh));
 
-        Assert.True(result.IsSuccess);
-        var output = Assert.IsType<ReadyExecutionOutput>(result.Output);
-        Assert.Equal(AssuranceVerdict.Fail, output.Verdict);
+        var completed = Assert.IsType<ReadyExecutionResult.CompletedResult>(result);
+        var output = completed.Output;
+        Assert.Equal(Verdict.Fail, output.Verdict);
         var claim = Assert.Single(output.Claims);
         Assert.Equal(AssuranceClaimStatus.Failed, claim.Status);
 

@@ -1,7 +1,6 @@
 using System.Text.Json.Serialization;
 using MackySoft.Ucli.Contracts.Assurance.Build;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Features.Assurance.Build.Payload;
 
@@ -18,6 +17,13 @@ internal sealed record BuildSummaryOutput
         if (!TextVocabulary.IsDefined(Result) || Result == IpcBuildReportResult.Unknown)
         {
             throw new ArgumentOutOfRangeException(nameof(Result), Result, "Build summary result must be terminal.");
+        }
+        if (ReportRef is not null && ReportRef != BuildArtifactKind.BuildReport)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(ReportRef),
+                ReportRef,
+                "Build summary report reference must identify the Unity BuildReport artifact.");
         }
 
         this.Result = Result;

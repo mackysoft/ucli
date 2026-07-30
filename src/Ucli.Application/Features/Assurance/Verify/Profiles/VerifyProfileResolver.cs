@@ -18,7 +18,19 @@ internal static class VerifyProfileResolver
     public static VerifyProfileResolutionResult Resolve (
         string? profile)
     {
-        return ResolveBuiltInProfile(StringValueNormalizer.TrimToNull(profile) ?? BuiltInDefault);
+        if (profile is null)
+        {
+            return ResolveBuiltInProfile(BuiltInDefault);
+        }
+
+        if (string.IsNullOrWhiteSpace(profile))
+        {
+            return VerifyProfileResolutionResult.Failure(ExecutionError.InvalidArgument(
+                "--profile must not be empty.",
+                UcliCoreErrorCodes.InvalidArgument));
+        }
+
+        return ResolveBuiltInProfile(profile.Trim());
     }
 
     /// <summary> Resolves a user-authored file profile from already-read JSON. </summary>
@@ -37,7 +49,7 @@ internal static class VerifyProfileResolver
         catch (JsonException exception)
         {
             return VerifyProfileResolutionResult.Failure(ExecutionError.InvalidArgument(
-                $"Verify profile JSON is invalid. {exception.Message}"));
+                $"Verify profile JSON is invalid. {exception.Message}",UcliCoreErrorCodes.InvalidArgument));
         }
     }
 
@@ -50,7 +62,7 @@ internal static class VerifyProfileResolver
             BuiltInProject => CreateBuiltIn(BuiltInProject, includeCompile: true, readyTarget: ReadyTarget.Execution, includePostRead: true),
             BuiltInScript => CreateBuiltIn(BuiltInScript, includeCompile: true, readyTarget: ReadyTarget.Execution, includePostRead: false),
             _ => VerifyProfileResolutionResult.Failure(ExecutionError.InvalidArgument(
-                $"Unsupported verify profile '{profile}'. Built-in profiles are {BuiltInDefault}, {BuiltInMutation}, {BuiltInProject}, and {BuiltInScript}.")),
+                $"Unsupported verify profile '{profile}'. Built-in profiles are {BuiltInDefault}, {BuiltInMutation}, {BuiltInProject}, and {BuiltInScript}.",UcliCoreErrorCodes.InvalidArgument)),
         };
     }
 
@@ -420,7 +432,7 @@ internal static class VerifyProfileResolver
 
     private static ExecutionError InvalidProfileError (string message)
     {
-        return ExecutionError.InvalidArgument(message);
+        return ExecutionError.InvalidArgument(message,UcliCoreErrorCodes.InvalidArgument);
     }
 
     private sealed record VerifyProfileStepReadResult (

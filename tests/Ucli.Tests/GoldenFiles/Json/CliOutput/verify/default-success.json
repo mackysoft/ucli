@@ -49,11 +49,38 @@
         "subject": {
           "target": "execution"
         },
-        "evidence": [],
+        "evidence": [
+          {
+            "kind": "readyLifecycleSnapshot",
+            "data": {
+              "serverVersion": "0.5.0",
+              "unityVersion": "<unityVersion>",
+              "editorMode": "batchmode",
+              "lifecycleState": "ready",
+              "blockingReason": null,
+              "compileState": "ready",
+              "generations": {
+                "compileGeneration": 12,
+                "domainReloadGeneration": 7,
+                "assetRefreshGeneration": 0,
+                "playModeGeneration": 2
+              },
+              "canAcceptExecutionRequests": true,
+              "observedAtUtc": "2026-05-17T00:00:00+00:00",
+              "actionRequired": null,
+              "primaryDiagnostic": null,
+              "playMode": {
+                "state": "stopped",
+                "transition": "none",
+                "isPlaying": false,
+                "isPlayingOrWillChangePlaymode": false
+              }
+            }
+          }
+        ],
         "residualRisks": [],
         "validity": {
-          "kind": "probeOnly",
-          "guaranteesReusableSession": false
+          "kind": "probeOnly"
         }
       },
       {
@@ -68,8 +95,19 @@
         },
         "evidence": [
           {
-            "kind": "compileSummary",
-            "evidenceRef": "compile.summary"
+            "kind": "scriptCompilation",
+            "data": {
+              "started": true,
+              "completed": true,
+              "compileGenerationBefore": 12,
+              "compileGenerationAfter": 14,
+              "diagnostics": {
+                "errorCount": 0,
+                "warningCount": 0,
+                "primaryDiagnostic": null
+              }
+            },
+            "evidenceRef": "compile.diagnostics"
           }
         ],
         "residualRisks": []
@@ -78,13 +116,15 @@
     "reports": {
       "compile.summary": {
         "path": ".ucli/local/compile/32c8976c-42f2-4e42-a857-3cba1241a7de/summary.json"
+      },
+      "compile.diagnostics": {
+        "path": ".ucli/local/compile/32c8976c-42f2-4e42-a857-3cba1241a7de/diagnostics.json"
       }
     },
     "residualRisks": [],
     "profile": {
       "source": "builtIn",
       "name": "built-in:default",
-      "path": null,
       "digest": "1111111111111111111111111111111111111111111111111111111111111111"
     },
     "timeoutMilliseconds": 120000

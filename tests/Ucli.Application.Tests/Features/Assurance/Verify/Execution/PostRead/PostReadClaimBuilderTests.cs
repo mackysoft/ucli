@@ -263,7 +263,7 @@ public sealed class PostReadClaimBuilderTests
         var claimSet = PostReadClaimBuilder.Build(input, profileRequired: false);
 
         var risk = Assert.Single(claimSet.ResidualRisks);
-        Assert.Equal(VerifyRiskCodes.FromDiagnosticCoverageUnbound.Value, risk.Code);
+        Assert.Equal(VerifyRiskCodes.FromDiagnosticCoverageUnbound, risk.Code);
         Assert.True(risk.Blocking);
     }
 

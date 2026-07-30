@@ -2,7 +2,6 @@ using System.Text.Json.Serialization;
 using MackySoft.Ucli.Contracts.Assurance.Build;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Assurance;
 
@@ -10,7 +9,9 @@ namespace MackySoft.Ucli.Contracts.Assurance;
 public sealed record BuildProgressEntry
 {
     /// <summary> Initializes one build progress entry for a non-empty run identifier. </summary>
-    /// <exception cref="ArgumentException"> Thrown when <paramref name="RunId" /> is empty. </exception>
+    /// <exception cref="ArgumentException">
+    /// Thrown when <paramref name="RunId" /> is empty or <paramref name="Verdict" /> does not match the completion phase.
+    /// </exception>
     /// <exception cref="ArgumentNullException"> Thrown when a required reference value is <see langword="null" />. </exception>
     /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="Verdict" /> has an undefined value. </exception>
     [JsonConstructor]
@@ -20,7 +21,7 @@ public sealed record BuildProgressEntry
         BuildRunProgressPhase Phase,
         BuildRunnerKind? RunnerKind,
         IpcBuildReportResult? RunnerStatus,
-        AssuranceVerdict? Verdict,
+        Verdict? Verdict,
         IReadOnlyList<BuildArtifactKind> ReportRefs,
         UcliCode? ErrorCode)
     {
@@ -50,6 +51,14 @@ public sealed record BuildProgressEntry
         {
             throw new ArgumentOutOfRangeException(nameof(Verdict), Verdict, "Verdict must be defined by the assurance contract.");
         }
+        if (Phase == BuildRunProgressPhase.Completed && !Verdict.HasValue)
+        {
+            throw new ArgumentException("The completed build progress phase requires a verdict.", nameof(Verdict));
+        }
+        if (Phase != BuildRunProgressPhase.Completed && Verdict.HasValue)
+        {
+            throw new ArgumentException("Only the completed build progress phase may carry a verdict.", nameof(Verdict));
+        }
 
         this.RunId = RunId;
         this.ProfileDigest = ProfileDigest;
@@ -71,7 +80,7 @@ public sealed record BuildProgressEntry
 
     public IpcBuildReportResult? RunnerStatus { get; }
 
-    public AssuranceVerdict? Verdict { get; }
+    public Verdict? Verdict { get; }
 
     public IReadOnlyList<BuildArtifactKind> ReportRefs { get; }
 

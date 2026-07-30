@@ -14,7 +14,7 @@ public sealed class VerifyCommandGoldenOutputTests
     [Trait("Size", "Medium")]
     public async Task Verify_WithDefaultOrSupportedFormat_WritesOnlyFinalCommandResult (string? format)
     {
-        var service = new RecordingVerifyService((_, _, _) => ValueTask.FromResult(VerifyExecutionResult.Success(CreateOutput())));
+        var service = new RecordingVerifyService((_, _, _) => ValueTask.FromResult<VerifyExecutionResult>(VerifyExecutionResult.Completed(CreateOutput(Verdict.Pass))));
         var command = new VerifyCommand(service, CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
 
         var result = await CommandResultCapture.ExecuteWithErrorAsync(() => command.VerifyAsync(
@@ -32,12 +32,12 @@ public sealed class VerifyCommandGoldenOutputTests
     }
 
     [Theory]
-    [InlineData(AssuranceVerdict.Fail)]
-    [InlineData(AssuranceVerdict.Incomplete)]
+    [InlineData(Verdict.Fail)]
+    [InlineData(Verdict.Incomplete)]
     [Trait("Size", "Small")]
-    public async Task Verify_WithNonPassVerdict_ReturnsOkEnvelopeWithFailureExitCode (AssuranceVerdict verdict)
+    public async Task Verify_WithNonPassVerdict_ReturnsOkEnvelopeWithFailureExitCode (Verdict verdict)
     {
-        var service = new RecordingVerifyService((_, _, _) => ValueTask.FromResult(VerifyExecutionResult.Success(CreateOutput(verdict))));
+        var service = new RecordingVerifyService((_, _, _) => ValueTask.FromResult<VerifyExecutionResult>(VerifyExecutionResult.Completed(CreateOutput(verdict))));
         var command = new VerifyCommand(service, CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
 
         var result = await CommandResultCapture.ExecuteAsync(() => command.VerifyAsync(

@@ -11,11 +11,11 @@ public sealed class BuildRunCommandResultFactoryTests
 {
     [Fact]
     [Trait("Size", "Small")]
-    public void Create_WithPassVerifierVerdict_ReturnsOkStatusAndExitCodeZero ()
+    public void Create_WithPassVerdict_ReturnsOkStatusAndExitCodeZero ()
     {
-        var output = BuildRunTestData.CreateOutput();
+        var output = BuildRunTestData.CreatePassedOutput();
 
-        var result = BuildRunCommandResultFactory.Create(BuildExecutionResult.Success(output));
+        var result = BuildRunCommandResultFactory.Create(BuildExecutionResult.Completed(output));
 
         Assert.Equal(CommandResultStatus.Ok, result.Status);
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
@@ -24,15 +24,11 @@ public sealed class BuildRunCommandResultFactoryTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void Create_WithFailedVerifierVerdict_ReturnsOkStatusAndExitCodeOne ()
+    public void Create_WithFailVerdict_ReturnsOkStatusAndExitCodeOne ()
     {
-        var output = BuildRunTestData.CreateOutput(
-            AssuranceVerdict.Fail,
-            IpcBuildReportResult.Failed,
-            IpcBuildLogCompletionReason.Failed,
-            errorCount: 1);
+        var output = BuildRunTestData.CreateFailedOutput();
 
-        var result = BuildRunCommandResultFactory.Create(BuildExecutionResult.Success(output));
+        var result = BuildRunCommandResultFactory.Create(BuildExecutionResult.Completed(output));
 
         Assert.Equal(CommandResultStatus.Ok, result.Status);
         Assert.Equal(1, result.ExitCode);
@@ -41,11 +37,11 @@ public sealed class BuildRunCommandResultFactoryTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void Create_WithIncompleteVerifierVerdict_ReturnsOkStatusAndExitCodeOne ()
+    public void Create_WithIncompleteVerdict_ReturnsOkStatusAndExitCodeOne ()
     {
-        var output = BuildRunTestData.CreateOutput(AssuranceVerdict.Incomplete);
+        var output = BuildRunTestData.CreateIncompleteOutput();
 
-        var result = BuildRunCommandResultFactory.Create(BuildExecutionResult.Success(output));
+        var result = BuildRunCommandResultFactory.Create(BuildExecutionResult.Completed(output));
 
         Assert.Equal(CommandResultStatus.Ok, result.Status);
         Assert.Equal(1, result.ExitCode);
@@ -56,9 +52,8 @@ public sealed class BuildRunCommandResultFactoryTests
     [Trait("Size", "Small")]
     public void Create_WithoutBuildReport_OmitsConditionalReportProperty ()
     {
-        var source = BuildRunTestData.CreateOutput();
+        var source = BuildRunTestData.CreatePassedOutput();
         var output = new BuildExecutionOutput(
-            source.Verdict,
             source.Project,
             source.Build,
             source.Verifiers,
@@ -70,7 +65,7 @@ public sealed class BuildRunCommandResultFactoryTests
                 BuildLog: source.Reports.BuildLog),
             source.ResidualRisks);
 
-        var result = BuildRunCommandResultFactory.Create(BuildExecutionResult.Success(output));
+        var result = BuildRunCommandResultFactory.Create(BuildExecutionResult.Completed(output));
         var payload = JsonSerializer.SerializeToElement(
             result.Payload,
             CliOutputJsonSerializerOptions.Default);
@@ -92,7 +87,7 @@ public sealed class BuildRunCommandResultFactoryTests
                     new ProjectMutationAuditPath("Assets/Scenes/Main.unity")),
             ]);
         var project = ProjectIdentityInfoTestFactory.CreateWithProjectPath(projectPath: ProjectPathTestValues.WorkspaceUnityProject);
-        var executionResult = BuildExecutionResult.Failure(
+        var executionResult = BuildExecutionResult.FailedWithDirtyState(
             ExecutionError.InternalError("Dirty scene state is present.", BuildErrorCodes.BuildDirtyStatePresent),
             project,
             dirtyState);

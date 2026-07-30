@@ -1,30 +1,40 @@
-using System.Text.Json.Serialization;
-using MackySoft.Ucli.Contracts.Text;
-
 namespace MackySoft.Ucli.Application.Features.Assurance.Ready;
 
-/// <summary> Represents validity semantics for one ready claim. </summary>
-internal sealed record ReadyClaimValidityOutput
+/// <summary> Represents one established validity scope for a ready claim. </summary>
+internal abstract record ReadyClaimValidityOutput
 {
-    /// <summary> Initializes validity semantics with a defined scope. </summary>
-    /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="Kind" /> is not defined by the ready contract. </exception>
-    [JsonConstructor]
-    public ReadyClaimValidityOutput (
-        ReadyValidityKind Kind,
-        bool GuaranteesReusableSession)
+    private protected ReadyClaimValidityOutput ()
     {
-        if (!TextVocabulary.IsDefined(Kind))
-        {
-            throw new ArgumentOutOfRangeException(nameof(Kind), Kind, "Validity kind must be defined by the ready contract.");
-        }
-
-        this.Kind = Kind;
-        this.GuaranteesReusableSession = GuaranteesReusableSession;
     }
 
-    /// <summary> Gets the validity scope of the ready claim. </summary>
-    public ReadyValidityKind Kind { get; }
+    /// <summary> Creates validity limited to the completed readiness probe. </summary>
+    public static ReadyClaimValidityOutput ProbeOnly ()
+    {
+        return new ProbeOnlyReadyClaimValidityOutput();
+    }
 
-    /// <summary> Gets whether the claim guarantees a reusable Unity session. </summary>
+    /// <summary> Creates validity bound to the resolved daemon session. </summary>
+    public static ReadyClaimValidityOutput SessionBound (bool guaranteesReusableSession)
+    {
+        return new SessionBoundReadyClaimValidityOutput(guaranteesReusableSession);
+    }
+}
+
+/// <summary> Represents validity limited to the completed readiness probe. </summary>
+internal sealed record ProbeOnlyReadyClaimValidityOutput : ReadyClaimValidityOutput
+{
+    public ProbeOnlyReadyClaimValidityOutput ()
+    {
+    }
+}
+
+/// <summary> Represents validity bound to the resolved daemon session. </summary>
+internal sealed record SessionBoundReadyClaimValidityOutput : ReadyClaimValidityOutput
+{
+    public SessionBoundReadyClaimValidityOutput (bool guaranteesReusableSession)
+    {
+        GuaranteesReusableSession = guaranteesReusableSession;
+    }
+
     public bool GuaranteesReusableSession { get; }
 }

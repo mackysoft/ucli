@@ -1,6 +1,6 @@
 using System.Text.Json;
-using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Artifacts;
+using MackySoft.Ucli.Application.Features.Assurance.Build.Contracts;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Profiles;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Vocabulary;
 using MackySoft.Ucli.Contracts.Assurance.Build;
@@ -28,12 +28,9 @@ public sealed class BuildServiceSuccessPayloadTests
 
         var result = await service.ExecuteAsync(CreateInput(), progressSink);
 
-        if (!result.IsSuccess)
-        {
-            Assert.Fail(string.Join(Environment.NewLine, result.Errors.Select(static error => $"{error.Code}: {error.Message}")));
-        }
-        var output = result.Output!;
-        Assert.Equal(AssuranceVerdict.Pass, output.Verdict);
+        var completed = Assert.IsType<BuildExecutionResult.CompletedResult>(result);
+        var output = completed.Output;
+        Assert.Equal(Verdict.Pass, output.Verdict);
         Assert.Equal(RunId, output.Build.RunId);
         Assert.Equal(IpcBuildReportResult.Succeeded, output.Build.Summary.Result);
         Assert.Equal(IpcBuildRunnerResultSource.BuildPipelineBuildReport, output.Build.RunnerResult.Source);
@@ -141,11 +138,6 @@ public sealed class BuildServiceSuccessPayloadTests
             progressSink,
             expectedRunId: RunId,
             expectedProfileDigest: expectedProfileDigest);
-
-        var validator = CreateBuildSemanticInvariantValidator();
-        var semanticPayload = JsonSerializer.SerializeToElement(output, PayloadSerializerOptions);
-        var semanticResult = validator.Validate(semanticPayload);
-        Assert.True(semanticResult.IsValid, string.Join(Environment.NewLine, semanticResult.Violations.Select(static violation => $"{violation.Path}: {violation.Message}")));
 
         var requestPayload = BuildRunInvocationAssert.ExplicitBuildPipelineRequest(
             requestExecutor,

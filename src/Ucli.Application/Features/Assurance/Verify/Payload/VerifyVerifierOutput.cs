@@ -1,10 +1,10 @@
 using System.Text.Json.Serialization;
-using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.Application.Features.Assurance.Semantics;
 
 namespace MackySoft.Ucli.Application.Features.Assurance.Verify.Payload;
 
 /// <summary> Represents one verifier entry in a verify assurance payload. </summary>
-internal sealed record VerifyVerifierOutput
+internal sealed record VerifyVerifierOutput : IAssuranceVerdictVerifier
 {
     public VerifyVerifierOutput (
         AssuranceVerifierId Id,
@@ -12,7 +12,8 @@ internal sealed record VerifyVerifierOutput
         bool Deterministic,
         bool Required,
         IReadOnlyList<UcliCode> PrimaryClaims,
-        IReadOnlyList<AssuranceEffect> Effects)
+        IReadOnlyList<AssuranceEffect> Effects,
+        AssuranceReportId? ReportRef)
     {
         this.Id = Id ?? throw new ArgumentNullException(nameof(Id));
         if (!TextVocabulary.IsDefined(Kind))
@@ -24,6 +25,12 @@ internal sealed record VerifyVerifierOutput
         if (PrimaryClaims.Any(static code => code is null))
         {
             throw new ArgumentException("Primary claim codes must not contain null.", nameof(PrimaryClaims));
+        }
+        if (Required && PrimaryClaims.Count == 0)
+        {
+            throw new ArgumentException(
+                "A required verifier must identify at least one primary claim.",
+                nameof(PrimaryClaims));
         }
 
         ArgumentNullException.ThrowIfNull(Effects);
@@ -37,6 +44,7 @@ internal sealed record VerifyVerifierOutput
         this.Required = Required;
         this.PrimaryClaims = Array.AsReadOnly(PrimaryClaims.ToArray());
         this.Effects = Array.AsReadOnly(Effects.ToArray());
+        this.ReportRef = ReportRef;
     }
 
     public AssuranceVerifierId Id { get; }
@@ -53,5 +61,5 @@ internal sealed record VerifyVerifierOutput
 
     /// <summary> Gets the optional report reference produced by this verifier. </summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? ReportRef { get; init; }
+    public AssuranceReportId? ReportRef { get; }
 }
