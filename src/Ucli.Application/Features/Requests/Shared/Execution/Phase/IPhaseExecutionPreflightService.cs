@@ -16,6 +16,6 @@ internal interface IPhaseExecutionPreflightService
         PreparedRequestContext preparedRequest,
         UnityExecutionMode mode,
         ExecutionDeadline deadline,
-        bool failFast = false,
+        bool failFast,
         CancellationToken cancellationToken = default);
 }

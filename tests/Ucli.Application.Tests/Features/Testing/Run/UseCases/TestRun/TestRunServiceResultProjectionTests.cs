@@ -11,12 +11,9 @@ public sealed class TestRunServiceResultProjectionTests
 {
     [Theory]
     [Trait("Size", "Medium")]
-    [InlineData(false, (int)TestRunResultKind.Pass, (int)ApplicationOutcome.Success)]
-    [InlineData(true, (int)TestRunResultKind.Fail, (int)ApplicationOutcome.TestFailure)]
-    public async Task Execute_WithSuccessfulExecution_ReturnsPassOrFail (
-        bool hasFailedTests,
-        int expectedResult,
-        int expectedOutcome)
+    [MemberData(nameof(GetVerdicts))]
+    public async Task Execute_WithSuccessfulExecution_ReturnsConversionVerdict (
+        Verdict expectedVerdict)
     {
         var configuration = CreateResolvedConfiguration();
         var session = CreateArtifactsSession();
@@ -28,55 +25,26 @@ public sealed class TestRunServiceResultProjectionTests
             artifactsService: new StubTestRunArtifactsService(
                 prepare: _ => ArtifactsPreparationResult.Success(session),
                 complete: (_, _, _) => ArtifactsCompletionResult.Success()),
-            unityTestExecutor: new StubUnityTestExecutor((_, _, _, _) => ValueTask.FromResult(UnityTestExecutionResult.Success(0))),
-            resultsConverter: new StubUnityResultsConverter(_ => ValueTask.FromResult(UnityResultsConversionResult.Success(hasFailedTests))));
+            unityTestExecutor: new StubUnityTestExecutor((_, _, _, _) => ValueTask.FromResult<UnityTestExecutionResult>(UnityTestExecutionResult.FromProcessExitCode(0))),
+            resultsConverter: new StubUnityResultsConverter(_ => ValueTask.FromResult<UnityResultsConversionResult>(
+                TestRunResultTestValues.CreateConversion(expectedVerdict))));
 
-        var result = await service.ExecuteAsync(CreateInput(), cancellationToken: CancellationToken.None);
+        var result = Assert.IsType<TestRunCompletedServiceResult>(
+            await service.ExecuteAsync(CreateInput(), cancellationToken: CancellationToken.None));
 
-        Assert.Equal((TestRunResultKind)expectedResult, result.Result);
-        Assert.Null(result.ErrorKind);
-        Assert.Equal((ApplicationOutcome)expectedOutcome, result.Outcome);
+        Assert.Equal(expectedVerdict, result.Verdict);
         Assert.Equal(session.RunId, result.RunId);
         Assert.Equal(session.Paths.ArtifactsDir, result.ArtifactsDir);
         Assert.Equal(session.Paths.SummaryJsonPath, result.SummaryJsonPath);
     }
 
-    [Theory]
-    [Trait("Size", "Medium")]
-    [InlineData("NoSuchTestName", null)]
-    [InlineData(null, "NoSuchCategory")]
-    public async Task Execute_WithFilteredEmptyRun_ReturnsNoTestsExecutedInvalidInput (
-        string? testFilter,
-        string? testCategory)
+    public static TheoryData<Verdict> GetVerdicts ()
     {
-        var configuration = CreateResolvedConfiguration();
-        var session = CreateArtifactsSession();
-        var input = CreateInput() with
+        return new TheoryData<Verdict>
         {
-            TestFilter = testFilter,
-            TestCategory = testCategory is null ? null : [testCategory],
+            Verdict.Pass,
+            Verdict.Fail,
+            Verdict.Incomplete,
         };
-
-        var service = CreateService(
-            configurationResolver: new StubTestRunConfigurationResolver(TestRunConfigurationResolutionResult.Success(configuration)),
-            modeDecisionService: new StubModeDecisionService(UnityExecutionModeDecisionResult.Success(
-                new UnityExecutionModeDecision(UnityExecutionMode.Oneshot, false, UnityExecutionTarget.Oneshot, TimeSpan.FromSeconds(30)))),
-            artifactsService: new StubTestRunArtifactsService(
-                prepare: _ => ArtifactsPreparationResult.Success(session),
-                complete: (_, _, _) => ArtifactsCompletionResult.Success()),
-            unityTestExecutor: new StubUnityTestExecutor((_, _, _, _) => ValueTask.FromResult(UnityTestExecutionResult.Success(0))),
-            resultsConverter: new StubUnityResultsConverter(_ => ValueTask.FromResult(UnityResultsConversionResult.Success(
-                hasFailedTests: false,
-                reportedTestCaseCount: 0))));
-
-        var result = await service.ExecuteAsync(input, cancellationToken: CancellationToken.None);
-
-        Assert.Null(result.Result);
-        Assert.Equal(TestRunErrorKind.InvalidInput, result.ErrorKind);
-        Assert.Equal(ApplicationOutcome.InvalidArgument, result.Outcome);
-        Assert.Equal(TestRunErrorCodes.TestRunNoTestsExecuted, result.ErrorCode);
-        Assert.Equal(session.RunId, result.RunId);
-        Assert.Equal(session.Paths.ArtifactsDir, result.ArtifactsDir);
-        Assert.Equal(session.Paths.SummaryJsonPath, result.SummaryJsonPath);
     }
 }

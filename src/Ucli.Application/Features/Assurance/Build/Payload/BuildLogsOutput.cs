@@ -1,6 +1,5 @@
 using MackySoft.Ucli.Contracts.Assurance.Build;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Features.Assurance.Build.Payload;
 
@@ -8,7 +7,6 @@ namespace MackySoft.Ucli.Application.Features.Assurance.Build.Payload;
 internal sealed record BuildLogsOutput
 {
     public BuildLogsOutput (
-        BuildArtifactKind ReportRef,
         int EntryCount,
         int ErrorCount,
         int WarningCount,
@@ -20,7 +18,6 @@ internal sealed record BuildLogsOutput
             throw new ArgumentOutOfRangeException(nameof(CompletionReason), CompletionReason, "Build log completion reason must be specified.");
         }
 
-        this.ReportRef = ReportRef;
         this.EntryCount = EntryCount;
         this.ErrorCount = ErrorCount;
         this.WarningCount = WarningCount;
@@ -28,7 +25,7 @@ internal sealed record BuildLogsOutput
         this.Window = Window;
     }
 
-    public BuildArtifactKind ReportRef { get; }
+    public BuildArtifactKind ReportRef { get; } = BuildArtifactKind.BuildLog;
 
     public int EntryCount { get; }
 

@@ -25,7 +25,7 @@ public sealed class VerifyCommandProgressTests
                     CreateReadyStepProgressEntry(),
                     cancellationToken)
                 .ConfigureAwait(false);
-            return VerifyExecutionResult.Success(CreateOutput());
+            return VerifyExecutionResult.Completed(CreateOutput(Verdict.Pass));
         });
         var command = new VerifyCommand(service, CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
 
@@ -77,7 +77,7 @@ public sealed class VerifyCommandProgressTests
                     CreateDiagnosticEntry(),
                     cancellationToken)
                 .ConfigureAwait(false);
-            return VerifyExecutionResult.Success(CreateOutput());
+            return VerifyExecutionResult.Completed(CreateOutput(Verdict.Pass));
         });
         var command = new VerifyCommand(service, CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
 

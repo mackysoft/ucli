@@ -8,7 +8,7 @@ public sealed class UcliOperationDescribeContractBuilderTests
 {
     [Fact]
     [Trait("Size", "Small")]
-    public void Create_WithGeneratedAggregate_DeliversBothProviderProjectionsAndDigestWithoutReprojection ()
+    public void CreateJudging_WithGeneratedAggregate_DeliversBothProviderProjectionsAndDigestWithoutReprojection ()
     {
         const string operationName = "ucli.test.assets.find";
         var serializerOptions = IpcJsonSerializerOptions.PublicRawOperationContracts;
@@ -20,15 +20,19 @@ public sealed class UcliOperationDescribeContractBuilderTests
         {
             Language = UcliCodeLanguage.CSharp,
         };
+        var verdictContract = new UcliOperationVerdictContract(
+            "At least one project asset matches the supplied filters.");
 
-        var describe = UcliOperationDescribeContractBuilder.Create(
+        var describe = UcliOperationDescribeContractBuilder.CreateJudging(
             generationResult,
             "Finds project assets by type, path prefix, or name substring.",
             CreateSafeAssurance(),
+            verdictContract,
             codeContract);
 
         Assert.Equal(generationResult.ArgsContract, describe.ArgsContract);
         Assert.Equal(generationResult.ResultContract, describe.ResultContract);
+        Assert.Equal(verdictContract, describe.VerdictContract);
         Assert.Equal(UcliCodeLanguage.CSharp, describe.CodeContract!.Language);
 
         var operationNameDigest = Convert.ToHexString(
@@ -50,7 +54,7 @@ public sealed class UcliOperationDescribeContractBuilderTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void Create_WhenOperationDeclaresNoResult_DoesNotGenerateOrPublishResultContract ()
+    public void CreateWithoutVerdict_WhenOperationDeclaresNoResult_DoesNotGenerateOrPublishResultContract ()
     {
         const string operationName = "ucli.test.scene.open";
         var generationResult = UcliOperationJsonContractGenerator.Generate(
@@ -58,14 +62,16 @@ public sealed class UcliOperationDescribeContractBuilderTests
             IpcJsonSerializerOptions.PublicRawOperationContracts.GetTypeInfo(typeof(ScenePathArgs)),
             resultTypeInfo: null);
 
-        var describe = UcliOperationDescribeContractBuilder.Create(
+        var describe = UcliOperationDescribeContractBuilder.CreateWithoutVerdict(
             generationResult,
             "Opens a Unity scene asset in the editor.",
-            CreateSafeAssurance());
+            CreateSafeAssurance(),
+            codeContract: null);
 
         Assert.Equal(generationResult.ArgsContract, describe.ArgsContract);
         Assert.Null(generationResult.ResultContract);
         Assert.Null(describe.ResultContract);
+        Assert.Null(describe.VerdictContract);
     }
 
     private static UcliOperationAssuranceContract CreateSafeAssurance ()

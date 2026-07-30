@@ -17,7 +17,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
     [UcliOperation]
     internal sealed class SceneOpenOperation : UcliOperation<ScenePathArgs, UcliNoResult>
     {
-        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<ScenePathArgs, UcliNoResult>(
+        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.CreateWithoutVerdict<ScenePathArgs, UcliNoResult>(
             operationName: UcliPrimitiveOperationNames.SceneOpen,
             kind: UcliOperationKind.Command,
             description: "Opens a Unity scene asset in the editor.",
@@ -30,7 +30,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 touchedContract: "Reports the scene resource as an observed editor context, not as a persisted mutation.",
                 readPostconditionContract: "Does not stale read surfaces by itself.",
                 failureSemantics: "Timeout, cancellation, or domain reload may leave the open editor state indeterminate.",
-                dangerousNotes: new[] { "This operation changes the active editor scene context without mutating scene content." }));
+                dangerousNotes: new[] { "This operation changes the active editor scene context without mutating scene content." }),
+            requiresPreCallPlanReplay: false,
+            exposure: UcliOperationExposure.Public,
+            playModeSupport: UcliOperationPlayModeSupport.Disallowed,
+            codeContract: null);
 
         /// <summary> Executes validate phase for <c>ucli.scene.open</c>. </summary>
         /// <param name="operation"> The normalized operation. </param>
@@ -49,7 +53,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return Task.FromResult(failure!);
             }
 
-            return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false));
+            return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()));
         }
 
         /// <summary> Executes plan phase for <c>ucli.scene.open</c>. </summary>

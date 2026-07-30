@@ -12,6 +12,7 @@ internal sealed record CommandError
         string? InstancePath)
     {
         this.Code = Code ?? throw new ArgumentNullException(nameof(Code));
+        ArgumentException.ThrowIfNullOrWhiteSpace(Message);
         this.Message = Message;
         this.InstancePath = InstancePath;
     }

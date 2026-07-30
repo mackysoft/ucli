@@ -220,11 +220,14 @@ internal sealed class RequestStaticValidator : IRequestStaticValidator
 
         if (!authorizationResult.IsAllowed)
         {
+            var denialCode = authorizationResult.ErrorCode
+                ?? throw new InvalidOperationException(
+                    "A denied operation authorization must contain an error code.");
             var message = isImplicitEditOperation
                 ? $"Edit step requires operation '{operationName}'. {authorizationResult.Message}"
                 : authorizationResult.Message;
             errors.Add(new ValidationError(
-                authorizationResult.ErrorCode ?? OperationAuthorizationErrorCodes.OperationNotAllowed,
+                denialCode,
                 message,
                 instancePath));
         }

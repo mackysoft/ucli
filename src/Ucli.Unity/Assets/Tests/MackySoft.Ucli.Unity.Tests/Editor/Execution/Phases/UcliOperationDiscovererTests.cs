@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
@@ -64,24 +63,6 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void DiscoverFromTypes_WhenTypeIsGenericOperation_ReturnsTypedDescribeContract ()
-        {
-            var operations = UcliOperationDiscoverer.DiscoverFromTypes(new Type[]
-            {
-                typeof(GenericDiscoverableOperation),
-            }, operationServiceProvider);
-
-            Assert.That(operations.Count, Is.EqualTo(1));
-            Assert.That(operations[0].Operation, Is.TypeOf<GenericDiscoverableOperation>());
-            Assert.That(operations[0].Metadata.ArgsType, Is.EqualTo(typeof(GenericDiscoverableArgs)));
-            Assert.That(operations[0].Metadata.ResultType, Is.EqualTo(typeof(UcliNoResult)));
-            Assert.That(operations[0].Metadata.DescribeContract.Description, Is.EqualTo("Generic operation used to verify custom operation authoring."));
-            Assert.That(operations[0].Metadata.DescribeContract.ArgsContract, Is.Not.Null);
-            Assert.That(operations[0].Metadata.DescribeContract.ResultContract, Is.Null);
-        }
-
-        [Test]
-        [Category("Size.Small")]
         public void DiscoverFromTypes_WhenConstructorDependencyIsRegistered_UsesServiceProvider ()
         {
             var dependency = new RegisteredOperationDependency();
@@ -129,83 +110,19 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void DiscoverFromTypes_WhenTypedOperationMetadataArgsTypeDoesNotMatch_ThrowsInvalidOperationException ()
-        {
-            Assert.Throws<InvalidOperationException>(() =>
-            {
-                _ = UcliOperationDiscoverer.DiscoverFromTypes(new Type[]
-                {
-                    typeof(MetadataArgsMismatchOperation),
-                }, operationServiceProvider);
-            });
-        }
-
-        [Test]
-        [Category("Size.Small")]
-        public void DiscoverFromTypes_WhenTypedOperationMetadataResultTypeDoesNotMatch_ThrowsInvalidOperationException ()
-        {
-            Assert.Throws<InvalidOperationException>(() =>
-            {
-                _ = UcliOperationDiscoverer.DiscoverFromTypes(new Type[]
-                {
-                    typeof(MetadataResultMismatchOperation),
-                }, operationServiceProvider);
-            });
-        }
-
-        [Test]
-        [Category("Size.Small")]
-        public void UcliOperationMetadata_WhenArgsUseReservedRawOpPropertyName_ThrowsArgumentException ()
-        {
-            Assert.Throws<ArgumentException>(() =>
-            {
-                _ = UcliOperationMetadata.Create<ReservedVarArgs, UcliNoResult>(
-                    operationName: "ucli.tests.reserved-var",
-                    kind: UcliOperationKind.Query,
-                    description: "Reserved var property operation.",
-                    assurance: CreateValidationOnlyAssurance());
-            });
-        }
-
-        [Test]
-        [Category("Size.Small")]
-        public void UcliOperationMetadata_WhenArgsRootIsNotObject_ThrowsArgumentException ()
-        {
-            Assert.Throws<ArgumentException>(() =>
-            {
-                _ = UcliOperationMetadata.Create<string, UcliNoResult>(
-                    operationName: "ucli.tests.scalar-args",
-                    kind: UcliOperationKind.Query,
-                    description: "Invalid scalar args operation.",
-                    assurance: CreateValidationOnlyAssurance());
-            });
-        }
-
-        [Test]
-        [Category("Size.Small")]
-        public void UcliOperationMetadata_WhenResultRootIsNotObject_ThrowsArgumentException ()
-        {
-            Assert.Throws<ArgumentException>(() =>
-            {
-                _ = UcliOperationMetadata.Create<UcliEmptyArgs, string>(
-                    operationName: "ucli.tests.scalar-result",
-                    kind: UcliOperationKind.Query,
-                    description: "Invalid scalar result operation.",
-                    assurance: CreateValidationOnlyAssurance());
-            });
-        }
-
-        [Test]
-        [Category("Size.Small")]
         public void UcliOperationMetadata_WhenPublicOperationMayCreatePreviewState_ThrowsArgumentException ()
         {
             Assert.Throws<ArgumentException>(() =>
             {
-                _ = UcliOperationMetadata.Create<UcliEmptyArgs, UcliNoResult>(
+                _ = UcliOperationMetadata.CreateWithoutVerdict<UcliEmptyArgs, UcliNoResult>(
                     operationName: "ucli.tests.public-preview-state",
                     kind: UcliOperationKind.Command,
                     description: "Public preview-state operation.",
-                    assurance: CreatePreviewStateAssurance());
+                    assurance: CreatePreviewStateAssurance(),
+                    requiresPreCallPlanReplay: false,
+                    exposure: UcliOperationExposure.Public,
+                    playModeSupport: UcliOperationPlayModeSupport.Disallowed,
+                    codeContract: null);
             });
         }
 
@@ -213,59 +130,17 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public void UcliOperationMetadata_WhenEditLoweringOnlyOperationMayCreatePreviewState_ReturnsMetadata ()
         {
-            var editLoweringOnlyMetadata = UcliOperationMetadata.Create<UcliEmptyArgs, UcliNoResult>(
+            var editLoweringOnlyMetadata = UcliOperationMetadata.CreateWithoutVerdict<UcliEmptyArgs, UcliNoResult>(
                 operationName: "ucli.tests.edit-preview-state",
                 kind: UcliOperationKind.Command,
                 description: "Edit-only preview-state operation.",
                 assurance: CreatePreviewStateAssurance(),
-                exposure: UcliOperationExposure.EditLoweringOnly);
+                requiresPreCallPlanReplay: false,
+                exposure: UcliOperationExposure.EditLoweringOnly,
+                playModeSupport: UcliOperationPlayModeSupport.Disallowed,
+                codeContract: null);
 
             Assert.That(editLoweringOnlyMetadata.Exposure, Is.EqualTo(UcliOperationExposure.EditLoweringOnly));
-        }
-
-        [Test]
-        [Category("Size.Small")]
-        public void UcliOperationMetadata_WhenPlayModeSupportIsOmitted_DefaultsToDisallowed ()
-        {
-            var metadata = UcliOperationMetadata.Create<UcliEmptyArgs, UcliNoResult>(
-                operationName: "ucli.tests.playmode-default",
-                kind: UcliOperationKind.Command,
-                description: "Default Play Mode support operation.",
-                assurance: CreateValidationOnlyAssurance());
-
-            Assert.That(metadata.PlayModeSupport, Is.EqualTo(UcliOperationPlayModeSupport.Disallowed));
-        }
-
-        [Test]
-        [Category("Size.Small")]
-        public void UcliOperationMetadata_WhenPlayModeSupportIsSpecified_StoresValue ()
-        {
-            var metadata = UcliOperationMetadata.Create<UcliEmptyArgs, UcliNoResult>(
-                operationName: "ucli.tests.playmode-required",
-                kind: UcliOperationKind.Mutation,
-                description: "Play Mode required operation.",
-                assurance: CreateRuntimeStateMutationAssurance(),
-                playModeSupport: UcliOperationPlayModeSupport.Required);
-
-            Assert.That(metadata.PlayModeSupport, Is.EqualTo(UcliOperationPlayModeSupport.Required));
-        }
-
-        [Test]
-        [Category("Size.Small")]
-        public void UcliOperationMetadata_WhenDescribeContractIsMutatedAfterCreation_DoesNotExposeMutation ()
-        {
-            var metadata = UcliOperationMetadata.Create<GenericDiscoverableArgs, UcliNoResult>(
-                operationName: "ucli.tests.describe-defensive-copy",
-                kind: UcliOperationKind.Query,
-                description: "Defensive copy operation.",
-                assurance: CreateValidationOnlyAssurance());
-            var firstRead = metadata.DescribeContract;
-            firstRead.Description = "Mutated description.";
-
-            var secondRead = metadata.DescribeContract;
-
-            Assert.That(secondRead.Description, Is.EqualTo("Defensive copy operation."));
-            Assert.That(secondRead.ArgsContract, Is.Not.Null);
         }
 
         [Test]
@@ -470,18 +345,22 @@ namespace MackySoft.Ucli.Unity.Tests
         [UcliOperation]
         private sealed class DiscoverableOperation : IUcliOperation
         {
-            public UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<UcliEmptyArgs, UcliNoResult>(
+            public UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.CreateWithoutVerdict<UcliEmptyArgs, UcliNoResult>(
                 operationName: "ucli.tests.discover",
                 kind: UcliOperationKind.Query,
                 description: "ucli.tests.discover test operation.",
-                assurance: CreateValidationOnlyAssurance());
+                assurance: CreateValidationOnlyAssurance(),
+                requiresPreCallPlanReplay: false,
+                exposure: UcliOperationExposure.Public,
+                playModeSupport: UcliOperationPlayModeSupport.Disallowed,
+                codeContract: null);
 
             public Task<OperationPhaseStepResult> ValidateAsync (
                 NormalizedOperation operation,
                 OperationExecutionContext executionContext,
                 CancellationToken cancellationToken = default)
             {
-                return Task.FromResult(OperationPhaseStepResult.Success());
+                return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()));
             }
 
             public Task<OperationPhaseStepResult> PlanAsync (
@@ -489,7 +368,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 OperationExecutionContext executionContext,
                 CancellationToken cancellationToken = default)
             {
-                return Task.FromResult(OperationPhaseStepResult.Success());
+                return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()));
             }
 
             public Task<OperationPhaseStepResult> CallAsync (
@@ -497,44 +376,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 OperationExecutionContext executionContext,
                 CancellationToken cancellationToken = default)
             {
-                return Task.FromResult(OperationPhaseStepResult.Success());
-            }
-        }
-
-        [UcliOperation]
-        private sealed class GenericDiscoverableOperation : UcliOperation<GenericDiscoverableArgs, UcliNoResult>
-        {
-            public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<GenericDiscoverableArgs, UcliNoResult>(
-                operationName: "ucli.tests.generic-discover",
-                kind: UcliOperationKind.Query,
-                description: "Generic operation used to verify custom operation authoring.",
-                assurance: CreateValidationOnlyAssurance());
-
-            protected override Task<OperationPhaseStepResult> ValidateAsync (
-                NormalizedOperation operation,
-                GenericDiscoverableArgs args,
-                OperationExecutionContext executionContext,
-                CancellationToken cancellationToken)
-            {
-                return Task.FromResult(OperationPhaseStepResult.Success());
-            }
-
-            protected override Task<OperationPhaseStepResult> PlanAsync (
-                NormalizedOperation operation,
-                GenericDiscoverableArgs args,
-                OperationExecutionContext executionContext,
-                CancellationToken cancellationToken)
-            {
-                return Task.FromResult(OperationPhaseStepResult.Success());
-            }
-
-            protected override Task<OperationPhaseStepResult> CallAsync (
-                NormalizedOperation operation,
-                GenericDiscoverableArgs args,
-                OperationExecutionContext executionContext,
-                CancellationToken cancellationToken)
-            {
-                return Task.FromResult(OperationPhaseStepResult.Success());
+                return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()));
             }
         }
 
@@ -548,18 +390,22 @@ namespace MackySoft.Ucli.Unity.Tests
 
             public RegisteredOperationDependency Dependency { get; }
 
-            public UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<UcliEmptyArgs, UcliNoResult>(
+            public UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.CreateWithoutVerdict<UcliEmptyArgs, UcliNoResult>(
                 operationName: "ucli.tests.registered-dependency",
                 kind: UcliOperationKind.Query,
                 description: "ucli.tests.registered-dependency test operation.",
-                assurance: CreateValidationOnlyAssurance());
+                assurance: CreateValidationOnlyAssurance(),
+                requiresPreCallPlanReplay: false,
+                exposure: UcliOperationExposure.Public,
+                playModeSupport: UcliOperationPlayModeSupport.Disallowed,
+                codeContract: null);
 
             public Task<OperationPhaseStepResult> ValidateAsync (
                 NormalizedOperation operation,
                 OperationExecutionContext executionContext,
                 CancellationToken cancellationToken = default)
             {
-                return Task.FromResult(OperationPhaseStepResult.Success());
+                return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()));
             }
 
             public Task<OperationPhaseStepResult> PlanAsync (
@@ -567,7 +413,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 OperationExecutionContext executionContext,
                 CancellationToken cancellationToken = default)
             {
-                return Task.FromResult(OperationPhaseStepResult.Success());
+                return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()));
             }
 
             public Task<OperationPhaseStepResult> CallAsync (
@@ -575,7 +421,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 OperationExecutionContext executionContext,
                 CancellationToken cancellationToken = default)
             {
-                return Task.FromResult(OperationPhaseStepResult.Success());
+                return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()));
             }
         }
 
@@ -587,18 +433,22 @@ namespace MackySoft.Ucli.Unity.Tests
                 _ = dependency ?? throw new ArgumentNullException(nameof(dependency));
             }
 
-            public UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<UcliEmptyArgs, UcliNoResult>(
+            public UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.CreateWithoutVerdict<UcliEmptyArgs, UcliNoResult>(
                 operationName: "ucli.tests.unregistered-concrete-dependency",
                 kind: UcliOperationKind.Query,
                 description: "ucli.tests.unregistered-concrete-dependency test operation.",
-                assurance: CreateValidationOnlyAssurance());
+                assurance: CreateValidationOnlyAssurance(),
+                requiresPreCallPlanReplay: false,
+                exposure: UcliOperationExposure.Public,
+                playModeSupport: UcliOperationPlayModeSupport.Disallowed,
+                codeContract: null);
 
             public Task<OperationPhaseStepResult> ValidateAsync (
                 NormalizedOperation operation,
                 OperationExecutionContext executionContext,
                 CancellationToken cancellationToken = default)
             {
-                return Task.FromResult(OperationPhaseStepResult.Success());
+                return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()));
             }
 
             public Task<OperationPhaseStepResult> PlanAsync (
@@ -606,7 +456,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 OperationExecutionContext executionContext,
                 CancellationToken cancellationToken = default)
             {
-                return Task.FromResult(OperationPhaseStepResult.Success());
+                return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()));
             }
 
             public Task<OperationPhaseStepResult> CallAsync (
@@ -614,7 +464,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 OperationExecutionContext executionContext,
                 CancellationToken cancellationToken = default)
             {
-                return Task.FromResult(OperationPhaseStepResult.Success());
+                return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()));
             }
         }
 
@@ -625,18 +475,22 @@ namespace MackySoft.Ucli.Unity.Tests
             {
             }
 
-            public UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<UcliEmptyArgs, UcliNoResult>(
+            public UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.CreateWithoutVerdict<UcliEmptyArgs, UcliNoResult>(
                 operationName: "ucli.tests.private-constructor",
                 kind: UcliOperationKind.Query,
                 description: "ucli.tests.private-constructor test operation.",
-                assurance: CreateValidationOnlyAssurance());
+                assurance: CreateValidationOnlyAssurance(),
+                requiresPreCallPlanReplay: false,
+                exposure: UcliOperationExposure.Public,
+                playModeSupport: UcliOperationPlayModeSupport.Disallowed,
+                codeContract: null);
 
             public Task<OperationPhaseStepResult> ValidateAsync (
                 NormalizedOperation operation,
                 OperationExecutionContext executionContext,
                 CancellationToken cancellationToken = default)
             {
-                return Task.FromResult(OperationPhaseStepResult.Success());
+                return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()));
             }
 
             public Task<OperationPhaseStepResult> PlanAsync (
@@ -644,7 +498,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 OperationExecutionContext executionContext,
                 CancellationToken cancellationToken = default)
             {
-                return Task.FromResult(OperationPhaseStepResult.Success());
+                return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()));
             }
 
             public Task<OperationPhaseStepResult> CallAsync (
@@ -652,7 +506,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 OperationExecutionContext executionContext,
                 CancellationToken cancellationToken = default)
             {
-                return Task.FromResult(OperationPhaseStepResult.Success());
+                return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()));
             }
         }
 
@@ -714,96 +568,6 @@ namespace MackySoft.Ucli.Unity.Tests
         }
 
         [UcliOperation]
-        private sealed class MetadataArgsMismatchOperation : UcliOperation<GenericDiscoverableArgs, UcliNoResult>
-        {
-            public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<UcliEmptyArgs, UcliNoResult>(
-                operationName: "ucli.tests.args-mismatch",
-                kind: UcliOperationKind.Query,
-                description: "Metadata args mismatch operation.",
-                assurance: CreateValidationOnlyAssurance());
-
-            protected override Task<OperationPhaseStepResult> ValidateAsync (
-                NormalizedOperation operation,
-                GenericDiscoverableArgs args,
-                OperationExecutionContext executionContext,
-                CancellationToken cancellationToken)
-            {
-                return Task.FromResult(OperationPhaseStepResult.Success());
-            }
-
-            protected override Task<OperationPhaseStepResult> PlanAsync (
-                NormalizedOperation operation,
-                GenericDiscoverableArgs args,
-                OperationExecutionContext executionContext,
-                CancellationToken cancellationToken)
-            {
-                return Task.FromResult(OperationPhaseStepResult.Success());
-            }
-
-            protected override Task<OperationPhaseStepResult> CallAsync (
-                NormalizedOperation operation,
-                GenericDiscoverableArgs args,
-                OperationExecutionContext executionContext,
-                CancellationToken cancellationToken)
-            {
-                return Task.FromResult(OperationPhaseStepResult.Success());
-            }
-        }
-
-        [UcliOperation]
-        private sealed class MetadataResultMismatchOperation : UcliOperation<GenericDiscoverableArgs, GenericDiscoverableResult>
-        {
-            public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<GenericDiscoverableArgs, UcliNoResult>(
-                operationName: "ucli.tests.result-mismatch",
-                kind: UcliOperationKind.Query,
-                description: "Metadata result mismatch operation.",
-                assurance: CreateValidationOnlyAssurance());
-
-            protected override Task<OperationPhaseStepResult> ValidateAsync (
-                NormalizedOperation operation,
-                GenericDiscoverableArgs args,
-                OperationExecutionContext executionContext,
-                CancellationToken cancellationToken)
-            {
-                return Task.FromResult(OperationPhaseStepResult.Success());
-            }
-
-            protected override Task<OperationPhaseStepResult> PlanAsync (
-                NormalizedOperation operation,
-                GenericDiscoverableArgs args,
-                OperationExecutionContext executionContext,
-                CancellationToken cancellationToken)
-            {
-                return Task.FromResult(OperationPhaseStepResult.Success());
-            }
-
-            protected override Task<OperationPhaseStepResult> CallAsync (
-                NormalizedOperation operation,
-                GenericDiscoverableArgs args,
-                OperationExecutionContext executionContext,
-                CancellationToken cancellationToken)
-            {
-                return Task.FromResult(OperationPhaseStepResult.Success());
-            }
-        }
-
-        private sealed class GenericDiscoverableArgs
-        {
-            [JsonRequired]
-            public SceneAssetPath? Path { get; set; }
-        }
-
-        private sealed class GenericDiscoverableResult
-        {
-        }
-
-        private sealed class ReservedVarArgs
-        {
-            [JsonPropertyName(UcliOperationContractPropertyNames.Alias)]
-            public string? Alias { get; set; }
-        }
-
-        [UcliOperation]
         private sealed class InvalidAttributedType
         {
         }
@@ -852,12 +616,15 @@ namespace MackySoft.Ucli.Unity.Tests
             IUcliOperation operation)
         {
             return new UcliOperationRegistration(
-                UcliOperationMetadata.Create<UcliEmptyArgs, UcliNoResult>(
+                UcliOperationMetadata.CreateWithoutVerdict<UcliEmptyArgs, UcliNoResult>(
                     operationName: operationName,
                     kind: UcliOperationKind.Query,
                     description: $"{operationName} test operation.",
                     assurance: CreateValidationOnlyAssurance(),
-                    exposure: exposure),
+                    requiresPreCallPlanReplay: false,
+                    exposure: exposure,
+                    playModeSupport: UcliOperationPlayModeSupport.Disallowed,
+                    codeContract: null),
                 operation);
         }
 

@@ -1,18 +1,17 @@
+using MackySoft.Ucli.Application.Features.Assurance.Semantics;
 using MackySoft.Ucli.Contracts.Assurance.Build;
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Features.Assurance.Build.Payload;
 
 /// <summary> Represents one verifier entry in a build assurance payload. </summary>
-internal sealed record BuildVerifierOutput
+internal sealed record BuildVerifierOutput : IAssuranceVerdictVerifier
 {
     public BuildVerifierOutput (
         AssuranceVerifierId Id,
         bool Deterministic,
         bool Required,
         IReadOnlyList<UcliCode> PrimaryClaims,
-        IReadOnlyList<AssuranceEffect> Effects,
-        BuildArtifactKind ReportRef)
+        IReadOnlyList<AssuranceEffect> Effects)
     {
         this.Id = Id ?? throw new ArgumentNullException(nameof(Id));
         ArgumentNullException.ThrowIfNull(PrimaryClaims);
@@ -20,18 +19,22 @@ internal sealed record BuildVerifierOutput
         {
             throw new ArgumentException("Primary claim codes must not contain null.", nameof(PrimaryClaims));
         }
+        if (Required && PrimaryClaims.Count == 0)
+        {
+            throw new ArgumentException(
+                "A required verifier must identify at least one primary claim.",
+                nameof(PrimaryClaims));
+        }
 
         ArgumentNullException.ThrowIfNull(Effects);
         if (Effects.Any(static effect => !TextVocabulary.IsDefined(effect)))
         {
             throw new ArgumentException("Effects must contain only defined assurance effects.", nameof(Effects));
         }
-
         this.Deterministic = Deterministic;
         this.Required = Required;
         this.PrimaryClaims = Array.AsReadOnly(PrimaryClaims.ToArray());
         this.Effects = Array.AsReadOnly(Effects.ToArray());
-        this.ReportRef = ReportRef;
     }
 
     public AssuranceVerifierId Id { get; }
@@ -46,5 +49,5 @@ internal sealed record BuildVerifierOutput
 
     public IReadOnlyList<AssuranceEffect> Effects { get; }
 
-    public BuildArtifactKind ReportRef { get; }
+    public BuildArtifactKind ReportRef { get; } = BuildArtifactKind.Build;
 }

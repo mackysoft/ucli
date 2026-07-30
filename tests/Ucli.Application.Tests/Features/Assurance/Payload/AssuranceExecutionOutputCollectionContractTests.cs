@@ -2,6 +2,7 @@ using MackySoft.Ucli.Application.Features.Assurance.Build.Payload;
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Payload;
 using MackySoft.Ucli.Application.Features.Assurance.Ready;
 using MackySoft.Ucli.Application.Features.Assurance.Verify.Payload;
+using MackySoft.Ucli.Application.Tests.Features.Assurance.Build;
 using MackySoft.Ucli.Contracts.Assurance.Build;
 
 namespace MackySoft.Ucli.Application.Tests.Features.Assurance.Payload;
@@ -13,14 +14,17 @@ public sealed class AssuranceExecutionOutputCollectionContractTests
     public void ExecutionOutputs_WithNullRequiredPayload_ThrowArgumentNullException ()
     {
         var project = ProjectIdentityInfoTestFactory.Create();
-        var reports = new Dictionary<string, AssuranceReportReference>(StringComparer.Ordinal);
         var report = AssuranceReportReference.FromPath("report.json", digest: null);
+        var reports = new Dictionary<string, AssuranceReportReference>(StringComparer.Ordinal)
+        {
+            ["compile"] = report,
+            [AssuranceReportIds.CompileSummary.Value] = report,
+        };
         var buildReports = new BuildReportsOutput(report, null, report, report);
         var constructors = new (Action Construct, string ParameterName)[]
         {
-            (() => new BuildExecutionOutput(AssuranceVerdict.Pass, project, null!, [], [], buildReports, []), "Build"),
+            (() => new BuildExecutionOutput(project, null!, [], [], buildReports, []), "Build"),
             (() => new CompileExecutionOutput(
-                AssuranceVerdict.Pass,
                 project,
                 [],
                 [],
@@ -31,7 +35,7 @@ public sealed class AssuranceExecutionOutputCollectionContractTests
                 AssuranceSessionKind.TransientProbe,
                 1,
                 null!), "Compile"),
-            (() => new VerifyExecutionOutput(AssuranceVerdict.Pass, project, [], [], reports, [], null!, 1), "Profile"),
+            (() => new VerifyExecutionOutput(project, [], [], reports, [], null!, 1), "Profile"),
         };
 
         Assert.All(
@@ -45,77 +49,94 @@ public sealed class AssuranceExecutionOutputCollectionContractTests
     [Trait("Size", "Small")]
     public void ExecutionOutputs_ExposeOwnedReadOnlyCollectionSnapshots ()
     {
-        var readyVerifier = new ReadyVerifierOutput(new AssuranceVerifierId("ready"), true, true, []);
+        var compileOutput = AssuranceExecutionOutputTestFactory.CreateCompileOutput();
+        var readyDecisionEvidence = ReadyDecisionEvidenceOutput.Create(
+            new ReadyDecisionEvidenceData(Code: null, Message: "ready"));
+        var readyClaimId = new UcliCode("READY_CLAIM");
+        var readyVerifier = new ReadyVerifierOutput(new AssuranceVerifierId("ready"), true, true, [readyClaimId]);
         var readyClaim = new ReadyClaimOutput(
-            new UcliCode("READY_CLAIM"),
+            readyClaimId,
             AssuranceClaimStatus.Passed,
             AssuranceCoverage.Full,
             true,
             readyVerifier.Id,
             "statement",
             EmptySubject(),
-            new ReadyClaimValidityOutput(ReadyValidityKind.ProbeOnly, false),
-            [],
+            ReadyClaimValidityOutput.ProbeOnly(),
+            [readyDecisionEvidence],
             []);
-        var readyRisk = new ReadyResidualRiskOutput("READY_RISK", false);
+        var readyRisk = new ReadyResidualRiskOutput(new UcliCode("READY_RISK"), false, "risk");
         var readyVerifiers = new[] { readyVerifier };
         var readyClaims = new[] { readyClaim };
         var readyRisks = new[] { readyRisk };
 
-        var compileVerifier = new CompileVerifierOutput(new AssuranceVerifierId("compile"), true, true, [], [], "compile");
+        var compileClaimId = new UcliCode("COMPILE_CLAIM");
+        var compileVerifier = new CompileVerifierOutput(
+            new AssuranceVerifierId("compile"),
+            true,
+            true,
+            [compileClaimId],
+            [],
+            AssuranceReportIds.CompileSummary);
         var compileClaim = new CompileClaimOutput(
-            new UcliCode("COMPILE_CLAIM"),
+            compileClaimId,
             AssuranceClaimStatus.Passed,
             AssuranceCoverage.Full,
             true,
             compileVerifier.Id,
             "statement",
             EmptySubject(),
-            [],
+            [CompileScriptEvidenceOutput.Create(AssuranceReportIds.CompileSummary, compileOutput.ScriptCompilation)],
             []);
-        var compileRisk = new CompileResidualRiskOutput("COMPILE_RISK", false);
+        var compileRisk = new CompileResidualRiskOutput(new UcliCode("COMPILE_RISK"), false, "risk");
         var compileVerifiers = new[] { compileVerifier };
         var compileClaims = new[] { compileClaim };
         var compileRisks = new[] { compileRisk };
 
-        var buildVerifier = new BuildVerifierOutput(new AssuranceVerifierId("build"), true, true, [], [], BuildArtifactKind.Build);
+        var buildClaimId = new UcliCode("BUILD_CLAIM");
+        var buildVerifier = new BuildVerifierOutput(new AssuranceVerifierId("build"), true, true, [buildClaimId], []);
         var buildClaim = new BuildClaimOutput(
-            new UcliCode("BUILD_CLAIM"),
+            buildClaimId,
             AssuranceClaimStatus.Passed,
             AssuranceCoverage.Full,
             true,
             buildVerifier.Id,
             "statement",
             EmptySubject(),
-            [],
+            [BuildInputEvidenceOutput.Create(BuildServiceTestSupport.CreateInputProbe())],
             []);
-        var buildRisk = new BuildResidualRiskOutput("BUILD_RISK", UcliDiagnosticSeverity.Warning, false, "risk");
+        var buildRisk = new BuildResidualRiskOutput(new UcliCode("BUILD_RISK"), UcliDiagnosticSeverity.Warning, false, "risk");
         var buildVerifiers = new[] { buildVerifier };
         var buildClaims = new[] { buildClaim };
         var buildRisks = new[] { buildRisk };
 
-        var verifyVerifier = new VerifyVerifierOutput(new AssuranceVerifierId("verify"), AssuranceVerifierKind.Ready, true, true, [], []);
+        var verifyClaimId = new UcliCode("VERIFY_CLAIM");
+        var verifyVerifier = new VerifyVerifierOutput(new AssuranceVerifierId("verify"), AssuranceVerifierKind.Ready, true, true, [verifyClaimId], [], null);
         var verifyClaim = new VerifyClaimOutput(
-            new UcliCode("VERIFY_CLAIM"),
+            verifyClaimId,
             AssuranceClaimStatus.Passed,
             AssuranceCoverage.Full,
             true,
             verifyVerifier.Id,
             "statement",
             EmptySubject(),
-            [],
+            null,
+            [VerifyReadinessEvidenceOutput.Create(readyDecisionEvidence)],
             []);
-        var verifyRisk = new VerifyResidualRiskOutput("VERIFY_RISK", false);
+        var verifyRisk = new VerifyResidualRiskOutput(new UcliCode("VERIFY_RISK"), false, "risk");
         var verifyVerifiers = new[] { verifyVerifier };
         var verifyClaims = new[] { verifyClaim };
         var verifyRisks = new[] { verifyRisk };
-        var reports = new Dictionary<string, AssuranceReportReference>(StringComparer.Ordinal);
         var report = AssuranceReportReference.FromPath("report.json", digest: null);
+        var reports = new Dictionary<string, AssuranceReportReference>(StringComparer.Ordinal)
+        {
+            ["compile"] = report,
+            [AssuranceReportIds.CompileSummary.Value] = report,
+        };
         var buildReports = new BuildReportsOutput(report, null, report, report);
         var project = ProjectIdentityInfoTestFactory.Create();
 
         var ready = new ReadyExecutionOutput(
-            AssuranceVerdict.Pass,
             project,
             readyVerifiers,
             readyClaims,
@@ -129,7 +150,6 @@ public sealed class AssuranceExecutionOutputCollectionContractTests
             Lifecycle: null,
             ReadIndex: null);
         var compile = new CompileExecutionOutput(
-            AssuranceVerdict.Pass,
             project,
             compileVerifiers,
             compileClaims,
@@ -139,9 +159,8 @@ public sealed class AssuranceExecutionOutputCollectionContractTests
             AssuranceResolvedExecutionMode.Oneshot,
             AssuranceSessionKind.TransientProbe,
             1,
-            AssuranceExecutionOutputTestFactory.CreateCompileOutput());
+            compileOutput);
         var build = new BuildExecutionOutput(
-            AssuranceVerdict.Pass,
             project,
             AssuranceExecutionOutputTestFactory.CreateBuildOutput(),
             buildVerifiers,
@@ -149,7 +168,6 @@ public sealed class AssuranceExecutionOutputCollectionContractTests
             buildReports,
             buildRisks);
         var verify = new VerifyExecutionOutput(
-            AssuranceVerdict.Pass,
             project,
             verifyVerifiers,
             verifyClaims,
@@ -187,6 +205,97 @@ public sealed class AssuranceExecutionOutputCollectionContractTests
             Assert.Throws<NotSupportedException>(() => ((System.Collections.IList)snapshot.Claims)[0] = new object());
             Assert.Throws<NotSupportedException>(() => ((System.Collections.IList)snapshot.Risks)[0] = new object());
         });
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void BuildExecutionOutput_WhenAssuranceAggregateIsNotEstablished_ThrowsArgumentException ()
+    {
+        var firstVerifierId = new AssuranceVerifierId("first");
+        var secondVerifierId = new AssuranceVerifierId("second");
+        var firstClaimId = new UcliCode("FIRST_CLAIM");
+        var invalidAggregates = new Action[]
+        {
+            () => CreateBuildExecutionOutput(
+                [
+                    CreateBuildVerifier(firstVerifierId, required: false, []),
+                    CreateBuildVerifier(firstVerifierId, required: false, []),
+                ],
+                []),
+            () => CreateBuildExecutionOutput(
+                [CreateBuildVerifier(firstVerifierId, required: false, [])],
+                [
+                    CreateBuildClaim(firstClaimId, firstVerifierId, required: false),
+                    CreateBuildClaim(firstClaimId, firstVerifierId, required: false),
+                ]),
+            () => CreateBuildExecutionOutput(
+                [],
+                [CreateBuildClaim(firstClaimId, firstVerifierId, required: false)]),
+            () => CreateBuildExecutionOutput(
+                [CreateBuildVerifier(firstVerifierId, required: false, [])],
+                [CreateBuildClaim(firstClaimId, firstVerifierId, required: true)]),
+            () => CreateBuildExecutionOutput(
+                [CreateBuildVerifier(firstVerifierId, required: true, [])],
+                [CreateBuildClaim(firstClaimId, firstVerifierId, required: true)]),
+            () => CreateBuildExecutionOutput(
+                [CreateBuildVerifier(firstVerifierId, required: false, [firstClaimId])],
+                []),
+            () => CreateBuildExecutionOutput(
+                [
+                    CreateBuildVerifier(firstVerifierId, required: false, [firstClaimId]),
+                    CreateBuildVerifier(secondVerifierId, required: false, []),
+                ],
+                [CreateBuildClaim(firstClaimId, secondVerifierId, required: false)]),
+            () => CreateBuildExecutionOutput(
+                [CreateBuildVerifier(firstVerifierId, required: true, [firstClaimId])],
+                [CreateBuildClaim(firstClaimId, firstVerifierId, required: false)]),
+        };
+
+        Assert.All(invalidAggregates, construct => Assert.Throws<ArgumentException>(construct));
+    }
+
+    private static BuildExecutionOutput CreateBuildExecutionOutput (
+        IReadOnlyList<BuildVerifierOutput> verifiers,
+        IReadOnlyList<BuildClaimOutput> claims)
+    {
+        var report = AssuranceReportReference.FromPath("report.json", digest: null);
+        return new BuildExecutionOutput(
+            ProjectIdentityInfoTestFactory.Create(),
+            AssuranceExecutionOutputTestFactory.CreateBuildOutput(),
+            verifiers,
+            claims,
+            new BuildReportsOutput(report, null, report, report),
+            []);
+    }
+
+    private static BuildVerifierOutput CreateBuildVerifier (
+        AssuranceVerifierId id,
+        bool required,
+        IReadOnlyList<UcliCode> primaryClaims)
+    {
+        return new BuildVerifierOutput(
+            id,
+            Deterministic: true,
+            required,
+            primaryClaims,
+            []);
+    }
+
+    private static BuildClaimOutput CreateBuildClaim (
+        UcliCode id,
+        AssuranceVerifierId verifierId,
+        bool required)
+    {
+        return new BuildClaimOutput(
+            id,
+            AssuranceClaimStatus.Passed,
+            AssuranceCoverage.Full,
+            required,
+            verifierId,
+            "statement",
+            EmptySubject(),
+            [BuildInputEvidenceOutput.Create(BuildServiceTestSupport.CreateInputProbe())],
+            []);
     }
 
     private static IReadOnlyDictionary<string, object?> EmptySubject ()

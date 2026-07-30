@@ -13,16 +13,21 @@ internal static class IndexOpsDescribeJsonContractTestSupport
             SchemaVersion: 1,
             GeneratedAtUtc: DateTimeOffset.Parse("2026-03-03T00:00:00+00:00"),
             SourceInputsHash: "source-hash",
-            Operation: new IndexOpEntryJsonContract(
-                Name: UcliPrimitiveOperationNames.GoDescribe,
-                Kind: UcliOperationKind.Query,
-                Policy: OperationPolicy.Safe,
-                ArgsContract: describe.ArgsContract,
-                ResultContract: describe.ResultContract)
-            {
-                Description = describe.Description,
-                Assurance = describe.Assurance,
-            });
+            Operation: WithDescriptorDigest(
+                new IndexOpEntryJsonContract(
+                    Name: UcliPrimitiveOperationNames.GoDescribe,
+                    Kind: UcliOperationKind.Query,
+                    Policy: OperationPolicy.Safe,
+                    ArgsContract: describe.ArgsContract,
+                    DescriptorDigest: null,
+                    ResultContract: describe.ResultContract,
+                    VerdictContract: describe.VerdictContract,
+                    Exposure: null,
+                    PlayModeSupport: UcliOperationPlayModeSupport.Disallowed)
+                {
+                    Description = describe.Description,
+                    Assurance = describe.Assurance,
+                }));
     }
 
     public static IndexOpsDescribeJsonContract CreateCsEvalIndexContract ()
@@ -32,7 +37,7 @@ internal static class IndexOpsDescribeJsonContractTestSupport
             UcliPrimitiveOperationNames.CsEval,
             serializerOptions.GetTypeInfo(typeof(CsEvalArgs)),
             serializerOptions.GetTypeInfo(typeof(CsEvalResult)));
-        var describe = UcliOperationDescribeContractBuilder.Create(
+        var describe = UcliOperationDescribeContractBuilder.CreateWithoutVerdict(
             generationResult,
             "Compiles and executes C# source in the Unity Editor process.",
             new UcliOperationAssuranceContract(
@@ -50,17 +55,32 @@ internal static class IndexOpsDescribeJsonContractTestSupport
             SchemaVersion: 1,
             GeneratedAtUtc: DateTimeOffset.Parse("2026-03-03T00:00:00+00:00"),
             SourceInputsHash: "hash",
-            Operation: new IndexOpEntryJsonContract(
-                Name: UcliPrimitiveOperationNames.CsEval,
-                Kind: UcliOperationKind.Mutation,
-                Policy: OperationPolicy.Dangerous,
-                ArgsContract: describe.ArgsContract,
-                ResultContract: describe.ResultContract)
-            {
-                Description = describe.Description,
-                Assurance = describe.Assurance,
-                CodeContract = describe.CodeContract,
-            });
+            Operation: WithDescriptorDigest(
+                new IndexOpEntryJsonContract(
+                    Name: UcliPrimitiveOperationNames.CsEval,
+                    Kind: UcliOperationKind.Mutation,
+                    Policy: OperationPolicy.Dangerous,
+                    ArgsContract: describe.ArgsContract,
+                    DescriptorDigest: null,
+                    VerdictContract: null,
+                    ResultContract: describe.ResultContract,
+                    Exposure: null,
+                    PlayModeSupport: UcliOperationPlayModeSupport.Disallowed)
+                {
+                    Description = describe.Description,
+                    Assurance = describe.Assurance,
+                    CodeContract = describe.CodeContract,
+                }));
+    }
+
+    public static IndexOpEntryJsonContract WithDescriptorDigest (IndexOpEntryJsonContract operation)
+    {
+        ArgumentNullException.ThrowIfNull(operation);
+        var descriptorWithoutDigest = operation with { DescriptorDigest = null };
+        return descriptorWithoutDigest with
+        {
+            DescriptorDigest = UcliOperationDescriptorDigest.Calculate(descriptorWithoutDigest),
+        };
     }
 
     private static UcliOperationCodeContract CreateCodeContract ()

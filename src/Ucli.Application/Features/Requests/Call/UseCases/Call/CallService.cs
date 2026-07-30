@@ -94,10 +94,13 @@ internal sealed class CallService : ICallService
             .ConfigureAwait(false);
 
         var preparedRequest = preflightResult.PreparedRequest;
-        baseOutput = CallExecutionOutputFactory.TryCreateBase(requestId, preparedRequest?.PreparedRequest);
+        baseOutput = CallExecutionOutputFactory.CreateBase(requestId, preparedRequest.PreparedRequest);
         if (preflightResult.Error != null)
         {
-            return CallFailureResultFactory.FromExecutionError(preflightResult.Error, baseOutput, preflightResult.ErrorCode);
+            return CallServiceResult.Failure(
+                preflightResult.Error.Message,
+                [preflightResult.Error],
+                baseOutput);
         }
 
         if (preflightResult.HasValidationErrors)
@@ -105,7 +108,6 @@ internal sealed class CallService : ICallService
             return CallFailureResultFactory.FromValidationErrors(preflightResult.ValidationErrors, baseOutput);
         }
 
-        preparedRequest = preflightResult.PreparedRequest!;
         var dangerousValidationFailure = dangerousOperationGuard.Validate(
             preparedRequest,
             input.AllowDangerous);
@@ -117,7 +119,8 @@ internal sealed class CallService : ICallService
                     ApplicationFailure.InvalidInput(
                         dangerousValidationFailure.Message,
                         dangerousValidationFailure.Code,
-                        dangerousValidationFailure.InstancePath),
+                        dangerousValidationFailure.InstancePath,
+                        startupFailure: null),
                 ],
                 baseOutput);
         }

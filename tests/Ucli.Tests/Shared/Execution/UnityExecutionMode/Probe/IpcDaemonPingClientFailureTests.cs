@@ -167,8 +167,14 @@ public sealed class IpcDaemonPingClientFailureTests
     public async Task Ping_WhenSessionConnectionResolutionFailsForLocalError_ThrowsDaemonPingResponseExceptionWithoutTokenErrorCode (int errorKind)
     {
         var unityIpcClient = new UnexpectedIpcTransportClient("Failed daemon session resolution must stop before sending IPC requests.");
+        var executionError = (ExecutionErrorKind)errorKind switch
+        {
+            ExecutionErrorKind.InvalidArgument => ExecutionError.InvalidArgument("session token read failed", UcliCoreErrorCodes.InvalidArgument),
+            ExecutionErrorKind.InternalError => ExecutionError.InternalError("session token read failed", UcliCoreErrorCodes.InternalError),
+            _ => throw new InvalidOperationException("Test case must use a supported local execution error kind."),
+        };
         var readFailure = DaemonSessionReadResult.Failure(
-            new ExecutionError((ExecutionErrorKind)errorKind, "session token read failed"),
+            executionError,
             errorKind == (int)ExecutionErrorKind.InvalidArgument
                 ? DaemonSessionReadFailureKind.PathInvalid
                 : DaemonSessionReadFailureKind.InternalFailure);

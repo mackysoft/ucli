@@ -61,9 +61,8 @@ internal sealed class TestRunExecutionPipeline : ITestRunExecutionPipeline
         var artifactsPreparationResult = await PrepareArtifactsSafelyAsync(configuration, cancellationToken).ConfigureAwait(false);
         if (!artifactsPreparationResult.IsSuccess)
         {
-            return TestRunExecutionPipelineResult.Failure(
-                artifactsPreparationResult.Error!,
-                allowEmptyTestRun: context.AllowEmptyTestRun);
+            return TestRunExecutionPipelineResult.FailedBeforeArtifacts(
+                artifactsPreparationResult.Error!);
         }
 
         var artifactsSession = artifactsPreparationResult.Session!;
@@ -77,10 +76,9 @@ internal sealed class TestRunExecutionPipeline : ITestRunExecutionPipeline
                 .ConfigureAwait(false);
             if (!progressStartResult.IsSuccess)
             {
-                return TestRunExecutionPipelineResult.Failure(
-                    progressStartResult.Error!,
+                return TestRunExecutionPipelineResult.FailedAfterArtifacts(
                     artifactsSession,
-                    allowEmptyTestRun: context.AllowEmptyTestRun);
+                    ApplicationFailure.FromExecutionError(progressStartResult.Error!));
             }
         }
 
@@ -89,25 +87,40 @@ internal sealed class TestRunExecutionPipeline : ITestRunExecutionPipeline
             artifactsSession,
             progressSink,
             cancellationToken).ConfigureAwait(false);
-        var conversionResult = UnityResultsConversionResult.Success(hasFailedTests: false);
-        ExecutionError? conversionUnexpectedError = null;
-
-        if (unityExecutionResult.IsSuccess
-            || CanRecoverCompletedOneshotResults(unityExecutionResult, context.Target, artifactsSession))
+        UnityResultsConversionSuccess? conversionSuccess = null;
+        ApplicationFailure? primaryFailure = null;
+        if (unityExecutionResult is not UnityTestExecutionResult.ExecutionFailure executionFailure
+            || CanRecoverCompletedOneshotResults(executionFailure, context.Target, artifactsSession))
         {
             try
             {
-                conversionResult = await ConvertResultsSafelyAsync(artifactsSession, cancellationToken).ConfigureAwait(false);
-                if (!unityExecutionResult.IsSuccess && conversionResult.IsSuccess)
+                var conversionResult = await ConvertResultsSafelyAsync(
+                        artifactsSession,
+                        context.AllowEmptyTestRun,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                if (conversionResult is UnityResultsConversionSuccess success)
                 {
-                    unityExecutionResult = UnityTestExecutionResult.Success(conversionResult.HasFailedTests ? 2 : 0);
+                    conversionSuccess = success;
+                }
+                else
+                {
+                    primaryFailure = CreateConversionFailure(
+                        (UnityResultsConversionFailure)conversionResult);
                 }
             }
             catch (Exception exception)
             {
-                conversionUnexpectedError = ExecutionError.InternalError(
-                    $"Unexpected error during Unity results conversion: {exception.Message}");
+                primaryFailure = ApplicationFailure.InternalError(
+                    $"Unexpected error during Unity results conversion: {exception.Message}",
+                    UcliCoreErrorCodes.InternalError,
+                    instancePath: null,
+                    startupFailure: null);
             }
+        }
+        else
+        {
+            primaryFailure = CreateUnityExecutionFailure(executionFailure);
         }
 
         // NOTE:
@@ -118,31 +131,33 @@ internal sealed class TestRunExecutionPipeline : ITestRunExecutionPipeline
             artifactsSession,
             context.Target,
             CancellationToken.None).ConfigureAwait(false);
-        if (conversionUnexpectedError is not null)
+        var finalizationFailure = completionResult.IsSuccess
+            ? null
+            : ApplicationFailure.FromExecutionError(completionResult.Error!);
+        if (primaryFailure is not null)
         {
-            return TestRunExecutionPipelineResult.Failure(
-                conversionUnexpectedError,
-                artifactsSession,
-                unityExecutionResult,
-                conversionResult,
-                allowEmptyTestRun: context.AllowEmptyTestRun);
+            return finalizationFailure is null
+                ? TestRunExecutionPipelineResult.FailedAfterArtifacts(
+                    artifactsSession,
+                    primaryFailure)
+                : TestRunExecutionPipelineResult.FailedAfterArtifactsWithFinalizationFailure(
+                    artifactsSession,
+                    primaryFailure,
+                    finalizationFailure);
         }
 
-        if (!completionResult.IsSuccess)
+        if (finalizationFailure is not null)
         {
-            return TestRunExecutionPipelineResult.Failure(
-                completionResult.Error!,
+            return TestRunExecutionPipelineResult.FailedAfterArtifacts(
                 artifactsSession,
-                unityExecutionResult,
-                conversionResult,
-                allowEmptyTestRun: context.AllowEmptyTestRun);
+                finalizationFailure);
         }
 
-        return TestRunExecutionPipelineResult.Success(
+        return TestRunExecutionPipelineResult.Completed(
             artifactsSession,
-            unityExecutionResult,
-            conversionResult,
-            allowEmptyTestRun: context.AllowEmptyTestRun);
+            conversionSuccess
+                ?? throw new InvalidOperationException(
+                    "A completed Test Run pipeline must contain normalized result evidence."));
     }
 
     /// <summary> Prepares artifacts session and maps unexpected exceptions into internal errors. </summary>
@@ -165,7 +180,7 @@ internal sealed class TestRunExecutionPipeline : ITestRunExecutionPipeline
         catch (Exception exception)
         {
             return ArtifactsPreparationResult.Failure(ExecutionError.InternalError(
-                $"Unexpected error during artifacts preparation: {exception.Message}"));
+                $"Unexpected error during artifacts preparation: {exception.Message}", UcliCoreErrorCodes.InternalError));
         }
     }
 
@@ -193,7 +208,7 @@ internal sealed class TestRunExecutionPipeline : ITestRunExecutionPipeline
         catch (Exception exception)
         {
             return ArtifactsCompletionResult.Failure(ExecutionError.InternalError(
-                $"Unexpected error during artifacts completion: {exception.Message}"));
+                $"Unexpected error during artifacts completion: {exception.Message}", UcliCoreErrorCodes.InternalError));
         }
     }
 
@@ -225,22 +240,21 @@ internal sealed class TestRunExecutionPipeline : ITestRunExecutionPipeline
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            return UnityTestExecutionResult.Failure(
-                UnityTestExecutionFailureKind.Canceled,
-                "Unity test execution was canceled.");
+            return UnityTestExecutionResult.Canceled(
+                "Unity test execution was canceled.",
+                ExecutionErrorCodes.Canceled);
         }
         catch (TestRunProgressProtocolException exception)
         {
-            return UnityTestExecutionResult.Failure(
-                UnityTestExecutionFailureKind.ProgressProtocolViolation,
+            return UnityTestExecutionResult.ProgressProtocolViolation(
                 exception.Message,
                 TestRunErrorCodes.UnityTestExecutionFailed);
         }
         catch (Exception exception)
         {
-            return UnityTestExecutionResult.Failure(
-                UnityTestExecutionFailureKind.AbnormalExit,
-                $"Unexpected error during Unity test execution: {exception.Message}");
+            return UnityTestExecutionResult.InternalError(
+                $"Unexpected error during Unity test execution: {exception.Message}",
+                UcliCoreErrorCodes.InternalError);
         }
     }
 
@@ -358,37 +372,47 @@ internal sealed class TestRunExecutionPipeline : ITestRunExecutionPipeline
             return CreateRequestFailure(requestResult.FailureInfo!, target);
         }
 
-        if (!TryDecodeTestRunResponse(
-                requestResult.Response!,
-                out var exitCode,
-                out var errorCode,
-                out var errorMessage))
+        var response = requestResult.Response!;
+        if (response.Errors.Count != 0)
         {
-            return UnityTestExecutionResult.Failure(
-                MapResponseFailureKind(errorCode, target),
-                errorMessage!,
-                errorCode);
+            var firstError = response.Errors[0];
+            return CreateReportedFailure(
+                $"Unity test run failed with error code '{firstError.Code}'. {firstError.Message}",
+                firstError.Code,
+                target);
+        }
+
+        if (!TryReadExitCode(response.Payload, out var exitCode, out var readError))
+        {
+            return UnityTestExecutionResult.InvalidResponse(
+                $"Unity test run payload is invalid. {readError}",
+                UcliCoreErrorCodes.InternalError);
+        }
+
+        var processExitResult = UnityTestExecutionResult.FromProcessExitCode(exitCode);
+        if (processExitResult is UnityTestExecutionResult.ExecutionFailure)
+        {
+            return processExitResult;
         }
 
         var artifactsExistenceResult = artifactExistenceProbe.ValidateGeneratedFiles(session.Paths);
         if (!artifactsExistenceResult.IsSuccess)
         {
-            return UnityTestExecutionResult.Failure(
-                UnityTestExecutionFailureKind.ArtifactMissing,
-                artifactsExistenceResult.ErrorMessage!);
+            return UnityTestExecutionResult.ArtifactMissing(
+                artifactsExistenceResult.ErrorMessage!,
+                TestRunErrorCodes.UnityTestExecutionFailed);
         }
 
-        return UnityTestExecutionResult.Success(exitCode);
+        return processExitResult;
     }
 
     private bool CanRecoverCompletedOneshotResults (
-        UnityTestExecutionResult unityExecutionResult,
+        UnityTestExecutionResult.ExecutionFailure executionFailure,
         UnityExecutionTarget target,
         ArtifactsSession session)
     {
         if (target != UnityExecutionTarget.Oneshot
-            || unityExecutionResult.FailureKind != UnityTestExecutionFailureKind.IpcTransportInterrupted
-            || unityExecutionResult.ErrorCode != UcliCoreErrorCodes.InternalError)
+            || executionFailure.FailureKind != UnityTestExecutionFailureKind.IpcTransportInterrupted)
         {
             return false;
         }
@@ -404,106 +428,167 @@ internal sealed class TestRunExecutionPipeline : ITestRunExecutionPipeline
         UnityRequestFailure failure,
         UnityExecutionTarget target)
     {
-        return UnityTestExecutionResult.Failure(
-            MapFailureKind(failure, target),
-            failure.Message,
-            failure.Code,
-            failure.StartupFailure);
-    }
-
-    private static UnityTestExecutionFailureKind MapFailureKind (
-        UnityRequestFailure failure,
-        UnityExecutionTarget target)
-    {
         if (failure.FailureKind == UnityRequestFailureKind.TransportInterrupted)
         {
-            return UnityTestExecutionFailureKind.IpcTransportInterrupted;
+            return UnityTestExecutionResult.IpcTransportInterrupted(
+                failure.Message,
+                failure.Code);
         }
 
-        var code = failure.Code;
-        if (code == ExecutionErrorCodes.IpcTimeout)
+        if (failure.Code == ExecutionErrorCodes.IpcTimeout)
         {
             return target == UnityExecutionTarget.Oneshot
-                ? UnityTestExecutionFailureKind.ProcessTimedOut
-                : UnityTestExecutionFailureKind.IpcTimedOut;
+                ? UnityTestExecutionResult.ProcessTimedOut(failure.Message, failure.Code)
+                : UnityTestExecutionResult.IpcTimedOut(failure.Message, failure.Code);
         }
 
-        if (code == ExecutionErrorCodes.Canceled)
+        if (failure.Code == ExecutionErrorCodes.Canceled)
         {
-            return UnityTestExecutionFailureKind.Canceled;
+            return UnityTestExecutionResult.Canceled(failure.Message, failure.Code);
         }
 
-        if (code == UnityExecutionModeDecisionErrorCodes.DaemonNotRunning)
+        if (failure.Code == UnityExecutionModeDecisionErrorCodes.DaemonNotRunning)
         {
-            return UnityTestExecutionFailureKind.StartFailed;
+            return UnityTestExecutionResult.StartFailed(
+                failure.Message,
+                failure.Code,
+                failure.StartupFailure);
         }
 
-        if ((code == UcliCoreErrorCodes.InternalError || code == UcliCoreErrorCodes.InvalidArgument)
-            && target == UnityExecutionTarget.Daemon
-            && failure.Message.StartsWith("Daemon session token could not be resolved.", StringComparison.Ordinal))
-        {
-            return UnityTestExecutionFailureKind.ClientSetupFailed;
-        }
-
-        return UnityTestExecutionFailureKind.AbnormalExit;
+        return failure.Code == UcliCoreErrorCodes.InternalError
+            ? UnityTestExecutionResult.InternalError(failure.Message, failure.Code)
+            : UnityTestExecutionResult.RequestFailed(failure.Message, failure.Code);
     }
 
-    private static UnityTestExecutionFailureKind MapResponseFailureKind (
-        UcliCode? errorCode,
+    private static UnityTestExecutionResult CreateReportedFailure (
+        string errorMessage,
+        UcliCode errorCode,
         UnityExecutionTarget target)
     {
-        if (errorCode is { } code)
+        if (errorCode == IpcTransportErrorCodes.IpcTimeout
+            || errorCode == ExecutionErrorCodes.IpcTimeout)
         {
-            if (code == IpcTransportErrorCodes.IpcTimeout || code == ExecutionErrorCodes.IpcTimeout)
-            {
-                return target == UnityExecutionTarget.Oneshot
-                    ? UnityTestExecutionFailureKind.ProcessTimedOut
-                    : UnityTestExecutionFailureKind.IpcTimedOut;
-            }
-
-            if (code == ExecutionErrorCodes.Canceled)
-            {
-                return UnityTestExecutionFailureKind.Canceled;
-            }
+            return target == UnityExecutionTarget.Oneshot
+                ? UnityTestExecutionResult.ProcessTimedOut(errorMessage, errorCode)
+                : UnityTestExecutionResult.IpcTimedOut(errorMessage, errorCode);
         }
 
-        return UnityTestExecutionFailureKind.AbnormalExit;
+        if (errorCode == ExecutionErrorCodes.Canceled)
+        {
+            return UnityTestExecutionResult.Canceled(errorMessage, errorCode);
+        }
+
+        return InvalidArgumentErrorCodeSet.Contains(errorCode)
+            ? UnityTestExecutionResult.InvalidArgument(errorMessage, errorCode)
+            : UnityTestExecutionResult.RequestFailed(errorMessage, errorCode);
     }
 
-    private static bool TryDecodeTestRunResponse (
-        UnityRequestResponse response,
-        out int exitCode,
-        out UcliCode? errorCode,
-        out string? errorMessage)
+    private static ApplicationFailure CreateUnityExecutionFailure (
+        UnityTestExecutionResult.ExecutionFailure failure)
     {
-        ArgumentNullException.ThrowIfNull(response);
-
-        if (response.Errors.Count != 0)
+        if (failure.FailureKind == UnityTestExecutionFailureKind.InvalidArgument)
         {
-            var firstError = response.Errors[0];
-            exitCode = default;
-            errorCode = firstError.Code;
-            errorMessage = $"Unity test run failed with error code '{firstError.Code}'. {firstError.Message}";
-            return false;
+            return ApplicationFailure.InvalidInput(
+                failure.ErrorMessage,
+                failure.ErrorCode,
+                instancePath: null,
+                startupFailure: failure.StartupFailure);
         }
 
-        if (!TryReadExitCode(response.Payload, out exitCode, out var readError))
+        if (failure.FailureKind == UnityTestExecutionFailureKind.Canceled)
         {
-            errorCode = null;
-            errorMessage = $"Unity test run payload is invalid. {readError}";
-            return false;
+            return ApplicationFailure.Create(
+                ApplicationFailureKind.Canceled,
+                failure.ErrorMessage,
+                failure.ErrorCode,
+                instancePath: null,
+                outcome: ApplicationOutcome.ToolError,
+                startupFailure: failure.StartupFailure);
         }
 
-        if (exitCode != 0 && exitCode != 2)
-        {
-            errorCode = null;
-            errorMessage = $"Unity test run returned unsupported exit code: {exitCode}.";
-            return false;
-        }
+        return IsUnityExecutionInfrastructureFailure(failure.FailureKind)
+            ? ApplicationFailure.Create(
+                ApplicationFailureKind.ExternalProcessFailure,
+                failure.ErrorMessage,
+                failure.ErrorCode,
+                instancePath: null,
+                outcome: ApplicationOutcome.InfrastructureError,
+                startupFailure: failure.StartupFailure)
+            : ApplicationFailure.Create(
+                ApplicationFailureKind.ExternalProcessFailure,
+                failure.ErrorMessage,
+                failure.ErrorCode,
+                instancePath: null,
+                outcome: ApplicationOutcome.ToolError,
+                startupFailure: failure.StartupFailure);
+    }
 
-        errorCode = null;
-        errorMessage = null;
-        return true;
+    private static bool IsUnityExecutionInfrastructureFailure (
+        UnityTestExecutionFailureKind failureKind)
+    {
+        return failureKind switch
+        {
+            UnityTestExecutionFailureKind.IpcTimedOut
+                or UnityTestExecutionFailureKind.ProcessTimedOut
+                or UnityTestExecutionFailureKind.IpcTransportInterrupted
+                or UnityTestExecutionFailureKind.AbnormalExit
+                or UnityTestExecutionFailureKind.ArtifactMissing
+                or UnityTestExecutionFailureKind.RequestFailed
+                or UnityTestExecutionFailureKind.InvalidResponse
+                or UnityTestExecutionFailureKind.InternalError => true,
+            UnityTestExecutionFailureKind.StartFailed
+                or UnityTestExecutionFailureKind.Canceled
+                or UnityTestExecutionFailureKind.InvalidArgument
+                or UnityTestExecutionFailureKind.ProgressProtocolViolation => false,
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(failureKind),
+                failureKind,
+                "Unity test execution failure kind must be a defined value."),
+        };
+    }
+
+    private static ApplicationFailure CreateConversionFailure (
+        UnityResultsConversionFailure failure)
+    {
+        return failure.FailureKind switch
+        {
+            UnityResultsConversionFailureKind.OutputWriteFailed =>
+                ApplicationFailure.Create(
+                    ApplicationFailureKind.ExternalProcessFailure,
+                    failure.ErrorMessage,
+                    TestRunErrorCodes.TestResultsOutputWriteFailed,
+                    instancePath: null,
+                    outcome: ApplicationOutcome.InfrastructureError,
+                    startupFailure: null),
+            UnityResultsConversionFailureKind.ResultsXmlReadFailed =>
+                ApplicationFailure.Create(
+                    ApplicationFailureKind.ExternalProcessFailure,
+                    failure.ErrorMessage,
+                    TestRunErrorCodes.TestResultsXmlReadFailed,
+                    instancePath: null,
+                    outcome: ApplicationOutcome.InfrastructureError,
+                    startupFailure: null),
+            UnityResultsConversionFailureKind.Canceled =>
+                ApplicationFailure.Create(
+                    ApplicationFailureKind.Canceled,
+                    failure.ErrorMessage,
+                    ExecutionErrorCodes.Canceled,
+                    instancePath: null,
+                    outcome: ApplicationOutcome.ToolError,
+                    startupFailure: null),
+            UnityResultsConversionFailureKind.InvalidResultsXml =>
+                ApplicationFailure.Create(
+                    ApplicationFailureKind.ExternalProcessFailure,
+                    failure.ErrorMessage,
+                    TestRunErrorCodes.TestResultsXmlInvalid,
+                    instancePath: null,
+                    outcome: ApplicationOutcome.ToolError,
+                    startupFailure: null),
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(failure),
+                failure.FailureKind,
+                "Unity results conversion failure kind must be a defined value."),
+        };
     }
 
     private static bool TryReadExitCode (
@@ -564,7 +649,7 @@ internal sealed class TestRunExecutionPipeline : ITestRunExecutionPipeline
         catch (Exception exception)
         {
             return ProgressEmissionResult.Failure(ExecutionError.InternalError(
-                $"Unexpected error during test-run progress emission: {exception.Message}"));
+                $"Unexpected error during test-run progress emission: {exception.Message}", UcliCoreErrorCodes.InternalError));
         }
     }
 
@@ -586,21 +671,24 @@ internal sealed class TestRunExecutionPipeline : ITestRunExecutionPipeline
 
     /// <summary> Converts Unity result artifacts and maps unexpected exceptions into conversion failures. </summary>
     /// <param name="session"> The prepared artifacts session. </param>
+    /// <param name="allowEmptyTestRun"> Whether a run containing no test cases satisfies the requested test condition. </param>
     /// <param name="cancellationToken"> A cancellation token propagated by caller. </param>
     /// <returns> A task that resolves to results conversion result. </returns>
     private async ValueTask<UnityResultsConversionResult> ConvertResultsSafelyAsync (
         ArtifactsSession session,
+        bool allowEmptyTestRun,
         CancellationToken cancellationToken)
     {
         try
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return await resultsConverter.ConvertAsync(session, cancellationToken).ConfigureAwait(false);
+            return await resultsConverter
+                .ConvertAsync(session, allowEmptyTestRun, cancellationToken)
+                .ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            return UnityResultsConversionResult.Failure(
-                UnityResultsConversionFailureKind.Canceled,
+            return UnityResultsConversionResult.Canceled(
                 "Unity results conversion was canceled.");
         }
     }

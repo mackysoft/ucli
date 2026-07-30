@@ -17,14 +17,26 @@ public sealed class OpsServiceTests
     {
         var preflightService = new RecordingOpsPreflightService
         {
-            Result = OpsPreflightResult.Failure("invalid readIndexMode", UcliCoreErrorCodes.InvalidArgument),
+            Result = OpsPreflightResult.Failure(ApplicationFailure.InvalidInput(
+                "invalid readIndexMode",
+                UcliCoreErrorCodes.InvalidArgument,
+                instancePath: null,
+                startupFailure: null)),
         };
         var catalogAccessService = new RecordingOpsCatalogAccessService();
         var listResultMapper = new RecordingOpsListResultMapper();
         var describeResultMapper = new RecordingOpsDescribeResultMapper();
         var service = new OpsService(preflightService, catalogAccessService, listResultMapper, describeResultMapper);
 
-        var result = await service.GetAllAsync(new OpsCommandInput(null, NormalizeMode(null), NormalizeTimeout(null), null, null, null, null));
+        var result = await service.GetAllAsync(new OpsCommandInput(
+            null,
+            NormalizeMode(null),
+            NormalizeTimeout(null),
+            null,
+            null,
+            null,
+            null,
+            FailFast: false));
 
         OpsServiceInvocationAssert.ListPreflightFailureReturnedBeforeCatalogRead(
             result,
@@ -44,7 +56,15 @@ public sealed class OpsServiceTests
         var describeResultMapper = new RecordingOpsDescribeResultMapper();
         var service = new OpsService(preflightService, catalogAccessService, listResultMapper, describeResultMapper);
 
-        var result = await service.GetAllAsync(new OpsCommandInput(null, null, null, null, "[", null, null));
+        var result = await service.GetAllAsync(new OpsCommandInput(
+            null,
+            null,
+            null,
+            null,
+            "[",
+            null,
+            null,
+            FailFast: false));
 
         OpsServiceInvocationAssert.InvalidListFilterRejectedBeforePreflight(
             result,
@@ -138,7 +158,11 @@ public sealed class OpsServiceTests
         {
             DescribeResult = OpsDescribeReadResult.Success(catalogOutput, "read ok"),
         };
-        var expectedResult = OpsDescribeServiceResult.Failure("missing", UcliCoreErrorCodes.InvalidArgument);
+        var expectedResult = OpsDescribeServiceResult.Failure(ApplicationFailure.InvalidInput(
+            "missing",
+            UcliCoreErrorCodes.InvalidArgument,
+            instancePath: null,
+            startupFailure: null));
         var listResultMapper = new RecordingOpsListResultMapper();
         var describeResultMapper = new RecordingOpsDescribeResultMapper
         {

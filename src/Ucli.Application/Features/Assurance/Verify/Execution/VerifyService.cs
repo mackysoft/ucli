@@ -15,16 +15,12 @@ using MackySoft.Ucli.Application.Shared.Context;
 using MackySoft.Ucli.Application.Shared.Execution.Progress;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Cryptography;
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Features.Assurance.Verify.Execution;
 
 /// <summary> Executes verify assurance profiles and composes their verifier outputs. </summary>
 internal sealed class VerifyService : IVerifyService
 {
-    private const string TestReportRef = "test.summary";
-    private const string LogsReportRef = "logs.unity";
-
     private static readonly AssuranceVerifierId TestVerifierId = new("test");
 
     private static readonly AssuranceVerifierId LogsVerifierId = new("logs");
@@ -81,7 +77,7 @@ internal sealed class VerifyService : IVerifyService
         var contextResult = await projectContextResolver.ResolveAsync(input.ProjectPath, cancellationToken).ConfigureAwait(false);
         if (!contextResult.IsSuccess)
         {
-            return VerifyExecutionResult.Failure(contextResult.Error!);
+            return VerifyExecutionResult.Failed(contextResult.Error!, project: null);
         }
 
         var context = contextResult.Context!;
@@ -92,7 +88,7 @@ internal sealed class VerifyService : IVerifyService
             context.Config);
         if (!timeoutResult.IsSuccess)
         {
-            return VerifyExecutionResult.Failure(timeoutResult.Error!, project);
+            return VerifyExecutionResult.Failed(timeoutResult.Error!, project);
         }
 
         var timeout = timeoutResult.Timeout!.Value;
@@ -103,20 +99,31 @@ internal sealed class VerifyService : IVerifyService
             .ConfigureAwait(false);
         if (!profileResult.IsSuccess)
         {
-            return VerifyExecutionResult.Failure(profileResult.Error!, project);
+            return VerifyExecutionResult.Failed(profileResult.Error!, project);
         }
 
         VerifyFromInput? fromInput = null;
-        if (!string.IsNullOrWhiteSpace(input.FromPath))
+        if (input.FromPath is not null)
         {
+            if (string.IsNullOrWhiteSpace(input.FromPath))
+            {
+                return VerifyExecutionResult.Failed(
+                    ApplicationFailure.InvalidInput(
+                        "--from must not be empty.",
+                        UcliCoreErrorCodes.InvalidArgument,
+                        instancePath: null,
+                        startupFailure: null),
+                    project);
+            }
+
             var fromFileResult = await fromInputFileReader.ReadAsync(
-                input.FromPath!,
+                input.FromPath,
                 context.UnityProject.RepositoryRoot,
                 cancellationToken)
                 .ConfigureAwait(false);
             if (!fromFileResult.IsSuccess)
             {
-                return VerifyExecutionResult.Failure(fromFileResult.Error!, project);
+                return VerifyExecutionResult.Failed(fromFileResult.Error!, project);
             }
 
             var fromResult = VerifyFromInputReader.Read(
@@ -124,7 +131,7 @@ internal sealed class VerifyService : IVerifyService
                 context.UnityProject.ProjectFingerprint);
             if (!fromResult.IsSuccess)
             {
-                return VerifyExecutionResult.Failure(fromResult.Error!, project);
+                return VerifyExecutionResult.Failed(fromResult.Error!, project);
             }
 
             fromInput = fromResult.Input!;
@@ -135,7 +142,7 @@ internal sealed class VerifyService : IVerifyService
         await EmitProgressEntryAsync(
                 progressSink,
                 VerifyProgressEventNames.Started,
-                CreateProgressEntry(profile, effectiveProfileDigest, verdict: null),
+                CreateStartedEntry(profile, effectiveProfileDigest),
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -158,9 +165,13 @@ internal sealed class VerifyService : IVerifyService
 
             if (!deadline.TryGetRemainingTimeout(out var stepTimeout))
             {
-                var failure = ApplicationFailure.Timeout("Timed out before verify profile step execution could begin.");
+                var failure = ApplicationFailure.Timeout(
+                    "Timed out before verify profile step execution could begin.",
+                    ExecutionErrorCodes.IpcTimeout,
+                    instancePath: null,
+                    startupFailure: null);
                 await EmitDiagnosticAsync(progressSink, failure, step.Kind, cancellationToken).ConfigureAwait(false);
-                return VerifyExecutionResult.Failure(failure, project);
+                return VerifyExecutionResult.Failed(failure, project);
             }
 
             await EmitProgressEntryAsync(
@@ -186,16 +197,25 @@ internal sealed class VerifyService : IVerifyService
                 }
                 catch (OperationCanceledException) when (stepCancellationScope.HasTimedOut)
                 {
-                    var failure = ApplicationFailure.Timeout("Timed out during verify profile step execution.");
+                    var failure = ApplicationFailure.Timeout(
+                        "Timed out during verify profile step execution.",
+                        ExecutionErrorCodes.IpcTimeout,
+                        instancePath: null,
+                        startupFailure: null);
                     await EmitDiagnosticAsync(progressSink, failure, step.Kind, cancellationToken).ConfigureAwait(false);
-                    return VerifyExecutionResult.Failure(failure, project);
+                    return VerifyExecutionResult.Failed(failure, project);
                 }
             }
 
-            if (!stepResult.IsSuccess)
+            if (stepResult is VerifyStepExecutionResult.Failed failedStep)
             {
-                await EmitDiagnosticAsync(progressSink, stepResult.Error!, step.Kind, cancellationToken).ConfigureAwait(false);
-                return VerifyExecutionResult.Failure(stepResult.Error!, project);
+                await EmitDiagnosticAsync(
+                        progressSink,
+                        failedStep.Failure,
+                        step.Kind,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                return VerifyExecutionResult.Failed(failedStep.Failure, project);
             }
 
             await EmitProgressEntryAsync(
@@ -207,32 +227,55 @@ internal sealed class VerifyService : IVerifyService
 
             if (deadline.IsExpired)
             {
-                var failure = ApplicationFailure.Timeout("Timed out during verify profile step execution.");
+                var failure = ApplicationFailure.Timeout(
+                    "Timed out during verify profile step execution.",
+                    ExecutionErrorCodes.IpcTimeout,
+                    instancePath: null,
+                    startupFailure: null);
                 await EmitDiagnosticAsync(progressSink, failure, step.Kind, cancellationToken).ConfigureAwait(false);
-                return VerifyExecutionResult.Failure(failure, project);
+                return VerifyExecutionResult.Failed(failure, project);
             }
         }
 
         var output = new VerifyExecutionOutput(
-            Verdict: VerifyVerdictCalculator.Calculate(builder.Claims, builder.ResidualRisks),
             Project: project,
             Verifiers: builder.Verifiers,
             Claims: builder.Claims,
             Reports: builder.Reports,
             ResidualRisks: builder.ResidualRisks,
-            Profile: new VerifyProfileOutput(
-                profile.Source,
-                profile.Name,
-                profile.RepositoryRelativePath,
-                effectiveProfileDigest),
+            Profile: CreateProfileOutput(profile, effectiveProfileDigest),
             TimeoutMilliseconds: checked((int)timeout.TotalMilliseconds));
         await EmitProgressEntryAsync(
                 progressSink,
                 VerifyProgressEventNames.Completed,
-                CreateProgressEntry(profile, effectiveProfileDigest, output.Verdict),
+                CreateCompletedEntry(profile, effectiveProfileDigest, output.Verdict),
                 cancellationToken)
             .ConfigureAwait(false);
-        return VerifyExecutionResult.Success(output);
+        return VerifyExecutionResult.Completed(output);
+    }
+
+    private static VerifyProfileOutput CreateProfileOutput (
+        VerifyProfileDefinition profile,
+        Sha256Digest digest)
+    {
+        ArgumentNullException.ThrowIfNull(profile);
+        ArgumentNullException.ThrowIfNull(digest);
+        return profile.Source switch
+        {
+            VerifyProfileSource.BuiltIn => VerifyProfileOutput.BuiltIn(
+                profile.Name,
+                digest),
+            VerifyProfileSource.File => VerifyProfileOutput.FromFile(
+                profile.Name,
+                profile.RepositoryRelativePath
+                    ?? throw new InvalidOperationException(
+                        "A file verify profile must have a repository-relative path."),
+                digest),
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(profile),
+                profile.Source,
+                "Verify profile source must be defined by the profile contract."),
+        };
     }
 
     private async ValueTask<VerifyProfileResolutionResult> ResolveProfileAsync (
@@ -240,19 +283,33 @@ internal sealed class VerifyService : IVerifyService
         AbsolutePath repositoryRoot,
         CancellationToken cancellationToken)
     {
-        if (!string.IsNullOrWhiteSpace(input.Profile) && !string.IsNullOrWhiteSpace(input.ProfilePath))
+        if (input.Profile is not null && string.IsNullOrWhiteSpace(input.Profile))
         {
             return VerifyProfileResolutionResult.Failure(ExecutionError.InvalidArgument(
-                "--profile and --profilePath cannot be specified together."));
+                "--profile must not be empty.",
+                UcliCoreErrorCodes.InvalidArgument));
         }
 
-        if (string.IsNullOrWhiteSpace(input.ProfilePath))
+        if (input.ProfilePath is not null && string.IsNullOrWhiteSpace(input.ProfilePath))
+        {
+            return VerifyProfileResolutionResult.Failure(ExecutionError.InvalidArgument(
+                "--profilePath must not be empty.",
+                UcliCoreErrorCodes.InvalidArgument));
+        }
+
+        if (input.Profile is not null && input.ProfilePath is not null)
+        {
+            return VerifyProfileResolutionResult.Failure(ExecutionError.InvalidArgument(
+                "--profile and --profilePath cannot be specified together.", UcliCoreErrorCodes.InvalidArgument));
+        }
+
+        if (input.ProfilePath is null)
         {
             return VerifyProfileResolver.Resolve(input.Profile);
         }
 
         var readResult = await profileFileReader.ReadAsync(
-                input.ProfilePath!,
+                input.ProfilePath,
                 repositoryRoot,
                 cancellationToken)
             .ConfigureAwait(false);
@@ -303,12 +360,17 @@ internal sealed class VerifyService : IVerifyService
                     FailFast: false),
                 cancellationToken)
             .ConfigureAwait(false);
-        if (!result.IsSuccess)
+        if (result is ReadyExecutionResult.FailedResult failed)
         {
-            return VerifyStepExecutionResult.Failure(result.Errors[0]);
+            return VerifyStepExecutionResult.FromFailure(failed.Failure);
         }
 
-        var output = result.Output!;
+        if (result is not ReadyExecutionResult.CompletedResult completed)
+        {
+            throw new InvalidOperationException("Ready execution returned an unsupported result variant.");
+        }
+
+        var output = completed.Output;
         for (var i = 0; i < output.Verifiers.Count; i++)
         {
             var verifier = output.Verifiers[i];
@@ -318,7 +380,8 @@ internal sealed class VerifyService : IVerifyService
                 Deterministic: verifier.Deterministic,
                 Required: step.Required,
                 PrimaryClaims: verifier.PrimaryClaims,
-                Effects: step.Effects));
+                Effects: step.Effects,
+                ReportRef: null));
         }
 
         foreach (var claim in output.Claims)
@@ -331,23 +394,12 @@ internal sealed class VerifyService : IVerifyService
                 VerifierRef: claim.VerifierRef,
                 Statement: claim.Statement,
                 Subject: claim.Subject,
-                Evidence: claim.Evidence.Select(static evidence => new VerifyEvidenceOutput(evidence.Kind)
-                {
-                    EvidenceRef = evidence.EvidenceRef,
-                    Data = evidence.Data,
-                }).ToArray(),
-                ResidualRisks: claim.ResidualRisks.Select(static risk => new VerifyResidualRiskOutput(risk.Code, risk.Blocking)
-                {
-                    Message = risk.Message,
-                }).ToArray())
-            {
-                Validity = claim.Validity,
-            });
-        }
-
-        foreach (var report in output.Reports)
-        {
-            builder.AddReport(report.Key, report.Value);
+                Validity: claim.Validity,
+                Evidence: claim.Evidence.Select(ProjectReadyEvidence).ToArray(),
+                ResidualRisks: claim.ResidualRisks.Select(static risk => new VerifyResidualRiskOutput(
+                    risk.Code,
+                    risk.Blocking,
+                    risk.Message)).ToArray()));
         }
 
         return VerifyStepExecutionResult.Success();
@@ -368,12 +420,17 @@ internal sealed class VerifyService : IVerifyService
                 progressSink: null,
                 cancellationToken)
             .ConfigureAwait(false);
-        if (!result.IsSuccess)
+        if (result is CompileExecutionResult.FailedResult failed)
         {
-            return VerifyStepExecutionResult.Failure(result.Errors[0]);
+            return VerifyStepExecutionResult.FromFailure(failed.Failure);
         }
 
-        var output = result.Output!;
+        if (result is not CompileExecutionResult.CompletedResult completed)
+        {
+            throw new InvalidOperationException("Compile execution returned an unsupported result variant.");
+        }
+
+        var output = completed.Output;
         foreach (var verifier in output.Verifiers)
         {
             builder.AddVerifier(new VerifyVerifierOutput(
@@ -382,10 +439,8 @@ internal sealed class VerifyService : IVerifyService
                 Deterministic: verifier.Deterministic,
                 Required: step.Required,
                 PrimaryClaims: verifier.PrimaryClaims,
-                Effects: step.Effects)
-            {
-                ReportRef = verifier.ReportRef,
-            });
+                Effects: step.Effects,
+                ReportRef: verifier.ReportRef));
         }
 
         foreach (var claim in output.Claims)
@@ -393,10 +448,12 @@ internal sealed class VerifyService : IVerifyService
             builder.AddClaim(ProjectCompileClaim(claim, step.Required));
         }
 
-        foreach (var report in output.Reports)
-        {
-            builder.AddReport(report.Key, report.Value);
-        }
+        builder.AddReport(
+            AssuranceReportIds.CompileSummary,
+            output.Reports[AssuranceReportIds.CompileSummary.Value]);
+        builder.AddReport(
+            AssuranceReportIds.CompileDiagnostics,
+            output.Reports[AssuranceReportIds.CompileDiagnostics.Value]);
 
         return VerifyStepExecutionResult.Success();
     }
@@ -444,7 +501,8 @@ internal sealed class VerifyService : IVerifyService
             Deterministic: true,
             Required: claimSet.Claims.Any(static claim => claim.Required),
             PrimaryClaims: claimSet.Claims.Select(static claim => claim.Id).ToArray(),
-            Effects: step.Effects));
+            Effects: step.Effects,
+            ReportRef: null));
         foreach (var claim in claimSet.Claims)
         {
             builder.AddClaim(claim);
@@ -470,59 +528,67 @@ internal sealed class VerifyService : IVerifyService
                     TestCategory: step.TestCategory?.ToArray(),
                     AssemblyName: step.AssemblyName?.ToArray(),
                     TimeoutMilliseconds: ToTimeoutMilliseconds(timeout),
-                    FailFast: false),
+                    FailFast: false,
+                    AllowEmptyTestRun: false),
                 cancellationToken: cancellationToken)
             .ConfigureAwait(false);
-        if (result.ErrorKind is not null)
+        if (result is not TestRunCompletedServiceResult completed)
         {
-            return VerifyStepExecutionResult.Failure(result.Failure!);
+            var commandError = result as TestRunCommandErrorServiceResult
+                ?? throw new ArgumentOutOfRangeException(
+                    nameof(result),
+                    result.GetType(),
+                    "Test Run service result type must have an explicit verify projection.");
+            return VerifyStepExecutionResult.FromFailure(commandError.PrimaryFailure);
         }
 
-        var status = result.Result == TestRunResultKind.Pass
-            ? AssuranceClaimStatus.Passed
-            : AssuranceClaimStatus.Failed;
-        var summaryReport = result.SummaryJsonPath is null
-            ? null
-            : AssuranceReportReference.FromPath(result.SummaryJsonPath.Value, digest: null);
-        var reportRef = summaryReport is null ? null : TestReportRef;
+        var (status, coverage, statement) = completed.Verdict switch
+        {
+            Verdict.Pass => (
+                AssuranceClaimStatus.Passed,
+                AssuranceCoverage.Full,
+                "Unity Test Runner execution passed."),
+            Verdict.Fail => (
+                AssuranceClaimStatus.Failed,
+                AssuranceCoverage.Full,
+                "Unity Test Runner execution failed."),
+            Verdict.Incomplete => (
+                AssuranceClaimStatus.Indeterminate,
+                AssuranceCoverage.Partial,
+                "Unity Test Runner execution did not establish a complete result."),
+            _ => throw new InvalidOperationException(
+                "A completed test-run service result must contain a defined verdict."),
+        };
+        var summaryReport = AssuranceReportReference.FromPath(
+            completed.SummaryJsonPath.Value,
+            digest: null);
         builder.AddVerifier(new VerifyVerifierOutput(
             TestVerifierId,
             AssuranceVerifierKind.Test,
             Deterministic: false,
             Required: step.Required,
             PrimaryClaims: [VerifyClaimCodes.UnityTestsPassed],
-            Effects: step.Effects)
-        {
-            ReportRef = reportRef,
-        });
-        if (summaryReport != null)
-        {
-            builder.AddReport(TestReportRef, summaryReport);
-        }
+            Effects: step.Effects,
+            ReportRef: AssuranceReportIds.TestSummary));
+        builder.AddReport(AssuranceReportIds.TestSummary, summaryReport);
 
         builder.AddClaim(new VerifyClaimOutput(
             Id: VerifyClaimCodes.UnityTestsPassed,
             Status: status,
-            Coverage: AssuranceCoverage.Full,
+            Coverage: coverage,
             Required: step.Required,
             VerifierRef: TestVerifierId,
-            Statement: status == AssuranceClaimStatus.Passed
-                ? "Unity Test Runner execution passed."
-                : "Unity Test Runner execution did not pass.",
+            Statement: statement,
             Subject: new Dictionary<string, object?>(StringComparer.Ordinal)
             {
                 ["kind"] = "unityTests",
-                ["runId"] = result.RunId,
+                ["runId"] = completed.RunId,
             },
-            Evidence: reportRef is null
-                ? []
-                :
-                [
-                    new VerifyEvidenceOutput("testSummary")
-                    {
-                        EvidenceRef = reportRef,
-                    },
-                ],
+            Validity: null,
+            Evidence:
+            [
+                new VerifyTestSummaryEvidenceOutput(AssuranceReportIds.TestSummary),
+            ],
             ResidualRisks: EmptyResidualRisks));
         return VerifyStepExecutionResult.Success();
     }
@@ -567,17 +633,17 @@ internal sealed class VerifyService : IVerifyService
         var reportUri = result.IsSuccess
             ? $"ucli://logs/unity?tail=200&count={eventCount}"
             : $"ucli://logs/unity?tail=200&status=failed";
-        builder.AddReport(LogsReportRef, AssuranceReportReference.FromUri(reportUri, digest: null));
+        builder.AddReport(
+            AssuranceReportIds.UnityLogs,
+            AssuranceReportReference.FromUri(reportUri, digest: null));
         builder.AddVerifier(new VerifyVerifierOutput(
             LogsVerifierId,
             AssuranceVerifierKind.Logs,
             Deterministic: false,
             Required: false,
             PrimaryClaims: [],
-            Effects: step.Effects)
-        {
-            ReportRef = LogsReportRef,
-        });
+            Effects: step.Effects,
+            ReportRef: AssuranceReportIds.UnityLogs));
         return VerifyStepExecutionResult.Success();
     }
 
@@ -606,12 +672,24 @@ internal sealed class VerifyService : IVerifyService
         return false;
     }
 
-    private static VerifyProgressEntry CreateProgressEntry (
+    private static VerifyStartedEntry CreateStartedEntry (
+        VerifyProfileDefinition profile,
+        Sha256Digest effectiveProfileDigest)
+    {
+        return new VerifyStartedEntry(
+            profile.Source,
+            profile.Name,
+            profile.RepositoryRelativePath,
+            effectiveProfileDigest,
+            profile.Steps.Count);
+    }
+
+    private static VerifyCompletedEntry CreateCompletedEntry (
         VerifyProfileDefinition profile,
         Sha256Digest effectiveProfileDigest,
-        AssuranceVerdict? verdict)
+        Verdict verdict)
     {
-        return new VerifyProgressEntry(
+        return new VerifyCompletedEntry(
             profile.Source,
             profile.Name,
             profile.RepositoryRelativePath,
@@ -677,12 +755,42 @@ internal sealed class VerifyService : IVerifyService
             VerifierRef: claim.VerifierRef,
             Statement: claim.Statement,
             Subject: claim.Subject,
-            Evidence: claim.Evidence.Select(static evidence => new VerifyEvidenceOutput(TextVocabulary.GetText(evidence.Kind))
-            {
-                EvidenceRef = evidence.EvidenceRef,
-                Data = evidence.Data,
-            }).ToArray(),
-            ResidualRisks: claim.ResidualRisks.Select(static risk => new VerifyResidualRiskOutput(risk.Code, risk.Blocking)).ToArray());
+            Validity: null,
+            Evidence: claim.Evidence.Select(ProjectCompileEvidence).ToArray(),
+            ResidualRisks: claim.ResidualRisks.Select(static risk => new VerifyResidualRiskOutput(
+                risk.Code,
+                risk.Blocking,
+                risk.Message)).ToArray());
+    }
+
+    private static VerifyEvidenceOutput ProjectReadyEvidence (ReadyEvidenceOutput evidence)
+    {
+        ArgumentNullException.ThrowIfNull(evidence);
+        return evidence switch
+        {
+            ReadyLifecycleEvidenceOutput lifecycle => VerifyReadyLifecycleEvidenceOutput.Create(lifecycle),
+            ReadyDecisionEvidenceOutput decision => VerifyReadinessEvidenceOutput.Create(decision),
+            ReadyReadIndexEvidenceOutput readIndex => VerifyReadIndexEvidenceOutput.Create(readIndex),
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(evidence),
+                evidence.GetType(),
+                "Ready evidence variant must have an explicit verify projection."),
+        };
+    }
+
+    private static VerifyEvidenceOutput ProjectCompileEvidence (CompileEvidenceOutput evidence)
+    {
+        ArgumentNullException.ThrowIfNull(evidence);
+        return evidence switch
+        {
+            CompileScriptEvidenceOutput script => VerifyScriptEvidenceOutput.Create(script),
+            CompileDomainReloadEvidenceOutput domainReload => VerifyDomainReloadEvidenceOutput.Create(domainReload),
+            CompileLifecycleEvidenceOutput lifecycle => VerifyCompileLifecycleEvidenceOutput.Create(lifecycle),
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(evidence),
+                evidence.GetType(),
+                "Compile evidence variant must have an explicit verify projection."),
+        };
     }
 
     private static int ToTimeoutMilliseconds (TimeSpan timeout)
@@ -696,19 +804,39 @@ internal sealed class VerifyService : IVerifyService
         return checked((int)timeoutMilliseconds);
     }
 
-    private sealed record VerifyStepExecutionResult (ApplicationFailure? Error)
+    private abstract record VerifyStepExecutionResult
     {
-        public bool IsSuccess => Error is null;
-
-        public static VerifyStepExecutionResult Success ()
+        private VerifyStepExecutionResult ()
         {
-            return new VerifyStepExecutionResult((ApplicationFailure?)null);
         }
 
-        public static VerifyStepExecutionResult Failure (ApplicationFailure failure)
+        public static Succeeded Success ()
         {
-            ArgumentNullException.ThrowIfNull(failure);
-            return new VerifyStepExecutionResult(failure);
+            return Succeeded.Instance;
+        }
+
+        public static Failed FromFailure (ApplicationFailure failure)
+        {
+            return new Failed(failure);
+        }
+
+        internal sealed record Succeeded : VerifyStepExecutionResult
+        {
+            public static readonly Succeeded Instance = new();
+
+            private Succeeded ()
+            {
+            }
+        }
+
+        internal sealed record Failed : VerifyStepExecutionResult
+        {
+            internal Failed (ApplicationFailure failure)
+            {
+                Failure = failure ?? throw new ArgumentNullException(nameof(failure));
+            }
+
+            public ApplicationFailure Failure { get; }
         }
     }
 }

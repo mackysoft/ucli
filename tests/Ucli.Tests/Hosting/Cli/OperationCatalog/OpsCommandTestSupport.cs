@@ -1,5 +1,6 @@
 using MackySoft.Ucli.Application.Features.OperationCatalog.Common.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
+using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Operations;
 
@@ -34,10 +35,26 @@ internal static class OpsCommandTestSupport
             operationName,
             IpcJsonSerializerOptions.PublicRawOperationContracts.GetTypeInfo(typeof(GoDescribeArgs)),
             IpcJsonSerializerOptions.PublicRawOperationContracts.GetTypeInfo(typeof(GameObjectDescriptionResult)));
-        var describe = UcliOperationDescribeContractBuilder.Create(
+        var describe = UcliOperationDescribeContractBuilder.CreateWithoutVerdict(
             generationResult,
             description,
-            assurance);
+            assurance,
+            codeContract: null);
+        var descriptor = new IndexOpEntryJsonContract(
+            Name: operationName,
+            Kind: UcliOperationKind.Query,
+            Policy: OperationPolicy.Safe,
+            ArgsContract: describe.ArgsContract,
+            DescriptorDigest: null,
+            VerdictContract: null,
+            ResultContract: describe.ResultContract,
+            Exposure: null,
+            PlayModeSupport: UcliOperationPlayModeSupport.Disallowed)
+        {
+            Description = description,
+            Assurance = assurance,
+        };
+        var descriptorDigest = UcliOperationDescriptorDigest.Calculate(descriptor);
 
         return OpsDescribeServiceResult.Success(
             new OpsDescribeExecutionOutput(
@@ -46,9 +63,11 @@ internal static class OpsCommandTestSupport
                     kind: UcliOperationKind.Query,
                     policy: OperationPolicy.Safe,
                     playModeSupport: UcliOperationPlayModeSupport.Disallowed,
+                    descriptorDigest: descriptorDigest,
                     description: description,
                     argsContract: describe.ArgsContract!.Value,
                     resultContract: describe.ResultContract,
+                    verdictContract: null,
                     assurance: assurance,
                     codeContract: null),
                 ReadIndex: CreateProbableReadIndex()),

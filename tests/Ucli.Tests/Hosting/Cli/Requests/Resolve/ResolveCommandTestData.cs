@@ -17,18 +17,18 @@ internal static class ResolveCommandTestData
         return ResolveServiceResultFactory.Success(
             RequestGuid,
             [
-                new OperationExecutionOperationResult(
-                    Op: UcliPrimitiveOperationNames.Resolve,
-                    Phase: IpcExecuteOperationPhase.Plan,
-                    Applied: false,
-                    Changed: false,
-                    Touched: [])
-                {
-                    Result = JsonSerializer.SerializeToElement(new
+                OperationExecutionOperationResult.CreateWithoutVerdict(
+                    op: UcliPrimitiveOperationNames.Resolve,
+                    phase: IpcExecuteOperationPhase.Plan,
+                    applied: false,
+                    changed: false,
+                    touched: [],
+                    operationDescriptorDigest: RequestCommandResultTestValues.OperationDescriptorDigest,
+                    result: JsonSerializer.SerializeToElement(new
                     {
                         globalObjectId = GlobalObjectId,
                     }),
-                },
+                    diagnostics: []),
             ],
             new ReadIndexInfo(
                 Used: true,
@@ -37,7 +37,8 @@ internal static class ResolveCommandTestData
                 Freshness: IndexFreshness.Fresh,
                 GeneratedAtUtc: DateTimeOffset.Parse("2026-04-25T00:00:00+00:00"),
                 FallbackReason: null),
-            ProjectIdentityInfoTestFactory.Create());
+            ProjectIdentityInfoTestFactory.Create(),
+            contractViolations: []);
     }
 
     public static ResolveServiceResult CreateFailureResult ()
@@ -48,7 +49,9 @@ internal static class ResolveCommandTestData
             [
                 ApplicationFailure.InternalError(
                     "Unity execution failed.",
-                    instancePath: "/steps/0"),
+                    UcliCoreErrorCodes.InternalError,
+                    instancePath: "/steps/0",
+                    startupFailure: null),
             ],
             new ReadIndexInfo(
                 Used: true,
@@ -56,6 +59,8 @@ internal static class ResolveCommandTestData
                 Source: ReadIndexInfoSource.Index,
                 Freshness: IndexFreshness.Fresh,
                 GeneratedAtUtc: DateTimeOffset.Parse("2026-04-25T00:00:00+00:00"),
-                FallbackReason: null));
+                FallbackReason: null),
+            project: null,
+            contractViolations: []);
     }
 }

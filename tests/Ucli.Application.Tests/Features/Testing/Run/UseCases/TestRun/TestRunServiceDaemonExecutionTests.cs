@@ -4,6 +4,7 @@ using MackySoft.Ucli.Application.Features.Testing.Run.Execution;
 using MackySoft.Ucli.Application.Features.Testing.Run.Results;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Contracts.Testing;
 using static MackySoft.Ucli.Application.Tests.TestRunServiceTestFactory;
 
 namespace MackySoft.Ucli.Application.Tests;
@@ -15,8 +16,8 @@ public sealed class TestRunServiceDaemonExecutionTests
     public async Task Execute_WithDaemonTarget_UsesDaemonClient ()
     {
         var configuration = CreateResolvedConfiguration();
-        var daemonTestRunClient = new RecordingDaemonTestRunClient((_, _, _, _, _) =>
-            ValueTask.FromResult(UnityTestExecutionResult.Success(0)));
+        var daemonTestRunClient = new RecordingDaemonTestRunClient((_, artifactPaths, _, _, _) =>
+            CompleteDaemonRequest(artifactPaths));
         var unityTestExecutor = new StubUnityTestExecutor((_, _, _, _) =>
             throw new InvalidOperationException("Oneshot test execution was not expected."));
 
@@ -28,26 +29,28 @@ public sealed class TestRunServiceDaemonExecutionTests
                 prepare: _ => ArtifactsPreparationResult.Success(CreateArtifactsSession()),
                 complete: (_, _, _) => ArtifactsCompletionResult.Success()),
             unityTestExecutor: unityTestExecutor,
-            resultsConverter: new StubUnityResultsConverter(_ => ValueTask.FromResult(UnityResultsConversionResult.Success(false))),
+            resultsConverter: new StubUnityResultsConverter(_ => ValueTask.FromResult<UnityResultsConversionResult>(TestRunResultTestValues.CreateConversion(Verdict.Pass))),
             daemonTestRunClient: daemonTestRunClient);
 
-        var result = await service.ExecuteAsync(CreateInput(), cancellationToken: CancellationToken.None);
+        var result = Assert.IsType<TestRunCompletedServiceResult>(
+            await service.ExecuteAsync(CreateInput(), cancellationToken: CancellationToken.None));
 
-        Assert.Equal(TestRunResultKind.Pass, result.Result);
-        Assert.Equal(ApplicationOutcome.Success, result.Outcome);
+        Assert.Equal(Verdict.Pass, result.Verdict);
         DaemonTestRunClientAssert.ExecutionRequested(daemonTestRunClient, expectedFailFast: false);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Execute_WhenDaemonLifecycleGateFails_ReturnsInfraErrorWithLifecycleErrorCode ()
+    public async Task Execute_WhenDaemonLifecycleGateFails_ReturnsFailedRunWithLifecycleErrorCode ()
     {
         var configuration = CreateResolvedConfiguration();
         var daemonTestRunClient = new RecordingDaemonTestRunClient((_, _, _, _, _) =>
-            ValueTask.FromResult(UnityTestExecutionResult.Failure(
-                UnityTestExecutionFailureKind.AbnormalExit,
-                "Unity editor is busy with internal work.",
-                EditorLifecycleErrorCodes.EditorBusy)));
+            ValueTask.FromResult(UnityRequestExecutionResult.Failure(
+                new UnityRequestFailure(
+                    UnityRequestFailureKind.General,
+                    EditorLifecycleErrorCodes.EditorBusy,
+                    "Unity editor is busy with internal work.",
+                    startupFailure: null))));
 
         var service = CreateService(
             configurationResolver: new StubTestRunConfigurationResolver(TestRunConfigurationResolutionResult.Success(configuration)),
@@ -57,16 +60,17 @@ public sealed class TestRunServiceDaemonExecutionTests
                 prepare: _ => ArtifactsPreparationResult.Success(CreateArtifactsSession()),
                 complete: (_, _, _) => ArtifactsCompletionResult.Success()),
             unityTestExecutor: new StubUnityTestExecutor((_, _, _, _) =>
-                ValueTask.FromResult(UnityTestExecutionResult.Success(0))),
-            resultsConverter: new StubUnityResultsConverter(_ => ValueTask.FromResult(UnityResultsConversionResult.Success(false))),
+                ValueTask.FromResult<UnityTestExecutionResult>(UnityTestExecutionResult.FromProcessExitCode(0))),
+            resultsConverter: new StubUnityResultsConverter(_ => ValueTask.FromResult<UnityResultsConversionResult>(TestRunResultTestValues.CreateConversion(Verdict.Pass))),
             daemonTestRunClient: daemonTestRunClient);
 
-        var result = await service.ExecuteAsync(CreateInput() with { FailFast = true }, cancellationToken: CancellationToken.None);
+        var result = Assert.IsType<TestRunAfterCreationPrimaryCommandErrorServiceResult>(
+            await service.ExecuteAsync(
+                CreateInput() with { FailFast = true },
+                cancellationToken: CancellationToken.None));
 
-        Assert.Null(result.Result);
-        Assert.Equal(TestRunErrorKind.InfraError, result.ErrorKind);
-        Assert.Equal(ApplicationOutcome.InfrastructureError, result.Outcome);
-        Assert.Equal(EditorLifecycleErrorCodes.EditorBusy, result.ErrorCode);
+        Assert.Equal(ApplicationOutcome.InfrastructureError, result.PrimaryFailure.Outcome);
+        Assert.Equal(EditorLifecycleErrorCodes.EditorBusy, result.PrimaryFailure.Code);
         DaemonTestRunClientAssert.ExecutionRequested(daemonTestRunClient, expectedFailFast: true);
     }
 
@@ -76,9 +80,12 @@ public sealed class TestRunServiceDaemonExecutionTests
     {
         var configuration = CreateResolvedConfiguration();
         var daemonTestRunClient = new RecordingDaemonTestRunClient((_, _, _, _, _) =>
-            ValueTask.FromResult(UnityTestExecutionResult.Failure(
-                UnityTestExecutionFailureKind.IpcTimedOut,
-                "Unity daemon test run request timed out.")));
+            ValueTask.FromResult(UnityRequestExecutionResult.Failure(
+                new UnityRequestFailure(
+                    UnityRequestFailureKind.General,
+                    ExecutionErrorCodes.IpcTimeout,
+                    "Unity daemon test run request timed out.",
+                    startupFailure: null))));
 
         var service = CreateService(
             configurationResolver: new StubTestRunConfigurationResolver(TestRunConfigurationResolutionResult.Success(configuration)),
@@ -88,16 +95,15 @@ public sealed class TestRunServiceDaemonExecutionTests
                 prepare: _ => ArtifactsPreparationResult.Success(CreateArtifactsSession()),
                 complete: (_, _, _) => ArtifactsCompletionResult.Success()),
             unityTestExecutor: new StubUnityTestExecutor((_, _, _, _) =>
-                ValueTask.FromResult(UnityTestExecutionResult.Success(0))),
-            resultsConverter: new StubUnityResultsConverter(_ => ValueTask.FromResult(UnityResultsConversionResult.Success(false))),
+                ValueTask.FromResult<UnityTestExecutionResult>(UnityTestExecutionResult.FromProcessExitCode(0))),
+            resultsConverter: new StubUnityResultsConverter(_ => ValueTask.FromResult<UnityResultsConversionResult>(TestRunResultTestValues.CreateConversion(Verdict.Pass))),
             daemonTestRunClient: daemonTestRunClient);
 
-        var result = await service.ExecuteAsync(CreateInput(), cancellationToken: CancellationToken.None);
+        var result = Assert.IsType<TestRunAfterCreationPrimaryCommandErrorServiceResult>(
+            await service.ExecuteAsync(CreateInput(), cancellationToken: CancellationToken.None));
 
-        Assert.Null(result.Result);
-        Assert.Equal(TestRunErrorKind.InfraError, result.ErrorKind);
-        Assert.Equal(ApplicationOutcome.InfrastructureError, result.Outcome);
-        Assert.Equal(ExecutionErrorCodes.IpcTimeout, result.ErrorCode);
+        Assert.Equal(ApplicationOutcome.InfrastructureError, result.PrimaryFailure.Outcome);
+        Assert.Equal(ExecutionErrorCodes.IpcTimeout, result.PrimaryFailure.Code);
     }
 
     [Fact]
@@ -114,20 +120,17 @@ public sealed class TestRunServiceDaemonExecutionTests
                 prepare: _ => ArtifactsPreparationResult.Success(CreateArtifactsSession()),
                 complete: (_, _, _) => ArtifactsCompletionResult.Success()),
             unityTestExecutor: new StubUnityTestExecutor((_, _, _, _) =>
-                ValueTask.FromResult(UnityTestExecutionResult.Success(0))),
-            resultsConverter: new StubUnityResultsConverter(_ => ValueTask.FromResult(UnityResultsConversionResult.Success(false))),
-            daemonTestRunClient: new RecordingDaemonTestRunClient((_, _, _, _, _) =>
-                ValueTask.FromResult(UnityTestExecutionResult.Success(0))),
+                ValueTask.FromResult<UnityTestExecutionResult>(UnityTestExecutionResult.FromProcessExitCode(0))),
+            resultsConverter: new StubUnityResultsConverter(_ => ValueTask.FromResult<UnityResultsConversionResult>(TestRunResultTestValues.CreateConversion(Verdict.Pass))),
             unityRequestResponse: CreateFailureUnityRequestResponse(
                 IpcTransportErrorCodes.IpcTimeout,
                 "Unity test run timed out after 30000 milliseconds."));
 
-        var result = await service.ExecuteAsync(CreateInput(), cancellationToken: CancellationToken.None);
+        var result = Assert.IsType<TestRunAfterCreationPrimaryCommandErrorServiceResult>(
+            await service.ExecuteAsync(CreateInput(), cancellationToken: CancellationToken.None));
 
-        Assert.Null(result.Result);
-        Assert.Equal(TestRunErrorKind.InfraError, result.ErrorKind);
-        Assert.Equal(ApplicationOutcome.InfrastructureError, result.Outcome);
-        Assert.Equal(ExecutionErrorCodes.IpcTimeout, result.ErrorCode);
+        Assert.Equal(ApplicationOutcome.InfrastructureError, result.PrimaryFailure.Outcome);
+        Assert.Equal(ExecutionErrorCodes.IpcTimeout, result.PrimaryFailure.Code);
     }
 
     [Fact]
@@ -136,10 +139,11 @@ public sealed class TestRunServiceDaemonExecutionTests
     {
         var configuration = CreateResolvedConfiguration();
         var daemonTestRunClient = new RecordingDaemonTestRunClient((_, _, _, _, _) =>
-            ValueTask.FromResult(UnityTestExecutionResult.Failure(
-                UnityTestExecutionFailureKind.StartFailed,
-                "Unity daemon is not running. Daemon session token is not available.",
-                UnityExecutionModeDecisionErrorCodes.DaemonNotRunning)));
+            ValueTask.FromResult(UnityRequestExecutionResult.Failure(
+                new UnityRequestFailure(
+                    UnityRequestFailureKind.General,
+                    UnityExecutionModeDecisionErrorCodes.DaemonNotRunning,
+                    "Unity daemon is not running. Daemon session token is not available."))));
 
         var service = CreateService(
             configurationResolver: new StubTestRunConfigurationResolver(TestRunConfigurationResolutionResult.Success(configuration)),
@@ -149,28 +153,28 @@ public sealed class TestRunServiceDaemonExecutionTests
                 prepare: _ => ArtifactsPreparationResult.Success(CreateArtifactsSession()),
                 complete: (_, _, _) => ArtifactsCompletionResult.Success()),
             unityTestExecutor: new StubUnityTestExecutor((_, _, _, _) =>
-                ValueTask.FromResult(UnityTestExecutionResult.Success(0))),
-            resultsConverter: new StubUnityResultsConverter(_ => ValueTask.FromResult(UnityResultsConversionResult.Success(false))),
+                ValueTask.FromResult<UnityTestExecutionResult>(UnityTestExecutionResult.FromProcessExitCode(0))),
+            resultsConverter: new StubUnityResultsConverter(_ => ValueTask.FromResult<UnityResultsConversionResult>(TestRunResultTestValues.CreateConversion(Verdict.Pass))),
             daemonTestRunClient: daemonTestRunClient);
 
-        var result = await service.ExecuteAsync(CreateInput(), cancellationToken: CancellationToken.None);
+        var result = Assert.IsType<TestRunAfterCreationPrimaryCommandErrorServiceResult>(
+            await service.ExecuteAsync(CreateInput(), cancellationToken: CancellationToken.None));
 
-        Assert.Null(result.Result);
-        Assert.Equal(TestRunErrorKind.ToolError, result.ErrorKind);
-        Assert.Equal(ApplicationOutcome.ToolError, result.Outcome);
-        Assert.Equal(UnityExecutionModeDecisionErrorCodes.DaemonNotRunning, result.ErrorCode);
+        Assert.Equal(ApplicationOutcome.ToolError, result.PrimaryFailure.Outcome);
+        Assert.Equal(UnityExecutionModeDecisionErrorCodes.DaemonNotRunning, result.PrimaryFailure.Code);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Execute_WhenDaemonSessionTokenResolutionFailsInternally_ReturnsInfraError ()
+    public async Task Execute_WhenDaemonSessionTokenResolutionFailsInternally_ReturnsFailedRun ()
     {
         var configuration = CreateResolvedConfiguration();
         var daemonTestRunClient = new RecordingDaemonTestRunClient((_, _, _, _, _) =>
-            ValueTask.FromResult(UnityTestExecutionResult.Failure(
-                UnityTestExecutionFailureKind.ClientSetupFailed,
-                "Daemon session token could not be resolved. session store read failed",
-                UcliCoreErrorCodes.InternalError)));
+            ValueTask.FromResult(UnityRequestExecutionResult.Failure(
+                new UnityRequestFailure(
+                    UnityRequestFailureKind.General,
+                    UcliCoreErrorCodes.InternalError,
+                    "Daemon session token could not be resolved. session store read failed"))));
 
         var service = CreateService(
             configurationResolver: new StubTestRunConfigurationResolver(TestRunConfigurationResolutionResult.Success(configuration)),
@@ -180,28 +184,29 @@ public sealed class TestRunServiceDaemonExecutionTests
                 prepare: _ => ArtifactsPreparationResult.Success(CreateArtifactsSession()),
                 complete: (_, _, _) => ArtifactsCompletionResult.Success()),
             unityTestExecutor: new StubUnityTestExecutor((_, _, _, _) =>
-                ValueTask.FromResult(UnityTestExecutionResult.Success(0))),
-            resultsConverter: new StubUnityResultsConverter(_ => ValueTask.FromResult(UnityResultsConversionResult.Success(false))),
+                ValueTask.FromResult<UnityTestExecutionResult>(UnityTestExecutionResult.FromProcessExitCode(0))),
+            resultsConverter: new StubUnityResultsConverter(_ => ValueTask.FromResult<UnityResultsConversionResult>(TestRunResultTestValues.CreateConversion(Verdict.Pass))),
             daemonTestRunClient: daemonTestRunClient);
 
-        var result = await service.ExecuteAsync(CreateInput(), cancellationToken: CancellationToken.None);
+        var result = Assert.IsType<TestRunAfterCreationPrimaryCommandErrorServiceResult>(
+            await service.ExecuteAsync(CreateInput(), cancellationToken: CancellationToken.None));
 
-        Assert.Null(result.Result);
-        Assert.Equal(TestRunErrorKind.InfraError, result.ErrorKind);
-        Assert.Equal(ApplicationOutcome.InfrastructureError, result.Outcome);
-        Assert.Equal(UcliCoreErrorCodes.InternalError, result.ErrorCode);
+        Assert.Equal(ApplicationOutcome.InfrastructureError, result.PrimaryFailure.Outcome);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, result.PrimaryFailure.Code);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Execute_WhenDaemonSessionTokenResolutionReturnsInvalidArgument_ReturnsInfraError ()
+    public async Task Execute_WhenDaemonSessionTokenResolutionReturnsInvalidArgument_ReturnsFailedRun ()
     {
         var configuration = CreateResolvedConfiguration();
         var daemonTestRunClient = new RecordingDaemonTestRunClient((_, _, _, _, _) =>
-            ValueTask.FromResult(UnityTestExecutionResult.Failure(
-                UnityTestExecutionFailureKind.ClientSetupFailed,
-                "Daemon session token could not be resolved. Daemon session token is missing.",
-                UcliCoreErrorCodes.InvalidArgument)));
+            ValueTask.FromResult(UnityRequestExecutionResult.Failure(
+                new UnityRequestFailure(
+                    UnityRequestFailureKind.General,
+                    UcliCoreErrorCodes.InvalidArgument,
+                    "Daemon session token could not be resolved. Daemon session token is missing.",
+                    startupFailure: null))));
 
         var service = CreateService(
             configurationResolver: new StubTestRunConfigurationResolver(TestRunConfigurationResolutionResult.Success(configuration)),
@@ -211,28 +216,30 @@ public sealed class TestRunServiceDaemonExecutionTests
                 prepare: _ => ArtifactsPreparationResult.Success(CreateArtifactsSession()),
                 complete: (_, _, _) => ArtifactsCompletionResult.Success()),
             unityTestExecutor: new StubUnityTestExecutor((_, _, _, _) =>
-                ValueTask.FromResult(UnityTestExecutionResult.Success(0))),
-            resultsConverter: new StubUnityResultsConverter(_ => ValueTask.FromResult(UnityResultsConversionResult.Success(false))),
+                ValueTask.FromResult<UnityTestExecutionResult>(UnityTestExecutionResult.FromProcessExitCode(0))),
+            resultsConverter: new StubUnityResultsConverter(_ => ValueTask.FromResult<UnityResultsConversionResult>(TestRunResultTestValues.CreateConversion(Verdict.Pass))),
             daemonTestRunClient: daemonTestRunClient);
 
-        var result = await service.ExecuteAsync(CreateInput(), cancellationToken: CancellationToken.None);
+        var result = Assert.IsType<TestRunAfterCreationPrimaryCommandErrorServiceResult>(
+            await service.ExecuteAsync(CreateInput(), cancellationToken: CancellationToken.None));
 
-        Assert.Null(result.Result);
-        Assert.Equal(TestRunErrorKind.InfraError, result.ErrorKind);
-        Assert.Equal(ApplicationOutcome.InfrastructureError, result.Outcome);
-        Assert.Equal(UcliCoreErrorCodes.InvalidArgument, result.ErrorCode);
+        Assert.Equal(ApplicationOutcome.InfrastructureError, result.PrimaryFailure.Outcome);
+        Assert.Equal(UcliCoreErrorCodes.InvalidArgument, result.PrimaryFailure.Code);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Execute_WhenArtifactsCompletionFailsAfterDaemonTimeout_PreservesPrimaryTimeoutError ()
+    public async Task Execute_WhenArtifactsCompletionFailsAfterDaemonTimeout_PreservesBothCommandErrors ()
     {
         var configuration = CreateResolvedConfiguration();
         var session = CreateArtifactsSession();
         var daemonTestRunClient = new RecordingDaemonTestRunClient((_, _, _, _, _) =>
-            ValueTask.FromResult(UnityTestExecutionResult.Failure(
-                UnityTestExecutionFailureKind.IpcTimedOut,
-                "Unity daemon test run request timed out.")));
+            ValueTask.FromResult(UnityRequestExecutionResult.Failure(
+                new UnityRequestFailure(
+                    UnityRequestFailureKind.General,
+                    ExecutionErrorCodes.IpcTimeout,
+                    "Unity daemon test run request timed out.",
+                    startupFailure: null))));
 
         var service = CreateService(
             configurationResolver: new StubTestRunConfigurationResolver(TestRunConfigurationResolutionResult.Success(configuration)),
@@ -240,50 +247,57 @@ public sealed class TestRunServiceDaemonExecutionTests
                 new UnityExecutionModeDecision(UnityExecutionMode.Auto, true, UnityExecutionTarget.Daemon, TimeSpan.FromSeconds(30)))),
             artifactsService: new StubTestRunArtifactsService(
                 prepare: _ => ArtifactsPreparationResult.Success(session),
-                complete: (_, _, _) => ArtifactsCompletionResult.Failure(ExecutionError.InternalError("completion failed"))),
+                complete: (_, _, _) => ArtifactsCompletionResult.Failure(
+                    ExecutionError.InternalError("completion failed", UcliCoreErrorCodes.InternalError))),
             unityTestExecutor: new StubUnityTestExecutor((_, _, _, _) =>
-                ValueTask.FromResult(UnityTestExecutionResult.Success(0))),
-            resultsConverter: new StubUnityResultsConverter(_ => ValueTask.FromResult(UnityResultsConversionResult.Success(false))),
+                ValueTask.FromResult<UnityTestExecutionResult>(UnityTestExecutionResult.FromProcessExitCode(0))),
+            resultsConverter: new StubUnityResultsConverter(_ => ValueTask.FromResult<UnityResultsConversionResult>(TestRunResultTestValues.CreateConversion(Verdict.Pass))),
             daemonTestRunClient: daemonTestRunClient);
 
-        var result = await service.ExecuteAsync(CreateInput(), cancellationToken: CancellationToken.None);
+        var result = Assert.IsType<TestRunAfterCreationCommandErrorWithFinalizationServiceResult>(
+            await service.ExecuteAsync(CreateInput(), cancellationToken: CancellationToken.None));
 
-        Assert.Null(result.Result);
-        Assert.Equal(TestRunErrorKind.InfraError, result.ErrorKind);
-        Assert.Equal(ApplicationOutcome.InfrastructureError, result.Outcome);
-        Assert.Equal(ExecutionErrorCodes.IpcTimeout, result.ErrorCode);
+        Assert.Equal(ApplicationOutcome.InfrastructureError, result.PrimaryFailure.Outcome);
+        Assert.Equal(ExecutionErrorCodes.IpcTimeout, result.PrimaryFailure.Code);
+        Assert.Equal(ApplicationFailureKind.InternalError, result.Failures[1].Kind);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, result.Failures[1].Code);
+        Assert.Equal("completion failed", result.Failures[1].Message);
         Assert.Equal(session.RunId, result.RunId);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Execute_WhenDaemonArtifactsAreMissing_ReturnsUnityTestExecutionFailed ()
+    public async Task Execute_WhenDaemonArtifactsAreMissing_ReturnsFailedRun ()
     {
+        using var scope = TestDirectories.CreateTempScope(
+            "test-run-service",
+            "daemon-artifacts-missing");
         var configuration = CreateResolvedConfiguration();
+        var session = CreateArtifactsSession(scope.GetPath("artifacts"));
         var daemonTestRunClient = new RecordingDaemonTestRunClient((_, _, _, _, _) =>
-            ValueTask.FromResult(UnityTestExecutionResult.Failure(
-                UnityTestExecutionFailureKind.ArtifactMissing,
-                "Generated test artifacts are missing.")));
+            ValueTask.FromResult(CreateSuccessfulUnityRequestResult(0)));
 
         var service = CreateService(
             configurationResolver: new StubTestRunConfigurationResolver(TestRunConfigurationResolutionResult.Success(configuration)),
             modeDecisionService: new StubModeDecisionService(UnityExecutionModeDecisionResult.Success(
                 new UnityExecutionModeDecision(UnityExecutionMode.Auto, true, UnityExecutionTarget.Daemon, TimeSpan.FromSeconds(30)))),
             artifactsService: new StubTestRunArtifactsService(
-                prepare: _ => ArtifactsPreparationResult.Success(CreateArtifactsSession()),
+                prepare: _ => ArtifactsPreparationResult.Success(session),
                 complete: (_, _, _) => ArtifactsCompletionResult.Success()),
             unityTestExecutor: new StubUnityTestExecutor((_, _, _, _) =>
-                ValueTask.FromResult(UnityTestExecutionResult.Success(0))),
-            resultsConverter: new StubUnityResultsConverter(_ => ValueTask.FromResult(UnityResultsConversionResult.Success(false))),
+                ValueTask.FromResult<UnityTestExecutionResult>(UnityTestExecutionResult.FromProcessExitCode(0))),
+            resultsConverter: new StubUnityResultsConverter(_ => ValueTask.FromResult<UnityResultsConversionResult>(TestRunResultTestValues.CreateConversion(Verdict.Pass))),
             daemonTestRunClient: daemonTestRunClient);
 
-        var result = await service.ExecuteAsync(CreateInput(), cancellationToken: CancellationToken.None);
+        var result = Assert.IsType<TestRunAfterCreationPrimaryCommandErrorServiceResult>(
+            await service.ExecuteAsync(CreateInput(), cancellationToken: CancellationToken.None));
 
-        Assert.Null(result.Result);
-        Assert.Equal(TestRunErrorKind.InfraError, result.ErrorKind);
-        Assert.Equal(ApplicationOutcome.InfrastructureError, result.Outcome);
-        Assert.Equal(TestRunErrorCodes.UnityTestExecutionFailed, result.ErrorCode);
-        Assert.Equal("Generated test artifacts are missing.", result.Message);
+        Assert.Equal(ApplicationOutcome.InfrastructureError, result.PrimaryFailure.Outcome);
+        Assert.Equal(TestRunErrorCodes.UnityTestExecutionFailed, result.PrimaryFailure.Code);
+        Assert.StartsWith(
+            "Unity process completed but results.xml was not generated:",
+            result.Message,
+            StringComparison.Ordinal);
     }
 
     [Fact]
@@ -303,10 +317,11 @@ public sealed class TestRunServiceDaemonExecutionTests
             Directory.CreateDirectory(artifactPaths.ArtifactsDir.Value);
             File.WriteAllText(artifactPaths.ResultsXmlPath.Value, "<test-run />");
             File.WriteAllText(artifactPaths.EditorLogPath.Value, string.Empty);
-            return ValueTask.FromResult(UnityTestExecutionResult.Failure(
-                UnityTestExecutionFailureKind.IpcTransportInterrupted,
-                failureMessage,
-                UcliCoreErrorCodes.InternalError));
+            return ValueTask.FromResult(UnityRequestExecutionResult.Failure(
+                new UnityRequestFailure(
+                    UnityRequestFailureKind.TransportInterrupted,
+                    UcliCoreErrorCodes.InternalError,
+                    failureMessage)));
         });
 
         var service = CreateService(
@@ -317,20 +332,28 @@ public sealed class TestRunServiceDaemonExecutionTests
                 prepare: _ => ArtifactsPreparationResult.Success(session),
                 complete: (_, _, _) => ArtifactsCompletionResult.Success()),
             unityTestExecutor: new StubUnityTestExecutor((_, _, _, _) =>
-                ValueTask.FromResult(UnityTestExecutionResult.Success(0))),
+                ValueTask.FromResult<UnityTestExecutionResult>(UnityTestExecutionResult.FromProcessExitCode(0))),
             resultsConverter: new StubUnityResultsConverter(_ =>
             {
                 convertCount++;
-                return ValueTask.FromResult(UnityResultsConversionResult.Success(hasFailedTests: false));
+                return ValueTask.FromResult<UnityResultsConversionResult>(TestRunResultTestValues.CreateConversion(Verdict.Pass));
             }),
             daemonTestRunClient: daemonTestRunClient);
 
-        var result = await service.ExecuteAsync(CreateInput(), cancellationToken: CancellationToken.None);
+        var result = Assert.IsType<TestRunAfterCreationPrimaryCommandErrorServiceResult>(
+            await service.ExecuteAsync(CreateInput(), cancellationToken: CancellationToken.None));
 
-        Assert.Null(result.Result);
-        Assert.Equal(TestRunErrorKind.InfraError, result.ErrorKind);
-        Assert.Equal(UcliCoreErrorCodes.InternalError, result.ErrorCode);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, result.PrimaryFailure.Code);
         Assert.Equal(failureMessage, result.Message);
         Assert.Equal(0, convertCount);
     }
+
+    private static ValueTask<UnityRequestExecutionResult> CompleteDaemonRequest (ArtifactPaths artifactPaths)
+    {
+        Directory.CreateDirectory(artifactPaths.ArtifactsDir.Value);
+        File.WriteAllText(artifactPaths.ResultsXmlPath.Value, "<test-run />");
+        File.WriteAllText(artifactPaths.EditorLogPath.Value, string.Empty);
+        return ValueTask.FromResult(CreateSuccessfulUnityRequestResult(0));
+    }
+
 }

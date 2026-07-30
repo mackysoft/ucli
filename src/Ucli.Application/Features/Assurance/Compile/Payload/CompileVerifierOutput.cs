@@ -1,8 +1,9 @@
+using MackySoft.Ucli.Application.Features.Assurance.Semantics;
 
 namespace MackySoft.Ucli.Application.Features.Assurance.Compile.Payload;
 
 /// <summary> Represents one verifier entry in a compile assurance payload. </summary>
-internal sealed record CompileVerifierOutput
+internal sealed record CompileVerifierOutput : IAssuranceVerdictVerifier
 {
     public CompileVerifierOutput (
         AssuranceVerifierId Id,
@@ -10,13 +11,19 @@ internal sealed record CompileVerifierOutput
         bool Required,
         IReadOnlyList<UcliCode> PrimaryClaims,
         IReadOnlyList<AssuranceEffect> Effects,
-        string ReportRef)
+        AssuranceReportId ReportRef)
     {
         this.Id = Id ?? throw new ArgumentNullException(nameof(Id));
         ArgumentNullException.ThrowIfNull(PrimaryClaims);
         if (PrimaryClaims.Any(static code => code is null))
         {
             throw new ArgumentException("Primary claim codes must not contain null.", nameof(PrimaryClaims));
+        }
+        if (Required && PrimaryClaims.Count == 0)
+        {
+            throw new ArgumentException(
+                "A required verifier must identify at least one primary claim.",
+                nameof(PrimaryClaims));
         }
 
         ArgumentNullException.ThrowIfNull(Effects);
@@ -29,7 +36,7 @@ internal sealed record CompileVerifierOutput
         this.Required = Required;
         this.PrimaryClaims = Array.AsReadOnly(PrimaryClaims.ToArray());
         this.Effects = Array.AsReadOnly(Effects.ToArray());
-        this.ReportRef = ReportRef;
+        this.ReportRef = ReportRef ?? throw new ArgumentNullException(nameof(ReportRef));
     }
 
     public AssuranceVerifierId Id { get; }
@@ -44,5 +51,5 @@ internal sealed record CompileVerifierOutput
 
     public IReadOnlyList<AssuranceEffect> Effects { get; }
 
-    public string ReportRef { get; }
+    public AssuranceReportId ReportRef { get; }
 }

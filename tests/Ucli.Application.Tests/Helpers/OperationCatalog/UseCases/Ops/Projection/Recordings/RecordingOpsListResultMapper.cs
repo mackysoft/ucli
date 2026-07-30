@@ -11,7 +11,11 @@ internal sealed class RecordingOpsListResultMapper : IOpsListResultMapper
     public IReadOnlyList<Invocation> Invocations => invocations;
 
     public OpsListServiceResult Result { get; set; } =
-        OpsListServiceResult.Failure("not configured", UcliCoreErrorCodes.InternalError);
+        OpsListServiceResult.Failure(ApplicationFailure.InternalError(
+            "not configured",
+            UcliCoreErrorCodes.InternalError,
+            instancePath: null,
+            startupFailure: null));
 
     public OpsListServiceResult Map (
         OpsListReadOutput output,

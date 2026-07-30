@@ -263,6 +263,8 @@ internal static class RequestStaticValidatorTestSupport
             Kind: kind,
             Policy: policy,
             ArgsSchemaJson: """{"type":"object"}""",
+            DescriptorDigest: Sha256DigestTestFactory.Compute(operationName),
+            VerdictContract: null,
             ResultSchemaJson: null,
             Exposure: exposure);
     }

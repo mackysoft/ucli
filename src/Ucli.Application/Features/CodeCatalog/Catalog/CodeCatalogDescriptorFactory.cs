@@ -21,7 +21,6 @@ internal static class CodeCatalogDescriptorFactory
             AppearsIn: ErrorAppearsIn,
             AppliesTo: descriptor.AppliesTo,
             CoverageImpact: null,
-            VerdictSemantics: null,
             ExecutionSemantics: descriptor.ExecutionSemantics,
             Inspect: descriptor.Inspect,
             RelatedCodes: descriptor.RelatedCodes);

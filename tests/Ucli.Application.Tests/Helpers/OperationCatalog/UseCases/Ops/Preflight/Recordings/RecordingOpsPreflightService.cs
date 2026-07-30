@@ -9,7 +9,11 @@ internal sealed class RecordingOpsPreflightService : IOpsPreflightService
     public IReadOnlyList<Invocation> Invocations => invocations;
 
     public OpsPreflightResult Result { get; set; } =
-        OpsPreflightResult.Failure("not configured", UcliCoreErrorCodes.InternalError);
+        OpsPreflightResult.Failure(ApplicationFailure.InternalError(
+            "not configured",
+            UcliCoreErrorCodes.InternalError,
+            instancePath: null,
+            startupFailure: null));
 
     public ValueTask<OpsPreflightResult> ExecuteAsync (
         OpsPreflightInput input,

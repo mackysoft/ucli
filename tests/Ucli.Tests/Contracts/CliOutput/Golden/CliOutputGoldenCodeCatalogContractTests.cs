@@ -1,6 +1,9 @@
 using System.Text.Json;
+using MackySoft.Ucli.Application.Features.Assurance.Build.Catalog;
+using MackySoft.Ucli.Application.Features.Assurance.Compile.Catalog;
+using MackySoft.Ucli.Application.Features.Assurance.Ready;
+using MackySoft.Ucli.Application.Features.Assurance.Verify.Catalog;
 using MackySoft.Ucli.Application.Features.CodeCatalog.Catalog;
-using MackySoft.Ucli.Tests.Helpers.Assurance;
 
 namespace MackySoft.Ucli.Tests;
 
@@ -10,7 +13,15 @@ public sealed class CliOutputGoldenCodeCatalogContractTests
     [Trait("Size", "Medium")]
     public void CliOutputGoldens_UcliOwnedCodesResolveToCodeCatalog ()
     {
-        var catalog = CliAssuranceSemanticInvariantValidatorFactory.CreateAllAssuranceCommandCodeCatalog();
+        var catalog = new CodeCatalog(
+        [
+            new ContractsCodeCatalogContributor(),
+            new ApplicationCodeCatalogContributor(),
+            new ReadyCodeCatalogContributor(),
+            new CompileCodeCatalogContributor(),
+            new BuildCodeCatalogContributor(),
+            new VerifyCodeCatalogContributor(),
+        ]);
         foreach (CliOutputGoldenFiles.GoldenDocument golden in CliOutputGoldenFiles.ReadAllDocuments())
         {
             CliOutputGoldenContractTestSupport.AssertGolden(

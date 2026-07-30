@@ -70,42 +70,68 @@ internal sealed class StubTestRunUnityRequestExecutor : IUnityRequestExecutor, I
         var testRunRequest = ReadTestRunRequest(payload);
         var artifactPaths = artifactPathsResolver(testRunRequest.RunId);
         var configuration = TestRunServiceTestFactory.CreateResolvedConfiguration();
-        var executionResult = daemonTestRunClient is null
-            ? await unityTestExecutor.ExecuteAsync(configuration, artifactPaths, timeout, cancellationToken)
-                .ConfigureAwait(false)
-            : await daemonTestRunClient.ExecuteAsync(configuration, artifactPaths, timeout, testRunRequest.FailFast, cancellationToken)
-                .ConfigureAwait(false);
-
-        if (executionResult.IsSuccess)
+        if (daemonTestRunClient is not null)
         {
-            EnsureArtifactFiles(artifactPaths);
-            if (onProgressFrame is not null)
+            var requestResult = await daemonTestRunClient
+                .ExecuteAsync(configuration, artifactPaths, timeout, testRunRequest.FailFast, cancellationToken)
+                .ConfigureAwait(false);
+            if (requestResult.IsSuccess)
             {
-                var progressFrames = streamingProgressFrames ?? [
-                    new UnityRequestProgressFrame(
-                        TestRunProgressEventNames.RunDiagnostic,
-                        IpcPayloadCodec.SerializeToElement(new TestRunDiagnosticEntry(
-                            testRunRequest.RunId,
-                            new UcliCode("TEST_PROGRESS_STUB"),
-                            "stub progress",
-                            UcliDiagnosticSeverity.Info))),
-                ];
-                foreach (var progressFrame in progressFrames)
-                {
-                    await onProgressFrame(progressFrame, cancellationToken).ConfigureAwait(false);
-                }
+                await WriteProgressFramesAsync(
+                        testRunRequest.RunId,
+                        onProgressFrame,
+                        cancellationToken)
+                    .ConfigureAwait(false);
             }
 
+            return requestResult;
+        }
+
+        var executionResult = await unityTestExecutor
+            .ExecuteAsync(configuration, artifactPaths, timeout, cancellationToken)
+            .ConfigureAwait(false);
+        if (executionResult is UnityTestExecutionResult.ObservedProcessCompletion completed)
+        {
+            EnsureArtifactFiles(artifactPaths);
+            await WriteProgressFramesAsync(
+                    testRunRequest.RunId,
+                    onProgressFrame,
+                    cancellationToken)
+                .ConfigureAwait(false);
+
             return UnityRequestExecutionResult.Success(new UnityRequestResponse(
-                IpcPayloadCodec.SerializeToElement(new IpcTestRunResponse(executionResult.ProcessExitCode!.Value)),
+                IpcPayloadCodec.SerializeToElement(new IpcTestRunResponse(completed.ProcessExitCode)),
                 Array.Empty<OperationExecutionError>()));
         }
 
-        return UnityRequestExecutionResult.Failure(new UnityRequestFailure(
-            ResolveFailureKind(executionResult),
-            ResolveErrorCode(executionResult),
-            executionResult.ErrorMessage ?? "Unity test execution failed.",
-            executionResult.StartupFailure));
+        return UnityRequestExecutionResult.Failure(
+            CreateUnityRequestFailure(
+                Assert.IsAssignableFrom<UnityTestExecutionResult.ExecutionFailure>(executionResult)));
+    }
+
+    private async ValueTask WriteProgressFramesAsync (
+        Guid runId,
+        Func<UnityRequestProgressFrame, CancellationToken, ValueTask>? onProgressFrame,
+        CancellationToken cancellationToken)
+    {
+        if (onProgressFrame is null)
+        {
+            return;
+        }
+
+        var progressFrames = streamingProgressFrames ?? [
+            new UnityRequestProgressFrame(
+                TestRunProgressEventNames.RunDiagnostic,
+                IpcPayloadCodec.SerializeToElement(new TestRunDiagnosticEntry(
+                    runId,
+                    new UcliCode("TEST_PROGRESS_STUB"),
+                    "stub progress",
+                    UcliDiagnosticSeverity.Info))),
+        ];
+        foreach (var progressFrame in progressFrames)
+        {
+            await onProgressFrame(progressFrame, cancellationToken).ConfigureAwait(false);
+        }
     }
 
     private static UnityRequestPayload.TestRun ReadTestRunRequest (UnityRequestPayload payload)
@@ -120,27 +146,49 @@ internal sealed class StubTestRunUnityRequestExecutor : IUnityRequestExecutor, I
         File.WriteAllText(artifactPaths.EditorLogPath.Value, string.Empty);
     }
 
-    private static UnityRequestFailureKind ResolveFailureKind (UnityTestExecutionResult executionResult)
+    private static UnityRequestFailure CreateUnityRequestFailure (
+        UnityTestExecutionResult.ExecutionFailure failure)
     {
-        return executionResult.FailureKind == UnityTestExecutionFailureKind.IpcTransportInterrupted
-            ? UnityRequestFailureKind.TransportInterrupted
-            : UnityRequestFailureKind.General;
-    }
-
-    private static UcliCode ResolveErrorCode (UnityTestExecutionResult executionResult)
-    {
-        if (executionResult.ErrorCode is { } code)
+        return failure.FailureKind switch
         {
-            return code;
-        }
-
-        return executionResult.FailureKind switch
-        {
-            UnityTestExecutionFailureKind.IpcTimedOut => ExecutionErrorCodes.IpcTimeout,
-            UnityTestExecutionFailureKind.ProcessTimedOut => ExecutionErrorCodes.IpcTimeout,
-            UnityTestExecutionFailureKind.Canceled => ExecutionErrorCodes.Canceled,
-            UnityTestExecutionFailureKind.ArtifactMissing => TestRunErrorCodes.UnityTestExecutionFailed,
-            _ => UcliCoreErrorCodes.InternalError,
+            UnityTestExecutionFailureKind.IpcTransportInterrupted =>
+                new UnityRequestFailure(
+                    UnityRequestFailureKind.TransportInterrupted,
+                    failure.ErrorCode,
+                    failure.ErrorMessage),
+            UnityTestExecutionFailureKind.IpcTimedOut
+                or UnityTestExecutionFailureKind.ProcessTimedOut =>
+                new UnityRequestFailure(
+                    UnityRequestFailureKind.General,
+                    failure.ErrorCode,
+                    failure.ErrorMessage,
+                    failure.StartupFailure),
+            UnityTestExecutionFailureKind.Canceled =>
+                new UnityRequestFailure(
+                    UnityRequestFailureKind.General,
+                    failure.ErrorCode,
+                    failure.ErrorMessage),
+            UnityTestExecutionFailureKind.InternalError =>
+                new UnityRequestFailure(
+                    UnityRequestFailureKind.General,
+                    failure.ErrorCode,
+                    failure.ErrorMessage),
+            UnityTestExecutionFailureKind.StartFailed
+                or UnityTestExecutionFailureKind.InvalidArgument
+                or UnityTestExecutionFailureKind.AbnormalExit
+                or UnityTestExecutionFailureKind.ArtifactMissing
+                or UnityTestExecutionFailureKind.ProgressProtocolViolation
+                or UnityTestExecutionFailureKind.RequestFailed
+                or UnityTestExecutionFailureKind.InvalidResponse =>
+                new UnityRequestFailure(
+                    UnityRequestFailureKind.General,
+                    failure.ErrorCode,
+                    failure.ErrorMessage,
+                    failure.StartupFailure),
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(failure),
+                failure.FailureKind,
+                "Unity test execution failure kind must be defined."),
         };
     }
 }

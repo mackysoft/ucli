@@ -1,6 +1,7 @@
 using System.Text.Json;
 using MackySoft.Ucli.Application.Features.Testing.Run.Artifacts;
 using MackySoft.Ucli.Application.Features.Testing.Run.Results;
+using MackySoft.Ucli.Contracts.Testing;
 using MackySoft.Ucli.Tests.Helpers.Testing;
 
 namespace MackySoft.Ucli.Tests;
@@ -15,7 +16,7 @@ public sealed class UnityResultsConverterTests
         scope.WriteFile(
             "results.xml",
             """
-            <test-run>
+            <test-run testcasecount="2" total="2" passed="1" failed="1" skipped="0" inconclusive="0" result="Failed(Child)">
               <test-case fullname="Cafe.Tests.Passed" result="Passed" duration="0.2">
                 <properties>
                   <property name="Category" value="smoke" />
@@ -33,41 +34,147 @@ public sealed class UnityResultsConverterTests
 
         var converter = CreateConverter();
 
-        var result = await converter.ConvertAsync(session, CancellationToken.None);
+        var result = await converter.ConvertAsync(session, allowEmptyTestRun: false, CancellationToken.None);
 
-        Assert.True(result.IsSuccess);
-        Assert.True(result.HasFailedTests);
+        var success = Assert.IsType<UnityResultsConversionSuccess>(result);
+        Assert.Equal(Verdict.Fail, success.Verdict);
         Assert.True(File.Exists(session.Paths.ResultsJsonPath.Value));
         Assert.True(File.Exists(session.Paths.SummaryJsonPath.Value));
 
         using var resultsDocument = JsonDocument.Parse(File.ReadAllText(session.Paths.ResultsJsonPath.Value));
         Assert.Equal(RunIdTestValues.TestText, resultsDocument.RootElement.GetProperty("runId").GetString());
+        Assert.Collection(
+            resultsDocument.RootElement.GetProperty("tests").EnumerateArray(),
+            test => Assert.Equal(
+                TextVocabulary.GetText(TestCaseResult.Pass),
+                test.GetProperty("outcome").GetString()),
+            test => Assert.Equal(
+                TextVocabulary.GetText(TestCaseResult.Fail),
+                test.GetProperty("outcome").GetString()));
         using var summaryDocument = JsonDocument.Parse(File.ReadAllText(session.Paths.SummaryJsonPath.Value));
         Assert.Equal(RunIdTestValues.TestText, summaryDocument.RootElement.GetProperty("runId").GetString());
-        Assert.Equal("fail", summaryDocument.RootElement.GetProperty("status").GetString());
+        Assert.Equal(
+            TextVocabulary.GetText(Verdict.Fail),
+            summaryDocument.RootElement.GetProperty("verdict").GetString());
+        Assert.False(summaryDocument.RootElement.GetProperty("allowEmptyTestRun").GetBoolean());
         Assert.Equal(1, summaryDocument.RootElement.GetProperty("counts").GetProperty("failed").GetInt32());
+        Assert.Collection(
+            summaryDocument.RootElement.GetProperty("topFailures").EnumerateArray(),
+            failure =>
+            {
+                Assert.Equal("Cafe.Tests.Failed", failure.GetProperty("fullName").GetString());
+                Assert.Equal("assert failed", failure.GetProperty("message").GetString());
+                Assert.Equal("stack trace", failure.GetProperty("stackTrace").GetString());
+            });
     }
 
     [Fact]
     [Trait("Size", "Medium")]
-    public async Task Convert_WithEmptyTestRun_ReportsZeroTestCases ()
+    public async Task Convert_WithEmptyTestRunAndEmptyNotAllowed_WritesIncompleteVerdict ()
     {
         using var scope = CreateSessionScope("empty-test-run", out var session);
         scope.WriteFile("results.xml", "<test-run />");
 
         var converter = CreateConverter();
 
-        var result = await converter.ConvertAsync(session, CancellationToken.None);
+        var result = await converter.ConvertAsync(session, allowEmptyTestRun: false, CancellationToken.None);
 
-        Assert.True(result.IsSuccess);
-        Assert.False(result.HasFailedTests);
-        Assert.Equal(0, result.ReportedTestCaseCount);
+        var success = Assert.IsType<UnityResultsConversionSuccess>(result);
+        Assert.Equal(Verdict.Incomplete, success.Verdict);
+        Assert.Equal(0, success.ReportedTestCaseCount);
 
         using var summaryDocument = JsonDocument.Parse(File.ReadAllText(session.Paths.SummaryJsonPath.Value));
-        Assert.Equal("pass", summaryDocument.RootElement.GetProperty("status").GetString());
+        Assert.Equal(
+            TextVocabulary.GetText(Verdict.Incomplete),
+            summaryDocument.RootElement.GetProperty("verdict").GetString());
         Assert.Equal(0, summaryDocument.RootElement.GetProperty("counts").GetProperty("passed").GetInt32());
         Assert.Equal(0, summaryDocument.RootElement.GetProperty("counts").GetProperty("failed").GetInt32());
         Assert.Equal(0, summaryDocument.RootElement.GetProperty("counts").GetProperty("skipped").GetInt32());
+        Assert.Equal(0, summaryDocument.RootElement.GetProperty("counts").GetProperty("inconclusive").GetInt32());
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task Convert_WithEmptyTestRunAndEmptyAllowed_WritesPassVerdict ()
+    {
+        using var scope = CreateSessionScope("allowed-empty-test-run", out var session);
+        scope.WriteFile("results.xml", "<test-run />");
+
+        var converter = CreateConverter();
+
+        var result = await converter.ConvertAsync(session, allowEmptyTestRun: true, CancellationToken.None);
+
+        var success = Assert.IsType<UnityResultsConversionSuccess>(result);
+        Assert.Equal(Verdict.Pass, success.Verdict);
+        using var summaryDocument = JsonDocument.Parse(File.ReadAllText(session.Paths.SummaryJsonPath.Value));
+        Assert.Equal(
+            TextVocabulary.GetText(Verdict.Pass),
+            summaryDocument.RootElement.GetProperty("verdict").GetString());
+        Assert.True(summaryDocument.RootElement.GetProperty("allowEmptyTestRun").GetBoolean());
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task Convert_WithSkippedOrInconclusiveTests_WritesIncompleteVerdict ()
+    {
+        using var scope = CreateSessionScope("incomplete-test-run", out var session);
+        scope.WriteFile(
+            "results.xml",
+            """
+            <test-run result="Inconclusive">
+              <test-case fullname="Cafe.Tests.Skipped" result="Skipped" duration="0" />
+              <test-case fullname="Cafe.Tests.Inconclusive" result="Inconclusive" duration="0" />
+            </test-run>
+            """);
+
+        var converter = CreateConverter();
+
+        var result = await converter.ConvertAsync(session, allowEmptyTestRun: true, CancellationToken.None);
+
+        var success = Assert.IsType<UnityResultsConversionSuccess>(result);
+        Assert.Equal(Verdict.Incomplete, success.Verdict);
+        using var resultsDocument = JsonDocument.Parse(File.ReadAllText(session.Paths.ResultsJsonPath.Value));
+        Assert.Collection(
+            resultsDocument.RootElement.GetProperty("tests").EnumerateArray(),
+            test => Assert.Equal(
+                TextVocabulary.GetText(TestCaseResult.Skipped),
+                test.GetProperty("outcome").GetString()),
+            test => Assert.Equal(
+                TextVocabulary.GetText(TestCaseResult.Inconclusive),
+                test.GetProperty("outcome").GetString()));
+        using var summaryDocument = JsonDocument.Parse(File.ReadAllText(session.Paths.SummaryJsonPath.Value));
+        Assert.Equal(
+            TextVocabulary.GetText(Verdict.Incomplete),
+            summaryDocument.RootElement.GetProperty("verdict").GetString());
+        Assert.Equal(1, summaryDocument.RootElement.GetProperty("counts").GetProperty("skipped").GetInt32());
+        Assert.Equal(1, summaryDocument.RootElement.GetProperty("counts").GetProperty("inconclusive").GetInt32());
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task Convert_WithUnityCompositeIgnoredContainer_WritesIncompleteVerdict ()
+    {
+        using var scope = CreateSessionScope("ignored-test-run", out var session);
+        scope.WriteFile(
+            "results.xml",
+            """
+            <test-run testcasecount="1" total="1" passed="0" failed="0" skipped="1" inconclusive="0" result="Skipped:Ignored">
+              <test-suite result="Skipped" label="Ignored">
+                <test-case fullname="Cafe.Tests.Ignored" result="Skipped" label="Ignored" duration="0" />
+              </test-suite>
+            </test-run>
+            """);
+
+        var converter = CreateConverter();
+
+        var result = await converter.ConvertAsync(session, allowEmptyTestRun: false, CancellationToken.None);
+
+        var success = Assert.IsType<UnityResultsConversionSuccess>(result);
+        Assert.Equal(Verdict.Incomplete, success.Verdict);
+        Assert.Equal(1, success.ReportedTestCaseCount);
+
+        using var summaryDocument = JsonDocument.Parse(File.ReadAllText(session.Paths.SummaryJsonPath.Value));
+        Assert.Equal(1, summaryDocument.RootElement.GetProperty("counts").GetProperty("skipped").GetInt32());
     }
 
     [Fact]
@@ -79,11 +186,35 @@ public sealed class UnityResultsConverterTests
 
         var converter = CreateConverter();
 
-        var result = await converter.ConvertAsync(session, CancellationToken.None);
+        var result = await converter.ConvertAsync(session, allowEmptyTestRun: false, CancellationToken.None);
 
-        Assert.False(result.IsSuccess);
-        Assert.Equal(UnityResultsConversionFailureKind.InvalidResultsXml, result.FailureKind);
-        Assert.Contains("Failed to parse results.xml", result.ErrorMessage, StringComparison.Ordinal);
+        var failure = Assert.IsType<UnityResultsConversionFailure>(result);
+        Assert.Equal(UnityResultsConversionFailureKind.InvalidResultsXml, failure.FailureKind);
+        Assert.Contains("Failed to parse results.xml", failure.ErrorMessage, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [Trait("Size", "Medium")]
+    [InlineData("Unexpected")]
+    [InlineData("Skipped:Ignored")]
+    public async Task Convert_WithUnsupportedTestCaseResult_ReturnsInvalidResultsXmlFailure (string testCaseResult)
+    {
+        using var scope = CreateSessionScope("unknown-test-result", out var session);
+        scope.WriteFile(
+            "results.xml",
+            $"""
+            <test-run>
+              <test-case fullname="Cafe.Tests.Unknown" result="{testCaseResult}" duration="0" />
+            </test-run>
+            """);
+
+        var converter = CreateConverter();
+
+        var result = await converter.ConvertAsync(session, allowEmptyTestRun: false, CancellationToken.None);
+
+        var failure = Assert.IsType<UnityResultsConversionFailure>(result);
+        Assert.Equal(UnityResultsConversionFailureKind.InvalidResultsXml, failure.FailureKind);
+        Assert.Contains("unsupported Unity test result", failure.ErrorMessage, StringComparison.Ordinal);
     }
 
     [Theory]
@@ -104,16 +235,16 @@ public sealed class UnityResultsConverterTests
 
         var converter = CreateConverter();
 
-        var result = await converter.ConvertAsync(session, CancellationToken.None);
+        var result = await converter.ConvertAsync(session, allowEmptyTestRun: false, CancellationToken.None);
 
-        Assert.False(result.IsSuccess);
-        Assert.Equal(UnityResultsConversionFailureKind.InvalidResultsXml, result.FailureKind);
-        Assert.Contains("Failed to parse results.xml", result.ErrorMessage, StringComparison.Ordinal);
+        var failure = Assert.IsType<UnityResultsConversionFailure>(result);
+        Assert.Equal(UnityResultsConversionFailureKind.InvalidResultsXml, failure.FailureKind);
+        Assert.Contains("Failed to parse results.xml", failure.ErrorMessage, StringComparison.Ordinal);
     }
 
     [Fact]
     [Trait("Size", "Medium")]
-    public async Task Convert_WithFailedSuiteAndNoTestCase_ReturnsFailedSummary ()
+    public async Task Convert_WithFailedSuiteAndNoFailedCase_ReturnsInvalidResultsXmlFailure ()
     {
         using var scope = CreateSessionScope("failed-suite-no-case", out var session);
         scope.WriteFile(
@@ -126,14 +257,33 @@ public sealed class UnityResultsConverterTests
 
         var converter = CreateConverter();
 
-        var result = await converter.ConvertAsync(session, CancellationToken.None);
+        var result = await converter.ConvertAsync(session, allowEmptyTestRun: false, CancellationToken.None);
 
-        Assert.True(result.IsSuccess);
-        Assert.True(result.HasFailedTests);
+        var failure = Assert.IsType<UnityResultsConversionFailure>(result);
+        Assert.Equal(UnityResultsConversionFailureKind.InvalidResultsXml, failure.FailureKind);
+        Assert.Contains("not supported by its test-case collection", failure.ErrorMessage, StringComparison.Ordinal);
+    }
 
-        using var summaryDocument = JsonDocument.Parse(File.ReadAllText(session.Paths.SummaryJsonPath.Value));
-        Assert.Equal("fail", summaryDocument.RootElement.GetProperty("status").GetString());
-        Assert.Equal(0, summaryDocument.RootElement.GetProperty("counts").GetProperty("failed").GetInt32());
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task Convert_WhenReportedAggregatesDisagreeWithCases_ReturnsInvalidResultsXmlFailure ()
+    {
+        using var scope = CreateSessionScope("aggregate-mismatch", out var session);
+        scope.WriteFile(
+            "results.xml",
+            """
+            <test-run testcasecount="1" total="1" passed="0" failed="1" skipped="0" inconclusive="0" result="Failed">
+              <test-case fullname="Cafe.Tests.Passed" result="Passed" duration="0" />
+            </test-run>
+            """);
+
+        var converter = CreateConverter();
+
+        var result = await converter.ConvertAsync(session, allowEmptyTestRun: false, CancellationToken.None);
+
+        var failure = Assert.IsType<UnityResultsConversionFailure>(result);
+        Assert.Equal(UnityResultsConversionFailureKind.InvalidResultsXml, failure.FailureKind);
+        Assert.Contains("aggregate attributes do not match", failure.ErrorMessage, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -144,11 +294,11 @@ public sealed class UnityResultsConverterTests
 
         var converter = CreateConverter();
 
-        var result = await converter.ConvertAsync(session, CancellationToken.None);
+        var result = await converter.ConvertAsync(session, allowEmptyTestRun: false, CancellationToken.None);
 
-        Assert.False(result.IsSuccess);
-        Assert.Equal(UnityResultsConversionFailureKind.ResultsXmlReadFailed, result.FailureKind);
-        Assert.Contains("Failed to read results.xml", result.ErrorMessage, StringComparison.Ordinal);
+        var failure = Assert.IsType<UnityResultsConversionFailure>(result);
+        Assert.Equal(UnityResultsConversionFailureKind.ResultsXmlReadFailed, failure.FailureKind);
+        Assert.Contains("Failed to read results.xml", failure.ErrorMessage, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -160,11 +310,11 @@ public sealed class UnityResultsConverterTests
             new StubUnityResultsXmlParser(CreateParseResult()),
             new ThrowingUnityResultsArtifactWriter(new IOException("disk full")));
 
-        var result = await converter.ConvertAsync(session, CancellationToken.None);
+        var result = await converter.ConvertAsync(session, allowEmptyTestRun: false, CancellationToken.None);
 
-        Assert.False(result.IsSuccess);
-        Assert.Equal(UnityResultsConversionFailureKind.OutputWriteFailed, result.FailureKind);
-        Assert.Contains("Failed to write results artifacts", result.ErrorMessage, StringComparison.Ordinal);
+        var failure = Assert.IsType<UnityResultsConversionFailure>(result);
+        Assert.Equal(UnityResultsConversionFailureKind.OutputWriteFailed, failure.FailureKind);
+        Assert.Contains("Failed to write results artifacts", failure.ErrorMessage, StringComparison.Ordinal);
     }
 
     private static TestDirectoryScope CreateSessionScope (
@@ -185,18 +335,13 @@ public sealed class UnityResultsConverterTests
 
     private static UnityResultsXmlParseResult CreateParseResult ()
     {
-        return new UnityResultsXmlParseResult(
-            Counts: new UnityResultsXmlParseResult.CountsValue(1, 0, 0),
-            Tests:
+        return UnityResultsXmlParseResult.Create(
             [
-                new UnityResultsXmlParseResult.TestValue(
-                    FullName: "Cafe.Tests.Sample",
-                    Outcome: "passed",
-                    DurationMs: 0,
-                    Categories: []),
-            ],
-            TopFailures: [],
-            HasSuiteFailure: false);
+                UnityResultsXmlParseResult.TestValue.Passed(
+                    fullName: "Cafe.Tests.Sample",
+                    durationMs: 0,
+                    categories: []),
+            ]);
     }
 
     private static UnityResultsConverter CreateConverter ()

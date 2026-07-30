@@ -1,6 +1,5 @@
 using System.Text.Json;
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Contracts;
-using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 using MackySoft.Ucli.Application.Features.OperationCatalog.Common.Contracts;
 using MackySoft.Ucli.Application.Features.Requests.Plan.Common.Contracts;
 using MackySoft.Ucli.Application.Features.Requests.Query.UseCases.Query;
@@ -26,14 +25,18 @@ public sealed class CommandResultFactoryStartupFailureTests
                 UcliCommandNames.Plan,
                 PlanCommandResultFactory.Create(PlanServiceResult.Failure(
                     "Unity startup is blocked.",
-                    [CreateStartupFailure()]))),
+                    [CreateStartupFailure()],
+                    output: null))),
             new(
                 UcliCommandNames.Refresh,
                 RefreshCommandResultFactory.Create(OperationExecuteResultFactory.Failure(
                     Guid.Parse("9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62"),
                     [],
                     [CreateStartupFailure()],
-                    "Unity startup is blocked."))),
+                    contractViolations: [],
+                    readPostcondition: null,
+                    project: null,
+                    postReadSource: null))),
             new(
                 UcliCommandNames.Resolve,
                 ResolveCommandResultFactory.Create(ResolveServiceResult.Failure(
@@ -41,7 +44,9 @@ public sealed class CommandResultFactoryStartupFailureTests
                     [],
                     [CreateStartupFailure()],
                     "Unity startup is blocked.",
-                    CreateReadIndexInfo()))),
+                    CreateReadIndexInfo(),
+                    project: null,
+                    contractViolations: []))),
             new(
                 UcliCommandNames.Query,
                 QueryCommandResultFactory.Create(QueryServiceResult.Failure(
@@ -50,22 +55,18 @@ public sealed class CommandResultFactoryStartupFailureTests
                     [],
                     [CreateStartupFailure()],
                     "Unity startup is blocked.",
-                    CreateReadIndexInfo()))),
+                    CreateReadIndexInfo(),
+                    project: null,
+                    contractViolations: []))),
             new(
                 UcliCommandNames.Compile,
-                CompileCommandResultFactory.Create(CompileExecutionResult.Failure(CreateStartupFailure()))),
+                CompileCommandResultFactory.Create(CompileExecutionResult.Failed(CreateStartupFailure(), project: null))),
             new(
                 UcliCommandNames.OpsList,
-                OpsCommandResultFactory.CreateList(OpsListServiceResult.Failure(
-                    "Unity startup is blocked.",
-                    DaemonErrorCodes.DaemonStartupBlocked,
-                    CreateStartupFailureDetail()))),
+                OpsCommandResultFactory.CreateList(OpsListServiceResult.Failure(CreateStartupFailure()))),
             new(
                 UcliCommandNames.OpsDescribe,
-                OpsCommandResultFactory.CreateDescribe(OpsDescribeServiceResult.Failure(
-                    "Unity startup is blocked.",
-                    DaemonErrorCodes.DaemonStartupBlocked,
-                    CreateStartupFailureDetail()))),
+                OpsCommandResultFactory.CreateDescribe(OpsDescribeServiceResult.Failure(CreateStartupFailure()))),
         ];
     }
 
@@ -103,7 +104,8 @@ public sealed class CommandResultFactoryStartupFailureTests
         return ApplicationFailure.UnityIpcFailure(
             "Unity startup is blocked.",
             DaemonErrorCodes.DaemonStartupBlocked,
-            startupFailure: CreateStartupFailureDetail());
+            startupFailure: CreateStartupFailureDetail(),
+            instancePath: null);
     }
 
     private static StartupFailureDetail CreateStartupFailureDetail ()

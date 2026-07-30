@@ -11,7 +11,7 @@ public sealed class ReadyCommandGoldenOutputTests
     [Trait("Size", "Medium")]
     public async Task Ready_WithAutoOneshotOutput_MatchesGolden ()
     {
-        var service = new RecordingReadyService((_, _) => ValueTask.FromResult(ReadyExecutionResult.Success(CreateOutput())));
+        var service = new RecordingReadyService((_, _) => ValueTask.FromResult<ReadyExecutionResult>(ReadyExecutionResult.Completed(CreateOutput(Verdict.Pass))));
         var command = new ReadyCommand(service, CommandResultTestWriter.Create());
 
         var result = await CommandResultCapture.ExecuteAsync(() => command.ReadyAsync(
@@ -29,7 +29,7 @@ public sealed class ReadyCommandGoldenOutputTests
     [Trait("Size", "Medium")]
     public async Task Ready_WithReadIndexOutput_MatchesGolden ()
     {
-        var service = new RecordingReadyService((_, _) => ValueTask.FromResult(ReadyExecutionResult.Success(CreateReadIndexOutput())));
+        var service = new RecordingReadyService((_, _) => ValueTask.FromResult<ReadyExecutionResult>(ReadyExecutionResult.Completed(CreateReadIndexOutput())));
         var command = new ReadyCommand(service, CommandResultTestWriter.Create());
 
         var result = await CommandResultCapture.ExecuteAsync(() => command.ReadyAsync(

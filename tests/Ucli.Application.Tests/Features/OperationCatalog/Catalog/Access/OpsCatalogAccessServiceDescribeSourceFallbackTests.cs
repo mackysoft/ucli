@@ -38,8 +38,8 @@ public sealed class OpsCatalogAccessServiceDescribeSourceFallbackTests
             UcliPrimitiveOperationNames.GoDescribe,
             CancellationToken.None);
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal(OpsCatalogSource.Source, result.Output!.AccessInfo.Source);
+        var succeeded = Assert.IsType<OpsDescribeReadResult.Succeeded>(result);
+        Assert.Equal(OpsCatalogSource.Source, succeeded.Output.AccessInfo.Source);
         OpsCatalogAccessInvocationAssert.SourceRefreshedFromPreflightWithReasonContaining(
             sourceRefreshService,
             context,
@@ -64,8 +64,8 @@ public sealed class OpsCatalogAccessServiceDescribeSourceFallbackTests
             UcliPrimitiveOperationNames.GoDescribe,
             CancellationToken.None);
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal(OpsCatalogSource.Source, result.Output!.AccessInfo.Source);
+        var succeeded = Assert.IsType<OpsDescribeReadResult.Succeeded>(result);
+        Assert.Equal(OpsCatalogSource.Source, succeeded.Output.AccessInfo.Source);
         OpsCatalogAccessInvocationAssert.SourceRefreshedFromPreflight(
             sourceRefreshService,
             context,
@@ -97,9 +97,9 @@ public sealed class OpsCatalogAccessServiceDescribeSourceFallbackTests
             UcliPrimitiveOperationNames.GoDescribe,
             CancellationToken.None);
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal(OpsCatalogSource.Source, result.Output!.AccessInfo.Source);
-        Assert.Contains("stale", result.Output.AccessInfo.FallbackReason, StringComparison.Ordinal);
+        var succeeded = Assert.IsType<OpsDescribeReadResult.Succeeded>(result);
+        Assert.Equal(OpsCatalogSource.Source, succeeded.Output.AccessInfo.Source);
+        Assert.Contains("stale", succeeded.Output.AccessInfo.FallbackReason, StringComparison.Ordinal);
         OpsCatalogAccessInvocationAssert.SourceRefreshedFromPreflight(
             sourceRefreshService,
             context,
@@ -121,7 +121,11 @@ public sealed class OpsCatalogAccessServiceDescribeSourceFallbackTests
         };
         var sourceRefreshService = new RecordingOpsCatalogSourceRefreshService
         {
-            Result = OpsCatalogSourceRefreshResult.Failure("source refresh failed", UcliCoreErrorCodes.InternalError),
+            Result = OpsCatalogSourceRefreshResult.Failure(ApplicationFailure.InternalError(
+                "source refresh failed",
+                UcliCoreErrorCodes.InternalError,
+                instancePath: null,
+                startupFailure: null)),
         };
         var service = new OpsCatalogAccessService(persistedReader, sourceRefreshService);
         var context = CreatePreflightContext(ReadIndexMode.RequireFresh);
@@ -131,8 +135,8 @@ public sealed class OpsCatalogAccessServiceDescribeSourceFallbackTests
             UcliPrimitiveOperationNames.GoDescribe,
             CancellationToken.None);
 
-        Assert.False(result.IsSuccess);
-        Assert.Equal(UcliCoreErrorCodes.InternalError, result.ErrorCode);
+        var failed = Assert.IsType<OpsDescribeReadResult.Failed>(result);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, failed.Error.Code);
         OpsCatalogAccessInvocationAssert.SourceRefreshedFromPreflight(
             sourceRefreshService,
             context,

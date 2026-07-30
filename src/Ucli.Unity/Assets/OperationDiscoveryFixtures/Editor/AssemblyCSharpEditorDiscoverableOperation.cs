@@ -17,7 +17,7 @@ namespace MackySoft.Ucli.Unity.OperationDiscoveryFixtures
     {
         public const string OperationName = "ucli.tests.assembly-csharp-editor.discover";
 
-        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<UcliEmptyArgs, UcliNoResult>(
+        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.CreateWithoutVerdict<UcliEmptyArgs, UcliNoResult>(
             operationName: OperationName,
             kind: UcliOperationKind.Query,
             description: "Verifies that operations compiled into Assembly-CSharp-Editor are discoverable.",
@@ -30,7 +30,11 @@ namespace MackySoft.Ucli.Unity.OperationDiscoveryFixtures
                 touchedContract: "Reports no touched resources.",
                 readPostconditionContract: "Does not stale read surfaces.",
                 failureSemantics: "Failure means the fixture operation did not complete.",
-                dangerousNotes: Array.Empty<string>()));
+                dangerousNotes: Array.Empty<string>()),
+            requiresPreCallPlanReplay: false,
+            exposure: UcliOperationExposure.Public,
+            playModeSupport: UcliOperationPlayModeSupport.Disallowed,
+            codeContract: null);
 
         protected override Task<OperationPhaseStepResult> ValidateAsync (
             NormalizedOperation operation,
@@ -39,7 +43,7 @@ namespace MackySoft.Ucli.Unity.OperationDiscoveryFixtures
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return Task.FromResult(OperationPhaseStepResult.Success());
+            return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()));
         }
 
         protected override Task<OperationPhaseStepResult> PlanAsync (
@@ -49,7 +53,7 @@ namespace MackySoft.Ucli.Unity.OperationDiscoveryFixtures
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return Task.FromResult(OperationPhaseStepResult.Success());
+            return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()));
         }
 
         protected override Task<OperationPhaseStepResult> CallAsync (
@@ -59,7 +63,7 @@ namespace MackySoft.Ucli.Unity.OperationDiscoveryFixtures
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return Task.FromResult(OperationPhaseStepResult.Success());
+            return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()));
         }
     }
 }

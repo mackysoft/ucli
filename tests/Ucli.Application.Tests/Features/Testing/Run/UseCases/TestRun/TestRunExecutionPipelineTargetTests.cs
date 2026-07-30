@@ -12,57 +12,86 @@ public sealed class TestRunExecutionPipelineTargetTests
 {
     [Theory]
     [Trait("Size", "Small")]
-    [InlineData((int)UnityExecutionTarget.Oneshot, (int)UnityExecutionMode.Oneshot, false)]
-    [InlineData((int)UnityExecutionTarget.Oneshot, (int)UnityExecutionMode.Oneshot, true)]
-    [InlineData((int)UnityExecutionTarget.Daemon, (int)UnityExecutionMode.Daemon, false)]
-    [InlineData((int)UnityExecutionTarget.Daemon, (int)UnityExecutionMode.Daemon, true)]
+    [MemberData(nameof(GetExecutionTargetCases))]
     public async Task Execute_WithPreflightResolvedTarget_DispatchesThroughExplicitMode (
-        int targetValue,
-        int expectedModeValue,
-        bool useProgressStream)
+        ExecutionTargetCase testCase)
     {
-        var target = (UnityExecutionTarget)targetValue;
-        var expectedMode = (UnityExecutionMode)expectedModeValue;
         var configuration = CreateResolvedConfiguration(UnityExecutionMode.Auto);
         var session = CreateArtifactsSession();
         var requestExecutor = new RecordingUnityRequestExecutor(
             UnityRequestExecutionResult.Success(new UnityRequestResponse(
                 IpcPayloadCodec.SerializeToElement(new IpcTestRunResponse(0)),
                 Array.Empty<OperationExecutionError>())));
+        var resultsConverter = new StubUnityResultsConverter(_ =>
+            ValueTask.FromResult<UnityResultsConversionResult>(TestRunResultTestValues.CreateConversion(Verdict.Pass)));
         var pipeline = new TestRunExecutionPipeline(
             new StubTestRunArtifactsService(
                 prepare: _ => ArtifactsPreparationResult.Success(session),
                 complete: (_, _, completionTarget) =>
                 {
-                    Assert.Equal(target, completionTarget);
+                    Assert.Equal(testCase.Target, completionTarget);
                     return ArtifactsCompletionResult.Success();
                 }),
             requestExecutor,
-            new StubUnityResultsConverter(_ =>
-                ValueTask.FromResult(UnityResultsConversionResult.Success(hasFailedTests: false))),
-            new StubTestRunArtifactExistenceProbe(),
+            resultsConverter,
+            StubTestRunArtifactExistenceProbe.ReturningSuccess(),
             requestExecutor);
         var context = new TestRunExecutionContext(
             configuration,
             UcliConfig.CreateDefault(),
-            target,
+            testCase.Target,
             TimeSpan.FromSeconds(30),
             FailFast: false,
-            AllowEmptyTestRun: false);
+            AllowEmptyTestRun: testCase.AllowEmptyTestRun);
 
-        var progressSink = useProgressStream ? new CollectingCommandProgressSink() : null;
+        var progressSink = testCase.UseProgressStream ? new CollectingCommandProgressSink() : null;
 
-        var result = await pipeline.ExecuteAsync(context, progressSink);
+        _ = Assert.IsType<TestRunExecutionPipelineResult.TestRunExecutionPipelineCompleted>(
+            await pipeline.ExecuteAsync(context, progressSink));
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal(expectedMode, Assert.Single(requestExecutor.Invocations).Mode);
-        if (useProgressStream)
+        Assert.Equal(testCase.AllowEmptyTestRun, resultsConverter.LastAllowEmptyTestRun);
+        Assert.Equal(testCase.ExpectedMode, Assert.Single(requestExecutor.Invocations).Mode);
+        if (testCase.UseProgressStream)
         {
-            Assert.Equal(expectedMode, Assert.Single(requestExecutor.StreamingInvocations).Mode);
+            Assert.Equal(testCase.ExpectedMode, Assert.Single(requestExecutor.StreamingInvocations).Mode);
         }
         else
         {
             Assert.Empty(requestExecutor.StreamingInvocations);
         }
+    }
+
+    public static TheoryData<ExecutionTargetCase> GetExecutionTargetCases ()
+    {
+        return new TheoryData<ExecutionTargetCase>
+        {
+            new(UnityExecutionTarget.Oneshot, UnityExecutionMode.Oneshot, useProgressStream: false, allowEmptyTestRun: false),
+            new(UnityExecutionTarget.Oneshot, UnityExecutionMode.Oneshot, useProgressStream: true, allowEmptyTestRun: true),
+            new(UnityExecutionTarget.Daemon, UnityExecutionMode.Daemon, useProgressStream: false, allowEmptyTestRun: false),
+            new(UnityExecutionTarget.Daemon, UnityExecutionMode.Daemon, useProgressStream: true, allowEmptyTestRun: true),
+        };
+    }
+
+    public sealed class ExecutionTargetCase
+    {
+        internal ExecutionTargetCase (
+            UnityExecutionTarget target,
+            UnityExecutionMode expectedMode,
+            bool useProgressStream,
+            bool allowEmptyTestRun)
+        {
+            Target = target;
+            ExpectedMode = expectedMode;
+            UseProgressStream = useProgressStream;
+            AllowEmptyTestRun = allowEmptyTestRun;
+        }
+
+        internal UnityExecutionTarget Target { get; }
+
+        internal UnityExecutionMode ExpectedMode { get; }
+
+        internal bool UseProgressStream { get; }
+
+        internal bool AllowEmptyTestRun { get; }
     }
 }

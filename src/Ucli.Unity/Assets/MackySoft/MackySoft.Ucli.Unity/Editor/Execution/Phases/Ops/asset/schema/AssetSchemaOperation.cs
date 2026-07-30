@@ -21,7 +21,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         private readonly AssetTargetSchemaBuilder targetSchemaBuilder = new AssetTargetSchemaBuilder();
 
-        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<AssetSchemaArgs, IndexSchemaEntryJsonContract>(
+        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.CreateWithoutVerdict<AssetSchemaArgs, IndexSchemaEntryJsonContract>(
             operationName: UcliPrimitiveOperationNames.AssetSchema,
             kind: UcliOperationKind.Query,
             description: "Returns the serialized schema for an asset type or existing asset target.",
@@ -34,7 +34,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 touchedContract: "Returns no touched resources because schema metadata is observational data.",
                 readPostconditionContract: "Does not stale read surfaces by itself.",
                 failureSemantics: "Timeout, cancellation, or schema extraction failure means the schema was not fully produced.",
-                dangerousNotes: Array.Empty<string>()));
+                dangerousNotes: Array.Empty<string>()),
+            requiresPreCallPlanReplay: false,
+            exposure: UcliOperationExposure.Public,
+            playModeSupport: UcliOperationPlayModeSupport.Disallowed,
+            codeContract: null);
 
         protected override Task<OperationPhaseStepResult> ValidateAsync (
             NormalizedOperation operation,
@@ -44,7 +48,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         {
             cancellationToken.ThrowIfCancellationRequested();
             return Task.FromResult(TryValidate(operation, args, executionContext, allowTemporaryState: true, out _, out var failure)
-                ? OperationPhaseStepResult.Success(applied: false, changed: false)
+                ? OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>())
                 : failure!);
         }
 
@@ -90,16 +94,16 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             if (validationState.AssetType != null)
             {
                 var schemaEntry = assetSchemaExtractor.Extract(validationState.AssetType);
-                return OperationPhaseStepResult.Success(
+                return SuccessWithResult(
+                    schemaEntry,
                     applied: false,
-                    changed: false,
-                    result: SerializeResultToElement(schemaEntry));
+                    changed: false,touched:Array.Empty<OperationTouch>());
             }
 
-            return OperationPhaseStepResult.Success(
+            return SuccessWithResult(
+                validationState.TargetSchemaEntry,
                 applied: false,
-                changed: false,
-                result: SerializeResultToElement(validationState.TargetSchemaEntry));
+                changed: false,touched:Array.Empty<OperationTouch>());
         }
 
         private bool TryValidate (

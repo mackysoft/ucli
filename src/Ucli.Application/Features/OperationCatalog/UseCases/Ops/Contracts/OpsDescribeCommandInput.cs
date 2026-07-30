@@ -15,4 +15,4 @@ internal sealed record OpsDescribeCommandInput (
     UnityExecutionMode? Mode,
     int? TimeoutMilliseconds,
     ReadIndexMode? ReadIndexMode,
-    bool FailFast = false) : IOpsPreflightInputSource;
+    bool FailFast) : IOpsPreflightInputSource;

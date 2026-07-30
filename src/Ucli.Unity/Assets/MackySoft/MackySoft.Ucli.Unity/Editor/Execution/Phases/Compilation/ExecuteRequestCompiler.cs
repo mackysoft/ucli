@@ -4,7 +4,6 @@ using System.IO;
 using System.Linq;
 using System.Text.Json;
 using MackySoft.Text.Vocabularies;
-using TextVocabulary = MackySoft.Text.Vocabularies.Vocabulary;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.ContractReading;
@@ -83,7 +82,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return false;
         }
 
-        private static bool TryCompileOpStep (
+        private bool TryCompileOpStep (
             IpcExecuteStepContract step,
             out NormalizedRequestStep compiledStep,
             out IReadOnlyList<NormalizedOperation> operations,
@@ -98,6 +97,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 throw new InvalidOperationException("A normalized operation step has no argument object.");
             }
 
+            operationRegistry.TryResolve(operationName, out var registeredOperation);
             operations = new[]
             {
                 new NormalizedOperation(
@@ -114,7 +114,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 Id: step.Id,
                 Kind: IpcExecuteStepKind.Op,
                 OperationName: operationName,
-                PrimitiveCount: operations.Count)
+                PrimitiveCount: operations.Count,
+                OperationDescriptorDigest: registeredOperation?.Metadata.DescriptorDigest)
             {
                 PostReadSourceStep = CreateOperationPostReadSourceStep(operationName),
             };
@@ -191,7 +192,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 Id: editStep.Id,
                 Kind: IpcExecuteStepKind.Edit,
                 OperationName: EditOperationName,
-                PrimitiveCount: stepOperations.Count)
+                PrimitiveCount: stepOperations.Count,
+                OperationDescriptorDigest: null)
             {
                 Diagnostics = diagnostics,
                 PostReadSourceStep = CreateEditPostReadSourceStep(editStep, allowPlayMode),
@@ -199,6 +201,32 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             operations = stepOperations;
             error = default!;
             return true;
+        }
+
+        /// <summary> Creates metadata for a source step that will not execute after request-level fail-fast. </summary>
+        /// <param name="sourceStep"> The normalized source step. </param>
+        /// <returns> Step metadata with no compiled primitives and any fixed direct-operation descriptor digest. </returns>
+        public NormalizedRequestStep CreateSkippedStep (IpcExecuteStepContract sourceStep)
+        {
+            if (sourceStep == null)
+            {
+                throw new ArgumentNullException(nameof(sourceStep));
+            }
+
+            var isDirectOperation = sourceStep.Kind == IpcExecuteStepKind.Op;
+            var operationName = isDirectOperation
+                ? sourceStep.OperationName
+                    ?? throw new InvalidOperationException("A normalized operation step has no operation name.")
+                : EditOperationName;
+            operationRegistry.TryResolve(operationName, out var registeredOperation);
+            return new NormalizedRequestStep(
+                Id: sourceStep.Id,
+                Kind: sourceStep.Kind,
+                OperationName: operationName,
+                PrimitiveCount: 0,
+                OperationDescriptorDigest: isDirectOperation
+                    ? registeredOperation?.Metadata.DescriptorDigest
+                    : null);
         }
 
         private static IpcExecutePostReadSourceStep CreateOperationPostReadSourceStep (
@@ -682,7 +710,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 }
 
                 error = ExecuteRequestNormalizationError.InvalidArgument(
-                    $"Edit action '{TextVocabulary.GetText(actionKind)}' requires the selection to resolve to at most one target.",
+                    $"Edit action '{Vocabulary.GetText(actionKind)}' requires the selection to resolve to at most one target.",
                     GetStepInstancePath(step.Id));
                 return false;
             }

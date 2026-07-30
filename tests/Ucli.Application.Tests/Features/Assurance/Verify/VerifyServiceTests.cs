@@ -50,11 +50,11 @@ public sealed class VerifyServiceTests
 
         var withProgress = await serviceWithProgress.ExecuteAsync(input, progressSink);
 
-        Assert.True(withoutProgress.IsSuccess);
-        Assert.True(withProgress.IsSuccess);
+        var completedWithoutProgress = Assert.IsType<VerifyExecutionResult.CompletedResult>(withoutProgress);
+        var completedWithProgress = Assert.IsType<VerifyExecutionResult.CompletedResult>(withProgress);
         Assert.Equal(
-            JsonSerializer.Serialize(withoutProgress.Output),
-            JsonSerializer.Serialize(withProgress.Output));
+            JsonSerializer.Serialize(completedWithoutProgress.Output),
+            JsonSerializer.Serialize(completedWithProgress.Output));
         Assert.NotEmpty(progressSink.Entries);
     }
 
@@ -76,9 +76,9 @@ public sealed class VerifyServiceTests
                 TimeoutMilliseconds: 10000),
             progressSink);
 
-        Assert.True(result.IsSuccess);
-        Assert.DoesNotContain(result.Output!.Verifiers, static verifier => verifier.Kind == AssuranceVerifierKind.PostRead);
-        Assert.DoesNotContain(result.Output.Verifiers, static verifier => verifier.Kind == AssuranceVerifierKind.Logs);
+        var completed = Assert.IsType<VerifyExecutionResult.CompletedResult>(result);
+        Assert.DoesNotContain(completed.Output.Verifiers, static verifier => verifier.Kind == AssuranceVerifierKind.PostRead);
+        Assert.DoesNotContain(completed.Output.Verifiers, static verifier => verifier.Kind == AssuranceVerifierKind.Logs);
         var skippedEntries = progressSink.Entries
             .Where(static entry => string.Equals(entry.EventName, VerifyProgressEventNames.StepSkipped, StringComparison.Ordinal))
             .Select(static entry => Assert.IsType<VerifyStepProgressEntry>(entry.Payload))
@@ -97,8 +97,9 @@ public sealed class VerifyServiceTests
     {
         using var scope = TestDirectories.CreateTempScope("ucli-verify", nameof(Execute_WhenStepFails_EmitsDiagnosticWithoutVerifyCompleted));
         var progressSink = new CollectingCommandProgressSink();
-        var compileService = new RecordingVerifyCompileService(_ => CompileExecutionResult.Failure(
-            ExecutionError.InternalError("Compile command failed.")));
+        var compileService = new RecordingVerifyCompileService(_ => CompileExecutionResult.Failed(
+            ExecutionError.InternalError("Compile command failed.", UcliCoreErrorCodes.InternalError),
+            project: null));
         var service = CreateService(scope.FullPath, compileService: compileService);
 
         var result = await service.ExecuteAsync(
@@ -111,7 +112,7 @@ public sealed class VerifyServiceTests
                 TimeoutMilliseconds: 10000),
             progressSink);
 
-        Assert.False(result.IsSuccess);
+        Assert.IsType<VerifyExecutionResult.FailedResult>(result);
         Assert.DoesNotContain(progressSink.Entries, static entry => string.Equals(entry.EventName, VerifyProgressEventNames.Completed, StringComparison.Ordinal));
         var diagnosticEntry = Assert.Single(progressSink.Entries, static entry => string.Equals(entry.EventName, VerifyProgressEventNames.Diagnostic, StringComparison.Ordinal));
         var diagnostic = Assert.IsType<VerifyDiagnosticEntry>(diagnosticEntry.Payload);
@@ -151,7 +152,7 @@ public sealed class VerifyServiceTests
                 TimeoutMilliseconds: 10000),
             progressSink);
 
-        Assert.False(result.IsSuccess);
+        Assert.IsType<VerifyExecutionResult.FailedResult>(result);
         Assert.Empty(progressSink.Entries);
     }
 
@@ -170,8 +171,38 @@ public sealed class VerifyServiceTests
             Mode: UnityExecutionMode.Auto,
             TimeoutMilliseconds: 10000));
 
-        Assert.False(result.IsSuccess);
-        Assert.Equal(UcliCoreErrorCodes.InvalidArgument, Assert.Single(result.Errors).Code);
+        var failed = Assert.IsType<VerifyExecutionResult.FailedResult>(result);
+        Assert.Equal(UcliCoreErrorCodes.InvalidArgument, failed.Failure.Code);
+    }
+
+    [Theory]
+    [InlineData("", null, null)]
+    [InlineData("   ", null, null)]
+    [InlineData(null, "", null)]
+    [InlineData(null, "   ", null)]
+    [InlineData(null, null, "")]
+    [InlineData(null, null, "   ")]
+    [Trait("Size", "Medium")]
+    public async Task Execute_WithEmptyOptionalPathOrProfile_ReturnsInvalidArgument (
+        string? profile,
+        string? profilePath,
+        string? fromPath)
+    {
+        using var scope = TestDirectories.CreateTempScope(
+            "ucli-verify",
+            nameof(Execute_WithEmptyOptionalPathOrProfile_ReturnsInvalidArgument));
+        var service = CreateService(scope.FullPath);
+
+        var result = await service.ExecuteAsync(new VerifyCommandInput(
+            ProjectPath: null,
+            Profile: profile,
+            ProfilePath: profilePath,
+            FromPath: fromPath,
+            Mode: UnityExecutionMode.Auto,
+            TimeoutMilliseconds: 10000));
+
+        var failed = Assert.IsType<VerifyExecutionResult.FailedResult>(result);
+        Assert.Equal(UcliCoreErrorCodes.InvalidArgument, failed.Failure.Code);
     }
 
     [Fact]
@@ -224,7 +255,7 @@ public sealed class VerifyServiceTests
             Mode: UnityExecutionMode.Auto,
             TimeoutMilliseconds: 1000));
 
-        Assert.True(result.IsSuccess);
+        Assert.IsType<VerifyExecutionResult.CompletedResult>(result);
         VerifyStepInvocationAssert.CompileRequestedWithTimeout(
             compileService,
             expectedTimeoutMilliseconds: 800,
@@ -258,7 +289,7 @@ public sealed class VerifyServiceTests
             Mode: UnityExecutionMode.Auto,
             TimeoutMilliseconds: 1000));
 
-        Assert.True(result.IsSuccess);
+        Assert.IsType<VerifyExecutionResult.CompletedResult>(result);
         VerifyStepInvocationAssert.CompileRequestedWithTimeout(
             compileService,
             expectedTimeoutMilliseconds: 1);

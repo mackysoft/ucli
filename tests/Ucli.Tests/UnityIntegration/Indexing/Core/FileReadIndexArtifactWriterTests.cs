@@ -1,4 +1,5 @@
 using MackySoft.FileSystem;
+using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Json;
@@ -35,14 +36,22 @@ public sealed class FileReadIndexArtifactWriterTests
         var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, ProjectFingerprintTestFactory.Create("fingerprint"));
         var catalogResult = await reader.ReadOpsCatalogAsync(project, CancellationToken.None);
         var manifestResult = await reader.ReadInputsManifestAsync(project, CancellationToken.None);
-
         Assert.True(catalogResult.IsSuccess);
+        var describeResult = await reader.ReadOpsDescribeAsync(
+            project,
+            catalogResult.Value!.Entries![0],
+            snapshot.CombinedHash,
+            CancellationToken.None);
+
         Assert.True(manifestResult.IsSuccess);
+        Assert.True(describeResult.IsSuccess);
         Assert.Equal(generatedAtUtc, catalogResult.Value!.GeneratedAtUtc);
         Assert.Equal(snapshot.CombinedHash, catalogResult.Value.SourceInputsHash);
         Assert.Equal(UcliPrimitiveOperationNames.GoDescribe, catalogResult.Value.Entries![0].Name);
         Assert.Equal("Returns a GameObject description including components and child hierarchy.", catalogResult.Value.Entries[0].Description);
         Assert.Equal(snapshot.CombinedHash, manifestResult.Value!.Hashes.CombinedHash);
+        Assert.Equal(UcliOperationExposure.Public, describeResult.Value!.Operation.Exposure);
+        Assert.Equal(operations[0].DescriptorDigest, describeResult.Value.Operation.DescriptorDigest);
     }
 
     [Fact]

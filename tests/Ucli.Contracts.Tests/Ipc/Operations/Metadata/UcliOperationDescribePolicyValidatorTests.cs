@@ -192,7 +192,12 @@ public sealed class UcliOperationDescribePolicyValidatorTests
                 UcliOperationPlanMode.ObservesLiveUnity,
                 Array.Empty<string>());
 
-            var isValid = UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContract(describe, "Test contract", out var errorMessage);
+            var isValid = UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContractAndDerivePolicy(
+                describe,
+                operationKind: UcliOperationKind.Command,
+                ownerName: "Test contract",
+                out _,
+                out var errorMessage);
 
             Assert.False(isValid);
             Assert.Equal("Test contract must declare dangerousNotes for advanced or dangerous policy.", errorMessage);

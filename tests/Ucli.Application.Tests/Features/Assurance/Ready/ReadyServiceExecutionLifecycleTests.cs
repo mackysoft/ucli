@@ -16,8 +16,8 @@ public sealed class ReadyServiceExecutionLifecycleTests
 
         var result = await service.ExecuteAsync(CreateExecutionInput());
 
-        Assert.True(result.IsSuccess);
-        var output = Assert.IsType<ReadyExecutionOutput>(result.Output);
+        var completed = Assert.IsType<ReadyExecutionResult.CompletedResult>(result);
+        var output = completed.Output;
         var verifier = Assert.Single(output.Verifiers);
         var verifierId = Assert.IsType<AssuranceVerifierId>(verifier.Id);
         Assert.Equal("ready.lifecycle", verifierId.Value);
@@ -39,9 +39,9 @@ public sealed class ReadyServiceExecutionLifecycleTests
 
         var result = await service.ExecuteAsync(CreateExecutionInput());
 
-        Assert.True(result.IsSuccess);
-        var output = Assert.IsType<ReadyExecutionOutput>(result.Output);
-        Assert.Equal(AssuranceVerdict.Pass, output.Verdict);
+        var completed = Assert.IsType<ReadyExecutionResult.CompletedResult>(result);
+        var output = completed.Output;
+        Assert.Equal(Verdict.Pass, output.Verdict);
         Assert.Equal(AssuranceResolvedExecutionMode.Oneshot, output.ResolvedMode);
         Assert.Equal(AssuranceSessionKind.TransientProbe, output.SessionKind);
         Assert.NotNull(output.Lifecycle);
@@ -49,8 +49,7 @@ public sealed class ReadyServiceExecutionLifecycleTests
         Assert.Equal(IpcPlayModeState.Stopped, output.Lifecycle.PlayMode.State);
         Assert.Equal(IpcPlayModeTransition.None, output.Lifecycle.PlayMode.Transition);
         var claim = Assert.Single(output.Claims);
-        Assert.Equal(ReadyValidityKind.ProbeOnly, claim.Validity.Kind);
-        Assert.False(claim.Validity.GuaranteesReusableSession);
+        Assert.IsType<ProbeOnlyReadyClaimValidityOutput>(claim.Validity);
         UnityRequestExecutorInvocationAssert.ReadyPingOnce(
             unityRequestExecutor,
             expectedFailFast: false);
@@ -70,15 +69,15 @@ public sealed class ReadyServiceExecutionLifecycleTests
 
         var result = await service.ExecuteAsync(CreateExecutionInput(UnityExecutionMode.Daemon, failFast: true));
 
-        Assert.True(result.IsSuccess);
-        var output = Assert.IsType<ReadyExecutionOutput>(result.Output);
-        Assert.Equal(AssuranceVerdict.Fail, output.Verdict);
+        var completed = Assert.IsType<ReadyExecutionResult.CompletedResult>(result);
+        var output = completed.Output;
+        Assert.Equal(Verdict.Fail, output.Verdict);
         Assert.Equal(AssuranceResolvedExecutionMode.Daemon, output.ResolvedMode);
         var claim = Assert.Single(output.Claims);
         Assert.Equal(AssuranceClaimStatus.Failed, claim.Status);
-        Assert.Equal(ReadyValidityKind.SessionBound, claim.Validity.Kind);
-        Assert.False(claim.Validity.GuaranteesReusableSession);
-        Assert.Contains(claim.Evidence, static evidence => string.Equals(evidence.Kind, "readinessDecision", StringComparison.Ordinal));
+        var validity = Assert.IsType<SessionBoundReadyClaimValidityOutput>(claim.Validity);
+        Assert.False(validity.GuaranteesReusableSession);
+        Assert.Contains(claim.Evidence, static evidence => evidence.Kind == ReadyEvidenceKind.ReadinessDecision);
     }
 
     [Fact]
@@ -93,16 +92,17 @@ public sealed class ReadyServiceExecutionLifecycleTests
             unityRequestExecutor: new RecordingUnityRequestExecutor(UnityRequestExecutionResult.Failure(new UnityRequestFailure(
                 UnityRequestFailureKind.General,
                 EditorLifecycleErrorCodes.EditorCompileFailed,
-                "Unity editor has script compilation failures."))));
+                "Unity editor has script compilation failures.",
+                startupFailure: null))));
 
         var result = await service.ExecuteAsync(CreateExecutionInput());
 
-        Assert.True(result.IsSuccess);
-        var output = Assert.IsType<ReadyExecutionOutput>(result.Output);
-        Assert.Equal(AssuranceVerdict.Fail, output.Verdict);
+        var completed = Assert.IsType<ReadyExecutionResult.CompletedResult>(result);
+        var output = completed.Output;
+        Assert.Equal(Verdict.Fail, output.Verdict);
         var claim = Assert.Single(output.Claims);
         Assert.Equal(AssuranceClaimStatus.Failed, claim.Status);
-        Assert.Contains(claim.Evidence, static evidence => string.Equals(evidence.Kind, "readinessDecision", StringComparison.Ordinal));
+        Assert.Contains(claim.Evidence, static evidence => evidence.Kind == ReadyEvidenceKind.ReadinessDecision);
     }
 
     [Fact]
@@ -119,12 +119,12 @@ public sealed class ReadyServiceExecutionLifecycleTests
 
         var result = await service.ExecuteAsync(CreateExecutionInput());
 
-        Assert.True(result.IsSuccess);
-        var output = Assert.IsType<ReadyExecutionOutput>(result.Output);
-        Assert.Equal(AssuranceVerdict.Fail, output.Verdict);
+        var completed = Assert.IsType<ReadyExecutionResult.CompletedResult>(result);
+        var output = completed.Output;
+        Assert.Equal(Verdict.Fail, output.Verdict);
         var claim = Assert.Single(output.Claims);
         Assert.Equal(AssuranceClaimStatus.Failed, claim.Status);
-        Assert.Contains(claim.Evidence, static evidence => string.Equals(evidence.Kind, "readinessDecision", StringComparison.Ordinal));
+        Assert.Contains(claim.Evidence, static evidence => evidence.Kind == ReadyEvidenceKind.ReadinessDecision);
     }
 
     [Fact]
@@ -141,7 +141,7 @@ public sealed class ReadyServiceExecutionLifecycleTests
 
         var result = await service.ExecuteAsync(CreateExecutionInput(UnityExecutionMode.Oneshot, failFast: true));
 
-        Assert.True(result.IsSuccess);
+        Assert.IsType<ReadyExecutionResult.CompletedResult>(result);
         UnityRequestExecutorInvocationAssert.ReadyPingOnce(
             unityRequestExecutor,
             expectedFailFast: true);

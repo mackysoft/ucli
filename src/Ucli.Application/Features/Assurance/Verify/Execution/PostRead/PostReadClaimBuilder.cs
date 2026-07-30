@@ -27,7 +27,9 @@ internal static class PostReadClaimBuilder
             {
                 ["kind"] = "postRead",
             },
-            []);
+            [
+                new VerifyFromResultMissingEvidenceOutput(),
+            ]);
         return new PostReadClaimSet([claim], EmptyResidualRisks);
     }
 
@@ -146,11 +148,9 @@ internal static class PostReadClaimBuilder
         if (HasUnboundDiagnosticImpact(fromInput.OpResults, persistenceResults, deterministicMutationResults, hasReadSurfaceClaim))
         {
             residualRisks.Add(new VerifyResidualRiskOutput(
-                VerifyRiskCodes.FromDiagnosticCoverageUnbound.Value,
-                Blocking: true)
-            {
-                Message = "Input diagnostics affected coverage but no generated post-read claim could carry that diagnostic impact.",
-            });
+                VerifyRiskCodes.FromDiagnosticCoverageUnbound,
+                Blocking: true,
+                Message: "Input diagnostics affected coverage but no generated post-read claim could carry that diagnostic impact."));
         }
 
         if (claims.Count == 0 && profileRequired)
@@ -211,18 +211,13 @@ internal static class PostReadClaimBuilder
     {
         return
         [
-            new VerifyEvidenceOutput("fromResultSummary")
-            {
-                Data = new Dictionary<string, object?>(StringComparer.Ordinal)
-                {
-                    ["command"] = fromInput.Command,
-                    ["opResultCount"] = fromInput.OpResults.Count,
-                    ["changedCount"] = fromInput.OpResults.Count(static result => result.Changed),
-                    ["touchedCount"] = fromInput.OpResults.Sum(static result => result.TouchedCount),
-                    ["diagnosticCount"] = diagnosticCount,
-                    ["diagnosticImpact"] = diagnosticImpact,
-                },
-            },
+            new VerifyFromResultSummaryEvidenceOutput(
+                fromInput.Command,
+                fromInput.OpResults.Count,
+                fromInput.OpResults.Count(static result => result.Changed),
+                fromInput.OpResults.Sum(static result => result.TouchedCount),
+                diagnosticCount,
+                diagnosticImpact),
         ];
     }
 
@@ -243,6 +238,7 @@ internal static class PostReadClaimBuilder
             VerifierRef: VerifierId,
             Statement: statement,
             Subject: subject,
+            Validity: null,
             Evidence: evidence,
             ResidualRisks: EmptyResidualRisks);
     }

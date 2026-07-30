@@ -33,7 +33,7 @@ internal static class VerifyServiceAssert
         RecordingVerifyLogsUnityService logsService)
     {
         var output = AssertSuccessfulOutput(result);
-        Assert.Equal(AssuranceVerdict.Pass, output.Verdict);
+        Assert.Equal(Verdict.Pass, output.Verdict);
         var claim = AssertReadSurfaceClaim(output);
         Assert.False(claim.Required);
         Assert.Equal(AssuranceClaimStatus.Passed, claim.Status);
@@ -64,24 +64,20 @@ internal static class VerifyServiceAssert
         RecordingVerifyLogsUnityService logsService)
     {
         var output = AssertSuccessfulOutput(result);
-        Assert.Equal(AssuranceVerdict.Incomplete, output.Verdict);
+        Assert.Equal(Verdict.Incomplete, output.Verdict);
         Assert.Single(logsService.Invocations);
-        var report = output.Reports["logs.unity"];
+        var report = output.Reports[AssuranceReportIds.UnityLogs.Value];
         Assert.Equal("ucli://logs/unity?tail=200&count=2", report.Uri);
     }
 
     private static VerifyExecutionOutput AssertSuccessfulOutput (VerifyExecutionResult result)
     {
-        Assert.True(result.IsSuccess);
-        Assert.Empty(result.Errors);
-        return Assert.IsType<VerifyExecutionOutput>(result.Output);
+        return Assert.IsType<VerifyExecutionResult.CompletedResult>(result).Output;
     }
 
     private static ApplicationFailure AssertFailure (VerifyExecutionResult result)
     {
-        Assert.False(result.IsSuccess);
-        Assert.Null(result.Output);
-        return Assert.Single(result.Errors);
+        return Assert.IsType<VerifyExecutionResult.FailedResult>(result).Failure;
     }
 
     private static VerifyClaimOutput AssertReadSurfaceClaim (VerifyExecutionOutput output)

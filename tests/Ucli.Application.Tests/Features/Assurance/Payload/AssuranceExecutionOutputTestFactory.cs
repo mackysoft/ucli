@@ -1,5 +1,6 @@
 using MackySoft.Ucli.Application.Features.Assurance.Build.Payload;
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Payload;
+using MackySoft.Ucli.Application.Features.Assurance.Ready;
 using MackySoft.Ucli.Application.Features.Assurance.Verify.Payload;
 using MackySoft.Ucli.Contracts.Assurance.Build;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -30,7 +31,6 @@ internal static class AssuranceExecutionOutputTestFactory
                 IpcBuildRunnerResultSource.BuildPipelineBuildReport,
                 IpcBuildReportResult.Succeeded),
             new BuildArtifactOutput(
-                BuildArtifactKind.BuildOutputManifest,
                 digest,
                 EntryCount: 0,
                 FileCount: 0,
@@ -43,7 +43,6 @@ internal static class AssuranceExecutionOutputTestFactory
                 WarningCount: 0,
                 ReportRef: null),
             new BuildLogsOutput(
-                BuildArtifactKind.BuildLog,
                 EntryCount: 0,
                 ErrorCount: 0,
                 WarningCount: 0,
@@ -87,12 +86,27 @@ internal static class AssuranceExecutionOutputTestFactory
                 PrimaryDiagnostic: null));
     }
 
+    public static ReadyLifecycleOutput CreateReadyLifecycleOutput ()
+    {
+        return new ReadyLifecycleOutput(
+            ServerVersion: null,
+            UnityVersion: null,
+            EditorMode: null,
+            LifecycleState: null,
+            BlockingReason: null,
+            CompileState: null,
+            Generations: null,
+            CanAcceptExecutionRequests: true,
+            ObservedAtUtc: DateTimeOffset.UnixEpoch,
+            ActionRequired: null,
+            PrimaryDiagnostic: null,
+            PlayMode: null);
+    }
+
     public static VerifyProfileOutput CreateVerifyProfileOutput ()
     {
-        return new VerifyProfileOutput(
-            VerifyProfileSource.BuiltIn,
+        return VerifyProfileOutput.BuiltIn(
             "default",
-            Path: null,
             Sha256DigestTestFactory.Create('2'));
     }
 }

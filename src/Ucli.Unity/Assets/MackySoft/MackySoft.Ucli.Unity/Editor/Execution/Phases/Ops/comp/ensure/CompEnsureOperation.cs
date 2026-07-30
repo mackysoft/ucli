@@ -16,7 +16,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
     [UcliOperation]
     internal sealed class CompEnsureOperation : UcliOperation<ComponentEnsureArgs, UcliNoResult>
     {
-        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<ComponentEnsureArgs, UcliNoResult>(
+        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.CreateWithoutVerdict<ComponentEnsureArgs, UcliNoResult>(
             operationName: UcliPrimitiveOperationNames.CompEnsure,
             kind: UcliOperationKind.Mutation,
             description: "Ensures that a GameObject has a component of the requested type.",
@@ -30,7 +30,10 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 readPostconditionContract: "Scene, prefab, and object read surfaces covering touched resources may be stale until refreshed.",
                 failureSemantics: "Failure before apply leaves no requested mutation; failure during apply may leave live Unity state partially changed.",
                 dangerousNotes: new[] { "This operation can dirty scene or prefab state without persisting it; callers must save or discard changes explicitly." }),
-            exposure: UcliOperationExposure.EditLoweringOnly);
+            requiresPreCallPlanReplay: false,
+            exposure: UcliOperationExposure.EditLoweringOnly,
+            playModeSupport: UcliOperationPlayModeSupport.Disallowed,
+            codeContract: null);
 
         protected override Task<OperationPhaseStepResult> ValidateAsync (
             NormalizedOperation operation,
@@ -44,7 +47,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return Task.FromResult(failure!);
             }
 
-            return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false));
+            return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()));
         }
 
         protected override Task<OperationPhaseStepResult> PlanAsync (
@@ -115,10 +118,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     {
                         if (!ComponentOperationUtilities.TryCreateTemporaryComponent(validationState.ComponentType, executionContext, out component, out var errorMessage))
                         {
-                            return Task.FromResult(OperationPhaseStepResult.Failed(new OperationFailure(
-                                Code: UcliCoreErrorCodes.InternalError,
-                                Message: errorMessage,
-                                OpId: operation.Id)));
+                            return Task.FromResult(OperationPhaseStepResult.Failed(
+                                new OperationFailure(
+                                    Code: UcliCoreErrorCodes.InternalError,
+                                    Message: errorMessage,
+                                    OpId: operation.Id),
+                                applied: false,
+                                changed: false,
+                                result: null,touched:Array.Empty<OperationTouch>()));
                         }
 
                         executionContext.SetEnsuredComponent(

@@ -7,7 +7,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
 using MackySoft.Text.Vocabularies;
-using TextVocabulary = MackySoft.Text.Vocabularies.Vocabulary;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Daemon;
@@ -2036,12 +2035,20 @@ namespace MackySoft.Ucli.Unity.Tests
                 operationName,
                 IpcJsonSerializerOptions.PublicRawOperationContracts.GetTypeInfo(typeof(TArgs)),
                 resultTypeInfo: null);
-            return new IndexOpEntryJsonContract(
-                operationName,
-                kind,
-                policy,
-                generationResult.ArgsContract,
-                Exposure: exposure);
+            var descriptor = new IndexOpEntryJsonContract(
+                Name: operationName,
+                Kind: kind,
+                Policy: policy,
+                ArgsContract: generationResult.ArgsContract,
+                DescriptorDigest: null,
+                VerdictContract: null,
+                ResultContract: null,
+                Exposure: exposure,
+                PlayModeSupport: UcliOperationPlayModeSupport.Disallowed);
+            return descriptor with
+            {
+                DescriptorDigest = UcliOperationDescriptorDigest.Calculate(descriptor),
+            };
         }
 
         private static TestRunUnityIpcMethodHandler CreateTestRunHandler (IUnityTestRunService testRunService)
@@ -2096,7 +2103,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: requestId,
                 sessionToken: "session-token",
-                method: TextVocabulary.GetText(method),
+                method: Vocabulary.GetText(method),
                 payload: IpcPayloadCodec.SerializeToElement(payload),
                 responseMode: "single",
                 requestDeadlineUtc: DateTimeOffset.UtcNow

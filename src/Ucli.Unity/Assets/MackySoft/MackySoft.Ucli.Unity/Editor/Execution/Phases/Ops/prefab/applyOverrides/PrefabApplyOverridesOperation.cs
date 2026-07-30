@@ -17,7 +17,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
     [UcliOperation]
     internal sealed class PrefabApplyOverridesOperation : UcliOperation<PrefabOverrideArgs, UcliNoResult>
     {
-        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<PrefabOverrideArgs, UcliNoResult>(
+        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.CreateWithoutVerdict<PrefabOverrideArgs, UcliNoResult>(
             operationName: UcliPrimitiveOperationNames.PrefabApplyOverrides,
             kind: UcliOperationKind.Mutation,
             description: "Applies request-attributed Prefab instance property overrides to an explicit Prefab asset.",
@@ -31,7 +31,10 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 readPostconditionContract: "Prefab, asset lookup, and GUID lookup read surfaces covering the saved Prefab may be stale after apply.",
                 failureSemantics: "Failure before apply leaves no requested Prefab asset mutation; Unity API failure may leave indeterminate Prefab asset state.",
                 dangerousNotes: new[] { "This operation persists a Prefab asset from live instance state." }),
-            exposure: UcliOperationExposure.EditLoweringOnly);
+            requiresPreCallPlanReplay: false,
+            exposure: UcliOperationExposure.EditLoweringOnly,
+            playModeSupport: UcliOperationPlayModeSupport.Disallowed,
+            codeContract: null);
 
         protected override Task<OperationPhaseStepResult> ValidateAsync (
             NormalizedOperation operation,
@@ -41,7 +44,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         {
             cancellationToken.ThrowIfCancellationRequested();
             return Task.FromResult(TryResolve(operation, args, executionContext, allowTemporaryState: true, out _, out var failure)
-                ? OperationPhaseStepResult.Success(applied: false, changed: false)
+                ? OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>())
                 : failure!);
         }
 
@@ -109,6 +112,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                         operationFailure,
                         applied: appliedCount > 0,
                         changed: appliedCount > 0,
+                        result: null,
                         touched: appliedCount > 0 ? CreateTouched(state.TargetAssetPath) : null);
                     if (appliedCount > 0)
                     {
@@ -173,18 +177,26 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 var savedPrefab = PrefabUtility.SaveAsPrefabAsset(prefabRoot!, state.TargetAssetPath);
                 if (savedPrefab == null)
                 {
-                    return OperationPhaseStepResult.Failed(new OperationFailure(
-                        Code: UcliCoreErrorCodes.InternalError,
-                        Message: $"Prefab override could not be applied because the Prefab asset save returned no asset: {state.TargetAssetPath}.",
-                        OpId: operation.Id));
+                    return OperationPhaseStepResult.Failed(
+                        new OperationFailure(
+                            Code: UcliCoreErrorCodes.InternalError,
+                            Message: $"Prefab override could not be applied because the Prefab asset save returned no asset: {state.TargetAssetPath}.",
+                            OpId: operation.Id),
+                        applied: false,
+                        changed: false,
+                        result: null,touched:Array.Empty<OperationTouch>());
                 }
             }
             catch (Exception exception)
             {
-                return OperationPhaseStepResult.Failed(new OperationFailure(
-                    Code: UcliCoreErrorCodes.InternalError,
-                    Message: $"Prefab override could not be applied to explicit Prefab asset: {state.TargetAssetPath}. {exception.Message}",
-                    OpId: operation.Id));
+                return OperationPhaseStepResult.Failed(
+                    new OperationFailure(
+                        Code: UcliCoreErrorCodes.InternalError,
+                        Message: $"Prefab override could not be applied to explicit Prefab asset: {state.TargetAssetPath}. {exception.Message}",
+                        OpId: operation.Id),
+                    applied: false,
+                    changed: false,
+                    result: null,touched:Array.Empty<OperationTouch>());
             }
             finally
             {

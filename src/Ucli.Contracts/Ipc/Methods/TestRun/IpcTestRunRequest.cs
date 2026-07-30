@@ -49,7 +49,8 @@ public sealed record IpcTestRunRequest
     public IReadOnlyList<string> AssemblyNames { get; }
 
     /// <summary> Gets whether lifecycle readiness should fail immediately when unavailable. </summary>
-    public bool FailFast { get; }
+    [JsonRequired]
+    public bool FailFast { get; init; }
 
     /// <summary> Gets the non-empty run identifier used for progress and artifact correlation. </summary>
     public Guid RunId { get; }

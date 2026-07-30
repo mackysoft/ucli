@@ -16,10 +16,11 @@ public sealed class OpsCliOutputListContractTests
             UcliPrimitiveOperationNames.SceneSave,
             IpcJsonSerializerOptions.PublicRawOperationContracts.GetTypeInfo(typeof(ScenePathArgs)),
             resultTypeInfo: null);
-        var sceneSaveDescribe = UcliOperationDescribeContractBuilder.Create(
+        var sceneSaveDescribe = UcliOperationDescribeContractBuilder.CreateWithoutVerdict(
             sceneSaveGeneration,
             "Saves a Unity scene asset.",
-            CreateAssurance(UcliOperationKind.Mutation, OperationPolicy.Advanced));
+            CreateAssurance(UcliOperationKind.Mutation, OperationPolicy.Advanced),
+            codeContract: null);
         ReadIndexCatalogTestSeeder.SeedOpsCatalog(
             unityProjectPath,
             [

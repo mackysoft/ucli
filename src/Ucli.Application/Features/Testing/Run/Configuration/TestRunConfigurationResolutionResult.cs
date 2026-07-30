@@ -2,31 +2,64 @@ using MackySoft.Ucli.Application.Shared.Foundation;
 
 namespace MackySoft.Ucli.Application.Features.Testing.Run.Configuration;
 
-/// <summary> Represents one test-run configuration resolution result. </summary>
-/// <param name="Configuration"> The resolved configuration on success; otherwise <see langword="null" />. </param>
-/// <param name="Errors"> The structured errors on failure; otherwise an empty array. </param>
-internal sealed record TestRunConfigurationResolutionResult (
-    ResolvedTestRunConfiguration? Configuration,
-    IReadOnlyList<ExecutionError> Errors)
+/// <summary> Represents one successful or failed test-run configuration resolution. </summary>
+internal abstract record TestRunConfigurationResolutionResult
 {
-    /// <summary> Gets a value indicating whether configuration resolution succeeded. </summary>
-    public bool IsSuccess => Configuration is not null && Errors.Count == 0;
+    private TestRunConfigurationResolutionResult ()
+    {
+    }
 
     /// <summary> Creates a successful configuration resolution result. </summary>
-    /// <param name="configuration"> The resolved configuration. </param>
-    /// <returns> The successful result. </returns>
-    public static TestRunConfigurationResolutionResult Success (ResolvedTestRunConfiguration configuration)
+    public static Succeeded Success (ResolvedTestRunConfiguration configuration)
     {
-        ArgumentNullException.ThrowIfNull(configuration);
-        return new TestRunConfigurationResolutionResult(configuration, Array.Empty<ExecutionError>());
+        return new Succeeded(configuration);
     }
 
     /// <summary> Creates a failed configuration resolution result. </summary>
-    /// <param name="errors"> The structured errors. </param>
-    /// <returns> The failed result. </returns>
-    public static TestRunConfigurationResolutionResult Failure (IReadOnlyList<ExecutionError> errors)
+    public static Failed Failure (IReadOnlyList<ExecutionError> errors)
     {
-        ArgumentNullException.ThrowIfNull(errors);
-        return new TestRunConfigurationResolutionResult(null, errors);
+        return new Failed(errors);
+    }
+
+    /// <summary> Represents one successfully resolved configuration. </summary>
+    internal sealed record Succeeded : TestRunConfigurationResolutionResult
+    {
+        internal Succeeded (ResolvedTestRunConfiguration configuration)
+        {
+            Configuration = configuration
+                ?? throw new ArgumentNullException(nameof(configuration));
+        }
+
+        /// <summary> Gets the resolved test-run configuration. </summary>
+        public ResolvedTestRunConfiguration Configuration { get; }
+    }
+
+    /// <summary> Represents one failed configuration resolution. </summary>
+    internal sealed record Failed : TestRunConfigurationResolutionResult
+    {
+        internal Failed (IReadOnlyList<ExecutionError> errors)
+        {
+            ArgumentNullException.ThrowIfNull(errors);
+            if (errors.Count == 0)
+            {
+                throw new ArgumentException(
+                    "A failed configuration resolution must contain at least one error.",
+                    nameof(errors));
+            }
+
+            var copiedErrors = new ExecutionError[errors.Count];
+            for (var i = 0; i < errors.Count; i++)
+            {
+                copiedErrors[i] = errors[i]
+                    ?? throw new ArgumentException(
+                        "Configuration resolution errors must not contain null entries.",
+                        nameof(errors));
+            }
+
+            Errors = Array.AsReadOnly(copiedErrors);
+        }
+
+        /// <summary> Gets the errors that prevented configuration resolution. </summary>
+        public IReadOnlyList<ExecutionError> Errors { get; }
     }
 }

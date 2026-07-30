@@ -73,7 +73,7 @@ internal sealed class PlanCommand
         if (allowPlayMode && readIndexMode != null)
         {
             var errorResult = PlanCommandResultFactory.CreateExecutionError(
-                ExecutionError.InvalidArgument("--allowPlayMode cannot be combined with --readIndexMode."));
+                ExecutionError.InvalidArgument("--allowPlayMode cannot be combined with --readIndexMode.", UcliCoreErrorCodes.InvalidArgument));
             commandResultWriter.WriteToStandardOutput(errorResult);
             return errorResult.ExitCode;
         }
@@ -149,9 +149,12 @@ internal sealed class PlanCommand
 
     private int WriteRequestReadFailure (RequestInputReadResult requestInputReadResult)
     {
-        var failureResult = PlanFailureResultFactory.FromExecutionError(requestInputReadResult.Error!);
+        var failureResult = PlanFailureResultFactory.FromExecutionError(
+            requestInputReadResult.Error!,
+            output: null);
         var commandResult = PlanCommandResultFactory.Create(failureResult);
         commandResultWriter.WriteToStandardOutput(commandResult);
         return commandResult.ExitCode;
     }
+
 }

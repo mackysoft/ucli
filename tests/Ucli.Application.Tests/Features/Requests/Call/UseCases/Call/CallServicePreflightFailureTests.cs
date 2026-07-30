@@ -2,7 +2,6 @@ using MackySoft.Ucli.Application.Features.Requests.Call.UseCases.Call;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Phase;
 using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
-using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 using static MackySoft.Ucli.Application.Tests.CallServiceTestSupport;
@@ -60,7 +59,11 @@ public sealed class CallServicePreflightFailureTests
             MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe,
             OperationPolicy.Safe);
         var preflightResult = PhaseExecutionPreflightResult.Failure(
-            ExecutionError.InternalError("Operation metadata could not be loaded."),
+            ApplicationFailure.InternalError(
+                "Operation metadata could not be loaded.",
+                UcliCoreErrorCodes.InternalError,
+                instancePath: null,
+                startupFailure: null),
             preparedRequest);
         var service = CreateService(
             preflightResult,
@@ -95,9 +98,12 @@ public sealed class CallServicePreflightFailureTests
             MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe,
             OperationPolicy.Safe);
         var preflightResult = PhaseExecutionPreflightResult.Failure(
-            ExecutionError.InternalError("Daemon is not running for mode=daemon."),
-            preparedRequest,
-            UnityExecutionModeDecisionErrorCodes.DaemonNotRunning);
+            ApplicationFailure.InternalError(
+                "Daemon is not running for mode=daemon.",
+                UnityExecutionModeDecisionErrorCodes.DaemonNotRunning,
+                instancePath: null,
+                startupFailure: null),
+            preparedRequest);
         var service = CreateService(
             preflightResult,
             new UnexpectedUnityRequestExecutor());

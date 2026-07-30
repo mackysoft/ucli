@@ -178,20 +178,4 @@ public sealed class RunIdInvariantTests
         Assert.Equal("startedAtUtc", exception.ParamName);
     }
 
-    [Fact]
-    [Trait("Size", "Small")]
-    public void TestRunServiceResult_WhenRunIdIsEmpty_ThrowsArgumentException ()
-    {
-        var artifactsDirectory = AbsolutePath.Parse(Path.Combine(
-            Path.GetTempPath(),
-            "ucli-run-id-invariant",
-            "artifacts"));
-        var exception = Assert.Throws<ArgumentException>(() => TestRunServiceResult.Pass(
-            "Tests passed.",
-            Guid.Empty,
-            artifactsDirectory,
-            AbsolutePath.Resolve(artifactsDirectory, "summary.json")));
-
-        Assert.Equal("runId", exception.ParamName);
-    }
 }

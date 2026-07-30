@@ -1,8 +1,6 @@
-using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
-using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 using MackySoft.Ucli.Application.Features.Testing.Run.Common.Contracts;
-using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Json;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 
@@ -13,7 +11,7 @@ internal static class TestRunCommandResultFactory
 {
     /// <summary> Gets the serializer contract used by successful <c>test run</c> payloads. </summary>
     public static JsonTypeInfo SuccessPayloadTypeInfo { get; } =
-        CliOutputJsonSerializerOptions.Default.GetTypeInfo(typeof(TestRunSuccessCommandPayload));
+        CliOutputJsonSerializerOptions.Default.GetTypeInfo(typeof(TestRunCompletedCommandPayload));
 
     /// <summary> Gets the serializer contract used by failed <c>test run</c> payloads. </summary>
     public static JsonTypeInfo ErrorPayloadTypeInfo { get; } =
@@ -32,58 +30,66 @@ internal static class TestRunCommandResultFactory
     {
         ArgumentNullException.ThrowIfNull(serviceResult);
 
-        if (serviceResult.ErrorKind is null)
+        return serviceResult switch
         {
-            return new CommandResult(
-                ProtocolVersion: IpcProtocol.CurrentVersion,
-                Command: UcliCommandNames.TestRun,
-                Status: CommandResultStatus.Ok,
-                ExitCode: ApplicationOutcomeCliExitCodeMapper.ToExitCode(serviceResult.Outcome),
-                Message: serviceResult.Message,
-                Payload: new TestRunSuccessCommandPayload(
-                    serviceResult.Result!.Value,
-                    serviceResult.RunId!.Value,
-                    serviceResult.ArtifactsDir!.Value,
-                    serviceResult.SummaryJsonPath!.Value),
-                Errors: Array.Empty<CommandError>());
-        }
-
-        var startupFailure = serviceResult.StartupFailure;
-        return CommandFailureProjector.Create(
-            UcliCommandNames.TestRun,
-            serviceResult.Message,
-            CommandErrorPayload.Detailed(new TestRunErrorCommandPayload(
-                serviceResult.ErrorKind.Value,
-                serviceResult.RunId,
-                serviceResult.ArtifactsDir?.Value,
-                serviceResult.SummaryJsonPath?.Value,
-                startupFailure?.Startup,
-                startupFailure?.Diagnosis,
-                startupFailure?.RetryDisposition,
-                startupFailure?.SafeToRetryImmediately)),
-            [
-                serviceResult.Failure!,
-            ]);
+            TestRunCompletedServiceResult completed => CommandResult.CompletedWithVerdict(
+                UcliCommandNames.TestRun,
+                completed.Message,
+                CreateCompletedPayload(completed)),
+            TestRunCommandErrorServiceResult commandError => CommandFailureProjector.Create(
+                UcliCommandNames.TestRun,
+                commandError.Message,
+                CommandErrorPayload.Detailed(new TestRunErrorCommandPayload(
+                    commandError.ErrorKind,
+                    commandError is TestRunAfterCreationCommandErrorServiceResult afterCreation
+                        ? new TestRunErrorRunContext(
+                            afterCreation.RunId,
+                            afterCreation.ArtifactsDir.Value)
+                        : null,
+                    CreateStartupFailureDetail(commandError.PrimaryFailure.StartupFailure))),
+                commandError.Failures),
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(serviceResult),
+                serviceResult.GetType(),
+                "Test Run service result type must have an explicit CLI projection."),
+        };
     }
 
-    private sealed record TestRunSuccessCommandPayload (
-        TestRunResultKind Result,
-        Guid RunId,
-        string ArtifactsDir,
-        string SummaryJsonPath);
+    private static TestRunCompletedCommandPayload CreateCompletedPayload (
+        TestRunCompletedServiceResult completed)
+    {
+        return new TestRunCompletedCommandPayload(
+            completed.Verdict,
+            completed.RunId,
+            completed.ArtifactsDir.Value,
+            completed.SummaryJsonPath.Value);
+    }
+
+    private static TestRunStartupFailureCommandDetail? CreateStartupFailureDetail (
+        StartupFailureDetail? startupFailure)
+    {
+        return startupFailure is null
+            ? null
+            : new TestRunStartupFailureCommandDetail(
+                startupFailure.Startup,
+                startupFailure.Diagnosis,
+                startupFailure.RetryDisposition,
+                startupFailure.SafeToRetryImmediately);
+    }
 
     private sealed record TestRunErrorCommandPayload (
         TestRunErrorKind ErrorKind,
-        Guid? RunId,
-        string? ArtifactsDir,
-        string? SummaryJsonPath,
-        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        DaemonStartupObservationOutput? Startup,
-        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        DaemonDiagnosisOutput? Diagnosis,
-        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        DaemonStartupRetryDisposition? RetryDisposition,
-        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        bool? SafeToRetryImmediately)
+        TestRunErrorRunContext? Run,
+        TestRunStartupFailureCommandDetail? StartupFailure)
         : CommandErrorPayload<TestRunErrorCommandPayload>;
+
+    private sealed record TestRunErrorRunContext (
+        Guid RunId,
+        string ArtifactsDir);
+
+    private sealed record TestRunStartupFailureCommandDetail (
+        DaemonStartupObservationOutput? Startup,
+        DaemonDiagnosisOutput? Diagnosis,
+        DaemonStartupRetryDisposition RetryDisposition,
+        bool SafeToRetryImmediately);
 }

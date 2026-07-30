@@ -2916,7 +2916,7 @@ namespace MackySoft.Ucli.Unity.Tests
             string operationName,
             UcliOperationPlayModeSupport playModeSupport)
         {
-            return new TestRawOperation(UcliOperationMetadata.Create<UcliEmptyArgs, UcliNoResult>(
+            return new TestRawOperation(UcliOperationMetadata.CreateWithoutVerdict<UcliEmptyArgs, UcliNoResult>(
                 operationName: operationName,
                 kind: UcliOperationKind.Mutation,
                 description: $"{operationName} test operation.",
@@ -2930,7 +2930,10 @@ namespace MackySoft.Ucli.Unity.Tests
                     readPostconditionContract: "Persistent read surfaces are unchanged; runtime state may differ.",
                     failureSemantics: "Failure before invocation leaves runtime state unchanged.",
                     dangerousNotes: new[] { "Changes Play Mode runtime state and is not persisted." }),
-                playModeSupport: playModeSupport));
+                requiresPreCallPlanReplay: false,
+                exposure: UcliOperationExposure.Public,
+                playModeSupport: playModeSupport,
+                codeContract: null));
         }
 
         private static IpcExecuteStepContract ReadSingleSourceStep (IpcExecuteRequest request)
@@ -2984,7 +2987,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 OperationExecutionContext executionContext,
                 CancellationToken cancellationToken = default)
             {
-                return Task.FromResult(OperationPhaseStepResult.Success());
+                return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()));
             }
 
             public Task<OperationPhaseStepResult> PlanAsync (
@@ -2992,7 +2995,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 OperationExecutionContext executionContext,
                 CancellationToken cancellationToken = default)
             {
-                return Task.FromResult(OperationPhaseStepResult.Success());
+                return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()));
             }
 
             public Task<OperationPhaseStepResult> CallAsync (
@@ -3000,7 +3003,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 OperationExecutionContext executionContext,
                 CancellationToken cancellationToken = default)
             {
-                return Task.FromResult(OperationPhaseStepResult.Success());
+                return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()));
             }
         }
 

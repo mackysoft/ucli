@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Application.Features.Assurance.Build.Contracts;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Vocabulary;
 using MackySoft.Ucli.Contracts.Ipc;
 using static MackySoft.Ucli.Application.Tests.Features.Assurance.Build.BuildServiceTestSupport;
@@ -24,9 +25,9 @@ public sealed class BuildServiceBuildResultTests
 
         var result = await service.ExecuteAsync(CreateInput());
 
-        Assert.True(result.IsSuccess);
-        var output = result.Output!;
-        Assert.Equal(AssuranceVerdict.Fail, output.Verdict);
+        var completed = Assert.IsType<BuildExecutionResult.CompletedResult>(result);
+        var output = completed.Output;
+        Assert.Equal(Verdict.Fail, output.Verdict);
         Assert.Equal(reportResult, output.Build.Summary.Result);
         Assert.Equal(completionReason, output.Build.Logs.CompletionReason);
         Assert.Equal(AssuranceClaimStatus.Passed, FindClaim(output, BuildClaimCodes.UnityBuildCompleted).Status);

@@ -6,6 +6,7 @@ using MackySoft.Ucli.Application.Features.Requests.Shared.Preparation;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Validation.Parsing;
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Contracts.Configuration;
+using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.ContractReading;
 
@@ -14,6 +15,8 @@ namespace MackySoft.Ucli.Application.Tests;
 internal static class CallServiceTestSupport
 {
     public static readonly Guid RequestId = Guid.Parse("9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62");
+
+    public static readonly Sha256Digest OperationDescriptorDigest = Sha256Digest.Compute("call-service-operation-descriptor"u8);
 
     public static PhaseExecutionPreparedRequest CreatePreparedRequest (
         string requestJson,
@@ -52,9 +55,8 @@ internal static class CallServiceTestSupport
         ArgumentNullException.ThrowIfNull(preflightResult);
         ArgumentNullException.ThrowIfNull(ipcRequestExecutor);
 
-        requestPreparationResult ??= preflightResult.PreparedRequest != null
-            ? RequestPreparationResult.Success(preflightResult.PreparedRequest.PreparedRequest)
-            : throw new InvalidOperationException("A prepared request is required when request preparation is not explicitly configured.");
+        requestPreparationResult ??= RequestPreparationResult.Success(
+            preflightResult.PreparedRequest.PreparedRequest);
 
         return new CallService(
             new RecordingRequestPreparationService
@@ -89,7 +91,30 @@ internal static class CallServiceTestSupport
             Name: name,
             Kind: UcliOperationKind.Mutation,
             Policy: policy,
-            ArgsSchemaJson: """{"type":"object","additionalProperties":false}""");
+            ArgsSchemaJson: """{"type":"object","additionalProperties":false}""",
+            DescriptorDigest: OperationDescriptorDigest,
+            VerdictContract: null,
+            ResultSchemaJson: null,
+            Exposure: UcliOperationExposure.Public);
+    }
+
+    public static UnityRequestResponse CreateUnityResponse (
+        IpcResponseStatus status,
+        IReadOnlyList<IpcExecuteOperationResult> opResults,
+        IReadOnlyList<IpcError> errors,
+        string? planToken = null,
+        IpcExecuteReadPostcondition? readPostcondition = null,
+        IpcProjectIdentity? project = null)
+    {
+        ArgumentNullException.ThrowIfNull(opResults);
+
+        return ExecuteUnityRequestResponseTestFactory.Create(
+            status,
+            opResults,
+            errors,
+            planToken,
+            readPostcondition,
+            project);
     }
 
     public static ValidateRequest CreateOpRequest (string operationName)
@@ -105,7 +130,8 @@ internal static class CallServiceTestSupport
                     Args: JsonSerializer.SerializeToElement(new
                     {
                     })),
-            ]);
+            ],
+            AllowPlayMode: false);
     }
 
     public static string CreateOpRequestJson (string operationName)

@@ -1,41 +1,51 @@
-using MackySoft.Ucli.Application.Shared.Foundation;
-
 namespace MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 
-/// <summary> Represents one operation-catalog discovery failure that retains structured execution-error classification. </summary>
+/// <summary> Represents one operation-catalog discovery failure that retains its application failure classification. </summary>
 internal sealed class OperationCatalogLoadException : InvalidOperationException
 {
-    /// <summary> Initializes a new instance of the <see cref="OperationCatalogLoadException" /> class. </summary>
-    /// <param name="error"> The structured execution error associated with the catalog-load failure. </param>
-    /// <param name="errorCode"> The original machine-readable error code associated with the catalog-load failure. </param>
-    public OperationCatalogLoadException (
-        ExecutionError error,
-        UcliCode? errorCode = null)
+    private OperationCatalogLoadException (ApplicationFailure error)
         : base(error?.Message)
     {
         Error = error ?? throw new ArgumentNullException(nameof(error));
-        ErrorCode = errorCode ?? ExecutionErrorCodeMapper.ToCode(Error);
     }
 
-    /// <summary> Gets the structured execution error associated with this failure. </summary>
-    public ExecutionError Error { get; }
+    /// <summary> Gets the classified application failure associated with this catalog load. </summary>
+    public ApplicationFailure Error { get; }
 
-    /// <summary> Gets the original machine-readable error code associated with this failure. </summary>
-    public UcliCode ErrorCode { get; }
+    /// <summary> Creates one catalog-load exception while adding boundary context to the failure message. </summary>
+    public static OperationCatalogLoadException Create (
+        ApplicationFailure error,
+        string messagePrefix)
+    {
+        ArgumentNullException.ThrowIfNull(error);
+        ArgumentException.ThrowIfNullOrWhiteSpace(messagePrefix);
+        return new OperationCatalogLoadException(WithMessage(
+            error,
+            $"{messagePrefix} {error.Message}"));
+    }
 
-    /// <summary> Creates one execution error that preserves the original kind while prefixing the message. </summary>
+    /// <summary> Creates one application failure from the retained failure while prefixing the message. </summary>
     /// <param name="messagePrefix"> The prefix to prepend to the original error message. </param>
-    /// <returns> The prefixed execution error. </returns>
-    public ExecutionError CreatePrefixedError (string messagePrefix)
+    /// <returns> The prefixed application failure. </returns>
+    public ApplicationFailure CreatePrefixedFailure (string messagePrefix)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(messagePrefix);
 
-        var message = $"{messagePrefix} {Error.Message}";
-        return Error.Kind switch
-        {
-            ExecutionErrorKind.InvalidArgument => ExecutionError.InvalidArgument(message, ErrorCode),
-            ExecutionErrorKind.Timeout => ExecutionError.Timeout(message, ErrorCode),
-            _ => ExecutionError.InternalError(message, ErrorCode),
-        };
+        return WithMessage(
+            Error,
+            $"{messagePrefix} {Error.Message}");
+    }
+
+    private static ApplicationFailure WithMessage (
+        ApplicationFailure error,
+        string message)
+    {
+        return ApplicationFailure.Create(
+            error.Kind,
+            message,
+            error.Code,
+            error.InstancePath,
+            error.Outcome,
+            error.StartupFailure);
     }
 }

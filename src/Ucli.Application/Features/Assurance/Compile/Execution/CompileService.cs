@@ -4,6 +4,7 @@ using MackySoft.Ucli.Application.Features.Assurance.Compile.Contracts;
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Payload;
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Vocabulary;
 using MackySoft.Ucli.Application.Features.Assurance.Semantics;
+using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
 using MackySoft.Ucli.Application.Shared.Context;
 using MackySoft.Ucli.Application.Shared.Execution.Progress;
 using MackySoft.Ucli.Application.Shared.Identifiers;
@@ -16,8 +17,6 @@ namespace MackySoft.Ucli.Application.Features.Assurance.Compile.Execution;
 /// <summary> Executes compile assurance probes and compiles the result into an assurance packet. </summary>
 internal sealed class CompileService : ICompileService
 {
-    private const string SummaryReportRef = "compile.summary";
-    private const string DiagnosticsReportRef = "compile.diagnostics";
     private const string ProgressObservationSourceHostDispatch = "hostDispatch";
 
     internal static readonly AssuranceVerifierId VerifierId = new("compile");
@@ -67,7 +66,7 @@ internal sealed class CompileService : ICompileService
         var contextResult = await projectContextResolver.ResolveAsync(input.ProjectPath, cancellationToken).ConfigureAwait(false);
         if (!contextResult.IsSuccess)
         {
-            return CompileExecutionResult.Failure(contextResult.Error!);
+            return CompileExecutionResult.Failed(contextResult.Error!, project: null);
         }
 
         var context = contextResult.Context!;
@@ -78,7 +77,7 @@ internal sealed class CompileService : ICompileService
             context.Config);
         if (!timeoutResult.IsSuccess)
         {
-            return CompileExecutionResult.Failure(timeoutResult.Error!, project);
+            return CompileExecutionResult.Failed(timeoutResult.Error!, project);
         }
 
         var timeout = timeoutResult.Timeout!.Value;
@@ -86,7 +85,7 @@ internal sealed class CompileService : ICompileService
         var deadline = ExecutionDeadline.Start(timeout, timeProvider);
         if (!deadline.TryGetRemainingTimeout(out var modeDecisionTimeout))
         {
-            return CompileExecutionResult.Failure(CreateTimeoutFailure(timeout), project);
+            return CompileExecutionResult.Failed(CreateTimeoutFailure(timeout), project);
         }
 
         var modeDecisionResult = await executionModeDecisionService.DecideAsync(
@@ -100,18 +99,18 @@ internal sealed class CompileService : ICompileService
             if (modeDecisionResult.HasContractError)
             {
                 var contractError = modeDecisionResult.ContractError!;
-                return CompileExecutionResult.Failure(
-                    ApplicationFailure.FromCode(contractError.Code, contractError.Message),
+                return CompileExecutionResult.Failed(
+                    ApplicationFailure.EnvironmentError(contractError.Message, contractError.Code, instancePath: null),
                     project);
             }
 
-            return CompileExecutionResult.Failure(modeDecisionResult.Error!, project);
+            return CompileExecutionResult.Failed(modeDecisionResult.Error!, project);
         }
 
         var executionTarget = modeDecisionResult.Decision!.Target;
         if (!deadline.TryGetRemainingTimeout(out var requestTimeout))
         {
-            return CompileExecutionResult.Failure(CreateTimeoutFailure(timeout), project);
+            return CompileExecutionResult.Failed(CreateTimeoutFailure(timeout), project);
         }
 
         var runId = runIdGenerator.Generate();
@@ -136,7 +135,7 @@ internal sealed class CompileService : ICompileService
             .ConfigureAwait(false);
         if (!responseSummary.IsSuccess && !responseSummary.ShouldReadArtifact)
         {
-            return CompileExecutionResult.Failure(responseSummary.FailureInfo!, project);
+            return CompileExecutionResult.Failed(responseSummary.FailureInfo!, project);
         }
 
         var summary = responseSummary.Summary;
@@ -152,7 +151,7 @@ internal sealed class CompileService : ICompileService
                 .ConfigureAwait(false);
             if (!artifactResult.IsSuccess)
             {
-                return CompileExecutionResult.Failure(artifactResult.FailureInfo!, project);
+                return CompileExecutionResult.Failed(artifactResult.FailureInfo!, project);
             }
 
             summary = artifactResult.Summary!;
@@ -174,7 +173,7 @@ internal sealed class CompileService : ICompileService
             requireCompleted: true);
         if (summaryValidationFailure != null)
         {
-            return CompileExecutionResult.Failure(summaryValidationFailure, project);
+            return CompileExecutionResult.Failed(summaryValidationFailure, project);
         }
 
         var summaryJsonPath = artifactStore.ResolveSummaryPath(context.UnityProject, runId);
@@ -194,7 +193,7 @@ internal sealed class CompileService : ICompileService
                 diagnosticsJsonPath,
                 cancellationToken)
             .ConfigureAwait(false);
-        return CompileExecutionResult.Success(output);
+        return CompileExecutionResult.Completed(output);
     }
 
     private async ValueTask<CompileDispatchResult> DispatchCompileAsync (
@@ -239,40 +238,36 @@ internal sealed class CompileService : ICompileService
                 return CompileDispatchResult.Success(diagnosticsReadSummary!);
             }
 
+            var failure = RequestFailureNormalizer.FromUnityRequestFailure(failureInfo);
             if (failureInfo.StartupFailure != null)
             {
-                return CompileDispatchResult.Failure(ApplicationFailure.FromCode(
-                    failureInfo.Code,
-                    failureInfo.Message,
-                    startupFailure: failureInfo.StartupFailure));
+                return CompileDispatchResult.Failure(failure);
             }
 
-            return CompileDispatchResult.ArtifactRecoverableFailure(ApplicationFailure.FromCode(
-                failureInfo.Code,
-                failureInfo.Message,
-                startupFailure: failureInfo.StartupFailure));
+            return CompileDispatchResult.ArtifactRecoverableFailure(failure);
         }
 
         var response = executionResult.Response!;
         if (response.Errors.Count != 0)
         {
             var firstError = response.Errors[0];
-            if (firstError.Code == ExecutionErrorCodes.IpcTimeout)
+            if (firstError.Code == IpcTransportErrorCodes.IpcTimeout
+                || firstError.Code == PlayModeErrorCodes.PlayModeTransitionTimeout)
             {
-                return CompileDispatchResult.ArtifactRecoverableFailure(ApplicationFailure.FromCode(
-                    firstError.Code,
-                    firstError.Message));
+                return CompileDispatchResult.ArtifactRecoverableFailure(
+                    RequestFailureNormalizer.FromOperationError(firstError));
             }
 
-            return CompileDispatchResult.Failure(ApplicationFailure.FromCode(
-                firstError.Code,
-                firstError.Message));
+            return CompileDispatchResult.Failure(
+                RequestFailureNormalizer.FromOperationError(firstError));
         }
 
         if (!IpcPayloadCodec.TryDeserialize(response.Payload, out IpcCompileResponse compileResponse, out var payloadError))
         {
             return CompileDispatchResult.Failure(ApplicationFailure.InternalError(
-                $"Unity compile payload is invalid. {payloadError.Message}"));
+                $"Unity compile payload is invalid. {payloadError.Message}", UcliCoreErrorCodes.InternalError,
+                instancePath: null,
+                startupFailure: null));
         }
 
         var summaryValidationFailure = ValidateSummary(
@@ -330,7 +325,9 @@ internal sealed class CompileService : ICompileService
             {
                 return CompileSummaryPollResult.Failure(dispatchFailure ?? ApplicationFailure.Timeout(
                     $"Unity compile assurance timed out after {timeout.TotalMilliseconds:0} milliseconds.",
-                    ExecutionErrorCodes.IpcTimeout), pollAttempts);
+                    ExecutionErrorCodes.IpcTimeout,
+                    instancePath: null,
+                    startupFailure: null), pollAttempts);
             }
 
             await TimeProviderDelay.DelayAsync(GetRetryDelay(remainingTimeout), timeProvider, cancellationToken).ConfigureAwait(false);
@@ -434,9 +431,7 @@ internal sealed class CompileService : ICompileService
     {
         var compileOutput = CreateCompileOutput(summary);
         var claims = CreateClaims(summary, compileOutput);
-        var verdict = RecalculateVerdict(claims);
         return new CompileExecutionOutput(
-            Verdict: verdict,
             Project: project,
             Verifiers:
             [
@@ -446,13 +441,13 @@ internal sealed class CompileService : ICompileService
                     Required: true,
                     PrimaryClaims: CompileClaimCodes.All,
                     Effects: AssuranceEffectSets.Compile,
-                    ReportRef: SummaryReportRef),
+                    ReportRef: AssuranceReportIds.CompileSummary),
             ],
             Claims: claims,
             Reports: new Dictionary<string, AssuranceReportReference>(StringComparer.Ordinal)
             {
-                [SummaryReportRef] = AssuranceReportReference.FromPath(summaryJsonPath.Value, digest: null),
-                [DiagnosticsReportRef] = AssuranceReportReference.FromPath(diagnosticsJsonPath.Value, digest: null),
+                [AssuranceReportIds.CompileSummary.Value] = AssuranceReportReference.FromPath(summaryJsonPath.Value, digest: null),
+                [AssuranceReportIds.CompileDiagnostics.Value] = AssuranceReportReference.FromPath(diagnosticsJsonPath.Value, digest: null),
             },
             ResidualRisks: EmptyResidualRisks,
             RequestedMode: AssuranceExecutionModeCodec.ToRequestedMode(requestedMode),
@@ -537,10 +532,9 @@ internal sealed class CompileService : ICompileService
                     ["runId"] = summary.RunId,
                 },
                 [
-                    new CompileEvidenceOutput(
-                        Kind: CompileEvidenceKind.ScriptCompilation,
-                        EvidenceRef: DiagnosticsReportRef,
-                        Data: compileOutput.ScriptCompilation),
+                    CompileScriptEvidenceOutput.Create(
+                        AssuranceReportIds.CompileDiagnostics,
+                        compileOutput.ScriptCompilation),
                 ]),
             CreateClaim(
                 CompileClaimCodes.UnityDomainReloadSettled,
@@ -552,10 +546,7 @@ internal sealed class CompileService : ICompileService
                     ["runId"] = summary.RunId,
                 },
                 [
-                    new CompileEvidenceOutput(
-                        Kind: CompileEvidenceKind.DomainReload,
-                        EvidenceRef: null,
-                        Data: compileOutput.DomainReload),
+                    CompileDomainReloadEvidenceOutput.Create(compileOutput.DomainReload),
                 ]),
             CreateClaim(
                 CompileClaimCodes.UnityLifecycleReadyAfterCompile,
@@ -571,10 +562,7 @@ internal sealed class CompileService : ICompileService
                     ["lifecycleState"] = summary.Lifecycle.State?.LifecycleState,
                 },
                 [
-                    new CompileEvidenceOutput(
-                        Kind: CompileEvidenceKind.LifecycleSnapshot,
-                        EvidenceRef: null,
-                        Data: compileOutput.Lifecycle),
+                    CompileLifecycleEvidenceOutput.Create(compileOutput.Lifecycle),
                 ]),
         ];
     }
@@ -698,46 +686,34 @@ internal sealed class CompileService : ICompileService
         if (summary.RunId != expectedRunId)
         {
             return ApplicationFailure.InternalError(
-                $"Unity compile summary runId mismatch. Requested={expectedRunId}, Actual={summary.RunId}.");
+                $"Unity compile summary runId mismatch. Requested={expectedRunId}, Actual={summary.RunId}.", UcliCoreErrorCodes.InternalError,
+                instancePath: null,
+                startupFailure: null);
         }
 
         if (summary.ProjectFingerprint != expectedProjectFingerprint)
         {
             return ApplicationFailure.InternalError(
-                $"Unity compile summary projectFingerprint mismatch. Requested={expectedProjectFingerprint}, Actual={summary.ProjectFingerprint}.");
+                $"Unity compile summary projectFingerprint mismatch. Requested={expectedProjectFingerprint}, Actual={summary.ProjectFingerprint}.", UcliCoreErrorCodes.InternalError,
+                instancePath: null,
+                startupFailure: null);
         }
 
         if (requireCompleted && !summary.Completed)
         {
-            return ApplicationFailure.InternalError("Unity compile summary is incomplete.");
+            return ApplicationFailure.InternalError("Unity compile summary is incomplete.", UcliCoreErrorCodes.InternalError, instancePath: null, startupFailure: null);
         }
 
         return null;
-    }
-
-    private static AssuranceVerdict RecalculateVerdict (IReadOnlyList<CompileClaimOutput> claims)
-    {
-        var claimStates = new AssuranceVerdictClaimState[claims.Count];
-        for (var i = 0; i < claims.Count; i++)
-        {
-            var claim = claims[i];
-            claimStates[i] = new AssuranceVerdictClaimState(
-                claim.Status,
-                claim.Coverage,
-                claim.Required,
-                claim.ResidualRisks.Any(static risk => risk.Blocking));
-        }
-
-        return AssuranceVerdictCalculator.Calculate(
-            claimStates,
-            Array.Empty<AssuranceVerdictResidualRiskState>());
     }
 
     private static ApplicationFailure CreateTimeoutFailure (TimeSpan timeout)
     {
         return ApplicationFailure.Timeout(
             $"Unity compile assurance timed out after {timeout.TotalMilliseconds:0} milliseconds.",
-            ExecutionErrorCodes.IpcTimeout);
+            ExecutionErrorCodes.IpcTimeout,
+            instancePath: null,
+            startupFailure: null);
     }
 
     private static TimeSpan GetRetryDelay (TimeSpan remainingTimeout)

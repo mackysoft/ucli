@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Features.Requests.Resolve.UseCases.Resolve;
+using MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Projection;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
@@ -46,6 +47,10 @@ internal static class ResolveCommandResultFactory
         ExecutionError error)
     {
         ArgumentNullException.ThrowIfNull(error);
-        return Create(ResolveServiceResultFactory.FromExecutionError(requestId, error));
+        return Create(ResolveServiceResultFactory.FromExecutionError(
+            requestId,
+            error,
+            ReadIndexInfoFactory.Unity(fallbackReason: null),
+            project: null));
     }
 }

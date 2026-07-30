@@ -29,7 +29,8 @@ internal static class CallCommandTestData
                         CreateGoDescribeOperationResult(IpcExecuteOperationPhase.Plan, applied: false),
                     ],
                     planToken: "plan-token-1"),
-                readPostcondition: null),
+                readPostcondition: null,
+                postReadSource: null),
             "uCLI call completed.");
     }
 
@@ -41,12 +42,15 @@ internal static class CallCommandTestData
                 project: ProjectIdentityInfoTestFactory.Create(),
                 opResults:
                 [
-                    new OperationExecutionOperationResult(
-                        Op: "edit",
-                        Phase: IpcExecuteOperationPhase.Call,
-                        Applied: true,
-                        Changed: true,
-                        Touched: []),
+                    OperationExecutionOperationResult.CreateWithoutVerdict(
+                        op: "edit",
+                        phase: IpcExecuteOperationPhase.Call,
+                        applied: true,
+                        changed: true,
+                        touched: [],
+                        operationDescriptorDigest: null,
+                        result: null,
+                        diagnostics: []),
                 ],
                 plan: null,
                 readPostcondition: null,
@@ -59,10 +63,11 @@ internal static class CallCommandTestData
         return CallServiceResult.Failure(
             ContractViolationMessage,
             [
-                ApplicationFailure.FromCode(
-                    ExecuteRequestErrorCodes.OperationContractViolation,
+                ApplicationFailure.ContractViolation(
                     ContractViolationMessage,
-                    "/opResults/0"),
+                    ExecuteRequestErrorCodes.OperationContractViolation,
+                    "/opResults/0",
+                    startupFailure: null),
             ],
             new CallExecutionOutput(
                 requestId: RequestGuid,
@@ -83,7 +88,8 @@ internal static class CallCommandTestData
                         CreateContractViolation(IpcApplicationState.Indeterminate),
                     ],
                 },
-                readPostcondition: null)
+                readPostcondition: null,
+                postReadSource: null)
             {
                 ContractViolations =
                 [
@@ -99,37 +105,44 @@ internal static class CallCommandTestData
             project: ProjectIdentityInfoTestFactory.Create(),
             opResults: [],
             plan: null,
-            readPostcondition: null);
+            readPostcondition: null,
+            postReadSource: null);
     }
 
     private static OperationExecutionOperationResult CreateGoDescribeOperationResult (
         IpcExecuteOperationPhase phase,
         bool applied)
     {
-        return new OperationExecutionOperationResult(
-            Op: UcliPrimitiveOperationNames.GoDescribe,
-            Phase: phase,
-            Applied: applied,
-            Changed: false,
-            Touched: []);
+        return OperationExecutionOperationResult.CreateWithoutVerdict(
+            op: UcliPrimitiveOperationNames.GoDescribe,
+            phase,
+            applied,
+            changed: false,
+            touched: [],
+            operationDescriptorDigest: RequestCommandResultTestValues.OperationDescriptorDigest,
+            result: null,
+            diagnostics: []);
     }
 
     private static OperationExecutionOperationResult CreateViolationOperationResult (
         IpcExecuteOperationPhase phase,
         bool applied)
     {
-        return new OperationExecutionOperationResult(
-            Op: UcliPrimitiveOperationNames.ProjectRefresh,
-            Phase: phase,
-            Applied: applied,
-            Changed: true,
-            Touched:
+        return OperationExecutionOperationResult.CreateWithoutVerdict(
+            op: UcliPrimitiveOperationNames.ProjectRefresh,
+            phase,
+            applied,
+            changed: true,
+            touched:
             [
                 new OperationExecutionTouchedResource(
                     Kind: UcliTouchedResourceKind.Asset,
                     Path: "Assets/Example.txt",
                     AssetGuid: null),
-            ]);
+            ],
+            operationDescriptorDigest: RequestCommandResultTestValues.OperationDescriptorDigest,
+            result: null,
+            diagnostics: []);
     }
 
     private static OperationExecutionContractViolation CreateContractViolation (IpcApplicationState applicationState)

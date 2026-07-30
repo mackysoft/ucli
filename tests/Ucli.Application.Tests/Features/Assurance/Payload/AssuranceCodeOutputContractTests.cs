@@ -1,4 +1,6 @@
 using MackySoft.Ucli.Application.Features.Assurance.Build.Payload;
+using MackySoft.Ucli.Application.Features.Assurance.Build.Vocabulary;
+using MackySoft.Ucli.Application.Tests.Features.Assurance.Build;
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Payload;
 using MackySoft.Ucli.Application.Features.Assurance.Ready;
 using MackySoft.Ucli.Application.Features.Assurance.Verify.Payload;
@@ -17,9 +19,16 @@ public sealed class AssuranceCodeOutputContractTests
     [Trait("Size", "Small")]
     public void FixedVerifierOutputs_ExposeCommandKind ()
     {
-        var build = new BuildVerifierOutput(BuildVerifierId, true, true, [], [], BuildArtifactKind.Build);
-        var compile = new CompileVerifierOutput(CompileVerifierId, true, true, [], [], "compile");
-        var ready = new ReadyVerifierOutput(ReadyVerifierId, true, true, []);
+        var claim = new UcliCode("CLAIM");
+        var build = new BuildVerifierOutput(BuildVerifierId, true, true, [claim], []);
+        var compile = new CompileVerifierOutput(
+            CompileVerifierId,
+            true,
+            true,
+            [claim],
+            [],
+            AssuranceReportIds.CompileSummary);
+        var ready = new ReadyVerifierOutput(ReadyVerifierId, true, true, [claim]);
 
         Assert.Equal(AssuranceVerifierKind.Build, build.Kind);
         Assert.Equal(AssuranceVerifierKind.Compile, compile.Kind);
@@ -30,7 +39,11 @@ public sealed class AssuranceCodeOutputContractTests
     [Trait("Size", "Small")]
     public void ReadyVerifierOutput_ExposesItsFixedEmptyEffectSetAsTypedValues ()
     {
-        var ready = new ReadyVerifierOutput(ReadyVerifierId, true, true, []);
+        var ready = new ReadyVerifierOutput(
+            ReadyVerifierId,
+            Deterministic: true,
+            Required: false,
+            PrimaryClaims: []);
 
         Assert.Empty(Assert.IsAssignableFrom<IReadOnlyList<AssuranceEffect>>(ready.Effects));
     }
@@ -43,8 +56,8 @@ public sealed class AssuranceCodeOutputContractTests
         var constructors = new Action[]
         {
             static () => new CompileClaimOutput(new UcliCode("COMPILE_CLAIM"), InvalidStatus, AssuranceCoverage.Full, true, CompileVerifierId, "statement", EmptySubject(), [], []),
-            static () => new ReadyClaimOutput(new UcliCode("READY_CLAIM"), InvalidStatus, AssuranceCoverage.Full, true, ReadyVerifierId, "statement", EmptySubject(), new ReadyClaimValidityOutput(ReadyValidityKind.ProbeOnly, false), [], []),
-            static () => new VerifyClaimOutput(new UcliCode("VERIFY_CLAIM"), InvalidStatus, AssuranceCoverage.Full, true, VerifyVerifierId, "statement", EmptySubject(), [], []),
+            static () => new ReadyClaimOutput(new UcliCode("READY_CLAIM"), InvalidStatus, AssuranceCoverage.Full, true, ReadyVerifierId, "statement", EmptySubject(), ReadyClaimValidityOutput.ProbeOnly(), [], []),
+            static () => new VerifyClaimOutput(new UcliCode("VERIFY_CLAIM"), InvalidStatus, AssuranceCoverage.Full, true, VerifyVerifierId, "statement", EmptySubject(), null, [], []),
             static () => new BuildClaimOutput(new UcliCode("BUILD_CLAIM"), InvalidStatus, AssuranceCoverage.Full, true, BuildVerifierId, "statement", EmptySubject(), [], []),
         };
 
@@ -61,8 +74,8 @@ public sealed class AssuranceCodeOutputContractTests
         var constructors = new Action[]
         {
             static () => new CompileClaimOutput(new UcliCode("COMPILE_CLAIM"), AssuranceClaimStatus.Passed, InvalidCoverage, true, CompileVerifierId, "statement", EmptySubject(), [], []),
-            static () => new ReadyClaimOutput(new UcliCode("READY_CLAIM"), AssuranceClaimStatus.Passed, InvalidCoverage, true, ReadyVerifierId, "statement", EmptySubject(), new ReadyClaimValidityOutput(ReadyValidityKind.ProbeOnly, false), [], []),
-            static () => new VerifyClaimOutput(new UcliCode("VERIFY_CLAIM"), AssuranceClaimStatus.Passed, InvalidCoverage, true, VerifyVerifierId, "statement", EmptySubject(), [], []),
+            static () => new ReadyClaimOutput(new UcliCode("READY_CLAIM"), AssuranceClaimStatus.Passed, InvalidCoverage, true, ReadyVerifierId, "statement", EmptySubject(), ReadyClaimValidityOutput.ProbeOnly(), [], []),
+            static () => new VerifyClaimOutput(new UcliCode("VERIFY_CLAIM"), AssuranceClaimStatus.Passed, InvalidCoverage, true, VerifyVerifierId, "statement", EmptySubject(), null, [], []),
             static () => new BuildClaimOutput(new UcliCode("BUILD_CLAIM"), AssuranceClaimStatus.Passed, InvalidCoverage, true, BuildVerifierId, "statement", EmptySubject(), [], []),
         };
 
@@ -73,20 +86,21 @@ public sealed class AssuranceCodeOutputContractTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void ExecutionOutputs_WithUndefinedVerdict_ThrowArgumentOutOfRangeException ()
+    public void ClaimOutputs_WithoutEvidence_ThrowArgumentException ()
     {
-        const AssuranceVerdict InvalidVerdict = (AssuranceVerdict)0;
         var constructors = new Action[]
         {
-            static () => new BuildExecutionOutput(InvalidVerdict, null!, null!, null!, null!, null!, null!),
-            static () => new CompileExecutionOutput(InvalidVerdict, null!, null!, null!, null!, null!, AssuranceRequestedExecutionMode.Auto, AssuranceResolvedExecutionMode.Oneshot, default, 0, null!),
-            static () => new ReadyExecutionOutput(InvalidVerdict, null!, null!, null!, null!, null!, ReadyTarget.Execution, AssuranceRequestedExecutionMode.Auto, AssuranceResolvedExecutionMode.Oneshot, default, 0, null, null),
-            static () => new VerifyExecutionOutput(InvalidVerdict, null!, null!, null!, null!, null!, null!, 0),
+            static () => new BuildClaimOutput(new UcliCode("BUILD_CLAIM"), AssuranceClaimStatus.Passed, AssuranceCoverage.Full, true, BuildVerifierId, "statement", EmptySubject(), [], []),
+            static () => new CompileClaimOutput(new UcliCode("COMPILE_CLAIM"), AssuranceClaimStatus.Passed, AssuranceCoverage.Full, true, CompileVerifierId, "statement", EmptySubject(), [], []),
+            static () => new ReadyClaimOutput(new UcliCode("READY_CLAIM"), AssuranceClaimStatus.Passed, AssuranceCoverage.Full, true, ReadyVerifierId, "statement", EmptySubject(), ReadyClaimValidityOutput.ProbeOnly(), [], []),
+            static () => new VerifyClaimOutput(new UcliCode("VERIFY_CLAIM"), AssuranceClaimStatus.Passed, AssuranceCoverage.Full, true, VerifyVerifierId, "statement", EmptySubject(), null, [], []),
         };
 
         Assert.All(
             constructors,
-            constructor => Assert.Equal("Verdict", Assert.Throws<ArgumentOutOfRangeException>(constructor).ParamName));
+            constructor => Assert.Equal(
+                "Evidence",
+                Assert.Throws<ArgumentException>(constructor).ParamName));
     }
 
     [Fact]
@@ -95,8 +109,8 @@ public sealed class AssuranceCodeOutputContractTests
     {
         var constructors = new Action[]
         {
-            static () => new CompileExecutionOutput(AssuranceVerdict.Pass, null!, null!, null!, null!, null!, AssuranceRequestedExecutionMode.Auto, AssuranceResolvedExecutionMode.Oneshot, default, 0, null!),
-            static () => new ReadyExecutionOutput(AssuranceVerdict.Pass, null!, null!, null!, null!, null!, ReadyTarget.Execution, AssuranceRequestedExecutionMode.Auto, AssuranceResolvedExecutionMode.Oneshot, default, 0, null, null),
+            static () => new CompileExecutionOutput(null!, null!, null!, null!, null!, AssuranceRequestedExecutionMode.Auto, AssuranceResolvedExecutionMode.Oneshot, default, 0, null!),
+            static () => new ReadyExecutionOutput(null!, null!, null!, null!, null!, ReadyTarget.Execution, AssuranceRequestedExecutionMode.Auto, AssuranceResolvedExecutionMode.Oneshot, default, 0, null, null),
         };
 
         Assert.All(
@@ -110,10 +124,10 @@ public sealed class AssuranceCodeOutputContractTests
     {
         var constructors = new (Action Construct, string ParameterName)[]
         {
-            (static () => new CompileExecutionOutput(AssuranceVerdict.Pass, null!, null!, null!, null!, null!, default, AssuranceResolvedExecutionMode.Oneshot, AssuranceSessionKind.TransientProbe, 0, null!), "RequestedMode"),
-            (static () => new CompileExecutionOutput(AssuranceVerdict.Pass, null!, null!, null!, null!, null!, AssuranceRequestedExecutionMode.Auto, default, AssuranceSessionKind.TransientProbe, 0, null!), "ResolvedMode"),
-            (static () => new ReadyExecutionOutput(AssuranceVerdict.Pass, null!, null!, null!, null!, null!, ReadyTarget.Execution, default, AssuranceResolvedExecutionMode.Oneshot, AssuranceSessionKind.TransientProbe, 0, null, null), "RequestedMode"),
-            (static () => new ReadyExecutionOutput(AssuranceVerdict.Pass, null!, null!, null!, null!, null!, ReadyTarget.Execution, AssuranceRequestedExecutionMode.Auto, default, AssuranceSessionKind.TransientProbe, 0, null, null), "ResolvedMode"),
+            (static () => new CompileExecutionOutput(null!, null!, null!, null!, null!, default, AssuranceResolvedExecutionMode.Oneshot, AssuranceSessionKind.TransientProbe, 0, null!), "RequestedMode"),
+            (static () => new CompileExecutionOutput(null!, null!, null!, null!, null!, AssuranceRequestedExecutionMode.Auto, default, AssuranceSessionKind.TransientProbe, 0, null!), "ResolvedMode"),
+            (static () => new ReadyExecutionOutput(null!, null!, null!, null!, null!, ReadyTarget.Execution, default, AssuranceResolvedExecutionMode.Oneshot, AssuranceSessionKind.TransientProbe, 0, null, null), "RequestedMode"),
+            (static () => new ReadyExecutionOutput(null!, null!, null!, null!, null!, ReadyTarget.Execution, AssuranceRequestedExecutionMode.Auto, default, AssuranceSessionKind.TransientProbe, 0, null, null), "ResolvedMode"),
         };
 
         Assert.All(
@@ -131,8 +145,8 @@ public sealed class AssuranceCodeOutputContractTests
         {
             static () => new BuildClaimOutput(null!, AssuranceClaimStatus.Passed, AssuranceCoverage.Full, true, BuildVerifierId, "statement", EmptySubject(), [], []),
             static () => new CompileClaimOutput(null!, AssuranceClaimStatus.Passed, AssuranceCoverage.Full, true, CompileVerifierId, "statement", EmptySubject(), [], []),
-            static () => new ReadyClaimOutput(null!, AssuranceClaimStatus.Passed, AssuranceCoverage.Full, true, ReadyVerifierId, "statement", EmptySubject(), new ReadyClaimValidityOutput(ReadyValidityKind.ProbeOnly, false), [], []),
-            static () => new VerifyClaimOutput(null!, AssuranceClaimStatus.Passed, AssuranceCoverage.Full, true, VerifyVerifierId, "statement", EmptySubject(), [], []),
+            static () => new ReadyClaimOutput(null!, AssuranceClaimStatus.Passed, AssuranceCoverage.Full, true, ReadyVerifierId, "statement", EmptySubject(), ReadyClaimValidityOutput.ProbeOnly(), [], []),
+            static () => new VerifyClaimOutput(null!, AssuranceClaimStatus.Passed, AssuranceCoverage.Full, true, VerifyVerifierId, "statement", EmptySubject(), null, [], []),
         };
 
         Assert.All(constructors, constructor => Assert.Equal("Id", Assert.Throws<ArgumentNullException>(constructor).ParamName));
@@ -144,10 +158,16 @@ public sealed class AssuranceCodeOutputContractTests
     {
         var constructors = new Action[]
         {
-            static () => new BuildVerifierOutput(BuildVerifierId, true, true, null!, [], BuildArtifactKind.Build),
-            static () => new CompileVerifierOutput(CompileVerifierId, true, true, null!, [], "compile"),
+            static () => new BuildVerifierOutput(BuildVerifierId, true, true, null!, []),
+            static () => new CompileVerifierOutput(
+                CompileVerifierId,
+                true,
+                true,
+                null!,
+                [],
+                AssuranceReportIds.CompileSummary),
             static () => new ReadyVerifierOutput(ReadyVerifierId, true, true, null!),
-            static () => new VerifyVerifierOutput(VerifyVerifierId, AssuranceVerifierKind.Ready, true, true, null!, []),
+            static () => new VerifyVerifierOutput(VerifyVerifierId, AssuranceVerifierKind.Ready, true, true, null!, [], null),
         };
 
         Assert.All(constructors, constructor => Assert.Equal("PrimaryClaims", Assert.Throws<ArgumentNullException>(constructor).ParamName));
@@ -160,13 +180,67 @@ public sealed class AssuranceCodeOutputContractTests
         var invalidClaims = new UcliCode[] { null! };
         var constructors = new Action[]
         {
-            () => new BuildVerifierOutput(BuildVerifierId, true, true, invalidClaims, [], BuildArtifactKind.Build),
-            () => new CompileVerifierOutput(CompileVerifierId, true, true, invalidClaims, [], "compile"),
+            () => new BuildVerifierOutput(BuildVerifierId, true, true, invalidClaims, []),
+            () => new CompileVerifierOutput(
+                CompileVerifierId,
+                true,
+                true,
+                invalidClaims,
+                [],
+                AssuranceReportIds.CompileSummary),
             () => new ReadyVerifierOutput(ReadyVerifierId, true, true, invalidClaims),
-            () => new VerifyVerifierOutput(VerifyVerifierId, AssuranceVerifierKind.Ready, true, true, invalidClaims, []),
+            () => new VerifyVerifierOutput(VerifyVerifierId, AssuranceVerifierKind.Ready, true, true, invalidClaims, [], null),
         };
 
         Assert.All(constructors, constructor => Assert.Equal("PrimaryClaims", Assert.Throws<ArgumentException>(constructor).ParamName));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void RequiredVerifierOutputs_WithoutPrimaryClaims_ThrowArgumentException ()
+    {
+        var constructors = new Action[]
+        {
+            () => new BuildVerifierOutput(BuildVerifierId, true, true, [], []),
+            () => new CompileVerifierOutput(
+                CompileVerifierId,
+                true,
+                true,
+                [],
+                [],
+                AssuranceReportIds.CompileSummary),
+            () => new ReadyVerifierOutput(ReadyVerifierId, true, true, []),
+            () => new VerifyVerifierOutput(
+                VerifyVerifierId,
+                AssuranceVerifierKind.Ready,
+                true,
+                true,
+                [],
+                [],
+                null),
+        };
+
+        Assert.All(
+            constructors,
+            constructor => Assert.Equal(
+                "PrimaryClaims",
+                Assert.Throws<ArgumentException>(constructor).ParamName));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void CompileVerifierOutput_WithNullReportReference_ThrowsArgumentNullException ()
+    {
+        var exception = Assert.Throws<ArgumentNullException>(() =>
+            new CompileVerifierOutput(
+                CompileVerifierId,
+                Deterministic: true,
+                Required: true,
+                PrimaryClaims: [new UcliCode("CLAIM")],
+                Effects: [],
+                ReportRef: null!));
+
+        Assert.Equal("ReportRef", exception.ParamName);
     }
 
     [Fact]
@@ -176,10 +250,16 @@ public sealed class AssuranceCodeOutputContractTests
         var claim = new UcliCode("CLAIM");
         var replacementClaim = new UcliCode("REPLACEMENT");
         var effects = new[] { AssuranceEffect.UnityLifecycleRead };
-        var build = new BuildVerifierOutput(BuildVerifierId, true, true, [claim], effects, BuildArtifactKind.Build);
-        var compile = new CompileVerifierOutput(CompileVerifierId, true, true, [claim], effects, "compile");
+        var build = new BuildVerifierOutput(BuildVerifierId, true, true, [claim], effects);
+        var compile = new CompileVerifierOutput(
+            CompileVerifierId,
+            true,
+            true,
+            [claim],
+            effects,
+            AssuranceReportIds.CompileSummary);
         var ready = new ReadyVerifierOutput(ReadyVerifierId, true, true, [claim]);
-        var verify = new VerifyVerifierOutput(VerifyVerifierId, AssuranceVerifierKind.PostRead, true, true, [claim], effects);
+        var verify = new VerifyVerifierOutput(VerifyVerifierId, AssuranceVerifierKind.PostRead, true, true, [claim], effects, null);
 
         var primaryClaims = new[]
         {
@@ -217,14 +297,31 @@ public sealed class AssuranceCodeOutputContractTests
         {
             ["value"] = "original",
         };
-        var readyEvidence = new[] { new ReadyEvidenceOutput("ready") };
-        var readyRisks = new[] { new ReadyResidualRiskOutput("READY_RISK", false) };
-        var compileEvidence = new[] { new CompileEvidenceOutput(CompileEvidenceKind.ScriptCompilation, null, null) };
-        var compileRisks = new[] { new CompileResidualRiskOutput("COMPILE_RISK", false) };
-        var buildEvidence = new[] { new BuildEvidenceOutput("build", EvidenceRef: null, Data: null) };
-        var buildRisks = new[] { new BuildResidualRiskOutput("BUILD_RISK", UcliDiagnosticSeverity.Warning, false, "risk") };
-        var verifyEvidence = new[] { new VerifyEvidenceOutput("verify") };
-        var verifyRisks = new[] { new VerifyResidualRiskOutput("VERIFY_RISK", false) };
+        var compileOutput = AssuranceExecutionOutputTestFactory.CreateCompileOutput();
+        var buildOutput = AssuranceExecutionOutputTestFactory.CreateBuildOutput();
+        ReadyEvidenceOutput[] readyEvidence =
+        [
+            ReadyLifecycleEvidenceOutput.Create(
+                AssuranceExecutionOutputTestFactory.CreateReadyLifecycleOutput()),
+        ];
+        var readyRisks = new[] { new ReadyResidualRiskOutput(new UcliCode("READY_RISK"), false, "risk") };
+        CompileEvidenceOutput[] compileEvidence =
+        [
+            CompileScriptEvidenceOutput.Create(
+                AssuranceReportIds.CompileSummary,
+                compileOutput.ScriptCompilation),
+        ];
+        var compileRisks = new[] { new CompileResidualRiskOutput(new UcliCode("COMPILE_RISK"), false, "risk") };
+        BuildEvidenceOutput[] buildEvidence =
+        [
+            BuildRunnerEvidenceOutput.Create(buildOutput.Runner),
+        ];
+        var buildRisks = new[] { new BuildResidualRiskOutput(new UcliCode("BUILD_RISK"), UcliDiagnosticSeverity.Warning, false, "risk") };
+        VerifyEvidenceOutput[] verifyEvidence =
+        [
+            new VerifyTestSummaryEvidenceOutput(AssuranceReportIds.TestSummary),
+        ];
+        var verifyRisks = new[] { new VerifyResidualRiskOutput(new UcliCode("VERIFY_RISK"), false, "risk") };
 
         var ready = new ReadyClaimOutput(
             new UcliCode("READY_CLAIM"),
@@ -234,7 +331,7 @@ public sealed class AssuranceCodeOutputContractTests
             ReadyVerifierId,
             "statement",
             subject,
-            new ReadyClaimValidityOutput(ReadyValidityKind.ProbeOnly, false),
+            ReadyClaimValidityOutput.ProbeOnly(),
             readyEvidence,
             readyRisks);
         var compile = new CompileClaimOutput(
@@ -265,18 +362,20 @@ public sealed class AssuranceCodeOutputContractTests
             VerifyVerifierId,
             "statement",
             subject,
+            null,
             verifyEvidence,
             verifyRisks);
 
         subject["value"] = "mutated";
-        readyEvidence[0] = new ReadyEvidenceOutput("replacement");
-        readyRisks[0] = new ReadyResidualRiskOutput("REPLACEMENT", false);
-        compileEvidence[0] = new CompileEvidenceOutput(CompileEvidenceKind.DomainReload, null, null);
-        compileRisks[0] = new CompileResidualRiskOutput("REPLACEMENT", false);
-        buildEvidence[0] = new BuildEvidenceOutput("replacement", EvidenceRef: null, Data: null);
-        buildRisks[0] = new BuildResidualRiskOutput("REPLACEMENT", UcliDiagnosticSeverity.Warning, false, "risk");
-        verifyEvidence[0] = new VerifyEvidenceOutput("replacement");
-        verifyRisks[0] = new VerifyResidualRiskOutput("REPLACEMENT", false);
+        readyEvidence[0] = ReadyDecisionEvidenceOutput.Create(
+            new ReadyDecisionEvidenceData(new UcliCode("NOT_READY"), "not ready"));
+        readyRisks[0] = new ReadyResidualRiskOutput(new UcliCode("REPLACEMENT"), false, "replacement");
+        compileEvidence[0] = CompileDomainReloadEvidenceOutput.Create(compileOutput.DomainReload);
+        compileRisks[0] = new CompileResidualRiskOutput(new UcliCode("REPLACEMENT"), false, "replacement");
+        buildEvidence[0] = BuildInputEvidenceOutput.Create(BuildServiceTestSupport.CreateInputProbe());
+        buildRisks[0] = new BuildResidualRiskOutput(new UcliCode("REPLACEMENT"), UcliDiagnosticSeverity.Warning, false, "risk");
+        verifyEvidence[0] = new VerifyFromResultMissingEvidenceOutput();
+        verifyRisks[0] = new VerifyResidualRiskOutput(new UcliCode("REPLACEMENT"), false, "replacement");
 
         var snapshots = new (IReadOnlyDictionary<string, object?> Subject, IReadOnlyList<object> Evidence, IReadOnlyList<object> Risks)[]
         {
@@ -291,14 +390,14 @@ public sealed class AssuranceCodeOutputContractTests
             Assert.Throws<NotSupportedException>(() => ((System.Collections.IList)snapshot.Evidence)[0] = new object());
             Assert.Throws<NotSupportedException>(() => ((System.Collections.IList)snapshot.Risks)[0] = new object());
         });
-        Assert.Equal("ready", Assert.IsType<ReadyEvidenceOutput>(ready.Evidence[0]).Kind);
-        Assert.Equal("READY_RISK", ready.ResidualRisks[0].Code);
+        Assert.Equal(ReadyEvidenceKind.LifecycleSnapshot, Assert.IsType<ReadyLifecycleEvidenceOutput>(ready.Evidence[0]).Kind);
+        Assert.Equal(new UcliCode("READY_RISK"), ready.ResidualRisks[0].Code);
         Assert.Equal(CompileEvidenceKind.ScriptCompilation, compile.Evidence[0].Kind);
-        Assert.Equal("COMPILE_RISK", compile.ResidualRisks[0].Code);
-        Assert.Equal("build", build.Evidence[0].Kind);
-        Assert.Equal("BUILD_RISK", build.ResidualRisks[0].Code);
-        Assert.Equal("verify", verify.Evidence[0].Kind);
-        Assert.Equal("VERIFY_RISK", verify.ResidualRisks[0].Code);
+        Assert.Equal(new UcliCode("COMPILE_RISK"), compile.ResidualRisks[0].Code);
+        Assert.Equal(BuildEvidenceKind.BuildRunner, build.Evidence[0].Kind);
+        Assert.Equal(new UcliCode("BUILD_RISK"), build.ResidualRisks[0].Code);
+        Assert.Equal(VerifyEvidenceKind.TestSummary, verify.Evidence[0].Kind);
+        Assert.Equal(new UcliCode("VERIFY_RISK"), verify.ResidualRisks[0].Code);
     }
 
     private static IReadOnlyDictionary<string, object?> EmptySubject ()

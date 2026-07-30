@@ -14,7 +14,7 @@ public sealed class CompileCommandGoldenOutputTests
     [Trait("Size", "Medium")]
     public async Task Compile_WithDefaultOrSupportedFormat_WritesOnlyFinalCommandResult (string? format)
     {
-        var service = new RecordingCompileService((_, _, _) => ValueTask.FromResult(CompileExecutionResult.Success(CreateOutput())));
+        var service = new RecordingCompileService((_, _, _) => ValueTask.FromResult<CompileExecutionResult>(CompileExecutionResult.Completed(CreateOutput())));
         var command = new CompileCommand(service, CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
 
         var result = await CommandResultCapture.ExecuteWithErrorAsync(() => command.CompileAsync(
@@ -31,7 +31,7 @@ public sealed class CompileCommandGoldenOutputTests
     [Trait("Size", "Medium")]
     public async Task Compile_WithCompileErrorOutput_ReturnsOkEnvelopeWithFailureExitCodeAndMatchesGolden ()
     {
-        var service = new RecordingCompileService((_, _, _) => ValueTask.FromResult(CompileExecutionResult.Success(CreateOutput(errorCount: 1))));
+        var service = new RecordingCompileService((_, _, _) => ValueTask.FromResult<CompileExecutionResult>(CompileExecutionResult.Completed(CreateOutput(errorCount: 1))));
         var command = new CompileCommand(service, CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
 
         var result = await CommandResultCapture.ExecuteAsync(() => command.CompileAsync(
@@ -45,7 +45,7 @@ public sealed class CompileCommandGoldenOutputTests
             TextVocabulary.GetText(CommandResultStatus.Ok),
             1);
         Assert.Equal(
-            TextVocabulary.GetText(AssuranceVerdict.Fail),
+            TextVocabulary.GetText(Verdict.Fail),
             outputJson.RootElement
                 .GetProperty("payload")
                 .GetProperty("verdict")

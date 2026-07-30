@@ -58,11 +58,11 @@ internal sealed class VerifyPacketBuilder
     /// <param name="key"> The report reference key. </param>
     /// <param name="report"> The report output. </param>
     public void AddReport (
-        string key,
+        AssuranceReportId key,
         AssuranceReportReference report)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(key);
+        ArgumentNullException.ThrowIfNull(key);
         ArgumentNullException.ThrowIfNull(report);
-        reports[key] = report;
+        reports[key.Value] = report;
     }
 }

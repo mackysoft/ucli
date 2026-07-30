@@ -1,9 +1,12 @@
+using System.Text.Json;
 using MackySoft.Ucli.Application.Features.Requests.Plan.UseCases.Plan;
 using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Preparation;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts.Configuration;
+using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Ipc.ContractReading;
 
 namespace MackySoft.Ucli.Application.Tests;
 
@@ -11,26 +14,33 @@ internal static class PlanServiceTestSupport
 {
     public static readonly Guid RequestId = Guid.Parse("9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62");
 
-    public static readonly UcliCode[] UnityExecutionToolErrorCodes =
-    [
-        EditorLifecycleErrorCodes.EditorPlaymode,
-        ExecutionErrorCodes.IpcTimeout,
-    ];
+    public static readonly Sha256Digest OperationDescriptorDigest =
+        Sha256Digest.Compute("plan-service-operation-descriptor"u8);
+
+    public const string OpRequestJson =
+        """{"protocolVersion":1,"steps":[{"kind":"op","id":"describe","op":"ucli.go.describe","args":{}}]}""";
 
     public static PlanService CreateService (
         IRequestPreparationService? requestPreparationService = null,
         IRequestStaticValidationPreflightService? staticPreflightService = null,
-        IRequestStaticValidationService? staticValidationService = null,
-        IUnityRequestExecutor? unityRequestExecutor = null)
+        IOperationCatalog? operationCatalog = null,
+        IRequestStaticValidator? requestStaticValidator = null,
+        IUnityRequestExecutor? unityRequestExecutor = null,
+        TimeProvider? timeProvider = null)
     {
         return new PlanService(
             requestPreparationService ?? CreateSuccessfulRequestPreparationService(),
             staticPreflightService ?? CreateSuccessfulPreflightService(),
-            staticValidationService ?? new RecordingRequestStaticValidationService
+            operationCatalog ?? new RecordingOperationCatalog
+            {
+                Operations = [],
+            },
+            requestStaticValidator ?? new RecordingRequestStaticValidator
             {
                 Result = ValidationResult.Success(),
             },
-            unityRequestExecutor ?? new RecordingUnityRequestExecutor(CreatePlanSuccess("plan-token-1")));
+            unityRequestExecutor ?? new RecordingUnityRequestExecutor(CreatePlanSuccess("plan-token-1")),
+            timeProvider ?? TimeProvider.System);
     }
 
     public static PlanCommandInput CreateInput (
@@ -64,20 +74,29 @@ internal static class PlanServiceTestSupport
                 planToken: planToken));
     }
 
-    public static RequestStaticValidationPreflightResult CreateSuccessPreflightResult (ReadIndexInfo readIndex)
+    public static RequestStaticValidationPreflightResult CreateSuccessPreflightResult (
+        PreparedRequestContext preparedRequest,
+        ReadIndexInfo readIndex,
+        RequestStaticValidationCatalog catalog)
     {
-        return RequestStaticValidationPreflightResult.Success(CreatePreparedRequestContext(), readIndex);
+        return RequestStaticValidationPreflightResult.Success(
+            preparedRequest,
+            readIndex,
+            catalog);
     }
 
     public static RecordingRequestStaticValidationPreflightService CreateSuccessfulPreflightService ()
     {
         return new RecordingRequestStaticValidationPreflightService
         {
-            Result = CreateSuccessPreflightResult(CreateReadIndexInfo(
-                used: true,
-                hit: true,
-                freshness: IndexFreshness.Probable,
-                fallbackReason: null)),
+            Result = CreateSuccessPreflightResult(
+                CreatePreparedRequestContext(),
+                CreateReadIndexInfo(
+                    used: true,
+                    hit: true,
+                    freshness: IndexFreshness.Probable,
+                    fallbackReason: null),
+                RequestStaticValidationCatalog.Available([])),
         };
     }
 
@@ -87,6 +106,31 @@ internal static class PlanServiceTestSupport
         {
             PrepareResult = RequestPreparationResult.Success(CreatePreparedRequestContext()),
         };
+    }
+
+    public static PlanService CreateOpService (
+        UcliOperationDescriptor operationDescriptor,
+        IUnityRequestExecutor unityRequestExecutor)
+    {
+        var preparedRequest = CreateOpPreparedRequestContext();
+        return CreateService(
+            requestPreparationService: new RecordingRequestPreparationService
+            {
+                PrepareResult = RequestPreparationResult.Success(preparedRequest),
+            },
+            staticPreflightService: new RecordingRequestStaticValidationPreflightService
+            {
+                Result = CreateSuccessPreflightResult(
+                    preparedRequest,
+                    CreateReadIndexInfo(
+                        used: true,
+                        hit: true,
+                        freshness: IndexFreshness.Probable,
+                        fallbackReason: null),
+                    RequestStaticValidationCatalog.Available([operationDescriptor])),
+            },
+            unityRequestExecutor: unityRequestExecutor,
+            timeProvider: new ManualTimeProvider());
     }
 
     public static PreparedRequestContext CreatePreparedRequestContext ()
@@ -100,8 +144,56 @@ internal static class PlanServiceTestSupport
                 """,
             request: new ValidateRequest(
                 ProtocolVersion: 1,
-                Steps: Array.Empty<ValidateRequestStep>()),
+                Steps: Array.Empty<ValidateRequestStep>(),
+                AllowPlayMode: false),
             projectContext: ProjectContextTestFactory.CreateRepositoryFixtureProject());
+    }
+
+    public static PreparedRequestContext CreateOpPreparedRequestContext ()
+    {
+        return new PreparedRequestContext(
+            requestJson: OpRequestJson,
+            request: new ValidateRequest(
+                ProtocolVersion: IpcProtocol.CurrentVersion,
+                Steps:
+                [
+                    new ValidateRequestStep(
+                        Kind: IpcExecuteStepKind.Op,
+                        StepIndex: 0,
+                        Op: UcliPrimitiveOperationNames.GoDescribe,
+                        Args: JsonSerializer.SerializeToElement(new
+                        {
+                        })),
+                ],
+                AllowPlayMode: false),
+            projectContext: ProjectContextTestFactory.CreateRepositoryFixtureProject());
+    }
+
+    public static UcliOperationDescriptor CreateOperationDescriptor ()
+    {
+        return CreateOperationDescriptor(
+            resultSchemaJson: null);
+    }
+
+    public static UcliOperationDescriptor CreateResultfulOperationDescriptor (
+        string resultSchemaJson)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(resultSchemaJson);
+        return CreateOperationDescriptor(resultSchemaJson);
+    }
+
+    private static UcliOperationDescriptor CreateOperationDescriptor (
+        string? resultSchemaJson)
+    {
+        return new UcliOperationDescriptor(
+            Name: UcliPrimitiveOperationNames.GoDescribe,
+            Kind: UcliOperationKind.Query,
+            Policy: OperationPolicy.Safe,
+            ArgsSchemaJson: """{"type":"object","additionalProperties":false}""",
+            DescriptorDigest: OperationDescriptorDigest,
+            VerdictContract: null,
+            ResultSchemaJson: resultSchemaJson,
+            Exposure: UcliOperationExposure.Public);
     }
 
     public static ReadIndexInfo CreateReadIndexInfo (

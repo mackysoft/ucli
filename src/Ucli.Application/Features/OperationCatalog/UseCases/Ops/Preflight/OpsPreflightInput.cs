@@ -13,7 +13,7 @@ internal sealed record OpsPreflightInput (
     UnityExecutionMode? Mode,
     int? TimeoutMilliseconds,
     ReadIndexMode? ReadIndexMode,
-    bool FailFast = false)
+    bool FailFast)
 {
     /// <summary> Creates a preflight input from one command input source. </summary>
     public static OpsPreflightInput From (IOpsPreflightInputSource source)

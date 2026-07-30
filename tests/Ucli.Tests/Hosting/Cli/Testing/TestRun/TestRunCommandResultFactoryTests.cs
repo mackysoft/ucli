@@ -1,5 +1,6 @@
 using System.Text.Json;
 using MackySoft.FileSystem;
+using MackySoft.Ucli.Application.Features.Testing.Run.Artifacts;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Hosting.Cli.Testing;
 
@@ -12,16 +13,17 @@ public sealed class TestRunCommandResultFactoryTests
     private static readonly AbsolutePath SummaryJsonPath = AbsolutePath.Resolve(
         ArtifactsDirectory,
         "summary.json");
+    private static readonly ArtifactsSession TestArtifactsSession = TestArtifactPaths.CreateSession(
+        RunIdTestValues.Test,
+        ArtifactsDirectory.Value);
 
     [Fact]
     [Trait("Size", "Small")]
     public void Create_WithFailResult_ReturnsOkEnvelopeWithPayload ()
     {
-        var serviceResult = TestRunServiceResult.Fail(
-            message: "Unity test execution completed with failed tests.",
-            runId: RunIdTestValues.Test,
-            artifactsDir: ArtifactsDirectory,
-            summaryJsonPath: SummaryJsonPath);
+        var serviceResult = TestRunResultTestValues.CreateCompleted(
+            Verdict.Fail,
+            TestArtifactsSession);
 
         var result = TestRunCommandResultFactory.Create(serviceResult);
 
@@ -34,7 +36,8 @@ public sealed class TestRunCommandResultFactoryTests
 
         var payload = SerializePayload(result);
         JsonAssert.For(payload)
-            .HasString("result", "fail")
+            .HasString("state", TextVocabulary.GetText(TestRunCompletedState.Completed))
+            .HasString("verdict", TextVocabulary.GetText(Verdict.Fail))
             .HasString("runId", RunIdTestValues.TestText)
             .HasString("artifactsDir", ArtifactsDirectory.Value)
             .HasString("summaryJsonPath", SummaryJsonPath.Value);
@@ -42,17 +45,67 @@ public sealed class TestRunCommandResultFactoryTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void Create_WithIncompleteResult_ReturnsOkEnvelopeWithIncompleteVerdict ()
+    {
+        var serviceResult = TestRunResultTestValues.CreateCompleted(
+            Verdict.Incomplete,
+            TestArtifactsSession);
+
+        var result = TestRunCommandResultFactory.Create(serviceResult);
+
+        Assert.Equal(CommandResultStatus.Ok, result.Status);
+        Assert.Equal(1, result.ExitCode);
+        Assert.Empty(result.Errors);
+        JsonAssert.For(SerializePayload(result))
+            .HasString("state", TextVocabulary.GetText(TestRunCompletedState.Completed))
+            .HasString("verdict", TextVocabulary.GetText(Verdict.Incomplete));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Create_WithCommandErrorAfterRunCreation_EmitsErrorEnvelopeWithRunContext ()
+    {
+        var errorCode = TestRunErrorCodes.UnityTestExecutionFailed;
+        const string message = "Unity test execution failed.";
+        var serviceResult = TestRunServiceResult.AfterRunCreationError(
+            ApplicationFailure.Create(
+                ApplicationFailureKind.ExternalProcessFailure,
+                message,
+                errorCode,
+                instancePath: null,
+                ApplicationOutcome.InfrastructureError,
+                startupFailure: null),
+            TestArtifactsSession);
+
+        var result = TestRunCommandResultFactory.Create(serviceResult);
+
+        Assert.Equal(CommandResultStatus.Error, result.Status);
+        Assert.Equal((int)CliExitCode.ToolError, result.ExitCode);
+        Assert.Equal(errorCode, Assert.Single(result.Errors).Code);
+        var payload = SerializePayload(result);
+        JsonAssert.For(payload)
+            .HasString("errorKind", TextVocabulary.GetText(TestRunErrorKind.InfraError));
+        var run = payload.GetProperty("run");
+        JsonAssert.For(run)
+            .HasString("runId", RunIdTestValues.TestText)
+            .HasString("artifactsDir", ArtifactsDirectory.Value);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void Create_WithServiceErrorCode_ReturnsErrorEnvelopeWithSameCode ()
     {
-        UcliCode errorCode = new("UNITY_TEST_EXECUTION_FAILED");
+        var errorCode = TestRunErrorCodes.UnityTestExecutionFailed;
         const string message = "Unity test execution failed.";
 
         var serviceResult = TestRunServiceResult.ToolError(
-            message: message,
-            errorCode: errorCode,
-            runId: RunIdTestValues.Test,
-            artifactsDir: ArtifactsDirectory,
-            summaryJsonPath: SummaryJsonPath);
+            ApplicationFailure.Create(
+                ApplicationFailureKind.ExternalProcessFailure,
+                message,
+                errorCode,
+                instancePath: null,
+                ApplicationOutcome.ToolError,
+                startupFailure: null));
 
         var result = TestRunCommandResultFactory.Create(serviceResult);
 
@@ -66,113 +119,62 @@ public sealed class TestRunCommandResultFactoryTests
 
         var payload = SerializePayload(result);
         JsonAssert.For(payload)
-            .HasString("errorKind", "toolError")
-            .HasString("runId", RunIdTestValues.TestText)
-            .HasString("artifactsDir", ArtifactsDirectory.Value)
-            .HasString("summaryJsonPath", SummaryJsonPath.Value);
+            .HasString("errorKind", TextVocabulary.GetText(TestRunErrorKind.ToolError));
+        Assert.Equal(JsonValueKind.Null, payload.GetProperty("run").ValueKind);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void Create_WithStartupFailure_EmitsStartupDiagnosisInErrorPayload ()
+    public void Create_WithStartupFailure_PreservesStructuredStartupDetail ()
     {
+        var startupFailure = ReadyCommandTestData.CreateStartupFailureDetail();
         var serviceResult = TestRunServiceResult.ToolError(
-            message: "Unity startup is blocked.",
-            errorCode: DaemonErrorCodes.DaemonStartupBlocked,
-            runId: RunIdTestValues.Test,
-            artifactsDir: ArtifactsDirectory,
-            summaryJsonPath: SummaryJsonPath,
-            startupFailure: CreateStartupFailureDetail());
+            ApplicationFailure.Create(
+                ApplicationFailureKind.ExternalProcessFailure,
+                "Unity startup failed.",
+                TestRunErrorCodes.UnityTestExecutionFailed,
+                instancePath: null,
+                ApplicationOutcome.ToolError,
+                startupFailure));
 
         var result = TestRunCommandResultFactory.Create(serviceResult);
 
-        Assert.Equal(UcliCommandNames.TestRun, result.Command);
-        Assert.Equal(CommandResultStatus.Error, result.Status);
-        Assert.Single(result.Errors);
-        Assert.Equal(DaemonErrorCodes.DaemonStartupBlocked, result.Errors[0].Code);
-        Assert.NotNull(serviceResult.Failure!.StartupFailure);
-
-        var payload = SerializePayload(result);
-        JsonAssert.For(payload)
-            .HasString("errorKind", "toolError")
+        var startupDetail = SerializePayload(result).GetProperty("startupFailure");
+        JsonAssert.For(startupDetail)
             .HasProperty("startup", startup => startup
-                .HasString("startupStatus", "blocked")
-                .HasString("startupBlockingReason", "compile"))
+                .HasString("startupStatus", TextVocabulary.GetText(DaemonStartupStatus.Blocked))
+                .HasString("startupBlockingReason", TextVocabulary.GetText(DaemonStartupBlockingReason.Compile)))
             .HasProperty("diagnosis", diagnosis => diagnosis
-                .HasString("reason", "unityScriptCompilationFailed"))
-            .HasString("retryDisposition", "retryAfterFix")
-            .HasBoolean("safeToRetryImmediately", false);
+                .HasString("reason", TextVocabulary.GetText(DaemonDiagnosisReason.UnityScriptCompilationFailed))
+                .HasProperty("primaryDiagnostic", diagnostic => diagnostic
+                    .HasString("code", "CS0246")))
+            .HasString(
+                "retryDisposition",
+                TextVocabulary.GetText(DaemonStartupRetryDisposition.RetryAfterFix));
+        Assert.False(startupDetail.GetProperty("safeToRetryImmediately").GetBoolean());
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void InfraError_WithNullErrorCode_ThrowsArgumentNullException ()
-    {
-        Assert.Throws<ArgumentNullException>(() => TestRunServiceResult.InfraError(
-            "Unexpected execution pipeline state.",
-            null!));
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void Create_WithInfrastructureErrorAndInvalidArgumentCode_ReturnsInfrastructureExitCode ()
+    public void Create_WithInfrastructureErrorAndInvalidArgumentCode_ReturnsToolErrorExitCode ()
     {
         const string message = "Daemon session token could not be resolved.";
         var serviceResult = TestRunServiceResult.InfraError(
             message,
-            UcliCoreErrorCodes.InvalidArgument,
-            runId: RunIdTestValues.Test,
-            artifactsDir: ArtifactsDirectory,
-            summaryJsonPath: SummaryJsonPath);
+            UcliCoreErrorCodes.InvalidArgument);
 
         var result = TestRunCommandResultFactory.Create(serviceResult);
 
         Assert.Equal(CommandResultStatus.Error, result.Status);
-        Assert.Equal(2, result.ExitCode);
+        Assert.Equal((int)CliExitCode.ToolError, result.ExitCode);
         var error = Assert.Single(result.Errors);
         Assert.Equal(UcliCoreErrorCodes.InvalidArgument, error.Code);
         Assert.Equal(message, error.Message);
 
         var payload = SerializePayload(result);
         JsonAssert.For(payload)
-            .HasString("errorKind", "infraError")
-            .HasString("runId", RunIdTestValues.TestText)
-            .HasString("artifactsDir", ArtifactsDirectory.Value)
-            .HasString("summaryJsonPath", SummaryJsonPath.Value);
-    }
-
-    private static StartupFailureDetail CreateStartupFailureDetail ()
-    {
-        return new StartupFailureDetail(
-            Startup: new DaemonStartupObservationOutput(
-                StartupStatus: DaemonStartupStatus.Blocked,
-                StartupBlockingReason: DaemonStartupBlockingReason.Compile,
-                LaunchAttemptId: null,
-                EditorMode: DaemonEditorMode.Batchmode,
-                OwnerKind: DaemonSessionOwnerKind.Cli,
-                CanShutdownProcess: true,
-                ProcessId: null,
-                StartedAtUtc: null,
-                ElapsedMilliseconds: null,
-                ProcessAction: DaemonStartupProcessAction.Terminated,
-                ProcessTermination: null,
-                ArtifactPath: null,
-                RetryDisposition: DaemonStartupRetryDisposition.RetryAfterFix),
-            Diagnosis: new DaemonDiagnosisOutput(
-                Reason: DaemonDiagnosisReason.UnityScriptCompilationFailed,
-                Message: "Unity startup is blocked.",
-                ReportedBy: DaemonDiagnosisReportedBy.Cli,
-                IsInferred: true,
-                UpdatedAtUtc: DateTimeOffset.Parse("2026-03-12T04:05:06+00:00"),
-                ProcessId: null,
-                EditorInstancePath: null,
-                ProcessStartedAtUtc: null,
-                UnityLogPath: "/tmp/artifacts/editor.log",
-                StartupPhase: DaemonDiagnosisStartupPhase.ScriptCompilation,
-                ActionRequired: DaemonDiagnosisActionRequired.FixCompileErrors,
-                PrimaryDiagnostic: null),
-            RetryDisposition: DaemonStartupRetryDisposition.RetryAfterFix,
-            SafeToRetryImmediately: false);
+            .HasString("errorKind", TextVocabulary.GetText(TestRunErrorKind.InfraError));
+        Assert.Equal(JsonValueKind.Null, payload.GetProperty("run").ValueKind);
     }
 
     private static JsonElement SerializePayload (CommandResult result)
@@ -181,4 +183,5 @@ public sealed class TestRunCommandResultFactoryTests
             result.Payload,
             CliOutputJsonSerializerOptions.Default);
     }
+
 }

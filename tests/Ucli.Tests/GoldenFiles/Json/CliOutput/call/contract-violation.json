@@ -25,6 +25,8 @@
             "assetGuid": null
           }
         ],
+        "operationDescriptorDigest": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+        "verdict": null,
         "diagnostics": []
       }
     ],
@@ -57,6 +59,8 @@
               "assetGuid": null
             }
           ],
+          "operationDescriptorDigest": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+          "verdict": null,
           "diagnostics": []
         }
       ],

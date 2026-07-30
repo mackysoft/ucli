@@ -1,5 +1,4 @@
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
-using MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Projection;
 using MackySoft.Ucli.Application.Shared.Foundation;
 
 namespace MackySoft.Ucli.Application.Features.Requests.Resolve.UseCases.Resolve;
@@ -9,15 +8,13 @@ internal static class ResolveServiceResultFactory
 {
     private const string SuccessMessage = "uCLI resolve completed.";
 
-    private const string FailureMessage = "uCLI resolve failed.";
-
     /// <summary> Creates one successful resolve result. </summary>
     public static ResolveServiceResult Success (
         Guid requestId,
         IReadOnlyList<OperationExecutionOperationResult> opResults,
         ReadIndexInfo readIndex,
         ProjectIdentityInfo project,
-        IReadOnlyList<OperationExecutionContractViolation>? contractViolations = null)
+        IReadOnlyList<OperationExecutionContractViolation> contractViolations)
     {
         return ResolveServiceResult.Success(requestId, opResults, SuccessMessage, readIndex, project, contractViolations);
     }
@@ -26,8 +23,8 @@ internal static class ResolveServiceResultFactory
     public static ResolveServiceResult FromExecutionError (
         Guid requestId,
         ExecutionError error,
-        ReadIndexInfo? readIndex = null,
-        ProjectIdentityInfo? project = null)
+        ReadIndexInfo readIndex,
+        ProjectIdentityInfo? project)
     {
         ArgumentNullException.ThrowIfNull(error);
 
@@ -38,25 +35,9 @@ internal static class ResolveServiceResultFactory
             [
                 executionError,
             ],
-            readIndex ?? ReadIndexInfoFactory.Unity(fallbackReason: null),
-            project);
-    }
-
-    /// <summary> Creates one failure result from one IPC error. </summary>
-    public static ResolveServiceResult FromIpcError (
-        Guid requestId,
-        OperationExecutionError error,
-        ReadIndexInfo readIndex,
-        ProjectIdentityInfo? project = null)
-    {
-        ArgumentNullException.ThrowIfNull(error);
-        var normalizedError = RequestFailureNormalizer.FromOperationError(error);
-        return Failure(
-            requestId,
-            [],
-            [normalizedError],
             readIndex,
-            project);
+            project,
+            contractViolations: []);
     }
 
     /// <summary> Creates one failed resolve result. </summary>
@@ -65,17 +46,19 @@ internal static class ResolveServiceResultFactory
         IReadOnlyList<OperationExecutionOperationResult> opResults,
         IReadOnlyList<ApplicationFailure> errors,
         ReadIndexInfo readIndex,
-        ProjectIdentityInfo? project = null,
-        IReadOnlyList<OperationExecutionContractViolation>? contractViolations = null)
+        ProjectIdentityInfo? project,
+        IReadOnlyList<OperationExecutionContractViolation> contractViolations)
     {
         ArgumentNullException.ThrowIfNull(opResults);
         ArgumentNullException.ThrowIfNull(readIndex);
+        ArgumentNullException.ThrowIfNull(contractViolations);
+        var failureErrors = RequestServiceResultInvariants.RequireFailureErrors(errors);
 
         return ResolveServiceResult.Failure(
             requestId,
             opResults,
-            errors,
-            RequestFailureNormalizer.ResolveMessage(errors, FailureMessage),
+            failureErrors,
+            failureErrors[0].Message,
             readIndex,
             project,
             contractViolations);

@@ -3,7 +3,7 @@ using MackySoft.Ucli.Application.Features.Assurance.Semantics;
 namespace MackySoft.Ucli.Application.Features.Assurance.Ready;
 
 /// <summary> Represents one verifier entry in a ready assurance payload. </summary>
-internal sealed record ReadyVerifierOutput
+internal sealed record ReadyVerifierOutput : IAssuranceVerdictVerifier
 {
     public ReadyVerifierOutput (
         AssuranceVerifierId Id,
@@ -16,6 +16,12 @@ internal sealed record ReadyVerifierOutput
         if (PrimaryClaims.Any(static code => code is null))
         {
             throw new ArgumentException("Primary claim codes must not contain null.", nameof(PrimaryClaims));
+        }
+        if (Required && PrimaryClaims.Count == 0)
+        {
+            throw new ArgumentException(
+                "A required verifier must identify at least one primary claim.",
+                nameof(PrimaryClaims));
         }
 
         this.Deterministic = Deterministic;

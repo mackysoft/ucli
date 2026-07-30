@@ -45,8 +45,11 @@ internal sealed class OpsService : IOpsService
         if (!OpsListFilter.TryCreate(input, out var filter, out var filterError))
         {
             return OpsListServiceResult.Failure(
-                filterError!,
-                UcliCoreErrorCodes.InvalidArgument);
+                ApplicationFailure.InvalidInput(
+                    filterError!,
+                    UcliCoreErrorCodes.InvalidArgument,
+                    instancePath: null,
+                    startupFailure: null));
         }
 
         var preflightResult = await preflightService.ExecuteAsync(
@@ -55,32 +58,32 @@ internal sealed class OpsService : IOpsService
             .ConfigureAwait(false);
         if (!preflightResult.IsSuccess)
         {
-            return OpsListServiceResult.Failure(
-                preflightResult.Message,
-                preflightResult.ErrorCode!);
+            return OpsListServiceResult.Failure(preflightResult.Error!);
         }
 
         var catalogResult = await catalogAccessService.ReadListAsync(
                 preflightResult.Context!,
                 cancellationToken)
             .ConfigureAwait(false);
-        if (!catalogResult.IsSuccess)
+        if (catalogResult is OpsListReadResult.Failed failedCatalogRead)
         {
-            return OpsListServiceResult.Failure(
-                catalogResult.Message,
-                catalogResult.ErrorCode!,
-                catalogResult.StartupFailure);
+            return OpsListServiceResult.Failure(failedCatalogRead.Error);
         }
 
-        var filterResult = filter!.Apply(catalogResult.Output!.Snapshot.Operations);
+        var successfulCatalogRead = catalogResult as OpsListReadResult.Succeeded
+            ?? throw new InvalidOperationException($"Unsupported ops-list read result '{catalogResult.GetType().Name}'.");
+        var filterResult = filter!.Apply(successfulCatalogRead.Output.Snapshot.Operations);
         if (!filterResult.IsSuccess)
         {
             return OpsListServiceResult.Failure(
-                filterResult.ErrorMessage!,
-                UcliCoreErrorCodes.InvalidArgument);
+                ApplicationFailure.InvalidInput(
+                    filterResult.ErrorMessage!,
+                    UcliCoreErrorCodes.InvalidArgument,
+                    instancePath: null,
+                    startupFailure: null));
         }
 
-        return listResultMapper.Map(catalogResult.Output, filterResult.Operations!);
+        return listResultMapper.Map(successfulCatalogRead.Output, filterResult.Operations!);
     }
 
     /// <inheritdoc />
@@ -97,9 +100,7 @@ internal sealed class OpsService : IOpsService
             .ConfigureAwait(false);
         if (!preflightResult.IsSuccess)
         {
-            return OpsDescribeServiceResult.Failure(
-                preflightResult.Message,
-                preflightResult.ErrorCode!);
+            return OpsDescribeServiceResult.Failure(preflightResult.Error!);
         }
 
         var catalogResult = await catalogAccessService.ReadDescribeAsync(
@@ -107,14 +108,13 @@ internal sealed class OpsService : IOpsService
                 input.OperationName,
                 cancellationToken)
             .ConfigureAwait(false);
-        if (!catalogResult.IsSuccess)
+        if (catalogResult is OpsDescribeReadResult.Failed failedCatalogRead)
         {
-            return OpsDescribeServiceResult.Failure(
-                catalogResult.Message,
-                catalogResult.ErrorCode!,
-                catalogResult.StartupFailure);
+            return OpsDescribeServiceResult.Failure(failedCatalogRead.Error);
         }
 
-        return describeResultMapper.Map(catalogResult.Output!);
+        var successfulCatalogRead = catalogResult as OpsDescribeReadResult.Succeeded
+            ?? throw new InvalidOperationException($"Unsupported ops-describe read result '{catalogResult.GetType().Name}'.");
+        return describeResultMapper.Map(successfulCatalogRead.Output);
     }
 }

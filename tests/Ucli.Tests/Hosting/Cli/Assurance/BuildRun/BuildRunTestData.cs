@@ -16,21 +16,44 @@ internal static class BuildRunTestData
 
     public static readonly ProjectFingerprint ProjectFingerprint = ProjectFingerprintTestFactory.Create("project-fingerprint");
 
-    public static BuildExecutionOutput CreateOutput (
-        AssuranceVerdict? verdict = null,
-        IpcBuildReportResult? reportResult = null,
-        IpcBuildLogCompletionReason? completionReason = null,
-        int errorCount = 0)
+    public static BuildExecutionOutput CreatePassedOutput ()
     {
-        var normalizedReportResult = reportResult ?? IpcBuildReportResult.Succeeded;
-        var normalizedCompletionReason = completionReason ?? IpcBuildLogCompletionReason.Completed;
-        var normalizedVerdict = verdict ?? AssuranceVerdict.Pass;
+        return CreateOutput(
+            IpcBuildReportResult.Succeeded,
+            IpcBuildLogCompletionReason.Completed,
+            errorCount: 0,
+            buildSucceededClaimStatus: AssuranceClaimStatus.Passed);
+    }
+
+    public static BuildExecutionOutput CreateFailedOutput ()
+    {
+        return CreateOutput(
+            IpcBuildReportResult.Failed,
+            IpcBuildLogCompletionReason.Failed,
+            errorCount: 1,
+            buildSucceededClaimStatus: AssuranceClaimStatus.Failed);
+    }
+
+    public static BuildExecutionOutput CreateIncompleteOutput ()
+    {
+        return CreateOutput(
+            IpcBuildReportResult.Succeeded,
+            IpcBuildLogCompletionReason.Completed,
+            errorCount: 0,
+            buildSucceededClaimStatus: AssuranceClaimStatus.Indeterminate);
+    }
+
+    private static BuildExecutionOutput CreateOutput (
+        IpcBuildReportResult reportResult,
+        IpcBuildLogCompletionReason completionReason,
+        int errorCount,
+        AssuranceClaimStatus buildSucceededClaimStatus)
+    {
         var project = ProjectIdentityInfoTestFactory.CreateWithProjectPath(projectPath: ProjectPathTestValues.WorkspaceUnityProject, projectFingerprint: ProjectFingerprint);
-        var build = CreateBuild(normalizedReportResult, normalizedCompletionReason, errorCount);
-        var claims = CreateClaims(normalizedReportResult);
+        var build = CreateBuild(reportResult, completionReason, errorCount);
+        var claims = CreateClaims(build, buildSucceededClaimStatus);
 
         return new BuildExecutionOutput(
-            Verdict: normalizedVerdict,
             Project: project,
             Build: build,
             Verifiers:
@@ -40,8 +63,7 @@ internal static class BuildRunTestData
                     Deterministic: false,
                     Required: true,
                     PrimaryClaims: claims.Where(static claim => claim.Required).Select(static claim => claim.Id).ToArray(),
-                    Effects: BuildPipelineEffectValues,
-                    ReportRef: BuildArtifactKind.Build),
+                    Effects: BuildPipelineEffectValues),
             ],
             Claims: claims,
             Reports: CreateReports(),
@@ -69,7 +91,7 @@ internal static class BuildRunTestData
             Phase: BuildRunProgressPhase.Completed,
             RunnerKind: BuildRunnerKind.BuildPipeline,
             RunnerStatus: IpcBuildReportResult.Succeeded,
-            Verdict: AssuranceVerdict.Pass,
+            Verdict: Verdict.Pass,
             ReportRefs:
             [
                 BuildArtifactKind.Build,
@@ -108,7 +130,6 @@ internal static class BuildRunTestData
                 Source: IpcBuildRunnerResultSource.BuildPipelineBuildReport,
                 Status: reportResult),
             output: new BuildArtifactOutput(
-                ManifestRef: BuildArtifactKind.BuildOutputManifest,
                 ManifestDigest: Repeat('b'),
                 EntryCount: 1,
                 FileCount: 1,
@@ -124,7 +145,6 @@ internal static class BuildRunTestData
                 WarningCount: 1,
                 ReportRef: BuildArtifactKind.BuildReport),
             logs: new BuildLogsOutput(
-                ReportRef: BuildArtifactKind.BuildLog,
                 EntryCount: 3,
                 ErrorCount: errorCount,
                 WarningCount: 1,
@@ -134,29 +154,117 @@ internal static class BuildRunTestData
                     DateTimeOffset.Parse("2026-06-12T00:00:03+00:00"))));
     }
 
-    private static IReadOnlyList<BuildClaimOutput> CreateClaims (IpcBuildReportResult reportResult)
+    public static IpcUnityEditorObservation CreateLifecycleObservation ()
+    {
+        return PlayCommandOutputTestData.CreateLifecycleSnapshot(
+            IpcEditorLifecycleState.Ready,
+            PlayCommandOutputTestData.CreatePlayMode(
+                IpcPlayModeState.Stopped,
+                IpcPlayModeTransition.None,
+                isPlaying: false,
+                isPlayingOrWillChangePlaymode: false),
+            playModeGeneration: 1);
+    }
+
+    public static IpcBuildInputProbe CreateInputProbe (BuildOutput build)
+    {
+        ArgumentNullException.ThrowIfNull(build);
+        return new IpcBuildInputProbe(
+            build.Inputs.InputKind,
+            build.Inputs.Target.StableName,
+            build.Inputs.Target.UnityBuildTarget,
+            "Standalone",
+            build.Inputs.Scenes.Source,
+            build.Inputs.Scenes.Paths,
+            "Development");
+    }
+
+    public static IpcBuildProjectMutationAudit CreateProjectMutationAudit ()
+    {
+        return new IpcBuildProjectMutationAudit(
+            BuildProfileProjectMutationMode.Forbid,
+            IpcBuildProjectMutationAuditCoverage.Full,
+            Mutated: false,
+            BeforeDigest: Repeat('1'),
+            AfterDigest: Repeat('1'),
+            Items: []);
+    }
+
+    private static IReadOnlyList<BuildClaimOutput> CreateClaims (
+        BuildOutput build,
+        AssuranceClaimStatus buildSucceededClaimStatus)
     {
         const AssuranceClaimStatus passed = AssuranceClaimStatus.Passed;
-        var succeededStatus = reportResult == IpcBuildReportResult.Succeeded
-            ? passed
-            : AssuranceClaimStatus.Failed;
-        var reportResultLiteral = TextVocabulary.GetText(reportResult);
+        var reportResultLiteral = TextVocabulary.GetText(build.Summary.Result);
 
         return
         [
-            CreateClaim(BuildClaimCodes.UnityBuildProfileResolved, passed, "Build profile resolved.", BuildArtifactKind.Build),
-            CreateClaim(BuildClaimCodes.UnityReadyForBuild, passed, "Unity was ready for build.", null),
-            CreateClaim(BuildClaimCodes.UnityBuildInputsResolved, passed, "Build inputs resolved.", BuildArtifactKind.Build),
-            CreateClaim(BuildClaimCodes.UnityBuildRunnerResolved, passed, "Build runner resolved.", BuildArtifactKind.Build),
-            CreateClaim(BuildClaimCodes.UnityBuildCompleted, passed, "BuildPipeline completed.", BuildArtifactKind.BuildReport),
-            CreateClaim(BuildClaimCodes.UnityBuildSucceeded, succeededStatus, "BuildPipeline succeeded.", BuildArtifactKind.BuildReport),
-            CreateClaim(BuildClaimCodes.UnityBuildResultAccounted, passed, "Build result accounted.", BuildArtifactKind.Build, reportResultLiteral),
-            CreateClaim(BuildClaimCodes.UnityBuildReportAccounted, passed, "BuildReport artifact accounted.", BuildArtifactKind.BuildReport),
-            CreateClaim(BuildClaimCodes.UnityBuildArtifactsAccounted, passed, "Build artifacts accounted.", BuildArtifactKind.Build),
-            CreateClaim(BuildClaimCodes.UnityBuildOutputDigested, passed, "Build output digested.", BuildArtifactKind.BuildOutputManifest),
-            CreateClaim(BuildClaimCodes.UnityBuildLogsAccounted, passed, "Build logs accounted.", BuildArtifactKind.BuildLog),
-            CreateClaim(BuildClaimCodes.UnityBuildProjectMutationAccounted, passed, "Project mutation accounted.", BuildArtifactKind.Build),
-            CreateClaim(BuildClaimCodes.UnityBuildValidForGeneration, passed, "Build generations captured.", BuildArtifactKind.Build),
+            CreateClaim(
+                BuildClaimCodes.UnityBuildProfileResolved,
+                passed,
+                "Build profile resolved.",
+                BuildProfileEvidenceOutput.Create(build.Profile)),
+            CreateClaim(
+                BuildClaimCodes.UnityReadyForBuild,
+                passed,
+                "Unity was ready for build.",
+                BuildLifecycleEvidenceOutput.Create(CreateLifecycleObservation())),
+            CreateClaim(
+                BuildClaimCodes.UnityBuildInputsResolved,
+                passed,
+                "Build inputs resolved.",
+                BuildInputEvidenceOutput.Create(CreateInputProbe(build))),
+            CreateClaim(
+                BuildClaimCodes.UnityBuildRunnerResolved,
+                passed,
+                "Build runner resolved.",
+                BuildRunnerEvidenceOutput.Create(build.Runner)),
+            CreateClaim(
+                BuildClaimCodes.UnityBuildCompleted,
+                passed,
+                "BuildPipeline completed.",
+                BuildReportSummaryEvidenceOutput.Create(build.Summary)),
+            CreateClaim(
+                BuildClaimCodes.UnityBuildSucceeded,
+                buildSucceededClaimStatus,
+                "BuildPipeline succeeded.",
+                BuildReportSummaryEvidenceOutput.Create(build.Summary)),
+            CreateClaim(
+                BuildClaimCodes.UnityBuildResultAccounted,
+                passed,
+                "Build result accounted.",
+                BuildRunnerResultEvidenceOutput.Create(build.RunnerResult),
+                reportResultLiteral),
+            CreateClaim(
+                BuildClaimCodes.UnityBuildReportAccounted,
+                passed,
+                "BuildReport artifact accounted.",
+                BuildReportSummaryEvidenceOutput.Create(build.Summary)),
+            CreateClaim(
+                BuildClaimCodes.UnityBuildArtifactsAccounted,
+                passed,
+                "Build artifacts accounted.",
+                BuildOutputAccountingEvidenceOutput.Create(build.Output)),
+            CreateClaim(
+                BuildClaimCodes.UnityBuildOutputDigested,
+                passed,
+                "Build output digested.",
+                BuildOutputManifestEvidenceOutput.Create(build.Output)),
+            CreateClaim(
+                BuildClaimCodes.UnityBuildLogsAccounted,
+                passed,
+                "Build logs accounted.",
+                BuildLogEvidenceOutput.Create(build.Logs)),
+            CreateClaim(
+                BuildClaimCodes.UnityBuildProjectMutationAccounted,
+                passed,
+                "Project mutation accounted.",
+                BuildProjectMutationEvidenceOutput.Create(CreateProjectMutationAudit())),
+            CreateClaim(
+                BuildClaimCodes.UnityBuildValidForGeneration,
+                passed,
+                "Build generations captured.",
+                BuildGenerationEvidenceOutput.Create(build.Generations)),
         ];
     }
 
@@ -164,7 +272,7 @@ internal static class BuildRunTestData
         UcliCode code,
         AssuranceClaimStatus status,
         string statement,
-        BuildArtifactKind? evidenceRef,
+        BuildEvidenceOutput evidence,
         string? reportResult = null)
     {
         var subject = BuildClaimCodes.UnityBuildResultAccounted.Equals(code) && reportResult != null
@@ -178,19 +286,6 @@ internal static class BuildRunTestData
                 ["kind"] = "build",
                 ["runId"] = RunId,
             };
-        var evidence = BuildClaimCodes.UnityBuildResultAccounted.Equals(code) && evidenceRef != null && reportResult != null
-            ? new BuildEvidenceOutput(
-                "artifact",
-                evidenceRef,
-                new
-                {
-                    source = "buildPipelineBuildReport",
-                    status = reportResult,
-                })
-            : evidenceRef == null
-                ? new BuildEvidenceOutput("lifecycleSnapshot", EvidenceRef: null, Data: new { state = "ready" })
-                : new BuildEvidenceOutput("artifact", evidenceRef, Data: null);
-
         return new BuildClaimOutput(
             Id: code,
             Status: status,

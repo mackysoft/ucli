@@ -26,7 +26,8 @@ public sealed class ValidateServiceReadIndexDisabledTests
                 CreateReadIndexInfo(
                     used: true,
                     hit: true,
-                    freshness: IndexFreshness.Probable)),
+                    freshness: IndexFreshness.Probable),
+                RequestStaticValidationCatalog.Unavailable),
         };
         var service = new ValidateService(
             requestPreparationService,

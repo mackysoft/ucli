@@ -1,5 +1,6 @@
 using System.Text.Json;
 using MackySoft.FileSystem;
+using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Tests.Requests.Shared.Execution.Conversion;
@@ -8,6 +9,9 @@ internal static class ExecuteResponseConverterTestSupport
 {
     public static ProjectFingerprint ExpectedProjectFingerprint { get; } =
         ProjectFingerprintTestFactory.Create("project-fingerprint");
+
+    public static Sha256Digest OperationDescriptorDigest { get; } =
+        Sha256Digest.Compute("execute-response-converter-operation-descriptor"u8);
 
     public static ResolvedUnityProjectContext ExpectedProject { get; } = ResolvedUnityProjectContext.Create(
         unityProjectRoot: AbsolutePath.Parse(ProjectPathTestValues.RepositoryUnityProject),

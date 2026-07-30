@@ -71,23 +71,22 @@ internal sealed class OpsCatalogSourceRefreshService : IOpsCatalogSourceRefreshS
                     failFast,
                     cancellationToken)
                 .ConfigureAwait(false);
-            if (!attemptResult.FetchResult.IsSuccess)
+            if (attemptResult.FetchResult is OpsCatalogFetchResult.Failed failedFetch)
             {
                 if (snapshot != null)
                 {
                     persistFailure = ReadIndexAccessUtilities.CombineFallbackReasons(
                         persistFailure,
-                        $"{RetryCatalogReadFailurePrefix} {attemptResult.FetchResult.Message}");
+                        $"{RetryCatalogReadFailurePrefix} {failedFetch.Error.Message}");
                     break;
                 }
 
-                return OpsCatalogSourceRefreshResult.Failure(
-                    attemptResult.FetchResult.Message,
-                    attemptResult.FetchResult.ErrorCode!,
-                    attemptResult.FetchResult.StartupFailure);
+                return OpsCatalogSourceRefreshResult.Failure(failedFetch.Error);
             }
 
-            snapshot = attemptResult.FetchResult.Snapshot!;
+            var successfulFetch = attemptResult.FetchResult as OpsCatalogFetchResult.Succeeded
+                ?? throw new InvalidOperationException($"Unsupported ops-catalog fetch result '{attemptResult.FetchResult.GetType().Name}'.");
+            snapshot = successfulFetch.Snapshot;
             persistFailure = attemptResult.PersistFailure;
             if (!attemptResult.ShouldRetry)
             {
@@ -96,8 +95,10 @@ internal sealed class OpsCatalogSourceRefreshService : IOpsCatalogSourceRefreshS
         }
 
         var combinedFallbackReason = ReadIndexAccessUtilities.CombineFallbackReasons(fallbackReason, persistFailure);
+        var refreshedSnapshot = snapshot
+            ?? throw new InvalidOperationException("A successful ops-catalog refresh must produce a snapshot.");
         return OpsCatalogSourceRefreshResult.Success(
-            snapshot!,
+            refreshedSnapshot,
             combinedFallbackReason);
     }
 
@@ -123,13 +124,16 @@ internal sealed class OpsCatalogSourceRefreshService : IOpsCatalogSourceRefreshS
                 timeout,
                 failFast,
                 requireReadinessGate: true,
+                includeEditLoweringOnly: false,
                 cancellationToken: cancellationToken)
             .ConfigureAwait(false);
-        if (!fetchResult.IsSuccess)
+        if (fetchResult is OpsCatalogFetchResult.Failed)
         {
             return (fetchResult, null, false);
         }
 
+        var successfulFetch = fetchResult as OpsCatalogFetchResult.Succeeded
+            ?? throw new InvalidOperationException($"Unsupported ops-catalog fetch result '{fetchResult.GetType().Name}'.");
         if (snapshotBeforeRead == null)
         {
             return (fetchResult, InputFingerprintFailureMessage, false);
@@ -158,8 +162,8 @@ internal sealed class OpsCatalogSourceRefreshService : IOpsCatalogSourceRefreshS
             await artifactWriter.WriteOpsCatalogAsync(
                     project.RepositoryRoot,
                     project.ProjectFingerprint,
-                    fetchResult.Snapshot!.GeneratedAtUtc,
-                    fetchResult.Snapshot.Operations,
+                    successfulFetch.Snapshot.GeneratedAtUtc,
+                    successfulFetch.Snapshot.Operations,
                     persistenceInput.SourceInputsHash,
                     persistenceInput.ManifestInputSnapshot,
                     cancellationToken)

@@ -12,11 +12,6 @@
               "src/Ucli.Unity/Assets/MackySoft/MackySoft.Ucli.Unity/Editor",
               "tools/Ucli.SchemaGenerator"
             ]
-          },
-          {
-            "pathExact": [
-              "src/Ucli.Unity/MackySoft.Ucli.Unity.Editor.csproj"
-            ]
           }
         ]
       }
@@ -52,6 +47,10 @@
           },
           {
             "pathExact": [
+              "src/Ucli.Application/Features/Assurance/Build/Payload/BuildClaimOutput.cs",
+              "src/Ucli.Application/Features/Assurance/Compile/Payload/CompileClaimOutput.cs",
+              "src/Ucli.Application/Features/Assurance/Ready/ReadyClaimOutput.cs",
+              "src/Ucli.Application/Features/Assurance/Verify/Payload/VerifyClaimOutput.cs",
               "src/Ucli.Contracts/Cryptography/Sha256Digest.cs",
               "src/Ucli.Contracts/Ipc/ContractReading/ExecuteArguments/UcliRequestJsonContracts.cs",
               "src/Ucli.Contracts/Ipc/Operations/Resolve/IpcResolveOperationResult.cs",
@@ -85,9 +84,35 @@
         "matches": [
           {
             "pathExact": [
+              "src/Ucli.Application/Features/Requests/Shared/Execution/Validation/RegisteredOperationResultSchemaEvaluator.cs",
               "src/Ucli.Application/Features/Requests/Shared/OperationMetadata/OperationArgsSchemaEvaluator.cs",
               "src/Ucli.Application/Shared/Execution/ReadIndex/Validation/OperationJsonContractAcceptanceValidator.cs",
               "src/Ucli/Hosting/Cli/Schemas/UcliStaticSchemaArtifactValidator.cs"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "CanonicalJsonDigest",
+        "matches": [
+          {
+            "pathExact": [
+              "src/Ucli.Application/Features/Assurance/Build/Profiles/BuildProfileDigestCalculator.cs",
+              "src/Ucli.Application/Features/Assurance/Verify/Profiles/VerifyProfileDigestCalculator.cs",
+              "src/Ucli.Contracts/Index/Catalogs/Ops/UcliOperationDescriptorDigest.cs"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "VerdictFoundation",
+        "matches": [
+          {
+            "assemblyExact": [
+              "MackySoft.Ucli.Contracts"
+            ],
+            "pathPrefix": [
+              "src/Ucli.Contracts/Verdicts"
             ]
           }
         ]
@@ -112,7 +137,6 @@
               "src/Ucli.Infrastructure/Ucli.Infrastructure.csproj",
               "src/Ucli/Ucli.csproj",
               "src/Ucli.Unity/Assets/MackySoft/MackySoft.Ucli.Unity/Editor/MackySoft.Ucli.Unity.Editor.asmdef",
-              "src/Ucli.Unity/MackySoft.Ucli.Unity.Editor.csproj",
               "tools/Ucli.SchemaGenerator/Ucli.SchemaGenerator.csproj"
             ]
           }
@@ -322,13 +346,22 @@
         ]
       },
       {
+        "label": "TextVocabulary",
+        "matches": [
+          {
+            "assemblyExact": [
+              "MackySoft.Text.Vocabularies"
+            ]
+          }
+        ]
+      },
+      {
         "label": "TextContracts",
         "matches": [
           {
             "assemblyExact": [
               "MackySoft.Text",
               "MackySoft.Text.Json",
-              "MackySoft.Text.Vocabularies",
               "MackySoft.Text.Vocabularies.Json"
             ]
           },
@@ -662,6 +695,19 @@
         ]
       },
       {
+        "label": "VerdictContracts",
+        "matches": [
+          {
+            "assemblyExact": [
+              "MackySoft.Ucli.Contracts"
+            ],
+            "pathPrefix": [
+              "src/Ucli.Contracts/Verdicts"
+            ]
+          }
+        ]
+      },
+      {
         "label": "Contracts",
         "matches": [
           {
@@ -741,8 +787,7 @@
               "MackySoft.Ucli.Unity.Execution"
             ],
             "pathExact": [
-              "src/Ucli.Unity/Assets/MackySoft/MackySoft.Ucli.Unity/Editor/MackySoft.Ucli.Unity.Editor.asmdef",
-              "src/Ucli.Unity/MackySoft.Ucli.Unity.Editor.csproj"
+              "src/Ucli.Unity/Assets/MackySoft/MackySoft.Ucli.Unity/Editor/MackySoft.Ucli.Unity.Editor.asmdef"
             ]
           }
         ]
@@ -763,8 +808,7 @@
               "MackySoft.Ucli.Unity.Index"
             ],
             "pathExact": [
-              "src/Ucli.Unity/Assets/MackySoft/MackySoft.Ucli.Unity/Editor/MackySoft.Ucli.Unity.Editor.asmdef",
-              "src/Ucli.Unity/MackySoft.Ucli.Unity.Editor.csproj"
+              "src/Ucli.Unity/Assets/MackySoft/MackySoft.Ucli.Unity/Editor/MackySoft.Ucli.Unity.Editor.asmdef"
             ]
           }
         ]
@@ -785,8 +829,7 @@
               "MackySoft.Ucli.Unity.Ipc"
             ],
             "pathExact": [
-              "src/Ucli.Unity/Assets/MackySoft/MackySoft.Ucli.Unity/Editor/MackySoft.Ucli.Unity.Editor.asmdef",
-              "src/Ucli.Unity/MackySoft.Ucli.Unity.Editor.csproj"
+              "src/Ucli.Unity/Assets/MackySoft/MackySoft.Ucli.Unity/Editor/MackySoft.Ucli.Unity.Editor.asmdef"
             ]
           }
         ]
@@ -807,8 +850,7 @@
               "MackySoft.Ucli.Unity.Project"
             ],
             "pathExact": [
-              "src/Ucli.Unity/Assets/MackySoft/MackySoft.Ucli.Unity/Editor/MackySoft.Ucli.Unity.Editor.asmdef",
-              "src/Ucli.Unity/MackySoft.Ucli.Unity.Editor.csproj"
+              "src/Ucli.Unity/Assets/MackySoft/MackySoft.Ucli.Unity/Editor/MackySoft.Ucli.Unity.Editor.asmdef"
             ]
           }
         ]
@@ -829,8 +871,7 @@
               "MackySoft.Ucli.Unity.Runtime"
             ],
             "pathExact": [
-              "src/Ucli.Unity/Assets/MackySoft/MackySoft.Ucli.Unity/Editor/MackySoft.Ucli.Unity.Editor.asmdef",
-              "src/Ucli.Unity/MackySoft.Ucli.Unity.Editor.csproj"
+              "src/Ucli.Unity/Assets/MackySoft/MackySoft.Ucli.Unity/Editor/MackySoft.Ucli.Unity.Editor.asmdef"
             ]
           }
         ]
@@ -851,8 +892,7 @@
               "MackySoft.Ucli.Unity.ScreenshotCapture"
             ],
             "pathExact": [
-              "src/Ucli.Unity/Assets/MackySoft/MackySoft.Ucli.Unity/Editor/MackySoft.Ucli.Unity.Editor.asmdef",
-              "src/Ucli.Unity/MackySoft.Ucli.Unity.Editor.csproj"
+              "src/Ucli.Unity/Assets/MackySoft/MackySoft.Ucli.Unity/Editor/MackySoft.Ucli.Unity.Editor.asmdef"
             ]
           }
         ]
@@ -883,8 +923,7 @@
               "MackySoft.Ucli.Unity.SceneInspection"
             ],
             "pathExact": [
-              "src/Ucli.Unity/Assets/MackySoft/MackySoft.Ucli.Unity/Editor/MackySoft.Ucli.Unity.Editor.asmdef",
-              "src/Ucli.Unity/MackySoft.Ucli.Unity.Editor.csproj"
+              "src/Ucli.Unity/Assets/MackySoft/MackySoft.Ucli.Unity/Editor/MackySoft.Ucli.Unity.Editor.asmdef"
             ]
           },
           {
@@ -897,8 +936,7 @@
             "pathExact": [
               "src/Ucli.Unity/Assets/MackySoft/MackySoft.Ucli.Unity/Editor/AssemblyInfo.cs",
               "src/Ucli.Unity/Assets/MackySoft/MackySoft.Ucli.Unity/Editor/Compatibility/IsExternalInit.cs",
-              "src/Ucli.Unity/Assets/MackySoft/MackySoft.Ucli.Unity/Editor/MackySoft.Ucli.Unity.Editor.asmdef",
-              "src/Ucli.Unity/MackySoft.Ucli.Unity.Editor.csproj"
+              "src/Ucli.Unity/Assets/MackySoft/MackySoft.Ucli.Unity/Editor/MackySoft.Ucli.Unity.Editor.asmdef"
             ]
           }
         ]
@@ -909,39 +947,37 @@
     "dependencies": [
       {
         "from": {
-          "domain": [
-            "Application"
-          ],
-          "layer": [
-            "ApplicationFeatures"
-          ],
           "codeKind": [
-            "ContractGeneration"
+            "CanonicalJsonDigest"
+          ]
+        },
+        "allow": [
+          {
+            "subject": "external",
+            "domain": [
+              "JsonCanonicalization"
+            ]
+          }
+        ]
+      },
+      {
+        "from": {
+          "codeKind": [
+            "VerdictFoundation"
           ]
         },
         "allow": [
           {
             "subject": "owned",
-            "domain": [
-              "Application"
-            ],
             "layer": [
-              "ApplicationFeatures"
-            ]
-          },
-          {
-            "subject": "owned",
-            "domain": [
-              "Contracts"
-            ],
-            "layer": [
-              "Contracts"
+              "VerdictContracts"
             ]
           },
           {
             "subject": "external",
             "domain": [
-              "JsonSchemaGeneration"
+              "DotNetRuntime",
+              "TextVocabulary"
             ]
           }
         ]
@@ -1002,6 +1038,36 @@
             "subject": "external",
             "domain": [
               "JsonSchemaValidation"
+            ]
+          }
+        ]
+      },
+      {
+        "from": {
+          "domain": [
+            "Application"
+          ],
+          "layer": [
+            "ApplicationFeatures"
+          ],
+          "codeKind": [
+            "ContractDefinition"
+          ]
+        },
+        "allow": [
+          {
+            "subject": "owned",
+            "domain": [
+              "Application"
+            ],
+            "layer": [
+              "ApplicationFeatures"
+            ]
+          },
+          {
+            "subject": "external",
+            "domain": [
+              "JsonSchemaAnnotations"
             ]
           }
         ]
@@ -1232,6 +1298,7 @@
             "subject": "external",
             "domain": [
               "DotNetRuntime",
+              "JsonCanonicalization",
               "JsonSchemaGeneration",
               "TextContracts"
             ]
@@ -1424,6 +1491,37 @@
               "DotNetRuntime",
               "FileSystem",
               "JsonSchemaGeneration"
+            ]
+          }
+        ]
+      },
+      {
+        "from": {
+          "layer": [
+            "ApplicationBootstrap",
+            "ApplicationDiagnostics",
+            "ApplicationFeatures",
+            "ApplicationShared",
+            "CliAdapters",
+            "CliCommandHost",
+            "CliComposition",
+            "CliRoot",
+            "Contracts",
+            "Infrastructure",
+            "UnityExecution",
+            "UnityIndex",
+            "UnityIpc",
+            "UnityProject",
+            "UnityRuntime",
+            "UnityScreenshotCapture",
+            "UnitySupport"
+          ]
+        },
+        "allow": [
+          {
+            "subject": "owned",
+            "layer": [
+              "VerdictContracts"
             ]
           }
         ]
@@ -1797,8 +1895,8 @@
               "DependencyInjection",
               "DotNetRuntime",
               "FileSystem",
-              "JsonCanonicalization",
-              "TextContracts"
+              "TextContracts",
+              "TextVocabulary"
             ]
           }
         ]
@@ -1807,6 +1905,9 @@
         "from": {
           "domain": [
             "Contracts"
+          ],
+          "layer": [
+            "Contracts"
           ]
         },
         "allow": [
@@ -1814,7 +1915,8 @@
             "subject": "external",
             "domain": [
               "DotNetRuntime",
-              "TextContracts"
+              "TextContracts",
+              "TextVocabulary"
             ]
           }
         ]
@@ -1832,7 +1934,8 @@
               "Contracts",
               "DotNetRuntime",
               "FileSystem",
-              "TextContracts"
+              "TextContracts",
+              "TextVocabulary"
             ]
           }
         ]
@@ -1853,7 +1956,8 @@
               "DotNetRuntime",
               "FileSystem",
               "Infrastructure",
-              "TextContracts"
+              "TextContracts",
+              "TextVocabulary"
             ]
           }
         ]
@@ -1929,6 +2033,7 @@
               "FileSystem",
               "Infrastructure",
               "TextContracts",
+              "TextVocabulary",
               "Unity",
               "UnityRuntime"
             ]
@@ -1999,11 +2104,6 @@
             ],
             "pathPrefix": [
               "src/Ucli.Unity/Assets/MackySoft/MackySoft.Ucli.Unity/Editor"
-            ]
-          },
-          {
-            "pathExact": [
-              "src/Ucli.Unity/MackySoft.Ucli.Unity.Editor.csproj"
             ]
           }
         ]

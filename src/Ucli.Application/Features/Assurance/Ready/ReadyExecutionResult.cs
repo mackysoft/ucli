@@ -2,73 +2,71 @@ using MackySoft.Ucli.Application.Shared.Foundation;
 
 namespace MackySoft.Ucli.Application.Features.Assurance.Ready;
 
-/// <summary> Represents the application result returned by the <c>ready</c> use case. </summary>
-internal sealed record ReadyExecutionResult
+/// <summary> Represents one completed or failed <c>ready</c> command execution. </summary>
+internal abstract record ReadyExecutionResult
 {
-    private ReadyExecutionResult (
-        ReadyExecutionOutput? output,
-        IReadOnlyList<ApplicationFailure> errors,
-        string message,
+    private ReadyExecutionResult ()
+    {
+    }
+
+    /// <summary> Creates a completed ready result. </summary>
+    public static CompletedResult Completed (ReadyExecutionOutput output)
+    {
+        return new CompletedResult(output);
+    }
+
+    /// <summary> Creates a failed command result from a structured execution error. </summary>
+    public static FailedResult Failed (
+        ExecutionError error,
         ProjectIdentityInfo? project)
     {
-        Output = output;
-        Errors = errors;
-        Message = message;
-        Project = project;
-    }
-
-    /// <summary> Gets the assurance output on success; otherwise <see langword="null" />. </summary>
-    public ReadyExecutionOutput? Output { get; }
-
-    /// <summary> Gets command-level failures that prevented an assurance packet from being produced. </summary>
-    public IReadOnlyList<ApplicationFailure> Errors { get; }
-
-    /// <summary> Gets the user-facing result message. </summary>
-    public string Message { get; }
-
-    /// <summary> Gets the resolved project identity when project resolution succeeded. </summary>
-    public ProjectIdentityInfo? Project { get; }
-
-    /// <summary> Gets a value indicating whether the command produced an assurance packet. </summary>
-    public bool IsSuccess => Output is not null && Errors.Count == 0;
-
-    /// <summary> Creates a successful ready result. </summary>
-    public static ReadyExecutionResult Success (ReadyExecutionOutput output)
-    {
-        ArgumentNullException.ThrowIfNull(output);
-        return new ReadyExecutionResult(
-            output,
-            Array.Empty<ApplicationFailure>(),
-            output.Verdict == AssuranceVerdict.Pass
-                ? "uCLI ready assurance passed."
-                : "uCLI ready assurance completed.",
-            output.Project);
-    }
-
-    /// <summary> Creates a failed command-level result from a structured execution error. </summary>
-    public static ReadyExecutionResult Failure (
-        ExecutionError error,
-        ProjectIdentityInfo? project = null)
-    {
         ArgumentNullException.ThrowIfNull(error);
-        var failure = ApplicationFailure.FromExecutionError(error);
-        return new ReadyExecutionResult(
-            output: null,
-            [failure],
-            failure.Message,
-            project);
+        return Failed(ApplicationFailure.FromExecutionError(error), project);
     }
 
-    /// <summary> Creates a failed command-level result from an application failure. </summary>
-    public static ReadyExecutionResult Failure (
+    /// <summary> Creates a failed command result from an application failure. </summary>
+    public static FailedResult Failed (
         ApplicationFailure failure,
-        ProjectIdentityInfo? project = null)
+        ProjectIdentityInfo? project)
     {
-        ArgumentNullException.ThrowIfNull(failure);
-        return new ReadyExecutionResult(
-            output: null,
-            [failure],
-            failure.Message,
-            project);
+        return new FailedResult(failure, project);
+    }
+
+    /// <summary> Represents completed verifier execution with a ready assurance packet. </summary>
+    internal sealed record CompletedResult : ReadyExecutionResult
+    {
+        internal CompletedResult (ReadyExecutionOutput output)
+        {
+            Output = output ?? throw new ArgumentNullException(nameof(output));
+        }
+
+        /// <summary> Gets the completed ready assurance output. </summary>
+        public ReadyExecutionOutput Output { get; }
+
+        /// <summary> Gets the user-facing completion message. </summary>
+        public string Message => Output.Verdict == Verdict.Pass
+            ? "uCLI ready assurance passed."
+            : "uCLI ready assurance completed.";
+    }
+
+    /// <summary> Represents command failure before a ready assurance packet was produced. </summary>
+    internal sealed record FailedResult : ReadyExecutionResult
+    {
+        internal FailedResult (
+            ApplicationFailure failure,
+            ProjectIdentityInfo? project)
+        {
+            Failure = failure ?? throw new ArgumentNullException(nameof(failure));
+            Project = project;
+        }
+
+        /// <summary> Gets the failure that prevented verifier completion. </summary>
+        public ApplicationFailure Failure { get; }
+
+        /// <summary> Gets the resolved project when project resolution completed. </summary>
+        public ProjectIdentityInfo? Project { get; }
+
+        /// <summary> Gets the user-facing failure message. </summary>
+        public string Message => Failure.Message;
     }
 }

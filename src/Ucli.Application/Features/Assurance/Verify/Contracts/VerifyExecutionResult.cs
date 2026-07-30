@@ -3,58 +3,69 @@ using MackySoft.Ucli.Application.Shared.Foundation;
 
 namespace MackySoft.Ucli.Application.Features.Assurance.Verify.Contracts;
 
-/// <summary> Represents the result of one verify command execution. </summary>
-internal sealed record VerifyExecutionResult
+/// <summary> Represents one completed or failed verify command execution. </summary>
+internal abstract record VerifyExecutionResult
 {
-    private VerifyExecutionResult (
-        VerifyExecutionOutput? output,
-        IReadOnlyList<ApplicationFailure> errors,
-        string message,
-        ProjectIdentityInfo? project)
+    private VerifyExecutionResult ()
     {
-        Output = output;
-        Errors = errors;
-        Message = message;
-        Project = project;
     }
 
-    /// <summary> Gets a value indicating whether the command produced a verify payload. </summary>
-    public bool IsSuccess => Output != null;
-
-    /// <summary> Gets the verify output when execution succeeded. </summary>
-    public VerifyExecutionOutput? Output { get; }
-
-    /// <summary> Gets command failures when execution failed before producing a verify payload. </summary>
-    public IReadOnlyList<ApplicationFailure> Errors { get; }
-
-    /// <summary> Gets the command message. </summary>
-    public string Message { get; }
-
-    /// <summary> Gets the resolved project identity when available. </summary>
-    public ProjectIdentityInfo? Project { get; }
-
-    /// <summary> Creates a successful verify execution result. </summary>
-    public static VerifyExecutionResult Success (VerifyExecutionOutput output)
+    /// <summary> Creates a completed verify execution result. </summary>
+    public static CompletedResult Completed (VerifyExecutionOutput output)
     {
-        ArgumentNullException.ThrowIfNull(output);
-        return new VerifyExecutionResult(output, [], "Verify assurance completed.", output.Project);
+        return new CompletedResult(output);
     }
 
     /// <summary> Creates a failed verify execution result from an application failure. </summary>
-    public static VerifyExecutionResult Failure (
+    public static FailedResult Failed (
         ApplicationFailure failure,
-        ProjectIdentityInfo? project = null)
+        ProjectIdentityInfo? project)
     {
-        ArgumentNullException.ThrowIfNull(failure);
-        return new VerifyExecutionResult(null, [failure], failure.Message, project);
+        return new FailedResult(failure, project);
     }
 
     /// <summary> Creates a failed verify execution result from an execution error. </summary>
-    public static VerifyExecutionResult Failure (
+    public static FailedResult Failed (
         ExecutionError error,
-        ProjectIdentityInfo? project = null)
+        ProjectIdentityInfo? project)
     {
         ArgumentNullException.ThrowIfNull(error);
-        return Failure(ApplicationFailure.FromExecutionError(error), project);
+        return Failed(ApplicationFailure.FromExecutionError(error), project);
+    }
+
+    /// <summary> Represents completed verifier execution with a verify assurance packet. </summary>
+    internal sealed record CompletedResult : VerifyExecutionResult
+    {
+        internal CompletedResult (VerifyExecutionOutput output)
+        {
+            Output = output ?? throw new ArgumentNullException(nameof(output));
+        }
+
+        /// <summary> Gets the completed verify assurance output. </summary>
+        public VerifyExecutionOutput Output { get; }
+
+        /// <summary> Gets the user-facing completion message. </summary>
+        public string Message => "Verify assurance completed.";
+    }
+
+    /// <summary> Represents command failure before a verify assurance packet was produced. </summary>
+    internal sealed record FailedResult : VerifyExecutionResult
+    {
+        internal FailedResult (
+            ApplicationFailure failure,
+            ProjectIdentityInfo? project)
+        {
+            Failure = failure ?? throw new ArgumentNullException(nameof(failure));
+            Project = project;
+        }
+
+        /// <summary> Gets the failure that prevented verifier completion. </summary>
+        public ApplicationFailure Failure { get; }
+
+        /// <summary> Gets the resolved project when project resolution completed. </summary>
+        public ProjectIdentityInfo? Project { get; }
+
+        /// <summary> Gets the user-facing failure message. </summary>
+        public string Message => Failure.Message;
     }
 }

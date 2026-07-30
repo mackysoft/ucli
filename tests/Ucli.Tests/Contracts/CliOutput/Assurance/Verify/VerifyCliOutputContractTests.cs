@@ -1,5 +1,3 @@
-using MackySoft.Ucli.Tests.Helpers.Assurance;
-
 namespace MackySoft.Ucli.Tests;
 
 public sealed class VerifyCliOutputContractTests
@@ -10,20 +8,18 @@ public sealed class VerifyCliOutputContractTests
     [InlineData("script-compile-focused.json")]
     [InlineData("file-profile-with-test.json")]
     [Trait("Size", "Medium")]
-    public void VerifyGolden_SuccessPayload_SatisfiesSemanticInvariants (string fileName)
+    public void VerifyGolden_SuccessPayload_UsesSuccessfulCommandEnvelope (string fileName)
     {
         using var document = CliOutputGoldenFiles.ReadJsonDocument("verify", fileName);
         var root = document.RootElement;
-        var payload = root.GetProperty("payload");
-
-        var result = CliAssuranceSemanticInvariantValidatorFactory.CreateVerifyValidator().Validate(payload);
 
         Assert.Equal(
             TextVocabulary.GetText(CommandResultStatus.Ok),
             root.GetProperty("status").GetString());
-        Assert.True(
-            result.IsValid,
-            string.Join(Environment.NewLine, result.Violations.Select(static violation => $"{violation.Path}: {violation.Message}")));
+        Assert.Equal(0, root.GetProperty("exitCode").GetInt32());
+        Assert.Equal(
+            TextVocabulary.GetText(Verdict.Pass),
+            root.GetProperty("payload").GetProperty("verdict").GetString());
     }
 
     [Fact]

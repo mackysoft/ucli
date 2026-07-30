@@ -4,65 +4,119 @@ using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Features.Assurance.Build.Contracts;
 
-/// <summary> Represents the application result of one build assurance command. </summary>
-internal sealed record BuildExecutionResult
+/// <summary> Represents one completed or failed build assurance command execution. </summary>
+internal abstract record BuildExecutionResult
 {
     private const string SuccessMessage = "Build completed.";
 
-    private BuildExecutionResult (
-        BuildExecutionOutput? output,
-        ProjectIdentityInfo? project,
-        IReadOnlyList<ApplicationFailure> errors,
-        IpcBuildDirtyState? dirtyState)
+    private BuildExecutionResult ()
     {
-        Output = output;
-        Project = project;
-        Errors = errors;
-        DirtyState = dirtyState;
     }
-
-    /// <summary> Gets the output payload when execution reached verifier completion. </summary>
-    public BuildExecutionOutput? Output { get; }
-
-    /// <summary> Gets the resolved project when available. </summary>
-    public ProjectIdentityInfo? Project { get; }
-
-    /// <summary> Gets command failure errors. </summary>
-    public IReadOnlyList<ApplicationFailure> Errors { get; }
-
-    /// <summary> Gets the dirty state attached to a precondition command failure. </summary>
-    public IpcBuildDirtyState? DirtyState { get; }
-
-    /// <summary> Gets a value indicating whether command execution reached verifier completion. </summary>
-    public bool IsSuccess => Output != null && Errors.Count == 0;
-
-    /// <summary> Gets the user-facing command message. </summary>
-    public string Message => IsSuccess ? SuccessMessage : Errors.FirstOrDefault()?.Message ?? "Build failed.";
 
     /// <summary> Creates a completed build execution result. </summary>
-    public static BuildExecutionResult Success (BuildExecutionOutput output)
+    public static CompletedResult Completed (BuildExecutionOutput output)
     {
-        ArgumentNullException.ThrowIfNull(output);
-        return new BuildExecutionResult(output, output.Project, [], null);
+        return new CompletedResult(output);
     }
 
-    /// <summary> Creates a failed build command result. </summary>
-    public static BuildExecutionResult Failure (
+    /// <summary> Creates a failed build command result without dirty-state evidence. </summary>
+    public static FailedResult Failed (
         ExecutionError error,
-        ProjectIdentityInfo? project = null,
-        IpcBuildDirtyState? dirtyState = null)
+        ProjectIdentityInfo? project)
     {
         ArgumentNullException.ThrowIfNull(error);
-        return Failure(ApplicationFailure.FromExecutionError(error), project, dirtyState);
+        return Failed(ApplicationFailure.FromExecutionError(error), project);
     }
 
-    /// <summary> Creates a failed build command result. </summary>
-    public static BuildExecutionResult Failure (
+    /// <summary> Creates a failed build command result without dirty-state evidence. </summary>
+    public static FailedResult Failed (
         ApplicationFailure failure,
-        ProjectIdentityInfo? project = null,
-        IpcBuildDirtyState? dirtyState = null)
+        ProjectIdentityInfo? project)
     {
-        ArgumentNullException.ThrowIfNull(failure);
-        return new BuildExecutionResult(null, project, [failure], dirtyState);
+        return new FailedResult(failure, project);
+    }
+
+    /// <summary> Creates a failed build command result with observed dirty-state evidence. </summary>
+    public static DirtyStateFailedResult FailedWithDirtyState (
+        ExecutionError error,
+        ProjectIdentityInfo project,
+        IpcBuildDirtyState dirtyState)
+    {
+        ArgumentNullException.ThrowIfNull(error);
+        return FailedWithDirtyState(
+            ApplicationFailure.FromExecutionError(error),
+            project,
+            dirtyState);
+    }
+
+    /// <summary> Creates a failed build command result with observed dirty-state evidence. </summary>
+    public static DirtyStateFailedResult FailedWithDirtyState (
+        ApplicationFailure failure,
+        ProjectIdentityInfo project,
+        IpcBuildDirtyState dirtyState)
+    {
+        return new DirtyStateFailedResult(failure, project, dirtyState);
+    }
+
+    /// <summary> Represents completed verifier execution with a build assurance packet. </summary>
+    internal sealed record CompletedResult : BuildExecutionResult
+    {
+        internal CompletedResult (BuildExecutionOutput output)
+        {
+            Output = output ?? throw new ArgumentNullException(nameof(output));
+        }
+
+        /// <summary> Gets the completed build assurance output. </summary>
+        public BuildExecutionOutput Output { get; }
+
+        /// <summary> Gets the user-facing completion message. </summary>
+        public string Message => SuccessMessage;
+    }
+
+    /// <summary> Represents command failure without observed dirty-state evidence. </summary>
+    internal sealed record FailedResult : BuildExecutionResult
+    {
+        internal FailedResult (
+            ApplicationFailure failure,
+            ProjectIdentityInfo? project)
+        {
+            Failure = failure ?? throw new ArgumentNullException(nameof(failure));
+            Project = project;
+        }
+
+        /// <summary> Gets the failure that prevented verifier completion. </summary>
+        public ApplicationFailure Failure { get; }
+
+        /// <summary> Gets the resolved project when project resolution completed. </summary>
+        public ProjectIdentityInfo? Project { get; }
+
+        /// <summary> Gets the user-facing failure message. </summary>
+        public string Message => Failure.Message;
+    }
+
+    /// <summary> Represents command failure with observed dirty-state evidence. </summary>
+    internal sealed record DirtyStateFailedResult : BuildExecutionResult
+    {
+        internal DirtyStateFailedResult (
+            ApplicationFailure failure,
+            ProjectIdentityInfo project,
+            IpcBuildDirtyState dirtyState)
+        {
+            Failure = failure ?? throw new ArgumentNullException(nameof(failure));
+            Project = project ?? throw new ArgumentNullException(nameof(project));
+            DirtyState = dirtyState ?? throw new ArgumentNullException(nameof(dirtyState));
+        }
+
+        /// <summary> Gets the failure that prevented verifier completion. </summary>
+        public ApplicationFailure Failure { get; }
+
+        /// <summary> Gets the resolved project. </summary>
+        public ProjectIdentityInfo Project { get; }
+
+        /// <summary> Gets the dirty-state evidence observed for the failed precondition. </summary>
+        public IpcBuildDirtyState DirtyState { get; }
+
+        /// <summary> Gets the user-facing failure message. </summary>
+        public string Message => Failure.Message;
     }
 }

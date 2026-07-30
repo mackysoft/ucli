@@ -31,8 +31,8 @@ public sealed class OpsCatalogAccessServiceDescribeIndexTests
             UcliPrimitiveOperationNames.SceneSave,
             CancellationToken.None);
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal(sceneSave.Name, result.Output!.Operation.Name);
+        var succeeded = Assert.IsType<OpsDescribeReadResult.Succeeded>(result);
+        Assert.Equal(sceneSave.Name, succeeded.Output.Operation.Name);
         OpsCatalogAccessInvocationAssert.PersistedDescribeReadFor(
             persistedReader,
             context,
@@ -61,7 +61,7 @@ public sealed class OpsCatalogAccessServiceDescribeIndexTests
             UcliPrimitiveOperationNames.GoDescribe,
             CancellationToken.None);
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal(operation.Name, result.Output!.Operation.Name);
+        var succeeded = Assert.IsType<OpsDescribeReadResult.Succeeded>(result);
+        Assert.Equal(operation.Name, succeeded.Output.Operation.Name);
     }
 }

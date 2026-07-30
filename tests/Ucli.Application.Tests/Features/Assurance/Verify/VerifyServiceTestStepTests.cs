@@ -1,4 +1,3 @@
-using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Assurance.Verify.Contracts;
 using MackySoft.Ucli.Application.Features.Assurance.Verify.Vocabulary;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
@@ -35,11 +34,9 @@ public sealed class VerifyServiceTestStepTests
         var testRunArtifactsDirectory = AbsolutePath.Resolve(
             AbsolutePath.Parse(scope.FullPath),
             "test-artifacts");
-        var testRunService = new RecordingVerifyTestRunService(_ => TestRunServiceResult.Pass(
-            "Tests passed.",
-            TestRunId,
-            testRunArtifactsDirectory,
-            AbsolutePath.Resolve(testRunArtifactsDirectory, "summary.json")));
+        var testRunService = new RecordingVerifyTestRunService(_ => TestRunResultTestValues.CreateCompleted(
+            Verdict.Pass,
+            TestArtifactPaths.CreateSession(TestRunId, testRunArtifactsDirectory.Value)));
         var service = CreateService(scope.FullPath, testRunService: testRunService);
 
         var result = await service.ExecuteAsync(new VerifyCommandInput(
@@ -50,13 +47,13 @@ public sealed class VerifyServiceTestStepTests
             Mode: UnityExecutionMode.Auto,
             TimeoutMilliseconds: 10000));
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal(AssuranceVerdict.Pass, result.Output!.Verdict);
+        var completed = Assert.IsType<VerifyExecutionResult.CompletedResult>(result);
+        Assert.Equal(Verdict.Pass, completed.Output.Verdict);
         VerifyStepInvocationAssert.TestRunRequestedWithPlatform(
             testRunService,
             TestRunPlatform.EditMode);
-        Assert.True(result.Output.Reports.ContainsKey("test.summary"));
-        var claim = Assert.Single(result.Output.Claims);
+        Assert.True(completed.Output.Reports.ContainsKey(AssuranceReportIds.TestSummary.Value));
+        var claim = Assert.Single(completed.Output.Claims);
         Assert.Equal(VerifyClaimCodes.UnityTestsPassed, claim.Id);
         Assert.Equal(AssuranceClaimStatus.Passed, claim.Status);
         Assert.True(claim.Required);
@@ -84,11 +81,9 @@ public sealed class VerifyServiceTestStepTests
         var testRunArtifactsDirectory = AbsolutePath.Resolve(
             AbsolutePath.Parse(scope.FullPath),
             "test-artifacts");
-        var testRunService = new RecordingVerifyTestRunService(_ => TestRunServiceResult.Fail(
-            "Tests failed.",
-            TestRunId,
-            testRunArtifactsDirectory,
-            AbsolutePath.Resolve(testRunArtifactsDirectory, "summary.json")));
+        var testRunService = new RecordingVerifyTestRunService(_ => TestRunResultTestValues.CreateCompleted(
+            Verdict.Fail,
+            TestArtifactPaths.CreateSession(TestRunId, testRunArtifactsDirectory.Value)));
         var service = CreateService(scope.FullPath, testRunService: testRunService);
 
         var result = await service.ExecuteAsync(new VerifyCommandInput(
@@ -99,11 +94,57 @@ public sealed class VerifyServiceTestStepTests
             Mode: UnityExecutionMode.Auto,
             TimeoutMilliseconds: 10000));
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal(AssuranceVerdict.Fail, result.Output!.Verdict);
-        var claim = Assert.Single(result.Output.Claims);
+        var completed = Assert.IsType<VerifyExecutionResult.CompletedResult>(result);
+        Assert.Equal(Verdict.Fail, completed.Output.Verdict);
+        var claim = Assert.Single(completed.Output.Claims);
         Assert.Equal(VerifyClaimCodes.UnityTestsPassed, claim.Id);
         Assert.Equal(AssuranceClaimStatus.Failed, claim.Status);
+        Assert.True(claim.Required);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task Execute_WithFileProfileTestIncomplete_MapsIndeterminatePartialClaim ()
+    {
+        using var scope = TestDirectories.CreateTempScope(
+            "ucli-verify",
+            nameof(Execute_WithFileProfileTestIncomplete_MapsIndeterminatePartialClaim));
+        scope.WriteFile(
+            "verify.json",
+            """
+            {
+              "schemaVersion": 1,
+              "name": "test-profile",
+              "steps": [
+                {
+                  "kind": "test",
+                  "required": true
+                }
+              ]
+            }
+            """);
+        var testRunArtifactsDirectory = AbsolutePath.Resolve(
+            AbsolutePath.Parse(scope.FullPath),
+            "test-artifacts");
+        var testRunService = new RecordingVerifyTestRunService(_ => TestRunResultTestValues.CreateCompleted(
+            Verdict.Incomplete,
+            TestArtifactPaths.CreateSession(TestRunId, testRunArtifactsDirectory.Value)));
+        var service = CreateService(scope.FullPath, testRunService: testRunService);
+
+        var result = await service.ExecuteAsync(new VerifyCommandInput(
+            ProjectPath: null,
+            Profile: null,
+            ProfilePath: "verify.json",
+            FromPath: null,
+            Mode: UnityExecutionMode.Auto,
+            TimeoutMilliseconds: 10000));
+
+        var completed = Assert.IsType<VerifyExecutionResult.CompletedResult>(result);
+        Assert.Equal(Verdict.Incomplete, completed.Output.Verdict);
+        var claim = Assert.Single(completed.Output.Claims);
+        Assert.Equal(VerifyClaimCodes.UnityTestsPassed, claim.Id);
+        Assert.Equal(AssuranceClaimStatus.Indeterminate, claim.Status);
+        Assert.Equal(AssuranceCoverage.Partial, claim.Coverage);
         Assert.True(claim.Required);
     }
 

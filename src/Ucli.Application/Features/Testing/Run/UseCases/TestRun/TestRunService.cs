@@ -42,13 +42,18 @@ internal sealed class TestRunService : ITestRunService
         ArgumentNullException.ThrowIfNull(input);
 
         var preflightResult = await preflightService.ExecuteAsync(input, cancellationToken).ConfigureAwait(false);
-        if (!preflightResult.IsSuccess)
+        if (preflightResult is TestRunPreflightResult.TestRunPreflightFailure preflightFailure)
         {
-            return preflightResult.Failure!;
+            return preflightFailure.CommandError;
         }
 
+        var preflightSuccess = preflightResult as TestRunPreflightResult.TestRunPreflightSuccess
+            ?? throw new ArgumentOutOfRangeException(
+                nameof(preflightResult),
+                preflightResult.GetType(),
+                "Test Run preflight result type must have an explicit service projection.");
         var pipelineResult = await executionPipeline.ExecuteAsync(
-            preflightResult.Context!,
+            preflightSuccess.Context,
             progressSink,
             cancellationToken).ConfigureAwait(false);
         return resultMapper.Map(pipelineResult);

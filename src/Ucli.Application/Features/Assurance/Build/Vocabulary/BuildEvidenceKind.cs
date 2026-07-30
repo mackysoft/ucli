@@ -1,15 +1,42 @@
-
 namespace MackySoft.Ucli.Application.Features.Assurance.Build.Vocabulary;
 
-/// <summary> Defines build claim evidence kind literals. </summary>
+/// <summary> Defines the finite evidence kinds emitted by build assurance. </summary>
 [VocabularyDefinition]
 internal enum BuildEvidenceKind
 {
-    /// <summary> Evidence derived from the resolved build profile. </summary>
     [VocabularyText("buildProfile")]
-    BuildProfile = 0,
+    BuildProfile = 1,
 
-    /// <summary> Evidence derived from resolved BuildPipeline input. </summary>
     [VocabularyText("buildInput")]
-    BuildInput = 1,
+    BuildInput = 2,
+
+    [VocabularyText("readyLifecycleSnapshot")]
+    ReadyLifecycleSnapshot = 3,
+
+    [VocabularyText("buildRunner")]
+    BuildRunner = 4,
+
+    [VocabularyText("buildReportSummary")]
+    BuildReportSummary = 5,
+
+    [VocabularyText("buildLogSummary")]
+    BuildLogSummary = 6,
+
+    [VocabularyText("buildOutputManifest")]
+    BuildOutputManifest = 7,
+
+    [VocabularyText("generationSnapshot")]
+    GenerationSnapshot = 8,
+
+    [VocabularyText("projectMutationAudit")]
+    ProjectMutationAudit = 9,
+
+    [VocabularyText("buildRunnerResult")]
+    BuildRunnerResult = 10,
+
+    [VocabularyText("buildSummary")]
+    BuildSummary = 11,
+
+    [VocabularyText("buildOutputAccounting")]
+    BuildOutputAccounting = 12,
 }

@@ -1,11 +1,13 @@
 using System.Collections.ObjectModel;
 using System.Text.Json.Serialization;
-using MackySoft.Ucli.Contracts.Text;
+using MackySoft.JsonSchema.Generation.Annotations;
+using MackySoft.Ucli.Application.Features.Assurance.Ready;
+using MackySoft.Ucli.Application.Features.Assurance.Semantics;
 
 namespace MackySoft.Ucli.Application.Features.Assurance.Verify.Payload;
 
 /// <summary> Represents one claim in a verify assurance payload. </summary>
-internal sealed record VerifyClaimOutput
+internal sealed record VerifyClaimOutput : IAssuranceVerdictClaim
 {
     public VerifyClaimOutput (
         UcliCode Id,
@@ -15,6 +17,7 @@ internal sealed record VerifyClaimOutput
         AssuranceVerifierId VerifierRef,
         string Statement,
         IReadOnlyDictionary<string, object?> Subject,
+        ReadyClaimValidityOutput? Validity,
         IReadOnlyList<VerifyEvidenceOutput> Evidence,
         IReadOnlyList<VerifyResidualRiskOutput> ResidualRisks)
     {
@@ -39,6 +42,11 @@ internal sealed record VerifyClaimOutput
         ArgumentNullException.ThrowIfNull(Subject);
         ArgumentNullException.ThrowIfNull(Evidence);
         ArgumentNullException.ThrowIfNull(ResidualRisks);
+        if (Evidence.Count == 0)
+        {
+            throw new ArgumentException("Claim evidence must not be empty.", nameof(Evidence));
+        }
+
         if (Evidence.Any(static item => item is null))
         {
             throw new ArgumentException("Claim evidence must not contain null.", nameof(Evidence));
@@ -51,6 +59,7 @@ internal sealed record VerifyClaimOutput
 
         this.Subject = new ReadOnlyDictionary<string, object?>(
             new Dictionary<string, object?>(Subject, StringComparer.Ordinal));
+        this.Validity = Validity;
         this.Evidence = Array.AsReadOnly(Evidence.ToArray());
         this.ResidualRisks = Array.AsReadOnly(ResidualRisks.ToArray());
     }
@@ -69,11 +78,15 @@ internal sealed record VerifyClaimOutput
 
     public IReadOnlyDictionary<string, object?> Subject { get; }
 
+    [ItemCount(1, int.MaxValue)]
     public IReadOnlyList<VerifyEvidenceOutput> Evidence { get; }
 
     public IReadOnlyList<VerifyResidualRiskOutput> ResidualRisks { get; }
 
     /// <summary> Gets optional claim-validity details, used when verify projects ready claims. </summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public object? Validity { get; init; }
+    public ReadyClaimValidityOutput? Validity { get; }
+
+    bool IAssuranceVerdictClaim.HasBlockingResidualRisk =>
+        ResidualRisks.Any(static risk => risk.Blocking);
 }

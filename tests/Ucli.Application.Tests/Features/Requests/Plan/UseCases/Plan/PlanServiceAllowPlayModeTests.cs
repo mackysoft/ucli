@@ -14,14 +14,20 @@ public sealed class PlanServiceAllowPlayModeTests
     {
         var unityIpcRequestExecutor = new RecordingUnityRequestExecutor(CreatePlanSuccess("plan-token-1"));
         var staticPreflightService = CreateSuccessfulPreflightService();
-        var staticValidationService = new RecordingRequestStaticValidationService
+        var operationCatalog = new RecordingOperationCatalog
+        {
+            Operations = [],
+        };
+        var staticValidator = new RecordingRequestStaticValidator
         {
             Result = ValidationResult.Success(),
         };
         var service = CreateService(
             staticPreflightService: staticPreflightService,
-            staticValidationService: staticValidationService,
-            unityRequestExecutor: unityIpcRequestExecutor);
+            operationCatalog: operationCatalog,
+            requestStaticValidator: staticValidator,
+            unityRequestExecutor: unityIpcRequestExecutor,
+            timeProvider: new ManualTimeProvider());
 
         var result = await service.ExecuteAsync(
             RequestId,
@@ -35,7 +41,12 @@ public sealed class PlanServiceAllowPlayModeTests
         PlanServiceInvocationAssert.AllowPlayModeUsedLiveStaticValidation(
             result,
             staticPreflightService,
-            staticValidationService);
+            operationCatalog,
+            staticValidator);
+        var catalogInvocation = Assert.Single(operationCatalog.ProjectGetAllInvocations);
+        Assert.Equal(UnityExecutionMode.Oneshot, catalogInvocation.Mode);
+        Assert.Equal(TimeSpan.FromMilliseconds(1234), catalogInvocation.Timeout);
+        Assert.True(catalogInvocation.FailFast);
         var execution = PlanServiceInvocationAssert.PlanDispatched(unityIpcRequestExecutor);
         Assert.Equal(UnityExecutionMode.Oneshot, execution.Invocation.Mode);
         Assert.Equal(TimeSpan.FromMilliseconds(1234), execution.Invocation.Timeout);
@@ -49,13 +60,18 @@ public sealed class PlanServiceAllowPlayModeTests
     public async Task Execute_WhenAllowPlayModeAndReadIndexModeAreSpecified_ReturnsInvalidArgumentWithoutPreflight ()
     {
         var staticPreflightService = CreateSuccessfulPreflightService();
-        var staticValidationService = new RecordingRequestStaticValidationService
+        var operationCatalog = new RecordingOperationCatalog
+        {
+            Operations = [],
+        };
+        var staticValidator = new RecordingRequestStaticValidator
         {
             Result = ValidationResult.Success(),
         };
         var service = CreateService(
             staticPreflightService: staticPreflightService,
-            staticValidationService: staticValidationService,
+            operationCatalog: operationCatalog,
+            requestStaticValidator: staticValidator,
             unityRequestExecutor: new UnexpectedUnityRequestExecutor());
 
         var result = await service.ExecuteAsync(
@@ -71,7 +87,8 @@ public sealed class PlanServiceAllowPlayModeTests
         PlanServiceInvocationAssert.ReadIndexModeRejectedBeforeStaticValidation(
             result,
             staticPreflightService,
-            staticValidationService);
+            operationCatalog,
+            staticValidator);
     }
 
     [Fact]
@@ -87,7 +104,11 @@ public sealed class PlanServiceAllowPlayModeTests
         ];
         var service = CreateService(
             staticPreflightService: CreateSuccessfulPreflightService(),
-            staticValidationService: new RecordingRequestStaticValidationService
+            operationCatalog: new RecordingOperationCatalog
+            {
+                Operations = [],
+            },
+            requestStaticValidator: new RecordingRequestStaticValidator
             {
                 Result = ValidationResult.Invalid(validationErrors),
             },

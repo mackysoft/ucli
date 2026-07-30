@@ -26,7 +26,7 @@ internal static class BuildProgressAssert
         var completedEntry = Assert.IsType<BuildProgressEntry>(progressSink.Entries[7].Payload);
         Assert.Equal(expectedRunId, completedEntry.RunId);
         Assert.Equal(BuildRunProgressPhase.Completed, completedEntry.Phase);
-        Assert.Equal(AssuranceVerdict.Pass, completedEntry.Verdict);
+        Assert.Equal(Verdict.Pass, completedEntry.Verdict);
         Assert.Equal(
             [
                 BuildArtifactKind.Build,

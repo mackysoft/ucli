@@ -258,9 +258,7 @@ internal static class BuildRunCliOutputClaimFixtureFactory
         {
             return
             [
-                new BuildEvidenceOutput(
-                    TextVocabulary.GetText(BuildEvidenceKind.BuildProfile),
-                    BuildArtifactKind.Build,
+                BuildProfileEvidenceOutput.Create(
                     build.Profile),
             ];
         }
@@ -269,14 +267,8 @@ internal static class BuildRunCliOutputClaimFixtureFactory
         {
             return
             [
-                new BuildEvidenceOutput(
-                    TextVocabulary.GetText(AssuranceEffect.UnityLifecycleRead),
-                    EvidenceRef: null,
-                    Data: new Dictionary<string, object?>(StringComparer.Ordinal)
-                    {
-                        ["lifecycleState"] = "ready",
-                        ["compileGeneration"] = 1L,
-                    }),
+                BuildLifecycleEvidenceOutput.Create(
+                    BuildRunTestData.CreateLifecycleObservation()),
             ];
         }
 
@@ -284,79 +276,60 @@ internal static class BuildRunCliOutputClaimFixtureFactory
         {
             return
             [
-                new BuildEvidenceOutput(
-                    TextVocabulary.GetText(BuildEvidenceKind.BuildInput),
-                    BuildArtifactKind.Build,
-                    new Dictionary<string, object?>(StringComparer.Ordinal)
-                    {
-                        ["buildTarget"] = build.Inputs.Target.StableName,
-                        ["unityBuildTarget"] = build.Inputs.Target.UnityBuildTarget,
-                        ["sceneSource"] = build.Inputs.Scenes.Source,
-                        ["scenes"] = build.Inputs.Scenes.Paths,
-                        ["buildOptions"] = "Development",
-                    }),
+                BuildInputEvidenceOutput.Create(
+                    BuildRunTestData.CreateInputProbe(build)),
             ];
         }
 
         if (BuildClaimCodes.UnityBuildRunnerResolved == code)
         {
-            return [new BuildEvidenceOutput(TextVocabulary.GetText(AssuranceEffect.UnityBuildPipeline), BuildArtifactKind.Build, Data: null)];
+            return [BuildRunnerEvidenceOutput.Create(build.Runner)];
         }
 
         if (BuildClaimCodes.UnityBuildCompleted == code)
         {
-            return [new BuildEvidenceOutput(TextVocabulary.GetText(AssuranceEffect.UnityBuildPipeline), BuildArtifactKind.BuildReport, build.Summary)];
+            return [BuildReportSummaryEvidenceOutput.Create(build.Summary)];
         }
 
         if (BuildClaimCodes.UnityBuildSucceeded == code)
         {
-            return [new BuildEvidenceOutput(TextVocabulary.GetText(AssuranceEffect.UnityBuildReportRead), BuildArtifactKind.BuildReport, build.Summary)];
+            return [BuildReportSummaryEvidenceOutput.Create(build.Summary)];
         }
 
         if (BuildClaimCodes.UnityBuildResultAccounted == code)
         {
-            return [new BuildEvidenceOutput(TextVocabulary.GetText(AssuranceEffect.UnityBuildReportRead), BuildArtifactKind.Build, build.RunnerResult)];
+            return [BuildRunnerResultEvidenceOutput.Create(build.RunnerResult)];
         }
 
         if (BuildClaimCodes.UnityBuildReportAccounted == code)
         {
-            return [new BuildEvidenceOutput(TextVocabulary.GetText(AssuranceEffect.UnityBuildReportRead), BuildArtifactKind.BuildReport, Data: null)];
+            return [BuildReportSummaryEvidenceOutput.Create(build.Summary)];
         }
 
         if (BuildClaimCodes.UnityBuildArtifactsAccounted == code)
         {
-            return [new BuildEvidenceOutput(TextVocabulary.GetText(AssuranceEffect.OutputManifestWrite), BuildArtifactKind.Build, build.Output)];
+            return [BuildOutputAccountingEvidenceOutput.Create(build.Output)];
         }
 
         if (BuildClaimCodes.UnityBuildOutputDigested == code)
         {
-            return [new BuildEvidenceOutput(TextVocabulary.GetText(AssuranceEffect.OutputManifestWrite), BuildArtifactKind.BuildOutputManifest, Data: null)];
+            return [BuildOutputManifestEvidenceOutput.Create(build.Output)];
         }
 
         if (BuildClaimCodes.UnityBuildLogsAccounted == code)
         {
-            return [new BuildEvidenceOutput(TextVocabulary.GetText(AssuranceEffect.UnityLogWindowRead), BuildArtifactKind.BuildLog, build.Logs)];
+            return [BuildLogEvidenceOutput.Create(build.Logs)];
         }
 
         if (BuildClaimCodes.UnityBuildProjectMutationAccounted == code)
         {
             return
             [
-                new BuildEvidenceOutput(
-                    TextVocabulary.GetText(AssuranceEffect.ProjectMutationAudit),
-                    BuildArtifactKind.Build,
-                    new Dictionary<string, object?>(StringComparer.Ordinal)
-                    {
-                        ["mode"] = "forbid",
-                        ["coverage"] = "full",
-                        ["mutated"] = false,
-                        ["beforeDigest"] = new string('1', 64),
-                        ["afterDigest"] = new string('1', 64),
-                        ["items"] = Array.Empty<object>(),
-                    }),
+                BuildProjectMutationEvidenceOutput.Create(
+                    BuildRunTestData.CreateProjectMutationAudit()),
             ];
         }
 
-        return [new BuildEvidenceOutput(TextVocabulary.GetText(AssuranceEffect.GenerationSnapshot), BuildArtifactKind.Build, build.Generations)];
+        return [BuildGenerationEvidenceOutput.Create(build.Generations)];
     }
 }

@@ -14,7 +14,7 @@ internal sealed record CallExecutionOutput
         IReadOnlyList<OperationExecutionOperationResult> opResults,
         CallPlanOutput? plan,
         IpcExecuteReadPostcondition? readPostcondition,
-        OperationExecutionPostReadSource? postReadSource = null)
+        OperationExecutionPostReadSource? postReadSource)
     {
         if (requestId == Guid.Empty)
         {

@@ -11,8 +11,8 @@ internal sealed record ResolveServiceResult
         IReadOnlyList<ApplicationFailure> errors,
         string message,
         ReadIndexInfo readIndex,
-        ProjectIdentityInfo? project = null,
-        IReadOnlyList<OperationExecutionContractViolation>? contractViolations = null)
+        ProjectIdentityInfo? project,
+        IReadOnlyList<OperationExecutionContractViolation> contractViolations)
     {
         if (requestId == Guid.Empty)
         {
@@ -24,7 +24,7 @@ internal sealed record ResolveServiceResult
         Errors = errors;
         Message = message;
         ReadIndex = readIndex;
-        ContractViolations = contractViolations ?? [];
+        ContractViolations = contractViolations;
         Project = project;
     }
 
@@ -64,11 +64,12 @@ internal sealed record ResolveServiceResult
         string message,
         ReadIndexInfo readIndex,
         ProjectIdentityInfo project,
-        IReadOnlyList<OperationExecutionContractViolation>? contractViolations = null)
+        IReadOnlyList<OperationExecutionContractViolation> contractViolations)
     {
         ArgumentNullException.ThrowIfNull(opResults);
         ArgumentNullException.ThrowIfNull(readIndex);
         ArgumentNullException.ThrowIfNull(project);
+        ArgumentNullException.ThrowIfNull(contractViolations);
         ArgumentException.ThrowIfNullOrWhiteSpace(message);
 
         return new ResolveServiceResult(
@@ -88,13 +89,15 @@ internal sealed record ResolveServiceResult
         IReadOnlyList<ApplicationFailure> errors,
         string message,
         ReadIndexInfo readIndex,
-        ProjectIdentityInfo? project = null,
-        IReadOnlyList<OperationExecutionContractViolation>? contractViolations = null)
+        ProjectIdentityInfo? project,
+        IReadOnlyList<OperationExecutionContractViolation> contractViolations)
     {
         ArgumentNullException.ThrowIfNull(opResults);
         ArgumentNullException.ThrowIfNull(readIndex);
+        ArgumentNullException.ThrowIfNull(contractViolations);
         ArgumentException.ThrowIfNullOrWhiteSpace(message);
         var failureErrors = RequestServiceResultInvariants.RequireFailureErrors(errors);
+        _ = ApplicationFailureOutcomeResolver.Resolve(failureErrors);
 
         return new ResolveServiceResult(
             requestId,

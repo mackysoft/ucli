@@ -10,14 +10,15 @@ internal static class UcliOperationDescribeContractValidatorTestData
             "ucli.test.scene.open",
             IpcJsonSerializerOptions.PublicRawOperationContracts.GetTypeInfo(typeof(ScenePathArgs)),
             resultTypeInfo: null);
-        return UcliOperationDescribeContractBuilder.Create(
+        return UcliOperationDescribeContractBuilder.CreateWithoutVerdict(
             generationResult,
             "Opens a Unity scene asset in the editor.",
             CreateAssurance(
                 Array.Empty<UcliOperationSideEffect>(),
                 Array.Empty<UcliTouchedResourceKind>(),
                 UcliOperationPlanMode.ObservesLiveUnity,
-                Array.Empty<string>()));
+                Array.Empty<string>()),
+            codeContract: null);
     }
 
     public static UcliOperationAssuranceContract CreateAssurance (

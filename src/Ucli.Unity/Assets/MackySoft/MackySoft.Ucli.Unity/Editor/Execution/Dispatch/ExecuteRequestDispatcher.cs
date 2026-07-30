@@ -144,7 +144,10 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
                     executionCommand,
                     normalizationResult.Request!,
                     cancellationToken);
-                return ExecuteResponseBuilder.CreateExecutionResponse(context, trace);
+                return ExecuteResponseBuilder.CreateExecutionResponse(
+                    context,
+                    GetExecutedPass(executionCommand),
+                    trace);
             }
             catch (OperationCanceledException)
             {
@@ -169,6 +172,20 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
 
             return command == UcliCommandIds.Plan
                    || command == UcliCommandIds.Call;
+        }
+
+        private static OperationPhase GetExecutedPass (PhaseExecutionCommand executionCommand)
+        {
+            return executionCommand switch
+            {
+                PhaseExecutionCommand.Plan => OperationPhase.Plan,
+                PhaseExecutionCommand.Call => OperationPhase.Call,
+                PhaseExecutionCommand.PlanWithoutToken => OperationPhase.Plan,
+                _ => throw new ArgumentOutOfRangeException(
+                    nameof(executionCommand),
+                    executionCommand,
+                    "Unsupported phase execution command."),
+            };
         }
     }
 }

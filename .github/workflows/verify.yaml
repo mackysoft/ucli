@@ -316,7 +316,7 @@ jobs:
           jq -e '
             .status == "ok"
             and .exitCode == 0
-            and .payload.result == "pass"
+            and .payload.verdict == "pass"
           ' "${json_path}" > /dev/null
         shell: bash
 
@@ -326,7 +326,7 @@ jobs:
           $jsonPath = Join-Path $env:GITHUB_WORKSPACE 'artifacts/unity/${{ matrix.os_name }}/command-result.json'
           $result = Get-Content -Path $jsonPath -Raw | ConvertFrom-Json
 
-          if ($result.status -ne 'ok' -or $result.exitCode -ne 0 -or $result.payload.result -ne 'pass') {
+          if ($result.status -ne 'ok' -or $result.exitCode -ne 0 -or $result.payload.verdict -ne 'pass') {
             throw "Unity command result did not report pass."
           }
         shell: pwsh

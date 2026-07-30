@@ -45,7 +45,7 @@ public sealed class BuildRunProgressEventNamesTests
             Phase: BuildRunProgressPhase.Completed,
             RunnerKind: BuildRunnerKind.BuildPipeline,
             RunnerStatus: IpcBuildReportResult.Succeeded,
-            Verdict: AssuranceVerdict.Pass,
+            Verdict: Verdict.Pass,
             ReportRefs:
             [
                 BuildArtifactKind.Build,
@@ -57,10 +57,18 @@ public sealed class BuildRunProgressEventNamesTests
 
         Assert.Equal(RunIdText, json.GetProperty("runId").GetString());
         Assert.Equal(new string('a', 64), json.GetProperty("profileDigest").GetString());
-        Assert.Equal("completed", json.GetProperty("phase").GetString());
-        Assert.Equal("buildPipeline", json.GetProperty("runnerKind").GetString());
-        Assert.Equal("succeeded", json.GetProperty("runnerStatus").GetString());
-        Assert.Equal("pass", json.GetProperty("verdict").GetString());
+        Assert.Equal(
+            TextVocabulary.GetText(BuildRunProgressPhase.Completed),
+            json.GetProperty("phase").GetString());
+        Assert.Equal(
+            TextVocabulary.GetText(BuildRunnerKind.BuildPipeline),
+            json.GetProperty("runnerKind").GetString());
+        Assert.Equal(
+            TextVocabulary.GetText(IpcBuildReportResult.Succeeded),
+            json.GetProperty("runnerStatus").GetString());
+        Assert.Equal(
+            TextVocabulary.GetText(Verdict.Pass),
+            json.GetProperty("verdict").GetString());
         Assert.Equal(4, json.GetProperty("reportRefs").GetArrayLength());
         Assert.Equal(JsonValueKind.Null, json.GetProperty("errorCode").ValueKind);
     }

@@ -59,7 +59,6 @@ internal static class CodeCatalogPayloadProjector
             descriptor.AppearsIn,
             NullIfEmpty(descriptor.AppliesTo.Select(static command => command.Name).ToArray()),
             descriptor.CoverageImpact,
-            descriptor.VerdictSemantics,
             descriptor.ExecutionSemantics,
             NullIfEmpty(descriptor.Inspect),
             NullIfEmpty(descriptor.RelatedCodes.Select(static code => code.Value).ToArray()));
@@ -95,8 +94,6 @@ internal static class CodeCatalogPayloadProjector
         IReadOnlyList<string>? AppliesTo,
         [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         object? CoverageImpact,
-        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        object? VerdictSemantics,
         [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         UcliErrorExecutionSemantics? ExecutionSemantics,
         [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

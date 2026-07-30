@@ -1,10 +1,11 @@
 using System.Collections.ObjectModel;
-using MackySoft.Ucli.Contracts.Text;
+using MackySoft.JsonSchema.Generation.Annotations;
+using MackySoft.Ucli.Application.Features.Assurance.Semantics;
 
 namespace MackySoft.Ucli.Application.Features.Assurance.Ready;
 
 /// <summary> Represents one claim entry in a ready assurance payload. </summary>
-internal sealed record ReadyClaimOutput
+internal sealed record ReadyClaimOutput : IAssuranceVerdictClaim
 {
     public ReadyClaimOutput (
         UcliCode Id,
@@ -39,6 +40,11 @@ internal sealed record ReadyClaimOutput
         ArgumentNullException.ThrowIfNull(Subject);
         ArgumentNullException.ThrowIfNull(Evidence);
         ArgumentNullException.ThrowIfNull(ResidualRisks);
+        if (Evidence.Count == 0)
+        {
+            throw new ArgumentException("Claim evidence must not be empty.", nameof(Evidence));
+        }
+
         if (Evidence.Any(static item => item is null))
         {
             throw new ArgumentException("Claim evidence must not contain null.", nameof(Evidence));
@@ -72,7 +78,11 @@ internal sealed record ReadyClaimOutput
 
     public ReadyClaimValidityOutput Validity { get; }
 
+    [ItemCount(1, int.MaxValue)]
     public IReadOnlyList<ReadyEvidenceOutput> Evidence { get; }
 
     public IReadOnlyList<ReadyResidualRiskOutput> ResidualRisks { get; }
+
+    bool IAssuranceVerdictClaim.HasBlockingResidualRisk =>
+        ResidualRisks.Any(static risk => risk.Blocking);
 }

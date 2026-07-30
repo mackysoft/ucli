@@ -4,32 +4,38 @@ namespace MackySoft.Ucli.Application.Features.Testing.Run.Execution;
 internal enum UnityTestExecutionFailureKind
 {
     /// <summary> Indicates Unity process failed to start. </summary>
-    StartFailed = 0,
+    StartFailed = 1,
 
     /// <summary> Indicates daemon IPC transport timed out. </summary>
-    IpcTimedOut = 1,
+    IpcTimedOut = 2,
 
     /// <summary> Indicates Unity process execution timed out. </summary>
-    ProcessTimedOut = 2,
+    ProcessTimedOut = 3,
 
     /// <summary> Indicates Unity process execution was canceled. </summary>
-    Canceled = 3,
+    Canceled = 4,
 
     /// <summary> Indicates Unity process exited with an unsupported exit code. </summary>
-    AbnormalExit = 4,
+    AbnormalExit = 5,
 
     /// <summary> Indicates required artifacts were not produced. </summary>
-    ArtifactMissing = 5,
-
-    /// <summary> Indicates client-side daemon execution setup failed before Unity request dispatch. </summary>
-    ClientSetupFailed = 6,
-
-    /// <summary> Indicates the Unity project is already open or locked by another Unity process. </summary>
-    ProjectAlreadyOpen = 7,
+    ArtifactMissing = 6,
 
     /// <summary> Indicates streamed Unity test progress violated the public test-run progress contract. </summary>
-    ProgressProtocolViolation = 8,
+    ProgressProtocolViolation = 7,
 
     /// <summary> Indicates the IPC transport ended before the complete response was read. </summary>
-    IpcTransportInterrupted = 9,
+    IpcTransportInterrupted = 8,
+
+    /// <summary> Indicates the Unity request boundary reported a failure without process-exit evidence. </summary>
+    RequestFailed = 9,
+
+    /// <summary> Indicates the Unity response did not satisfy the test-run response contract. </summary>
+    InvalidResponse = 10,
+
+    /// <summary> Indicates an unexpected internal failure while executing the Unity request. </summary>
+    InternalError = 11,
+
+    /// <summary> Indicates the executed operation rejected invalid test-run input. </summary>
+    InvalidArgument = 12,
 }

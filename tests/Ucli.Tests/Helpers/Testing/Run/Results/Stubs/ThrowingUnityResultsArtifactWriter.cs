@@ -14,7 +14,7 @@ internal sealed class ThrowingUnityResultsArtifactWriter : IUnityResultsArtifact
 
     public ValueTask WriteAsync (
         ArtifactsSession session,
-        UnityResultsXmlParseResult parseResult,
+        TestRunVerdictEvaluation verdictEvaluation,
         CancellationToken cancellationToken = default)
     {
         throw exception;

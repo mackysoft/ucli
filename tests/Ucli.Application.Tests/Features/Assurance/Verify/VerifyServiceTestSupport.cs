@@ -9,6 +9,7 @@ using MackySoft.Ucli.Application.Features.Assurance.Verify.Input;
 using MackySoft.Ucli.Application.Features.Assurance.Verify.Profiles;
 using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Common;
 using MackySoft.Ucli.Application.Shared.Context;
+using MackySoft.Ucli.Application.Tests.Features.Assurance.Payload;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Tests.Features.Assurance.Verify;
@@ -43,11 +44,9 @@ internal static class VerifyServiceTestSupport
                 repositoryRoot: repositoryRoot))),
             readyService ?? new RecordingVerifyReadyService(input => CreateReadyResult(input.Target, project)),
             compileService ?? new RecordingVerifyCompileService(_ => CreateCompileResult(project)),
-            testRunService ?? new RecordingVerifyTestRunService(_ => TestRunServiceResult.Pass(
-                "Tests passed.",
-                TestRunId,
-                testRunArtifactsDirectory,
-                AbsolutePath.Resolve(testRunArtifactsDirectory, "summary.json"))),
+            testRunService ?? new RecordingVerifyTestRunService(_ => TestRunResultTestValues.CreateCompleted(
+                Verdict.Pass,
+                TestArtifactPaths.CreateSession(TestRunId, testRunArtifactsDirectory.Value))),
             logsService ?? new RecordingVerifyLogsUnityService((_, _, _) => ValueTask.FromResult(LogsReadServiceResult.Completed(0, null))),
             profileFileReader ?? new StubVerifyProfileFileReader((profilePath, root) =>
             {
@@ -84,8 +83,8 @@ internal static class VerifyServiceTestSupport
     {
         var claimCode = ReadyClaimCodes.ForTarget(target);
         var verifierId = new AssuranceVerifierId("ready.lifecycle");
-        return ReadyExecutionResult.Success(new ReadyExecutionOutput(
-            Verdict: AssuranceVerdict.Pass,
+        var lifecycle = AssuranceExecutionOutputTestFactory.CreateReadyLifecycleOutput();
+        return ReadyExecutionResult.Completed(new ReadyExecutionOutput(
             Project: project,
             Verifiers:
             [
@@ -108,10 +107,11 @@ internal static class VerifyServiceTestSupport
                     {
                         ["target"] = TextVocabulary.GetText(target),
                     },
-                    Validity: new ReadyClaimValidityOutput(
-                        ReadyValidityKind.ProbeOnly,
-                        GuaranteesReusableSession: false),
-                    Evidence: [],
+                    Validity: ReadyClaimValidityOutput.ProbeOnly(),
+                    Evidence:
+                    [
+                        ReadyLifecycleEvidenceOutput.Create(lifecycle),
+                    ],
                     ResidualRisks: [])
             ],
             Reports: new Dictionary<string, AssuranceReportReference>(StringComparer.Ordinal),
@@ -121,7 +121,7 @@ internal static class VerifyServiceTestSupport
             ResolvedMode: AssuranceResolvedExecutionMode.Oneshot,
             SessionKind: AssuranceSessionKind.TransientProbe,
             TimeoutMilliseconds: 10000,
-            Lifecycle: null,
+            Lifecycle: lifecycle,
             ReadIndex: null));
     }
 
@@ -142,8 +142,23 @@ internal static class VerifyServiceTestSupport
             "compile",
             "run-1",
             "summary.json");
-        return CompileExecutionResult.Success(new CompileExecutionOutput(
-            Verdict: failed ? AssuranceVerdict.Fail : AssuranceVerdict.Pass,
+        var compileDiagnosticsPath = Path.Combine(
+            project.ProjectPath,
+            ".ucli",
+            "local",
+            "compile",
+            "run-1",
+            "diagnostics.json");
+        var scriptCompilation = new CompileScriptCompilationOutput(
+            Started: true,
+            Completed: true,
+            CompileGenerationBefore: 1,
+            CompileGenerationAfter: 2,
+            Diagnostics: new CompileDiagnosticsOutput(
+                ErrorCount: failed ? 1 : 0,
+                WarningCount: 0,
+                PrimaryDiagnostic: null));
+        return CompileExecutionResult.Completed(new CompileExecutionOutput(
             Project: project,
             Verifiers:
             [
@@ -153,7 +168,7 @@ internal static class VerifyServiceTestSupport
                     Required: true,
                     PrimaryClaims: [CompileClaimCodes.UnityCompileNoErrors],
                     Effects: AssuranceEffectSets.Compile,
-                    ReportRef: "compile.summary")
+                    ReportRef: AssuranceReportIds.CompileSummary)
             ],
             Claims:
             [
@@ -165,12 +180,18 @@ internal static class VerifyServiceTestSupport
                     VerifierRef: new AssuranceVerifierId("compile"),
                     Statement: "Unity script compilation has no errors.",
                     Subject: new Dictionary<string, object?>(StringComparer.Ordinal),
-                    Evidence: [],
+                    Evidence:
+                    [
+                        CompileScriptEvidenceOutput.Create(
+                            AssuranceReportIds.CompileDiagnostics,
+                            scriptCompilation),
+                    ],
                     ResidualRisks: [])
             ],
             Reports: new Dictionary<string, AssuranceReportReference>(StringComparer.Ordinal)
             {
-                ["compile.summary"] = AssuranceReportReference.FromPath(compileSummaryPath, digest: null),
+                [AssuranceReportIds.CompileSummary.Value] = AssuranceReportReference.FromPath(compileSummaryPath, digest: null),
+                [AssuranceReportIds.CompileDiagnostics.Value] = AssuranceReportReference.FromPath(compileDiagnosticsPath, digest: null),
             },
             ResidualRisks: [],
             RequestedMode: AssuranceRequestedExecutionMode.Auto,
@@ -185,15 +206,7 @@ internal static class VerifyServiceTestSupport
                     StartedAtUtc: DateTimeOffset.Parse("2026-05-17T00:00:00Z"),
                     CompletedAtUtc: DateTimeOffset.Parse("2026-05-17T00:00:01Z"),
                     Completed: true),
-                scriptCompilation: new CompileScriptCompilationOutput(
-                    Started: true,
-                    Completed: true,
-                    CompileGenerationBefore: 1,
-                    CompileGenerationAfter: 2,
-                    Diagnostics: new CompileDiagnosticsOutput(
-                        ErrorCount: failed ? 1 : 0,
-                        WarningCount: 0,
-                        PrimaryDiagnostic: null)),
+                scriptCompilation: scriptCompilation,
                 domainReload: new CompileDomainReloadOutput(
                     ReloadRequired: false,
                     ReloadObserved: false,

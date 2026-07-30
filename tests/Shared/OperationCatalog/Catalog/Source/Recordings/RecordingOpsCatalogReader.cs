@@ -12,7 +12,11 @@ internal sealed class RecordingOpsCatalogReader : IOpsCatalogReader
     public IReadOnlyList<Invocation> Invocations => invocations;
 
     public OpsCatalogFetchResult? Result { get; set; }
-        = OpsCatalogFetchResult.Failure("not configured", UcliCoreErrorCodes.InternalError);
+        = OpsCatalogFetchResult.Failure(ApplicationFailure.InternalError(
+            "not configured",
+            UcliCoreErrorCodes.InternalError,
+            instancePath: null,
+            startupFailure: null));
 
     public void Enqueue (OpsCatalogFetchResult result)
     {

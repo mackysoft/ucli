@@ -42,38 +42,29 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     Message: $"Operation '{operation.Op}' is not implemented.",
                     OpId: operation.Id);
                 return new OperationPlanStepOutcome(
-                    OperationTrace: new OperationPhaseTrace(
-                        OpId: operation.Id,
-                        Op: operation.Op,
-                        Phase: OperationPhase.Validate,
-                        Applied: false,
-                        Changed: false,
-                        Touched: Array.Empty<OperationTouch>(),
-                        Failure: missingOperationFailure)
-                    {
-                        Result = null,
-                    },
+                    OperationTrace: OperationPhaseTrace.Variants.ValidationFailureBeforeContractResolution(
+                        operation.Id,
+                        operation.Op,
+                        missingOperationFailure),
                     Error: missingOperationFailure,
                     PreparedOperation: null);
             }
 
-            var contractFacts = OperationPhaseTrace.ContractFacts.FromMetadata(phaseOperation.Metadata);
+            var contractFacts = OperationContractFacts.FromMetadata(phaseOperation.Metadata);
             var preflightFailure = operationPreflight?.Invoke(operation, phaseOperation);
             if (preflightFailure != null)
             {
                 return new OperationPlanStepOutcome(
-                    OperationTrace: new OperationPhaseTrace(
-                        OpId: operation.Id,
-                        Op: operation.Op,
-                        Phase: OperationPhase.Validate,
-                        Applied: false,
-                        Changed: false,
-                        Touched: Array.Empty<OperationTouch>(),
-                        Failure: preflightFailure)
-                    {
-                        Result = null,
-                        Contracts = contractFacts,
-                    },
+                    OperationTrace: OperationPhaseTrace.Variants.ValidationFailure(
+                        opId: operation.Id,
+                        op: operation.Op,
+                        outcome: OperationPhaseStepResult.Failed(
+                            preflightFailure,
+                            applied: false,
+                            changed: false,
+                            result: null,
+                            Array.Empty<OperationTouch>()),
+                        contracts: contractFacts),
                     Error: preflightFailure,
                     PreparedOperation: null);
             }
@@ -94,20 +85,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             if (!validateStepResult.IsSuccess)
             {
                 return new OperationPlanStepOutcome(
-                    OperationTrace: new OperationPhaseTrace(
-                        OpId: operation.Id,
-                        Op: operation.Op,
-                        Phase: OperationPhase.Validate,
-                        Applied: validateStepResult.Applied,
-                        Changed: validateStepResult.Changed,
-                        Touched: touched.ToArray(),
-                        Failure: validateStepResult.Failure)
-                    {
-                        Result = validateStepResult.Result,
-                        Diagnostics = diagnostics.ToArray(),
-                        Persisted = persisted,
-                        Contracts = contractFacts,
-                    },
+                    OperationTrace: OperationPhaseTrace.Variants.ValidationFailure(
+                        opId: operation.Id,
+                        op: operation.Op,
+                        outcome: validateStepResult.WithTraceAggregation(
+                            touched.ToArray(),
+                            diagnostics.ToArray(),
+                            persisted),
+                        contracts: contractFacts),
                     Error: validateStepResult.Failure,
                     PreparedOperation: null);
             }
@@ -125,20 +110,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             if (!planStepResult.IsSuccess)
             {
                 return new OperationPlanStepOutcome(
-                    OperationTrace: new OperationPhaseTrace(
-                        OpId: operation.Id,
-                        Op: operation.Op,
-                        Phase: OperationPhase.Plan,
-                        Applied: planStepResult.Applied,
-                        Changed: planStepResult.Changed,
-                        Touched: touched.ToArray(),
-                        Failure: planStepResult.Failure)
-                    {
-                        Result = planStepResult.Result,
-                        Diagnostics = diagnostics.ToArray(),
-                        Persisted = persisted,
-                        Contracts = contractFacts,
-                    },
+                    OperationTrace: OperationPhaseTrace.Variants.PlanFailure(
+                        opId: operation.Id,
+                        op: operation.Op,
+                        outcome: planStepResult.WithTraceAggregation(
+                            touched.ToArray(),
+                            diagnostics.ToArray(),
+                            persisted),
+                        contracts: contractFacts),
                     Error: planStepResult.Failure,
                     PreparedOperation: null);
             }
@@ -146,20 +125,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             var successfulTouched = touched.ToArray();
             var successfulDiagnostics = diagnostics.ToArray();
             return new OperationPlanStepOutcome(
-                OperationTrace: new OperationPhaseTrace(
-                    OpId: operation.Id,
-                    Op: operation.Op,
-                    Phase: OperationPhase.Plan,
-                    Applied: planStepResult.Applied,
-                    Changed: planStepResult.Changed,
-                    Touched: successfulTouched,
-                    Failure: null)
-                {
-                    Result = planStepResult.Result,
-                    Diagnostics = successfulDiagnostics,
-                    Persisted = persisted,
-                    Contracts = contractFacts,
-                },
+                OperationTrace: OperationPhaseTrace.Variants.PlanSuccess(
+                    opId: operation.Id,
+                    op: operation.Op,
+                    outcome: planStepResult.WithTraceAggregation(
+                        successfulTouched,
+                        successfulDiagnostics,
+                        persisted),
+                    contracts: contractFacts),
                 Error: null,
                 PreparedOperation: new PreparedOperation(
                     Operation: operation,

@@ -12,11 +12,15 @@ internal sealed class StubUnityResultsConverter : IUnityResultsConverter
         this.convert = convert;
     }
 
+    public bool? LastAllowEmptyTestRun { get; private set; }
+
     public ValueTask<UnityResultsConversionResult> ConvertAsync (
         ArtifactsSession session,
+        bool allowEmptyTestRun,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        LastAllowEmptyTestRun = allowEmptyTestRun;
         return convert(session);
     }
 }

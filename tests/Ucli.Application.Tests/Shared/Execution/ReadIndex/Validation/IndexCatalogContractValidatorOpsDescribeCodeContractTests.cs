@@ -12,6 +12,7 @@ public sealed class IndexCatalogContractValidatorOpsDescribeCodeContractTests
         {
             Kind = UcliOperationKind.Mutation,
             Policy = OperationPolicy.Dangerous,
+            VerdictContract = null,
             Assurance = new UcliOperationAssuranceContract(
                 sideEffects: [UcliOperationSideEffect.ArbitrarySourceExecution],
                 touchedKinds: Array.Empty<UcliTouchedResourceKind>(),
@@ -43,6 +44,7 @@ public sealed class IndexCatalogContractValidatorOpsDescribeCodeContractTests
                         Array.Empty<UcliCodeApiMemberContract>()),
                 }),
         };
+        entry = IndexCatalogContractValidatorOpsTestSupport.WithDescriptorDigest(entry);
         var contract = IndexCatalogContractValidatorOpsTestSupport.CreateOpsDescribe(entry);
 
         var result = OpsDescribeSnapshot.TryCreate(contract, out var snapshot);

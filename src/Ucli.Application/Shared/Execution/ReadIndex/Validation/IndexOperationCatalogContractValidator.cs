@@ -75,28 +75,58 @@ internal static class IndexOperationCatalogContractValidator
     {
         operation = null;
         error = null;
-        if (entry == null
-            || string.IsNullOrWhiteSpace(entry.Name)
-            || !entry.Kind.HasValue
-            || !TextVocabulary.IsDefined(entry.Kind.Value)
-            || !entry.Policy.HasValue
-            || !TextVocabulary.IsDefined(entry.Policy.Value)
-            || !entry.PlayModeSupport.HasValue
-            || !TextVocabulary.IsDefined(entry.PlayModeSupport.Value)
-            || !TryResolveCatalogExposure(
+        if (entry == null || !HasRequiredContractValues(entry))
+        {
+            error = $"Operation entry at index {index} is invalid.";
+            return false;
+        }
+
+        if (!TryResolveCatalogExposure(
                 entry.Exposure,
                 allowEditLoweringOnlyEntries,
                 out var exposure,
                 out error)
+            || !TryValidateDescriptorDigest(entry, out error)
             || !TryValidateOpsDescribeContract(entry, exposure, out error))
         {
-            error ??= $"Operation entry at index {index} is invalid.";
             return false;
         }
 
         operation = new ValidatedOpsOperation(
             entry,
             exposure);
+        error = null;
+        return true;
+    }
+
+    private static bool HasRequiredContractValues (IndexOpEntryJsonContract entry)
+    {
+        return !string.IsNullOrWhiteSpace(entry.Name)
+            && entry.Kind.HasValue
+            && TextVocabulary.IsDefined(entry.Kind.Value)
+            && entry.Policy.HasValue
+            && TextVocabulary.IsDefined(entry.Policy.Value)
+            && entry.PlayModeSupport.HasValue
+            && TextVocabulary.IsDefined(entry.PlayModeSupport.Value);
+    }
+
+    private static bool TryValidateDescriptorDigest (
+        IndexOpEntryJsonContract entry,
+        out string? error)
+    {
+        if (entry.DescriptorDigest == null)
+        {
+            error = $"Operation entry '{entry.Name}' is missing descriptorDigest.";
+            return false;
+        }
+
+        var calculatedDigest = UcliOperationDescriptorDigest.Calculate(entry);
+        if (entry.DescriptorDigest != calculatedDigest)
+        {
+            error = $"Operation entry '{entry.Name}' descriptorDigest does not match its semantic descriptor.";
+            return false;
+        }
+
         error = null;
         return true;
     }
@@ -146,6 +176,7 @@ internal static class IndexOperationCatalogContractValidator
             entry.Description,
             entry.ArgsContract,
             entry.ResultContract,
+            entry.VerdictContract,
             entry.Assurance,
             entry.CodeContract);
         var ownerName = $"Operation entry '{entry.Name}'";
@@ -177,22 +208,34 @@ internal static class IndexOperationCatalogContractValidator
             return false;
         }
 
+        return TryValidateGeneratedContracts(entry, ownerName, out error);
+    }
+
+    private static bool TryValidateGeneratedContracts (
+        IndexOpEntryJsonContract entry,
+        string ownerName,
+        out string? error)
+    {
+        if (entry.ArgsContract is not { } argsContract)
+        {
+            error = $"{ownerName} has an invalid argsContract.";
+            return false;
+        }
+
         if (!OperationJsonContractAcceptanceValidator.TryValidate(
-                entry.ArgsContract!.Value,
+                argsContract,
                 ownerName,
                 "argsContract",
-                out error)
-            || (entry.ResultContract != null
-                && !OperationJsonContractAcceptanceValidator.TryValidate(
-                    entry.ResultContract.Value,
-                    ownerName,
-                    "resultContract",
-                    out error)))
+                out error))
         {
             return false;
         }
 
-        error = null;
-        return true;
+        return entry.ResultContract == null
+            || OperationJsonContractAcceptanceValidator.TryValidate(
+                entry.ResultContract.Value,
+                ownerName,
+                "resultContract",
+                out error);
     }
 }

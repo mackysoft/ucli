@@ -1,5 +1,5 @@
-using MackySoft.Ucli.Application.Features.Assurance.Semantics;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
+using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Context;
 using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
@@ -71,14 +71,17 @@ internal sealed class ReadyService : IReadyService
 
         if (input.IsReadIndexModeSpecified && input.Target != ReadyTarget.ReadIndex)
         {
-            return ReadyExecutionResult.Failure(ExecutionError.InvalidArgument(
-                "--readIndexMode is only supported when --for readIndex."));
+            return ReadyExecutionResult.Failed(ExecutionError.InvalidArgument(
+                "--readIndexMode is only supported when --for readIndex.", UcliCoreErrorCodes.InvalidArgument),
+                project: null);
         }
 
         var contextResult = await projectContextResolver.ResolveAsync(input.ProjectPath, cancellationToken).ConfigureAwait(false);
         if (!contextResult.IsSuccess)
         {
-            return ReadyExecutionResult.Failure(contextResult.Error!);
+            return ReadyExecutionResult.Failed(
+                contextResult.Error!,
+                project: null);
         }
 
         var context = contextResult.Context!;
@@ -89,7 +92,7 @@ internal sealed class ReadyService : IReadyService
             context.Config);
         if (!timeoutResult.IsSuccess)
         {
-            return ReadyExecutionResult.Failure(timeoutResult.Error!, project);
+            return ReadyExecutionResult.Failed(timeoutResult.Error!, project);
         }
 
         var timeout = timeoutResult.Timeout!.Value;
@@ -99,15 +102,15 @@ internal sealed class ReadyService : IReadyService
         {
             if (input.Mode is UnityExecutionMode.Daemon or UnityExecutionMode.Oneshot)
             {
-                return ReadyExecutionResult.Failure(ExecutionError.InvalidArgument(
-                    "--mode daemon and --mode oneshot are not supported when --for readIndex because read-index readiness is artifact-only."),
+                return ReadyExecutionResult.Failed(ExecutionError.InvalidArgument(
+                    "--mode daemon and --mode oneshot are not supported when --for readIndex because read-index readiness is artifact-only.", UcliCoreErrorCodes.InvalidArgument),
                     project);
             }
 
             var readIndexModeResult = ResolveReadyReadIndexMode(input.ReadIndexMode, context.Config);
             if (!readIndexModeResult.IsSuccess)
             {
-                return ReadyExecutionResult.Failure(readIndexModeResult.Error!, project);
+                return ReadyExecutionResult.Failed(readIndexModeResult.Error!, project);
             }
 
             using var readIndexTimeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -124,7 +127,7 @@ internal sealed class ReadyService : IReadyService
             }
             catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
             {
-                return ReadyExecutionResult.Failure(CreateTimeoutFailure(timeout), project);
+                return ReadyExecutionResult.Failed(CreateTimeoutFailure(timeout), project);
             }
 
             var readIndexOutput = CreateOutput(
@@ -135,13 +138,13 @@ internal sealed class ReadyService : IReadyService
                 project,
                 ReadyLifecycleProbeResult.Success(null, UnityReadinessDecision.Ready()),
                 readIndexObservation);
-            return ReadyExecutionResult.Success(readIndexOutput);
+            return ReadyExecutionResult.Completed(readIndexOutput);
         }
 
         var deadline = ExecutionDeadline.Start(timeout, timeProvider);
         if (!deadline.TryGetRemainingTimeout(out var modeDecisionTimeout))
         {
-            return ReadyExecutionResult.Failure(CreateTimeoutFailure(timeout), project);
+            return ReadyExecutionResult.Failed(CreateTimeoutFailure(timeout), project);
         }
 
         var modeDecisionResult = await executionModeDecisionService.DecideAsync(
@@ -152,7 +155,7 @@ internal sealed class ReadyService : IReadyService
             .ConfigureAwait(false);
         if (!modeDecisionResult.IsSuccess && !modeDecisionResult.HasContractError)
         {
-            return ReadyExecutionResult.Failure(modeDecisionResult.Error!, project);
+            return ReadyExecutionResult.Failed(modeDecisionResult.Error!, project);
         }
 
         ReadyLifecycleProbeResult lifecycleProbeResult;
@@ -160,10 +163,11 @@ internal sealed class ReadyService : IReadyService
         if (modeDecisionResult.HasContractError)
         {
             var contractError = modeDecisionResult.ContractError!;
-            return ReadyExecutionResult.Failure(
-                ApplicationFailure.FromCode(
+            return ReadyExecutionResult.Failed(
+                ApplicationFailure.EnvironmentError(
+                    contractError.Message,
                     contractError.Code,
-                    contractError.Message),
+                    instancePath: null),
                 project);
         }
         else
@@ -172,7 +176,7 @@ internal sealed class ReadyService : IReadyService
             executionTarget = decision.Target;
             if (!deadline.TryGetRemainingTimeout(out var probeTimeout))
             {
-                return ReadyExecutionResult.Failure(CreateTimeoutFailure(timeout), project);
+                return ReadyExecutionResult.Failed(CreateTimeoutFailure(timeout), project);
             }
 
             lifecycleProbeResult = await ProbeLifecycleAsync(
@@ -185,7 +189,7 @@ internal sealed class ReadyService : IReadyService
                 .ConfigureAwait(false);
             if (!lifecycleProbeResult.IsSuccess)
             {
-                return ReadyExecutionResult.Failure(lifecycleProbeResult.Failure!, project);
+                return ReadyExecutionResult.Failed(lifecycleProbeResult.Failure!, project);
             }
         }
 
@@ -197,7 +201,7 @@ internal sealed class ReadyService : IReadyService
             project,
             lifecycleProbeResult,
             default);
-        return ReadyExecutionResult.Success(output);
+        return ReadyExecutionResult.Completed(output);
     }
 
     private async ValueTask<ReadyLifecycleProbeResult> ProbeLifecycleAsync (
@@ -270,7 +274,10 @@ internal sealed class ReadyService : IReadyService
             catch (Exception exception)
             {
                 return ReadyLifecycleProbeResult.FailureResult(ApplicationFailure.UnityIpcFailure(
-                    $"Failed while probing Unity daemon readiness. {exception.Message}"));
+                    $"Failed while probing Unity daemon readiness. {exception.Message}",
+                    UcliCoreErrorCodes.InternalError,
+                    instancePath: null,
+                    startupFailure: null));
             }
 
             if (!deadline.TryGetRemainingTimeout(out remainingTimeout))
@@ -316,32 +323,33 @@ internal sealed class ReadyService : IReadyService
                         failureInfo.Message));
             }
 
-            return ReadyLifecycleProbeResult.FailureResult(ApplicationFailure.FromCode(
-                failureInfo.Code,
-                failureInfo.Message,
-                startupFailure: failureInfo.StartupFailure));
+            return ReadyLifecycleProbeResult.FailureResult(
+                RequestFailureNormalizer.FromUnityRequestFailure(failureInfo));
         }
 
         var response = executionResult.Response!;
         if (response.Errors.Count != 0)
         {
             var firstError = response.Errors[0];
-            return ReadyLifecycleProbeResult.FailureResult(ApplicationFailure.FromCode(
-                firstError.Code,
-                firstError.Message));
+            return ReadyLifecycleProbeResult.FailureResult(
+                RequestFailureNormalizer.FromOperationError(firstError));
         }
 
         if (!IpcPayloadCodec.TryDeserialize(response.Payload, out IpcUnityEditorObservation pingResponse, out var payloadError))
         {
             return ReadyLifecycleProbeResult.FailureResult(ApplicationFailure.InternalError(
-                $"Unity ping payload is invalid. {payloadError.Message}"));
+                $"Unity ping payload is invalid. {payloadError.Message}", UcliCoreErrorCodes.InternalError,
+                instancePath: null,
+                startupFailure: null));
         }
 
         var lifecycle = ReadyLifecycleOutputFactory.Create(pingResponse);
         if (pingResponse.ProjectFingerprint != context.UnityProject.ProjectFingerprint)
         {
             return ReadyLifecycleProbeResult.FailureResult(ApplicationFailure.InternalError(
-                $"Unity ready ping projectFingerprint mismatch. Requested={context.UnityProject.ProjectFingerprint}, Actual={pingResponse.ProjectFingerprint}."));
+                $"Unity ready ping projectFingerprint mismatch. Requested={context.UnityProject.ProjectFingerprint}, Actual={pingResponse.ProjectFingerprint}.", UcliCoreErrorCodes.InternalError,
+                instancePath: null,
+                startupFailure: null));
         }
 
         var readinessDecision = UnityEditorReadinessPolicy.Evaluate(pingResponse, failFast);
@@ -360,7 +368,9 @@ internal sealed class ReadyService : IReadyService
         if (readinessDecision.ErrorCode is null)
         {
             return ReadyLifecycleProbeResult.FailureResult(ApplicationFailure.InternalError(
-                "Unity readiness decision did not provide an error code."));
+                "Unity readiness decision did not provide an error code.", UcliCoreErrorCodes.InternalError,
+                instancePath: null,
+                startupFailure: null));
         }
 
         var errorCode = readinessDecision.ErrorCode;
@@ -369,9 +379,11 @@ internal sealed class ReadyService : IReadyService
             return ReadyLifecycleProbeResult.Success(lifecycle, readinessDecision);
         }
 
-        return ReadyLifecycleProbeResult.FailureResult(ApplicationFailure.FromCode(
+        return ReadyLifecycleProbeResult.FailureResult(ApplicationFailure.ContractViolation(
+            readinessDecision.ErrorMessage!,
             errorCode,
-            readinessDecision.ErrorMessage ?? "Unity readiness failed."));
+            instancePath: null,
+            startupFailure: null));
     }
 
     private async ValueTask<ReadyReadIndexObservation> ObserveReadIndexAsync (
@@ -501,9 +513,6 @@ internal sealed class ReadyService : IReadyService
         var evidence = CreateEvidence(lifecycleProbeResult, readIndexObservation);
         var claimStatus = ResolveClaimStatus(lifecycleProbeResult.Decision, readIndexObservation);
         var coverage = ResolveClaimCoverage(readIndexObservation);
-        var verdict = AssuranceVerdictCalculator.Calculate(
-            [new AssuranceVerdictClaimState(claimStatus, coverage, Required: true, HasBlockingResidualRisk: false)],
-            Array.Empty<AssuranceVerdictResidualRiskState>());
         var verifierId = target == ReadyTarget.ReadIndex ? ReadIndexVerifierId : LifecycleVerifierId;
         var claim = new ReadyClaimOutput(
             Id: claimId,
@@ -525,7 +534,6 @@ internal sealed class ReadyService : IReadyService
             ResidualRisks: EmptyResidualRisks);
 
         return new ReadyExecutionOutput(
-            Verdict: verdict,
             Project: project,
             Verifiers:
             [
@@ -572,12 +580,12 @@ internal sealed class ReadyService : IReadyService
     {
         if (target == ReadyTarget.ReadIndex)
         {
-            return new ReadyClaimValidityOutput(ReadyValidityKind.ProbeOnly, GuaranteesReusableSession: false);
+            return ReadyClaimValidityOutput.ProbeOnly();
         }
 
         return executionTarget == UnityExecutionTarget.Daemon
-            ? new ReadyClaimValidityOutput(ReadyValidityKind.SessionBound, isReady)
-            : new ReadyClaimValidityOutput(ReadyValidityKind.ProbeOnly, GuaranteesReusableSession: false);
+            ? ReadyClaimValidityOutput.SessionBound(isReady)
+            : ReadyClaimValidityOutput.ProbeOnly();
     }
 
     private static IReadOnlyList<ReadyEvidenceOutput> CreateEvidence (
@@ -587,27 +595,22 @@ internal sealed class ReadyService : IReadyService
         var evidence = new List<ReadyEvidenceOutput>();
         if (lifecycleProbeResult.Lifecycle != null)
         {
-            evidence.Add(new ReadyEvidenceOutput(
-                Kind: "lifecycleSnapshot",
-                Data: lifecycleProbeResult.Lifecycle));
+            evidence.Add(ReadyLifecycleEvidenceOutput.Create(
+                lifecycleProbeResult.Lifecycle));
         }
 
         if (lifecycleProbeResult.Decision.IsFailure)
         {
-            evidence.Add(new ReadyEvidenceOutput(
-                Kind: "readinessDecision",
-                Data: new Dictionary<string, object?>(StringComparer.Ordinal)
-                {
-                    ["code"] = lifecycleProbeResult.Decision.ErrorCode?.Value,
-                    ["message"] = lifecycleProbeResult.Decision.ErrorMessage,
-                }));
+            evidence.Add(ReadyDecisionEvidenceOutput.Create(
+                new ReadyDecisionEvidenceData(
+                    lifecycleProbeResult.Decision.ErrorCode,
+                    lifecycleProbeResult.Decision.ErrorMessage)));
         }
 
         if (readIndexObservation.Output != null)
         {
-            evidence.Add(new ReadyEvidenceOutput(
-                Kind: "readIndexSummary",
-                Data: readIndexObservation.Output));
+            evidence.Add(ReadyReadIndexEvidenceOutput.Create(
+                readIndexObservation.Output));
         }
 
         return evidence;
@@ -660,7 +663,7 @@ internal sealed class ReadyService : IReadyService
         if (readIndexModeResult.Mode == ReadIndexMode.Disabled)
         {
             return ReadIndexModeResolutionResult.Failure(ExecutionError.InvalidArgument(
-                "ready --for readIndex requires --readIndexMode allowStale or requireFresh."));
+                "ready --for readIndex requires --readIndexMode allowStale or requireFresh.", UcliCoreErrorCodes.InvalidArgument));
         }
 
         return readIndexModeResult;
@@ -677,7 +680,9 @@ internal sealed class ReadyService : IReadyService
     {
         return ApplicationFailure.Timeout(
             $"Unity readiness probe timed out after {timeout.TotalMilliseconds:0} milliseconds.",
-            ExecutionErrorCodes.IpcTimeout);
+            ExecutionErrorCodes.IpcTimeout,
+            instancePath: null,
+            startupFailure: null);
     }
 
     private static ReadyLifecycleProbeResult CreateDaemonProbeTimeoutResult (
@@ -686,7 +691,7 @@ internal sealed class ReadyService : IReadyService
     {
         var message = $"Unity readiness probe timed out after {timeout.TotalMilliseconds:0} milliseconds.";
         return lastLifecycle is null
-            ? ReadyLifecycleProbeResult.FailureResult(ApplicationFailure.Timeout(message, ExecutionErrorCodes.IpcTimeout))
+            ? ReadyLifecycleProbeResult.FailureResult(ApplicationFailure.Timeout(message, ExecutionErrorCodes.IpcTimeout, instancePath: null, startupFailure: null))
             : ReadyLifecycleProbeResult.Success(
                 lastLifecycle,
                 UnityReadinessDecision.Failure(

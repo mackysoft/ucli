@@ -27,7 +27,9 @@ internal static class OperationDescriptorMapper
                 Policy: operation.Policy,
                 ArgsSchemaJson: operation.ArgsContract.Schema.GetRawText(),
                 ResultSchemaJson: operation.ResultContract?.Schema.GetRawText(),
-                Exposure: operation.Exposure);
+                Exposure: operation.Exposure,
+                DescriptorDigest: operation.DescriptorDigest,
+                VerdictContract: operation.VerdictContract);
         }
 
         return descriptors;

@@ -48,6 +48,8 @@ internal sealed class FileVerifyFromInputFileReader : IVerifyFromInputFileReader
     {
         return VerifyFromInputFileReadResult.Failure(ApplicationFailure.InvalidInput(
             message,
-            VerifyErrorCodes.VerifyInputPayloadInvalid));
+            VerifyErrorCodes.VerifyInputPayloadInvalid,
+            instancePath: null,
+            startupFailure: null));
     }
 }

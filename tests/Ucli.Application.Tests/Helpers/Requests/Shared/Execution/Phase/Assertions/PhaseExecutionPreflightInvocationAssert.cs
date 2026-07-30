@@ -1,7 +1,6 @@
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Phase;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Preparation;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
-using MackySoft.Ucli.Application.Shared.Foundation;
 
 namespace MackySoft.Ucli.Application.Tests;
 
@@ -16,10 +15,9 @@ internal static class PhaseExecutionPreflightInvocationAssert
         Assert.False(result.IsSuccess);
         Assert.False(result.HasValidationErrors);
         Assert.NotNull(result.Error);
-        Assert.Equal(ExecutionErrorKind.Timeout, result.Error!.Kind);
+        Assert.Equal(ApplicationFailureKind.Timeout, result.Error!.Kind);
         Assert.Contains("operation metadata discovery", result.Error.Message, StringComparison.Ordinal);
-        Assert.NotNull(result.PreparedRequest);
-        Assert.Same(expectedPreparedRequest, result.PreparedRequest!.PreparedRequest);
+        Assert.Equal(expectedPreparedRequest, result.PreparedRequest.PreparedRequest);
         Assert.Empty(result.PreparedRequest.OperationsByName);
         Assert.Empty(result.ValidationErrors);
         Assert.Empty(operationCatalog.ProjectGetAllInvocations);
@@ -46,7 +44,7 @@ internal static class PhaseExecutionPreflightInvocationAssert
         bool expectedFailFast)
     {
         var invocation = Assert.Single(preflightService.Invocations);
-        Assert.Same(expectedPreparedRequest, invocation.PreparedRequest);
+        Assert.Equal(expectedPreparedRequest, invocation.PreparedRequest);
         Assert.Equal(expectedMode, invocation.Mode);
         Assert.Equal(expectedFailFast, invocation.FailFast);
         return invocation;

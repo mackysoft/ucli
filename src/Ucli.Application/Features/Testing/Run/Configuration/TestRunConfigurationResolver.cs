@@ -50,10 +50,20 @@ internal sealed class TestRunConfigurationResolver : ITestRunConfigurationResolv
         ArgumentNullException.ThrowIfNull(input);
 
         TestRunProfile? profile = null;
-        if (!string.IsNullOrWhiteSpace(input.ProfilePath))
+        if (input.ProfilePath is not null)
         {
+            if (string.IsNullOrWhiteSpace(input.ProfilePath))
+            {
+                return TestRunConfigurationResolutionResult.Failure(
+                [
+                    ExecutionError.InvalidArgument(
+                        "--profilePath must not be empty.",
+                        UcliCoreErrorCodes.InvalidArgument),
+                ]);
+            }
+
             cancellationToken.ThrowIfCancellationRequested();
-            var profileLoadResult = await profileLoader.LoadAsync(input.ProfilePath!, cancellationToken).ConfigureAwait(false);
+            var profileLoadResult = await profileLoader.LoadAsync(input.ProfilePath, cancellationToken).ConfigureAwait(false);
             if (!profileLoadResult.IsSuccess)
             {
                 return TestRunConfigurationResolutionResult.Failure([profileLoadResult.Error!]);
@@ -137,13 +147,13 @@ internal sealed class TestRunConfigurationResolver : ITestRunConfigurationResolv
         if (!configuration.TestPlatform.HasValue)
         {
             errors.Add(ExecutionError.InvalidArgument(
-                $"testPlatform must be editmode, playmode, or a Unity BuildTarget literal. Actual: {configuration.RawTestPlatform}"));
+                $"testPlatform must be editmode, playmode, or a Unity BuildTarget literal. Actual: {configuration.RawTestPlatform}", UcliCoreErrorCodes.InvalidArgument));
         }
 
         if (configuration.TimeoutMilliseconds.HasValue && configuration.TimeoutMilliseconds.Value < MinTimeoutMilliseconds)
         {
             errors.Add(ExecutionError.InvalidArgument(
-                $"timeout must be in range {MinTimeoutMilliseconds}..{int.MaxValue}. Actual: {configuration.TimeoutMilliseconds.Value}"));
+                $"timeout must be in range {MinTimeoutMilliseconds}..{int.MaxValue}. Actual: {configuration.TimeoutMilliseconds.Value}", UcliCoreErrorCodes.InvalidArgument));
         }
 
         return errors;

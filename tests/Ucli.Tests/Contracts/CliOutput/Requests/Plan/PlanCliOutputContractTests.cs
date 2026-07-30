@@ -57,7 +57,7 @@ public sealed class PlanCliOutputContractTests
 
     [Fact]
     [Trait("Size", "Medium")]
-    public async Task Plan_WithInvalidTimeoutOption_ReturnsInvalidArgumentAndPreservesPreflightPayload ()
+    public async Task Plan_WithInvalidTimeoutOption_ReturnsInvalidArgumentBeforeRequestPreflight ()
     {
         using var scope = TestDirectories.CreateTempScope("plan-cli-output-contract", "invalid-timeout");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
@@ -71,20 +71,16 @@ public sealed class PlanCliOutputContractTests
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
         CommandResultAssert.HasInvalidArgumentError(outputJson.RootElement, UcliCommandNames.Plan);
-        AssertPayloadHasGeneratedRequestId(outputJson.RootElement);
         JsonAssert.For(outputJson.RootElement)
             .HasProperty("payload", payload => payload
-                .HasArrayLength("opResults", 0)
-                .HasProperty("readIndex", readIndex => readIndex
-                    .HasBoolean("used", false)
-                    .HasBoolean("hit", false)
-                    .HasString("fallbackReason", "readIndex disabled by mode.")));
-        Assert.False(outputJson.RootElement.GetProperty("payload").TryGetProperty("planToken", out _));
+                .HasString(
+                    "payloadKind",
+                    TextVocabulary.GetText(CommandErrorPayloadKind.Detailed)));
     }
 
     [Fact]
     [Trait("Size", "Medium")]
-    public async Task Plan_WithInvalidModeOption_ReturnsInvalidArgumentAndPreservesPreflightPayload ()
+    public async Task Plan_WithInvalidModeOption_ReturnsInvalidArgumentBeforeRequestPreflight ()
     {
         using var scope = TestDirectories.CreateTempScope("plan-cli-output-contract", "invalid-mode");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");

@@ -1,4 +1,3 @@
-using MackySoft.Ucli.Application.Features.Testing.Run.Artifacts;
 using MackySoft.Ucli.Application.Shared.Foundation;
 
 namespace MackySoft.Ucli.Application.Features.Testing.Run.UseCases.TestRun.Projection;
@@ -6,55 +5,55 @@ namespace MackySoft.Ucli.Application.Features.Testing.Run.UseCases.TestRun.Proje
 /// <summary> Maps shared execution error contracts into command-facing test-run service results. </summary>
 internal static class TestRunServiceErrorMapper
 {
-    /// <summary> Maps one execution error into service result with optional artifacts context. </summary>
+    /// <summary> Maps one execution error that occurred before a test run was created. </summary>
     /// <param name="error"> The execution error. </param>
-    /// <param name="session"> The optional artifacts session. </param>
     /// <returns> The mapped service result. </returns>
-    public static TestRunServiceResult MapExecutionError (
-        ExecutionError error,
-        ArtifactsSession? session = null)
+    public static TestRunBeforeCreationCommandErrorServiceResult MapCommandError (ExecutionError error)
     {
         ArgumentNullException.ThrowIfNull(error);
+        var errorCode = ExecutionErrorCodeMapper.ToCode(error);
 
-        var runId = session?.RunId;
-        var artifactsDir = session?.Paths.ArtifactsDir;
-        var summaryJsonPath = session?.Paths.SummaryJsonPath;
+        if (errorCode == ExecutionErrorCodes.Canceled)
+        {
+            return TestRunServiceResult.ToolError(ApplicationFailure.Create(
+                ApplicationFailureKind.Canceled,
+                error.Message,
+                errorCode,
+                instancePath: null,
+                outcome: ApplicationOutcome.ToolError,
+                startupFailure: null));
+        }
 
         return error.Kind switch
         {
             ExecutionErrorKind.InvalidArgument => TestRunServiceResult.InvalidInput(
                 error.Message,
-                ExecutionErrorCodeMapper.ToCode(error),
-                runId,
-                artifactsDir,
-                summaryJsonPath),
+                errorCode),
             ExecutionErrorKind.Timeout => TestRunServiceResult.ToolError(
+                ApplicationFailure.Timeout(error.Message, errorCode, instancePath: null, startupFailure: null)),
+            ExecutionErrorKind.InternalError => TestRunServiceResult.InfraError(
                 error.Message,
-                ExecutionErrorCodeMapper.ToCode(error),
-                runId,
-                artifactsDir,
-                summaryJsonPath),
-            _ => TestRunServiceResult.InfraError(
-                error.Message,
-                ExecutionErrorCodeMapper.ToCode(error),
-                runId,
-                artifactsDir,
-                summaryJsonPath),
+                errorCode),
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(error),
+                error.Kind,
+                "Execution error kind must have an explicit test-run projection."),
         };
     }
 
     /// <summary> Maps configuration resolution errors into one service result. </summary>
     /// <param name="errors"> The configuration resolution errors. </param>
     /// <returns> The mapped service result. </returns>
-    public static TestRunServiceResult MapConfigurationErrors (IReadOnlyList<ExecutionError> errors)
+    public static TestRunBeforeCreationCommandErrorServiceResult MapConfigurationErrors (
+        IReadOnlyList<ExecutionError> errors)
     {
         ArgumentNullException.ThrowIfNull(errors);
 
         if (errors.Count == 0)
         {
-            return TestRunServiceResult.InfraError(
-                "Unexpected error while resolving run configuration.",
-                UcliCoreErrorCodes.InternalError);
+            throw new ArgumentException(
+                "Configuration resolution failure must contain at least one error.",
+                nameof(errors));
         }
 
         var hasInternalError = errors.Any(static error => error.Kind == ExecutionErrorKind.InternalError);
@@ -62,8 +61,12 @@ internal static class TestRunServiceErrorMapper
         var message = string.Join(" | ", errors.Select(static error => error.Message));
 
         return hasInternalError
-            ? TestRunServiceResult.InfraError(message, errorCode)
-            : TestRunServiceResult.InvalidInput(message, errorCode);
+            ? TestRunServiceResult.InfraError(
+                message,
+                errorCode)
+            : TestRunServiceResult.InvalidInput(
+                message,
+                errorCode);
     }
 
     private static UcliCode ResolveConfigurationErrorCode (

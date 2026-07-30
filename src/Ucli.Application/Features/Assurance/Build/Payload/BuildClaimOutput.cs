@@ -1,10 +1,11 @@
 using System.Collections.ObjectModel;
-using MackySoft.Ucli.Contracts.Text;
+using MackySoft.JsonSchema.Generation.Annotations;
+using MackySoft.Ucli.Application.Features.Assurance.Semantics;
 
 namespace MackySoft.Ucli.Application.Features.Assurance.Build.Payload;
 
 /// <summary> Represents one claim entry in a build assurance payload. </summary>
-internal sealed record BuildClaimOutput
+internal sealed record BuildClaimOutput : IAssuranceVerdictClaim
 {
     public BuildClaimOutput (
         UcliCode Id,
@@ -38,6 +39,11 @@ internal sealed record BuildClaimOutput
         ArgumentNullException.ThrowIfNull(Subject);
         ArgumentNullException.ThrowIfNull(Evidence);
         ArgumentNullException.ThrowIfNull(ResidualRisks);
+        if (Evidence.Count == 0)
+        {
+            throw new ArgumentException("Claim evidence must not be empty.", nameof(Evidence));
+        }
+
         if (Evidence.Any(static item => item is null))
         {
             throw new ArgumentException("Claim evidence must not contain null.", nameof(Evidence));
@@ -68,7 +74,11 @@ internal sealed record BuildClaimOutput
 
     public IReadOnlyDictionary<string, object?> Subject { get; }
 
+    [ItemCount(1, int.MaxValue)]
     public IReadOnlyList<BuildEvidenceOutput> Evidence { get; }
 
     public IReadOnlyList<BuildResidualRiskOutput> ResidualRisks { get; }
+
+    bool IAssuranceVerdictClaim.HasBlockingResidualRisk =>
+        ResidualRisks.Any(static risk => risk.Blocking);
 }

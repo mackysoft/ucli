@@ -57,10 +57,11 @@ internal sealed record CallServiceResult
     public static CallServiceResult Failure (
         string message,
         IReadOnlyList<ApplicationFailure> errors,
-        CallExecutionOutput? output = null)
+        CallExecutionOutput? output)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(message);
         var failureErrors = RequestServiceResultInvariants.RequireFailureErrors(errors);
+        _ = ApplicationFailureOutcomeResolver.Resolve(failureErrors);
 
         return new CallServiceResult(
             output,

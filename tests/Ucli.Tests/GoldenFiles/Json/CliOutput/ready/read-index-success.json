@@ -39,8 +39,7 @@
           "sessionKind": "artifactOnly"
         },
         "validity": {
-          "kind": "probeOnly",
-          "guaranteesReusableSession": false
+          "kind": "probeOnly"
         },
         "evidence": [
           {

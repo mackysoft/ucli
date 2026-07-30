@@ -88,7 +88,11 @@ public sealed class RequestStaticValidatorOperationArgsSchemaTests
                       },
                       "required": ["value"]
                     }
-                    """),
+                    """,
+                DescriptorDigest: Sha256DigestTestFactory.Compute(operationName),
+                VerdictContract: null,
+                ResultSchemaJson: null,
+                Exposure: UcliOperationExposure.Public),
         ];
         var validator = CreateValidator();
         var request = CreateRequest(
@@ -128,7 +132,11 @@ public sealed class RequestStaticValidatorOperationArgsSchemaTests
                 Kind: UcliOperationKind.Query,
                 Policy: OperationPolicy.Safe,
                 ArgsSchemaJson: ReplaceFirstPatternWithInvalidValue(
-                    generationResult.ResultContract!.Value.Schema.ToJsonElement())),
+                    generationResult.ResultContract!.Value.Schema.ToJsonElement()),
+                DescriptorDigest: Sha256DigestTestFactory.Compute(operationName),
+                VerdictContract: null,
+                ResultSchemaJson: null,
+                Exposure: UcliOperationExposure.Public),
         ];
         var validator = CreateValidator();
         var request = CreateRequest(

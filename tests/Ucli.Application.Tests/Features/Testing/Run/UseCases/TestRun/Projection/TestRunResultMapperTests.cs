@@ -1,8 +1,6 @@
 using MackySoft.Ucli.Application.Features.Testing.Run.Artifacts;
-using MackySoft.Ucli.Application.Features.Testing.Run.Execution;
 using MackySoft.Ucli.Application.Features.Testing.Run.Results;
 using MackySoft.Ucli.Application.Features.Testing.Run.UseCases.TestRun.Projection;
-using MackySoft.Ucli.Application.Shared.Foundation;
 using static MackySoft.Ucli.Application.Tests.TestRunServiceTestFactory;
 
 namespace MackySoft.Ucli.Application.Tests;
@@ -11,31 +9,31 @@ public sealed class TestRunResultMapperTests
 {
     [Fact]
     [Trait("Size", "Small")]
-    public void Map_WithIpcTimeoutExecutionFailure_ReturnsInfraErrorWithArtifactsContext ()
+    public void Map_WithIpcTimeoutExecutionFailure_ReturnsCommandErrorWithArtifactsContext ()
     {
         var session = CreateSession();
         var mapper = new TestRunResultMapper();
+        var failure = ApplicationFailure.Create(
+            ApplicationFailureKind.ExternalProcessFailure,
+            "Unity daemon test run request timed out.",
+            ExecutionErrorCodes.IpcTimeout,
+            instancePath: null,
+            outcome: ApplicationOutcome.InfrastructureError,
+            startupFailure: null);
 
-        var result = mapper.Map(TestRunExecutionPipelineResult.Success(
+        var result = Assert.IsType<TestRunAfterCreationPrimaryCommandErrorServiceResult>(mapper.Map(
+            TestRunExecutionPipelineResult.FailedAfterArtifacts(
             session,
-            UnityTestExecutionResult.Failure(
-                UnityTestExecutionFailureKind.IpcTimedOut,
-                "Unity daemon test run request timed out."),
-            UnityResultsConversionResult.Success(false)));
+            failure)));
 
-        Assert.Null(result.Result);
-        Assert.Equal(TestRunErrorKind.InfraError, result.ErrorKind);
-        Assert.Equal(ApplicationOutcome.InfrastructureError, result.Outcome);
-        Assert.Equal(ExecutionErrorCodes.IpcTimeout, result.ErrorCode);
-        Assert.Equal(ApplicationFailureKind.ExternalProcessFailure, result.Failure!.Kind);
+        Assert.Equal(failure, result.PrimaryFailure);
         Assert.Equal(session.RunId, result.RunId);
         Assert.Equal(session.Paths.ArtifactsDir, result.ArtifactsDir);
-        Assert.Equal(session.Paths.SummaryJsonPath, result.SummaryJsonPath);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void Map_WithStartupFailureExecutionFailure_PropagatesStartupDetailToServiceAndApplicationFailure ()
+    public void Map_WithStartupFailureExecutionFailure_PreservesStartupDetailInFailure ()
     {
         var session = CreateSession();
         var startupFailure = new StartupFailureDetail(
@@ -44,37 +42,62 @@ public sealed class TestRunResultMapperTests
             RetryDisposition: DaemonStartupRetryDisposition.Unknown,
             SafeToRetryImmediately: false);
         var mapper = new TestRunResultMapper();
+        var failure = ApplicationFailure.Create(
+            ApplicationFailureKind.ExternalProcessFailure,
+            "Unity startup is blocked.",
+            DaemonErrorCodes.DaemonStartupBlocked,
+            instancePath: null,
+            outcome: ApplicationOutcome.InfrastructureError,
+            startupFailure);
 
-        var result = mapper.Map(TestRunExecutionPipelineResult.Success(
+        var result = Assert.IsType<TestRunAfterCreationPrimaryCommandErrorServiceResult>(mapper.Map(
+            TestRunExecutionPipelineResult.FailedAfterArtifacts(
             session,
-            UnityTestExecutionResult.Failure(
-                UnityTestExecutionFailureKind.ArtifactMissing,
-                "Unity startup is blocked.",
-                DaemonErrorCodes.DaemonStartupBlocked,
-                startupFailure),
-            UnityResultsConversionResult.Success(false)));
+            failure)));
 
-        Assert.Equal(TestRunErrorKind.InfraError, result.ErrorKind);
-        Assert.Same(startupFailure, result.StartupFailure);
-        Assert.Same(startupFailure, result.Failure!.StartupFailure);
+        Assert.Equal(startupFailure, result.PrimaryFailure.StartupFailure);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void Map_WithCompletionErrorAfterFailedTests_PrefersFailedTestsOutcome ()
+    public void Map_WithPrimaryAndFinalizationFailures_PreservesBothFailures ()
+    {
+        var session = CreateSession();
+        var mapper = new TestRunResultMapper();
+        var primaryFailure = ApplicationFailure.InvalidInput(
+            "The normalized test result is invalid.",
+            TestRunErrorCodes.TestResultsXmlInvalid,
+            instancePath: null,
+            startupFailure: null);
+        var finalizationFailure = ApplicationFailure.InternalError(
+            "Failed to finalize artifacts.",
+            UcliCoreErrorCodes.InternalError,
+            instancePath: null,
+            startupFailure: null);
+
+        var result = Assert.IsType<TestRunAfterCreationCommandErrorWithFinalizationServiceResult>(mapper.Map(
+            TestRunExecutionPipelineResult.FailedAfterArtifactsWithFinalizationFailure(
+            session,
+            primaryFailure,
+            finalizationFailure)));
+
+        Assert.Equal([primaryFailure, finalizationFailure], result.Failures);
+        Assert.Equal(session.RunId, result.RunId);
+        Assert.Equal(session.Paths.ArtifactsDir, result.ArtifactsDir);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Map_WithIncompleteConversion_ReturnsIncompleteWithArtifactsContext ()
     {
         var session = CreateSession();
         var mapper = new TestRunResultMapper();
 
-        var result = mapper.Map(TestRunExecutionPipelineResult.Failure(
-            ExecutionError.InternalError("Failed to finalize artifacts."),
+        var result = Assert.IsType<TestRunCompletedServiceResult>(mapper.Map(TestRunExecutionPipelineResult.Completed(
             session,
-            UnityTestExecutionResult.Success(0),
-            UnityResultsConversionResult.Success(true)));
+            TestRunResultTestValues.CreateConversion(Verdict.Incomplete))));
 
-        Assert.Equal(TestRunResultKind.Fail, result.Result);
-        Assert.Null(result.ErrorKind);
-        Assert.Equal(ApplicationOutcome.TestFailure, result.Outcome);
+        Assert.Equal(Verdict.Incomplete, result.Verdict);
         Assert.Equal(session.RunId, result.RunId);
         Assert.Equal(session.Paths.ArtifactsDir, result.ArtifactsDir);
         Assert.Equal(session.Paths.SummaryJsonPath, result.SummaryJsonPath);
@@ -82,20 +105,16 @@ public sealed class TestRunResultMapperTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void Map_WithNoReportedTestCasesAndEmptyRunNotAllowed_ReturnsInvalidInputWithArtifactsContext ()
+    public void Map_WithPassConversionAndNoReportedTestCases_ReturnsPass ()
     {
         var session = CreateSession();
         var mapper = new TestRunResultMapper();
 
-        var result = mapper.Map(TestRunExecutionPipelineResult.Success(
+        var result = Assert.IsType<TestRunCompletedServiceResult>(mapper.Map(TestRunExecutionPipelineResult.Completed(
             session,
-            UnityTestExecutionResult.Success(0),
-            UnityResultsConversionResult.Success(hasFailedTests: false, reportedTestCaseCount: 0)));
+            TestRunResultTestValues.CreateConversion(Verdict.Pass))));
 
-        Assert.Null(result.Result);
-        Assert.Equal(TestRunErrorKind.InvalidInput, result.ErrorKind);
-        Assert.Equal(ApplicationOutcome.InvalidArgument, result.Outcome);
-        Assert.Equal(TestRunErrorCodes.TestRunNoTestsExecuted, result.ErrorCode);
+        Assert.Equal(Verdict.Pass, result.Verdict);
         Assert.Equal(session.RunId, result.RunId);
         Assert.Equal(session.Paths.ArtifactsDir, result.ArtifactsDir);
         Assert.Equal(session.Paths.SummaryJsonPath, result.SummaryJsonPath);
@@ -103,43 +122,24 @@ public sealed class TestRunResultMapperTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void Map_WithNoReportedTestCasesAndEmptyRunAllowed_ReturnsPass ()
+    public void Map_WithPipelineErrorAndSession_ReturnsCommandErrorWithArtifactsContext ()
     {
         var session = CreateSession();
         var mapper = new TestRunResultMapper();
+        var failure = ApplicationFailure.InternalError(
+            "Unexpected execution pipeline state.",
+            UcliCoreErrorCodes.InternalError,
+            instancePath: null,
+            startupFailure: null);
 
-        var result = mapper.Map(TestRunExecutionPipelineResult.Success(
+        var result = Assert.IsType<TestRunAfterCreationPrimaryCommandErrorServiceResult>(mapper.Map(
+            TestRunExecutionPipelineResult.FailedAfterArtifacts(
             session,
-            UnityTestExecutionResult.Success(0),
-            UnityResultsConversionResult.Success(hasFailedTests: false, reportedTestCaseCount: 0),
-            allowEmptyTestRun: true));
+            failure)));
 
-        Assert.Equal(TestRunResultKind.Pass, result.Result);
-        Assert.Null(result.ErrorKind);
-        Assert.Equal(ApplicationOutcome.Success, result.Outcome);
+        Assert.Equal(failure, result.PrimaryFailure);
         Assert.Equal(session.RunId, result.RunId);
         Assert.Equal(session.Paths.ArtifactsDir, result.ArtifactsDir);
-        Assert.Equal(session.Paths.SummaryJsonPath, result.SummaryJsonPath);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void Map_WithPipelineErrorAndSession_PreservesArtifactsContext ()
-    {
-        var session = CreateSession();
-        var mapper = new TestRunResultMapper();
-
-        var result = mapper.Map(TestRunExecutionPipelineResult.Failure(
-            ExecutionError.InternalError("Unexpected execution pipeline state."),
-            session));
-
-        Assert.Null(result.Result);
-        Assert.Equal(TestRunErrorKind.InfraError, result.ErrorKind);
-        Assert.Equal(ApplicationOutcome.InfrastructureError, result.Outcome);
-        Assert.Equal(ApplicationFailureKind.ExternalProcessFailure, result.Failure!.Kind);
-        Assert.Equal(session.RunId, result.RunId);
-        Assert.Equal(session.Paths.ArtifactsDir, result.ArtifactsDir);
-        Assert.Equal(session.Paths.SummaryJsonPath, result.SummaryJsonPath);
     }
 
     private static ArtifactsSession CreateSession ()

@@ -1,6 +1,11 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
+using MackySoft.Ucli.Application.Features.Assurance.Build.Payload;
+using MackySoft.Ucli.Application.Features.Assurance.Build.Vocabulary;
+using MackySoft.Ucli.Application.Features.Assurance.Compile.Payload;
+using MackySoft.Ucli.Application.Features.Assurance.Ready;
+using MackySoft.Ucli.Application.Features.Assurance.Verify.Payload;
 using MackySoft.Ucli.Contracts.Json;
 
 namespace MackySoft.Ucli.Hosting.Cli.Common.Contracts;
@@ -8,19 +13,26 @@ namespace MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 /// <summary> Provides JSON serializer options for public CLI output contracts. </summary>
 internal static class CliOutputJsonSerializerOptions
 {
+    private static readonly JsonNamingPolicy CliPropertyNamingPolicy = JsonNamingPolicy.CamelCase;
+
     /// <summary> Gets the serializer options shared by command results and stream entries. </summary>
-    public static JsonSerializerOptions Default { get; } = new()
+    public static JsonSerializerOptions Default { get; } = CreateDefault();
+
+    private static JsonSerializerOptions CreateDefault ()
     {
-        Converters =
+        return new JsonSerializerOptions
         {
-            new UcliNonNullJsonObjectJsonConverterFactory(),
-            new VocabularyJsonConverterFactory(),
-            new MackySoft.AgentSkills.Shared.Text.ContractLiteralJsonConverterFactory(),
-        },
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        TypeInfoResolver = CreateTypeInfoResolver(),
-        UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow,
-    };
+            Converters =
+            {
+                new UcliNonNullJsonObjectJsonConverterFactory(),
+                new VocabularyJsonConverterFactory(),
+                new MackySoft.AgentSkills.Shared.Text.ContractLiteralJsonConverterFactory(),
+            },
+            PropertyNamingPolicy = CliPropertyNamingPolicy,
+            TypeInfoResolver = CreateTypeInfoResolver(),
+            UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow,
+        };
+    }
 
     /// <summary>
     /// Creates metadata for the write-only public CLI contract.
@@ -36,8 +48,118 @@ internal static class CliOutputJsonSerializerOptions
             ExecutionRefJsonPolymorphismConfigurator.TryConfigure(typeInfo);
         });
         resolver.Modifiers.Add(ConfigureCommandErrorPayload);
+        resolver.Modifiers.Add(ConfigureAssuranceUnions);
+        resolver.Modifiers.Add(ConfigureAssuranceEvidence);
         resolver.Modifiers.Add(MarkAlwaysWrittenPropertiesRequired);
         return resolver;
+    }
+
+    private static void ConfigureAssuranceUnions (JsonTypeInfo typeInfo)
+    {
+        if (typeInfo.Type == typeof(VerifyProfileOutput))
+        {
+            typeInfo.PolymorphismOptions = CreateClosedPolymorphism(
+                "source",
+                new JsonDerivedType(
+                    typeof(BuiltInVerifyProfileOutput),
+                    TextVocabulary.GetText(VerifyProfileSource.BuiltIn)),
+                new JsonDerivedType(
+                    typeof(FileVerifyProfileOutput),
+                    TextVocabulary.GetText(VerifyProfileSource.File)));
+            return;
+        }
+
+        if (typeInfo.Type == typeof(ReadyClaimValidityOutput))
+        {
+            typeInfo.PolymorphismOptions = CreateClosedPolymorphism(
+                "kind",
+                new JsonDerivedType(
+                    typeof(ProbeOnlyReadyClaimValidityOutput),
+                    TextVocabulary.GetText(ReadyValidityKind.ProbeOnly)),
+                new JsonDerivedType(
+                    typeof(SessionBoundReadyClaimValidityOutput),
+                    TextVocabulary.GetText(ReadyValidityKind.SessionBound)));
+        }
+    }
+
+    private static void ConfigureAssuranceEvidence (JsonTypeInfo typeInfo)
+    {
+        if (typeInfo.Type == typeof(BuildEvidenceOutput))
+        {
+            typeInfo.PolymorphismOptions = CreateClosedPolymorphism(
+                GetJsonPropertyName(nameof(BuildEvidenceOutput.Kind)),
+                new JsonDerivedType(typeof(BuildProfileEvidenceOutput), TextVocabulary.GetText(BuildEvidenceKind.BuildProfile)),
+                new JsonDerivedType(typeof(BuildInputEvidenceOutput), TextVocabulary.GetText(BuildEvidenceKind.BuildInput)),
+                new JsonDerivedType(typeof(BuildLifecycleEvidenceOutput), TextVocabulary.GetText(BuildEvidenceKind.ReadyLifecycleSnapshot)),
+                new JsonDerivedType(typeof(BuildRunnerEvidenceOutput), TextVocabulary.GetText(BuildEvidenceKind.BuildRunner)),
+                new JsonDerivedType(typeof(BuildReportSummaryEvidenceOutput), TextVocabulary.GetText(BuildEvidenceKind.BuildReportSummary)),
+                new JsonDerivedType(typeof(BuildSummaryEvidenceOutput), TextVocabulary.GetText(BuildEvidenceKind.BuildSummary)),
+                new JsonDerivedType(typeof(BuildRunnerResultEvidenceOutput), TextVocabulary.GetText(BuildEvidenceKind.BuildRunnerResult)),
+                new JsonDerivedType(typeof(BuildLogEvidenceOutput), TextVocabulary.GetText(BuildEvidenceKind.BuildLogSummary)),
+                new JsonDerivedType(typeof(BuildOutputAccountingEvidenceOutput), TextVocabulary.GetText(BuildEvidenceKind.BuildOutputAccounting)),
+                new JsonDerivedType(typeof(BuildOutputManifestEvidenceOutput), TextVocabulary.GetText(BuildEvidenceKind.BuildOutputManifest)),
+                new JsonDerivedType(typeof(BuildGenerationEvidenceOutput), TextVocabulary.GetText(BuildEvidenceKind.GenerationSnapshot)),
+                new JsonDerivedType(typeof(BuildProjectMutationEvidenceOutput), TextVocabulary.GetText(BuildEvidenceKind.ProjectMutationAudit)));
+            return;
+        }
+
+        if (typeInfo.Type == typeof(CompileEvidenceOutput))
+        {
+            typeInfo.PolymorphismOptions = CreateClosedPolymorphism(
+                GetJsonPropertyName(nameof(CompileEvidenceOutput.Kind)),
+                new JsonDerivedType(typeof(CompileScriptEvidenceOutput), TextVocabulary.GetText(CompileEvidenceKind.ScriptCompilation)),
+                new JsonDerivedType(typeof(CompileDomainReloadEvidenceOutput), TextVocabulary.GetText(CompileEvidenceKind.DomainReload)),
+                new JsonDerivedType(typeof(CompileLifecycleEvidenceOutput), TextVocabulary.GetText(CompileEvidenceKind.LifecycleSnapshot)));
+            return;
+        }
+
+        if (typeInfo.Type == typeof(ReadyEvidenceOutput))
+        {
+            typeInfo.PolymorphismOptions = CreateClosedPolymorphism(
+                GetJsonPropertyName(nameof(ReadyEvidenceOutput.Kind)),
+                new JsonDerivedType(typeof(ReadyLifecycleEvidenceOutput), TextVocabulary.GetText(ReadyEvidenceKind.LifecycleSnapshot)),
+                new JsonDerivedType(typeof(ReadyDecisionEvidenceOutput), TextVocabulary.GetText(ReadyEvidenceKind.ReadinessDecision)),
+                new JsonDerivedType(typeof(ReadyReadIndexEvidenceOutput), TextVocabulary.GetText(ReadyEvidenceKind.ReadIndexSummary)));
+            return;
+        }
+
+        if (typeInfo.Type == typeof(VerifyEvidenceOutput))
+        {
+            typeInfo.PolymorphismOptions = CreateClosedPolymorphism(
+                GetJsonPropertyName(nameof(VerifyEvidenceOutput.Kind)),
+                new JsonDerivedType(typeof(VerifyScriptEvidenceOutput), TextVocabulary.GetText(VerifyEvidenceKind.ScriptCompilation)),
+                new JsonDerivedType(typeof(VerifyDomainReloadEvidenceOutput), TextVocabulary.GetText(VerifyEvidenceKind.DomainReload)),
+                new JsonDerivedType(typeof(VerifyReadyLifecycleEvidenceOutput), TextVocabulary.GetText(VerifyEvidenceKind.ReadyLifecycleSnapshot)),
+                new JsonDerivedType(typeof(VerifyCompileLifecycleEvidenceOutput), TextVocabulary.GetText(VerifyEvidenceKind.CompileLifecycleSnapshot)),
+                new JsonDerivedType(typeof(VerifyReadinessEvidenceOutput), TextVocabulary.GetText(VerifyEvidenceKind.ReadinessDecision)),
+                new JsonDerivedType(typeof(VerifyReadIndexEvidenceOutput), TextVocabulary.GetText(VerifyEvidenceKind.ReadIndexSummary)),
+                new JsonDerivedType(typeof(VerifyTestSummaryEvidenceOutput), TextVocabulary.GetText(VerifyEvidenceKind.TestSummary)),
+                new JsonDerivedType(typeof(VerifyFromResultMissingEvidenceOutput), TextVocabulary.GetText(VerifyEvidenceKind.FromResultMissing)),
+                new JsonDerivedType(typeof(VerifyFromResultSummaryEvidenceOutput), TextVocabulary.GetText(VerifyEvidenceKind.FromResultSummary)));
+        }
+    }
+
+    private static JsonPolymorphismOptions CreateClosedPolymorphism (
+        string discriminatorPropertyName,
+        params JsonDerivedType[] derivedTypes)
+    {
+        var options = new JsonPolymorphismOptions
+        {
+            TypeDiscriminatorPropertyName = discriminatorPropertyName,
+            IgnoreUnrecognizedTypeDiscriminators = false,
+            UnknownDerivedTypeHandling = JsonUnknownDerivedTypeHandling.FailSerialization,
+        };
+        foreach (var derivedType in derivedTypes)
+        {
+            options.DerivedTypes.Add(derivedType);
+        }
+
+        return options;
+    }
+
+    private static string GetJsonPropertyName (string clrPropertyName)
+    {
+        return CliPropertyNamingPolicy.ConvertName(clrPropertyName);
     }
 
     private static void ConfigureCommandErrorPayload (JsonTypeInfo typeInfo)

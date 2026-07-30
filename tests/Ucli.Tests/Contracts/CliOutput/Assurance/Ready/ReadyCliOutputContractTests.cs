@@ -1,6 +1,5 @@
 using System.Text.Json;
 using MackySoft.Ucli.Application.Features.Assurance.Ready;
-using MackySoft.Ucli.Tests.Helpers.Assurance;
 
 namespace MackySoft.Ucli.Tests;
 
@@ -8,18 +7,15 @@ public sealed class ReadyCliOutputContractTests
 {
     [Fact]
     [Trait("Size", "Medium")]
-    public void ReadyGolden_AutoOneshotPayload_SatisfiesSemanticInvariants ()
+    public void ReadyGolden_AutoOneshotPayload_UsesProbeOnlyValidity ()
     {
         using var document = CliOutputGoldenFiles.ReadJsonDocument("ready", "auto-oneshot-success.json");
         var payload = document.RootElement.GetProperty("payload");
 
-        var result = CliAssuranceSemanticInvariantValidatorFactory.CreateReadyValidator().Validate(payload);
-
-        Assert.True(result.IsValid);
         var claim = Assert.Single(payload.GetProperty("claims").EnumerateArray());
         var validity = claim.GetProperty("validity");
         Assert.Equal(TextVocabulary.GetText(ReadyValidityKind.ProbeOnly), validity.GetProperty("kind").GetString());
-        Assert.False(validity.GetProperty("guaranteesReusableSession").GetBoolean());
+        Assert.False(validity.TryGetProperty("guaranteesReusableSession", out _));
     }
 
     [Fact]
@@ -29,9 +25,6 @@ public sealed class ReadyCliOutputContractTests
         using var document = CliOutputGoldenFiles.ReadJsonDocument("ready", "read-index-success.json");
         var payload = document.RootElement.GetProperty("payload");
 
-        var result = CliAssuranceSemanticInvariantValidatorFactory.CreateReadyValidator().Validate(payload);
-
-        Assert.True(result.IsValid);
         Assert.Equal("readIndex", payload.GetProperty("target").GetString());
         Assert.Equal(
             TextVocabulary.GetText(AssuranceResolvedExecutionMode.NotApplicable),

@@ -17,7 +17,7 @@ public sealed class CallServiceDangerousOperationGuardTests
         var preparedRequest = CreateSingleOperationPreparedRequest(dangerousOperationName, OperationPolicy.Dangerous);
         var ipcRequestExecutor = new RecordingUnityRequestExecutor(
             UnityRequestExecutionResult.Success(
-                ExecuteUnityRequestResponseTestFactory.Create(
+                CreateUnityResponse(
                     status: IpcResponseStatus.Ok,
                     opResults:
                     [
@@ -26,12 +26,16 @@ public sealed class CallServiceDangerousOperationGuardTests
                             Phase: IpcExecuteOperationPhase.Plan,
                             Applied: false,
                             Changed: false,
-                            Touched: []),
+                            Touched: [],
+                            OperationDescriptorDigest: OperationDescriptorDigest,
+                            Verdict: null,
+                            Result: null,
+                            Diagnostics: []),
                     ],
                     errors: [],
                     planToken: "issued-plan-token")),
             UnityRequestExecutionResult.Success(
-                ExecuteUnityRequestResponseTestFactory.Create(
+                CreateUnityResponse(
                     status: IpcResponseStatus.Ok,
                     opResults:
                     [
@@ -40,7 +44,11 @@ public sealed class CallServiceDangerousOperationGuardTests
                             Phase: IpcExecuteOperationPhase.Call,
                             Applied: true,
                             Changed: true,
-                            Touched: []),
+                            Touched: [],
+                            OperationDescriptorDigest: OperationDescriptorDigest,
+                            Verdict: null,
+                            Result: null,
+                            Diagnostics: []),
                     ],
                     errors: [],
                     planToken: null)));
@@ -77,7 +85,7 @@ public sealed class CallServiceDangerousOperationGuardTests
         var preparedRequest = CreateSingleOperationPreparedRequest(dangerousOperationName, OperationPolicy.Dangerous);
         var ipcRequestExecutor = new RecordingUnityRequestExecutor(
             UnityRequestExecutionResult.Success(
-                ExecuteUnityRequestResponseTestFactory.Create(
+                CreateUnityResponse(
                     status: IpcResponseStatus.Ok,
                     opResults:
                     [
@@ -86,7 +94,11 @@ public sealed class CallServiceDangerousOperationGuardTests
                             Phase: IpcExecuteOperationPhase.Call,
                             Applied: true,
                             Changed: true,
-                            Touched: []),
+                            Touched: [],
+                            OperationDescriptorDigest: OperationDescriptorDigest,
+                            Verdict: null,
+                            Result: null,
+                            Diagnostics: []),
                     ],
                     errors: [],
                     planToken: null)));

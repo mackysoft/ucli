@@ -30,22 +30,22 @@ public sealed class TestRunServicePreflightFailureTests
             configurationResolver: new StubTestRunConfigurationResolver(
                 TestRunConfigurationResolutionResult.Failure(
                 [
-                    ExecutionError.InvalidArgument("testPlatform must be editmode, playmode, or a Unity BuildTarget literal."),
+                    ExecutionError.InvalidArgument("testPlatform must be editmode, playmode, or a Unity BuildTarget literal.", UcliCoreErrorCodes.InvalidArgument),
                 ])),
             modeDecisionService: new StubModeDecisionService(UnityExecutionModeDecisionResult.Success(
                 new UnityExecutionModeDecision(UnityExecutionMode.Oneshot, false, UnityExecutionTarget.Oneshot, TimeSpan.FromSeconds(30)))),
             artifactsService: new StubTestRunArtifactsService(
                 prepare: _ => throw new InvalidOperationException(),
                 complete: (_, _, _) => throw new InvalidOperationException()),
-            unityTestExecutor: new StubUnityTestExecutor((_, _, _, _) => ValueTask.FromResult(UnityTestExecutionResult.Success(0))),
-            resultsConverter: new StubUnityResultsConverter(_ => ValueTask.FromResult(UnityResultsConversionResult.Success(false))));
+            unityTestExecutor: new StubUnityTestExecutor((_, _, _, _) => ValueTask.FromResult<UnityTestExecutionResult>(UnityTestExecutionResult.FromProcessExitCode(0))),
+            resultsConverter: new StubUnityResultsConverter(_ => ValueTask.FromResult<UnityResultsConversionResult>(TestRunResultTestValues.CreateConversion(Verdict.Pass))));
 
-        var result = await service.ExecuteAsync(CreateInput(), cancellationToken: CancellationToken.None);
+        var result = Assert.IsType<TestRunBeforeCreationCommandErrorServiceResult>(
+            await service.ExecuteAsync(CreateInput(), cancellationToken: CancellationToken.None));
 
-        Assert.Null(result.Result);
         Assert.Equal(TestRunErrorKind.InvalidInput, result.ErrorKind);
-        Assert.Equal(ApplicationOutcome.InvalidArgument, result.Outcome);
-        Assert.Equal(UcliCoreErrorCodes.InvalidArgument, result.ErrorCode);
+        Assert.Equal(ApplicationOutcome.InvalidArgument, result.PrimaryFailure.Outcome);
+        Assert.Equal(UcliCoreErrorCodes.InvalidArgument, result.PrimaryFailure.Code);
     }
 
     [Fact]
@@ -73,15 +73,15 @@ public sealed class TestRunServicePreflightFailureTests
             artifactsService: new StubTestRunArtifactsService(
                 prepare: _ => throw new InvalidOperationException(),
                 complete: (_, _, _) => throw new InvalidOperationException()),
-            unityTestExecutor: new StubUnityTestExecutor((_, _, _, _) => ValueTask.FromResult(UnityTestExecutionResult.Success(0))),
-            resultsConverter: new StubUnityResultsConverter(_ => ValueTask.FromResult(UnityResultsConversionResult.Success(false))));
+            unityTestExecutor: new StubUnityTestExecutor((_, _, _, _) => ValueTask.FromResult<UnityTestExecutionResult>(UnityTestExecutionResult.FromProcessExitCode(0))),
+            resultsConverter: new StubUnityResultsConverter(_ => ValueTask.FromResult<UnityResultsConversionResult>(TestRunResultTestValues.CreateConversion(Verdict.Pass))));
 
-        var result = await service.ExecuteAsync(CreateInput(), cancellationToken: CancellationToken.None);
+        var result = Assert.IsType<TestRunBeforeCreationCommandErrorServiceResult>(
+            await service.ExecuteAsync(CreateInput(), cancellationToken: CancellationToken.None));
 
-        Assert.Null(result.Result);
         Assert.Equal(TestRunErrorKind.InvalidInput, result.ErrorKind);
-        Assert.Equal(ApplicationOutcome.InvalidArgument, result.Outcome);
-        Assert.Equal(UcliCoreErrorCodes.InvalidArgument, result.ErrorCode);
+        Assert.Equal(ApplicationOutcome.InvalidArgument, result.PrimaryFailure.Outcome);
+        Assert.Equal(UcliCoreErrorCodes.InvalidArgument, result.PrimaryFailure.Code);
         Assert.Contains("operationPolicy", result.Message, StringComparison.Ordinal);
         Assert.Contains("planTokenMode", result.Message, StringComparison.Ordinal);
     }
@@ -104,14 +104,14 @@ public sealed class TestRunServicePreflightFailureTests
             artifactsService: new StubTestRunArtifactsService(
                 prepare: _ => throw new InvalidOperationException(),
                 complete: (_, _, _) => throw new InvalidOperationException()),
-            unityTestExecutor: new StubUnityTestExecutor((_, _, _, _) => ValueTask.FromResult(UnityTestExecutionResult.Success(0))),
-            resultsConverter: new StubUnityResultsConverter(_ => ValueTask.FromResult(UnityResultsConversionResult.Success(false))));
+            unityTestExecutor: new StubUnityTestExecutor((_, _, _, _) => ValueTask.FromResult<UnityTestExecutionResult>(UnityTestExecutionResult.FromProcessExitCode(0))),
+            resultsConverter: new StubUnityResultsConverter(_ => ValueTask.FromResult<UnityResultsConversionResult>(TestRunResultTestValues.CreateConversion(Verdict.Pass))));
 
-        var result = await service.ExecuteAsync(CreateInput(), cancellationToken: CancellationToken.None);
+        var result = Assert.IsType<TestRunBeforeCreationCommandErrorServiceResult>(
+            await service.ExecuteAsync(CreateInput(), cancellationToken: CancellationToken.None));
 
-        Assert.Null(result.Result);
         Assert.Equal(TestRunErrorKind.ToolError, result.ErrorKind);
-        Assert.Equal(ApplicationOutcome.ToolError, result.Outcome);
-        Assert.Equal(expectedErrorCode, result.ErrorCode);
+        Assert.Equal(ApplicationOutcome.ToolError, result.PrimaryFailure.Outcome);
+        Assert.Equal(expectedErrorCode, result.PrimaryFailure.Code);
     }
 }

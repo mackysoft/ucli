@@ -1,4 +1,3 @@
-using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Testing.Run.Configuration;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts.Testing;
@@ -52,7 +51,7 @@ public sealed class TestRunConfigurationResolverProjectPathTests
 
         var result = await resolver.ResolveAsync(input, CancellationToken.None);
 
-        Assert.True(result.IsSuccess);
+        Assert.IsType<TestRunConfigurationResolutionResult.Succeeded>(result);
         ProjectPathInputResolverAssert.ResolvedOnceFor(
             projectPathInputResolver,
             expectedCommandOptionProjectPath: null,
@@ -109,7 +108,7 @@ public sealed class TestRunConfigurationResolverProjectPathTests
 
         var result = await resolver.ResolveAsync(input, CancellationToken.None);
 
-        Assert.True(result.IsSuccess);
+        Assert.IsType<TestRunConfigurationResolutionResult.Succeeded>(result);
         ProjectPathInputResolverAssert.ResolvedOnceFor(
             projectPathInputResolver,
             expectedCommandOptionProjectPath: commandProjectPath,

@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Configuration;
 
 namespace MackySoft.Ucli.Contracts.Tests.Ipc;
 
@@ -13,11 +14,15 @@ public sealed class UcliOperationContractDigestValidatorTests
 
         var noResultValid = UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContract(
             noResult,
-            "No-result operation",
+            operationKind: UcliOperationKind.Command,
+            operationPolicy: OperationPolicy.Safe,
+            ownerName: "No-result operation",
             out var noResultError);
         var emittedResultValid = UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContract(
             emittedResult,
-            "Emitted-result operation",
+            operationKind: UcliOperationKind.Command,
+            operationPolicy: OperationPolicy.Safe,
+            ownerName: "Emitted-result operation",
             out var emittedResultError);
 
         Assert.True(noResultValid, noResultError);
@@ -31,13 +36,14 @@ public sealed class UcliOperationContractDigestValidatorTests
             "ucli.test.assets.find",
             serializerOptions.GetTypeInfo(typeof(AssetsFindArgs)),
             serializerOptions.GetTypeInfo(typeof(AssetsFindResult)));
-        return UcliOperationDescribeContractBuilder.Create(
+        return UcliOperationDescribeContractBuilder.CreateWithoutVerdict(
             generationResult,
             "Finds project assets by type, path prefix, or name substring.",
             UcliOperationDescribeContractValidatorTestData.CreateAssurance(
                 Array.Empty<UcliOperationSideEffect>(),
                 Array.Empty<UcliTouchedResourceKind>(),
                 UcliOperationPlanMode.ObservesLiveUnity,
-                Array.Empty<string>()));
+                Array.Empty<string>()),
+            codeContract: null);
     }
 }

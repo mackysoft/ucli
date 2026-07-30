@@ -63,6 +63,7 @@ internal sealed record ValidateServiceResult
         var errors = RequestFailureNormalizer.FromValidationErrors(validationErrors);
         ArgumentException.ThrowIfNullOrWhiteSpace(message);
         var failureErrors = RequestServiceResultInvariants.RequireFailureErrors(errors);
+        _ = ApplicationFailureOutcomeResolver.Resolve(failureErrors);
 
         return new ValidateServiceResult(
             output,
@@ -71,23 +72,20 @@ internal sealed record ValidateServiceResult
     }
 
     /// <summary> Creates an infrastructure failure result. </summary>
-    /// <param name="message"> The failure message. </param>
-    /// <param name="errorCode"> The machine-readable failure code. </param>
+    /// <param name="failure"> The classified application failure. </param>
     /// <param name="output"> The available output payload. </param>
     /// <returns> The failed result. </returns>
     public static ValidateServiceResult Failure (
-        string message,
-        UcliCode errorCode,
-        ValidateExecutionOutput? output = null)
+        ApplicationFailure failure,
+        ValidateExecutionOutput? output)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(message);
-        ArgumentNullException.ThrowIfNull(errorCode);
-        var error = RequestFailureNormalizer.FromTransportFailure(errorCode, message);
-        var errors = RequestServiceResultInvariants.RequireFailureErrors([error]);
+        ArgumentNullException.ThrowIfNull(failure);
+        var errors = RequestServiceResultInvariants.RequireFailureErrors([failure]);
+        _ = ApplicationFailureOutcomeResolver.Resolve(errors);
 
         return new ValidateServiceResult(
             output,
-            message,
+            failure.Message,
             errors);
     }
 }

@@ -1,5 +1,6 @@
 using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Preparation;
+using MackySoft.Ucli.Application.Shared.Execution.ErrorCodes;
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Contracts.Configuration;
 
@@ -50,7 +51,7 @@ internal static class RequestStaticValidationInvocationAssert
         Assert.False(result.HasValidationErrors);
         Assert.NotNull(result.Error);
         Assert.Contains(expectedMessageFragment, result.Error!.Message, StringComparison.Ordinal);
-        Assert.Equal(expectedErrorCode, result.ErrorCode);
+        Assert.Equal(expectedErrorCode, result.Error.Code);
         Assert.Same(expectedPreparedRequest, result.PreparedRequest);
         Assert.Same(expectedReadIndex, result.ReadIndex);
         Assert.Empty(result.ValidationErrors);

@@ -1,5 +1,3 @@
-using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
-using MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Projection;
 using MackySoft.Ucli.Application.Shared.Foundation;
 
 namespace MackySoft.Ucli.Application.Features.Requests.Query.UseCases.Query;
@@ -9,8 +7,6 @@ internal static class QueryServiceResultFactory
 {
     private const string SuccessMessage = "uCLI query completed.";
 
-    private const string FailureMessage = "uCLI query failed.";
-
     /// <summary> Creates one successful typed-query result. </summary>
     public static QueryServiceResult Success (
         string commandName,
@@ -18,7 +14,7 @@ internal static class QueryServiceResultFactory
         IReadOnlyList<OperationExecutionOperationResult> opResults,
         ReadIndexInfo readIndex,
         ProjectIdentityInfo project,
-        IReadOnlyList<OperationExecutionContractViolation>? contractViolations = null)
+        IReadOnlyList<OperationExecutionContractViolation> contractViolations)
     {
         return QueryServiceResult.Success(
             commandName,
@@ -35,8 +31,8 @@ internal static class QueryServiceResultFactory
         string commandName,
         Guid requestId,
         ExecutionError error,
-        ReadIndexInfo? readIndex = null,
-        ProjectIdentityInfo? project = null)
+        ReadIndexInfo readIndex,
+        ProjectIdentityInfo? project)
     {
         ArgumentNullException.ThrowIfNull(error);
 
@@ -49,28 +45,9 @@ internal static class QueryServiceResultFactory
                 executionError,
             ],
             error.Message,
-            readIndex ?? ReadIndexInfoFactory.Unity(fallbackReason: null),
-            project);
-    }
-
-    /// <summary> Creates one failure result from one IPC error. </summary>
-    public static QueryServiceResult FromIpcError (
-        string commandName,
-        Guid requestId,
-        OperationExecutionError error,
-        ReadIndexInfo readIndex,
-        ProjectIdentityInfo? project = null)
-    {
-        ArgumentNullException.ThrowIfNull(error);
-        var normalizedError = RequestFailureNormalizer.FromOperationError(error);
-        return Failure(
-            commandName,
-            requestId,
-            [],
-            [normalizedError],
-            normalizedError.Message,
             readIndex,
-            project);
+            project,
+            contractViolations: []);
     }
 
     /// <summary> Creates one failed typed-query result. </summary>
@@ -81,12 +58,13 @@ internal static class QueryServiceResultFactory
         IReadOnlyList<ApplicationFailure> errors,
         string message,
         ReadIndexInfo readIndex,
-        ProjectIdentityInfo? project = null,
-        IReadOnlyList<OperationExecutionContractViolation>? contractViolations = null)
+        ProjectIdentityInfo? project,
+        IReadOnlyList<OperationExecutionContractViolation> contractViolations)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(commandName);
         ArgumentNullException.ThrowIfNull(opResults);
         ArgumentNullException.ThrowIfNull(readIndex);
+        ArgumentNullException.ThrowIfNull(contractViolations);
 
         return QueryServiceResult.Failure(
             commandName,

@@ -1,3 +1,4 @@
+using System.Text.Json;
 using MackySoft.Ucli.Hosting.Cli.Testing;
 using MackySoft.Ucli.Tests.Hosting.Cli.Common.Execution;
 using Microsoft.Extensions.DependencyInjection;
@@ -46,12 +47,7 @@ public sealed class TestRunCliOutputContractTests
         CommandResultAssert.HasSingleError(
             outputJson.RootElement,
             expectedCode: ProjectContextErrorCodes.ProjectPathNotFound);
-        JsonAssert.For(outputJson.RootElement)
-            .HasProperty("payload", payload => payload
-                .HasString("errorKind", "invalidInput")
-                .IsNull("runId")
-                .IsNull("artifactsDir")
-                .IsNull("summaryJsonPath"));
+        AssertCommandErrorPayloadHasNoRunContext(outputJson.RootElement);
     }
 
     [Fact]
@@ -102,12 +98,7 @@ public sealed class TestRunCliOutputContractTests
         CommandResultAssert.HasSingleError(
             outputJson.RootElement,
             expectedCode: "INVALID_ARGUMENT");
-        JsonAssert.For(outputJson.RootElement)
-            .HasProperty("payload", payload => payload
-                .HasString("errorKind", "invalidInput")
-                .IsNull("runId")
-                .IsNull("artifactsDir")
-                .IsNull("summaryJsonPath"));
+        AssertCommandErrorPayloadHasNoRunContext(outputJson.RootElement);
     }
 
     private static Task<CommandExecutionResult> RunTestRunCommandAsync (
@@ -124,6 +115,19 @@ public sealed class TestRunCliOutputContractTests
                     executionMode: executionMode,
                     testPlatform: testPlatform,
                     cancellationToken: CancellationToken.None));
+    }
+
+    private static void AssertCommandErrorPayloadHasNoRunContext (JsonElement root)
+    {
+        var payload = root.GetProperty("payload");
+        Assert.Equal(
+            TextVocabulary.GetText(CommandErrorPayloadKind.Detailed),
+            payload.GetProperty("payloadKind").GetString());
+        Assert.Equal(
+            TextVocabulary.GetText(TestRunErrorKind.InvalidInput),
+            payload.GetProperty("errorKind").GetString());
+        Assert.Equal(JsonValueKind.Null, payload.GetProperty("run").ValueKind);
+        Assert.Equal(JsonValueKind.Null, payload.GetProperty("startupFailure").ValueKind);
     }
 
 }

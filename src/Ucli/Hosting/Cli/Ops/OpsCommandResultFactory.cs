@@ -1,8 +1,6 @@
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
-using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 using MackySoft.Ucli.Application.Features.OperationCatalog.Common.Contracts;
-using MackySoft.Ucli.Application.Shared.Execution;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
@@ -48,24 +46,15 @@ internal static class OpsCommandResultFactory
     {
         ArgumentNullException.ThrowIfNull(serviceResult);
 
-        if (serviceResult.IsSuccess)
+        return serviceResult switch
         {
-            return CommandResult.Success(
+            OpsListServiceResult.Succeeded succeeded => CommandResult.Success(
                 command: UcliCommandNames.OpsList,
-                message: serviceResult.Message,
-                payload: serviceResult.Output!);
-        }
-
-        return CreateFailure(
-            UcliCommandNames.OpsList,
-            serviceResult.Message,
-            serviceResult.ErrorCode,
-            serviceResult.StartupFailure,
-            CommandErrorPayload.Detailed(new OpsFailureCommandPayload(
-                serviceResult.StartupFailure?.Startup,
-                serviceResult.StartupFailure?.Diagnosis,
-                serviceResult.StartupFailure?.RetryDisposition,
-                serviceResult.StartupFailure?.SafeToRetryImmediately)));
+                message: succeeded.Message,
+                payload: succeeded.Output),
+            OpsListServiceResult.Failed failed => CreateFailure(UcliCommandNames.OpsList, failed.Error),
+            _ => throw new InvalidOperationException($"Unsupported ops-list service result '{serviceResult.GetType().Name}'."),
+        };
     }
 
     /// <summary> Creates one command result for <c>ops describe</c>. </summary>
@@ -75,37 +64,29 @@ internal static class OpsCommandResultFactory
     {
         ArgumentNullException.ThrowIfNull(serviceResult);
 
-        if (serviceResult.IsSuccess)
+        return serviceResult switch
         {
-            return CommandResult.Success(
+            OpsDescribeServiceResult.Succeeded succeeded => CommandResult.Success(
                 command: UcliCommandNames.OpsDescribe,
-                message: serviceResult.Message,
-                payload: serviceResult.Output!);
-        }
-
-        return CreateFailure(
-            UcliCommandNames.OpsDescribe,
-            serviceResult.Message,
-            serviceResult.ErrorCode,
-            serviceResult.StartupFailure,
-            CommandErrorPayload.Detailed(new OpsFailureCommandPayload(
-                serviceResult.StartupFailure?.Startup,
-                serviceResult.StartupFailure?.Diagnosis,
-                serviceResult.StartupFailure?.RetryDisposition,
-                serviceResult.StartupFailure?.SafeToRetryImmediately)));
+                message: succeeded.Message,
+                payload: succeeded.Output),
+            OpsDescribeServiceResult.Failed failed => CreateFailure(UcliCommandNames.OpsDescribe, failed.Error),
+            _ => throw new InvalidOperationException($"Unsupported ops-describe service result '{serviceResult.GetType().Name}'."),
+        };
     }
 
     private static CommandResult CreateFailure (
         string command,
-        string message,
-        UcliCode? errorCode,
-        StartupFailureDetail? startupFailure,
-        object payload)
+        ApplicationFailure error)
     {
         return CommandFailureProjector.Create(
             command,
-            ApplicationFailure.FromCode(errorCode, message, startupFailure: startupFailure),
-            payload);
+            error,
+            CommandErrorPayload.Detailed(new OpsFailureCommandPayload(
+                error.StartupFailure?.Startup,
+                error.StartupFailure?.Diagnosis,
+                error.StartupFailure?.RetryDisposition,
+                error.StartupFailure?.SafeToRetryImmediately)));
     }
 
     private sealed record OpsFailureCommandPayload (

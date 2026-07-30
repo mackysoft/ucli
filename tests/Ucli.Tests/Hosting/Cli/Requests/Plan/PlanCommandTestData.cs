@@ -51,10 +51,11 @@ internal static class PlanCommandTestData
         return PlanServiceResult.Failure(
             ContractViolationMessage,
             [
-                ApplicationFailure.FromCode(
-                    ExecuteRequestErrorCodes.OperationContractViolation,
+                ApplicationFailure.ContractViolation(
                     ContractViolationMessage,
-                    "/opResults/0"),
+                    ExecuteRequestErrorCodes.OperationContractViolation,
+                    "/opResults/0",
+                    startupFailure: null),
             ],
             new PlanExecutionOutput(
                 requestId: RequestGuid,
@@ -84,7 +85,8 @@ internal static class PlanCommandTestData
                 ApplicationFailure.InvalidInput(
                     "Operation args are invalid.",
                     ValidationErrorCodes.OperationArgsInvalid,
-                    "/steps/0"),
+                    "/steps/0",
+                    startupFailure: null),
             ],
             new PlanExecutionOutput(
                 requestId: RequestGuid,
@@ -128,28 +130,34 @@ internal static class PlanCommandTestData
 
     private static OperationExecutionOperationResult CreateSuccessOperationResult ()
     {
-        return new OperationExecutionOperationResult(
-            Op: UcliPrimitiveOperationNames.GoDescribe,
-            Phase: IpcExecuteOperationPhase.Plan,
-            Applied: false,
-            Changed: false,
-            Touched: []);
+        return OperationExecutionOperationResult.CreateWithoutVerdict(
+            op: UcliPrimitiveOperationNames.GoDescribe,
+            phase: IpcExecuteOperationPhase.Plan,
+            applied: false,
+            changed: false,
+            touched: [],
+            operationDescriptorDigest: RequestCommandResultTestValues.OperationDescriptorDigest,
+            result: null,
+            diagnostics: []);
     }
 
     private static OperationExecutionOperationResult CreateViolationOperationResult ()
     {
-        return new OperationExecutionOperationResult(
-            Op: UcliPrimitiveOperationNames.ProjectRefresh,
-            Phase: IpcExecuteOperationPhase.Plan,
-            Applied: false,
-            Changed: true,
-            Touched:
+        return OperationExecutionOperationResult.CreateWithoutVerdict(
+            op: UcliPrimitiveOperationNames.ProjectRefresh,
+            phase: IpcExecuteOperationPhase.Plan,
+            applied: false,
+            changed: true,
+            touched:
             [
                 new OperationExecutionTouchedResource(
                     Kind: UcliTouchedResourceKind.Asset,
                     Path: "Assets/Example.txt",
                     AssetGuid: null),
-            ]);
+            ],
+            operationDescriptorDigest: RequestCommandResultTestValues.OperationDescriptorDigest,
+            result: null,
+            diagnostics: []);
     }
 
     private static OperationExecutionContractViolation CreateContractViolation ()

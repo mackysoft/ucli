@@ -1,4 +1,3 @@
-using System.Runtime.InteropServices;
 using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Ipc;
@@ -9,15 +8,11 @@ namespace MackySoft.Ucli.Unity.Tests
 {
     public sealed class UnityIpcEndpointBindingTests
     {
+#if !UNITY_EDITOR_WIN
         [Test]
         [Category("Size.Small")]
         public void Create_WithGuardedUnixDomainSocketEndpoint_RetainsSocketPathWithoutReparsing ()
         {
-            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-            {
-                Assert.Ignore("Unix-domain-socket endpoint bindings are not used on Windows.");
-            }
-
             var socketPath = AbsolutePath.Parse(
                 "/tmp/ucli-endpoint-binding.sock");
             var endpoint = IpcTransportEndpoint.FromUnixSocketPath(socketPath);
@@ -30,6 +25,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 Is.True);
             Assert.That(guardedSocketPath, Is.SameAs(socketPath));
         }
+#endif
 
         [Test]
         [Category("Size.Small")]

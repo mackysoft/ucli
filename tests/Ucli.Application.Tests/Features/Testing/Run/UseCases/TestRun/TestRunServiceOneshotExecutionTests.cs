@@ -24,22 +24,21 @@ public sealed class TestRunServiceOneshotExecutionTests
                 prepare: _ => ArtifactsPreparationResult.Success(session),
                 complete: (_, _, _) => ArtifactsCompletionResult.Success()),
             unityTestExecutor: new StubUnityTestExecutor((_, _, _, _) =>
-                ValueTask.FromResult(UnityTestExecutionResult.Failure(
-                    UnityTestExecutionFailureKind.ProcessTimedOut,
-                    "Unity process timed out after 30000 milliseconds."))),
-            resultsConverter: new StubUnityResultsConverter(_ => ValueTask.FromResult(UnityResultsConversionResult.Success(false))));
+                ValueTask.FromResult<UnityTestExecutionResult>(UnityTestExecutionResult.ProcessTimedOut(
+                    "Unity process timed out after 30000 milliseconds.",
+                    TestRunErrorCodes.UnityTestExecutionTimeout))),
+            resultsConverter: new StubUnityResultsConverter(_ => ValueTask.FromResult<UnityResultsConversionResult>(TestRunResultTestValues.CreateConversion(Verdict.Pass))));
 
-        var result = await service.ExecuteAsync(CreateInput(), cancellationToken: CancellationToken.None);
+        var result = Assert.IsType<TestRunAfterCreationPrimaryCommandErrorServiceResult>(
+            await service.ExecuteAsync(CreateInput(), cancellationToken: CancellationToken.None));
 
-        Assert.Null(result.Result);
-        Assert.Equal(TestRunErrorKind.InfraError, result.ErrorKind);
-        Assert.Equal(ApplicationOutcome.InfrastructureError, result.Outcome);
-        Assert.Equal(TestRunErrorCodes.UnityTestExecutionTimeout, result.ErrorCode);
+        Assert.Equal(ApplicationOutcome.InfrastructureError, result.PrimaryFailure.Outcome);
+        Assert.Equal(TestRunErrorCodes.UnityTestExecutionTimeout, result.PrimaryFailure.Code);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Execute_WhenOneshotResponseReportsIpcTimeout_ReturnsExecutionTimeoutErrorCode ()
+    public async Task Execute_WhenOneshotResponseReportsIpcTimeout_PreservesReportedErrorCode ()
     {
         var configuration = CreateResolvedConfiguration();
 
@@ -51,24 +50,53 @@ public sealed class TestRunServiceOneshotExecutionTests
                 prepare: _ => ArtifactsPreparationResult.Success(CreateArtifactsSession()),
                 complete: (_, _, _) => ArtifactsCompletionResult.Success()),
             unityTestExecutor: new StubUnityTestExecutor((_, _, _, _) =>
-                ValueTask.FromResult(UnityTestExecutionResult.Success(0))),
-            resultsConverter: new StubUnityResultsConverter(_ => ValueTask.FromResult(UnityResultsConversionResult.Success(false))),
+                ValueTask.FromResult<UnityTestExecutionResult>(UnityTestExecutionResult.FromProcessExitCode(0))),
+            resultsConverter: new StubUnityResultsConverter(_ => ValueTask.FromResult<UnityResultsConversionResult>(TestRunResultTestValues.CreateConversion(Verdict.Pass))),
             unityRequestResponse: CreateFailureUnityRequestResponse(
                 IpcTransportErrorCodes.IpcTimeout,
                 "Unity test run timed out after 30000 milliseconds."));
 
-        var result = await service.ExecuteAsync(CreateInput(), cancellationToken: CancellationToken.None);
+        var result = Assert.IsType<TestRunAfterCreationPrimaryCommandErrorServiceResult>(
+            await service.ExecuteAsync(CreateInput(), cancellationToken: CancellationToken.None));
 
-        Assert.Null(result.Result);
-        Assert.Equal(TestRunErrorKind.InfraError, result.ErrorKind);
-        Assert.Equal(ApplicationOutcome.InfrastructureError, result.Outcome);
-        Assert.Equal(TestRunErrorCodes.UnityTestExecutionTimeout, result.ErrorCode);
+        Assert.Equal(ApplicationOutcome.InfrastructureError, result.PrimaryFailure.Outcome);
+        Assert.Equal(IpcTransportErrorCodes.IpcTimeout, result.PrimaryFailure.Code);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WhenOneshotResponseRejectsInvalidInput_ReturnsInvalidInputCommandError ()
+    {
+        var configuration = CreateResolvedConfiguration();
+
+        var service = CreateService(
+            configurationResolver: new StubTestRunConfigurationResolver(TestRunConfigurationResolutionResult.Success(configuration)),
+            modeDecisionService: new StubModeDecisionService(UnityExecutionModeDecisionResult.Success(
+                new UnityExecutionModeDecision(UnityExecutionMode.Auto, false, UnityExecutionTarget.Oneshot, TimeSpan.FromSeconds(30)))),
+            artifactsService: new StubTestRunArtifactsService(
+                prepare: _ => ArtifactsPreparationResult.Success(CreateArtifactsSession()),
+                complete: (_, _, _) => ArtifactsCompletionResult.Success()),
+            unityTestExecutor: new StubUnityTestExecutor((_, _, _, _) =>
+                ValueTask.FromResult<UnityTestExecutionResult>(UnityTestExecutionResult.FromProcessExitCode(0))),
+            resultsConverter: new StubUnityResultsConverter(_ => ValueTask.FromResult<UnityResultsConversionResult>(
+                TestRunResultTestValues.CreateConversion(Verdict.Pass))),
+            unityRequestResponse: CreateFailureUnityRequestResponse(
+                UcliCoreErrorCodes.InvalidArgument,
+                "The test-run operation input is invalid."));
+
+        var result = Assert.IsType<TestRunAfterCreationPrimaryCommandErrorServiceResult>(
+            await service.ExecuteAsync(CreateInput(), cancellationToken: CancellationToken.None));
+
+        Assert.Equal(TestRunErrorKind.InvalidInput, result.ErrorKind);
+        Assert.Equal(ApplicationOutcome.InvalidArgument, result.PrimaryFailure.Outcome);
+        Assert.Equal(UcliCoreErrorCodes.InvalidArgument, result.PrimaryFailure.Code);
     }
 
     [Fact]
     [Trait("Size", "Medium")]
-    public async Task Execute_WhenOneshotTransportIsInterruptedAfterResultsWereWritten_RecoversFromGeneratedArtifacts ()
+    public async Task Execute_WhenOneshotTransportIsInterruptedAfterResultsWereWritten_RecoversGeneratedArtifactVerdict ()
     {
+        const Verdict RecoveredVerdict = Verdict.Incomplete;
         using var scope = TestDirectories.CreateTempScope(
             "test-run-service",
             "oneshot-stream-ended-after-results");
@@ -86,23 +114,21 @@ public sealed class TestRunServiceOneshotExecutionTests
             unityTestExecutor: new StubUnityTestExecutor((_, artifactPaths, _, _) =>
             {
                 WriteGeneratedTestArtifacts(artifactPaths);
-                return ValueTask.FromResult(UnityTestExecutionResult.Failure(
-                    UnityTestExecutionFailureKind.IpcTransportInterrupted,
+                return ValueTask.FromResult<UnityTestExecutionResult>(UnityTestExecutionResult.IpcTransportInterrupted(
                     "Failed to execute Unity oneshot IPC request. Pipe is broken.",
-                    UcliCoreErrorCodes.InternalError));
+                    TestRunErrorCodes.UnityTestExecutionFailed));
             }),
             resultsConverter: new StubUnityResultsConverter(convertSession =>
             {
                 convertCount++;
-                Assert.Same(session, convertSession);
-                return ValueTask.FromResult(UnityResultsConversionResult.Success(hasFailedTests: false, reportedTestCaseCount: 799));
+                Assert.Equal(session, convertSession);
+                return ValueTask.FromResult<UnityResultsConversionResult>(TestRunResultTestValues.CreateConversion(RecoveredVerdict));
             }));
 
-        var result = await service.ExecuteAsync(CreateInput(), cancellationToken: CancellationToken.None);
+        var result = Assert.IsType<TestRunCompletedServiceResult>(
+            await service.ExecuteAsync(CreateInput(), cancellationToken: CancellationToken.None));
 
-        Assert.Equal(TestRunResultKind.Pass, result.Result);
-        Assert.Null(result.ErrorKind);
-        Assert.Equal(ApplicationOutcome.Success, result.Outcome);
+        Assert.Equal(RecoveredVerdict, result.Verdict);
         Assert.Equal(1, convertCount);
         Assert.Equal(session.RunId, result.RunId);
         Assert.Equal(session.Paths.ArtifactsDir, result.ArtifactsDir);
@@ -132,22 +158,20 @@ public sealed class TestRunServiceOneshotExecutionTests
             unityTestExecutor: new StubUnityTestExecutor((_, artifactPaths, _, _) =>
             {
                 WriteGeneratedTestArtifacts(artifactPaths);
-                return ValueTask.FromResult(UnityTestExecutionResult.Failure(
-                    UnityTestExecutionFailureKind.AbnormalExit,
+                return ValueTask.FromResult<UnityTestExecutionResult>(UnityTestExecutionResult.InternalError(
                     failureMessage,
                     UcliCoreErrorCodes.InternalError));
             }),
             resultsConverter: new StubUnityResultsConverter(_ =>
             {
                 convertCount++;
-                return ValueTask.FromResult(UnityResultsConversionResult.Success(hasFailedTests: false));
+                return ValueTask.FromResult<UnityResultsConversionResult>(TestRunResultTestValues.CreateConversion(Verdict.Pass));
             }));
 
-        var result = await service.ExecuteAsync(CreateInput(), cancellationToken: CancellationToken.None);
+        var result = Assert.IsType<TestRunAfterCreationPrimaryCommandErrorServiceResult>(
+            await service.ExecuteAsync(CreateInput(), cancellationToken: CancellationToken.None));
 
-        Assert.Null(result.Result);
-        Assert.Equal(TestRunErrorKind.InfraError, result.ErrorKind);
-        Assert.Equal(UcliCoreErrorCodes.InternalError, result.ErrorCode);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, result.PrimaryFailure.Code);
         Assert.Equal(failureMessage, result.Message);
         Assert.Equal(0, convertCount);
     }
@@ -174,23 +198,21 @@ public sealed class TestRunServiceOneshotExecutionTests
             {
                 Directory.CreateDirectory(artifactPaths.ArtifactsDir.Value);
                 File.WriteAllText(artifactPaths.EditorLogPath.Value, string.Empty);
-                return ValueTask.FromResult(UnityTestExecutionResult.Failure(
-                    UnityTestExecutionFailureKind.IpcTransportInterrupted,
+                return ValueTask.FromResult<UnityTestExecutionResult>(UnityTestExecutionResult.IpcTransportInterrupted(
                     "Failed to execute Unity oneshot IPC request. Pipe is broken.",
                     UcliCoreErrorCodes.InternalError));
             }),
             resultsConverter: new StubUnityResultsConverter(_ =>
             {
                 convertCount++;
-                return ValueTask.FromResult(UnityResultsConversionResult.Success(hasFailedTests: false));
+                return ValueTask.FromResult<UnityResultsConversionResult>(TestRunResultTestValues.CreateConversion(Verdict.Pass));
             }));
 
-        var result = await service.ExecuteAsync(CreateInput(), cancellationToken: CancellationToken.None);
+        var result = Assert.IsType<TestRunAfterCreationPrimaryCommandErrorServiceResult>(
+            await service.ExecuteAsync(CreateInput(), cancellationToken: CancellationToken.None));
 
-        Assert.Null(result.Result);
-        Assert.Equal(TestRunErrorKind.InfraError, result.ErrorKind);
-        Assert.Equal(ApplicationOutcome.InfrastructureError, result.Outcome);
-        Assert.Equal(UcliCoreErrorCodes.InternalError, result.ErrorCode);
+        Assert.Equal(ApplicationOutcome.InfrastructureError, result.PrimaryFailure.Outcome);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, result.PrimaryFailure.Code);
         Assert.StartsWith("Failed to execute Unity oneshot IPC request.", result.Message, StringComparison.Ordinal);
         Assert.Equal(0, convertCount);
     }
@@ -217,22 +239,20 @@ public sealed class TestRunServiceOneshotExecutionTests
                 Directory.CreateDirectory(artifactPaths.ArtifactsDir.Value);
                 File.WriteAllText(artifactPaths.ResultsXmlPath.Value, "not xml");
                 File.WriteAllText(artifactPaths.EditorLogPath.Value, string.Empty);
-                return ValueTask.FromResult(UnityTestExecutionResult.Failure(
-                    UnityTestExecutionFailureKind.IpcTransportInterrupted,
+                return ValueTask.FromResult<UnityTestExecutionResult>(UnityTestExecutionResult.IpcTransportInterrupted(
                     "Failed to execute Unity oneshot IPC request. Pipe is broken.",
                     UcliCoreErrorCodes.InternalError));
             }),
-            resultsConverter: new StubUnityResultsConverter(_ => ValueTask.FromResult(
-                UnityResultsConversionResult.Failure(
+            resultsConverter: new StubUnityResultsConverter(_ => ValueTask.FromResult<UnityResultsConversionResult>(
+                TestRunResultTestValues.CreateConversionFailure(
                     UnityResultsConversionFailureKind.InvalidResultsXml,
                     "Unity results XML is invalid."))));
 
-        var result = await service.ExecuteAsync(CreateInput(), cancellationToken: CancellationToken.None);
+        var result = Assert.IsType<TestRunAfterCreationPrimaryCommandErrorServiceResult>(
+            await service.ExecuteAsync(CreateInput(), cancellationToken: CancellationToken.None));
 
-        Assert.Null(result.Result);
-        Assert.Equal(TestRunErrorKind.InfraError, result.ErrorKind);
-        Assert.Equal(ApplicationOutcome.InfrastructureError, result.Outcome);
-        Assert.Equal(UcliCoreErrorCodes.InternalError, result.ErrorCode);
+        Assert.Equal(ApplicationOutcome.ToolError, result.PrimaryFailure.Outcome);
+        Assert.Equal(TestRunErrorCodes.TestResultsXmlInvalid, result.PrimaryFailure.Code);
     }
 
     [Fact]
@@ -253,21 +273,19 @@ public sealed class TestRunServiceOneshotExecutionTests
             unityTestExecutor: new StubUnityTestExecutor((_, _, _, _) =>
             {
                 cancellationTokenSource.Cancel();
-                return ValueTask.FromResult(UnityTestExecutionResult.Failure(
-                    UnityTestExecutionFailureKind.Canceled,
-                    "Unity process execution was canceled."));
+                return ValueTask.FromResult<UnityTestExecutionResult>(UnityTestExecutionResult.Canceled(
+                    "Unity process execution was canceled.",
+                    ExecutionErrorCodes.Canceled));
             }),
-            resultsConverter: new StubUnityResultsConverter(_ => ValueTask.FromResult(UnityResultsConversionResult.Success(false))));
+            resultsConverter: new StubUnityResultsConverter(_ => ValueTask.FromResult<UnityResultsConversionResult>(TestRunResultTestValues.CreateConversion(Verdict.Pass))));
 
-        var result = await service.ExecuteAsync(CreateInput(), cancellationToken: cancellationTokenSource.Token);
+        var result = Assert.IsType<TestRunAfterCreationPrimaryCommandErrorServiceResult>(
+            await service.ExecuteAsync(CreateInput(), cancellationToken: cancellationTokenSource.Token));
 
-        Assert.Null(result.Result);
-        Assert.Equal(TestRunErrorKind.ToolError, result.ErrorKind);
-        Assert.Equal(ApplicationOutcome.ToolError, result.Outcome);
-        Assert.Equal(ExecutionErrorCodes.Canceled, result.ErrorCode);
+        Assert.Equal(ApplicationOutcome.ToolError, result.PrimaryFailure.Outcome);
+        Assert.Equal(ExecutionErrorCodes.Canceled, result.PrimaryFailure.Code);
         Assert.Equal(session.RunId, result.RunId);
         Assert.Equal(session.Paths.ArtifactsDir, result.ArtifactsDir);
-        Assert.Equal(session.Paths.SummaryJsonPath, result.SummaryJsonPath);
     }
 
     private static void WriteGeneratedTestArtifacts (ArtifactPaths artifactPaths)

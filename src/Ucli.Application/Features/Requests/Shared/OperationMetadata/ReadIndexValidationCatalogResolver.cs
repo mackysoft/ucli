@@ -67,6 +67,53 @@ internal sealed class ReadIndexValidationCatalogResolver : IReadIndexValidationC
                 fallbackReason: null));
     }
 
+    /// <inheritdoc />
+    public async ValueTask<UcliOperationDescriptor> ResolveOperationAsync (
+        ResolvedUnityProjectContext unityProject,
+        ReadIndexMode readIndexMode,
+        DateTimeOffset? expectedGeneration,
+        string operationName,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        ArgumentNullException.ThrowIfNull(unityProject);
+        ArgumentException.ThrowIfNullOrWhiteSpace(operationName);
+
+        var resolution = await ResolveAsync(
+                unityProject,
+                readIndexMode,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (!resolution.IsSuccess)
+        {
+            throw OperationCatalogLoadException.Create(
+                ApplicationFailure.FromCode(
+                    resolution.ErrorCode,
+                    resolution.ErrorMessage!),
+                "Persisted operation catalog could not be resolved.");
+        }
+
+        if (expectedGeneration is null
+            || resolution.ReadIndex.GeneratedAtUtc != expectedGeneration)
+        {
+            throw OperationCatalogLoadException.Create(
+                ApplicationFailure.InternalError(
+                    $"Operation catalog generation does not match the read-index result generation for '{operationName}'."),
+                "Read-index operation metadata is inconsistent.");
+        }
+
+        if (!resolution.Catalog.IsAvailable
+            || !resolution.Catalog.OperationsByName.TryGetValue(operationName, out var descriptor))
+        {
+            throw OperationCatalogLoadException.Create(
+                ApplicationFailure.InternalError(
+                    $"Persisted operation catalog does not contain '{operationName}'."),
+                "Read-index operation metadata is inconsistent.");
+        }
+
+        return descriptor;
+    }
+
     private static ReadIndexValidationCatalogResolutionResult HandlePersistedCatalogReadFailure (
         PersistedOpsCatalogReadFailure failure,
         ReadIndexMode readIndexMode)

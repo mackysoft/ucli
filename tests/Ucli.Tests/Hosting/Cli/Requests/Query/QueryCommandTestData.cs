@@ -16,18 +16,18 @@ internal static class QueryCommandTestData
             commandName,
             RequestGuid,
             [
-                new OperationExecutionOperationResult(
-                    Op: UcliPrimitiveOperationNames.AssetsFind,
-                    Phase: IpcExecuteOperationPhase.Plan,
-                    Applied: false,
-                    Changed: false,
-                    Touched: [])
-                {
-                    Result = JsonSerializer.SerializeToElement(new
+                OperationExecutionOperationResult.CreateWithoutVerdict(
+                    op: UcliPrimitiveOperationNames.AssetsFind,
+                    phase: IpcExecuteOperationPhase.Plan,
+                    applied: false,
+                    changed: false,
+                    touched: [],
+                    operationDescriptorDigest: RequestCommandResultTestValues.OperationDescriptorDigest,
+                    result: JsonSerializer.SerializeToElement(new
                     {
                         matches = Array.Empty<object>(),
                     }),
-                },
+                    diagnostics: []),
             ],
             new ReadIndexInfo(
                 Used: true,
@@ -36,7 +36,8 @@ internal static class QueryCommandTestData
                 Freshness: IndexFreshness.Fresh,
                 GeneratedAtUtc: DateTimeOffset.Parse("2026-04-25T00:00:00+00:00"),
                 FallbackReason: null),
-            ProjectIdentityInfoTestFactory.Create());
+            ProjectIdentityInfoTestFactory.Create(),
+            contractViolations: []);
     }
 
     public static QueryServiceResult CreateFailureResult (string commandName)
@@ -48,7 +49,9 @@ internal static class QueryCommandTestData
             [
                 ApplicationFailure.InternalError(
                     "Unity execution failed.",
-                    instancePath: "/steps/0"),
+                    UcliCoreErrorCodes.InternalError,
+                    instancePath: "/steps/0",
+                    startupFailure: null),
             ],
             "Unity execution failed.",
             new ReadIndexInfo(
@@ -57,6 +60,8 @@ internal static class QueryCommandTestData
                 Source: ReadIndexInfoSource.Index,
                 Freshness: IndexFreshness.Fresh,
                 GeneratedAtUtc: DateTimeOffset.Parse("2026-04-25T00:00:00+00:00"),
-                FallbackReason: null));
+                FallbackReason: null),
+            project: null,
+            contractViolations: []);
     }
 }

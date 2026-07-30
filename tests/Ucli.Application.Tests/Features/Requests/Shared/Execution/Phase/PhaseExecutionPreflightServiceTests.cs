@@ -33,12 +33,13 @@ public sealed class PhaseExecutionPreflightServiceTests
             preparedRequest,
             mode: UnityExecutionMode.Auto,
             deadline: ExecutionDeadline.Start(TimeSpan.FromMilliseconds(30000), TimeProvider.System),
+            failFast: false,
             cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.False(result.HasValidationErrors);
         Assert.NotNull(result.PreparedRequest);
-        Assert.Equal(preparedRequest.RequestJson, result.PreparedRequest!.RequestJson);
+        Assert.Equal(preparedRequest.RequestJson, result.PreparedRequest.RequestJson);
         Assert.Same(preparedRequest.Request, result.PreparedRequest.Request);
         Assert.Same(preparedRequest.ProjectContext.UnityProject, result.PreparedRequest.UnityProject);
         Assert.Same(preparedRequest.ProjectContext.Config, result.PreparedRequest.Config);
@@ -75,13 +76,14 @@ public sealed class PhaseExecutionPreflightServiceTests
             preparedRequest,
             mode: UnityExecutionMode.Auto,
             deadline: ExecutionDeadline.Start(TimeSpan.FromMilliseconds(30000), TimeProvider.System),
+            failFast: false,
             cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.True(result.HasValidationErrors);
         Assert.Null(result.Error);
         Assert.NotNull(result.PreparedRequest);
-        Assert.True(result.PreparedRequest!.OperationsByName.ContainsKey(operation.Name));
+        Assert.True(result.PreparedRequest.OperationsByName.ContainsKey(operation.Name));
         Assert.Single(result.ValidationErrors);
         Assert.Equal(ValidationErrorCodes.OperationArgsInvalid, result.ValidationErrors[0].Code);
     }
@@ -91,7 +93,9 @@ public sealed class PhaseExecutionPreflightServiceTests
     public async Task Prepare_WhenStaticValidationFailsWithExecutionError_ReturnsFailure ()
     {
         var preparedRequest = CreatePreparedRequestContext();
-        var error = ExecutionError.InternalError("operation metadata could not be loaded.");
+        var error = ExecutionError.InternalError(
+            "operation metadata could not be loaded.",
+            UcliCoreErrorCodes.InternalError);
         var service = new PhaseExecutionPreflightService(
             new RecordingOperationCatalog
             {
@@ -109,13 +113,18 @@ public sealed class PhaseExecutionPreflightServiceTests
             preparedRequest,
             mode: UnityExecutionMode.Auto,
             deadline: ExecutionDeadline.Start(TimeSpan.FromMilliseconds(30000), TimeProvider.System),
+            failFast: false,
             cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.False(result.HasValidationErrors);
-        Assert.Same(error, result.Error);
+        Assert.NotNull(result.Error);
+        Assert.Equal(ApplicationFailureKind.InternalError, result.Error!.Kind);
+        Assert.Equal(ApplicationOutcome.ToolError, result.Error.Outcome);
+        Assert.Equal(error.Code, result.Error.Code);
+        Assert.Equal(error.Message, result.Error.Message);
         Assert.NotNull(result.PreparedRequest);
-        Assert.True(result.PreparedRequest!.OperationsByName.ContainsKey(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe));
+        Assert.True(result.PreparedRequest.OperationsByName.ContainsKey(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe));
         Assert.Empty(result.ValidationErrors);
     }
 
@@ -138,13 +147,14 @@ public sealed class PhaseExecutionPreflightServiceTests
             preparedRequest,
             mode: UnityExecutionMode.Auto,
             deadline: ExecutionDeadline.Start(TimeSpan.FromMilliseconds(30000), TimeProvider.System),
+            failFast: false,
             cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.False(result.HasValidationErrors);
         Assert.NotNull(result.Error);
         Assert.NotNull(result.PreparedRequest);
-        Assert.Empty(result.PreparedRequest!.OperationsByName);
+        Assert.Empty(result.PreparedRequest.OperationsByName);
         Assert.Contains("Static validation could not load operation metadata.", result.Error!.Message, StringComparison.Ordinal);
     }
 
@@ -156,8 +166,13 @@ public sealed class PhaseExecutionPreflightServiceTests
         var service = new PhaseExecutionPreflightService(
             new RecordingOperationCatalog
             {
-                ProjectGetAllException = new OperationCatalogLoadException(
-                    ExecutionError.InvalidArgument("Mode must be auto, daemon, or oneshot.")),
+                ProjectGetAllException = OperationCatalogLoadException.Create(
+                    ApplicationFailure.InvalidInput(
+                        "Mode must be auto, daemon, or oneshot.",
+                        UcliCoreErrorCodes.InvalidArgument,
+                        instancePath: null,
+                        startupFailure: null),
+                    "Operation catalog discovery failed."),
             },
             new RecordingRequestStaticValidator
             {
@@ -168,14 +183,15 @@ public sealed class PhaseExecutionPreflightServiceTests
             preparedRequest,
             mode: (UnityExecutionMode)999,
             deadline: ExecutionDeadline.Start(TimeSpan.FromMilliseconds(30000), TimeProvider.System),
+            failFast: false,
             cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.NotNull(result.Error);
-        Assert.Equal(ExecutionErrorKind.InvalidArgument, result.Error!.Kind);
+        Assert.Equal(ApplicationFailureKind.InvalidInput, result.Error!.Kind);
         Assert.Contains("Static validation could not load operation metadata.", result.Error.Message, StringComparison.Ordinal);
         Assert.NotNull(result.PreparedRequest);
-        Assert.Empty(result.PreparedRequest!.OperationsByName);
+        Assert.Empty(result.PreparedRequest.OperationsByName);
     }
 
     [Fact]
@@ -186,9 +202,13 @@ public sealed class PhaseExecutionPreflightServiceTests
         var service = new PhaseExecutionPreflightService(
             new RecordingOperationCatalog
             {
-                ProjectGetAllException = new OperationCatalogLoadException(
-                    ExecutionError.InternalError("Daemon is not running for mode=daemon."),
-                    UnityExecutionModeDecisionErrorCodes.DaemonNotRunning),
+                ProjectGetAllException = OperationCatalogLoadException.Create(
+                    ApplicationFailure.InternalError(
+                        "Daemon is not running for mode=daemon.",
+                        UnityExecutionModeDecisionErrorCodes.DaemonNotRunning,
+                        instancePath: null,
+                        startupFailure: null),
+                    "Operation catalog discovery failed."),
             },
             new RecordingRequestStaticValidator
             {
@@ -199,16 +219,16 @@ public sealed class PhaseExecutionPreflightServiceTests
             preparedRequest,
             mode: UnityExecutionMode.Daemon,
             deadline: ExecutionDeadline.Start(TimeSpan.FromMilliseconds(30000), TimeProvider.System),
+            failFast: false,
             cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.NotNull(result.Error);
-        Assert.Equal(ExecutionErrorKind.InternalError, result.Error!.Kind);
+        Assert.Equal(ApplicationFailureKind.InternalError, result.Error!.Kind);
         Assert.Equal(UnityExecutionModeDecisionErrorCodes.DaemonNotRunning, result.Error.Code);
-        Assert.Equal(UnityExecutionModeDecisionErrorCodes.DaemonNotRunning, result.ErrorCode);
         Assert.Contains("Static validation could not load operation metadata.", result.Error.Message, StringComparison.Ordinal);
         Assert.NotNull(result.PreparedRequest);
-        Assert.Empty(result.PreparedRequest!.OperationsByName);
+        Assert.Empty(result.PreparedRequest.OperationsByName);
     }
 
     [Fact]
@@ -234,6 +254,7 @@ public sealed class PhaseExecutionPreflightServiceTests
             preparedRequest,
             mode: UnityExecutionMode.Auto,
             deadline: deadline,
+            failFast: false,
             cancellationToken: CancellationToken.None);
 
         PhaseExecutionPreflightInvocationAssert.DeadlineExpiredBeforeCatalogLoad(
@@ -306,7 +327,8 @@ public sealed class PhaseExecutionPreflightServiceTests
                         {
                             path = "Assets/Scenes/Main.unity",
                         })),
-                ]),
+                ],
+                AllowPlayMode: false),
             projectContext: ProjectContextTestFactory.CreateTemporaryFixtureProject());
     }
 
@@ -318,7 +340,11 @@ public sealed class PhaseExecutionPreflightServiceTests
             name,
             UcliOperationKind.Query,
             policy,
-            """{"type":"object","additionalProperties":false}""");
+            """{"type":"object","additionalProperties":false}""",
+            Sha256DigestTestFactory.Compute(name),
+            VerdictContract: null,
+            ResultSchemaJson: null,
+            Exposure: UcliOperationExposure.Public);
     }
 
 }

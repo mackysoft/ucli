@@ -32,45 +32,61 @@ internal static class BuildRunCommandResultFactory
     {
         ArgumentNullException.ThrowIfNull(executionResult);
 
-        if (executionResult.IsSuccess)
+        return executionResult switch
         {
-            return CreateSuccess(executionResult);
-        }
-
-        var startupFailure = StartupFailureFinder.FindInFailures(executionResult.Errors);
-        return CommandFailureProjector.Create(
-            UcliCommandNames.BuildRun,
-            executionResult.Message,
-            CommandErrorPayload.Detailed(new BuildRunFailureCommandPayload(
-                executionResult.Project,
-                executionResult.DirtyState,
-                startupFailure?.Startup,
-                startupFailure?.Diagnosis,
-                startupFailure?.RetryDisposition,
-                startupFailure?.SafeToRetryImmediately)),
-            executionResult.Errors);
+            BuildExecutionResult.CompletedResult completed => CreateSuccess(completed),
+            BuildExecutionResult.FailedResult failed => CreateFailure(
+                failed.Failure,
+                failed.Message,
+                failed.Project,
+                dirtyState: null),
+            BuildExecutionResult.DirtyStateFailedResult failed => CreateFailure(
+                failed.Failure,
+                failed.Message,
+                failed.Project,
+                failed.DirtyState),
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(executionResult),
+                executionResult.GetType(),
+                "Build execution result variant is unsupported."),
+        };
     }
 
     /// <summary> Creates one command result for <c>build run</c> from a normalized execution error. </summary>
     public static CommandResult CreateExecutionError (ExecutionError error)
     {
         ArgumentNullException.ThrowIfNull(error);
-        return Create(BuildExecutionResult.Failure(error));
+        return Create(BuildExecutionResult.Failed(
+            error,
+            project: null));
     }
 
-    private static CommandResult CreateSuccess (BuildExecutionResult executionResult)
+    private static CommandResult CreateSuccess (BuildExecutionResult.CompletedResult executionResult)
     {
-        var output = executionResult.Output!;
-        return new CommandResult(
-            ProtocolVersion: IpcProtocol.CurrentVersion,
-            Command: UcliCommandNames.BuildRun,
-            Status: CommandResultStatus.Ok,
-            ExitCode: output.Verdict == AssuranceVerdict.Pass
-                ? (int)CliExitCode.Success
-                : 1,
-            Message: executionResult.Message,
-            Payload: output,
-            Errors: []);
+        return CommandResult.CompletedWithVerdict(
+            UcliCommandNames.BuildRun,
+            executionResult.Message,
+            executionResult.Output);
+    }
+
+    private static CommandResult CreateFailure (
+        ApplicationFailure failure,
+        string message,
+        ProjectIdentityInfo? project,
+        IpcBuildDirtyState? dirtyState)
+    {
+        var startupFailure = StartupFailureFinder.FindInFailures([failure]);
+        return CommandFailureProjector.Create(
+            UcliCommandNames.BuildRun,
+            message,
+            CommandErrorPayload.Detailed(new BuildRunFailureCommandPayload(
+                project,
+                dirtyState,
+                startupFailure?.Startup,
+                startupFailure?.Diagnosis,
+                startupFailure?.RetryDisposition,
+                startupFailure?.SafeToRetryImmediately)),
+            [failure]);
     }
 
     private sealed record BuildRunFailureCommandPayload (

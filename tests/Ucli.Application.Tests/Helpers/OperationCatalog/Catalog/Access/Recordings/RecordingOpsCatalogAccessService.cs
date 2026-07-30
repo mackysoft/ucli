@@ -12,10 +12,18 @@ internal sealed class RecordingOpsCatalogAccessService : IOpsCatalogAccessServic
     public IReadOnlyList<DescribeInvocation> DescribeInvocations => describeInvocations;
 
     public OpsListReadResult ListResult { get; set; } =
-        OpsListReadResult.Failure("not configured", UcliCoreErrorCodes.InternalError);
+        OpsListReadResult.Failure(ApplicationFailure.InternalError(
+            "not configured",
+            UcliCoreErrorCodes.InternalError,
+            instancePath: null,
+            startupFailure: null));
 
     public OpsDescribeReadResult DescribeResult { get; set; } =
-        OpsDescribeReadResult.Failure("not configured", UcliCoreErrorCodes.InternalError);
+        OpsDescribeReadResult.Failure(ApplicationFailure.InternalError(
+            "not configured",
+            UcliCoreErrorCodes.InternalError,
+            instancePath: null,
+            startupFailure: null));
 
     public ValueTask<OpsListReadResult> ReadListAsync (
         OpsPreflightContext context,

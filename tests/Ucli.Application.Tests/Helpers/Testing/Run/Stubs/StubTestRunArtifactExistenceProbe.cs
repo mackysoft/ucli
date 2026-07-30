@@ -5,8 +5,30 @@ namespace MackySoft.Ucli.Application.Tests;
 
 internal sealed class StubTestRunArtifactExistenceProbe : ITestRunArtifactExistenceProbe
 {
+    private readonly bool assumeGeneratedFilesExist;
+
+    private StubTestRunArtifactExistenceProbe (bool assumeGeneratedFilesExist)
+    {
+        this.assumeGeneratedFilesExist = assumeGeneratedFilesExist;
+    }
+
+    public static StubTestRunArtifactExistenceProbe CheckingGeneratedFiles ()
+    {
+        return new StubTestRunArtifactExistenceProbe(assumeGeneratedFilesExist: false);
+    }
+
+    public static StubTestRunArtifactExistenceProbe ReturningSuccess ()
+    {
+        return new StubTestRunArtifactExistenceProbe(assumeGeneratedFilesExist: true);
+    }
+
     public TestRunArtifactExistenceResult ValidateGeneratedFiles (ArtifactPaths artifactPaths)
     {
+        if (assumeGeneratedFilesExist)
+        {
+            return TestRunArtifactExistenceResult.Success();
+        }
+
         if (!File.Exists(artifactPaths.ResultsXmlPath.Value))
         {
             return TestRunArtifactExistenceResult.Failure(

@@ -60,7 +60,9 @@ public sealed class PlayExitCommandPayloadTests
         var output = PlayExitCommandTestData.CreateOutput(IpcPlayTransitionOutcome.Timeout, includeAfter: false);
         var failure = ApplicationFailure.Timeout(
             "Unity Play Mode exit timed out after 1000 milliseconds.",
-            PlayModeErrorCodes.PlayModeTransitionTimeout);
+            PlayModeErrorCodes.PlayModeTransitionTimeout,
+            instancePath: null,
+            startupFailure: null);
 
         var result = await ExecuteAsync(PlayExitExecutionResult.Failure(failure, output));
 

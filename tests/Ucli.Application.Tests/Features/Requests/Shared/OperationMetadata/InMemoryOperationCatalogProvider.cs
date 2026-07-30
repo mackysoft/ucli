@@ -82,6 +82,9 @@ internal sealed class InMemoryOperationCatalogProvider : IOperationCatalogProvid
             kind,
             policy,
             Encoding.UTF8.GetString(generation.GetArgsJsonSchemaUtf8()),
+            DescriptorDigest: Sha256DigestTestFactory.Compute(operationName),
+            VerdictContract: null,
+            ResultSchemaJson: null,
             Exposure: exposure);
     }
 }

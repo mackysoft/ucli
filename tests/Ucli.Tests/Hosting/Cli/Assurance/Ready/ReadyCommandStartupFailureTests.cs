@@ -13,10 +13,11 @@ public sealed class ReadyCommandStartupFailureTests
     {
         var projectFingerprint = ProjectFingerprintTestFactory.Create("<projectFingerprint>");
         var startupFailure = CreateStartupFailureDetail();
-        var service = new RecordingReadyService((_, _) => ValueTask.FromResult(ReadyExecutionResult.Failure(
+        var service = new RecordingReadyService((_, _) => ValueTask.FromResult<ReadyExecutionResult>(ReadyExecutionResult.Failed(
             ApplicationFailure.UnityIpcFailure(
                 "Unity startup is blocked.",
                 DaemonErrorCodes.DaemonStartupBlocked,
+                instancePath: null,
                 startupFailure: startupFailure),
             ProjectIdentityInfoTestFactory.Create(projectFingerprint: projectFingerprint))));
         var command = new ReadyCommand(service, CommandResultTestWriter.Create());

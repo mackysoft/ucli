@@ -18,7 +18,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
     [UcliOperation]
     internal sealed class CompSetOperation : UcliOperation<ComponentSetArgs, UcliNoResult>
     {
-        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<ComponentSetArgs, UcliNoResult>(
+        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.CreateWithoutVerdict<ComponentSetArgs, UcliNoResult>(
             operationName: UcliPrimitiveOperationNames.CompSet,
             kind: UcliOperationKind.Mutation,
             description: "Assigns serialized property values on a component target.",
@@ -32,7 +32,10 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 readPostconditionContract: "Scene, prefab, component, and object read surfaces covering touched resources may be stale until refreshed.",
                 failureSemantics: "Failure before apply leaves no requested mutation; failure during apply may leave live Unity state partially changed.",
                 dangerousNotes: new[] { "This operation can dirty scene or prefab state without persisting it; callers must save or discard changes explicitly." }),
-            exposure: UcliOperationExposure.EditLoweringOnly);
+            requiresPreCallPlanReplay: false,
+            exposure: UcliOperationExposure.EditLoweringOnly,
+            playModeSupport: UcliOperationPlayModeSupport.Disallowed,
+            codeContract: null);
 
         protected override Task<OperationPhaseStepResult> ValidateAsync (
             NormalizedOperation operation,
@@ -46,7 +49,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return Task.FromResult(failure!);
             }
 
-            return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false));
+            return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()));
         }
 
         protected override Task<OperationPhaseStepResult> PlanAsync (
@@ -63,10 +66,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             if (!ComponentOperationUtilities.TryCreateTemporaryComponentClone(bindingState.Binding.Component, executionContext, out var sandbox, out var cloneErrorMessage))
             {
-                return Task.FromResult(OperationPhaseStepResult.Failed(new OperationFailure(
-                    Code: UcliCoreErrorCodes.InternalError,
-                    Message: cloneErrorMessage,
-                    OpId: operation.Id)));
+                return Task.FromResult(OperationPhaseStepResult.Failed(
+                    new OperationFailure(
+                        Code: UcliCoreErrorCodes.InternalError,
+                        Message: cloneErrorMessage,
+                        OpId: operation.Id),
+                    applied: false,
+                    changed: false,
+                    result: null,touched:Array.Empty<OperationTouch>()));
             }
 
             var prefabOverrideStatesBeforeApply = CreatePrefabOverrideStateSnapshot(
@@ -137,10 +144,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             if (!ComponentOperationUtilities.TryCreateTemporaryComponentClone(bindingState.Binding.Component, executionContext, out var sandbox, out var cloneErrorMessage))
             {
-                return Task.FromResult(OperationPhaseStepResult.Failed(new OperationFailure(
-                    Code: UcliCoreErrorCodes.InternalError,
-                    Message: cloneErrorMessage,
-                    OpId: operation.Id)));
+                return Task.FromResult(OperationPhaseStepResult.Failed(
+                    new OperationFailure(
+                        Code: UcliCoreErrorCodes.InternalError,
+                        Message: cloneErrorMessage,
+                        OpId: operation.Id),
+                    applied: false,
+                    changed: false,
+                    result: null,touched:Array.Empty<OperationTouch>()));
             }
 
             var prefabOverrideStatesBeforeApply = CreatePrefabOverrideStateSnapshot(
@@ -171,10 +182,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     out _,
                     out var commitErrorMessage))
             {
-                return Task.FromResult(OperationPhaseStepResult.Failed(new OperationFailure(
-                    Code: UcliCoreErrorCodes.InternalError,
-                    Message: $"Validated component mutation could not be committed. {commitErrorMessage}",
-                    OpId: operation.Id)));
+                return Task.FromResult(OperationPhaseStepResult.Failed(
+                    new OperationFailure(
+                        Code: UcliCoreErrorCodes.InternalError,
+                        Message: $"Validated component mutation could not be committed. {commitErrorMessage}",
+                        OpId: operation.Id),
+                    applied: false,
+                    changed: false,
+                    result: null,touched:Array.Empty<OperationTouch>()));
             }
 
             if (changed)

@@ -1,4 +1,3 @@
-using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Testing.Run.Artifacts;
 using MackySoft.Ucli.Application.Features.Testing.Run.Configuration;
 using MackySoft.Ucli.Application.Features.Testing.Run.Results;
@@ -31,7 +30,9 @@ internal static class TestRunServiceTestFactory
             TestFilter: null,
             TestCategory: null,
             AssemblyName: null,
-            TimeoutMilliseconds: null);
+            TimeoutMilliseconds: null,
+            FailFast: false,
+            AllowEmptyTestRun: false);
     }
 
     public static ResolvedTestRunConfiguration CreateResolvedConfiguration (UnityExecutionMode mode = UnityExecutionMode.Auto)
@@ -70,6 +71,13 @@ internal static class TestRunServiceTestFactory
             ]);
     }
 
+    public static UnityRequestExecutionResult CreateSuccessfulUnityRequestResult (int processExitCode)
+    {
+        return UnityRequestExecutionResult.Success(new UnityRequestResponse(
+            Payload: IpcPayloadCodec.SerializeToElement(new IpcTestRunResponse(processExitCode)),
+            Errors: Array.Empty<OperationExecutionError>()));
+    }
+
     public static TestRunService CreateService (
         ITestRunConfigurationResolver configurationResolver,
         IUnityExecutionModeDecisionService modeDecisionService,
@@ -98,7 +106,7 @@ internal static class TestRunServiceTestFactory
             artifactsService,
             unityRequestExecutor,
             resultsConverter,
-            new StubTestRunArtifactExistenceProbe(),
+            StubTestRunArtifactExistenceProbe.CheckingGeneratedFiles(),
             unityRequestExecutor);
         var resultMapper = new TestRunResultMapper();
 

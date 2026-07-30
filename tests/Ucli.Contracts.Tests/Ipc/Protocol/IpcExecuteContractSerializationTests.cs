@@ -1,7 +1,8 @@
 using System.Text.Json;
 using MackySoft.Tests;
+using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.Contracts.Ipc.ContractReading;
 
 namespace MackySoft.Ucli.Contracts.Tests.Ipc.Common;
 
@@ -10,6 +11,8 @@ public sealed class IpcExecuteContractSerializationTests
     private const string ProjectFingerprintText = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
 
     private const string GlobalObjectIdText = "GlobalObjectId_V1-2-0123456789abcdef0123456789abcdef-4-5";
+
+    private static readonly Sha256Digest OperationDescriptorDigest = Sha256Digest.Parse(new string('a', 64));
 
     private static string ProjectPath { get; } = Path.GetFullPath(Path.Combine(
         Path.GetTempPath(),
@@ -138,7 +141,11 @@ public sealed class IpcExecuteContractSerializationTests
                     Phase: IpcExecuteOperationPhase.Call,
                     Applied: true,
                     Changed: true,
-                    Touched: []),
+                    Touched: [],
+                    OperationDescriptorDigest: null,
+                    Verdict: null,
+                    Result: null,
+                    Diagnostics: []),
             ],
             CreateProjectIdentity(),
             planToken: null,
@@ -177,7 +184,11 @@ public sealed class IpcExecuteContractSerializationTests
                     Phase: IpcExecuteOperationPhase.Call,
                     Applied: true,
                     Changed: true,
-                    Touched: []),
+                    Touched: [],
+                    OperationDescriptorDigest: OperationDescriptorDigest,
+                    Verdict: null,
+                    Result: null,
+                    Diagnostics: []),
             ],
             CreateProjectIdentity(),
             planToken: null,
@@ -259,7 +270,11 @@ public sealed class IpcExecuteContractSerializationTests
                             kind: UcliTouchedResourceKind.Scene,
                             path: "Assets/Scenes/Main.unity",
                             assetGuid: Guid.ParseExact("11111111111111111111111111111111", "N")),
-                    ]),
+                    ],
+                    OperationDescriptorDigest: OperationDescriptorDigest,
+                    Verdict: null,
+                    Result: null,
+                    Diagnostics: []),
             ],
             project: CreateProjectIdentity(),
             planToken: "issued-token",
@@ -344,7 +359,11 @@ public sealed class IpcExecuteContractSerializationTests
                     Phase: IpcExecuteOperationPhase.Call,
                     Applied: true,
                     Changed: true,
-                    Touched: []),
+                    Touched: [],
+                    OperationDescriptorDigest: OperationDescriptorDigest,
+                    Verdict: null,
+                    Result: null,
+                    Diagnostics: []),
             ],
             CreateProjectIdentity(),
             planToken: null,
@@ -407,15 +426,17 @@ public sealed class IpcExecuteContractSerializationTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void IpcExecuteOperationResultFactory_CreatePlanResult_CreatesSharedEnvelopeContract ()
+    public void IpcExecuteOperationResultFactory_CreateDirectWithoutVerdict_SerializesDirectOperationContract ()
     {
         var payload = IpcPayloadCodec.SerializeToElement(
             new IpcResolveOperationResult(new UnityGlobalObjectId(GlobalObjectIdText)));
-        var opResult = IpcExecuteOperationResultFactory.CreatePlanResult(
+        var opResult = IpcExecuteOperationResultFactory.CreateDirectWithoutVerdict(
             op: UcliPrimitiveOperationNames.Resolve,
+            phase: IpcExecuteOperationPhase.Plan,
             applied: false,
             changed: false,
             touched: Array.Empty<IpcExecuteTouchedResource>(),
+            operationDescriptorDigest: OperationDescriptorDigest,
             result: payload,
             diagnostics:
             [
@@ -433,6 +454,7 @@ public sealed class IpcExecuteContractSerializationTests
             .HasString("phase", TextVocabulary.GetText(IpcExecuteOperationPhase.Plan))
             .HasBoolean("applied", false)
             .HasBoolean("changed", false)
+            .HasString("operationDescriptorDigest", OperationDescriptorDigest.ToString())
             .HasArrayLength("touched", 0)
             .HasArrayLength("diagnostics", 1)
             .HasProperty("diagnostics", 0, diagnostic => diagnostic
@@ -442,6 +464,72 @@ public sealed class IpcExecuteContractSerializationTests
                 .HasString("message", "Scene query skipped GameObjects whose names contain '/'."))
             .HasProperty("result", result => result
                 .HasString("globalObjectId", GlobalObjectIdText));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcExecuteOperationResultFactory_CreateDirectWithoutVerdict_RequiresDescriptorDigest ()
+    {
+        var exception = Assert.Throws<ArgumentNullException>(() =>
+            IpcExecuteOperationResultFactory.CreateDirectWithoutVerdict(
+                op: UcliPrimitiveOperationNames.Resolve,
+                phase: IpcExecuteOperationPhase.Plan,
+                applied: false,
+                changed: false,
+                touched: [],
+                operationDescriptorDigest: null!,
+                result: null,
+                diagnostics: []));
+
+        Assert.Equal("operationDescriptorDigest", exception.ParamName);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcExecuteOperationResultFactory_CreateEditResult_FixesDirectOperationFieldsToNull ()
+    {
+        var opResult = IpcExecuteOperationResultFactory.CreateEditResult(
+            phase: IpcExecuteOperationPhase.Call,
+            applied: true,
+            changed: true,
+            touched: [],
+            diagnostics: []);
+
+        var json = IpcPayloadCodec.SerializeToElement(opResult);
+
+        JsonAssert.For(json)
+            .HasString("op", TextVocabulary.GetText(IpcExecuteStepKind.Edit))
+            .HasString("phase", TextVocabulary.GetText(IpcExecuteOperationPhase.Call))
+            .IsNull("operationDescriptorDigest")
+            .IsNull("verdict");
+        Assert.False(json.TryGetProperty("result", out _));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcExecuteOperationResultFactory_CreateJudgingCallResult_BindsVerdictToResultEvidence ()
+    {
+        var opResult = IpcExecuteOperationResultFactory.CreateJudgingCallResult(
+            op: UcliPrimitiveOperationNames.Resolve,
+            applied: false,
+            changed: false,
+            touched: [],
+            operationDescriptorDigest: OperationDescriptorDigest,
+            verdict: Verdict.Pass,
+            result: JsonSerializer.SerializeToElement(new
+            {
+                globalObjectId = GlobalObjectIdText,
+            }),
+            diagnostics: []);
+
+        var json = IpcPayloadCodec.SerializeToElement(opResult);
+
+        JsonAssert.For(json)
+            .HasString("phase", TextVocabulary.GetText(IpcExecuteOperationPhase.Call))
+            .HasString("operationDescriptorDigest", OperationDescriptorDigest.ToString())
+            .HasString("verdict", TextVocabulary.GetText(Verdict.Pass))
+            .HasProperty("result", result =>
+                result.HasString("globalObjectId", GlobalObjectIdText));
     }
 
     [Fact]
@@ -464,10 +552,11 @@ public sealed class IpcExecuteContractSerializationTests
             IpcExecuteOperationPhase.Call,
             Applied: false,
             Changed: false,
-            Touched: touched)
-        {
-            Diagnostics = diagnostics,
-        };
+            Touched: touched,
+            OperationDescriptorDigest: OperationDescriptorDigest,
+            Verdict: null,
+            Result: null,
+            Diagnostics: diagnostics);
 
         touched[0] = new IpcExecuteTouchedResource(
             UcliTouchedResourceKind.Asset,
@@ -546,7 +635,11 @@ public sealed class IpcExecuteContractSerializationTests
                     Phase: IpcExecuteOperationPhase.Call,
                     Applied: true,
                     Changed: true,
-                    Touched: []),
+                    Touched: [],
+                    OperationDescriptorDigest: OperationDescriptorDigest,
+                    Verdict: null,
+                    Result: null,
+                    Diagnostics: []),
             ],
             CreateProjectIdentity(),
             planToken: null,
@@ -598,13 +691,21 @@ public sealed class IpcExecuteContractSerializationTests
                     Phase: IpcExecuteOperationPhase.Call,
                     Applied: true,
                     Changed: true,
-                    Touched: []),
+                    Touched: [],
+                    OperationDescriptorDigest: null,
+                    Verdict: null,
+                    Result: null,
+                    Diagnostics: []),
                 new IpcExecuteOperationResult(
                     Op: UcliPrimitiveOperationNames.SceneOpen,
                     Phase: IpcExecuteOperationPhase.Call,
                     Applied: true,
                     Changed: true,
-                    Touched: []),
+                    Touched: [],
+                    OperationDescriptorDigest: OperationDescriptorDigest,
+                    Verdict: null,
+                    Result: null,
+                    Diagnostics: []),
             ],
             CreateProjectIdentity(),
             planToken: null,
@@ -656,7 +757,11 @@ public sealed class IpcExecuteContractSerializationTests
                     Phase: IpcExecuteOperationPhase.Call,
                     Applied: true,
                     Changed: true,
-                    Touched: []),
+                    Touched: [],
+                    OperationDescriptorDigest: OperationDescriptorDigest,
+                    Verdict: null,
+                    Result: null,
+                    Diagnostics: []),
             ],
             CreateProjectIdentity(),
             planToken: null,

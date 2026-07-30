@@ -7,29 +7,24 @@ internal sealed record OpsPreflightResult
 {
     private OpsPreflightResult (
         OpsPreflightContext? context,
-        string message,
-        UcliCode? errorCode)
+        ApplicationFailure? failure)
     {
         if (context is null)
         {
-            ArgumentNullException.ThrowIfNull(errorCode);
-            ArgumentException.ThrowIfNullOrWhiteSpace(message);
+            ArgumentNullException.ThrowIfNull(failure);
         }
-        else if (errorCode is not null)
+        else if (failure is not null)
         {
-            throw new ArgumentException("Successful preflight must not contain an error code.", nameof(errorCode));
+            throw new ArgumentException("Successful preflight must not contain a failure.", nameof(failure));
         }
 
         Context = context;
-        Message = message;
-        ErrorCode = errorCode;
+        Error = failure;
     }
 
     public OpsPreflightContext? Context { get; }
 
-    public string Message { get; }
-
-    public UcliCode? ErrorCode { get; }
+    public ApplicationFailure? Error { get; }
 
     /// <summary> Gets a value indicating whether preflight succeeded. </summary>
     public bool IsSuccess => Context is not null;
@@ -40,17 +35,15 @@ internal sealed record OpsPreflightResult
     public static OpsPreflightResult Success (OpsPreflightContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
-        return new OpsPreflightResult(context, string.Empty, null);
+        return new OpsPreflightResult(context, null);
     }
 
     /// <summary> Creates one failed preflight result. </summary>
-    /// <param name="message"> The failure message. </param>
-    /// <param name="errorCode"> The machine-readable failure code. </param>
+    /// <param name="failure"> The classified application failure. </param>
     /// <returns> The failed preflight result. </returns>
-    public static OpsPreflightResult Failure (
-        string message,
-        UcliCode errorCode)
+    public static OpsPreflightResult Failure (ApplicationFailure failure)
     {
-        return new OpsPreflightResult(null, message, errorCode);
+        ArgumentNullException.ThrowIfNull(failure);
+        return new OpsPreflightResult(null, failure);
     }
 }

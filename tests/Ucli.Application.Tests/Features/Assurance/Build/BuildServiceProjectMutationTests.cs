@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Application.Features.Assurance.Build.Contracts;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Profiles;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Vocabulary;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -25,12 +26,11 @@ public sealed class BuildServiceProjectMutationTests
 
         var result = await service.ExecuteAsync(CreateInput());
 
-        Assert.False(result.IsSuccess);
-        var error = Assert.Single(result.Errors);
+        var failed = Assert.IsType<BuildExecutionResult.FailedResult>(result);
+        var error = failed.Failure;
         Assert.Equal(BuildErrorCodes.BuildProjectMutationForbidden, error.Code);
         Assert.NotNull(artifactStore.WrittenMetadata);
         Assert.True(artifactStore.WrittenMetadata!.ProjectMutation.GetProperty("mutated").GetBoolean());
-        Assert.Null(result.Output);
     }
 
     [Fact]
@@ -52,13 +52,12 @@ public sealed class BuildServiceProjectMutationTests
 
         var result = await service.ExecuteAsync(CreateInput());
 
-        Assert.False(result.IsSuccess);
-        var error = Assert.Single(result.Errors);
+        var failed = Assert.IsType<BuildExecutionResult.FailedResult>(result);
+        var error = failed.Failure;
         Assert.Equal(BuildErrorCodes.BuildProjectMutationForbidden, error.Code);
         Assert.NotNull(artifactStore.WrittenMetadata);
         Assert.False(artifactStore.WrittenMetadata!.ProjectMutation.GetProperty("mutated").GetBoolean());
         Assert.Equal("partial", artifactStore.WrittenMetadata.ProjectMutation.GetProperty("coverage").GetString());
-        Assert.Null(result.Output);
     }
 
     [Fact]
@@ -81,12 +80,12 @@ public sealed class BuildServiceProjectMutationTests
 
         var result = await service.ExecuteAsync(CreateInput());
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal(AssuranceVerdict.Pass, result.Output!.Verdict);
-        var risk = Assert.Single(result.Output.ResidualRisks);
-        Assert.Equal(BuildRiskCodes.ProjectMutationDetected.Value, risk.Code);
+        var completed = Assert.IsType<BuildExecutionResult.CompletedResult>(result);
+        Assert.Equal(Verdict.Pass, completed.Output.Verdict);
+        var risk = Assert.Single(completed.Output.ResidualRisks);
+        Assert.Equal(BuildRiskCodes.ProjectMutationDetected, risk.Code);
         Assert.False(risk.Blocking);
-        Assert.Equal(AssuranceClaimStatus.Passed, FindClaim(result.Output, BuildClaimCodes.UnityBuildProjectMutationAccounted).Status);
+        Assert.Equal(AssuranceClaimStatus.Passed, FindClaim(completed.Output, BuildClaimCodes.UnityBuildProjectMutationAccounted).Status);
     }
 
     [Fact]
@@ -109,9 +108,9 @@ public sealed class BuildServiceProjectMutationTests
 
         var result = await service.ExecuteAsync(CreateInput());
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal(AssuranceVerdict.Pass, result.Output!.Verdict);
-        Assert.Empty(result.Output.ResidualRisks);
+        var completed = Assert.IsType<BuildExecutionResult.CompletedResult>(result);
+        Assert.Equal(Verdict.Pass, completed.Output.Verdict);
+        Assert.Empty(completed.Output.ResidualRisks);
     }
 
     [Fact]
@@ -135,12 +134,12 @@ public sealed class BuildServiceProjectMutationTests
 
         var result = await service.ExecuteAsync(CreateInput());
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal(AssuranceVerdict.Incomplete, result.Output!.Verdict);
-        var risk = Assert.Single(result.Output.ResidualRisks);
-        Assert.Equal(BuildRiskCodes.ProjectMutationDetected.Value, risk.Code);
+        var completed = Assert.IsType<BuildExecutionResult.CompletedResult>(result);
+        Assert.Equal(Verdict.Incomplete, completed.Output.Verdict);
+        var risk = Assert.Single(completed.Output.ResidualRisks);
+        Assert.Equal(BuildRiskCodes.ProjectMutationDetected, risk.Code);
         Assert.False(risk.Blocking);
-        Assert.Equal(AssuranceClaimStatus.Indeterminate, FindClaim(result.Output, BuildClaimCodes.UnityBuildProjectMutationAccounted).Status);
+        Assert.Equal(AssuranceClaimStatus.Indeterminate, FindClaim(completed.Output, BuildClaimCodes.UnityBuildProjectMutationAccounted).Status);
     }
 
     [Fact]
@@ -161,8 +160,8 @@ public sealed class BuildServiceProjectMutationTests
 
         var result = await service.ExecuteAsync(CreateInput());
 
-        Assert.False(result.IsSuccess);
-        var error = Assert.Single(result.Errors);
+        var failed = Assert.IsType<BuildExecutionResult.FailedResult>(result);
+        var error = failed.Failure;
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
         Assert.Null(artifactStore.WrittenMetadata);
     }

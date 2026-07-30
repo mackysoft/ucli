@@ -21,9 +21,9 @@ public sealed class CompileServiceSuccessTests
             Mode: UnityExecutionMode.Auto,
             TimeoutMilliseconds: 10000), progressSink);
 
-        Assert.True(result.IsSuccess);
-        var output = result.Output!;
-        Assert.Equal(AssuranceVerdict.Pass, output.Verdict);
+        var completed = Assert.IsType<CompileExecutionResult.CompletedResult>(result);
+        var output = completed.Output;
+        Assert.Equal(Verdict.Pass, output.Verdict);
         Assert.Equal(RunId, output.Compile.RunId);
         Assert.Equal(AssuranceResolvedExecutionMode.Oneshot, output.ResolvedMode);
         Assert.Equal(AssuranceSessionKind.TransientProbe, output.SessionKind);
@@ -63,7 +63,7 @@ public sealed class CompileServiceSuccessTests
             Mode: UnityExecutionMode.Auto,
             TimeoutMilliseconds: null));
 
-        Assert.True(result.IsSuccess);
+        Assert.IsType<CompileExecutionResult.CompletedResult>(result);
         UnityRequestExecutorInvocationAssert.CompileOnce(
             unityRequestExecutor,
             expectedTimeout: TimeSpan.FromMilliseconds(4321));

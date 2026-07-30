@@ -13,11 +13,17 @@ public sealed class IndexCatalogContractValidatorOpsDescribeSchemaTests
     public void TryCreateOpsDescribeSnapshot_ReturnsFalse_WhenArgsContractIsMissing ()
     {
         var contract = IndexCatalogContractValidatorOpsTestSupport.CreateOpsDescribe(
-            new IndexOpEntryJsonContract(
-                Name: "ucli.scene.open",
-                Kind: UcliOperationKind.Command,
-                Policy: OperationPolicy.Safe,
-                ArgsContract: null));
+            IndexCatalogContractValidatorOpsTestSupport.WithDescriptorDigest(
+                new IndexOpEntryJsonContract(
+                    Name: "ucli.scene.open",
+                    Kind: UcliOperationKind.Command,
+                    Policy: OperationPolicy.Safe,
+                    ArgsContract: null,
+                    DescriptorDigest: null,
+                    VerdictContract: null,
+                    ResultContract: null,
+                    Exposure: null,
+                    PlayModeSupport: UcliOperationPlayModeSupport.Disallowed)));
 
         var result = OpsDescribeSnapshot.TryCreate(contract, out var snapshot);
 
@@ -61,6 +67,7 @@ public sealed class IndexCatalogContractValidatorOpsDescribeSchemaTests
                     new string('f', 64))),
             },
         };
+        operation = IndexCatalogContractValidatorOpsTestSupport.WithDescriptorDigest(operation);
         var contract = IndexCatalogContractValidatorOpsTestSupport.CreateOpsDescribe(operation);
 
         var result = OpsDescribeSnapshot.TryCreate(contract, out var snapshot);
@@ -85,6 +92,7 @@ public sealed class IndexCatalogContractValidatorOpsDescribeSchemaTests
                     new string('f', 64))),
             },
         };
+        operation = IndexCatalogContractValidatorOpsTestSupport.WithDescriptorDigest(operation);
         var contract = IndexCatalogContractValidatorOpsTestSupport.CreateOpsDescribe(operation);
 
         var result = OpsDescribeSnapshot.TryCreate(contract, out var snapshot);
@@ -108,6 +116,7 @@ public sealed class IndexCatalogContractValidatorOpsDescribeSchemaTests
                     "https://example.invalid/target.schema.json")),
             },
         };
+        operation = IndexCatalogContractValidatorOpsTestSupport.WithDescriptorDigest(operation);
         var contract = IndexCatalogContractValidatorOpsTestSupport.CreateOpsDescribe(operation);
 
         var result = OpsDescribeSnapshot.TryCreate(contract, out var snapshot);
@@ -131,6 +140,7 @@ public sealed class IndexCatalogContractValidatorOpsDescribeSchemaTests
                     "#/$defs/not-found")),
             },
         };
+        operation = IndexCatalogContractValidatorOpsTestSupport.WithDescriptorDigest(operation);
         var contract = IndexCatalogContractValidatorOpsTestSupport.CreateOpsDescribe(operation);
 
         var result = OpsDescribeSnapshot.TryCreate(contract, out var snapshot);
@@ -159,6 +169,7 @@ public sealed class IndexCatalogContractValidatorOpsDescribeSchemaTests
                     "[")),
             },
         };
+        operation = IndexCatalogContractValidatorOpsTestSupport.WithDescriptorDigest(operation);
         var contract = IndexCatalogContractValidatorOpsTestSupport.CreateOpsDescribe(operation);
 
         var result = OpsDescribeSnapshot.TryCreate(contract, out var snapshot);

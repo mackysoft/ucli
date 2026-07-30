@@ -42,7 +42,8 @@ internal sealed class ValidateRequestJsonParser : IValidateRequestJsonParser
 
             return ValidateRequestJsonParseResult.Success(new ValidateRequest(
                 parsedArguments.ProtocolVersion,
-                parsedSteps));
+                parsedSteps,
+                AllowPlayMode: false));
         }
         catch (JsonException exception)
         {
@@ -52,6 +53,6 @@ internal sealed class ValidateRequestJsonParser : IValidateRequestJsonParser
 
     private static ValidateRequestJsonParseResult Failure (string message)
     {
-        return ValidateRequestJsonParseResult.Failure(ExecutionError.InvalidArgument(message));
+        return ValidateRequestJsonParseResult.Failure(ExecutionError.InvalidArgument(message, UcliCoreErrorCodes.InvalidArgument));
     }
 }

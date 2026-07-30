@@ -6,6 +6,7 @@ using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Schemas;
 using MackySoft.Ucli.Hosting.Cli.Schemas;
+using MackySoft.Ucli.Hosting.Cli.Testing;
 
 namespace MackySoft.Ucli.Tests.Hosting.Cli.Schemas;
 
@@ -299,6 +300,46 @@ public sealed class UcliStaticSchemaPayloadContractTests
         }
 
         Assert.True(failures.Count == 0, string.Join(Environment.NewLine, failures));
+    }
+
+    [Theory]
+    [MemberData(nameof(GetVerdicts))]
+    [Trait("Size", "Medium")]
+    public void TestRunCompletedPayload_AgreesWithPublishedSchema (Verdict verdict)
+    {
+        var artifactsDirectory = AbsolutePath.Parse(
+            Path.Combine(Path.GetTempPath(), "ucli-test-run-schema-contract", verdict.ToString()));
+        var artifactsSession = TestArtifactPaths.CreateSession(
+            RunIdTestValues.Test,
+            artifactsDirectory.Value);
+        var serviceResult = TestRunResultTestValues.CreateCompleted(
+            verdict,
+            artifactsSession);
+        var commandResult = TestRunCommandResultFactory.Create(serviceResult);
+        var payload = JsonSerializer.SerializeToElement(
+            commandResult.Payload,
+            CliOutputJsonSerializerOptions.Default);
+        var schemaSet = UcliStaticSchemaSetLoader.Load(
+            AbsolutePath.Parse(TestRepositoryPaths.GetFullPath("schemas")));
+        var schema = BuildSchema(schemaSet, "cli-output.payload.test.run.ok");
+
+        var evaluation = schema.Evaluate(payload);
+
+        Assert.True(
+            evaluation.IsValid,
+            $"The published test-run payload schema rejected completed verdict '{TextVocabulary.GetText(verdict)}':"
+            + Environment.NewLine
+            + JsonSerializer.Serialize(evaluation));
+    }
+
+    public static TheoryData<Verdict> GetVerdicts ()
+    {
+        return new TheoryData<Verdict>
+        {
+            Verdict.Pass,
+            Verdict.Fail,
+            Verdict.Incomplete,
+        };
     }
 
     [Fact]

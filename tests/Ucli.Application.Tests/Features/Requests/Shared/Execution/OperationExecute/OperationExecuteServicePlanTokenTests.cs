@@ -18,7 +18,8 @@ public sealed class OperationExecuteServicePlanTokenTests
         var service = OperationExecuteServiceTestSupport.CreateService(
             projectContextResolver,
             authorizationService,
-            ipcRequestExecutor);
+            ipcRequestExecutor,
+            OperationExecuteServiceTestSupport.CreateRefreshOperationCatalog());
 
         var result = await service.ExecuteAsync(
             OperationExecuteServiceTestSupport.RequestId,
@@ -60,6 +61,7 @@ public sealed class OperationExecuteServicePlanTokenTests
             projectContextResolver,
             authorizationService,
             ipcRequestExecutor,
+            OperationExecuteServiceTestSupport.CreateRefreshOperationCatalog(),
             timeProvider: timeProvider);
 
         var result = await service.ExecuteAsync(
@@ -100,6 +102,7 @@ public sealed class OperationExecuteServicePlanTokenTests
             projectContextResolver,
             authorizationService,
             ipcRequestExecutor,
+            OperationExecuteServiceTestSupport.CreateRefreshOperationCatalog(),
             timeProvider: timeProvider);
 
         var result = await service.ExecuteAsync(

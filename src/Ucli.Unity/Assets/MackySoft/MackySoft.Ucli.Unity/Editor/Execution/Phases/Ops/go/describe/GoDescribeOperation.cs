@@ -16,7 +16,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
     [UcliOperation]
     internal sealed class GoDescribeOperation : UcliOperation<GoDescribeArgs, GameObjectDescriptionResult>
     {
-        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<GoDescribeArgs, GameObjectDescriptionResult>(
+        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.CreateWithoutVerdict<GoDescribeArgs, GameObjectDescriptionResult>(
             operationName: UcliPrimitiveOperationNames.GoDescribe,
             kind: UcliOperationKind.Query,
             description: "Returns a GameObject description including components and child hierarchy.",
@@ -29,7 +29,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 touchedContract: "Returns no touched resources because GameObject description data is observational, not dirty or persisted state.",
                 readPostconditionContract: "Does not stale read surfaces by itself.",
                 failureSemantics: "Timeout, cancellation, or unresolved selector failure means the GameObject description was not fully produced.",
-                dangerousNotes: Array.Empty<string>()));
+                dangerousNotes: Array.Empty<string>()),
+            requiresPreCallPlanReplay: false,
+            exposure: UcliOperationExposure.Public,
+            playModeSupport: UcliOperationPlayModeSupport.Disallowed,
+            codeContract: null);
 
         /// <summary> Executes validate phase for <c>ucli.go.describe</c>. </summary>
         /// <param name="operation"> The normalized operation. </param>
@@ -48,7 +52,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return Task.FromResult(failure!);
             }
 
-            return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false));
+            return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()));
         }
 
         /// <summary> Executes plan phase for <c>ucli.go.describe</c>. </summary>
@@ -110,10 +114,10 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     executionContext,
                     includeTemporaryState: true)
                 : GameObjectDescriptionBuilder.Build(validationState.Target, validationState.Depth);
-            return Task.FromResult(OperationPhaseStepResult.Success(
+            return Task.FromResult(SuccessWithResult(
+                description,
                 applied: false,
-                changed: false,
-                result: SerializeResultToElement(description)));
+                changed: false,touched:Array.Empty<OperationTouch>()));
         }
 
         /// <summary> Validates arguments and resolves the target editable GameObject. </summary>

@@ -25,6 +25,9 @@ public sealed class OperationCatalogDiscoveryServiceTests
         var operations = await service.DiscoverAsync(
             ProjectContextTestFactory.CreateTemporaryFixtureUnityProject(),
             config,
+            mode: UnityExecutionMode.Auto,
+            timeout: null,
+            failFast: false,
             cancellationToken: CancellationToken.None);
 
         OperationCatalogInvocationAssert.OpsCatalogReadRequestedWithTimeout(
@@ -49,6 +52,8 @@ public sealed class OperationCatalogDiscoveryServiceTests
         _ = await service.DiscoverAsync(
             ProjectContextTestFactory.CreateTemporaryFixtureUnityProject(),
             UcliConfig.CreateDefault(),
+            mode: UnityExecutionMode.Auto,
+            timeout: null,
             failFast: true,
             cancellationToken: CancellationToken.None);
 
@@ -66,9 +71,11 @@ public sealed class OperationCatalogDiscoveryServiceTests
         var service = new OperationCatalogDiscoveryService(
             new RecordingOpsCatalogReader
             {
-                Result = OpsCatalogFetchResult.Failure(
+                Result = OpsCatalogFetchResult.Failure(ApplicationFailure.InvalidInput(
                     "Mode must be auto, daemon, or oneshot.",
-                    UcliCoreErrorCodes.InvalidArgument),
+                    UcliCoreErrorCodes.InvalidArgument,
+                    instancePath: null,
+                    startupFailure: null)),
             });
 
         var exception = await Assert.ThrowsAsync<OperationCatalogLoadException>(async () =>
@@ -77,10 +84,11 @@ public sealed class OperationCatalogDiscoveryServiceTests
                 UcliConfig.CreateDefault(),
                 mode: (UnityExecutionMode)999,
                 timeout: TimeSpan.FromMilliseconds(1200),
+                failFast: false,
                 cancellationToken: CancellationToken.None));
 
-        Assert.Equal(ExecutionErrorKind.InvalidArgument, exception.Error.Kind);
-        Assert.Equal(UcliCoreErrorCodes.InvalidArgument, exception.ErrorCode);
+        Assert.Equal(ApplicationFailureKind.InvalidInput, exception.Error.Kind);
+        Assert.Equal(UcliCoreErrorCodes.InvalidArgument, exception.Error.Code);
         Assert.Contains("Operation catalog discovery failed.", exception.Error.Message, StringComparison.Ordinal);
     }
 
@@ -91,20 +99,24 @@ public sealed class OperationCatalogDiscoveryServiceTests
         var service = new OperationCatalogDiscoveryService(
             new RecordingOpsCatalogReader
             {
-                Result = OpsCatalogFetchResult.Failure(
+                Result = OpsCatalogFetchResult.Failure(ApplicationFailure.Timeout(
                     "Timed out before Unity IPC request dispatch could begin.",
-                    ExecutionErrorCodes.IpcTimeout),
+                    ExecutionErrorCodes.IpcTimeout,
+                    instancePath: null,
+                    startupFailure: null)),
             });
 
         var exception = await Assert.ThrowsAsync<OperationCatalogLoadException>(async () =>
             await service.DiscoverAsync(
                 ProjectContextTestFactory.CreateTemporaryFixtureUnityProject(),
                 UcliConfig.CreateDefault(),
+                mode: UnityExecutionMode.Auto,
                 timeout: TimeSpan.FromMilliseconds(1200),
+                failFast: false,
                 cancellationToken: CancellationToken.None));
 
-        Assert.Equal(ExecutionErrorKind.Timeout, exception.Error.Kind);
-        Assert.Equal(ExecutionErrorCodes.IpcTimeout, exception.ErrorCode);
+        Assert.Equal(ApplicationFailureKind.Timeout, exception.Error.Kind);
+        Assert.Equal(ExecutionErrorCodes.IpcTimeout, exception.Error.Code);
         Assert.Contains("Operation catalog discovery failed.", exception.Error.Message, StringComparison.Ordinal);
     }
 
@@ -115,9 +127,11 @@ public sealed class OperationCatalogDiscoveryServiceTests
         var service = new OperationCatalogDiscoveryService(
             new RecordingOpsCatalogReader
             {
-                Result = OpsCatalogFetchResult.Failure(
+                Result = OpsCatalogFetchResult.Failure(ApplicationFailure.UnityIpcFailure(
                     "Daemon is not running for mode=daemon.",
-                    UnityExecutionModeDecisionErrorCodes.DaemonNotRunning),
+                    UnityExecutionModeDecisionErrorCodes.DaemonNotRunning,
+                    instancePath: null,
+                    startupFailure: null)),
             });
 
         var exception = await Assert.ThrowsAsync<OperationCatalogLoadException>(async () =>
@@ -126,10 +140,11 @@ public sealed class OperationCatalogDiscoveryServiceTests
                 UcliConfig.CreateDefault(),
                 mode: UnityExecutionMode.Daemon,
                 timeout: TimeSpan.FromMilliseconds(1200),
+                failFast: false,
                 cancellationToken: CancellationToken.None));
 
-        Assert.Equal(ExecutionErrorKind.InternalError, exception.Error.Kind);
-        Assert.Equal(UnityExecutionModeDecisionErrorCodes.DaemonNotRunning, exception.ErrorCode);
+        Assert.Equal(ApplicationFailureKind.UnityIpcFailure, exception.Error.Kind);
+        Assert.Equal(UnityExecutionModeDecisionErrorCodes.DaemonNotRunning, exception.Error.Code);
         Assert.Contains("Operation catalog discovery failed.", exception.Error.Message, StringComparison.Ordinal);
     }
 
@@ -139,7 +154,7 @@ public sealed class OperationCatalogDiscoveryServiceTests
             MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneOpen,
             IpcJsonSerializerOptions.PublicRawOperationContracts.GetTypeInfo(typeof(ScenePathArgs)),
             resultTypeInfo: null);
-        var describe = UcliOperationDescribeContractBuilder.Create(
+        var describe = UcliOperationDescribeContractBuilder.CreateWithoutVerdict(
             generationResult,
             "Opens a Unity scene asset in the editor.",
             new UcliOperationAssuranceContract(
@@ -151,7 +166,8 @@ public sealed class OperationCatalogDiscoveryServiceTests
                 touchedContract: "Returns no touched resources.",
                 readPostconditionContract: "Does not stale read surfaces by itself.",
                 failureSemantics: "Failure means the observation was not fully produced.",
-                dangerousNotes: Array.Empty<string>()));
+                dangerousNotes: Array.Empty<string>()),
+            codeContract: null);
 
         return OpsCatalogFetchResult.Success(
             CreateSnapshot(
@@ -162,7 +178,11 @@ public sealed class OperationCatalogDiscoveryServiceTests
                         Kind: UcliOperationKind.Command,
                         Policy: OperationPolicy.Safe,
                         ArgsContract: describe.ArgsContract,
-                        ResultContract: describe.ResultContract)
+                        DescriptorDigest: null,
+                        VerdictContract: null,
+                        ResultContract: describe.ResultContract,
+                        Exposure: null,
+                        PlayModeSupport: UcliOperationPlayModeSupport.Disallowed)
                     {
                         Description = describe.Description,
                         Assurance = describe.Assurance,

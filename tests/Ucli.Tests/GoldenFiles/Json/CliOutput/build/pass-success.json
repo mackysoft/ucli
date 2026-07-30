@@ -144,7 +144,11 @@
         },
         "evidence": [
           {
-            "kind": "artifact",
+            "kind": "buildProfile",
+            "data": {
+              "path": "/workspace/.ucli/build/player.json",
+              "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
             "evidenceRef": "build"
           }
         ],
@@ -163,9 +167,31 @@
         },
         "evidence": [
           {
-            "kind": "lifecycleSnapshot",
+            "kind": "readyLifecycleSnapshot",
             "data": {
-              "state": "ready"
+              "serverVersion": "0.5.0",
+              "unityVersion": "6000.1.4f1",
+              "projectFingerprint": "6c997854157f1c37233ad17eacb2ee2357866912f2d6ac6d62f1ec477b95f262",
+              "state": {
+                "editorMode": "gui",
+                "lifecycleState": "ready",
+                "compileState": "ready",
+                "generations": {
+                  "compileGeneration": 12,
+                  "domainReloadGeneration": 7,
+                  "assetRefreshGeneration": 0,
+                  "playModeGeneration": 1
+                },
+                "playMode": {
+                  "state": "stopped",
+                  "transition": "none",
+                  "isPlaying": false,
+                  "isPlayingOrWillChangePlaymode": false
+                }
+              },
+              "observedAtUtc": "2026-05-21T00:00:00+00:00",
+              "actionRequired": null,
+              "primaryDiagnostic": null
             }
           }
         ],
@@ -184,7 +210,18 @@
         },
         "evidence": [
           {
-            "kind": "artifact",
+            "kind": "buildInput",
+            "data": {
+              "inputKind": "explicit",
+              "buildTarget": "standaloneLinux64",
+              "unityBuildTarget": "StandaloneLinux64",
+              "unityBuildTargetGroup": "Standalone",
+              "sceneSource": "explicit",
+              "scenes": [
+                "Assets/Scenes/Main.unity"
+              ],
+              "buildOptions": "Development"
+            },
             "evidenceRef": "build"
           }
         ],
@@ -203,7 +240,18 @@
         },
         "evidence": [
           {
-            "kind": "artifact",
+            "kind": "buildRunner",
+            "data": {
+              "kind": "buildPipeline",
+              "method": null,
+              "invocation": {
+                "arguments": {},
+                "environment": {
+                  "variables": [],
+                  "secrets": []
+                }
+              }
+            },
             "evidenceRef": "build"
           }
         ],
@@ -222,7 +270,14 @@
         },
         "evidence": [
           {
-            "kind": "artifact",
+            "kind": "buildReportSummary",
+            "data": {
+              "result": "succeeded",
+              "durationMilliseconds": 2500,
+              "errorCount": 0,
+              "warningCount": 1,
+              "reportRef": "buildReport"
+            },
             "evidenceRef": "buildReport"
           }
         ],
@@ -241,7 +296,14 @@
         },
         "evidence": [
           {
-            "kind": "artifact",
+            "kind": "buildReportSummary",
+            "data": {
+              "result": "succeeded",
+              "durationMilliseconds": 2500,
+              "errorCount": 0,
+              "warningCount": 1,
+              "reportRef": "buildReport"
+            },
             "evidenceRef": "buildReport"
           }
         ],
@@ -260,12 +322,12 @@
         },
         "evidence": [
           {
-            "kind": "artifact",
-            "evidenceRef": "build",
+            "kind": "buildRunnerResult",
             "data": {
               "source": "buildPipelineBuildReport",
               "status": "succeeded"
-            }
+            },
+            "evidenceRef": "build"
           }
         ],
         "residualRisks": []
@@ -283,7 +345,14 @@
         },
         "evidence": [
           {
-            "kind": "artifact",
+            "kind": "buildReportSummary",
+            "data": {
+              "result": "succeeded",
+              "durationMilliseconds": 2500,
+              "errorCount": 0,
+              "warningCount": 1,
+              "reportRef": "buildReport"
+            },
             "evidenceRef": "buildReport"
           }
         ],
@@ -302,7 +371,14 @@
         },
         "evidence": [
           {
-            "kind": "artifact",
+            "kind": "buildOutputAccounting",
+            "data": {
+              "manifestRef": "buildOutputManifest",
+              "manifestDigest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "entryCount": 1,
+              "fileCount": 1,
+              "totalBytes": 4096
+            },
             "evidenceRef": "build"
           }
         ],
@@ -321,7 +397,14 @@
         },
         "evidence": [
           {
-            "kind": "artifact",
+            "kind": "buildOutputManifest",
+            "data": {
+              "manifestRef": "buildOutputManifest",
+              "manifestDigest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "entryCount": 1,
+              "fileCount": 1,
+              "totalBytes": 4096
+            },
             "evidenceRef": "buildOutputManifest"
           }
         ],
@@ -340,7 +423,20 @@
         },
         "evidence": [
           {
-            "kind": "artifact",
+            "kind": "buildLogSummary",
+            "data": {
+              "reportRef": "buildLog",
+              "entryCount": 3,
+              "errorCount": 0,
+              "warningCount": 1,
+              "completionReason": "completed",
+              "window": {
+                "startedAtUtc": "2026-06-12T00:00:00+00:00",
+                "completedAtUtc": "2026-06-12T00:00:03+00:00",
+                "cursorStart": null,
+                "cursorEnd": null
+              }
+            },
             "evidenceRef": "buildLog"
           }
         ],
@@ -359,7 +455,15 @@
         },
         "evidence": [
           {
-            "kind": "artifact",
+            "kind": "projectMutationAudit",
+            "data": {
+              "mode": "forbid",
+              "coverage": "full",
+              "mutated": false,
+              "beforeDigest": "1111111111111111111111111111111111111111111111111111111111111111",
+              "afterDigest": "1111111111111111111111111111111111111111111111111111111111111111",
+              "items": []
+            },
             "evidenceRef": "build"
           }
         ],
@@ -378,7 +482,27 @@
         },
         "evidence": [
           {
-            "kind": "artifact",
+            "kind": "generationSnapshot",
+            "data": {
+              "before": {
+                "compileGeneration": 1,
+                "domainReloadGeneration": 1,
+                "assetRefreshGeneration": 1,
+                "playModeGeneration": 1
+              },
+              "after": {
+                "compileGeneration": 2,
+                "domainReloadGeneration": 1,
+                "assetRefreshGeneration": 1,
+                "playModeGeneration": 1
+              },
+              "validFor": {
+                "compileGeneration": 2,
+                "domainReloadGeneration": 1,
+                "assetRefreshGeneration": 1,
+                "playModeGeneration": 1
+              }
+            },
             "evidenceRef": "build"
           }
         ],

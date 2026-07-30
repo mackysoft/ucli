@@ -8,12 +8,12 @@ namespace MackySoft.Ucli.Tests;
 public sealed class ReadyCommandResultTests
 {
     [Theory]
-    [InlineData(AssuranceVerdict.Fail)]
-    [InlineData(AssuranceVerdict.Incomplete)]
+    [InlineData(Verdict.Fail)]
+    [InlineData(Verdict.Incomplete)]
     [Trait("Size", "Small")]
-    public async Task Ready_WithNonPassVerdict_ReturnsOkEnvelopeWithFailureExitCode (AssuranceVerdict verdict)
+    public async Task Ready_WithNonPassVerdict_ReturnsOkEnvelopeWithFailureExitCode (Verdict verdict)
     {
-        var service = new RecordingReadyService((_, _) => ValueTask.FromResult(ReadyExecutionResult.Success(CreateOutput(verdict))));
+        var service = new RecordingReadyService((_, _) => ValueTask.FromResult<ReadyExecutionResult>(ReadyExecutionResult.Completed(CreateOutput(verdict))));
         var command = new ReadyCommand(service, CommandResultTestWriter.Create());
 
         var result = await CommandResultCapture.ExecuteAsync(() => command.ReadyAsync(

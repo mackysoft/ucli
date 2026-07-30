@@ -12,7 +12,7 @@ public sealed class VerifyCommandDispatchTests
     [Trait("Size", "Small")]
     public async Task Verify_MapsOptionsToServiceInputAndCancellationToken ()
     {
-        var service = new RecordingVerifyService((_, _, _) => ValueTask.FromResult(VerifyExecutionResult.Success(CreateOutput())));
+        var service = new RecordingVerifyService((_, _, _) => ValueTask.FromResult<VerifyExecutionResult>(VerifyExecutionResult.Completed(CreateOutput(Verdict.Pass))));
         var command = new VerifyCommand(service, CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
         using var cancellationTokenSource = new CancellationTokenSource();
 

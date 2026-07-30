@@ -35,6 +35,18 @@ public sealed class VerifyProfileResolverTests
     }
 
     [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    [Trait("Size", "Small")]
+    public void Resolve_WithEmptyProfile_ReturnsInvalidArgument (string profile)
+    {
+        var result = VerifyProfileResolver.Resolve(profile);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ExecutionErrorKind.InvalidArgument, result.Error!.Kind);
+    }
+
+    [Theory]
     [InlineData("""{"schemaVersion":1,"steps":[{"kind":"shell","required":true}]}""")]
     [InlineData("""{"schemaVersion":1,"steps":[{"kind":"compile","required":true,"command":"dotnet test"}]}""")]
     [Trait("Size", "Small")]

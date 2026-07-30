@@ -2,11 +2,9 @@ using MackySoft.Ucli.Application.Features.Requests.Call.Common.Contracts;
 using MackySoft.Ucli.Application.Features.Requests.Plan.Common.Contracts;
 using MackySoft.Ucli.Application.Features.Requests.Plan.UseCases.Plan.Projection;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.OperationExecute;
-using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
 using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 using MackySoft.Ucli.Application.Features.Requests.Validate.Common.Contracts;
 using MackySoft.Ucli.Application.Shared.Foundation;
-using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Tests.Execution.Results;
 
@@ -18,15 +16,21 @@ public sealed class RequestServiceFailureOutcomeContractTests
     {
         ApplicationFailure[] errors =
         [
-            ApplicationFailure.InvalidInput("Invalid argument."),
-            ApplicationFailure.ExternalProcessFailure(
+            ApplicationFailure.InvalidInput(
+                "Invalid argument.",
+                UcliCoreErrorCodes.InvalidArgument,
+                instancePath: null,
+                startupFailure: null),
+            ApplicationFailure.Create(
+                ApplicationFailureKind.ExternalProcessFailure,
                 "Infrastructure failed.",
-                outcome: ApplicationOutcome.InfrastructureError),
+                UcliCoreErrorCodes.InternalError,
+                instancePath: null,
+                outcome: ApplicationOutcome.InfrastructureError,
+                startupFailure: null),
         ];
 
-        Assert.Equal(ApplicationOutcome.ToolError, ApplicationFailureOutcomeResolver.Resolve(errors));
-
-        var result = PlanServiceResult.Failure("Plan failed.", errors);
+        var result = PlanServiceResult.Failure("Plan failed.", errors, output: null);
 
         Assert.Equal(ApplicationOutcome.ToolError, result.Outcome);
     }
@@ -37,11 +41,18 @@ public sealed class RequestServiceFailureOutcomeContractTests
     {
         ApplicationFailure[] errors =
         [
-            ApplicationFailure.InvalidInput("Invalid argument."),
-            ApplicationFailure.ConfigurationError("Configuration is invalid."),
+            ApplicationFailure.InvalidInput(
+                "Invalid argument.",
+                UcliCoreErrorCodes.InvalidArgument,
+                instancePath: null,
+                startupFailure: null),
+            ApplicationFailure.ConfigurationError(
+                "Configuration is invalid.",
+                UcliCoreErrorCodes.InvalidArgument,
+                instancePath: null),
         ];
 
-        var result = CallServiceResult.Failure("Call failed.", errors);
+        var result = CallServiceResult.Failure("Call failed.", errors, output: null);
 
         Assert.Equal(ApplicationOutcome.InvalidArgument, result.Outcome);
     }
@@ -52,23 +63,37 @@ public sealed class RequestServiceFailureOutcomeContractTests
     {
         ApplicationFailure[] errors =
         [
-            ApplicationFailure.ExternalProcessFailure(
+            ApplicationFailure.Create(
+                ApplicationFailureKind.ExternalProcessFailure,
                 "Unity test infrastructure failed.",
-                outcome: ApplicationOutcome.InfrastructureError),
+                UcliCoreErrorCodes.InternalError,
+                instancePath: null,
+                outcome: ApplicationOutcome.InfrastructureError,
+                startupFailure: null),
         ];
 
-        var result = OperationExecuteResultFactory.Failure(RequestServiceResultInvariantTestSupport.RequestId, [], errors);
+        var result = OperationExecuteResultFactory.Failure(
+            RequestServiceResultInvariantTestSupport.RequestId,
+            [],
+            errors,
+            contractViolations: [],
+            readPostcondition: null,
+            project: null,
+            postReadSource: null);
 
         Assert.Equal(ApplicationOutcome.InfrastructureError, result.Outcome);
+        Assert.Equal("Unity test infrastructure failed.", result.Message);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void Failure_FromExecutionErrorOverride_UsesFinalErrorCodeForOutcome ()
+    public void Failure_FromExecutionError_UsesFinalErrorCodeForOutcome ()
     {
         var result = PlanFailureResultFactory.FromExecutionError(
-            ExecutionError.InternalError("Project path is invalid."),
-            errorCode: UcliCoreErrorCodes.InvalidArgument);
+            ExecutionError.InternalError(
+                "Project path is invalid.",
+                UcliCoreErrorCodes.InvalidArgument),
+            output: null);
 
         Assert.Equal(ApplicationOutcome.InvalidArgument, result.Outcome);
         var error = Assert.Single(result.Errors);
@@ -78,47 +103,33 @@ public sealed class RequestServiceFailureOutcomeContractTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void InvalidArgumentErrorCodes_MapToInvalidArgumentOutcome ()
+    public void ValidationErrors_MapToInvalidArgumentOutcome ()
     {
-        foreach (UcliCode errorCode in RequestServiceResultInvariantTestSupport.InvalidArgumentErrorCodeValues)
-        {
-            var validationError = new ValidationError(
-                errorCode,
-                "Validation failed.",
-                "/steps/0");
+        var validationError = new ValidationError(
+            ValidationErrorCodes.OperationArgsInvalid,
+            "Validation failed.",
+            "/steps/0");
 
-            Assert.True(InvalidArgumentErrorCodeSet.Contains(errorCode));
+        var operationResult = OperationExecuteResultFactory.FromValidationErrors(
+            RequestServiceResultInvariantTestSupport.RequestId,
+            [
+                validationError,
+            ],
+            project: null);
+        Assert.Equal(ApplicationOutcome.InvalidArgument, operationResult.Outcome);
+        Assert.Equal(
+            ValidationErrorCodes.OperationArgsInvalid,
+            Assert.Single(operationResult.Errors).Code);
 
-            var operationResult = OperationExecuteResultFactory.FromValidationErrors(
-                RequestServiceResultInvariantTestSupport.RequestId,
-                [
-                    validationError,
-                ]);
-            Assert.Equal(ApplicationOutcome.InvalidArgument, operationResult.Outcome);
-            Assert.Equal(errorCode, Assert.Single(operationResult.Errors).Code);
-
-            var validateResult = ValidateServiceResult.ValidationFailure(
-                new ValidateExecutionOutput(ProjectIdentityInfoTestFactory.Create(), RequestServiceResultInvariantTestSupport.CreateReadIndexInfo()),
-                "Static validation failed.",
-                [
-                    validationError,
-                ]);
-            Assert.Equal(ApplicationOutcome.InvalidArgument, validateResult.Outcome);
-            Assert.Equal(errorCode, Assert.Single(validateResult.Errors).Code);
-        }
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void UnknownErrorCode_IsPreservedAndMapsToToolError ()
-    {
-        var futureErrorCode = new UcliCode("FUTURE_TRANSPORT_FAILURE");
-        var error = RequestFailureNormalizer.FromTransportFailure(
-            errorCode: futureErrorCode,
-            message: "Future transport failed.");
-
-        Assert.Equal(futureErrorCode, error.Code);
-        Assert.Equal(ApplicationOutcome.ToolError, error.Outcome);
-        Assert.False(InvalidArgumentErrorCodeSet.Contains(error.Code));
+        var validateResult = ValidateServiceResult.ValidationFailure(
+            new ValidateExecutionOutput(ProjectIdentityInfoTestFactory.Create(), RequestServiceResultInvariantTestSupport.CreateReadIndexInfo()),
+            "Static validation failed.",
+            [
+                validationError,
+            ]);
+        Assert.Equal(ApplicationOutcome.InvalidArgument, validateResult.Outcome);
+        Assert.Equal(
+            ValidationErrorCodes.OperationArgsInvalid,
+            Assert.Single(validateResult.Errors).Code);
     }
 }

@@ -23,6 +23,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             AssetSearchInvalidation,
         };
 
+        private static readonly OperationReadInvalidation[] NoInvalidations =
+            Array.Empty<OperationReadInvalidation>();
+
         private static readonly OperationReadInvalidation[] AssetSearchAndGuidPathInvalidations =
         {
             AssetSearchInvalidation,
@@ -63,11 +66,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             };
         }
 
-        public static IReadOnlyList<OperationReadInvalidation>? CreateSceneTreeLiteForSceneResource (OperationResource resource)
+        public static IReadOnlyList<OperationReadInvalidation> CreateSceneTreeLiteForSceneResource (OperationResource resource)
         {
             return resource.Kind == UcliTouchedResourceKind.Scene
                 ? CreateSceneTreeLite(resource.Path)
-                : null;
+                : NoInvalidations;
         }
 
         public static IReadOnlyList<OperationReadInvalidation> CreateForProjectSave (IReadOnlyList<OperationTouch> touched)

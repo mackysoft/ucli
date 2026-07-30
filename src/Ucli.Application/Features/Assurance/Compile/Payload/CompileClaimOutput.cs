@@ -1,10 +1,11 @@
 using System.Collections.ObjectModel;
-using MackySoft.Ucli.Contracts.Text;
+using MackySoft.JsonSchema.Generation.Annotations;
+using MackySoft.Ucli.Application.Features.Assurance.Semantics;
 
 namespace MackySoft.Ucli.Application.Features.Assurance.Compile.Payload;
 
 /// <summary> Represents one claim entry in a compile assurance payload. </summary>
-internal sealed record CompileClaimOutput
+internal sealed record CompileClaimOutput : IAssuranceVerdictClaim
 {
     public CompileClaimOutput (
         UcliCode Id,
@@ -38,6 +39,11 @@ internal sealed record CompileClaimOutput
         ArgumentNullException.ThrowIfNull(Subject);
         ArgumentNullException.ThrowIfNull(Evidence);
         ArgumentNullException.ThrowIfNull(ResidualRisks);
+        if (Evidence.Count == 0)
+        {
+            throw new ArgumentException("Claim evidence must not be empty.", nameof(Evidence));
+        }
+
         if (Evidence.Any(static item => item is null))
         {
             throw new ArgumentException("Claim evidence must not contain null.", nameof(Evidence));
@@ -68,7 +74,11 @@ internal sealed record CompileClaimOutput
 
     public IReadOnlyDictionary<string, object?> Subject { get; }
 
+    [ItemCount(1, int.MaxValue)]
     public IReadOnlyList<CompileEvidenceOutput> Evidence { get; }
 
     public IReadOnlyList<CompileResidualRiskOutput> ResidualRisks { get; }
+
+    bool IAssuranceVerdictClaim.HasBlockingResidualRisk =>
+        ResidualRisks.Any(static risk => risk.Blocking);
 }

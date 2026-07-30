@@ -1,43 +1,35 @@
 namespace MackySoft.Ucli.Application.Features.Testing.Run.Results;
 
 /// <summary> Represents one Unity results conversion result. </summary>
-/// <param name="HasFailedTests"> Indicates whether converted results contain failing tests when successful; otherwise <see langword="false" />. </param>
-/// <param name="ReportedTestCaseCount"> The number of test cases reported by Unity results XML when successful; otherwise <c>0</c>. </param>
-/// <param name="FailureKind"> The conversion failure kind on failure; otherwise <see langword="null" />. </param>
-/// <param name="ErrorMessage"> The user-facing conversion failure message on failure; otherwise <see langword="null" />. </param>
-internal sealed record UnityResultsConversionResult (
-    bool HasFailedTests,
-    int ReportedTestCaseCount,
-    UnityResultsConversionFailureKind? FailureKind,
-    string? ErrorMessage)
+internal abstract record UnityResultsConversionResult
 {
-    /// <summary> Gets a value indicating whether conversion succeeded. </summary>
-    public bool IsSuccess => FailureKind is null;
-
     /// <summary> Creates a successful conversion result. </summary>
-    /// <param name="hasFailedTests"> Indicates whether converted results contain failing tests. </param>
-    /// <param name="reportedTestCaseCount"> The number of reported test cases. </param>
+    /// <param name="verdictEvaluation">
+    /// The normalized result, policy input, and verdict established by the conversion.
+    /// </param>
     /// <returns> The successful conversion result. </returns>
-    public static UnityResultsConversionResult Success (
-        bool hasFailedTests,
-        int reportedTestCaseCount = 1)
+    public static UnityResultsConversionSuccess Success (TestRunVerdictEvaluation verdictEvaluation)
     {
-        if (reportedTestCaseCount < 0)
-        {
-            throw new ArgumentOutOfRangeException(nameof(reportedTestCaseCount), reportedTestCaseCount, "Reported test case count must not be negative.");
-        }
-
-        return new UnityResultsConversionResult(hasFailedTests, reportedTestCaseCount, null, null);
+        return new UnityResultsConversionSuccess(verdictEvaluation);
     }
 
-    /// <summary> Creates a failed conversion result. </summary>
-    /// <param name="failureKind"> The failure kind. </param>
-    /// <param name="errorMessage"> The user-facing failure message. </param>
-    /// <returns> The failed conversion result. </returns>
-    public static UnityResultsConversionResult Failure (
-        UnityResultsConversionFailureKind failureKind,
-        string errorMessage)
+    public static UnityResultsConversionFailure InvalidResultsXml (string errorMessage)
     {
-        return new UnityResultsConversionResult(false, 0, failureKind, errorMessage);
+        return UnityResultsConversionFailure.CreateInvalidResultsXml(errorMessage);
+    }
+
+    public static UnityResultsConversionFailure ResultsXmlReadFailed (string errorMessage)
+    {
+        return UnityResultsConversionFailure.CreateResultsXmlReadFailed(errorMessage);
+    }
+
+    public static UnityResultsConversionFailure OutputWriteFailed (string errorMessage)
+    {
+        return UnityResultsConversionFailure.CreateOutputWriteFailed(errorMessage);
+    }
+
+    public static UnityResultsConversionFailure Canceled (string errorMessage)
+    {
+        return UnityResultsConversionFailure.CreateCanceled(errorMessage);
     }
 }

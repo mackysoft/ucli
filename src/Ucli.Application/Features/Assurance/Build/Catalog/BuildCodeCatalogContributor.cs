@@ -69,7 +69,6 @@ internal sealed class BuildCodeCatalogContributor : ICodeCatalogContributor
             AppearsIn: ClaimAppearsIn,
             AppliesTo: AppliesToBuildRun,
             CoverageImpact: null,
-            VerdictSemantics: null,
             ExecutionSemantics: null,
             Inspect: Inspect,
             RelatedCodes: []);
@@ -88,7 +87,6 @@ internal sealed class BuildCodeCatalogContributor : ICodeCatalogContributor
             AppearsIn: RiskAppearsIn,
             AppliesTo: AppliesToBuildRun,
             CoverageImpact: null,
-            VerdictSemantics: "non-blocking residual risk does not fail the build verdict",
             ExecutionSemantics: null,
             Inspect: Inspect,
             RelatedCodes: []);

@@ -1,7 +1,6 @@
 using System.Text.Json;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.OperationExecute;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
-using MackySoft.Ucli.Contracts.Configuration;
 
 namespace MackySoft.Ucli.Application.Tests;
 
@@ -12,10 +11,7 @@ internal static class OperationExecuteServiceInvocationAssert
         UcliCommand expectedCommand,
         string expectedOperationId,
         string expectedOperationName,
-        UcliOperationKind expectedKind,
-        OperationPolicy expectedPolicy,
         string expectedSuccessMessage,
-        string expectedFailureMessage,
         string expectedProjectPath,
         UnityExecutionMode? expectedMode,
         int? expectedTimeoutMilliseconds,
@@ -27,10 +23,7 @@ internal static class OperationExecuteServiceInvocationAssert
             expectedCommand,
             expectedOperationId,
             expectedOperationName,
-            expectedKind,
-            expectedPolicy,
-            expectedSuccessMessage,
-            expectedFailureMessage);
+            expectedSuccessMessage);
         AssertInput(
             invocation.Input,
             expectedProjectPath,
@@ -45,19 +38,13 @@ internal static class OperationExecuteServiceInvocationAssert
         UcliCommand expectedCommand,
         string expectedOperationId,
         string expectedOperationName,
-        UcliOperationKind expectedKind,
-        OperationPolicy expectedPolicy,
-        string expectedSuccessMessage,
-        string expectedFailureMessage)
+        string expectedSuccessMessage)
     {
         Assert.Equal(expectedCommand, definition.Command);
         Assert.Equal(expectedOperationId, definition.OperationId.Value);
-        Assert.Equal(expectedOperationName, definition.Descriptor.Name);
-        Assert.Equal(expectedKind, definition.Descriptor.Kind);
-        Assert.Equal(expectedPolicy, definition.Descriptor.Policy);
+        Assert.Equal(expectedOperationName, definition.OperationName);
         Assert.Equal(JsonValueKind.Object, definition.Args.ValueKind);
         Assert.Equal(expectedSuccessMessage, definition.SuccessMessage);
-        Assert.Equal(expectedFailureMessage, definition.FailureMessage);
     }
 
     private static void AssertInput (

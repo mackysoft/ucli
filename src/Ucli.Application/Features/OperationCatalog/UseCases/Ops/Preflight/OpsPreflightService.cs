@@ -30,14 +30,16 @@ internal sealed class OpsPreflightService : IOpsPreflightService
             .ConfigureAwait(false);
         if (!contextResult.IsSuccess)
         {
-            return FromExecutionError(contextResult.Error!);
+            return OpsPreflightResult.Failure(
+                ApplicationFailure.FromExecutionError(contextResult.Error!));
         }
 
         var context = contextResult.Context!;
         var readIndexModeResult = ReadIndexModeResolver.Resolve(input.ReadIndexMode, context.Config);
         if (!readIndexModeResult.IsSuccess)
         {
-            return FromExecutionError(readIndexModeResult.Error!);
+            return OpsPreflightResult.Failure(
+                ApplicationFailure.FromExecutionError(readIndexModeResult.Error!));
         }
 
         var timeoutResolutionResult = IpcCommandTimeoutResolver.ResolveNormalized(
@@ -46,7 +48,8 @@ internal sealed class OpsPreflightService : IOpsPreflightService
             context.Config);
         if (!timeoutResolutionResult.IsSuccess)
         {
-            return FromExecutionError(timeoutResolutionResult.Error!);
+            return OpsPreflightResult.Failure(
+                ApplicationFailure.FromExecutionError(timeoutResolutionResult.Error!));
         }
 
         return OpsPreflightResult.Success(
@@ -58,11 +61,4 @@ internal sealed class OpsPreflightService : IOpsPreflightService
                 input.FailFast));
     }
 
-    private static OpsPreflightResult FromExecutionError (ExecutionError error)
-    {
-        ArgumentNullException.ThrowIfNull(error);
-        return OpsPreflightResult.Failure(
-            error.Message,
-            ExecutionErrorCodeMapper.ToCode(error));
-    }
 }

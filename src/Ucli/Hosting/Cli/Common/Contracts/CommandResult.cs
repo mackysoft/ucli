@@ -70,6 +70,44 @@ internal readonly record struct CommandResult
             Errors: EmptyErrors);
     }
 
+    /// <summary> Creates a completed command result and projects its required verdict to the process exit code. </summary>
+    /// <param name="command"> The command name written to the result. </param>
+    /// <param name="message"> The completion message written to the result. </param>
+    /// <param name="payload"> The completed payload that owns the verdict. </param>
+    /// <returns>
+    /// A command result with <c>ok</c> status. A passing verdict maps to exit code <c>0</c>;
+    /// a failing or incomplete verdict maps to exit code <c>1</c>.
+    /// </returns>
+    public static CommandResult CompletedWithVerdict (
+        string command,
+        string message,
+        IVerdictResult payload)
+    {
+        ArgumentNullException.ThrowIfNull(payload);
+
+        var exitCode = payload.Verdict switch
+        {
+            Verdict.Pass => CliExitCode.Success,
+            Verdict.Fail => CliExitCode.NonPassingVerdict,
+            Verdict.Incomplete => CliExitCode.NonPassingVerdict,
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(payload),
+                payload.Verdict,
+                "The completed result must own a defined verdict."),
+        };
+
+        var normalizedCommand = NormalizeCommand(command);
+        var normalizedMessage = NormalizeMessage(message);
+        return new CommandResult(
+            ProtocolVersion: IpcProtocol.CurrentVersion,
+            Command: normalizedCommand,
+            Status: CommandResultStatus.Ok,
+            ExitCode: (int)exitCode,
+            Message: normalizedMessage,
+            Payload: payload,
+            Errors: EmptyErrors);
+    }
+
     /// <summary> Creates a placeholder error result for a command that is not implemented yet. </summary>
     /// <param name="command"> The command name written to the result. <see langword="null" />, empty, and whitespace values are normalized to <see cref="UcliCommandNames.Root" />. </param>
     /// <param name="message"> The optional custom message. When <see langword="null" />, a default not-implemented message is generated. </param>

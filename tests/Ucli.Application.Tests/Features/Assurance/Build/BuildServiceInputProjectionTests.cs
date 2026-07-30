@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Application.Features.Assurance.Build.Contracts;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Profiles;
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Context;
@@ -35,7 +36,7 @@ public sealed class BuildServiceInputProjectionTests
 
         var result = await service.ExecuteAsync(CreateInput(timeoutMilliseconds: null));
 
-        Assert.True(result.IsSuccess, string.Join(Environment.NewLine, result.Errors.Select(static error => $"{error.Code}: {error.Message}")));
+        Assert.IsType<BuildExecutionResult.CompletedResult>(result);
         BuildRunInvocationAssert.DispatchedWithTimeout(
             requestExecutor,
             expectedTimeout: TimeSpan.FromMilliseconds(432100));
@@ -56,7 +57,7 @@ public sealed class BuildServiceInputProjectionTests
 
         var result = await service.ExecuteAsync(CreateInput());
 
-        Assert.True(result.IsSuccess, string.Join(Environment.NewLine, result.Errors.Select(static error => $"{error.Code}: {error.Message}")));
+        Assert.IsType<BuildExecutionResult.CompletedResult>(result);
     }
 
     [Fact]
@@ -111,9 +112,9 @@ public sealed class BuildServiceInputProjectionTests
 
         var result = await service.ExecuteAsync(CreateInput());
 
-        Assert.True(result.IsSuccess, string.Join(Environment.NewLine, result.Errors.Select(static error => $"{error.Code}: {error.Message}")));
-        Assert.Equal(BuildProfileSceneSource.EditorBuildSettings, result.Output!.Build.Inputs.Scenes.Source);
-        Assert.Equal([new SceneAssetPath("Assets/Scenes/FromSettings.unity")], result.Output.Build.Inputs.Scenes.Paths);
+        var completed = Assert.IsType<BuildExecutionResult.CompletedResult>(result);
+        Assert.Equal(BuildProfileSceneSource.EditorBuildSettings, completed.Output.Build.Inputs.Scenes.Source);
+        Assert.Equal([new SceneAssetPath("Assets/Scenes/FromSettings.unity")], completed.Output.Build.Inputs.Scenes.Paths);
         var metadataScenePaths = artifactStore.WrittenMetadata!.Inputs
             .GetProperty("scenes")
             .GetProperty("paths")

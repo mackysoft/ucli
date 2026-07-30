@@ -1,6 +1,5 @@
 using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Source;
 using MackySoft.Ucli.Contracts.Configuration;
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Access;
 
@@ -49,8 +48,11 @@ internal sealed class OpsCatalogAccessService : IOpsCatalogAccessService
             if (failure.Kind == PersistedOpsCatalogReadFailureKind.InvalidArgument)
             {
                 return OpsListReadResult.Failure(
-                    failure.Message,
-                    failure.ErrorCode);
+                    ApplicationFailure.InvalidInput(
+                        failure.Message,
+                        failure.ErrorCode,
+                        instancePath: null,
+                        startupFailure: null));
             }
 
             return await ReadListFromSourceAsync(
@@ -96,8 +98,11 @@ internal sealed class OpsCatalogAccessService : IOpsCatalogAccessService
         if (string.IsNullOrWhiteSpace(operationName))
         {
             return OpsDescribeReadResult.Failure(
-                "Operation name must not be empty.",
-                UcliCoreErrorCodes.InvalidArgument);
+                ApplicationFailure.InvalidInput(
+                    "Operation name must not be empty.",
+                    UcliCoreErrorCodes.InvalidArgument,
+                    instancePath: null,
+                    startupFailure: null));
         }
 
         if (context.ReadIndexMode == ReadIndexMode.Disabled)
@@ -120,8 +125,11 @@ internal sealed class OpsCatalogAccessService : IOpsCatalogAccessService
             if (failure.Kind == PersistedOpsCatalogReadFailureKind.InvalidArgument)
             {
                 return OpsDescribeReadResult.Failure(
-                    failure.Message,
-                    failure.ErrorCode);
+                    ApplicationFailure.InvalidInput(
+                        failure.Message,
+                        failure.ErrorCode,
+                        instancePath: null,
+                        startupFailure: null));
             }
 
             return await ReadDescribeFromSourceAsync(
@@ -149,8 +157,11 @@ internal sealed class OpsCatalogAccessService : IOpsCatalogAccessService
         if (catalogEntry == null)
         {
             return OpsDescribeReadResult.Failure(
-                $"Operation '{operationName}' is not available.",
-                UcliCoreErrorCodes.InvalidArgument);
+                ApplicationFailure.InvalidInput(
+                    $"Operation '{operationName}' is not available.",
+                    UcliCoreErrorCodes.InvalidArgument,
+                    instancePath: null,
+                    startupFailure: null));
         }
 
         var describeResult = await persistedOpsCatalogReader.ReadDescribeAsync(
@@ -196,24 +207,23 @@ internal sealed class OpsCatalogAccessService : IOpsCatalogAccessService
                 fallbackReason,
                 cancellationToken)
             .ConfigureAwait(false);
-        if (!refreshResult.IsSuccess)
+        if (refreshResult is OpsCatalogSourceRefreshResult.Failed failedRefresh)
         {
-            return OpsListReadResult.Failure(
-                refreshResult.Message,
-                refreshResult.ErrorCode!,
-                refreshResult.StartupFailure);
+            return OpsListReadResult.Failure(failedRefresh.Error);
         }
 
+        var successfulRefresh = refreshResult as OpsCatalogSourceRefreshResult.Succeeded
+            ?? throw new InvalidOperationException($"Unsupported ops-catalog refresh result '{refreshResult.GetType().Name}'.");
         return OpsListReadResult.Success(
             new OpsListReadOutput(
-                Snapshot: OpsCatalogListSnapshotFactory.FromCatalog(refreshResult.Snapshot!),
+                Snapshot: OpsCatalogListSnapshotFactory.FromCatalog(successfulRefresh.Snapshot),
                 AccessInfo: new OpsCatalogAccessInfo(
                     Used: false,
                     Hit: true,
                     Source: OpsCatalogSource.Source,
                     Freshness: IndexFreshness.Fresh,
-                    GeneratedAtUtc: refreshResult.Snapshot!.GeneratedAtUtc,
-                    FallbackReason: refreshResult.FallbackReason)),
+                    GeneratedAtUtc: successfulRefresh.Snapshot.GeneratedAtUtc,
+                    FallbackReason: successfulRefresh.FallbackReason)),
             "Ops catalog read completed.");
     }
 
@@ -232,21 +242,23 @@ internal sealed class OpsCatalogAccessService : IOpsCatalogAccessService
                 fallbackReason,
                 cancellationToken)
             .ConfigureAwait(false);
-        if (!refreshResult.IsSuccess)
+        if (refreshResult is OpsCatalogSourceRefreshResult.Failed failedRefresh)
         {
-            return OpsDescribeReadResult.Failure(
-                refreshResult.Message,
-                refreshResult.ErrorCode!,
-                refreshResult.StartupFailure);
+            return OpsDescribeReadResult.Failure(failedRefresh.Error);
         }
 
-        var operation = refreshResult.Snapshot!.Operations.FirstOrDefault(
+        var successfulRefresh = refreshResult as OpsCatalogSourceRefreshResult.Succeeded
+            ?? throw new InvalidOperationException($"Unsupported ops-catalog refresh result '{refreshResult.GetType().Name}'.");
+        var operation = successfulRefresh.Snapshot.Operations.FirstOrDefault(
             operation => string.Equals(operation.Name, operationName, StringComparison.Ordinal));
         if (operation == null)
         {
             return OpsDescribeReadResult.Failure(
-                $"Operation '{operationName}' is not available.",
-                UcliCoreErrorCodes.InvalidArgument);
+                ApplicationFailure.InvalidInput(
+                    $"Operation '{operationName}' is not available.",
+                    UcliCoreErrorCodes.InvalidArgument,
+                    instancePath: null,
+                    startupFailure: null));
         }
 
         return OpsDescribeReadResult.Success(
@@ -257,8 +269,8 @@ internal sealed class OpsCatalogAccessService : IOpsCatalogAccessService
                     Hit: true,
                     Source: OpsCatalogSource.Source,
                     Freshness: IndexFreshness.Fresh,
-                    GeneratedAtUtc: refreshResult.Snapshot.GeneratedAtUtc,
-                    FallbackReason: refreshResult.FallbackReason)),
+                    GeneratedAtUtc: successfulRefresh.Snapshot.GeneratedAtUtc,
+                    FallbackReason: successfulRefresh.FallbackReason)),
             $"Ops describe completed for '{operationName}'.");
     }
 }

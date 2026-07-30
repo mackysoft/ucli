@@ -44,25 +44,33 @@ internal static class BuildRunCliOutputFixtureFactory
     {
         return caseName switch
         {
-            "success" => BuildRunCommandResultFactory.Create(BuildExecutionResult.Success(CreateOutput(succeeded: true))),
-            "build-report-failed" => BuildRunCommandResultFactory.Create(BuildExecutionResult.Success(CreateOutput(succeeded: false))),
-            "invalid-profile" => BuildRunCommandResultFactory.Create(BuildExecutionResult.Failure(
+            "success" => BuildRunCommandResultFactory.Create(BuildExecutionResult.Completed(CreateOutput(succeeded: true))),
+            "build-report-failed" => BuildRunCommandResultFactory.Create(BuildExecutionResult.Completed(CreateOutput(succeeded: false))),
+            "invalid-profile" => BuildRunCommandResultFactory.Create(BuildExecutionResult.Failed(
                 ExecutionError.InvalidArgument($"Build profile is invalid: {BuildProfilePath}.", BuildErrorCodes.BuildProfileInvalid),
                 ProjectIdentityInfoTestFactory.CreateWithProjectPath(projectPath: ProjectPathTestValues.WorkspaceUnityProject))),
-            "unsupported-buildTarget" => BuildRunCommandResultFactory.Create(BuildExecutionResult.Failure(
+            "unsupported-buildTarget" => BuildRunCommandResultFactory.Create(BuildExecutionResult.Failed(
                 ExecutionError.InvalidArgument("Build profile inputs.buildTarget is unsupported: unknownTarget.", BuildErrorCodes.BuildTargetUnsupported),
                 ProjectIdentityInfoTestFactory.CreateWithProjectPath(projectPath: ProjectPathTestValues.WorkspaceUnityProject))),
-            "dirty-scene" => BuildRunCommandResultFactory.Create(BuildExecutionResult.Failure(
-                ApplicationFailure.FromCode(BuildErrorCodes.BuildDirtyStatePresent, "Dirty scene state is present."),
+            "dirty-scene" => BuildRunCommandResultFactory.Create(BuildExecutionResult.FailedWithDirtyState(
+                ApplicationFailure.UnityIpcFailure(
+                    "Dirty scene state is present.",
+                    BuildErrorCodes.BuildDirtyStatePresent,
+                    instancePath: null,
+                    startupFailure: null),
                 ProjectIdentityInfoTestFactory.CreateWithProjectPath(projectPath: ProjectPathTestValues.WorkspaceUnityProject),
                 CreateDirtyState())),
-            "buildTarget-module-missing" => BuildRunCommandResultFactory.Create(BuildExecutionResult.Failure(
-                ApplicationFailure.FromCode(BuildErrorCodes.BuildTargetModuleMissing, "buildTarget module is missing: standaloneLinux64."),
+            "buildTarget-module-missing" => BuildRunCommandResultFactory.Create(BuildExecutionResult.Failed(
+                ApplicationFailure.UnityIpcFailure(
+                    "buildTarget module is missing: standaloneLinux64.",
+                    BuildErrorCodes.BuildTargetModuleMissing,
+                    instancePath: null,
+                    startupFailure: null),
                 ProjectIdentityInfoTestFactory.CreateWithProjectPath(projectPath: ProjectPathTestValues.WorkspaceUnityProject))),
-            "artifact-write-failed" => BuildRunCommandResultFactory.Create(BuildExecutionResult.Failure(
+            "artifact-write-failed" => BuildRunCommandResultFactory.Create(BuildExecutionResult.Failed(
                 ExecutionError.InternalError("Build artifacts could not be written.", BuildErrorCodes.BuildArtifactWriteFailed),
                 ProjectIdentityInfoTestFactory.CreateWithProjectPath(projectPath: ProjectPathTestValues.WorkspaceUnityProject))),
-            "output-manifest-failed" => BuildRunCommandResultFactory.Create(BuildExecutionResult.Failure(
+            "output-manifest-failed" => BuildRunCommandResultFactory.Create(BuildExecutionResult.Failed(
                 ExecutionError.InternalError("Build output manifest could not be generated.", BuildErrorCodes.BuildOutputManifestFailed),
                 ProjectIdentityInfoTestFactory.CreateWithProjectPath(projectPath: ProjectPathTestValues.WorkspaceUnityProject))),
             _ => throw new ArgumentOutOfRangeException(nameof(caseName), caseName, "Unknown build.run Golden case."),
@@ -101,7 +109,6 @@ internal static class BuildRunCliOutputFixtureFactory
                 Source: IpcBuildRunnerResultSource.BuildPipelineBuildReport,
                 Status: reportResult),
             output: new BuildArtifactOutput(
-                ManifestRef: BuildArtifactKind.BuildOutputManifest,
                 ManifestDigest: manifestDigest,
                 EntryCount: entryCount,
                 FileCount: fileCount,
@@ -114,7 +121,6 @@ internal static class BuildRunCliOutputFixtureFactory
                 WarningCount: warningCount,
                 ReportRef: BuildArtifactKind.BuildReport),
             logs: new BuildLogsOutput(
-                ReportRef: BuildArtifactKind.BuildLog,
                 EntryCount: succeeded ? 3 : 2,
                 ErrorCount: errorCount,
                 WarningCount: warningCount,
@@ -125,9 +131,6 @@ internal static class BuildRunCliOutputFixtureFactory
         var claims = BuildRunCliOutputClaimFixtureFactory.CreateClaims(build, succeeded);
 
         return new BuildExecutionOutput(
-            Verdict: succeeded
-                ? AssuranceVerdict.Pass
-                : AssuranceVerdict.Fail,
             Project: ProjectIdentityInfoTestFactory.CreateWithProjectPath(projectPath: ProjectPathTestValues.WorkspaceUnityProject),
             Build: build,
             Verifiers:
@@ -137,8 +140,7 @@ internal static class BuildRunCliOutputFixtureFactory
                     Deterministic: false,
                     Required: true,
                     PrimaryClaims: claims.Where(static claim => claim.Required).Select(static claim => claim.Id).ToArray(),
-                    Effects: BuildPipelineEffectValues,
-                    ReportRef: BuildArtifactKind.Build),
+                    Effects: BuildPipelineEffectValues),
             ],
             Claims: claims,
             Reports: CreateReports(),

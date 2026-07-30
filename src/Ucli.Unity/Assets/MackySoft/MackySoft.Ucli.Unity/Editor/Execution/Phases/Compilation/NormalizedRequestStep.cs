@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.ContractReading;
 
@@ -9,11 +10,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
     /// <param name="Kind"> The public step kind. </param>
     /// <param name="OperationName"> The public operation name reported by execute responses. </param>
     /// <param name="PrimitiveCount"> The number of compiled primitives emitted for this step. </param>
+    /// <param name="OperationDescriptorDigest"> The fixed descriptor digest for a registered direct operation; otherwise <see langword="null" />. </param>
     internal sealed record NormalizedRequestStep (
         IpcExecuteStepId Id,
         IpcExecuteStepKind Kind,
         string OperationName,
-        int PrimitiveCount)
+        int PrimitiveCount,
+        Sha256Digest? OperationDescriptorDigest)
     {
         /// <summary> Gets diagnostics emitted while compiling this public step. </summary>
         public IReadOnlyList<OperationDiagnostic> Diagnostics { get; init; } = System.Array.Empty<OperationDiagnostic>();

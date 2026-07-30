@@ -82,39 +82,6 @@ public sealed class RefreshCliOutputContractTests
         CommandResultAssert.HasSingleError(outputJson.RootElement, UnityExecutionModeDecisionErrorCodes.DaemonNotRunning);
     }
 
-    [Fact]
-    [Trait("Size", "Medium")]
-    public async Task Refresh_WhenOperationPolicyBlocksRefresh_ReturnsCommandResultInvalidArgument ()
-    {
-        using var scope = TestDirectories.CreateTempScope("refresh-cli-output-contract", "operation-policy-blocked");
-        var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
-        WriteRefreshBlockedConfig(scope, unityProjectPath);
-
-        var result = await RunRefreshCommandAsync(
-            projectPath: unityProjectPath);
-
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
-        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
-        CommandResultAssert.HasInvalidArgumentEnvelope(
-            outputJson.RootElement,
-            UcliCommandNames.Refresh);
-        JsonAssert.For(outputJson.RootElement)
-            .HasArrayLength("errors", 1)
-            .HasProperty("errors", 0, error => error
-                .HasString("code", "OPERATION_NOT_ALLOWED")
-                .HasValueKind("message", JsonValueKind.String)
-                .IsNull("instancePath"));
-        var message = outputJson.RootElement.GetProperty("errors")[0].GetProperty("message").GetString();
-        Assert.Contains("ucli.project.refresh", message, StringComparison.Ordinal);
-        Assert.Contains("advanced", message, StringComparison.Ordinal);
-        Assert.Contains("safe", message, StringComparison.Ordinal);
-        Assert.Contains(".ucli/config.json", message, StringComparison.Ordinal);
-        Assert.DoesNotContain("AssetDatabase", message, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("ucli status", message, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("ucli ready", message, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("ucli query", message, StringComparison.OrdinalIgnoreCase);
-    }
-
     private static Task<CommandExecutionResult> RunRefreshCommandAsync (
         string? projectPath = null,
         string? mode = null)
@@ -140,19 +107,6 @@ public sealed class RefreshCliOutputContractTests
             scope,
             unityProjectPath,
             UcliContractConstants.Config.OperationPolicyDangerous);
-    }
-
-    private static void WriteRefreshBlockedConfig (
-        TestDirectoryScope scope,
-        string unityProjectPath)
-    {
-        ArgumentNullException.ThrowIfNull(scope);
-        ArgumentException.ThrowIfNullOrWhiteSpace(unityProjectPath);
-
-        WriteConfigJson(
-            scope,
-            unityProjectPath,
-            UcliContractConstants.Config.OperationPolicySafe);
     }
 
     private static void WriteConfigJson (

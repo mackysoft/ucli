@@ -47,11 +47,10 @@ internal static class TestRunCommandAssert
 
     private static void HasInvalidInputPayload (JsonElement rootElement)
     {
-        JsonAssert.For(rootElement)
-            .HasProperty("payload", payload => payload
-                .HasString("errorKind", "invalidInput")
-                .IsNull("runId")
-                .IsNull("artifactsDir")
-                .IsNull("summaryJsonPath"));
+        var payload = rootElement.GetProperty("payload");
+        Assert.Equal(
+            TextVocabulary.GetText(TestRunErrorKind.InvalidInput),
+            payload.GetProperty("errorKind").GetString());
+        Assert.Equal(JsonValueKind.Null, payload.GetProperty("run").ValueKind);
     }
 }

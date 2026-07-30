@@ -20,10 +20,11 @@ public sealed class ValidateServicePreparationTests
                 CreateReadIndexInfo(
                     used: true,
                     hit: true,
-                    freshness: IndexFreshness.Probable)),
+                    freshness: IndexFreshness.Probable),
+                RequestStaticValidationCatalog.Unavailable),
         };
         var service = new ValidateService(
-            CreateRequestPreparationService(RequestPreparationResult.Failure(ExecutionError.InvalidArgument("project path is invalid."))),
+            CreateRequestPreparationService(RequestPreparationResult.Failure(ExecutionError.InvalidArgument("project path is invalid.", UcliCoreErrorCodes.InvalidArgument))),
             new RecordingRequestStaticValidator
             {
                 Result = ValidationResult.Success(),
@@ -60,7 +61,8 @@ public sealed class ValidateServicePreparationTests
                 CreateReadIndexInfo(
                     used: true,
                     hit: true,
-                    freshness: IndexFreshness.Probable)),
+                    freshness: IndexFreshness.Probable),
+                RequestStaticValidationCatalog.Unavailable),
         };
         var service = new ValidateService(
             CreateRequestPreparationService(RequestPreparationResult.Success(CreatePreparedRequestContext(config))),

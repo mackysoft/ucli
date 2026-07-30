@@ -71,6 +71,39 @@ public sealed class CommandResultTests
         Assert.Empty(result.Errors);
     }
 
+    [Theory]
+    [InlineData(Verdict.Pass, 0)]
+    [InlineData(Verdict.Fail, 1)]
+    [InlineData(Verdict.Incomplete, 1)]
+    [Trait("Size", "Small")]
+    public void CompletedWithVerdict_MapsVerdictToExitCode (
+        Verdict verdict,
+        int expectedExitCode)
+    {
+        var result = CommandResult.CompletedWithVerdict(
+            UcliCommandNames.Verify,
+            "Verification completed.",
+            new VerdictPayload(verdict));
+
+        AssertCommonContract(
+            result,
+            expectedCommand: UcliCommandNames.Verify,
+            expectedStatus: CommandResultStatus.Ok,
+            expectedExitCode: expectedExitCode,
+            expectedMessage: "Verification completed.");
+        Assert.Empty(result.Errors);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void CompletedWithVerdict_WhenVerdictIsUndefined_ThrowsArgumentOutOfRangeException ()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => CommandResult.CompletedWithVerdict(
+            UcliCommandNames.Verify,
+            "Verification completed.",
+            new VerdictPayload((Verdict)0)));
+    }
+
     [Fact]
     [Trait("Size", "Small")]
     public void Success_NormalizesWhitespaceCommandAndMessage ()
@@ -190,4 +223,6 @@ public sealed class CommandResultTests
         int ExpectedExitCode,
         string ExpectedErrorCode,
         string ExpectedMessage);
+
+    private sealed record VerdictPayload (Verdict Verdict) : IVerdictResult;
 }

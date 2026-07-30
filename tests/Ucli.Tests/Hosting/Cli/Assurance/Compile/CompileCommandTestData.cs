@@ -8,9 +8,6 @@ namespace MackySoft.Ucli.Tests;
 
 internal static class CompileCommandTestData
 {
-    private const string CompileSummaryReport = "compile.summary";
-    private const string CompileDiagnosticsReport = "compile.diagnostics";
-
     private static readonly AssuranceVerifierId CompileVerifierId = new("compile");
 
     public static JsonGoldenFileNormalization CreateGoldenNormalization ()
@@ -24,7 +21,7 @@ internal static class CompileCommandTestData
     {
         return new CompileCompletedEntry(
             RunId: RunIdTestValues.Compile,
-            Verdict: AssuranceVerdict.Pass,
+            Verdict: Verdict.Pass,
             ErrorCount: 0,
             WarningCount: 0,
             SummaryJsonPath: $"/tmp/ucli/compile/{RunIdTestValues.CompileText}/summary.json",
@@ -37,7 +34,6 @@ internal static class CompileCommandTestData
         var compileStatus = errorCount == 0 ? AssuranceClaimStatus.Passed : AssuranceClaimStatus.Failed;
         var lifecycleStatus = errorCount == 0 ? AssuranceClaimStatus.Passed : AssuranceClaimStatus.Failed;
         return new CompileExecutionOutput(
-            Verdict: errorCount == 0 ? AssuranceVerdict.Pass : AssuranceVerdict.Fail,
             Project: ProjectIdentityInfoTestFactory.Create(
                 projectFingerprint: ProjectFingerprintTestFactory.Create("<projectFingerprint>")),
             Verifiers:
@@ -48,7 +44,7 @@ internal static class CompileCommandTestData
                     Required: true,
                     PrimaryClaims: CompileClaimCodes.All,
                     Effects: AssuranceEffectSets.Compile,
-                    ReportRef: CompileSummaryReport),
+                    ReportRef: AssuranceReportIds.CompileSummary),
             ],
             Claims:
             [
@@ -57,29 +53,28 @@ internal static class CompileCommandTestData
                     compileStatus,
                     "Unity script compilation completed without compiler errors.",
                     "unityCompile",
-                    new CompileEvidenceOutput(
-                        CompileEvidenceKind.ScriptCompilation,
-                        CompileDiagnosticsReport,
+                    CompileScriptEvidenceOutput.Create(
+                        AssuranceReportIds.CompileDiagnostics,
                         compile.ScriptCompilation)),
                 CreateClaim(
                     CompileClaimCodes.UnityDomainReloadSettled,
                     AssuranceClaimStatus.Passed,
                     "Unity domain reload reached a settled state after compile observation.",
                     "unityDomainReload",
-                    new CompileEvidenceOutput(CompileEvidenceKind.DomainReload, EvidenceRef: null, Data: compile.DomainReload)),
+                    CompileDomainReloadEvidenceOutput.Create(compile.DomainReload)),
                 CreateClaim(
                     CompileClaimCodes.UnityLifecycleReadyAfterCompile,
                     lifecycleStatus,
                     "Unity lifecycle is ready after compile observation.",
                     "unityLifecycle",
-                    new CompileEvidenceOutput(CompileEvidenceKind.LifecycleSnapshot, EvidenceRef: null, Data: compile.Lifecycle)),
+                    CompileLifecycleEvidenceOutput.Create(compile.Lifecycle)),
             ],
             Reports: new Dictionary<string, AssuranceReportReference>(StringComparer.Ordinal)
             {
-                [CompileSummaryReport] = AssuranceReportReference.FromPath(
+                [AssuranceReportIds.CompileSummary.Value] = AssuranceReportReference.FromPath(
                     "/tmp/ucli/compile/summary.json",
                     digest: null),
-                [CompileDiagnosticsReport] = AssuranceReportReference.FromPath(
+                [AssuranceReportIds.CompileDiagnostics.Value] = AssuranceReportReference.FromPath(
                     "/tmp/ucli/compile/diagnostics.json",
                     digest: null),
             },

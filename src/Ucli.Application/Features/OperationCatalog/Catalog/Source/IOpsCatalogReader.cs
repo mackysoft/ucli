@@ -22,6 +22,6 @@ internal interface IOpsCatalogReader
         TimeSpan timeout,
         bool failFast,
         bool requireReadinessGate,
-        bool includeEditLoweringOnly = false,
+        bool includeEditLoweringOnly,
         CancellationToken cancellationToken = default);
 }

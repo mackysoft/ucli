@@ -5,6 +5,7 @@ using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Context;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts.Configuration;
+using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Tests.Execution.OperationExecute;
@@ -15,31 +16,50 @@ internal static class OperationExecuteServiceTestSupport
 
     private static readonly JsonElement EmptyArgs = JsonSerializer.SerializeToElement(new { });
 
+    public static readonly UcliOperationDescriptor RefreshDescriptor = new(
+        Name: UcliPrimitiveOperationNames.ProjectRefresh,
+        Kind: UcliOperationKind.Command,
+        Policy: OperationPolicy.Advanced,
+        ArgsSchemaJson: """{"type":"object","additionalProperties":false}""",
+        DescriptorDigest: Sha256Digest.Parse(
+            "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"),
+        VerdictContract: null,
+        ResultSchemaJson: null,
+        Exposure: UcliOperationExposure.Public);
+
     public static readonly OperationExecuteDefinition RefreshOperation = new(
-        Command: UcliCommandIds.Refresh,
-        OperationId: new IpcExecuteStepId("refresh"),
-        Descriptor: new UcliOperationDescriptor(
-            Name: UcliPrimitiveOperationNames.ProjectRefresh,
-            Kind: UcliOperationKind.Command,
-            Policy: OperationPolicy.Advanced,
-            ArgsSchemaJson: """{"type":"object","additionalProperties":false}"""),
-        Args: EmptyArgs,
-        SuccessMessage: "uCLI refresh completed.",
-        FailureMessage: "uCLI refresh failed.");
+        command: UcliCommandIds.Refresh,
+        operationId: new IpcExecuteStepId("refresh"),
+        operationName: UcliPrimitiveOperationNames.ProjectRefresh,
+        args: EmptyArgs,
+        successMessage: "uCLI refresh completed.");
 
     public static OperationExecuteService CreateService (
         StaticProjectContextResolver projectContextResolver,
         RecordingOperationAuthorizationService authorizationService,
         IUnityRequestExecutor unityRequestExecutor,
+        IOperationCatalog operationCatalog,
         TestMutationReadPostconditionStore? readPostconditionStore = null,
         TimeProvider? timeProvider = null)
     {
         return new OperationExecuteService(
             projectContextResolver,
+            operationCatalog,
             authorizationService,
             unityRequestExecutor,
             readPostconditionStore ?? new TestMutationReadPostconditionStore(),
             timeProvider ?? TimeProvider.System);
+    }
+
+    public static RecordingOperationCatalog CreateRefreshOperationCatalog ()
+    {
+        return new RecordingOperationCatalog
+        {
+            Operations =
+            [
+                RefreshDescriptor,
+            ],
+        };
     }
 
     public static StaticProjectContextResolver CreateProjectContextResolver (UcliConfig? config = null)
@@ -101,7 +121,11 @@ internal static class OperationExecuteServiceTestSupport
             Phase: IpcExecuteOperationPhase.Plan,
             Applied: false,
             Changed: false,
-            Touched: []);
+            Touched: [],
+            OperationDescriptorDigest: RefreshDescriptor.DescriptorDigest,
+            Verdict: null,
+            Result: null,
+            Diagnostics: []);
     }
 
     public static IpcExecuteOperationResult CreateCallOperationResult (
@@ -114,9 +138,10 @@ internal static class OperationExecuteServiceTestSupport
             Phase: IpcExecuteOperationPhase.Call,
             Applied: true,
             Changed: changed,
-            Touched: touched ?? [])
-        {
-            Result = result,
-        };
+            Touched: touched ?? [],
+            OperationDescriptorDigest: RefreshDescriptor.DescriptorDigest,
+            Verdict: null,
+            Result: result,
+            Diagnostics: []);
     }
 }

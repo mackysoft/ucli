@@ -44,7 +44,8 @@ public sealed class RequestCommandResultFactoryContractViolationTests
                 project: ProjectIdentityInfoTestFactory.Create(),
                 opResults: [CreateOpResult()],
                 plan: null,
-                readPostcondition: null)
+                readPostcondition: null,
+                postReadSource: null)
             {
                 ContractViolations = [CreateContractViolation()],
             }));
@@ -92,10 +93,10 @@ public sealed class RequestCommandResultFactoryContractViolationTests
             Guid.Parse("9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62"),
             [CreateOpResult()],
             [CreateContractViolationFailure()],
-            "Operation contract violation.",
+            contractViolations: [CreateContractViolation()],
             readPostcondition: null,
             project: ProjectIdentityInfoTestFactory.Create(),
-            contractViolations: [CreateContractViolation()]));
+            postReadSource: null));
 
         AssertContractViolationPayload(result, UcliCommandNames.Refresh);
     }
@@ -132,7 +133,8 @@ public sealed class RequestCommandResultFactoryContractViolationTests
         return ApplicationFailure.ContractViolation(
             "Operation contract violation.",
             ExecuteRequestErrorCodes.OperationContractViolation,
-            "/opResults/0");
+            "/opResults/0",
+            startupFailure: null);
     }
 
     private static OperationExecutionContractViolation CreateContractViolation ()
@@ -147,12 +149,15 @@ public sealed class RequestCommandResultFactoryContractViolationTests
 
     private static OperationExecutionOperationResult CreateOpResult ()
     {
-        return new OperationExecutionOperationResult(
-            Op: UcliPrimitiveOperationNames.AssetsFind,
-            Phase: IpcExecuteOperationPhase.Plan,
-            Applied: true,
-            Changed: false,
-            Touched: []);
+        return OperationExecutionOperationResult.CreateWithoutVerdict(
+            op: UcliPrimitiveOperationNames.AssetsFind,
+            phase: IpcExecuteOperationPhase.Plan,
+            applied: true,
+            changed: false,
+            touched: [],
+            operationDescriptorDigest: RequestCommandResultTestValues.OperationDescriptorDigest,
+            result: null,
+            diagnostics: []);
     }
 
     private static ReadIndexInfo CreateReadIndexInfo ()

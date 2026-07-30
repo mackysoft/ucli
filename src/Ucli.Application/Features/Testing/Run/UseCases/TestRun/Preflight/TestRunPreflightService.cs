@@ -42,20 +42,26 @@ internal sealed class TestRunPreflightService : ITestRunPreflightService
         var configurationResolutionResult = await ResolveConfigurationSafelyAsync(
             CreateConfigurationRequest(input),
             cancellationToken).ConfigureAwait(false);
-        if (!configurationResolutionResult.IsSuccess)
+        if (configurationResolutionResult is TestRunConfigurationResolutionResult.Failed failedResolution)
         {
-            return TestRunPreflightResult.FailureResult(
-                TestRunServiceErrorMapper.MapConfigurationErrors(configurationResolutionResult.Errors));
+            return TestRunPreflightResult.Failed(
+                TestRunServiceErrorMapper.MapConfigurationErrors(failedResolution.Errors));
         }
 
-        var configuration = configurationResolutionResult.Configuration!;
+        if (configurationResolutionResult is not TestRunConfigurationResolutionResult.Succeeded succeededResolution)
+        {
+            throw new InvalidOperationException(
+                "Configuration resolution returned an unsupported result variant.");
+        }
+
+        var configuration = succeededResolution.Configuration;
         var configLoadResult = await configStore.LoadAsync(
             configuration.UnityProject.RepositoryRoot,
             cancellationToken).ConfigureAwait(false);
         if (!configLoadResult.IsSuccess)
         {
-            return TestRunPreflightResult.FailureResult(
-                TestRunServiceErrorMapper.MapExecutionError(UcliConfigDiagnosticErrorMapper.ToExecutionError(
+            return TestRunPreflightResult.Failed(
+                TestRunServiceErrorMapper.MapCommandError(UcliConfigDiagnosticErrorMapper.ToExecutionError(
                     configLoadResult,
                     "Config JSON is invalid.")));
         }
@@ -66,8 +72,9 @@ internal sealed class TestRunPreflightService : ITestRunPreflightService
             configLoadResult.Config!);
         if (!timeoutResolutionResult.IsSuccess)
         {
-            return TestRunPreflightResult.FailureResult(
-                TestRunServiceErrorMapper.MapExecutionError(timeoutResolutionResult.Error!));
+            return TestRunPreflightResult.Failed(
+                TestRunServiceErrorMapper.MapCommandError(
+                    timeoutResolutionResult.Error!));
         }
 
         var modeDecisionResult = await modeDecisionService.DecideAsync(
@@ -77,15 +84,19 @@ internal sealed class TestRunPreflightService : ITestRunPreflightService
             cancellationToken).ConfigureAwait(false);
         if (modeDecisionResult.HasContractError)
         {
-            return TestRunPreflightResult.FailureResult(TestRunServiceResult.ToolError(
-                modeDecisionResult.ContractError!.Message,
-                modeDecisionResult.ContractError.Code));
+            var contractError = modeDecisionResult.ContractError!;
+            return TestRunPreflightResult.Failed(TestRunServiceResult.ToolError(
+                ApplicationFailure.EnvironmentError(
+                    contractError.Message,
+                    contractError.Code,
+                    instancePath: null)));
         }
 
         if (!modeDecisionResult.IsSuccess)
         {
-            return TestRunPreflightResult.FailureResult(
-                TestRunServiceErrorMapper.MapExecutionError(modeDecisionResult.Error!));
+            return TestRunPreflightResult.Failed(
+                TestRunServiceErrorMapper.MapCommandError(
+                    modeDecisionResult.Error!));
         }
 
         var context = new TestRunExecutionContext(
@@ -120,7 +131,7 @@ internal sealed class TestRunPreflightService : ITestRunPreflightService
         {
             return TestRunConfigurationResolutionResult.Failure(
             [
-                ExecutionError.InternalError($"Unexpected error while resolving run configuration: {exception.Message}"),
+                ExecutionError.InternalError($"Unexpected error while resolving run configuration: {exception.Message}", UcliCoreErrorCodes.InternalError),
             ]);
         }
     }

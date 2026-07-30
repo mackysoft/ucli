@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using MackySoft.Ucli.Application.Features.Assurance.Build.Contracts;
 using MackySoft.Ucli.Contracts.Assurance.Build;
 using MackySoft.Ucli.Contracts.Ipc;
 using static MackySoft.Ucli.Application.Tests.Features.Assurance.Build.BuildServiceTestSupport;
@@ -31,8 +32,8 @@ public sealed class BuildServiceResponseValidationTests
 
         var result = await service.ExecuteAsync(CreateInput());
 
-        Assert.False(result.IsSuccess);
-        var error = Assert.Single(result.Errors);
+        var failed = Assert.IsType<BuildExecutionResult.FailedResult>(result);
+        var error = failed.Failure;
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
     }
 
@@ -59,8 +60,8 @@ public sealed class BuildServiceResponseValidationTests
 
         var result = await service.ExecuteAsync(CreateInput());
 
-        Assert.False(result.IsSuccess);
-        var error = Assert.Single(result.Errors);
+        var failed = Assert.IsType<BuildExecutionResult.FailedResult>(result);
+        var error = failed.Failure;
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
     }
 
@@ -78,8 +79,8 @@ public sealed class BuildServiceResponseValidationTests
 
         var result = await service.ExecuteAsync(CreateInput());
 
-        Assert.False(result.IsSuccess);
-        var error = Assert.Single(result.Errors);
+        var failed = Assert.IsType<BuildExecutionResult.FailedResult>(result);
+        var error = failed.Failure;
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
     }
 
@@ -111,8 +112,8 @@ public sealed class BuildServiceResponseValidationTests
 
         var result = await service.ExecuteAsync(CreateInput());
 
-        Assert.False(result.IsSuccess);
-        var error = Assert.Single(result.Errors);
+        var failed = Assert.IsType<BuildExecutionResult.FailedResult>(result);
+        var error = failed.Failure;
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
     }
 
@@ -139,8 +140,8 @@ public sealed class BuildServiceResponseValidationTests
 
         var result = await service.ExecuteAsync(CreateInput());
 
-        Assert.False(result.IsSuccess);
-        var error = Assert.Single(result.Errors);
+        var failed = Assert.IsType<BuildExecutionResult.FailedResult>(result);
+        var error = failed.Failure;
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
     }
 
@@ -159,8 +160,8 @@ public sealed class BuildServiceResponseValidationTests
 
         var result = await service.ExecuteAsync(CreateInput());
 
-        Assert.False(result.IsSuccess);
-        var error = Assert.Single(result.Errors);
+        var failed = Assert.IsType<BuildExecutionResult.FailedResult>(result);
+        var error = failed.Failure;
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
     }
 
@@ -188,8 +189,8 @@ public sealed class BuildServiceResponseValidationTests
 
         var result = await service.ExecuteAsync(CreateInput());
 
-        Assert.False(result.IsSuccess);
-        var error = Assert.Single(result.Errors);
+        var failed = Assert.IsType<BuildExecutionResult.FailedResult>(result);
+        var error = failed.Failure;
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
         Assert.Null(artifactStore.WrittenMetadata);
     }
@@ -218,8 +219,8 @@ public sealed class BuildServiceResponseValidationTests
 
         var result = await service.ExecuteAsync(CreateInput());
 
-        Assert.False(result.IsSuccess);
-        var error = Assert.Single(result.Errors);
+        var failed = Assert.IsType<BuildExecutionResult.FailedResult>(result);
+        var error = failed.Failure;
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
         Assert.Null(artifactStore.AccountingRequest);
         Assert.Null(artifactStore.WrittenMetadata);
@@ -239,8 +240,8 @@ public sealed class BuildServiceResponseValidationTests
 
         var result = await service.ExecuteAsync(CreateInput());
 
-        Assert.False(result.IsSuccess);
-        var error = Assert.Single(result.Errors);
+        var failed = Assert.IsType<BuildExecutionResult.FailedResult>(result);
+        var error = failed.Failure;
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
     }
 
@@ -259,8 +260,8 @@ public sealed class BuildServiceResponseValidationTests
 
         var result = await service.ExecuteAsync(CreateInput());
 
-        Assert.False(result.IsSuccess);
-        var error = Assert.Single(result.Errors);
+        var failed = Assert.IsType<BuildExecutionResult.FailedResult>(result);
+        var error = failed.Failure;
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
         Assert.Null(artifactStore.AccountingRequest);
         Assert.Null(artifactStore.WrittenMetadata);

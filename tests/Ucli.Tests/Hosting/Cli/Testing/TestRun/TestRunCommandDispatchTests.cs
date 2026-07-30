@@ -13,13 +13,12 @@ public sealed class TestRunCommandDispatchTests
     public async Task Run_WithSupportedOptions_DispatchesResolvedInputAndCancellationToken ()
     {
         var artifactsDir = AbsolutePath.Parse(Path.Combine(Path.GetTempPath(), "ucli-test-run-artifacts"));
-        var summaryJsonPath = AbsolutePath.Resolve(artifactsDir, "summary.json");
         var service = new RecordingTestRunService(
-            (_, _, _) => ValueTask.FromResult(TestRunServiceResult.Pass(
-                message: "Unity test execution completed.",
-                runId: RunIdTestValues.Test,
-                artifactsDir: artifactsDir,
-                summaryJsonPath: summaryJsonPath)));
+            (_, _, _) => ValueTask.FromResult<TestRunServiceResult>(TestRunResultTestValues.CreateCompleted(
+                Verdict.Pass,
+                TestArtifactPaths.CreateSession(
+                    RunIdTestValues.Test,
+                    artifactsDir.Value))));
         var command = new TestRunCommand(service, CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
         using var cancellationTokenSource = new CancellationTokenSource();
 

@@ -91,9 +91,9 @@ public sealed class IpcTestRunContractSerializationTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void IpcTestRunRequest_WhenFailFastIsMissing_DeserializesAsFalse ()
+    public void IpcTestRunRequest_WhenFailFastIsMissing_RejectsPayload ()
     {
-        var request = JsonSerializer.Deserialize<IpcTestRunRequest>(
+        Assert.Throws<JsonException>(() => JsonSerializer.Deserialize<IpcTestRunRequest>(
             $$"""
             {
               "testPlatform": "editmode",
@@ -103,10 +103,7 @@ public sealed class IpcTestRunContractSerializationTests
               "runId": "{{RunIdText}}"
             }
             """,
-            IpcJsonSerializerOptions.Default);
-
-        Assert.NotNull(request);
-        Assert.False(request.FailFast);
+            IpcJsonSerializerOptions.Default));
     }
 
     [Theory]
