@@ -238,6 +238,7 @@ jobs:
         with:
           version-file: src/Ucli.Unity/ProjectSettings/ProjectVersion.txt
           cache-installation: ${{ matrix.cache_installation }}
+          hub-version: ${{ runner.os == 'Linux' && '3.19.5' || '' }}
 
       - name: Activate Unity license
         uses: buildalon/activate-unity-license@v2
