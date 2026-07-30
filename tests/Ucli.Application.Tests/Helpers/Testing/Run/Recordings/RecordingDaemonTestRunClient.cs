@@ -1,22 +1,21 @@
 using MackySoft.Ucli.Application.Features.Testing.Run.Artifacts;
 using MackySoft.Ucli.Application.Features.Testing.Run.Configuration;
-using MackySoft.Ucli.Application.Features.Testing.Run.Execution;
 
 namespace MackySoft.Ucli.Application.Tests;
 
 internal sealed class RecordingDaemonTestRunClient
 {
-    private readonly Func<ResolvedTestRunConfiguration, ArtifactPaths, TimeSpan, bool, CancellationToken, ValueTask<UnityTestExecutionResult>> execute;
+    private readonly Func<ResolvedTestRunConfiguration, ArtifactPaths, TimeSpan, bool, CancellationToken, ValueTask<UnityRequestExecutionResult>> execute;
     private readonly List<Invocation> invocations = [];
 
-    public RecordingDaemonTestRunClient (Func<ResolvedTestRunConfiguration, ArtifactPaths, TimeSpan, bool, CancellationToken, ValueTask<UnityTestExecutionResult>> execute)
+    public RecordingDaemonTestRunClient (Func<ResolvedTestRunConfiguration, ArtifactPaths, TimeSpan, bool, CancellationToken, ValueTask<UnityRequestExecutionResult>> execute)
     {
         this.execute = execute ?? throw new ArgumentNullException(nameof(execute));
     }
 
     public IReadOnlyList<Invocation> Invocations => invocations;
 
-    public ValueTask<UnityTestExecutionResult> ExecuteAsync (
+    public ValueTask<UnityRequestExecutionResult> ExecuteAsync (
         ResolvedTestRunConfiguration configuration,
         ArtifactPaths artifactPaths,
         TimeSpan timeout,

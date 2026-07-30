@@ -1,237 +1,275 @@
 using MackySoft.FileSystem;
+using MackySoft.Ucli.Application.Features.Testing.Run.Artifacts;
+using MackySoft.Ucli.Application.Features.Testing.Run.Results;
+using MackySoft.Ucli.Contracts.Testing;
 
 namespace MackySoft.Ucli.Application.Features.Testing.Run.Common.Contracts;
 
-/// <summary> Represents normalized output returned from test-run core service. </summary>
-internal sealed record TestRunServiceResult
+/// <summary> Represents one normalized Test Run service outcome. </summary>
+internal abstract record TestRunServiceResult
 {
-    private TestRunServiceResult (
-        TestRunResultKind? result,
-        TestRunErrorKind? errorKind,
-        ApplicationFailure? failure,
-        string message,
-        Guid? runId,
-        AbsolutePath? artifactsDir,
-        AbsolutePath? summaryJsonPath,
-        StartupFailureDetail? startupFailure = null)
+    protected TestRunServiceResult (string message)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(message);
-        if (runId == Guid.Empty)
-        {
-            throw new ArgumentException("Run id must not be empty.", nameof(runId));
-        }
-
-        if (errorKind is null)
-        {
-            if (result is null)
-            {
-                throw new ArgumentException("Successful test-run result must contain a result value.", nameof(result));
-            }
-
-            if (failure is not null)
-            {
-                throw new ArgumentException("Successful test-run result must not contain a failure.", nameof(failure));
-            }
-        }
-        else
-        {
-            if (result is not null)
-            {
-                throw new ArgumentException("Failed test-run result must not contain a pass/fail result.", nameof(result));
-            }
-
-            ArgumentNullException.ThrowIfNull(failure);
-        }
-
-        Result = result;
-        ErrorKind = errorKind;
-        Failure = failure;
         Message = message;
-        RunId = runId;
-        ArtifactsDir = artifactsDir;
-        SummaryJsonPath = summaryJsonPath;
-        StartupFailure = startupFailure;
     }
-
-    /// <summary> Gets the pass/fail result when execution reaches test result evaluation. </summary>
-    public TestRunResultKind? Result { get; }
-
-    /// <summary> Gets the payload error kind when execution fails before test result evaluation. </summary>
-    public TestRunErrorKind? ErrorKind { get; }
-
-    /// <summary> Gets the classified failure when execution fails before test result evaluation. </summary>
-    public ApplicationFailure? Failure { get; }
-
-    /// <summary> Gets the application outcome. </summary>
-    public ApplicationOutcome Outcome => Failure?.Outcome ?? Result switch
-    {
-        TestRunResultKind.Pass => ApplicationOutcome.Success,
-        TestRunResultKind.Fail => ApplicationOutcome.TestFailure,
-        _ => ApplicationOutcome.ToolError,
-    };
 
     /// <summary> Gets the user-facing execution message. </summary>
     public string Message { get; }
 
-    /// <summary> Gets the run identifier when artifacts session exists. </summary>
-    public Guid? RunId { get; }
-
-    /// <summary> Gets the run artifacts directory path when available. </summary>
-    public AbsolutePath? ArtifactsDir { get; }
-
-    /// <summary> Gets the summary JSON path when available. </summary>
-    public AbsolutePath? SummaryJsonPath { get; }
-
-    /// <summary> Gets the structured startup failure detail when Unity did not reach test execution. </summary>
-    public StartupFailureDetail? StartupFailure { get; }
-
-    /// <summary> Gets the machine-readable error code when execution fails. </summary>
-    public UcliCode? ErrorCode => Failure?.Code;
-
-    /// <summary> Creates a success result with pass state. </summary>
-    /// <param name="message"> The user-facing message. </param>
-    /// <param name="runId"> The run identifier. </param>
-    /// <param name="artifactsDir"> The artifacts directory path. </param>
-    /// <param name="summaryJsonPath"> The summary JSON path. </param>
-    /// <returns> The pass result. </returns>
-    public static TestRunServiceResult Pass (
-        string message,
-        Guid runId,
-        AbsolutePath artifactsDir,
-        AbsolutePath summaryJsonPath)
+    /// <summary> Creates a completed Test Run with an established verdict. </summary>
+    public static TestRunCompletedServiceResult Completed (
+        UnityResultsConversionSuccess conversion,
+        ArtifactsSession artifactsSession)
     {
-        return new TestRunServiceResult(
-            result: TestRunResultKind.Pass,
-            errorKind: null,
-            failure: null,
-            message: message,
-            runId: runId,
-            artifactsDir: artifactsDir,
-            summaryJsonPath: summaryJsonPath);
+        return new TestRunCompletedServiceResult(conversion, artifactsSession);
     }
 
-    /// <summary> Creates a success result with fail state. </summary>
-    /// <param name="message"> The user-facing message. </param>
-    /// <param name="runId"> The run identifier. </param>
-    /// <param name="artifactsDir"> The artifacts directory path. </param>
-    /// <param name="summaryJsonPath"> The summary JSON path. </param>
-    /// <returns> The fail result. </returns>
-    public static TestRunServiceResult Fail (
+    /// <summary> Creates an invalid-input command error before a Test Run exists. </summary>
+    public static TestRunBeforeCreationCommandErrorServiceResult InvalidInput (
         string message,
-        Guid runId,
-        AbsolutePath artifactsDir,
-        AbsolutePath summaryJsonPath)
-    {
-        return new TestRunServiceResult(
-            result: TestRunResultKind.Fail,
-            errorKind: null,
-            failure: null,
-            message: message,
-            runId: runId,
-            artifactsDir: artifactsDir,
-            summaryJsonPath: summaryJsonPath);
-    }
-
-    /// <summary> Creates an invalid-input error result. </summary>
-    /// <param name="message"> The user-facing message. </param>
-    /// <param name="errorCode"> The machine-readable error code. </param>
-    /// <param name="runId"> The optional run identifier. </param>
-    /// <param name="artifactsDir"> The optional artifacts directory path. </param>
-    /// <param name="summaryJsonPath"> The optional summary JSON path. </param>
-    /// <returns> The invalid-input error result. </returns>
-    public static TestRunServiceResult InvalidInput (
-        string message,
-        UcliCode errorCode,
-        Guid? runId = null,
-        AbsolutePath? artifactsDir = null,
-        AbsolutePath? summaryJsonPath = null,
-        StartupFailureDetail? startupFailure = null)
+        UcliCode errorCode)
     {
         ArgumentNullException.ThrowIfNull(errorCode);
-        return new TestRunServiceResult(
-            result: null,
-            errorKind: TestRunErrorKind.InvalidInput,
-            failure: ApplicationFailure.InvalidInput(message, errorCode, startupFailure: startupFailure),
-            message: message,
-            runId: runId,
-            artifactsDir: artifactsDir,
-            summaryJsonPath: summaryJsonPath,
-            startupFailure);
-    }
-
-    /// <summary> Creates an infrastructure error result. </summary>
-    /// <param name="message"> The user-facing message. </param>
-    /// <param name="errorCode"> The machine-readable error code. </param>
-    /// <param name="runId"> The optional run identifier. </param>
-    /// <param name="artifactsDir"> The optional artifacts directory path. </param>
-    /// <param name="summaryJsonPath"> The optional summary JSON path. </param>
-    /// <returns> The infrastructure error result. </returns>
-    public static TestRunServiceResult InfraError (
-        string message,
-        UcliCode errorCode,
-        Guid? runId = null,
-        AbsolutePath? artifactsDir = null,
-        AbsolutePath? summaryJsonPath = null,
-        StartupFailureDetail? startupFailure = null)
-    {
-        ArgumentNullException.ThrowIfNull(errorCode);
-        return new TestRunServiceResult(
-            result: null,
-            errorKind: TestRunErrorKind.InfraError,
-            failure: ApplicationFailure.ExternalProcessFailure(
+        return new TestRunBeforeCreationCommandErrorServiceResult(
+            ApplicationFailure.InvalidInput(
                 message,
                 errorCode,
-                outcome: ApplicationOutcome.InfrastructureError,
-                startupFailure: startupFailure),
-            message: message,
-            runId: runId,
-            artifactsDir: artifactsDir,
-            summaryJsonPath: summaryJsonPath,
-            startupFailure);
+                instancePath: null,
+                startupFailure: null));
     }
 
-    /// <summary> Creates a tool-error result. </summary>
-    /// <param name="message"> The user-facing message. </param>
-    /// <param name="errorCode"> The machine-readable error code. </param>
-    /// <param name="runId"> The optional run identifier. </param>
-    /// <param name="artifactsDir"> The optional artifacts directory path. </param>
-    /// <param name="summaryJsonPath"> The optional summary JSON path. </param>
-    /// <returns> The tool-error result. </returns>
-    public static TestRunServiceResult ToolError (
+    /// <summary> Creates an infrastructure command error before a Test Run exists. </summary>
+    public static TestRunBeforeCreationCommandErrorServiceResult InfraError (
         string message,
-        UcliCode errorCode,
-        Guid? runId = null,
-        AbsolutePath? artifactsDir = null,
-        AbsolutePath? summaryJsonPath = null,
-        StartupFailureDetail? startupFailure = null)
+        UcliCode errorCode)
     {
         ArgumentNullException.ThrowIfNull(errorCode);
-        return new TestRunServiceResult(
-            result: null,
-            errorKind: TestRunErrorKind.ToolError,
-            failure: CreateToolFailure(message, errorCode, startupFailure),
-            message: message,
-            runId: runId,
-            artifactsDir: artifactsDir,
-            summaryJsonPath: summaryJsonPath,
-            startupFailure);
+        return new TestRunBeforeCreationCommandErrorServiceResult(
+            ApplicationFailure.Create(
+                ApplicationFailureKind.ExternalProcessFailure,
+                message,
+                errorCode,
+                instancePath: null,
+                outcome: ApplicationOutcome.InfrastructureError,
+                startupFailure: null));
     }
 
-    private static ApplicationFailure CreateToolFailure (
-        string message,
-        UcliCode errorCode,
-        StartupFailureDetail? startupFailure)
+    /// <summary> Creates a tool command error before a Test Run exists. </summary>
+    public static TestRunBeforeCreationCommandErrorServiceResult ToolError (ApplicationFailure failure)
     {
-        if (errorCode == ExecutionErrorCodes.IpcTimeout || errorCode == TestRunErrorCodes.UnityTestExecutionTimeout)
+        ArgumentNullException.ThrowIfNull(failure);
+        if (failure.Outcome != ApplicationOutcome.ToolError)
         {
-            return ApplicationFailure.Timeout(message, errorCode, startupFailure: startupFailure);
+            throw new ArgumentException(
+                "A Test Run tool error requires a tool-error application outcome.",
+                nameof(failure));
         }
 
-        if (errorCode == ExecutionErrorCodes.Canceled)
-        {
-            return ApplicationFailure.Canceled(message, errorCode);
-        }
-
-        return ApplicationFailure.ExternalProcessFailure(message, errorCode, startupFailure: startupFailure);
+        return new TestRunBeforeCreationCommandErrorServiceResult(failure);
     }
+
+    /// <summary> Creates a command error after a Test Run artifacts session was established. </summary>
+    public static TestRunAfterCreationPrimaryCommandErrorServiceResult AfterRunCreationError (
+        ApplicationFailure failure,
+        ArtifactsSession artifactsSession)
+    {
+        return new TestRunAfterCreationPrimaryCommandErrorServiceResult(
+            failure,
+            artifactsSession);
+    }
+
+    /// <summary>
+    /// Creates a command error whose primary failure was followed by artifacts-finalization failure.
+    /// </summary>
+    public static TestRunAfterCreationCommandErrorWithFinalizationServiceResult
+        AfterRunCreationErrorWithFinalizationFailure (
+            ApplicationFailure primaryFailure,
+            ApplicationFailure finalizationFailure,
+            ArtifactsSession artifactsSession)
+    {
+        return new TestRunAfterCreationCommandErrorWithFinalizationServiceResult(
+            primaryFailure,
+            finalizationFailure,
+            artifactsSession);
+    }
+}
+
+/// <summary> Represents a completed Test Run with a verdict derived from its normalized result set. </summary>
+internal sealed record TestRunCompletedServiceResult : TestRunServiceResult
+{
+    public TestRunCompletedServiceResult (
+        UnityResultsConversionSuccess conversion,
+        ArtifactsSession artifactsSession)
+        : base(CreateCompletedMessage(conversion))
+    {
+        Conversion = conversion ?? throw new ArgumentNullException(nameof(conversion));
+        ArtifactsSession = artifactsSession ?? throw new ArgumentNullException(nameof(artifactsSession));
+    }
+
+    /// <summary> Gets the verdict established from the complete normalized result set. </summary>
+    public Verdict Verdict => Conversion.Verdict;
+
+    /// <summary> Gets the completed Test Run identifier. </summary>
+    public Guid RunId => ArtifactsSession.RunId;
+
+    /// <summary> Gets the directory containing the completed Test Run artifacts. </summary>
+    public AbsolutePath ArtifactsDir => ArtifactsSession.Paths.ArtifactsDir;
+
+    /// <summary> Gets the completed summary JSON path. </summary>
+    public AbsolutePath SummaryJsonPath => ArtifactsSession.Paths.SummaryJsonPath;
+
+    private UnityResultsConversionSuccess Conversion { get; }
+
+    private ArtifactsSession ArtifactsSession { get; }
+
+    private static string CreateCompletedMessage (UnityResultsConversionSuccess conversion)
+    {
+        ArgumentNullException.ThrowIfNull(conversion);
+        return conversion.Verdict switch
+        {
+            Verdict.Pass => "Unity test execution completed.",
+            Verdict.Fail => "Unity test execution completed with failed tests.",
+            Verdict.Incomplete =>
+                "Unity test execution completed without establishing a complete test result.",
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(conversion),
+                conversion.Verdict,
+                "A completed Test Run must contain a defined verdict."),
+        };
+    }
+}
+
+/// <summary> Represents a command error that occurred before a Test Run was created. </summary>
+internal abstract record TestRunCommandErrorServiceResult : TestRunServiceResult
+{
+    protected TestRunCommandErrorServiceResult (IReadOnlyList<ApplicationFailure> failures)
+        : base(GetPrimaryFailure(failures).Message)
+    {
+        ArgumentNullException.ThrowIfNull(failures);
+        if (failures.Count == 0)
+        {
+            throw new ArgumentException(
+                "A Test Run command error must contain a primary failure.",
+                nameof(failures));
+        }
+
+        var copiedFailures = new ApplicationFailure[failures.Count];
+        for (var i = 0; i < failures.Count; i++)
+        {
+            copiedFailures[i] = failures[i]
+                ?? throw new ArgumentException(
+                    "A Test Run command error must not contain a null failure.",
+                    nameof(failures));
+        }
+
+        Failures = Array.AsReadOnly(copiedFailures);
+        SupplementalFailures = copiedFailures.Length == 1
+            ? Array.Empty<ApplicationFailure>()
+            : Array.AsReadOnly(copiedFailures[1..]);
+        ErrorKind = PrimaryFailure.Outcome switch
+        {
+            ApplicationOutcome.InvalidArgument => TestRunErrorKind.InvalidInput,
+            ApplicationOutcome.InfrastructureError => TestRunErrorKind.InfraError,
+            ApplicationOutcome.ToolError => TestRunErrorKind.ToolError,
+            _ => throw new ArgumentException(
+                "A Test Run command error requires a non-success application outcome.",
+                nameof(failures)),
+        };
+    }
+
+    private static ApplicationFailure GetPrimaryFailure (IReadOnlyList<ApplicationFailure> failures)
+    {
+        ArgumentNullException.ThrowIfNull(failures);
+        if (failures.Count == 0)
+        {
+            throw new ArgumentException(
+                "A Test Run command error must contain a primary failure.",
+                nameof(failures));
+        }
+
+        return failures[0]
+            ?? throw new ArgumentException(
+                "A Test Run command error must not contain a null primary failure.",
+                nameof(failures));
+    }
+
+    /// <summary> Gets the command error payload classification. </summary>
+    public TestRunErrorKind ErrorKind { get; }
+
+    /// <summary> Gets the primary failure that determines command outcome and exit code. </summary>
+    public ApplicationFailure PrimaryFailure => Failures[0];
+
+    /// <summary> Gets the primary failure followed by any later diagnostic failures. </summary>
+    public IReadOnlyList<ApplicationFailure> Failures { get; }
+
+    /// <summary> Gets diagnostic failures observed after the primary command failure. </summary>
+    public IReadOnlyList<ApplicationFailure> SupplementalFailures { get; }
+}
+
+/// <summary> Represents a command error that occurred before a Test Run artifacts session existed. </summary>
+internal sealed record TestRunBeforeCreationCommandErrorServiceResult : TestRunCommandErrorServiceResult
+{
+    public TestRunBeforeCreationCommandErrorServiceResult (ApplicationFailure failure)
+        : base([failure])
+    {
+    }
+}
+
+/// <summary>
+/// Represents a command error after a Test Run artifacts session existed, without claiming a
+/// recovered terminal Test Run state.
+/// </summary>
+internal abstract record TestRunAfterCreationCommandErrorServiceResult : TestRunCommandErrorServiceResult
+{
+    protected TestRunAfterCreationCommandErrorServiceResult (
+        IReadOnlyList<ApplicationFailure> failures,
+        ArtifactsSession artifactsSession)
+        : base(failures)
+    {
+        ArtifactsSession = artifactsSession ?? throw new ArgumentNullException(nameof(artifactsSession));
+    }
+
+    /// <summary> Gets the Test Run identifier established before the command error. </summary>
+    public Guid RunId => ArtifactsSession.RunId;
+
+    /// <summary> Gets the artifacts directory established before the command error. </summary>
+    public AbsolutePath ArtifactsDir => ArtifactsSession.Paths.ArtifactsDir;
+
+    private ArtifactsSession ArtifactsSession { get; }
+}
+
+/// <summary> Represents one primary command error after a Test Run artifacts session existed. </summary>
+internal sealed record TestRunAfterCreationPrimaryCommandErrorServiceResult
+    : TestRunAfterCreationCommandErrorServiceResult
+{
+    public TestRunAfterCreationPrimaryCommandErrorServiceResult (
+        ApplicationFailure primaryFailure,
+        ArtifactsSession artifactsSession)
+        : base([primaryFailure], artifactsSession)
+    {
+    }
+}
+
+/// <summary>
+/// Represents a primary command error followed by a separate artifacts-finalization failure.
+/// </summary>
+internal sealed record TestRunAfterCreationCommandErrorWithFinalizationServiceResult
+    : TestRunAfterCreationCommandErrorServiceResult
+{
+    public TestRunAfterCreationCommandErrorWithFinalizationServiceResult (
+        ApplicationFailure primaryFailure,
+        ApplicationFailure finalizationFailure,
+        ArtifactsSession artifactsSession)
+        : base(
+            [
+                primaryFailure,
+                finalizationFailure,
+            ],
+            artifactsSession)
+    {
+    }
+
+    /// <summary> Gets the later artifacts-finalization failure. </summary>
+    public ApplicationFailure FinalizationFailure => Failures[1];
 }

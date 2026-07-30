@@ -12,36 +12,42 @@ internal sealed class UnityResultsArtifactWriter : IUnityResultsArtifactWriter
 
     private static readonly JsonSerializerOptions SerializerOptions = new()
     {
+        Converters =
+        {
+            new VocabularyJsonConverterFactory(),
+        },
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         WriteIndented = false,
     };
 
-    /// <summary> Writes one results session artifacts from parsed XML values. </summary>
+    /// <summary> Writes one results session from the complete normalized verdict evaluation. </summary>
     /// <param name="session"> The run artifacts session. </param>
-    /// <param name="parseResult"> The parsed XML result values. </param>
+    /// <param name="verdictEvaluation"> The normalized result, policy input, and verdict derived from that result. </param>
     /// <param name="cancellationToken"> A cancellation token propagated by caller. </param>
     /// <returns> A task that completes when writing is finished. </returns>
     public async ValueTask WriteAsync (
         ArtifactsSession session,
-        UnityResultsXmlParseResult parseResult,
+        TestRunVerdictEvaluation verdictEvaluation,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(session);
-        ArgumentNullException.ThrowIfNull(parseResult);
+        ArgumentNullException.ThrowIfNull(verdictEvaluation);
 
         cancellationToken.ThrowIfCancellationRequested();
 
+        var normalizedResult = verdictEvaluation.NormalizedResult;
         var resultsJsonPayload = new ResultsJsonPayload(
             SchemaVersion: SchemaVersion,
             RunId: session.RunId,
-            Counts: parseResult.Counts,
-            Tests: parseResult.Tests);
+            Counts: normalizedResult.Counts,
+            Tests: normalizedResult.Tests);
         var summaryJsonPayload = new SummaryJsonPayload(
             SchemaVersion: SchemaVersion,
             RunId: session.RunId,
-            Status: parseResult.HasFailedTests ? "fail" : "pass",
-            Counts: parseResult.Counts,
-            TopFailures: parseResult.TopFailures);
+            Verdict: verdictEvaluation.Verdict,
+            AllowEmptyTestRun: verdictEvaluation.AllowEmptyTestRun,
+            Counts: normalizedResult.Counts,
+            TopFailures: normalizedResult.TopFailures);
 
         await WriteJsonAsync(session.Paths.ResultsJsonPath, resultsJsonPayload, cancellationToken).ConfigureAwait(false);
         await WriteJsonAsync(session.Paths.SummaryJsonPath, summaryJsonPayload, cancellationToken).ConfigureAwait(false);
@@ -75,13 +81,15 @@ internal sealed class UnityResultsArtifactWriter : IUnityResultsArtifactWriter
     /// <summary> Represents schema-compliant <c>summary.json</c> payload values. </summary>
     /// <param name="SchemaVersion"> The schema version. </param>
     /// <param name="RunId"> The run identifier. </param>
-    /// <param name="Status"> The overall result status. </param>
+    /// <param name="Verdict"> The verdict derived from the complete normalized test result. </param>
+    /// <param name="AllowEmptyTestRun"> Whether an empty result set satisfies the requested test condition. </param>
     /// <param name="Counts"> The aggregated counts values. </param>
     /// <param name="TopFailures"> The top failure entries. </param>
     private sealed record SummaryJsonPayload (
         int SchemaVersion,
         Guid RunId,
-        string Status,
+        Verdict Verdict,
+        bool AllowEmptyTestRun,
         UnityResultsXmlParseResult.CountsValue Counts,
         IReadOnlyList<UnityResultsXmlParseResult.TopFailureValue> TopFailures);
 }

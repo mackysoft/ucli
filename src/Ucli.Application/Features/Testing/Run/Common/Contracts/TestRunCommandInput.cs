@@ -26,5 +26,5 @@ internal sealed record TestRunCommandInput (
     string[]? TestCategory,
     string[]? AssemblyName,
     int? TimeoutMilliseconds,
-    bool FailFast = false,
-    bool AllowEmptyTestRun = false);
+    bool FailFast,
+    bool AllowEmptyTestRun);

@@ -1,30 +1,41 @@
 namespace MackySoft.Ucli.Application.Features.Testing.Run.UseCases.TestRun.Preflight;
 
-/// <summary> Represents one preflight outcome for test-run execution. </summary>
-/// <param name="Context"> The resolved execution context when preflight succeeds; otherwise <see langword="null" />. </param>
-/// <param name="Failure"> The failure output when preflight fails; otherwise <see langword="null" />. </param>
-internal sealed record TestRunPreflightResult (
-    TestRunExecutionContext? Context,
-    TestRunServiceResult? Failure)
+/// <summary> Represents one established Test Run preflight outcome. </summary>
+internal abstract record TestRunPreflightResult
 {
-    /// <summary> Gets a value indicating whether preflight succeeded. </summary>
-    public bool IsSuccess => Context is not null && Failure is null;
-
-    /// <summary> Creates one successful preflight result. </summary>
-    /// <param name="context"> The resolved execution context. </param>
-    /// <returns> The successful preflight result. </returns>
-    public static TestRunPreflightResult Success (TestRunExecutionContext context)
+    private TestRunPreflightResult ()
     {
-        ArgumentNullException.ThrowIfNull(context);
-        return new TestRunPreflightResult(context, null);
     }
 
-    /// <summary> Creates one failed preflight result. </summary>
-    /// <param name="failure"> The failure output. </param>
-    /// <returns> The failed preflight result. </returns>
-    public static TestRunPreflightResult FailureResult (TestRunServiceResult failure)
+    public static TestRunPreflightSuccess Success (TestRunExecutionContext context)
     {
-        ArgumentNullException.ThrowIfNull(failure);
-        return new TestRunPreflightResult(null, failure);
+        return new TestRunPreflightSuccess(context);
+    }
+
+    public static TestRunPreflightFailure Failed (
+        TestRunBeforeCreationCommandErrorServiceResult failure)
+    {
+        return new TestRunPreflightFailure(failure);
+    }
+
+    internal sealed record TestRunPreflightSuccess : TestRunPreflightResult
+    {
+        internal TestRunPreflightSuccess (TestRunExecutionContext context)
+        {
+            Context = context ?? throw new ArgumentNullException(nameof(context));
+        }
+
+        public TestRunExecutionContext Context { get; }
+    }
+
+    internal sealed record TestRunPreflightFailure : TestRunPreflightResult
+    {
+        internal TestRunPreflightFailure (
+            TestRunBeforeCreationCommandErrorServiceResult failure)
+        {
+            CommandError = failure ?? throw new ArgumentNullException(nameof(failure));
+        }
+
+        public TestRunBeforeCreationCommandErrorServiceResult CommandError { get; }
     }
 }

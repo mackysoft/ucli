@@ -68,19 +68,20 @@ public sealed class TestRunServiceProgressTests
             artifactsService: new StubTestRunArtifactsService(
                 prepare: _ => ArtifactsPreparationResult.Success(session),
                 complete: (_, _, _) => ArtifactsCompletionResult.Success()),
-            unityTestExecutor: new StubUnityTestExecutor((_, _, _, _) => ValueTask.FromResult(UnityTestExecutionResult.Success(0))),
-            resultsConverter: new StubUnityResultsConverter(_ => ValueTask.FromResult(UnityResultsConversionResult.Success(false))),
+            unityTestExecutor: new StubUnityTestExecutor((_, _, _, _) => ValueTask.FromResult<UnityTestExecutionResult>(UnityTestExecutionResult.FromProcessExitCode(0))),
+            resultsConverter: new StubUnityResultsConverter(_ => ValueTask.FromResult<UnityResultsConversionResult>(TestRunResultTestValues.CreateConversion(Verdict.Pass))),
             streamingProgressFrames: unityProgressFrames);
 
-        var result = await service.ExecuteAsync(CreateInput(), progressSink, CancellationToken.None);
+        var result = Assert.IsType<TestRunCompletedServiceResult>(
+            await service.ExecuteAsync(CreateInput(), progressSink, CancellationToken.None));
 
-        Assert.Equal(TestRunResultKind.Pass, result.Result);
+        Assert.Equal(Verdict.Pass, result.Verdict);
         TestRunProgressAssert.RunStartedAndUnityProgressForwarded(progressSink, session.RunId);
     }
 
     [Fact]
     [Trait("Size", "Medium")]
-    public async Task Execute_WithUnsupportedUnityProgressEvent_ReturnsToolError ()
+    public async Task Execute_WithUnsupportedUnityProgressEvent_ReturnsFailedRun ()
     {
         var configuration = CreateResolvedConfiguration();
         var session = CreateArtifactsSession();
@@ -93,25 +94,25 @@ public sealed class TestRunServiceProgressTests
             artifactsService: new StubTestRunArtifactsService(
                 prepare: _ => ArtifactsPreparationResult.Success(session),
                 complete: (_, _, _) => ArtifactsCompletionResult.Success()),
-            unityTestExecutor: new StubUnityTestExecutor((_, _, _, _) => ValueTask.FromResult(UnityTestExecutionResult.Success(0))),
-            resultsConverter: new StubUnityResultsConverter(_ => ValueTask.FromResult(UnityResultsConversionResult.Success(false))),
+            unityTestExecutor: new StubUnityTestExecutor((_, _, _, _) => ValueTask.FromResult<UnityTestExecutionResult>(UnityTestExecutionResult.FromProcessExitCode(0))),
+            resultsConverter: new StubUnityResultsConverter(_ => ValueTask.FromResult<UnityResultsConversionResult>(TestRunResultTestValues.CreateConversion(Verdict.Pass))),
             streamingProgressFrame: new UnityRequestProgressFrame(
                 "test.run.unsupported",
                 IpcPayloadCodec.SerializeToElement(new { runId = session.RunId })));
 
-        var result = await service.ExecuteAsync(CreateInput(), progressSink, CancellationToken.None);
+        var result = Assert.IsType<TestRunAfterCreationPrimaryCommandErrorServiceResult>(
+            await service.ExecuteAsync(CreateInput(), progressSink, CancellationToken.None));
 
-        Assert.Null(result.Result);
         Assert.Equal(TestRunErrorKind.ToolError, result.ErrorKind);
-        Assert.Equal(ApplicationOutcome.ToolError, result.Outcome);
-        Assert.Equal(TestRunErrorCodes.UnityTestExecutionFailed, result.ErrorCode);
+        Assert.Equal(ApplicationOutcome.ToolError, result.PrimaryFailure.Outcome);
+        Assert.Equal(TestRunErrorCodes.UnityTestExecutionFailed, result.PrimaryFailure.Code);
         Assert.Contains("Unity test-run progress event is not supported", result.Message, StringComparison.Ordinal);
         TestRunProgressAssert.RejectedUnityProgressStoppedAfterRunStarted(progressSink);
     }
 
     [Fact]
     [Trait("Size", "Medium")]
-    public async Task Execute_WithMismatchedUnityProgressRunId_ReturnsToolError ()
+    public async Task Execute_WithMismatchedUnityProgressRunId_ReturnsFailedRun ()
     {
         var configuration = CreateResolvedConfiguration();
         var session = CreateArtifactsSession();
@@ -124,8 +125,8 @@ public sealed class TestRunServiceProgressTests
             artifactsService: new StubTestRunArtifactsService(
                 prepare: _ => ArtifactsPreparationResult.Success(session),
                 complete: (_, _, _) => ArtifactsCompletionResult.Success()),
-            unityTestExecutor: new StubUnityTestExecutor((_, _, _, _) => ValueTask.FromResult(UnityTestExecutionResult.Success(0))),
-            resultsConverter: new StubUnityResultsConverter(_ => ValueTask.FromResult(UnityResultsConversionResult.Success(false))),
+            unityTestExecutor: new StubUnityTestExecutor((_, _, _, _) => ValueTask.FromResult<UnityTestExecutionResult>(UnityTestExecutionResult.FromProcessExitCode(0))),
+            resultsConverter: new StubUnityResultsConverter(_ => ValueTask.FromResult<UnityResultsConversionResult>(TestRunResultTestValues.CreateConversion(Verdict.Pass))),
             streamingProgressFrame: new UnityRequestProgressFrame(
                 TestRunProgressEventNames.CaseStarted,
                 IpcPayloadCodec.SerializeToElement(new TestCaseStartedEntry(
@@ -136,19 +137,19 @@ public sealed class TestRunServiceProgressTests
                     "editmode",
                     []))));
 
-        var result = await service.ExecuteAsync(CreateInput(), progressSink, CancellationToken.None);
+        var result = Assert.IsType<TestRunAfterCreationPrimaryCommandErrorServiceResult>(
+            await service.ExecuteAsync(CreateInput(), progressSink, CancellationToken.None));
 
-        Assert.Null(result.Result);
         Assert.Equal(TestRunErrorKind.ToolError, result.ErrorKind);
-        Assert.Equal(ApplicationOutcome.ToolError, result.Outcome);
-        Assert.Equal(TestRunErrorCodes.UnityTestExecutionFailed, result.ErrorCode);
+        Assert.Equal(ApplicationOutcome.ToolError, result.PrimaryFailure.Outcome);
+        Assert.Equal(TestRunErrorCodes.UnityTestExecutionFailed, result.PrimaryFailure.Code);
         Assert.Contains("runId mismatch", result.Message, StringComparison.Ordinal);
         TestRunProgressAssert.RejectedUnityProgressStoppedAfterRunStarted(progressSink);
     }
 
     [Fact]
     [Trait("Size", "Medium")]
-    public async Task Execute_WithInvalidUnityProgressPayload_ReturnsToolError ()
+    public async Task Execute_WithInvalidUnityProgressPayload_ReturnsFailedRun ()
     {
         var configuration = CreateResolvedConfiguration();
         var session = CreateArtifactsSession();
@@ -161,25 +162,25 @@ public sealed class TestRunServiceProgressTests
             artifactsService: new StubTestRunArtifactsService(
                 prepare: _ => ArtifactsPreparationResult.Success(session),
                 complete: (_, _, _) => ArtifactsCompletionResult.Success()),
-            unityTestExecutor: new StubUnityTestExecutor((_, _, _, _) => ValueTask.FromResult(UnityTestExecutionResult.Success(0))),
-            resultsConverter: new StubUnityResultsConverter(_ => ValueTask.FromResult(UnityResultsConversionResult.Success(false))),
+            unityTestExecutor: new StubUnityTestExecutor((_, _, _, _) => ValueTask.FromResult<UnityTestExecutionResult>(UnityTestExecutionResult.FromProcessExitCode(0))),
+            resultsConverter: new StubUnityResultsConverter(_ => ValueTask.FromResult<UnityResultsConversionResult>(TestRunResultTestValues.CreateConversion(Verdict.Pass))),
             streamingProgressFrame: new UnityRequestProgressFrame(
                 TestRunProgressEventNames.CaseFinished,
                 JsonDocument.Parse("[]").RootElement.Clone()));
 
-        var result = await service.ExecuteAsync(CreateInput(), progressSink, CancellationToken.None);
+        var result = Assert.IsType<TestRunAfterCreationPrimaryCommandErrorServiceResult>(
+            await service.ExecuteAsync(CreateInput(), progressSink, CancellationToken.None));
 
-        Assert.Null(result.Result);
         Assert.Equal(TestRunErrorKind.ToolError, result.ErrorKind);
-        Assert.Equal(ApplicationOutcome.ToolError, result.Outcome);
-        Assert.Equal(TestRunErrorCodes.UnityTestExecutionFailed, result.ErrorCode);
+        Assert.Equal(ApplicationOutcome.ToolError, result.PrimaryFailure.Outcome);
+        Assert.Equal(TestRunErrorCodes.UnityTestExecutionFailed, result.PrimaryFailure.Code);
         Assert.Contains("progress payload is invalid", result.Message, StringComparison.Ordinal);
         TestRunProgressAssert.RejectedUnityProgressStoppedAfterRunStarted(progressSink);
     }
 
     [Fact]
     [Trait("Size", "Medium")]
-    public async Task Execute_WithContractInvalidUnityProgressPayload_ReturnsToolError ()
+    public async Task Execute_WithContractInvalidUnityProgressPayload_ReturnsFailedRun ()
     {
         var configuration = CreateResolvedConfiguration();
         var session = CreateArtifactsSession();
@@ -192,8 +193,8 @@ public sealed class TestRunServiceProgressTests
             artifactsService: new StubTestRunArtifactsService(
                 prepare: _ => ArtifactsPreparationResult.Success(session),
                 complete: (_, _, _) => ArtifactsCompletionResult.Success()),
-            unityTestExecutor: new StubUnityTestExecutor((_, _, _, _) => ValueTask.FromResult(UnityTestExecutionResult.Success(0))),
-            resultsConverter: new StubUnityResultsConverter(_ => ValueTask.FromResult(UnityResultsConversionResult.Success(false))),
+            unityTestExecutor: new StubUnityTestExecutor((_, _, _, _) => ValueTask.FromResult<UnityTestExecutionResult>(UnityTestExecutionResult.FromProcessExitCode(0))),
+            resultsConverter: new StubUnityResultsConverter(_ => ValueTask.FromResult<UnityResultsConversionResult>(TestRunResultTestValues.CreateConversion(Verdict.Pass))),
             streamingProgressFrame: new UnityRequestProgressFrame(
                 TestRunProgressEventNames.CaseFinished,
                 IpcPayloadCodec.SerializeToElement(new
@@ -210,12 +211,12 @@ public sealed class TestRunServiceProgressTests
                     stackTrace = (string?)null,
                 })));
 
-        var result = await service.ExecuteAsync(CreateInput(), progressSink, CancellationToken.None);
+        var result = Assert.IsType<TestRunAfterCreationPrimaryCommandErrorServiceResult>(
+            await service.ExecuteAsync(CreateInput(), progressSink, CancellationToken.None));
 
-        Assert.Null(result.Result);
         Assert.Equal(TestRunErrorKind.ToolError, result.ErrorKind);
-        Assert.Equal(ApplicationOutcome.ToolError, result.Outcome);
-        Assert.Equal(TestRunErrorCodes.UnityTestExecutionFailed, result.ErrorCode);
+        Assert.Equal(ApplicationOutcome.ToolError, result.PrimaryFailure.Outcome);
+        Assert.Equal(TestRunErrorCodes.UnityTestExecutionFailed, result.PrimaryFailure.Code);
         Assert.Contains("progress payload is invalid", result.Message, StringComparison.Ordinal);
         TestRunProgressAssert.RejectedUnityProgressStoppedAfterRunStarted(progressSink);
     }

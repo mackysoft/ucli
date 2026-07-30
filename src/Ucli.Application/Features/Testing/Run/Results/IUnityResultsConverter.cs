@@ -7,9 +7,11 @@ internal interface IUnityResultsConverter
 {
     /// <summary> Converts one artifacts session results XML into normalized JSON artifacts. </summary>
     /// <param name="session"> The run artifacts session. </param>
+    /// <param name="allowEmptyTestRun"> Whether a run containing no test cases satisfies the requested test condition. </param>
     /// <param name="cancellationToken"> A cancellation token propagated by caller. </param>
     /// <returns> A task that resolves to the conversion result. </returns>
     ValueTask<UnityResultsConversionResult> ConvertAsync (
         ArtifactsSession session,
+        bool allowEmptyTestRun,
         CancellationToken cancellationToken = default);
 }

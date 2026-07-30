@@ -13,13 +13,12 @@ public sealed class TestRunCommandProgressOutputTests
     public async Task Run_WhenServiceReturnsPass_MatchesSuccessGolden ()
     {
         var artifactsDir = AbsolutePath.Parse(Path.Combine(Path.GetTempPath(), "ucli-test-run-artifacts"));
-        var summaryJsonPath = AbsolutePath.Resolve(artifactsDir, "summary.json");
         var service = new RecordingTestRunService(
-            (_, _, _) => ValueTask.FromResult(TestRunServiceResult.Pass(
-                message: "Unity test execution completed.",
-                runId: RunIdTestValues.Test,
-                artifactsDir: artifactsDir,
-                summaryJsonPath: summaryJsonPath)));
+            (_, _, _) => ValueTask.FromResult<TestRunServiceResult>(TestRunResultTestValues.CreateCompleted(
+                Verdict.Pass,
+                TestArtifactPaths.CreateSession(
+                    RunIdTestValues.Test,
+                    artifactsDir.Value))));
         var command = new TestRunCommand(service, CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
 
         var result = await CommandResultCapture.ExecuteAsync(() => command.RunAsync(cancellationToken: CancellationToken.None));
@@ -36,7 +35,6 @@ public sealed class TestRunCommandProgressOutputTests
     public async Task Run_WithJsonFormat_WritesProgressEntriesToStandardErrorAndFinalResultToStandardOutput ()
     {
         var artifactsDir = AbsolutePath.Parse(Path.Combine(Path.GetTempPath(), "ucli-test-run-artifacts"));
-        var summaryJsonPath = AbsolutePath.Resolve(artifactsDir, "summary.json");
         var service = new RecordingTestRunService(async (_, progressSink, cancellationToken) =>
         {
             Assert.NotNull(progressSink);
@@ -81,11 +79,11 @@ public sealed class TestRunCommandProgressOutputTests
                     "stub progress",
                     UcliDiagnosticSeverity.Info),
                 cancellationToken);
-            return TestRunServiceResult.Pass(
-                message: "Unity test execution completed.",
-                runId: RunIdTestValues.Test,
-                artifactsDir: artifactsDir,
-                summaryJsonPath: summaryJsonPath);
+            return TestRunResultTestValues.CreateCompleted(
+                Verdict.Pass,
+                TestArtifactPaths.CreateSession(
+                    RunIdTestValues.Test,
+                    artifactsDir.Value));
         });
         var command = new TestRunCommand(service, CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
 
@@ -120,7 +118,6 @@ public sealed class TestRunCommandProgressOutputTests
     public async Task Run_WithJsonFormatAndServiceError_WritesProgressEntryThenFinalErrorResult ()
     {
         var artifactsDir = AbsolutePath.Parse(Path.Combine(Path.GetTempPath(), "ucli-test-run-artifacts"));
-        var summaryJsonPath = AbsolutePath.Resolve(artifactsDir, "summary.json");
         var service = new RecordingTestRunService(async (_, progressSink, cancellationToken) =>
         {
             Assert.NotNull(progressSink);
@@ -133,12 +130,17 @@ public sealed class TestRunCommandProgressOutputTests
                     ["MyGame.Tests"],
                     []),
                 cancellationToken);
-            return TestRunServiceResult.InfraError(
-                "Unity test infrastructure failed.",
-                TestRunErrorCodes.UnityTestExecutionFailed,
-                runId: RunIdTestValues.Test,
-                artifactsDir: artifactsDir,
-                summaryJsonPath: summaryJsonPath);
+            return TestRunServiceResult.AfterRunCreationError(
+                ApplicationFailure.Create(
+                    ApplicationFailureKind.ExternalProcessFailure,
+                    "Unity test infrastructure failed.",
+                    TestRunErrorCodes.UnityTestExecutionFailed,
+                    instancePath: null,
+                    ApplicationOutcome.InfrastructureError,
+                    startupFailure: null),
+                TestArtifactPaths.CreateSession(
+                    RunIdTestValues.Test,
+                    artifactsDir.Value));
         });
         var command = new TestRunCommand(service, CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
 
@@ -146,7 +148,7 @@ public sealed class TestRunCommandProgressOutputTests
             format: "json",
             cancellationToken: CancellationToken.None));
 
-        Assert.Equal(2, result.ExitCode);
+        Assert.Equal((int)CliExitCode.ToolError, result.ExitCode);
         var lines = result.StdErr.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries);
         Assert.Single(lines);
         using var entryJson = JsonDocument.Parse(lines[0]);
@@ -157,14 +159,17 @@ public sealed class TestRunCommandProgressOutputTests
             outputJson.RootElement,
             UcliCommandNames.TestRun,
             TextVocabulary.GetText(CommandResultStatus.Error),
-            2);
-        CommandResultAssert.HasSingleError(outputJson.RootElement, TestRunErrorCodes.UnityTestExecutionFailed);
+            (int)CliExitCode.ToolError);
+        var error = Assert.Single(outputJson.RootElement.GetProperty("errors").EnumerateArray());
+        Assert.Equal(
+            TestRunErrorCodes.UnityTestExecutionFailed.Value,
+            error.GetProperty("code").GetString());
         JsonAssert.For(outputJson.RootElement)
             .HasProperty("payload", payload => payload
                 .HasString("errorKind", "infraError")
-                .HasString("runId", RunIdTestValues.TestText)
-                .HasString("artifactsDir", artifactsDir.Value)
-                .HasString("summaryJsonPath", summaryJsonPath.Value));
+                .HasProperty("run", run => run
+                    .HasString("runId", RunIdTestValues.TestText)
+                    .HasString("artifactsDir", artifactsDir.Value)));
     }
 
     [Fact]
@@ -183,11 +188,11 @@ public sealed class TestRunCommandProgressOutputTests
                     "line 1\nline 2",
                     UcliDiagnosticSeverity.Info),
                 cancellationToken);
-            return TestRunServiceResult.Pass(
-                message: "Unity test execution completed.",
-                runId: RunIdTestValues.Test,
-                artifactsDir: artifactsDir,
-                summaryJsonPath: AbsolutePath.Resolve(artifactsDir, "summary.json"));
+            return TestRunResultTestValues.CreateCompleted(
+                Verdict.Pass,
+                TestArtifactPaths.CreateSession(
+                    RunIdTestValues.Test,
+                    artifactsDir.Value));
         });
         var command = new TestRunCommand(service, CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
 
@@ -259,11 +264,11 @@ public sealed class TestRunCommandProgressOutputTests
                     "assertion failed",
                     "at SmokeTest.Fails()"),
                 cancellationToken);
-            return TestRunServiceResult.Fail(
-                message: "Unity test execution completed with failures.",
-                runId: RunIdTestValues.Test,
-                artifactsDir: artifactsDir,
-                summaryJsonPath: AbsolutePath.Resolve(artifactsDir, "summary.json"));
+            return TestRunResultTestValues.CreateCompleted(
+                Verdict.Fail,
+                TestArtifactPaths.CreateSession(
+                    RunIdTestValues.Test,
+                    artifactsDir.Value));
         });
         var command = new TestRunCommand(service, CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
 

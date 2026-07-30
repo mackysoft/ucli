@@ -1,7 +1,6 @@
 using ConsoleAppFramework;
 using MackySoft.Ucli.Application.Features.Testing.Run.Common.Contracts;
 using MackySoft.Ucli.Application.Features.Testing.Run.UseCases.TestRun;
-using MackySoft.Ucli.Application.Shared.Execution.ErrorCodes;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 using MackySoft.Ucli.Hosting.Cli.Common.Streaming;
@@ -128,8 +127,13 @@ internal sealed class TestRunCommand
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             var commandResult = TestRunCommandResultFactory.Create(TestRunServiceResult.ToolError(
-                "Test run command was canceled.",
-                ExecutionErrorCodes.Canceled));
+                ApplicationFailure.Create(
+                    ApplicationFailureKind.Canceled,
+                    "Test run command was canceled.",
+                    ExecutionErrorCodes.Canceled,
+                    instancePath: null,
+                    outcome: ApplicationOutcome.ToolError,
+                    startupFailure: null)));
             commandResultWriter.WriteToStandardOutput(commandResult);
             return commandResult.ExitCode;
         }

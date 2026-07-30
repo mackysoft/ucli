@@ -7,9 +7,8 @@
   "payload": {
     "payloadKind": "detailed",
     "errorKind": "invalidInput",
-    "runId": null,
-    "artifactsDir": null,
-    "summaryJsonPath": null
+    "run": null,
+    "startupFailure": null
   },
   "errors": [
     {

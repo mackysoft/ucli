@@ -1,4 +1,3 @@
-using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Testing.Run.Configuration;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts.Testing;
@@ -55,8 +54,8 @@ public sealed class TestRunConfigurationResolverInputProjectionTests
 
         var result = await resolver.ResolveAsync(input, CancellationToken.None);
 
-        Assert.True(result.IsSuccess);
-        var configuration = Assert.IsType<ResolvedTestRunConfiguration>(result.Configuration);
+        var succeeded = Assert.IsType<TestRunConfigurationResolutionResult.Succeeded>(result);
+        var configuration = succeeded.Configuration;
         Assert.Equal(UnityExecutionMode.Oneshot, configuration.Mode);
         Assert.Equal(TestRunPlatform.EditMode, configuration.TestPlatform);
         Assert.Equal("Name~Smoke", configuration.TestFilter);
@@ -105,9 +104,9 @@ public sealed class TestRunConfigurationResolverInputProjectionTests
 
         var result = await resolver.ResolveAsync(input, CancellationToken.None);
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal(["smoke", "nightly"], result.Configuration!.TestCategories);
-        Assert.Equal(["Game.Tests", "Game.MoreTests"], result.Configuration.AssemblyNames);
+        var succeeded = Assert.IsType<TestRunConfigurationResolutionResult.Succeeded>(result);
+        Assert.Equal(["smoke", "nightly"], succeeded.Configuration.TestCategories);
+        Assert.Equal(["Game.Tests", "Game.MoreTests"], succeeded.Configuration.AssemblyNames);
     }
 
     [Fact]
@@ -131,7 +130,7 @@ public sealed class TestRunConfigurationResolverInputProjectionTests
 
         var result = await resolver.ResolveAsync(input, CancellationToken.None);
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal(TestRunPlatform.Player("Android"), result.Configuration!.TestPlatform);
+        var succeeded = Assert.IsType<TestRunConfigurationResolutionResult.Succeeded>(result);
+        Assert.Equal(TestRunPlatform.Player("Android"), succeeded.Configuration.TestPlatform);
     }
 }

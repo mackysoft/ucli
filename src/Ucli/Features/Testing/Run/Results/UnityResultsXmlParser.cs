@@ -2,14 +2,13 @@ using System.Globalization;
 using System.Xml.Linq;
 using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Testing.Run.Results;
+using MackySoft.Ucli.Contracts.Testing;
 
 namespace MackySoft.Ucli.Features.Testing.Run.Results;
 
 /// <summary> Implements parsing for Unity test results XML files. </summary>
 internal sealed class UnityResultsXmlParser : IUnityResultsXmlParser
 {
-    private const int MaxTopFailures = 10;
-
     private const string TestRunElementName = "test-run";
 
     private const string TestCaseElementName = "test-case";
@@ -18,7 +17,17 @@ internal sealed class UnityResultsXmlParser : IUnityResultsXmlParser
 
     private const string ResultAttributeName = "result";
 
-    private const string FailedResultValue = "Failed";
+    private const string TotalAttributeName = "total";
+
+    private const string PassedAttributeName = "passed";
+
+    private const string FailedAttributeName = "failed";
+
+    private const string SkippedAttributeName = "skipped";
+
+    private const string InconclusiveAttributeName = "inconclusive";
+
+    private const string TestCaseCountAttributeName = "testcasecount";
 
     private const string FailureElementName = "failure";
 
@@ -52,8 +61,6 @@ internal sealed class UnityResultsXmlParser : IUnityResultsXmlParser
         }
 
         var tests = new List<UnityResultsXmlParseResult.TestValue>();
-        var topFailures = new List<UnityResultsXmlParseResult.TopFailureValue>();
-        var counts = new UnityResultsXmlParseResult.CountsValue(0, 0, 0);
 
         foreach (var testCase in root.Descendants().Where(static element => IsElement(element, TestCaseElementName)))
         {
@@ -62,43 +69,64 @@ internal sealed class UnityResultsXmlParser : IUnityResultsXmlParser
             var fullName = ReadRequiredAttribute(testCase, "fullname");
             var resultValue = ReadRequiredAttribute(testCase, "result");
             var durationValue = ReadRequiredAttribute(testCase, "duration");
-            var outcome = ConvertOutcome(resultValue);
+            var result = ConvertResult(resultValue);
             var durationMilliseconds = ParseDurationMilliseconds(durationValue);
             var categories = ReadCategories(testCase);
 
-            tests.Add(new UnityResultsXmlParseResult.TestValue(
-                FullName: fullName,
-                Outcome: outcome,
-                DurationMs: durationMilliseconds,
-                Categories: categories));
-
-            counts = counts with
-            {
-                Passed = counts.Passed + (outcome == "passed" ? 1 : 0),
-                Failed = counts.Failed + (outcome == "failed" ? 1 : 0),
-                Skipped = counts.Skipped + (outcome == "skipped" ? 1 : 0),
-            };
-
-            if (outcome == "failed" && topFailures.Count < MaxTopFailures)
+            if (result == TestCaseResult.Fail)
             {
                 var failureElement = testCase.Elements().FirstOrDefault(static element => IsElement(element, FailureElementName));
                 var failureMessage = ReadChildElementText(failureElement, MessageElementName);
                 var failureStackTrace = ReadChildElementText(failureElement, StackTraceElementName);
 
-                topFailures.Add(new UnityResultsXmlParseResult.TopFailureValue(
-                    FullName: fullName,
-                    Message: failureMessage,
-                    StackTrace: failureStackTrace));
+                tests.Add(UnityResultsXmlParseResult.TestValue.Failed(
+                    fullName,
+                    durationMilliseconds,
+                    categories,
+                    failureMessage,
+                    failureStackTrace));
+                continue;
             }
+
+            tests.Add(CreateNonFailureTestValue(
+                fullName,
+                result,
+                durationMilliseconds,
+                categories));
         }
 
-        var hasSuiteFailure = DetectSuiteFailure(root);
+        var parseResult = UnityResultsXmlParseResult.Create(tests);
+        ValidateReportedAggregates(root, parseResult.Counts);
+        ValidateContainerResults(root);
 
-        return new UnityResultsXmlParseResult(
-            Counts: counts,
-            Tests: tests,
-            TopFailures: topFailures,
-            HasSuiteFailure: hasSuiteFailure);
+        return parseResult;
+    }
+
+    private static UnityResultsXmlParseResult.TestValue CreateNonFailureTestValue (
+        string fullName,
+        TestCaseResult result,
+        int durationMilliseconds,
+        IReadOnlyList<string> categories)
+    {
+        return result switch
+        {
+            TestCaseResult.Pass => UnityResultsXmlParseResult.TestValue.Passed(
+                fullName,
+                durationMilliseconds,
+                categories),
+            TestCaseResult.Skipped => UnityResultsXmlParseResult.TestValue.Skipped(
+                fullName,
+                durationMilliseconds,
+                categories),
+            TestCaseResult.Inconclusive => UnityResultsXmlParseResult.TestValue.Inconclusive(
+                fullName,
+                durationMilliseconds,
+                categories),
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(result),
+                result,
+                "Non-failure test result must be pass, skipped, or inconclusive."),
+        };
     }
 
     /// <summary> Parses duration seconds string and converts to milliseconds. </summary>
@@ -130,29 +158,34 @@ internal sealed class UnityResultsXmlParser : IUnityResultsXmlParser
         return (int)roundedMilliseconds;
     }
 
-    /// <summary> Converts Unity result attribute values to normalized outcome values. </summary>
+    /// <summary> Converts Unity result attribute values to the public test-case result vocabulary. </summary>
     /// <param name="resultValue"> The raw result value. </param>
-    /// <returns> The normalized outcome value. </returns>
-    private static string ConvertOutcome (string resultValue)
+    /// <returns> The normalized test-case result. </returns>
+    private static TestCaseResult ConvertResult (string resultValue)
     {
         var normalizedResultValue = resultValue.Trim();
 
         if (string.Equals(normalizedResultValue, "Passed", StringComparison.OrdinalIgnoreCase))
         {
-            return "passed";
+            return TestCaseResult.Pass;
         }
 
         if (string.Equals(normalizedResultValue, "Failed", StringComparison.OrdinalIgnoreCase))
         {
-            return "failed";
+            return TestCaseResult.Fail;
         }
 
         if (string.Equals(normalizedResultValue, "Skipped", StringComparison.OrdinalIgnoreCase))
         {
-            return "skipped";
+            return TestCaseResult.Skipped;
         }
 
-        return "failed";
+        if (string.Equals(normalizedResultValue, "Inconclusive", StringComparison.OrdinalIgnoreCase))
+        {
+            return TestCaseResult.Inconclusive;
+        }
+
+        throw new InvalidDataException($"result attribute contains an unsupported Unity test result: {resultValue}");
     }
 
     /// <summary> Reads category values from one test-case element. </summary>
@@ -209,39 +242,117 @@ internal sealed class UnityResultsXmlParser : IUnityResultsXmlParser
         return value!;
     }
 
-    /// <summary> Detects whether parsed XML includes failed suite-level result signals. </summary>
-    /// <param name="root"> The parsed root element. </param>
-    /// <returns> <see langword="true" /> when failed suite-level outcomes are present; otherwise <see langword="false" />. </returns>
-    private static bool DetectSuiteFailure (XElement root)
+    /// <summary> Validates optional NUnit aggregate attributes against the normalized case collection. </summary>
+    private static void ValidateReportedAggregates (
+        XElement root,
+        UnityResultsXmlParseResult.CountsValue counts)
     {
-        if (HasFailedResultAttribute(root))
+        var totalText = root.Attribute(TotalAttributeName)?.Value;
+        var passedText = root.Attribute(PassedAttributeName)?.Value;
+        var failedText = root.Attribute(FailedAttributeName)?.Value;
+        var skippedText = root.Attribute(SkippedAttributeName)?.Value;
+        var inconclusiveText = root.Attribute(InconclusiveAttributeName)?.Value;
+        var aggregateValues = new[]
         {
-            return true;
+            totalText,
+            passedText,
+            failedText,
+            skippedText,
+            inconclusiveText,
+        };
+        var presentAggregateCount = aggregateValues.Count(static value => value is not null);
+        if (presentAggregateCount != 0 && presentAggregateCount != aggregateValues.Length)
+        {
+            throw new InvalidDataException(
+                "test-run aggregate attributes must define total, passed, failed, skipped, and inconclusive together.");
         }
 
-        foreach (var suite in root.Descendants().Where(static element => IsElement(element, TestSuiteElementName)))
+        var derivedTotal = checked(counts.Passed + counts.Failed + counts.Skipped + counts.Inconclusive);
+        if (presentAggregateCount == aggregateValues.Length)
         {
-            if (HasFailedResultAttribute(suite))
+            var reportedTotal = ParseNonNegativeInteger(totalText!, TotalAttributeName);
+            var reportedPassed = ParseNonNegativeInteger(passedText!, PassedAttributeName);
+            var reportedFailed = ParseNonNegativeInteger(failedText!, FailedAttributeName);
+            var reportedSkipped = ParseNonNegativeInteger(skippedText!, SkippedAttributeName);
+            var reportedInconclusive = ParseNonNegativeInteger(inconclusiveText!, InconclusiveAttributeName);
+            var reportedCategoryTotal =
+                (long)reportedPassed + reportedFailed + reportedSkipped + reportedInconclusive;
+            if (reportedTotal != reportedCategoryTotal
+                || reportedTotal != derivedTotal
+                || reportedPassed != counts.Passed
+                || reportedFailed != counts.Failed
+                || reportedSkipped != counts.Skipped
+                || reportedInconclusive != counts.Inconclusive)
             {
-                return true;
+                throw new InvalidDataException(
+                    "test-run aggregate attributes do not match the normalized test-case collection.");
             }
         }
 
-        return false;
+        var testCaseCountText = root.Attribute(TestCaseCountAttributeName)?.Value;
+        if (testCaseCountText is not null
+            && ParseNonNegativeInteger(testCaseCountText, TestCaseCountAttributeName) != derivedTotal)
+        {
+            throw new InvalidDataException(
+                "test-run testcasecount does not match the normalized test-case collection.");
+        }
     }
 
-    /// <summary> Determines whether one element carries a failed result attribute. </summary>
-    /// <param name="element"> The source element. </param>
-    /// <returns> <see langword="true" /> when result attribute equals <c>Failed</c>; otherwise <see langword="false" />. </returns>
-    private static bool HasFailedResultAttribute (XElement element)
+    /// <summary> Validates that container result attributes are grounded in descendant case results. </summary>
+    private static void ValidateContainerResults (XElement root)
     {
-        var resultValue = element.Attribute(ResultAttributeName)?.Value;
-        if (string.IsNullOrWhiteSpace(resultValue))
+        foreach (var container in root
+                     .DescendantsAndSelf()
+                     .Where(static element => IsElement(element, TestRunElementName)
+                         || IsElement(element, TestSuiteElementName)))
         {
-            return false;
+            var resultValue = container.Attribute(ResultAttributeName)?.Value;
+            if (string.IsNullOrWhiteSpace(resultValue))
+            {
+                continue;
+            }
+
+            var containerResult = ConvertResult(resultValue);
+            var descendantResults = container
+                .Descendants()
+                .Where(static element => IsElement(element, TestCaseElementName))
+                .Select(static element => ConvertResult(ReadRequiredAttribute(element, ResultAttributeName)))
+                .ToArray();
+            var isGrounded = containerResult switch
+            {
+                TestCaseResult.Pass => !descendantResults.Contains(TestCaseResult.Fail),
+                TestCaseResult.Fail => descendantResults.Contains(TestCaseResult.Fail),
+                TestCaseResult.Skipped => descendantResults.Contains(TestCaseResult.Skipped),
+                TestCaseResult.Inconclusive => descendantResults.Contains(TestCaseResult.Inconclusive)
+                    || descendantResults.Contains(TestCaseResult.Skipped),
+                _ => throw new ArgumentOutOfRangeException(
+                    nameof(containerResult),
+                    containerResult,
+                    "Container result must be a defined test-case result."),
+            };
+            if (!isGrounded)
+            {
+                throw new InvalidDataException(
+                    $"{container.Name.LocalName} result '{resultValue}' is not supported by its test-case collection.");
+            }
+        }
+    }
+
+    private static int ParseNonNegativeInteger (
+        string value,
+        string attributeName)
+    {
+        if (!int.TryParse(
+                value,
+                NumberStyles.None,
+                CultureInfo.InvariantCulture,
+                out var parsedValue))
+        {
+            throw new InvalidDataException(
+                $"test-run '{attributeName}' attribute must be a non-negative Int32 value.");
         }
 
-        return string.Equals(resultValue.Trim(), FailedResultValue, StringComparison.OrdinalIgnoreCase);
+        return parsedValue;
     }
 
     /// <summary> Reads child element text values. </summary>

@@ -23,10 +23,12 @@ internal sealed class UnityResultsConverter : IUnityResultsConverter
 
     /// <summary> Converts one artifacts session results XML into normalized JSON artifacts. </summary>
     /// <param name="session"> The run artifacts session. </param>
+    /// <param name="allowEmptyTestRun"> Whether a run containing no test cases satisfies the requested test condition. </param>
     /// <param name="cancellationToken"> A cancellation token propagated by caller. </param>
     /// <returns> A task that resolves to the conversion result. </returns>
     public async ValueTask<UnityResultsConversionResult> ConvertAsync (
         ArtifactsSession session,
+        bool allowEmptyTestRun,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(session);
@@ -39,42 +41,42 @@ internal sealed class UnityResultsConverter : IUnityResultsConverter
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            return UnityResultsConversionResult.Failure(
-                UnityResultsConversionFailureKind.Canceled,
+            return UnityResultsConversionResult.Canceled(
                 "Unity results conversion was canceled.");
         }
         catch (Exception exception) when (IsResultsXmlReadException(exception))
         {
-            return UnityResultsConversionResult.Failure(
-                UnityResultsConversionFailureKind.ResultsXmlReadFailed,
+            return UnityResultsConversionResult.ResultsXmlReadFailed(
                 $"Failed to read results.xml: {exception.Message}");
         }
         catch (Exception exception) when (IsInvalidResultsXmlException(exception))
         {
-            return UnityResultsConversionResult.Failure(
-                UnityResultsConversionFailureKind.InvalidResultsXml,
+            return UnityResultsConversionResult.InvalidResultsXml(
                 $"Failed to parse results.xml: {exception.Message}");
         }
+
+        var verdictEvaluation = TestRunVerdictEvaluation.Evaluate(parseResult, allowEmptyTestRun);
 
         try
         {
             cancellationToken.ThrowIfCancellationRequested();
-            await artifactWriter.WriteAsync(session, parseResult, cancellationToken).ConfigureAwait(false);
+            await artifactWriter.WriteAsync(
+                session,
+                verdictEvaluation,
+                cancellationToken).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            return UnityResultsConversionResult.Failure(
-                UnityResultsConversionFailureKind.Canceled,
+            return UnityResultsConversionResult.Canceled(
                 "Unity results conversion was canceled.");
         }
         catch (Exception exception) when (IsOutputWriteException(exception))
         {
-            return UnityResultsConversionResult.Failure(
-                UnityResultsConversionFailureKind.OutputWriteFailed,
+            return UnityResultsConversionResult.OutputWriteFailed(
                 $"Failed to write results artifacts: {exception.Message}");
         }
 
-        return UnityResultsConversionResult.Success(parseResult.HasFailedTests, parseResult.ReportedTestCaseCount);
+        return UnityResultsConversionResult.Success(verdictEvaluation);
     }
 
     /// <summary> Determines whether one exception represents results XML read failure. </summary>
