@@ -221,7 +221,7 @@ For request commands, inspect `payload.opResults` to determine which steps appli
 For assurance commands, inspect `payload.verdict`, `payload.verifiers[]`, `payload.claims[]`, `payload.reports`, and `payload.residualRisks[]`.
 Use `ucli codes describe IPC_TIMEOUT` or another code value to read the static meaning of machine-readable codes.
 
-Published JSON schemas are available for tools that validate uCLI output. They cover the common envelope and each command payload; operation-specific `opResults[].result` follows the `resultContract.schema` shown by `ucli ops describe`. Treat verifier verdicts and evidence references as returned result data, not as something JSON Schema alone can decide.
+Published JSON schemas are available for tools that validate uCLI output. They cover the common envelope and each command payload; operation-specific `opResults[].result` follows the `resultContract.schema` shown by `ucli ops describe`. Treat the established verdict and its supporting evidence references as returned result data, not as something JSON Schema alone can decide.
 
 ## 🔍 Reading Project State
 
@@ -400,13 +400,18 @@ ucli test run \
 Use `--unityEditorPath <path>` when the job must use a specific Unity executable or `.app` directory, or when Unity is not installed in a standard searchable location.
 For repeated test settings, generate a profile with `ucli test profile init --outputPath test.profile.json` and pass it to `ucli test run` with `--profilePath test.profile.json`.
 
-The command result includes `payload.artifactsDir` and `payload.summaryJsonPath`.
+When the normalized result set and required artifacts are complete, the command returns
+`status=ok` with `payload.state=completed`, `payload.verdict`, `payload.runId`,
+`payload.artifactsDir`, and `payload.summaryJsonPath`.
+Execution, cancellation, and artifact failures remain `status=error`; if an artifact
+session was already created, `payload.run` carries its `runId` and `artifactsDir` only
+as recovery context and does not claim a terminal state or verdict.
 Test artifacts are written under `.ucli/local/projects/<projectStorageKey>/artifacts/test/<runStorageKey>/`.
 The storage keys are lowercase Base32hex path segments derived from the full project fingerprint and run ID; command output and JSON retain the original values.
 
 | Artifact | Use it for |
 | --- | --- |
-| `summary.json` | Fast pass/fail checks, result counts, and top failures. |
+| `summary.json` | The established `pass`, `fail`, or `incomplete` verdict, result counts, and top failures. |
 | `results.json` | Normalized per-test results for automation. |
 | `results.xml` | Raw Unity Test Framework output from `-testResults`. |
 | `editor.log` | Unity Editor diagnostics for setup failures, compiler errors, and runtime exceptions. |
@@ -795,7 +800,7 @@ An operation has three parts:
 
 Use `UcliNoResult` for operations that do not emit `opResults[].result`.
 
-The Args and Result types define what callers send and receive. `UcliOperationMetadata.Create<TArgs,TResult>` publishes the operation inputs, result data, JSON shapes, public kind, and policy from those types and their attributes. Do not hand-write JSON Schema for a normal operation.
+The Args and Result types define what callers send and receive. `UcliOperationMetadata.CreateWithoutVerdict<TArgs,TResult>` publishes a non-judging operation; `CreateJudgingQuery<TArgs,TResult>` additionally binds a declared condition and its typed result evaluator. Both APIs publish operation inputs, result data, JSON shapes, public kind, and policy from the actual types and their attributes. Do not hand-write JSON Schema for a normal operation.
 
 Request/result rules:
 
@@ -937,6 +942,7 @@ using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.JsonSchema.Generation.Annotations;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Operations;
@@ -976,45 +982,64 @@ public sealed record CountSceneObjectsResult
 internal sealed class CountSceneObjectsOperation : UcliOperation<CountSceneObjectsArgs, CountSceneObjectsResult>
 {
     public override UcliOperationMetadata Metadata { get; } =
-        UcliOperationMetadata.Create<CountSceneObjectsArgs, CountSceneObjectsResult>(
+        UcliOperationMetadata.CreateWithoutVerdict<CountSceneObjectsArgs, CountSceneObjectsResult>(
             operationName: "game.scene.countGameObjects",
             kind: UcliOperationKind.Query,
             description: "Counts GameObjects in a Unity scene.",
             assurance: new UcliOperationAssuranceContract(
-                Array.Empty<UcliOperationSideEffect>(),
-                mayDirty: false,
-                mayPersist: false,
-                Array.Empty<string>(),
-                UcliOperationPlanMode.ObservesLiveUnity));
+                sideEffects: new[] { UcliOperationSideEffect.ObservesUnityState },
+                touchedKinds: Array.Empty<UcliTouchedResourceKind>(),
+                planMode: UcliOperationPlanMode.ObservesLiveUnity,
+                planSemantics: "Validate the scene selector and count the matching GameObjects without applying mutation.",
+                callSemantics: "Count matching GameObjects from live Unity state without applying mutation.",
+                touchedContract: "Returns no touched resources because the count is observation data.",
+                readPostconditionContract: "Does not stale read surfaces by itself.",
+                failureSemantics: "Timeout, cancellation, or read failure means the count was not fully produced.",
+                dangerousNotes: Array.Empty<string>()),
+            requiresPreCallPlanReplay: false,
+            exposure: UcliOperationExposure.Public,
+            playModeSupport: UcliOperationPlayModeSupport.Disallowed,
+            codeContract: null);
 
-    protected override Task<OperationPhaseStepResult> Validate (
+    protected override Task<OperationPhaseStepResult> ValidateAsync (
         NormalizedOperation operation,
         CountSceneObjectsArgs args,
         OperationExecutionContext executionContext,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        return Task.FromResult(OperationPhaseStepResult.Success());
+        return Task.FromResult(OperationPhaseStepResult.Success(
+            applied: false,
+            changed: false,
+            touched: Array.Empty<OperationTouch>()));
     }
 
-    protected override Task<OperationPhaseStepResult> Plan (
+    protected override Task<OperationPhaseStepResult> PlanAsync (
         NormalizedOperation operation,
         CountSceneObjectsArgs args,
         OperationExecutionContext executionContext,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        return Task.FromResult(SuccessWithResult(new CountSceneObjectsResult(0), applied: false, changed: false));
+        return Task.FromResult(SuccessWithResult(
+            new CountSceneObjectsResult(0),
+            applied: false,
+            changed: false,
+            touched: Array.Empty<OperationTouch>()));
     }
 
-    protected override Task<OperationPhaseStepResult> Call (
+    protected override Task<OperationPhaseStepResult> CallAsync (
         NormalizedOperation operation,
         CountSceneObjectsArgs args,
         OperationExecutionContext executionContext,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        return Task.FromResult(SuccessWithResult(new CountSceneObjectsResult(0), applied: false, changed: false));
+        return Task.FromResult(SuccessWithResult(
+            new CountSceneObjectsResult(0),
+            applied: false,
+            changed: false,
+            touched: Array.Empty<OperationTouch>()));
     }
 }
 ```
