@@ -106,7 +106,7 @@ internal static class TestRunServiceTestFactory
             artifactsService,
             unityRequestExecutor,
             resultsConverter,
-            new StubTestRunArtifactExistenceProbe(),
+            StubTestRunArtifactExistenceProbe.CheckingGeneratedFiles(),
             unityRequestExecutor);
         var resultMapper = new TestRunResultMapper();
 

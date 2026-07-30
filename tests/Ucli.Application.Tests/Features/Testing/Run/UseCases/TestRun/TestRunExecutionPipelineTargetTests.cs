@@ -34,7 +34,7 @@ public sealed class TestRunExecutionPipelineTargetTests
                 }),
             requestExecutor,
             resultsConverter,
-            new StubTestRunArtifactExistenceProbe(),
+            StubTestRunArtifactExistenceProbe.ReturningSuccess(),
             requestExecutor);
         var context = new TestRunExecutionContext(
             configuration,
