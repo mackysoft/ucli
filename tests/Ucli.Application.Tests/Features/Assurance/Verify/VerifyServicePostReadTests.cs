@@ -159,9 +159,9 @@ public sealed class VerifyServicePostReadTests
 
     [Fact]
     [Trait("Size", "Medium")]
-    public async Task Execute_WithRawOperationPostStateUnavailable_ReturnsOutOfScopeClaimAndIncompleteVerdict ()
+    public async Task Execute_WithRawOperationPostStateUnavailable_ReturnsOutOfScopeClaimAndPassVerdict ()
     {
-        using var scope = TestDirectories.CreateTempScope("ucli-verify", nameof(Execute_WithRawOperationPostStateUnavailable_ReturnsOutOfScopeClaimAndIncompleteVerdict));
+        using var scope = TestDirectories.CreateTempScope("ucli-verify", nameof(Execute_WithRawOperationPostStateUnavailable_ReturnsOutOfScopeClaimAndPassVerdict));
         WriteRequiredPostReadProfile(scope);
         var fromPath = scope.WriteFile(
             "from.json",
@@ -186,7 +186,7 @@ public sealed class VerifyServicePostReadTests
             TimeoutMilliseconds: 10000));
 
         var completed = Assert.IsType<VerifyExecutionResult.CompletedResult>(result);
-        Assert.Equal(Verdict.Incomplete, completed.Output.Verdict);
+        Assert.Equal(Verdict.Pass, completed.Output.Verdict);
         var claim = Assert.Single(completed.Output.Claims);
         Assert.Equal(VerifyClaimCodes.PostMutationObserved, claim.Id);
         Assert.False(claim.Required);
@@ -306,7 +306,7 @@ public sealed class VerifyServicePostReadTests
             TimeoutMilliseconds: 10000));
 
         var completed = Assert.IsType<VerifyExecutionResult.CompletedResult>(result);
-        Assert.Equal(Verdict.Incomplete, completed.Output.Verdict);
+        Assert.Equal(Verdict.Fail, completed.Output.Verdict);
         var risk = Assert.Single(completed.Output.ResidualRisks);
         Assert.Equal(VerifyRiskCodes.FromDiagnosticCoverageUnbound, risk.Code);
         Assert.True(risk.Blocking);
@@ -330,7 +330,7 @@ public sealed class VerifyServicePostReadTests
             TimeoutMilliseconds: 10000));
 
         var completed = Assert.IsType<VerifyExecutionResult.CompletedResult>(result);
-        Assert.Equal(Verdict.Incomplete, completed.Output.Verdict);
+        Assert.Equal(Verdict.Fail, completed.Output.Verdict);
         var observedClaim = Assert.Single(completed.Output.Claims, static claim => claim.Id == VerifyClaimCodes.PostMutationObserved);
         Assert.Equal(AssuranceCoverage.Full, observedClaim.Coverage);
         var risk = Assert.Single(completed.Output.ResidualRisks);

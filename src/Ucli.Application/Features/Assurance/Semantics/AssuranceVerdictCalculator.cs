@@ -29,14 +29,13 @@ internal static class AssuranceVerdictCalculator
         }
 
         var requiredClaimsVerdict = CalculateRequiredClaimsVerdict(claims);
-        if (requiredClaimsVerdict == Verdict.Fail)
+        if (requiredClaimsVerdict == Verdict.Fail
+            || HasBlockingResidualRisk(claims, payloadResidualRisks))
         {
             return Verdict.Fail;
         }
 
-        return HasBlockingResidualRisk(claims, payloadResidualRisks)
-            ? Verdict.Incomplete
-            : requiredClaimsVerdict;
+        return requiredClaimsVerdict;
     }
 
     private static void EnsureAggregateIsEstablished<TVerifier, TClaim> (
@@ -130,7 +129,6 @@ internal static class AssuranceVerdictCalculator
         IReadOnlyList<TClaim> claims)
         where TClaim : class, IAssuranceVerdictClaim
     {
-        var hasRequiredClaim = false;
         var hasRequiredIncompleteClaim = false;
         for (var i = 0; i < claims.Count; i++)
         {
@@ -140,7 +138,6 @@ internal static class AssuranceVerdictCalculator
                 continue;
             }
 
-            hasRequiredClaim = true;
             if (claim.Status == AssuranceClaimStatus.Failed)
             {
                 return Verdict.Fail;
@@ -153,9 +150,9 @@ internal static class AssuranceVerdictCalculator
             }
         }
 
-        return hasRequiredClaim && !hasRequiredIncompleteClaim
-            ? Verdict.Pass
-            : Verdict.Incomplete;
+        return hasRequiredIncompleteClaim
+            ? Verdict.Incomplete
+            : Verdict.Pass;
     }
 
     private static bool HasBlockingResidualRisk<TClaim, TResidualRisk> (

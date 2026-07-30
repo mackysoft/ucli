@@ -22,6 +22,18 @@ public sealed class AssuranceVerdictCalculatorTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void Calculate_WhenNoRequiredClaimOrBlockingRiskExists_ReturnsPass ()
+    {
+        var verdict = AssuranceVerdictCalculator.Calculate(
+            Array.Empty<FakeVerifier>(),
+            Array.Empty<FakeClaim>(),
+            Array.Empty<FakeResidualRisk>());
+
+        Assert.Equal(Verdict.Pass, verdict);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void Calculate_WhenRequiredClaimFailed_ReturnsFail ()
     {
         var verdict = AssuranceVerdictCalculator.Calculate(
@@ -77,7 +89,7 @@ public sealed class AssuranceVerdictCalculatorTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void Calculate_WhenBlockingRiskExistsWithoutFailedRequiredClaim_ReturnsIncomplete ()
+    public void Calculate_WhenBlockingRiskExistsWithoutFailedRequiredClaim_ReturnsFail ()
     {
         var claimRiskVerdict = AssuranceVerdictCalculator.Calculate(
             [RequiredVerifier()],
@@ -88,8 +100,8 @@ public sealed class AssuranceVerdictCalculatorTests
             [RequiredClaim(AssuranceClaimStatus.Passed, AssuranceCoverage.Full, hasBlockingResidualRisk: false)],
             [new FakeResidualRisk(Blocking: true)]);
 
-        Assert.Equal(Verdict.Incomplete, claimRiskVerdict);
-        Assert.Equal(Verdict.Incomplete, payloadRiskVerdict);
+        Assert.Equal(Verdict.Fail, claimRiskVerdict);
+        Assert.Equal(Verdict.Fail, payloadRiskVerdict);
     }
 
     private static FakeVerifier RequiredVerifier ()
