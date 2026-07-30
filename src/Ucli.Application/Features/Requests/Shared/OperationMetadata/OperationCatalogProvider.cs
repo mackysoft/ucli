@@ -1,6 +1,5 @@
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Context;
-using MackySoft.Ucli.Application.Shared.Foundation;
 
 namespace MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 
@@ -33,9 +32,9 @@ internal sealed class OperationCatalogProvider : IOperationCatalogProvider
             .ConfigureAwait(false);
         if (!contextResult.IsSuccess)
         {
-            throw new OperationCatalogLoadException(CreatePrefixedError(
-                contextResult.Error!,
-                "Operation catalog context could not be resolved."));
+            throw OperationCatalogLoadException.Create(
+                ApplicationFailure.FromExecutionError(contextResult.Error!),
+                "Operation catalog context could not be resolved.");
         }
 
         return await operationCatalogDiscoveryService.DiscoverAsync(
@@ -43,6 +42,7 @@ internal sealed class OperationCatalogProvider : IOperationCatalogProvider
                 contextResult.Context.Config,
                 mode: UnityExecutionMode.Auto,
                 timeout: null,
+                failFast: false,
                 cancellationToken: cancellationToken)
             .ConfigureAwait(false);
     }
@@ -51,9 +51,9 @@ internal sealed class OperationCatalogProvider : IOperationCatalogProvider
     public async ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetOperationsAsync (
         ResolvedUnityProjectContext unityProject,
         UcliConfig config,
-        UnityExecutionMode mode = UnityExecutionMode.Auto,
-        TimeSpan? timeout = null,
-        bool failFast = false,
+        UnityExecutionMode mode,
+        TimeSpan? timeout,
+        bool failFast,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -69,21 +69,4 @@ internal sealed class OperationCatalogProvider : IOperationCatalogProvider
                 cancellationToken)
             .ConfigureAwait(false);
     }
-
-    private static ExecutionError CreatePrefixedError (
-        ExecutionError error,
-        string messagePrefix)
-    {
-        ArgumentNullException.ThrowIfNull(error);
-        ArgumentException.ThrowIfNullOrWhiteSpace(messagePrefix);
-
-        var message = $"{messagePrefix} {error.Message}";
-        return error.Kind switch
-        {
-            ExecutionErrorKind.InvalidArgument => ExecutionError.InvalidArgument(message, error.Code),
-            ExecutionErrorKind.Timeout => ExecutionError.Timeout(message, error.Code),
-            _ => ExecutionError.InternalError(message, error.Code),
-        };
-    }
-
 }

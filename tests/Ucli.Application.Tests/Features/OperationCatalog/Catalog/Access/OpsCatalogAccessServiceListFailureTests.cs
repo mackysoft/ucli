@@ -24,7 +24,7 @@ public sealed class OpsCatalogAccessServiceListFailureTests
 
         var result = await service.ReadListAsync(CreatePreflightContext(ReadIndexMode.AllowStale), CancellationToken.None);
 
-        Assert.False(result.IsSuccess);
-        Assert.Equal(UcliCoreErrorCodes.InvalidArgument, result.ErrorCode);
+        var failed = Assert.IsType<OpsListReadResult.Failed>(result);
+        Assert.Equal(UcliCoreErrorCodes.InvalidArgument, failed.Error.Code);
     }
 }

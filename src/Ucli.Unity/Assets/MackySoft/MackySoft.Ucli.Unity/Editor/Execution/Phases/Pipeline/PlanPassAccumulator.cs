@@ -48,44 +48,32 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         }
 
         /// <summary> Adds one skipped public step after request-level fail-fast stopped further compilation. </summary>
-        /// <param name="sourceStep"> The skipped source step. </param>
-        public void AddSkippedStep (IpcExecuteStepContract sourceStep)
+        /// <param name="step"> Metadata for the skipped source step. </param>
+        public void AddSkippedStep (NormalizedRequestStep step)
         {
-            compiledSteps.Add(new NormalizedRequestStep(
-                Id: sourceStep.Id,
-                Kind: sourceStep.Kind,
-                OperationName: sourceStep.Kind == IpcExecuteStepKind.Op ? sourceStep.OperationName! : "edit",
-                PrimitiveCount: 0));
+            compiledSteps.Add(step);
         }
 
         /// <summary> Adds one runtime-compile failure for one public step. </summary>
-        /// <param name="sourceStep"> The failed source step. </param>
+        /// <param name="step"> Metadata for the failed source step. </param>
         /// <param name="error"> The compile failure. </param>
         /// <param name="diagnostics"> Non-fatal diagnostics emitted before the compile failure. </param>
         public void AddCompileFailure (
-            IpcExecuteStepContract sourceStep,
+            NormalizedRequestStep step,
             ExecuteRequestNormalizationError error,
             IReadOnlyList<OperationDiagnostic> diagnostics)
         {
-            var operationName = sourceStep.Kind == IpcExecuteStepKind.Op ? sourceStep.OperationName! : "edit";
-            compiledSteps.Add(new NormalizedRequestStep(
-                Id: sourceStep.Id,
-                Kind: sourceStep.Kind,
-                OperationName: operationName,
-                PrimitiveCount: 1)
+            compiledSteps.Add(step with
             {
+                PrimitiveCount = 1,
                 Diagnostics = diagnostics,
             });
 
-            var failure = new OperationFailure(error.Code, error.Message, sourceStep.Id);
-            operationTraces.Add(new OperationPhaseTrace(
-                OpId: sourceStep.Id,
-                Op: operationName,
-                Phase: OperationPhase.Validate,
-                Applied: false,
-                Changed: false,
-                Touched: System.Array.Empty<OperationTouch>(),
-                Failure: failure));
+            var failure = new OperationFailure(error.Code, error.Message, step.Id);
+            operationTraces.Add(OperationPhaseTrace.Variants.ValidationFailureBeforeContractResolution(
+                step.Id,
+                step.OperationName,
+                failure));
             errors.Add(failure);
         }
 

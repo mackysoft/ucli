@@ -20,7 +20,13 @@ public sealed class QueryServiceSceneTreeTests
             Result = CreateSceneTreeLiteReadResult(),
         };
         var unityRequestExecutor = new UnexpectedUnityRequestExecutor();
-        var service = new QueryService(projectContextResolver, assetSearchLookupAccessService, sceneTreeLiteAccessService, unityRequestExecutor);
+        var service = new QueryService(
+            projectContextResolver,
+            CreateOperationCatalog(UcliPrimitiveOperationNames.SceneTree, OperationDescriptorDigest),
+            CreateReadIndexCatalogResolver(UcliPrimitiveOperationNames.SceneTree, OperationDescriptorDigest),
+            assetSearchLookupAccessService,
+            sceneTreeLiteAccessService,
+            unityRequestExecutor);
 
         var result = await service.ExecuteAsync(
             RequestId,
@@ -45,6 +51,7 @@ public sealed class QueryServiceSceneTreeTests
             expectedFailFast: true);
 
         var opResult = Assert.Single(result.OpResults);
+        Assert.Equal(OperationDescriptorDigest, opResult.OperationDescriptorDigest);
         var payload = opResult.Result!.Value;
         Assert.Equal("Assets/Scenes/Main.unity", payload.GetProperty("path").GetString());
         Assert.Equal(1, payload.GetProperty("roots").GetArrayLength());
@@ -68,6 +75,8 @@ public sealed class QueryServiceSceneTreeTests
         };
         var service = new QueryService(
             projectContextResolver,
+            CreateOperationCatalog(UcliPrimitiveOperationNames.SceneTree, OperationDescriptorDigest),
+            CreateReadIndexCatalogResolver(UcliPrimitiveOperationNames.SceneTree, OperationDescriptorDigest),
             new RecordingAssetSearchLookupAccessService(),
             sceneTreeLiteAccessService,
             new UnexpectedUnityRequestExecutor());
@@ -105,6 +114,8 @@ public sealed class QueryServiceSceneTreeTests
         };
         var service = new QueryService(
             new StaticProjectContextResolver(ProjectContextResolutionResult.Success(QueryProjectContext)),
+            CreateOperationCatalog(UcliPrimitiveOperationNames.SceneTree, OperationDescriptorDigest),
+            new RecordingReadIndexValidationCatalogResolver(),
             new RecordingAssetSearchLookupAccessService(),
             sceneTreeLiteAccessService,
             new UnexpectedUnityRequestExecutor());

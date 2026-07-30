@@ -20,7 +20,7 @@ public sealed class CallServiceWorkflowTests
             OperationPolicy.Safe);
         var ipcRequestExecutor = new RecordingUnityRequestExecutor(
             UnityRequestExecutionResult.Success(
-                ExecuteUnityRequestResponseTestFactory.Create(
+                CreateUnityResponse(
                     status: IpcResponseStatus.Ok,
                     opResults:
                     [
@@ -29,7 +29,11 @@ public sealed class CallServiceWorkflowTests
                             Phase: IpcExecuteOperationPhase.Call,
                             Applied: true,
                             Changed: false,
-                            Touched: []),
+                            Touched: [],
+                            OperationDescriptorDigest: OperationDescriptorDigest,
+                            Verdict: null,
+                            Result: null,
+                            Diagnostics: []),
                     ],
                     errors: [],
                     planToken: null)));
@@ -86,7 +90,7 @@ public sealed class CallServiceWorkflowTests
             OperationPolicy.Safe);
         var ipcRequestExecutor = new RecordingUnityRequestExecutor(
             UnityRequestExecutionResult.Success(
-                ExecuteUnityRequestResponseTestFactory.Create(
+                CreateUnityResponse(
                     status: IpcResponseStatus.Ok,
                     opResults:
                     [
@@ -95,12 +99,16 @@ public sealed class CallServiceWorkflowTests
                             Phase: IpcExecuteOperationPhase.Plan,
                             Applied: false,
                             Changed: false,
-                            Touched: []),
+                            Touched: [],
+                            OperationDescriptorDigest: OperationDescriptorDigest,
+                            Verdict: null,
+                            Result: null,
+                            Diagnostics: []),
                     ],
                     errors: [],
                     planToken: "issued-plan-token")),
             UnityRequestExecutionResult.Success(
-                ExecuteUnityRequestResponseTestFactory.Create(
+                CreateUnityResponse(
                     status: IpcResponseStatus.Ok,
                     opResults:
                     [
@@ -109,7 +117,11 @@ public sealed class CallServiceWorkflowTests
                             Phase: IpcExecuteOperationPhase.Call,
                             Applied: true,
                             Changed: false,
-                            Touched: []),
+                            Touched: [],
+                            OperationDescriptorDigest: OperationDescriptorDigest,
+                            Verdict: null,
+                            Result: null,
+                            Diagnostics: []),
                     ],
                     errors: [],
                     planToken: null)));
@@ -164,7 +176,7 @@ public sealed class CallServiceWorkflowTests
             config);
         var ipcRequestExecutor = new RecordingUnityRequestExecutor(
             UnityRequestExecutionResult.Success(
-                ExecuteUnityRequestResponseTestFactory.Create(
+                CreateUnityResponse(
                     status: IpcResponseStatus.Ok,
                     opResults:
                     [
@@ -173,12 +185,16 @@ public sealed class CallServiceWorkflowTests
                             Phase: IpcExecuteOperationPhase.Plan,
                             Applied: false,
                             Changed: false,
-                            Touched: []),
+                            Touched: [],
+                            OperationDescriptorDigest: OperationDescriptorDigest,
+                            Verdict: null,
+                            Result: null,
+                            Diagnostics: []),
                     ],
                     errors: [],
                     planToken: "issued-plan-token")),
             UnityRequestExecutionResult.Success(
-                ExecuteUnityRequestResponseTestFactory.Create(
+                CreateUnityResponse(
                     status: IpcResponseStatus.Ok,
                     opResults:
                     [
@@ -187,7 +203,11 @@ public sealed class CallServiceWorkflowTests
                             Phase: IpcExecuteOperationPhase.Call,
                             Applied: true,
                             Changed: false,
-                            Touched: []),
+                            Touched: [],
+                            OperationDescriptorDigest: OperationDescriptorDigest,
+                            Verdict: null,
+                            Result: null,
+                            Diagnostics: []),
                     ],
                     errors: [],
                     planToken: null)));
@@ -231,15 +251,39 @@ public sealed class CallServiceWorkflowTests
             OperationPolicy.Safe);
         var ipcRequestExecutor = new RecordingUnityRequestExecutor(
             UnityRequestExecutionResult.Success(
-                ExecuteUnityRequestResponseTestFactory.Create(
+                CreateUnityResponse(
                     status: IpcResponseStatus.Ok,
-                    opResults: [],
+                    opResults:
+                    [
+                        new IpcExecuteOperationResult(
+                            Op: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe,
+                            Phase: IpcExecuteOperationPhase.Plan,
+                            Applied: false,
+                            Changed: false,
+                            Touched: [],
+                            OperationDescriptorDigest: OperationDescriptorDigest,
+                            Verdict: null,
+                            Result: null,
+                            Diagnostics: []),
+                    ],
                     errors: [],
                     planToken: "issued-plan-token")),
             UnityRequestExecutionResult.Success(
-                ExecuteUnityRequestResponseTestFactory.Create(
+                CreateUnityResponse(
                     status: IpcResponseStatus.Ok,
-                    opResults: [],
+                    opResults:
+                    [
+                        new IpcExecuteOperationResult(
+                            Op: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe,
+                            Phase: IpcExecuteOperationPhase.Call,
+                            Applied: true,
+                            Changed: false,
+                            Touched: [],
+                            OperationDescriptorDigest: OperationDescriptorDigest,
+                            Verdict: null,
+                            Result: null,
+                            Diagnostics: []),
+                    ],
                     errors: [],
                     planToken: null)));
         var service = CreateService(

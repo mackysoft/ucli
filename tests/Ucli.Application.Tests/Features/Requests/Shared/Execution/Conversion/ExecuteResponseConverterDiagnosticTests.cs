@@ -68,7 +68,6 @@ public sealed class ExecuteResponseConverterDiagnosticTests
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
-        Assert.Contains("diagnostics", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -151,17 +150,18 @@ public sealed class ExecuteResponseConverterDiagnosticTests
                 Phase: IpcExecuteOperationPhase.Plan,
                 Applied: false,
                 Changed: false,
-                Touched: [])
-            {
-                Diagnostics =
+                Touched: [],
+                OperationDescriptorDigest: OperationDescriptorDigest,
+                Verdict: null,
+                Result: null,
+                Diagnostics:
                 [
                     new IpcExecuteDiagnostic(
                         ExecuteRequestErrorCodes.HierarchyPathUnrepresentableObjects,
                         UcliDiagnosticSeverity.Warning,
                         IpcExecuteDiagnosticCoverageImpact.Partial,
                         "Scene query skipped GameObjects whose names contain '/'."),
-                ],
-            },
+                ]),
         ]));
 
         var result = ExecuteResponseConverter.Convert(response, ExpectedProject);

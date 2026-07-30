@@ -20,7 +20,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
     [UcliOperation]
     internal sealed class ProjectSavePhaseOperation : UcliOperation<UcliEmptyArgs, UcliNoResult>
     {
-        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<UcliEmptyArgs, UcliNoResult>(
+        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.CreateWithoutVerdict<UcliEmptyArgs, UcliNoResult>(
             operationName: UcliPrimitiveOperationNames.ProjectSave,
             kind: UcliOperationKind.Mutation,
             description: "Saves dirty project assets, scenes, and prefab stages known to uCLI.",
@@ -45,7 +45,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 touchedContract: "Reports the scene, prefab, asset, and ProjectSettings resources known to be request-attributed and save-relevant.",
                 readPostconditionContract: "Asset, scene, prefab, ProjectSettings, GUID path, and readIndex surfaces covering saved resources may be stale after a successful call.",
                 failureSemantics: "Project save is not transactional; timeout, cancellation, or Unity failure can leave partial or indeterminate file changes across saved resource kinds.",
-                dangerousNotes: new[] { "This operation can persist multiple project resource kinds in one save boundary without transactional rollback." }));
+                dangerousNotes: new[] { "This operation can persist multiple project resource kinds in one save boundary without transactional rollback." }),
+            requiresPreCallPlanReplay: false,
+            exposure: UcliOperationExposure.Public,
+            playModeSupport: UcliOperationPlayModeSupport.Disallowed,
+            codeContract: null);
 
         /// <summary> Executes validate phase for <c>ucli.project.save</c>. </summary>
         /// <param name="operation"> The normalized operation. </param>
@@ -59,7 +63,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false));
+            return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()));
         }
 
         /// <summary> Executes plan phase for <c>ucli.project.save</c>. </summary>
@@ -151,7 +155,10 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             return Task.FromResult(
-                result.WithReadInvalidations(touched.Count == 0 ? null : OperationReadInvalidationUtilities.CreateForProjectSave(touched)));
+                result.WithReadInvalidations(
+                    touched.Count == 0
+                        ? Array.Empty<OperationReadInvalidation>()
+                        : OperationReadInvalidationUtilities.CreateForProjectSave(touched)));
         }
 
         private static IReadOnlyList<OperationTouch> CollectKnownPlannedTouchedResources (OperationExecutionContext executionContext)

@@ -1,17 +1,14 @@
 using MackySoft.Ucli.Application.Features.Assurance.Build.Catalog;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Contracts;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Execution;
-using MackySoft.Ucli.Application.Features.Assurance.Build.Semantics;
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Catalog;
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Contracts;
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Execution;
-using MackySoft.Ucli.Application.Features.Assurance.Compile.Semantics;
 using MackySoft.Ucli.Application.Features.Assurance.Ready;
 using MackySoft.Ucli.Application.Features.Assurance.Semantics;
 using MackySoft.Ucli.Application.Features.Assurance.Verify.Catalog;
 using MackySoft.Ucli.Application.Features.Assurance.Verify.Contracts;
 using MackySoft.Ucli.Application.Features.Assurance.Verify.Execution;
-using MackySoft.Ucli.Application.Features.Assurance.Verify.Semantics;
 using MackySoft.Ucli.Application.Features.CodeCatalog.Catalog;
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandExecution;
 using MackySoft.Ucli.Application.Features.Daemon.Common.Projection;
@@ -129,12 +126,6 @@ public static class UcliApplicationServiceCollectionExtensions
 
     private static IServiceCollection AddUcliApplicationAssuranceServices (this IServiceCollection services)
     {
-        services.AddSingleton<IAssurancePayloadInvariantRule, BuildAssuranceSemanticInvariantRule>();
-        services.AddSingleton<IAssuranceClaimInvariantRule, ReadyAssuranceSemanticInvariantRule>();
-        services.AddSingleton<IAssuranceClaimInvariantRule, BuildAssuranceSemanticInvariantRule>();
-        services.AddSingleton<IAssuranceClaimInvariantRule, CompileAssuranceSemanticInvariantRule>();
-        services.AddSingleton<IAssuranceClaimInvariantRule, VerifyAssuranceSemanticInvariantRule>();
-        services.AddSingleton<AssuranceSemanticInvariantValidator>();
         services.AddSingleton<IBuildService, BuildService>();
         services.AddSingleton<ICompileService, CompileService>();
         services.AddSingleton<IReadyService, ReadyService>();
@@ -157,7 +148,6 @@ public static class UcliApplicationServiceCollectionExtensions
         services.AddSingleton<IOperationAuthorizationService, OperationAuthorizationService>();
         services.AddSingleton<IReadIndexValidationCatalogResolver, ReadIndexValidationCatalogResolver>();
         services.AddSingleton<IRequestStaticValidator, RequestStaticValidator>();
-        services.AddSingleton<IRequestStaticValidationService, RequestStaticValidationService>();
 
         services.AddSingleton<IPlanService, PlanService>();
 

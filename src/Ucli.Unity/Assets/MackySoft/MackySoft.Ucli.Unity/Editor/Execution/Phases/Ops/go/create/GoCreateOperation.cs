@@ -17,7 +17,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
     [UcliOperation]
     internal sealed class GoCreateOperation : UcliOperation<GoCreateArgs, UcliNoResult>
     {
-        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<GoCreateArgs, UcliNoResult>(
+        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.CreateWithoutVerdict<GoCreateArgs, UcliNoResult>(
             operationName: UcliPrimitiveOperationNames.GoCreate,
             kind: UcliOperationKind.Mutation,
             description: "Creates a GameObject in a scene or under an existing parent.",
@@ -31,7 +31,10 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 readPostconditionContract: "Scene, prefab, and hierarchy read surfaces covering touched resources may be stale until refreshed.",
                 failureSemantics: "Failure before apply leaves no requested mutation; failure during apply may leave live Unity state partially changed.",
                 dangerousNotes: new[] { "This operation can dirty scene or prefab hierarchy state without persisting it; callers must save or discard changes explicitly." }),
-            exposure: UcliOperationExposure.EditLoweringOnly);
+            requiresPreCallPlanReplay: false,
+            exposure: UcliOperationExposure.EditLoweringOnly,
+            playModeSupport: UcliOperationPlayModeSupport.Disallowed,
+            codeContract: null);
 
         /// <summary> Executes validate phase for <c>ucli.go.create</c>. </summary>
         /// <param name="operation"> The normalized operation. </param>
@@ -50,7 +53,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return Task.FromResult(failure!);
             }
 
-            return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false));
+            return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false,touched:System.Array.Empty<OperationTouch>()));
         }
 
         /// <summary> Executes plan phase for <c>ucli.go.create</c>. </summary>

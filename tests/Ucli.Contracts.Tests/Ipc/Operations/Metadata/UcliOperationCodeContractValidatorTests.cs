@@ -12,7 +12,12 @@ public sealed class UcliOperationCodeContractValidatorTests
         var describe = CreateDescribeWithDangerousAssurance();
         describe.CodeContract = UcliOperationDescribeContractValidatorTestData.CreateValidCodeContract();
 
-        var isValid = UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContract(describe, "Test contract", out var errorMessage);
+        var isValid = UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContract(
+            describe,
+            operationKind: UcliOperationKind.Command,
+            operationPolicy: OperationPolicy.Dangerous,
+            ownerName: "Test contract",
+            out var errorMessage);
 
         Assert.True(isValid, errorMessage);
         Assert.Equal(string.Empty, errorMessage);
@@ -25,7 +30,12 @@ public sealed class UcliOperationCodeContractValidatorTests
         var describe = UcliOperationDescribeContractValidatorTestData.CreateValidDescribeContract();
         describe.CodeContract = UcliOperationDescribeContractValidatorTestData.CreateValidCodeContract();
 
-        var isValid = UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContract(describe, "Test contract", out var errorMessage);
+        var isValid = UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContract(
+            describe,
+            operationKind: UcliOperationKind.Command,
+            operationPolicy: OperationPolicy.Safe,
+            ownerName: "Test contract",
+            out var errorMessage);
 
         Assert.False(isValid);
         Assert.Equal("Test contract codeContract requires assurance.sideEffects to include 'arbitrarySourceExecution'.", errorMessage);
@@ -106,7 +116,12 @@ public sealed class UcliOperationCodeContractValidatorTests
                     }),
             });
 
-        var isValid = UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContract(describe, "Test contract", out var errorMessage);
+        var isValid = UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContract(
+            describe,
+            operationKind: UcliOperationKind.Command,
+            operationPolicy: OperationPolicy.Dangerous,
+            ownerName: "Test contract",
+            out var errorMessage);
 
         Assert.False(isValid);
         Assert.Equal("Test contract has an invalid codeContract method parameter at index 0.", errorMessage);
@@ -124,7 +139,12 @@ public sealed class UcliOperationCodeContractValidatorTests
         describe.CodeContract = UcliOperationDescribeContractValidatorTestData.CreateValidCodeContract();
         describe.CodeContract.EntryPoint!.MatchRule = matchRule;
 
-        var isValid = UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContract(describe, "Test contract", out var errorMessage);
+        var isValid = UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContract(
+            describe,
+            operationKind: UcliOperationKind.Command,
+            operationPolicy: OperationPolicy.Dangerous,
+            ownerName: "Test contract",
+            out var errorMessage);
 
         Assert.False(isValid);
         Assert.Equal("Test contract has invalid codeContract metadata.", errorMessage);
@@ -138,7 +158,12 @@ public sealed class UcliOperationCodeContractValidatorTests
         describe.CodeContract = UcliOperationDescribeContractValidatorTestData.CreateValidCodeContract();
         describe.CodeContract.Language = (UcliCodeLanguage)int.MaxValue;
 
-        var isValid = UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContract(describe, "Test contract", out var errorMessage);
+        var isValid = UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContract(
+            describe,
+            operationKind: UcliOperationKind.Command,
+            operationPolicy: OperationPolicy.Dangerous,
+            ownerName: "Test contract",
+            out var errorMessage);
 
         Assert.False(isValid);
         Assert.Equal("Test contract has an unsupported codeContract language.", errorMessage);
@@ -155,7 +180,12 @@ public sealed class UcliOperationCodeContractValidatorTests
             new UcliCodeSourceFormContract((UcliCodeSourceFormKind)int.MaxValue, "Unsupported source form."),
         ];
 
-        var isValid = UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContract(describe, "Test contract", out var errorMessage);
+        var isValid = UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContract(
+            describe,
+            operationKind: UcliOperationKind.Command,
+            operationPolicy: OperationPolicy.Dangerous,
+            ownerName: "Test contract",
+            out var errorMessage);
 
         Assert.False(isValid);
         Assert.Equal("Test contract has an unsupported codeContract source form at index 0.", errorMessage);

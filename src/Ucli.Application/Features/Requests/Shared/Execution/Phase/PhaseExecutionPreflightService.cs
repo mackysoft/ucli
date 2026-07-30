@@ -1,15 +1,11 @@
 using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Preparation;
-using MackySoft.Ucli.Application.Shared.Foundation;
 
 namespace MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Phase;
 
 /// <summary> Executes request preflight for phase-based command execution. </summary>
 internal sealed class PhaseExecutionPreflightService : IPhaseExecutionPreflightService
 {
-    private static readonly IReadOnlyDictionary<string, UcliOperationDescriptor> EmptyOperationsByName
-        = new Dictionary<string, UcliOperationDescriptor>(0, StringComparer.Ordinal);
-
     private readonly IOperationCatalog operationCatalog;
 
     private readonly IRequestStaticValidator requestStaticValidator;
@@ -37,7 +33,7 @@ internal sealed class PhaseExecutionPreflightService : IPhaseExecutionPreflightS
         PreparedRequestContext preparedRequest,
         UnityExecutionMode mode,
         ExecutionDeadline deadline,
-        bool failFast = false,
+        bool failFast,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -47,8 +43,14 @@ internal sealed class PhaseExecutionPreflightService : IPhaseExecutionPreflightS
         if (!deadline.TryGetRemainingTimeout(out var operationCatalogTimeout))
         {
             return PhaseExecutionPreflightResult.Failure(
-                ExecutionError.Timeout("Timed out before operation metadata discovery could begin."),
-                CreatePreparedRequest(preparedRequest, EmptyOperationsByName));
+                ApplicationFailure.Timeout(
+                    "Timed out before operation metadata discovery could begin.",
+                    ExecutionErrorCodes.IpcTimeout,
+                    instancePath: null,
+                    startupFailure: null),
+                CreatePreparedRequest(
+                    preparedRequest,
+                    RequestStaticValidationCatalog.Unavailable.OperationsByName));
         }
 
         IReadOnlyList<UcliOperationDescriptor> operations;
@@ -66,35 +68,39 @@ internal sealed class PhaseExecutionPreflightService : IPhaseExecutionPreflightS
         catch (OperationCatalogLoadException exception)
         {
             return PhaseExecutionPreflightResult.Failure(
-                exception.CreatePrefixedError("Static validation could not load operation metadata."),
-                CreatePreparedRequest(preparedRequest, EmptyOperationsByName),
-                exception.ErrorCode);
+                exception.CreatePrefixedFailure("Static validation could not load operation metadata."),
+                CreatePreparedRequest(
+                    preparedRequest,
+                    RequestStaticValidationCatalog.Unavailable.OperationsByName));
         }
         catch (InvalidOperationException exception)
         {
             return PhaseExecutionPreflightResult.Failure(
-                ExecutionError.InternalError($"Static validation could not load operation metadata. {exception.Message}"),
-                CreatePreparedRequest(preparedRequest, EmptyOperationsByName));
+                ApplicationFailure.InternalError(
+                    $"Static validation could not load operation metadata. {exception.Message}",
+                    UcliCoreErrorCodes.InternalError,
+                    instancePath: null,
+                    startupFailure: null),
+                CreatePreparedRequest(
+                    preparedRequest,
+                    RequestStaticValidationCatalog.Unavailable.OperationsByName));
         }
 
-        var operationsByName = new Dictionary<string, UcliOperationDescriptor>(operations.Count, StringComparer.Ordinal);
-        for (var i = 0; i < operations.Count; i++)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            var operation = operations[i];
-            operationsByName[operation.Name] = operation;
-        }
-
-        var phasePreparedRequest = CreatePreparedRequest(preparedRequest, operationsByName);
+        var validationCatalog = RequestStaticValidationCatalog.Available(operations);
+        var phasePreparedRequest = CreatePreparedRequest(
+            preparedRequest,
+            validationCatalog.OperationsByName);
         var validationResult = await requestStaticValidator.ValidateAsync(
                 preparedRequest.Request,
-                RequestStaticValidationCatalog.Available(operations),
+                validationCatalog,
                 preparedRequest.ProjectContext.Config,
                 cancellationToken)
             .ConfigureAwait(false);
         if (validationResult.Error != null)
         {
-            return PhaseExecutionPreflightResult.Failure(validationResult.Error, phasePreparedRequest);
+            return PhaseExecutionPreflightResult.Failure(
+                ApplicationFailure.FromExecutionError(validationResult.Error),
+                phasePreparedRequest);
         }
 
         if (!validationResult.IsValid)

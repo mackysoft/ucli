@@ -1,4 +1,5 @@
 using System.Text.Json;
+using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Conversion;
@@ -25,30 +26,36 @@ internal static class OperationExecutionModelMapper
     {
         ArgumentNullException.ThrowIfNull(opResult);
 
-        return new OperationExecutionOperationResult(
-            Op: opResult.Op,
-            Phase: opResult.Phase,
-            Applied: opResult.Applied,
-            Changed: opResult.Changed,
-            Touched: MapTouchedResources(opResult.Touched))
+        var touched = MapTouchedResources(opResult.Touched);
+        var diagnostics = MapDiagnostics(opResult.Diagnostics);
+        if (opResult.Verdict.HasValue)
         {
-            Result = opResult.Result,
-            Diagnostics = MapDiagnostics(opResult.Diagnostics),
-        };
-    }
-
-    /// <summary> Maps machine-readable execute errors. </summary>
-    public static IReadOnlyList<OperationExecutionError> MapErrors (IReadOnlyList<IpcError> errors)
-    {
-        ArgumentNullException.ThrowIfNull(errors);
-
-        var mappedErrors = new OperationExecutionError[errors.Count];
-        for (var i = 0; i < errors.Count; i++)
-        {
-            mappedErrors[i] = MapError(errors[i]);
+            var operationDescriptorDigest = opResult.OperationDescriptorDigest
+                ?? throw new InvalidOperationException(
+                    "A judging operation result must identify the descriptor used to establish its verdict.");
+            var result = opResult.Result
+                ?? throw new InvalidOperationException(
+                    "A judging operation result must carry the evidence used to establish its verdict.");
+            return OperationExecutionOperationResult.CreateJudgingCallResult(
+                opResult.Op,
+                opResult.Applied,
+                opResult.Changed,
+                touched,
+                operationDescriptorDigest,
+                opResult.Verdict.Value,
+                result,
+                diagnostics);
         }
 
-        return mappedErrors;
+        return OperationExecutionOperationResult.CreateWithoutVerdict(
+            opResult.Op,
+            opResult.Phase,
+            opResult.Applied,
+            opResult.Changed,
+            touched,
+            opResult.OperationDescriptorDigest,
+            opResult.Result,
+            diagnostics);
     }
 
     /// <summary> Maps runtime operation-result contract violations. </summary>
@@ -73,17 +80,6 @@ internal static class OperationExecutionModelMapper
         }
 
         return mappedViolations;
-    }
-
-    /// <summary> Maps one machine-readable execute error. </summary>
-    public static OperationExecutionError MapError (IpcError error)
-    {
-        ArgumentNullException.ThrowIfNull(error);
-
-        return new OperationExecutionError(
-            Code: error.Code,
-            Message: error.Message,
-            InstancePath: error.InstancePath);
     }
 
     /// <summary> Maps one optional post-read source contract. </summary>
@@ -116,20 +112,21 @@ internal static class OperationExecutionModelMapper
         bool applied,
         bool changed,
         IReadOnlyList<OperationExecutionTouchedResource> touched,
-        JsonElement? result = null)
+        Sha256Digest operationDescriptorDigest,
+        JsonElement result)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(op);
         ArgumentNullException.ThrowIfNull(touched);
 
-        return new OperationExecutionOperationResult(
-            Op: op,
-            Phase: IpcExecuteOperationPhase.Plan,
-            Applied: applied,
-            Changed: changed,
-            Touched: touched)
-        {
-            Result = result,
-        };
+        return OperationExecutionOperationResult.CreateWithoutVerdict(
+            op,
+            IpcExecuteOperationPhase.Plan,
+            applied,
+            changed,
+            touched,
+            operationDescriptorDigest,
+            result,
+            diagnostics: Array.Empty<OperationExecutionDiagnostic>());
     }
 
     private static IReadOnlyList<OperationExecutionDiagnostic> MapDiagnostics (IReadOnlyList<IpcExecuteDiagnostic> diagnostics)

@@ -17,7 +17,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
     [UcliOperation]
     internal sealed class PrefabRevertOverridesOperation : UcliOperation<PrefabOverrideArgs, UcliNoResult>
     {
-        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<PrefabOverrideArgs, UcliNoResult>(
+        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.CreateWithoutVerdict<PrefabOverrideArgs, UcliNoResult>(
             operationName: UcliPrimitiveOperationNames.PrefabRevertOverrides,
             kind: UcliOperationKind.Mutation,
             description: "Reverts request-attributed Prefab instance property overrides on the live scene object.",
@@ -31,7 +31,10 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 readPostconditionContract: "Scene tree read surfaces covering the live scene resource may be stale when persistence reporting is not suppressed.",
                 failureSemantics: "Failure before revert leaves no requested mutation; Unity API failure may leave live scene state partially changed.",
                 dangerousNotes: new[] { "This operation mutates live scene objects but does not persist scene or Prefab assets." }),
-            exposure: UcliOperationExposure.EditLoweringOnly);
+            requiresPreCallPlanReplay: false,
+            exposure: UcliOperationExposure.EditLoweringOnly,
+            playModeSupport: UcliOperationPlayModeSupport.Disallowed,
+            codeContract: null);
 
         protected override Task<OperationPhaseStepResult> ValidateAsync (
             NormalizedOperation operation,
@@ -41,7 +44,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         {
             cancellationToken.ThrowIfCancellationRequested();
             return Task.FromResult(TryResolve(operation, args, executionContext, allowTemporaryState: true, out _, out var failure)
-                ? OperationPhaseStepResult.Success(applied: false, changed: false)
+                ? OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>())
                 : failure!);
         }
 
@@ -103,6 +106,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                             operationFailure,
                             applied: appliedCount > 0,
                             changed: appliedCount > 0,
+                            result: null,
                             touched: appliedCount > 0 ? CreateTouched(state.Resource) : null)
                         .WithReadInvalidations(appliedCount > 0
                             ? OperationReadInvalidationUtilities.CreateSceneTreeLiteForSceneResource(state.Resource)
@@ -160,10 +164,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
             catch (Exception exception)
             {
-                return OperationPhaseStepResult.Failed(new OperationFailure(
-                    Code: UcliCoreErrorCodes.InternalError,
-                    Message: $"Prefab override could not be reverted from explicit Prefab asset: {state.TargetAssetPath}. {exception.Message}",
-                    OpId: operation.Id));
+                return OperationPhaseStepResult.Failed(
+                    new OperationFailure(
+                        Code: UcliCoreErrorCodes.InternalError,
+                        Message: $"Prefab override could not be reverted from explicit Prefab asset: {state.TargetAssetPath}. {exception.Message}",
+                        OpId: operation.Id),
+                    applied: false,
+                    changed: false,
+                    result: null,touched:Array.Empty<OperationTouch>());
             }
             finally
             {

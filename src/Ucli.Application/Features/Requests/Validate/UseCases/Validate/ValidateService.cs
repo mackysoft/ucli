@@ -50,8 +50,7 @@ internal sealed class ValidateService : IValidateService
         {
             var error = requestPreparationResult.Error!;
             return ValidateServiceResult.Failure(
-                error.Message,
-                ExecutionErrorCodeMapper.ToCode(error),
+                ApplicationFailure.FromExecutionError(error),
                 output: null);
         }
 
@@ -64,8 +63,8 @@ internal sealed class ValidateService : IValidateService
         {
             var error = timeoutResolutionResult.Error!;
             return ValidateServiceResult.Failure(
-                error.Message,
-                ExecutionErrorCodeMapper.ToCode(error));
+                ApplicationFailure.FromExecutionError(error),
+                output: null);
         }
 
         var timeout = timeoutResolutionResult.Timeout!.Value;
@@ -78,8 +77,11 @@ internal sealed class ValidateService : IValidateService
             if (!deadline.TryGetRemainingTimeout(out var validationTimeout))
             {
                 return ValidateServiceResult.Failure(
-                    CreateTimeoutFailureMessage(timeout),
-                    ExecutionErrorCodes.IpcTimeout,
+                    ApplicationFailure.Timeout(
+                        CreateTimeoutFailureMessage(timeout),
+                        ExecutionErrorCodes.IpcTimeout,
+                        instancePath: null,
+                        startupFailure: null),
                     disabledOutput);
             }
 
@@ -103,8 +105,11 @@ internal sealed class ValidateService : IValidateService
                     && !cancellationToken.IsCancellationRequested)
                 {
                     return ValidateServiceResult.Failure(
-                        CreateTimeoutFailureMessage(timeout),
-                        ExecutionErrorCodes.IpcTimeout,
+                        ApplicationFailure.Timeout(
+                            CreateTimeoutFailureMessage(timeout),
+                            ExecutionErrorCodes.IpcTimeout,
+                            instancePath: null,
+                            startupFailure: null),
                         disabledOutput);
                 }
             }
@@ -112,16 +117,18 @@ internal sealed class ValidateService : IValidateService
             if (deadline.IsExpired)
             {
                 return ValidateServiceResult.Failure(
-                    CreateTimeoutFailureMessage(timeout),
-                    ExecutionErrorCodes.IpcTimeout,
+                    ApplicationFailure.Timeout(
+                        CreateTimeoutFailureMessage(timeout),
+                        ExecutionErrorCodes.IpcTimeout,
+                        instancePath: null,
+                        startupFailure: null),
                     disabledOutput);
             }
 
             if (disabledValidationResult.Error != null)
             {
                 return ValidateServiceResult.Failure(
-                    disabledValidationResult.Error.Message,
-                    ExecutionErrorCodeMapper.ToCode(disabledValidationResult.Error),
+                    ApplicationFailure.FromExecutionError(disabledValidationResult.Error),
                     disabledOutput);
             }
 
@@ -139,8 +146,12 @@ internal sealed class ValidateService : IValidateService
         if (!deadline.TryGetRemainingTimeout(out var preflightTimeout))
         {
             return ValidateServiceResult.Failure(
-                CreateTimeoutFailureMessage(timeout),
-                ExecutionErrorCodes.IpcTimeout);
+                ApplicationFailure.Timeout(
+                    CreateTimeoutFailureMessage(timeout),
+                    ExecutionErrorCodes.IpcTimeout,
+                    instancePath: null,
+                    startupFailure: null),
+                output: null);
         }
 
         RequestStaticValidationPreflightResult requestStaticValidationPreflightResult;
@@ -162,28 +173,33 @@ internal sealed class ValidateService : IValidateService
                 && !cancellationToken.IsCancellationRequested)
             {
                 return ValidateServiceResult.Failure(
-                    CreateTimeoutFailureMessage(timeout),
-                    ExecutionErrorCodes.IpcTimeout);
+                    ApplicationFailure.Timeout(
+                        CreateTimeoutFailureMessage(timeout),
+                        ExecutionErrorCodes.IpcTimeout,
+                        instancePath: null,
+                        startupFailure: null),
+                    output: null);
             }
         }
 
         if (deadline.IsExpired)
         {
             return ValidateServiceResult.Failure(
-                CreateTimeoutFailureMessage(timeout),
-                ExecutionErrorCodes.IpcTimeout);
+                ApplicationFailure.Timeout(
+                    CreateTimeoutFailureMessage(timeout),
+                    ExecutionErrorCodes.IpcTimeout,
+                    instancePath: null,
+                    startupFailure: null),
+                output: null);
         }
 
-        var output = requestStaticValidationPreflightResult.ReadIndex != null
-            ? new ValidateExecutionOutput(
-                Project: ProjectIdentityInfo.From(preparedRequest.ProjectContext.UnityProject),
-                ReadIndex: requestStaticValidationPreflightResult.ReadIndex)
-            : null;
+        var output = new ValidateExecutionOutput(
+            Project: ProjectIdentityInfo.From(preparedRequest.ProjectContext.UnityProject),
+            ReadIndex: requestStaticValidationPreflightResult.ReadIndex);
         if (requestStaticValidationPreflightResult.Error != null)
         {
             return ValidateServiceResult.Failure(
-                requestStaticValidationPreflightResult.Error.Message,
-                requestStaticValidationPreflightResult.ErrorCode!,
+                ApplicationFailure.FromExecutionError(requestStaticValidationPreflightResult.Error),
                 output);
         }
 
@@ -195,7 +211,7 @@ internal sealed class ValidateService : IValidateService
                 requestStaticValidationPreflightResult.ValidationErrors);
         }
 
-        return ValidateServiceResult.Success(output!, "Static validation passed.");
+        return ValidateServiceResult.Success(output, "Static validation passed.");
     }
 
     private static string CreateTimeoutFailureMessage (TimeSpan timeout)

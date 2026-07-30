@@ -45,7 +45,7 @@ internal sealed class RequestStaticValidationPreflightService : IRequestStaticVa
                     validationCatalogResolutionResult.ErrorMessage!),
                 preparedRequest,
                 validationCatalogResolutionResult.ReadIndex,
-                validationCatalogResolutionResult.ErrorCode);
+                validationCatalogResolutionResult.Catalog);
         }
 
         var validationResult = await requestStaticValidator.ValidateAsync(
@@ -59,7 +59,8 @@ internal sealed class RequestStaticValidationPreflightService : IRequestStaticVa
             return RequestStaticValidationPreflightResult.Failure(
                 validationResult.Error,
                 preparedRequest,
-                validationCatalogResolutionResult.ReadIndex);
+                validationCatalogResolutionResult.ReadIndex,
+                validationCatalogResolutionResult.Catalog);
         }
 
         if (!validationResult.IsValid)
@@ -67,12 +68,14 @@ internal sealed class RequestStaticValidationPreflightService : IRequestStaticVa
             return RequestStaticValidationPreflightResult.ValidationFailure(
                 preparedRequest,
                 validationCatalogResolutionResult.ReadIndex,
+                validationCatalogResolutionResult.Catalog,
                 validationResult.Errors);
         }
 
         return RequestStaticValidationPreflightResult.Success(
             preparedRequest,
-            validationCatalogResolutionResult.ReadIndex);
+            validationCatalogResolutionResult.ReadIndex,
+            validationCatalogResolutionResult.Catalog);
     }
 
     private static ExecutionError CreateMetadataResolutionError (
@@ -85,14 +88,14 @@ internal sealed class RequestStaticValidationPreflightService : IRequestStaticVa
 
         if (errorCode == UcliCoreErrorCodes.InvalidArgument)
         {
-            return ExecutionError.InvalidArgument(message);
+            return ExecutionError.InvalidArgument(message, errorCode);
         }
 
         if (errorCode == ExecutionErrorCodes.IpcTimeout)
         {
-            return ExecutionError.Timeout(message);
+            return ExecutionError.Timeout(message, errorCode);
         }
 
-        return ExecutionError.InternalError(message);
+        return ExecutionError.InternalError(message, errorCode);
     }
 }

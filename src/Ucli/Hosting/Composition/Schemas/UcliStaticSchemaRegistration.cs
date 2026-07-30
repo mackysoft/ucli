@@ -7,13 +7,16 @@ namespace MackySoft.Ucli.Hosting.Composition.Schemas;
 /// <summary> Binds one product-owned schema identity to its effective serializer contract. </summary>
 internal sealed record UcliStaticSchemaRegistration
 {
-    /// <summary> Initializes one static schema registration. </summary>
-    public UcliStaticSchemaRegistration (
+    private UcliStaticSchemaRegistration (
         string name,
         RootRelativePath path,
         UcliStaticSchemaKind kind,
         JsonTypeInfo typeInfo,
-        UcliStaticSchemaManifestMetadata? manifestMetadata = null)
+        string? command,
+        CommandResultStatus? status,
+        IReadOnlyList<UcliStaticSchemaUsage> usages,
+        IReadOnlyList<string> staticDependencies,
+        IReadOnlyList<string> dynamicValidationSources)
     {
         Name = !string.IsNullOrWhiteSpace(name)
             ? name
@@ -21,11 +24,11 @@ internal sealed record UcliStaticSchemaRegistration
         Path = path ?? throw new ArgumentNullException(nameof(path));
         Kind = kind;
         TypeInfo = typeInfo ?? throw new ArgumentNullException(nameof(typeInfo));
-        Command = manifestMetadata?.Command;
-        Status = manifestMetadata?.Status;
-        Usages = Snapshot(manifestMetadata?.Usages);
-        StaticDependencies = Snapshot(manifestMetadata?.StaticDependencies);
-        DynamicValidationSources = Snapshot(manifestMetadata?.DynamicValidationSources);
+        Command = command;
+        Status = status;
+        Usages = Snapshot(usages);
+        StaticDependencies = Snapshot(staticDependencies);
+        DynamicValidationSources = Snapshot(dynamicValidationSources);
     }
 
     /// <summary> Gets the stable logical schema name. </summary>
@@ -58,18 +61,121 @@ internal sealed record UcliStaticSchemaRegistration
     /// <summary> Gets dynamic validation sources. </summary>
     public IReadOnlyList<string> DynamicValidationSources { get; }
 
-    private static IReadOnlyList<T> Snapshot<T> (IReadOnlyList<T>? values)
+    /// <summary> Registers the schema-set manifest contract. </summary>
+    public static UcliStaticSchemaRegistration SchemaSetMetadata (
+        string name,
+        RootRelativePath path,
+        JsonTypeInfo typeInfo)
     {
-        return values is null
+        return CreateDocument(
+            name,
+            path,
+            UcliStaticSchemaKind.SchemaSetMetadata,
+            typeInfo);
+    }
+
+    /// <summary> Registers the common CLI result envelope contract. </summary>
+    public static UcliStaticSchemaRegistration CliOutputEnvelope (
+        string name,
+        RootRelativePath path,
+        JsonTypeInfo typeInfo)
+    {
+        return CreateDocument(
+            name,
+            path,
+            UcliStaticSchemaKind.CliOutputEnvelope,
+            typeInfo);
+    }
+
+    /// <summary> Registers a reusable common definition referenced by public schemas. </summary>
+    public static UcliStaticSchemaRegistration CommonDefinition (
+        string name,
+        RootRelativePath path,
+        JsonTypeInfo typeInfo)
+    {
+        return CreateDocument(
+            name,
+            path,
+            UcliStaticSchemaKind.CommonDefinition,
+            typeInfo);
+    }
+
+    /// <summary> Registers one command payload contract with its command and status identity. </summary>
+    public static UcliStaticSchemaRegistration CliOutputPayload (
+        string name,
+        RootRelativePath path,
+        JsonTypeInfo typeInfo,
+        string command,
+        CommandResultStatus status)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(command);
+        if (!TextVocabulary.IsDefined(status))
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(status),
+                status,
+                "Command result status must be defined.");
+        }
+
+        return new UcliStaticSchemaRegistration(
+            name,
+            path,
+            UcliStaticSchemaKind.CliOutputPayload,
+            typeInfo,
+            command,
+            status,
+            Array.Empty<UcliStaticSchemaUsage>(),
+            Array.Empty<string>(),
+            Array.Empty<string>());
+    }
+
+    /// <summary> Registers one user-input document contract with its delivery relationships. </summary>
+    public static UcliStaticSchemaRegistration UserInputDocument (
+        string name,
+        RootRelativePath path,
+        JsonTypeInfo typeInfo,
+        IReadOnlyList<UcliStaticSchemaUsage> usages,
+        IReadOnlyList<string> staticDependencies,
+        IReadOnlyList<string> dynamicValidationSources)
+    {
+        ArgumentNullException.ThrowIfNull(usages);
+        ArgumentNullException.ThrowIfNull(staticDependencies);
+        ArgumentNullException.ThrowIfNull(dynamicValidationSources);
+        return new UcliStaticSchemaRegistration(
+            name,
+            path,
+            UcliStaticSchemaKind.UserInputDocument,
+            typeInfo,
+            command: null,
+            status: null,
+            usages,
+            staticDependencies,
+            dynamicValidationSources);
+    }
+
+    private static UcliStaticSchemaRegistration CreateDocument (
+        string name,
+        RootRelativePath path,
+        UcliStaticSchemaKind kind,
+        JsonTypeInfo typeInfo)
+    {
+        return new UcliStaticSchemaRegistration(
+            name,
+            path,
+            kind,
+            typeInfo,
+            command: null,
+            status: null,
+            Array.Empty<UcliStaticSchemaUsage>(),
+            Array.Empty<string>(),
+            Array.Empty<string>());
+    }
+
+    private static IReadOnlyList<T> Snapshot<T> (IReadOnlyList<T> values)
+    {
+        ArgumentNullException.ThrowIfNull(values);
+        return values.Count == 0
             ? Array.Empty<T>()
             : Array.AsReadOnly(values.ToArray());
     }
 }
-
-/// <summary> Describes the optional product delivery relationships recorded in the schema manifest. </summary>
-internal sealed record UcliStaticSchemaManifestMetadata (
-    string? Command,
-    CommandResultStatus? Status,
-    IReadOnlyList<UcliStaticSchemaUsage>? Usages = null,
-    IReadOnlyList<string>? StaticDependencies = null,
-    IReadOnlyList<string>? DynamicValidationSources = null);

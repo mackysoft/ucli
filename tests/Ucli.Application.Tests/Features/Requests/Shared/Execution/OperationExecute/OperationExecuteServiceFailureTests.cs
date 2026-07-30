@@ -9,12 +9,36 @@ namespace MackySoft.Ucli.Application.Tests.Execution.OperationExecute;
 
 public sealed class OperationExecuteServiceFailureTests
 {
-    public static TheoryData<UcliCode, UcliCode, object> TransportFailureCases => new()
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WhenFixedOperationIsNotRegistered_ReturnsOperationNotFoundBeforeAuthorization ()
     {
-        { UcliCoreErrorCodes.InvalidArgument, UcliCoreErrorCodes.InvalidArgument, ApplicationOutcome.InvalidArgument },
-        { PlanTokenErrorCodes.PlanTokenInvalid, PlanTokenErrorCodes.PlanTokenInvalid, ApplicationOutcome.InvalidArgument },
-        { UnityExecutionModeDecisionErrorCodes.DaemonNotRunning, UnityExecutionModeDecisionErrorCodes.DaemonNotRunning, ApplicationOutcome.ToolError },
-    };
+        var projectContextResolver = OperationExecuteServiceTestSupport.CreateProjectContextResolver();
+        var authorizationService = OperationExecuteServiceTestSupport.CreateAllowedAuthorizationService();
+        var service = OperationExecuteServiceTestSupport.CreateService(
+            projectContextResolver,
+            authorizationService,
+            new UnexpectedUnityRequestExecutor(),
+            operationCatalog: new RecordingOperationCatalog
+            {
+                Operations = [],
+            });
+
+        var result = await service.ExecuteAsync(
+            OperationExecuteServiceTestSupport.RequestId,
+            OperationExecuteServiceTestSupport.RefreshOperation,
+            OperationExecuteServiceTestSupport.CreateInput(
+                mode: null,
+                timeoutMilliseconds: null,
+                failFast: false),
+            cancellationToken: CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ApplicationOutcome.InvalidArgument, result.Outcome);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(ValidationErrorCodes.OperationNotFound, error.Code);
+        Assert.Empty(authorizationService.Invocations);
+    }
 
     [Fact]
     [Trait("Size", "Small")]
@@ -27,7 +51,8 @@ public sealed class OperationExecuteServiceFailureTests
         var service = OperationExecuteServiceTestSupport.CreateService(
             projectContextResolver,
             authorizationService,
-            new UnexpectedUnityRequestExecutor());
+            new UnexpectedUnityRequestExecutor(),
+            OperationExecuteServiceTestSupport.CreateRefreshOperationCatalog());
 
         var result = await service.ExecuteAsync(
             OperationExecuteServiceTestSupport.RequestId,
@@ -46,23 +71,22 @@ public sealed class OperationExecuteServiceFailureTests
         Assert.Null(error.InstancePath);
     }
 
-    [Theory]
-    [MemberData(nameof(TransportFailureCases))]
+    [Fact]
     [Trait("Size", "Small")]
-    public async Task Execute_WhenTransportExecutionFails_MapsExitCodeFromErrorCode (
-        UcliCode errorCode,
-        UcliCode expectedErrorCode,
-        object expectedOutcome)
+    public async Task Execute_WhenTransportExecutionFails_PreservesClassifiedUnityFailure ()
     {
         var projectContextResolver = OperationExecuteServiceTestSupport.CreateProjectContextResolver();
         var authorizationService = OperationExecuteServiceTestSupport.CreateAllowedAuthorizationService();
-        var ipcRequestExecutor = new RecordingUnityRequestExecutor(UnityRequestExecutionResultTestFactory.Failure(
-            "execution failed",
-            errorCode));
+        var ipcRequestExecutor = new RecordingUnityRequestExecutor(UnityRequestExecutionResult.Failure(
+            new UnityRequestFailure(
+                UnityRequestFailureKind.General,
+                UnityExecutionModeDecisionErrorCodes.DaemonNotRunning,
+                "execution failed")));
         var service = OperationExecuteServiceTestSupport.CreateService(
             projectContextResolver,
             authorizationService,
-            ipcRequestExecutor);
+            ipcRequestExecutor,
+            OperationExecuteServiceTestSupport.CreateRefreshOperationCatalog());
 
         var result = await service.ExecuteAsync(
             OperationExecuteServiceTestSupport.RequestId,
@@ -74,10 +98,11 @@ public sealed class OperationExecuteServiceFailureTests
             cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
-        Assert.Equal(expectedOutcome, result.Outcome);
+        Assert.Equal(ApplicationOutcome.ToolError, result.Outcome);
         Assert.Empty(result.OpResults);
         var error = Assert.Single(result.Errors);
-        Assert.Equal(expectedErrorCode, error.Code);
+        Assert.Equal(ApplicationFailureKind.UnityIpcFailure, error.Kind);
+        Assert.Equal(UnityExecutionModeDecisionErrorCodes.DaemonNotRunning, error.Code);
         Assert.Equal("execution failed", error.Message);
     }
 
@@ -91,13 +116,16 @@ public sealed class OperationExecuteServiceFailureTests
         };
         var projectContextResolver = OperationExecuteServiceTestSupport.CreateProjectContextResolver(config);
         var authorizationService = OperationExecuteServiceTestSupport.CreateAllowedAuthorizationService();
-        var ipcRequestExecutor = new RecordingUnityRequestExecutor(UnityRequestExecutionResultTestFactory.Failure(
-            "execution failed",
-            UcliCoreErrorCodes.InternalError));
+        var ipcRequestExecutor = new RecordingUnityRequestExecutor(UnityRequestExecutionResult.Failure(
+            new UnityRequestFailure(
+                UnityRequestFailureKind.General,
+                UcliCoreErrorCodes.InternalError,
+                "execution failed")));
         var service = OperationExecuteServiceTestSupport.CreateService(
             projectContextResolver,
             authorizationService,
-            ipcRequestExecutor);
+            ipcRequestExecutor,
+            OperationExecuteServiceTestSupport.CreateRefreshOperationCatalog());
 
         var result = await service.ExecuteAsync(
             OperationExecuteServiceTestSupport.RequestId,
@@ -139,7 +167,8 @@ public sealed class OperationExecuteServiceFailureTests
         var service = OperationExecuteServiceTestSupport.CreateService(
             projectContextResolver,
             authorizationService,
-            ipcRequestExecutor);
+            ipcRequestExecutor,
+            OperationExecuteServiceTestSupport.CreateRefreshOperationCatalog());
 
         var result = await service.ExecuteAsync(
             OperationExecuteServiceTestSupport.RequestId,
@@ -154,6 +183,7 @@ public sealed class OperationExecuteServiceFailureTests
         Assert.Equal(ApplicationOutcome.InvalidArgument, result.Outcome);
         Assert.Single(result.OpResults);
         var error = Assert.Single(result.Errors);
+        Assert.Equal(ApplicationFailureKind.InvalidInput, error.Kind);
         Assert.Equal(UcliCoreErrorCodes.InvalidArgument, error.Code);
         Assert.Equal("/steps/0", error.InstancePath);
     }
@@ -174,7 +204,8 @@ public sealed class OperationExecuteServiceFailureTests
         var service = OperationExecuteServiceTestSupport.CreateService(
             projectContextResolver,
             authorizationService,
-            ipcRequestExecutor);
+            ipcRequestExecutor,
+            OperationExecuteServiceTestSupport.CreateRefreshOperationCatalog());
 
         var result = await service.ExecuteAsync(
             OperationExecuteServiceTestSupport.RequestId,

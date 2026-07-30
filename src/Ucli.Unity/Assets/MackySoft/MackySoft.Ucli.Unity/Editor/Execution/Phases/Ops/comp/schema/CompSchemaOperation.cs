@@ -19,7 +19,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
     {
         private readonly ComponentSchemaExtractor schemaExtractor = new ComponentSchemaExtractor();
 
-        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<ComponentTypeArgs, IndexSchemaEntryJsonContract>(
+        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.CreateWithoutVerdict<ComponentTypeArgs, IndexSchemaEntryJsonContract>(
             operationName: UcliPrimitiveOperationNames.CompSchema,
             kind: UcliOperationKind.Query,
             description: "Returns the serialized schema for a component type.",
@@ -32,7 +32,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 touchedContract: "Returns no touched resources because schema metadata is observational data.",
                 readPostconditionContract: "Does not stale read surfaces by itself.",
                 failureSemantics: "Timeout, cancellation, or schema extraction failure means the schema was not fully produced.",
-                dangerousNotes: Array.Empty<string>()));
+                dangerousNotes: Array.Empty<string>()),
+            requiresPreCallPlanReplay: false,
+            exposure: UcliOperationExposure.Public,
+            playModeSupport: UcliOperationPlayModeSupport.Disallowed,
+            codeContract: null);
 
         protected override Task<OperationPhaseStepResult> ValidateAsync (
             NormalizedOperation operation,
@@ -46,7 +50,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return Task.FromResult(failure!);
             }
 
-            return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false));
+            return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()));
         }
 
         protected override Task<OperationPhaseStepResult> PlanAsync (
@@ -79,10 +83,10 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             var schemaEntry = schemaExtractor.Extract(validationState.ComponentType);
-            return OperationPhaseStepResult.Success(
+            return SuccessWithResult(
+                schemaEntry,
                 applied: false,
-                changed: false,
-                result: SerializeResultToElement(schemaEntry));
+                changed: false,touched:Array.Empty<OperationTouch>());
         }
 
         private static bool TryValidateArguments (

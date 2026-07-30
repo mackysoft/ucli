@@ -1,6 +1,5 @@
 using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Source;
 using MackySoft.Ucli.Application.Shared.Configuration;
-using MackySoft.Ucli.Application.Shared.Foundation;
 
 namespace MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 
@@ -20,9 +19,9 @@ internal sealed class OperationCatalogDiscoveryService : IOperationCatalogDiscov
     public async ValueTask<IReadOnlyList<UcliOperationDescriptor>> DiscoverAsync (
         ResolvedUnityProjectContext unityProject,
         UcliConfig config,
-        UnityExecutionMode mode = UnityExecutionMode.Auto,
-        TimeSpan? timeout = null,
-        bool failFast = false,
+        UnityExecutionMode mode,
+        TimeSpan? timeout,
+        bool failFast,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -38,9 +37,9 @@ internal sealed class OperationCatalogDiscoveryService : IOperationCatalogDiscov
                 config);
             if (!timeoutResolutionResult.IsSuccess)
             {
-                throw new OperationCatalogLoadException(CreatePrefixedError(
-                    timeoutResolutionResult.Error!,
-                    "Operation catalog timeout could not be resolved."));
+                throw OperationCatalogLoadException.Create(
+                    ApplicationFailure.FromExecutionError(timeoutResolutionResult.Error!),
+                    "Operation catalog timeout could not be resolved.");
             }
 
             effectiveTimeout = timeoutResolutionResult.Timeout;
@@ -59,52 +58,15 @@ internal sealed class OperationCatalogDiscoveryService : IOperationCatalogDiscov
                 includeEditLoweringOnly: true,
                 cancellationToken: cancellationToken)
             .ConfigureAwait(false);
-        if (!catalogResult.IsSuccess)
+        if (catalogResult is OpsCatalogFetchResult.Failed failedCatalogRead)
         {
-            throw new OperationCatalogLoadException(
-                CreateErrorFromCode(
-                    catalogResult.ErrorCode!,
-                    $"Operation catalog discovery failed. {catalogResult.Message}"),
-                catalogResult.ErrorCode);
+            throw OperationCatalogLoadException.Create(
+                failedCatalogRead.Error,
+                "Operation catalog discovery failed.");
         }
 
-        return OperationDescriptorMapper.Map(catalogResult.Snapshot!.Operations, cancellationToken);
-    }
-
-    private static ExecutionError CreatePrefixedError (
-        ExecutionError error,
-        string messagePrefix)
-    {
-        ArgumentNullException.ThrowIfNull(error);
-        ArgumentException.ThrowIfNullOrWhiteSpace(messagePrefix);
-
-        var message = $"{messagePrefix} {error.Message}";
-        return error.Kind switch
-        {
-            ExecutionErrorKind.InvalidArgument => ExecutionError.InvalidArgument(message),
-            ExecutionErrorKind.Timeout => ExecutionError.Timeout(message),
-            _ => ExecutionError.InternalError(message),
-        };
-    }
-
-    private static ExecutionError CreateErrorFromCode (
-        UcliCode errorCode,
-        string message)
-    {
-        ArgumentNullException.ThrowIfNull(errorCode);
-
-        ArgumentException.ThrowIfNullOrWhiteSpace(message);
-
-        if (errorCode == UcliCoreErrorCodes.InvalidArgument)
-        {
-            return ExecutionError.InvalidArgument(message);
-        }
-
-        if (errorCode == ExecutionErrorCodes.IpcTimeout)
-        {
-            return ExecutionError.Timeout(message);
-        }
-
-        return ExecutionError.InternalError(message);
+        var successfulCatalogRead = catalogResult as OpsCatalogFetchResult.Succeeded
+            ?? throw new InvalidOperationException($"Unsupported ops-catalog fetch result '{catalogResult.GetType().Name}'.");
+        return OperationDescriptorMapper.Map(successfulCatalogRead.Snapshot.Operations, cancellationToken);
     }
 }

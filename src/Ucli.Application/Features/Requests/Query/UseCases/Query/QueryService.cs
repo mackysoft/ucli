@@ -1,6 +1,8 @@
 using System.Text.Json;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Conversion;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
+using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Validation;
+using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 using MackySoft.Ucli.Application.Shared.Context;
 using MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Assets;
 using MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Projection;
@@ -16,6 +18,10 @@ internal sealed class QueryService : IQueryService
 {
     private readonly IProjectContextResolver projectContextResolver;
 
+    private readonly IOperationCatalog operationCatalog;
+
+    private readonly IReadIndexValidationCatalogResolver readIndexValidationCatalogResolver;
+
     private readonly IAssetSearchLookupAccessService assetSearchLookupAccessService;
 
     private readonly ISceneTreeLiteAccessService sceneTreeLiteAccessService;
@@ -23,13 +29,24 @@ internal sealed class QueryService : IQueryService
     private readonly IUnityRequestExecutor unityRequestExecutor;
 
     /// <summary> Initializes a new instance of the <see cref="QueryService" /> class. </summary>
+    /// <param name="projectContextResolver"> The project-context resolver. </param>
+    /// <param name="operationCatalog"> The authoritative operation catalog. </param>
+    /// <param name="readIndexValidationCatalogResolver"> The persisted operation-catalog resolver. </param>
+    /// <param name="assetSearchLookupAccessService"> The asset-search read-index access service. </param>
+    /// <param name="sceneTreeLiteAccessService"> The scene-tree read-index access service. </param>
+    /// <param name="unityRequestExecutor"> The Unity request executor. </param>
+    /// <exception cref="ArgumentNullException"> Thrown when any dependency is <see langword="null" />. </exception>
     public QueryService (
         IProjectContextResolver projectContextResolver,
+        IOperationCatalog operationCatalog,
+        IReadIndexValidationCatalogResolver readIndexValidationCatalogResolver,
         IAssetSearchLookupAccessService assetSearchLookupAccessService,
         ISceneTreeLiteAccessService sceneTreeLiteAccessService,
         IUnityRequestExecutor unityRequestExecutor)
     {
         this.projectContextResolver = projectContextResolver ?? throw new ArgumentNullException(nameof(projectContextResolver));
+        this.operationCatalog = operationCatalog ?? throw new ArgumentNullException(nameof(operationCatalog));
+        this.readIndexValidationCatalogResolver = readIndexValidationCatalogResolver ?? throw new ArgumentNullException(nameof(readIndexValidationCatalogResolver));
         this.assetSearchLookupAccessService = assetSearchLookupAccessService ?? throw new ArgumentNullException(nameof(assetSearchLookupAccessService));
         this.sceneTreeLiteAccessService = sceneTreeLiteAccessService ?? throw new ArgumentNullException(nameof(sceneTreeLiteAccessService));
         this.unityRequestExecutor = unityRequestExecutor ?? throw new ArgumentNullException(nameof(unityRequestExecutor));
@@ -55,7 +72,9 @@ internal sealed class QueryService : IQueryService
             return QueryServiceResultFactory.FromExecutionError(
                 input.Operation.CommandName,
                 requestId,
-                projectContextResult.Error!);
+                projectContextResult.Error!,
+                ReadIndexInfoFactory.Unity(fallbackReason: null),
+                project: null);
         }
 
         var projectContext = projectContextResult.Context!;
@@ -70,6 +89,7 @@ internal sealed class QueryService : IQueryService
                 input.Operation.CommandName,
                 requestId,
                 timeoutResolutionResult.Error!,
+                ReadIndexInfoFactory.Unity(fallbackReason: null),
                 project: project);
         }
 
@@ -80,6 +100,7 @@ internal sealed class QueryService : IQueryService
                 input.Operation.CommandName,
                 requestId,
                 readIndexModeResult.Error!,
+                ReadIndexInfoFactory.Unity(fallbackReason: null),
                 project: project);
         }
 
@@ -125,12 +146,8 @@ internal sealed class QueryService : IQueryService
                     cancellationToken)
                 .ConfigureAwait(false),
 
-            _ => QueryServiceResultFactory.FromExecutionError(
-                input.Operation.CommandName,
-                requestId,
-                ExecutionError.InvalidArgument(
-                    $"Query operation '{input.Operation.OperationName}' is not supported."),
-                project: project),
+            _ => throw new InvalidOperationException(
+                $"Query operation request type '{input.Operation.GetType().FullName}' has no execution path."),
         };
     }
 
@@ -157,15 +174,54 @@ internal sealed class QueryService : IQueryService
             .ConfigureAwait(false);
         if (!readResult.IsSuccess)
         {
-            return QueryServiceResultFactory.FromIpcError(
+            return QueryServiceResultFactory.Failure(
                 operation.CommandName,
                 requestId,
-                new OperationExecutionError(readResult.ErrorCode!, readResult.Message, null),
+                opResults: [],
+                errors:
+                [
+                    ApplicationFailure.FromCode(
+                        readResult.ErrorCode,
+                        readResult.Message),
+                ],
+                message: readResult.Message,
                 ReadIndexInfoFactory.Unity(readResult.Message),
-                project);
+                project,
+                contractViolations: []);
         }
 
         var output = readResult.Output!;
+        var readIndex = ReadIndexInfoFactory.FromAssetLookupAccess(output.AccessInfo);
+        UcliOperationDescriptor operationDescriptor;
+        try
+        {
+            operationDescriptor = output.AccessInfo.Source == AssetLookupSource.Index
+                ? await readIndexValidationCatalogResolver.ResolveOperationAsync(
+                        projectContext.UnityProject,
+                        readIndexMode,
+                        output.AccessInfo.GeneratedAtUtc,
+                        operation.OperationName,
+                        cancellationToken)
+                    .ConfigureAwait(false)
+                : await ResolveLiveOperationDescriptorAsync(
+                        operation.OperationName,
+                        projectContext,
+                        executionMode,
+                        timeout,
+                        failFast,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+        }
+        catch (InvalidOperationException exception)
+        {
+            return CreateOperationMetadataFailure(
+                operation.CommandName,
+                requestId,
+                exception,
+                readIndex,
+                project);
+        }
+
         var windowedEntries = BoundedWindowApplicator.Apply(output.Entries, operation.WindowOptions);
         return QueryServiceResultFactory.Success(
             operation.CommandName,
@@ -173,10 +229,12 @@ internal sealed class QueryService : IQueryService
             [
                 CreatePlanOperationResult(
                     operation,
+                    operationDescriptor,
                     JsonSerializer.SerializeToElement(CreateAssetsFindResult(windowedEntries), IpcJsonSerializerOptions.Default)),
             ],
-            ReadIndexInfoFactory.FromAssetLookupAccess(output.AccessInfo),
-            project);
+            readIndex,
+            project,
+            contractViolations: []);
     }
 
     private async ValueTask<QueryServiceResult> ExecuteSceneTreeAsync (
@@ -204,15 +262,54 @@ internal sealed class QueryService : IQueryService
             .ConfigureAwait(false);
         if (!readResult.IsSuccess)
         {
-            return QueryServiceResultFactory.FromIpcError(
+            return QueryServiceResultFactory.Failure(
                 operation.CommandName,
                 requestId,
-                new OperationExecutionError(readResult.ErrorCode!, readResult.Message, null),
+                opResults: [],
+                errors:
+                [
+                    ApplicationFailure.FromCode(
+                        readResult.ErrorCode,
+                        readResult.Message),
+                ],
+                message: readResult.Message,
                 ReadIndexInfoFactory.Unity(readResult.Message),
-                project);
+                project,
+                contractViolations: []);
         }
 
         var output = readResult.Output!;
+        var readIndex = ReadIndexInfoFactory.FromSceneTreeLiteAccess(output.AccessInfo);
+        UcliOperationDescriptor operationDescriptor;
+        try
+        {
+            operationDescriptor = output.AccessInfo.Source == SceneTreeLiteSource.Index
+                ? await readIndexValidationCatalogResolver.ResolveOperationAsync(
+                        projectContext.UnityProject,
+                        readIndexMode,
+                        output.AccessInfo.GeneratedAtUtc,
+                        operation.OperationName,
+                        cancellationToken)
+                    .ConfigureAwait(false)
+                : await ResolveLiveOperationDescriptorAsync(
+                        operation.OperationName,
+                        projectContext,
+                        executionMode,
+                        timeout,
+                        input.FailFast,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+        }
+        catch (InvalidOperationException exception)
+        {
+            return CreateOperationMetadataFailure(
+                operation.CommandName,
+                requestId,
+                exception,
+                readIndex,
+                project);
+        }
+
         var windowedRoots = SceneTreeWindowProjector.Apply(
             ReadIndexJsonContractMapper.ToJsonContracts(output.Roots),
             operation.WindowOptions);
@@ -222,10 +319,12 @@ internal sealed class QueryService : IQueryService
             [
                 CreatePlanOperationResult(
                     operation,
+                    operationDescriptor,
                     JsonSerializer.SerializeToElement(CreateSceneTreeResult(output.ScenePath, windowedRoots, output.SourceState), IpcJsonSerializerOptions.Default)),
             ],
-            ReadIndexInfoFactory.FromSceneTreeLiteAccess(output.AccessInfo),
-            project);
+            readIndex,
+            project,
+            contractViolations: []);
     }
 
     private async ValueTask<QueryServiceResult> ExecuteInUnityAsync (
@@ -240,6 +339,28 @@ internal sealed class QueryService : IQueryService
         CancellationToken cancellationToken)
     {
         var readIndex = ReadIndexInfoFactory.Unity(ResolveUnityOnlyFallbackReason(readIndexMode));
+        UcliOperationDescriptor operationDescriptor;
+        try
+        {
+            operationDescriptor = await ResolveLiveOperationDescriptorAsync(
+                    operation.OperationName,
+                    projectContext,
+                    executionMode,
+                    timeout,
+                    input.FailFast,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (InvalidOperationException exception)
+        {
+            return CreateOperationMetadataFailure(
+                operation.CommandName,
+                requestId,
+                exception,
+                readIndex,
+                project);
+        }
+
         var executionResult = await unityRequestExecutor.ExecuteAsync(
                 UcliCommandIds.Query,
                 executionMode,
@@ -266,13 +387,28 @@ internal sealed class QueryService : IQueryService
                 ],
                 failure.Message,
                 readIndex,
-                project);
+                project,
+                contractViolations: []);
         }
 
         var convertedResponse = ExecuteResponseConverter.Convert(
             executionResult.Response!,
             projectContext.UnityProject);
         var responseProject = convertedResponse.Project ?? project;
+        if (!OperationExecutionResultContractValidator.TryValidateDirectOperation(
+                operationDescriptor,
+                IpcExecuteOperationPhase.Plan,
+                convertedResponse,
+                out var responseContractError))
+        {
+            return QueryServiceResultFactory.FromExecutionError(
+                operation.CommandName,
+                requestId,
+                ExecutionError.InternalError(responseContractError, UcliCoreErrorCodes.InternalError),
+                readIndex,
+                responseProject);
+        }
+
         if (convertedResponse.IsSuccess)
         {
             return QueryServiceResultFactory.Success(
@@ -290,14 +426,70 @@ internal sealed class QueryService : IQueryService
             requestId,
             convertedResponse.OpResults,
             failures,
-            RequestFailureNormalizer.ResolveMessage(failures, "uCLI query failed."),
+            failures[0].Message,
             readIndex,
             responseProject,
             convertedResponse.ContractViolations);
     }
 
+    private async ValueTask<UcliOperationDescriptor> ResolveLiveOperationDescriptorAsync (
+        string operationName,
+        ProjectContext projectContext,
+        UnityExecutionMode executionMode,
+        TimeSpan timeout,
+        bool failFast,
+        CancellationToken cancellationToken)
+    {
+        var operations = await operationCatalog.GetAllAsync(
+                projectContext.UnityProject,
+                projectContext.Config,
+                executionMode,
+                timeout,
+                failFast,
+                cancellationToken)
+            .ConfigureAwait(false);
+        return operations.FirstOrDefault(candidate =>
+                string.Equals(candidate.Name, operationName, StringComparison.Ordinal))
+            ?? throw OperationCatalogLoadException.Create(
+                ApplicationFailure.InvalidInput(
+                    $"Operation '{operationName}' is not registered.",
+                    ValidationErrorCodes.OperationNotFound),
+                "Operation catalog is incomplete.");
+    }
+
+    private static QueryServiceResult CreateOperationMetadataFailure (
+        string commandName,
+        Guid requestId,
+        InvalidOperationException exception,
+        ReadIndexInfo readIndex,
+        ProjectIdentityInfo project)
+    {
+        if (exception is OperationCatalogLoadException catalogException)
+        {
+            var failure = catalogException.CreatePrefixedFailure("Query could not load operation metadata.");
+            return QueryServiceResultFactory.Failure(
+                commandName,
+                requestId,
+                opResults: [],
+                errors: [failure],
+                message: failure.Message,
+                readIndex,
+                project,
+                contractViolations: []);
+        }
+
+        return QueryServiceResultFactory.FromExecutionError(
+            commandName,
+            requestId,
+            ExecutionError.InternalError(
+                $"Query could not load operation metadata. {exception.Message}"),
+            readIndex,
+            project);
+    }
+
     private static OperationExecutionOperationResult CreatePlanOperationResult (
         QueryOperationRequest operation,
+        UcliOperationDescriptor operationDescriptor,
         JsonElement result)
     {
         return OperationExecutionModelMapper.CreatePlanResult(
@@ -305,6 +497,7 @@ internal sealed class QueryService : IQueryService
             applied: false,
             changed: false,
             touched: [],
+            operationDescriptorDigest: operationDescriptor.DescriptorDigest,
             result: result);
     }
 

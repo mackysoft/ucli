@@ -22,12 +22,15 @@ public sealed class CallServicePlanFailureTests
                     status: IpcResponseStatus.Error,
                     opResults:
                     [
-                        new IpcExecuteOperationResult(
-                            Op: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe,
-                            Phase: IpcExecuteOperationPhase.Plan,
-                            Applied: false,
-                            Changed: false,
-                            Touched: []),
+                        IpcExecuteOperationResultFactory.CreateDirectWithoutVerdict(
+                            op: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe,
+                            phase: IpcExecuteOperationPhase.Plan,
+                            applied: false,
+                            changed: false,
+                            touched: [],
+                            operationDescriptorDigest: OperationDescriptorDigest,
+                            result: null,
+                            diagnostics: []),
                     ],
                     errors:
                     [
@@ -73,12 +76,15 @@ public sealed class CallServicePlanFailureTests
                     status: IpcResponseStatus.Ok,
                     opResults:
                     [
-                        new IpcExecuteOperationResult(
-                            Op: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe,
-                            Phase: IpcExecuteOperationPhase.Plan,
-                            Applied: false,
-                            Changed: false,
-                            Touched: []),
+                        IpcExecuteOperationResultFactory.CreateDirectWithoutVerdict(
+                            op: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe,
+                            phase: IpcExecuteOperationPhase.Plan,
+                            applied: false,
+                            changed: false,
+                            touched: [],
+                            operationDescriptorDigest: OperationDescriptorDigest,
+                            result: null,
+                            diagnostics: []),
                     ],
                     errors: [],
                     planToken: "issued-plan-token")),
@@ -87,12 +93,15 @@ public sealed class CallServicePlanFailureTests
                     status: IpcResponseStatus.Error,
                     opResults:
                     [
-                        new IpcExecuteOperationResult(
-                            Op: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe,
-                            Phase: IpcExecuteOperationPhase.Plan,
-                            Applied: false,
-                            Changed: false,
-                            Touched: []),
+                        IpcExecuteOperationResultFactory.CreateDirectWithoutVerdict(
+                            op: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe,
+                            phase: IpcExecuteOperationPhase.Plan,
+                            applied: false,
+                            changed: false,
+                            touched: [],
+                            operationDescriptorDigest: OperationDescriptorDigest,
+                            result: null,
+                            diagnostics: []),
                     ],
                     errors:
                     [

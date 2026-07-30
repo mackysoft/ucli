@@ -12,20 +12,29 @@ internal static class ReadIndexOperationTestFactory
             UcliPrimitiveOperationNames.GoDescribe,
             IpcJsonSerializerOptions.PublicRawOperationContracts.GetTypeInfo(typeof(GoDescribeArgs)),
             IpcJsonSerializerOptions.PublicRawOperationContracts.GetTypeInfo(typeof(GameObjectDescriptionResult)));
-        var describe = UcliOperationDescribeContractBuilder.Create(
+        var describe = UcliOperationDescribeContractBuilder.CreateWithoutVerdict(
             generationResult,
             "Returns a GameObject description including components and child hierarchy.",
-            CreateSafeQueryAssurance(sideEffects ?? Array.Empty<UcliOperationSideEffect>()));
+            CreateSafeQueryAssurance(sideEffects ?? Array.Empty<UcliOperationSideEffect>()),
+            codeContract: null);
 
-        return new IndexOpEntryJsonContract(
+        var descriptor = new IndexOpEntryJsonContract(
             Name: UcliPrimitiveOperationNames.GoDescribe,
             Kind: UcliOperationKind.Query,
             Policy: OperationPolicy.Safe,
             ArgsContract: describe.ArgsContract!,
-            ResultContract: describe.ResultContract)
+            DescriptorDigest: null,
+            VerdictContract: null,
+            ResultContract: describe.ResultContract,
+            Exposure: null,
+            PlayModeSupport: UcliOperationPlayModeSupport.Disallowed)
         {
             Description = describe.Description,
             Assurance = describe.Assurance,
+        };
+        return descriptor with
+        {
+            DescriptorDigest = UcliOperationDescriptorDigest.Calculate(descriptor),
         };
     }
 

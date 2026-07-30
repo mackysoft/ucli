@@ -1,4 +1,3 @@
-using System.Text.Json;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -14,13 +13,15 @@ public sealed class OperationExecuteServiceDispatchTests
         var projectContextResolver = OperationExecuteServiceTestSupport.CreateProjectContextResolver();
         var authorizationService = OperationExecuteServiceTestSupport.CreateAllowedAuthorizationService();
         var timeProvider = new ManualTimeProvider();
-        var operationResultPayload = JsonSerializer.SerializeToElement(new
+        var operationCatalog = new RecordingOperationCatalog
         {
-            ok = true,
-        });
+            Operations =
+            [
+                OperationExecuteServiceTestSupport.RefreshDescriptor,
+            ],
+        };
         var ipcRequestExecutor = new RecordingUnityRequestExecutor(
             OperationExecuteServiceTestSupport.CreateCallSuccessResult(
-                result: operationResultPayload,
                 touched:
                 [
                     new IpcExecuteTouchedResource(
@@ -32,7 +33,8 @@ public sealed class OperationExecuteServiceDispatchTests
             projectContextResolver,
             authorizationService,
             ipcRequestExecutor,
-            timeProvider: timeProvider);
+            timeProvider: timeProvider,
+            operationCatalog: operationCatalog);
 
         var result = await service.ExecuteAsync(
             OperationExecuteServiceTestSupport.RequestId,
@@ -52,7 +54,7 @@ public sealed class OperationExecuteServiceDispatchTests
         Assert.Equal(IpcExecuteOperationPhase.Call, opResult.Phase);
         Assert.True(opResult.Applied);
         Assert.True(opResult.Changed);
-        Assert.Equal(JsonValueKind.Object, opResult.Result!.Value.ValueKind);
+        Assert.Null(opResult.Result);
         var touchedResource = Assert.Single(opResult.Touched);
         Assert.Equal(UcliTouchedResourceKind.Asset, touchedResource.Kind);
         Assert.Equal("Assets/Example.txt", touchedResource.Path);
@@ -62,6 +64,10 @@ public sealed class OperationExecuteServiceDispatchTests
             authorizationService,
             UcliPrimitiveOperationNames.ProjectRefresh,
             OperationPolicy.Advanced);
+        var catalogInvocation = Assert.Single(operationCatalog.ProjectGetAllInvocations);
+        Assert.Equal(UnityExecutionMode.Daemon, catalogInvocation.Mode);
+        Assert.Equal(TimeSpan.FromMilliseconds(120000), catalogInvocation.Timeout);
+        Assert.True(catalogInvocation.FailFast);
 
         var execution = OperationExecuteInvocationAssert.CallDispatched(
             ipcRequestExecutor,
@@ -73,6 +79,6 @@ public sealed class OperationExecuteServiceDispatchTests
             expectedOperationId: "refresh",
             expectedOperationName: UcliPrimitiveOperationNames.ProjectRefresh);
         var executeRequest = execution.Request;
-        Assert.Equal(JsonValueKind.Object, executeRequest.Args.ValueKind);
+        Assert.Equal(System.Text.Json.JsonValueKind.Object, executeRequest.Args.ValueKind);
     }
 }

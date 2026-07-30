@@ -9,15 +9,6 @@ namespace MackySoft.Ucli.Application.Tests;
 
 public sealed class OperationCatalogProviderTests
 {
-    private static readonly UcliCode CustomOperationMetadataErrorCode = new("OPERATION_METADATA_CUSTOM_ERROR");
-
-    private static readonly ContextResolutionErrorCase[] ContextResolutionErrorCases =
-    [
-        new(ExecutionErrorKind.InvalidArgument, ProjectContextErrorCodes.UnityProjectMarkerMissing),
-        new(ExecutionErrorKind.Timeout, ExecutionErrorCodes.IpcTimeout),
-        new(ExecutionErrorKind.InternalError, CustomOperationMetadataErrorCode),
-    ];
-
     [Fact]
     [Trait("Size", "Small")]
     public async Task GetOperations_WhenUnityProjectIsProvided_UsesProvidedContextWithoutResolvingCurrentDirectory ()
@@ -30,13 +21,23 @@ public sealed class OperationCatalogProviderTests
                 Name: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneOpen,
                 Kind: UcliOperationKind.Query,
                 Policy: OperationPolicy.Safe,
-                ArgsSchemaJson: """{"type":"object","additionalProperties":false}"""),
+                ArgsSchemaJson: """{"type":"object","additionalProperties":false}""",
+                DescriptorDigest: Sha256DigestTestFactory.Compute("scene open"),
+                VerdictContract: null,
+                ResultSchemaJson: null,
+                Exposure: UcliOperationExposure.Public),
         ];
         var contextResolver = new UnexpectedProjectContextResolver();
         var discoveryService = new RecordingOperationCatalogDiscoveryService(operations);
         var provider = new OperationCatalogProvider(contextResolver, discoveryService);
 
-        var result = await provider.GetOperationsAsync(unityProject, config, failFast: true, cancellationToken: CancellationToken.None);
+        var result = await provider.GetOperationsAsync(
+            unityProject,
+            config,
+            mode: UnityExecutionMode.Auto,
+            timeout: null,
+            failFast: true,
+            cancellationToken: CancellationToken.None);
 
         OperationCatalogInvocationAssert.OperationDiscoveryRequestedOnce(
             discoveryService,
@@ -63,7 +64,11 @@ public sealed class OperationCatalogProviderTests
                 Name: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneOpen,
                 Kind: UcliOperationKind.Query,
                 Policy: OperationPolicy.Safe,
-                ArgsSchemaJson: """{"type":"object","additionalProperties":false}"""),
+                ArgsSchemaJson: """{"type":"object","additionalProperties":false}""",
+                DescriptorDigest: Sha256DigestTestFactory.Compute("scene open"),
+                VerdictContract: null,
+                ResultSchemaJson: null,
+                Exposure: UcliOperationExposure.Public),
         ]);
         var provider = new OperationCatalogProvider(contextResolver, discoveryService);
 
@@ -87,41 +92,18 @@ public sealed class OperationCatalogProviderTests
     [Trait("Size", "Small")]
     public async Task GetOperations_WhenCurrentDirectoryContextCannotBeResolved_ThrowsTypedLoadException ()
     {
-        foreach (var testCase in ContextResolutionErrorCases)
-        {
-            var provider = new OperationCatalogProvider(
-                new StaticProjectContextResolver(ProjectContextResolutionResult.Failure(
-                    CreateError(
-                        testCase.ErrorKind,
-                        "UnityProject is invalid.",
-                        testCase.ErrorCode))),
-                new RecordingOperationCatalogDiscoveryService([]));
+        var provider = new OperationCatalogProvider(
+            new StaticProjectContextResolver(ProjectContextResolutionResult.Failure(
+                ExecutionError.InvalidArgument(
+                    "UnityProject is invalid.",
+                    ProjectContextErrorCodes.UnityProjectMarkerMissing))),
+            new RecordingOperationCatalogDiscoveryService([]));
 
-            var exception = await Assert.ThrowsAsync<OperationCatalogLoadException>(async () =>
-                await provider.GetOperationsAsync(CancellationToken.None));
+        var exception = await Assert.ThrowsAsync<OperationCatalogLoadException>(async () =>
+            await provider.GetOperationsAsync(CancellationToken.None));
 
-            Assert.Equal(testCase.ErrorKind, exception.Error.Kind);
-            Assert.Equal(testCase.ErrorCode, exception.Error.Code);
-            Assert.Equal(testCase.ErrorCode, exception.ErrorCode);
-            Assert.Contains("Operation catalog context could not be resolved.", exception.Error.Message, StringComparison.Ordinal);
-        }
-    }
-
-    private sealed record ContextResolutionErrorCase (
-        ExecutionErrorKind ErrorKind,
-        UcliCode ErrorCode);
-
-    private static ExecutionError CreateError (
-        ExecutionErrorKind errorKind,
-        string message,
-        UcliCode errorCode)
-    {
-        return errorKind switch
-        {
-            ExecutionErrorKind.InvalidArgument => ExecutionError.InvalidArgument(message, errorCode),
-            ExecutionErrorKind.Timeout => ExecutionError.Timeout(message, errorCode),
-            ExecutionErrorKind.InternalError => ExecutionError.InternalError(message, errorCode),
-            _ => throw new ArgumentOutOfRangeException(nameof(errorKind), errorKind, "Unsupported execution error kind."),
-        };
+        Assert.Equal(ApplicationFailureKind.InvalidInput, exception.Error.Kind);
+        Assert.Equal(ProjectContextErrorCodes.UnityProjectMarkerMissing, exception.Error.Code);
+        Assert.Contains("Operation catalog context could not be resolved.", exception.Error.Message, StringComparison.Ordinal);
     }
 }

@@ -218,7 +218,11 @@ public sealed class ExecuteResponseConverterContractViolationTests
             Phase: IpcExecuteOperationPhase.Call,
             Applied: true,
             Changed: true,
-            Touched: []);
+            Touched: [],
+            OperationDescriptorDigest: OperationDescriptorDigest,
+            Verdict: null,
+            Result: null,
+            Diagnostics: []);
     }
 
     private static OperationExecutionError CreateContractViolationError (string? instancePath)

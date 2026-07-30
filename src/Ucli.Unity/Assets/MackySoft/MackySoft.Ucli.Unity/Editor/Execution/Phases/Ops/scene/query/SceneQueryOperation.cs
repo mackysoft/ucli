@@ -18,7 +18,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
     [UcliOperation]
     internal sealed class SceneQueryOperation : UcliOperation<SceneQueryArgs, SceneQueryResult>
     {
-        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<SceneQueryArgs, SceneQueryResult>(
+        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.CreateWithoutVerdict<SceneQueryArgs, SceneQueryResult>(
             operationName: UcliPrimitiveOperationNames.SceneQuery,
             kind: UcliOperationKind.Query,
             description: "Finds objects or components in a scene by hierarchy path prefix and component type.",
@@ -31,7 +31,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 touchedContract: "Returns no touched resources because scene query results are observations, not dirty or persisted resources.",
                 readPostconditionContract: "Does not stale read surfaces by itself.",
                 failureSemantics: "Timeout, cancellation, or source read failure means the candidate set was not fully produced.",
-                dangerousNotes: Array.Empty<string>()));
+                dangerousNotes: Array.Empty<string>()),
+            requiresPreCallPlanReplay: false,
+            exposure: UcliOperationExposure.Public,
+            playModeSupport: UcliOperationPlayModeSupport.Disallowed,
+            codeContract: null);
 
         protected override Task<OperationPhaseStepResult> ValidateAsync (
             NormalizedOperation operation,
@@ -45,7 +49,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return Task.FromResult(failure!);
             }
 
-            return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false));
+            return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()));
         }
 
         protected override Task<OperationPhaseStepResult> PlanAsync (
@@ -96,10 +100,10 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             var payload = new SceneQueryResult(
                 scene: new SceneAssetPath(scenePath),
                 matches: CreatePayloadMatches(matches));
-            return Task.FromResult(OperationPhaseStepResult.Success(
+            return Task.FromResult(SuccessWithResult(
+                payload,
                 applied: false,
-                changed: false,
-                result: SerializeResultToElement(payload)).WithDiagnostics(diagnostics));
+                changed: false,touched:Array.Empty<OperationTouch>()).WithDiagnostics(diagnostics));
         }
 
         private static bool TryValidate (

@@ -1,7 +1,9 @@
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Operations;
 using MackySoft.Ucli.Unity.Execution.Requests;
 
 namespace MackySoft.Ucli.Unity.Execution.Phases
@@ -15,7 +17,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         public abstract UcliOperationMetadata Metadata { get; }
 
         /// <inheritdoc />
-        public Task<OperationPhaseStepResult> ValidateAsync (
+        public async Task<OperationPhaseStepResult> ValidateAsync (
             NormalizedOperation operation,
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken = default)
@@ -23,14 +25,19 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             cancellationToken.ThrowIfCancellationRequested();
             if (!TryReadArgs(operation, out var args, out var failure))
             {
-                return Task.FromResult(failure!);
+                return failure!;
             }
 
-            return ValidateAsync(operation, args!, executionContext, cancellationToken);
+            var stepResult = await ValidateAsync(
+                operation,
+                args!,
+                executionContext,
+                cancellationToken);
+            return CompleteNonCallTypedResult(stepResult);
         }
 
         /// <inheritdoc />
-        public Task<OperationPhaseStepResult> PlanAsync (
+        public async Task<OperationPhaseStepResult> PlanAsync (
             NormalizedOperation operation,
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken = default)
@@ -38,14 +45,19 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             cancellationToken.ThrowIfCancellationRequested();
             if (!TryReadArgs(operation, out var args, out var failure))
             {
-                return Task.FromResult(failure!);
+                return failure!;
             }
 
-            return PlanAsync(operation, args!, executionContext, cancellationToken);
+            var stepResult = await PlanAsync(
+                operation,
+                args!,
+                executionContext,
+                cancellationToken);
+            return CompleteNonCallTypedResult(stepResult);
         }
 
         /// <inheritdoc />
-        public Task<OperationPhaseStepResult> CallAsync (
+        public async Task<OperationPhaseStepResult> CallAsync (
             NormalizedOperation operation,
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken = default)
@@ -53,10 +65,15 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             cancellationToken.ThrowIfCancellationRequested();
             if (!TryReadArgs(operation, out var args, out var failure))
             {
-                return Task.FromResult(failure!);
+                return failure!;
             }
 
-            return CallAsync(operation, args!, executionContext, cancellationToken);
+            var stepResult = await CallAsync(
+                operation,
+                args!,
+                executionContext,
+                cancellationToken);
+            return CompleteCallTypedResult(stepResult);
         }
 
         /// <summary> Executes the validate phase with typed args. </summary>
@@ -85,19 +102,83 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             TResult result,
             bool applied,
             bool changed,
-            IReadOnlyList<OperationTouch>? touched = null)
+            IReadOnlyList<OperationTouch> touched)
         {
-            return OperationPhaseStepResult.Success(
+            if (result is null)
+            {
+                throw new ArgumentNullException(nameof(result));
+            }
+
+            if (touched == null)
+            {
+                throw new ArgumentNullException(nameof(touched));
+            }
+
+            return OperationPhaseStepResult.SuccessWithTypedResult(
+                result,
                 applied,
                 changed,
-                touched,
-                SerializeResultToElement(result));
+                touched);
         }
 
-        /// <summary> Serializes a typed result through its registered non-null object contract. </summary>
-        protected static System.Text.Json.JsonElement SerializeResultToElement (TResult result)
+        private static OperationPhaseStepResult CompleteNonCallTypedResult (
+            OperationPhaseStepResult stepResult)
         {
-            return IpcPayloadCodec.SerializePublicRawOperationResultToElement(result);
+            if (stepResult.TypedResult == null)
+            {
+                return stepResult;
+            }
+
+            if (typeof(TResult) == typeof(UcliNoResult))
+            {
+                throw new InvalidOperationException(
+                    "An operation that declares UcliNoResult must not return a typed result.");
+            }
+
+            if (stepResult.TypedResult is not TResult typedResult)
+            {
+                throw new InvalidOperationException(
+                    "The operation returned a typed result that does not match its declared TResult.");
+            }
+
+            var serializedResult = IpcPayloadCodec.SerializePublicRawOperationResultToElement(
+                typedResult);
+            return stepResult with
+            {
+                Result = OperationPhaseStepResult.CloneResult(serializedResult),
+                Verdict = null,
+                TypedResult = null,
+            };
+        }
+
+        private OperationPhaseStepResult CompleteCallTypedResult (
+            OperationPhaseStepResult stepResult)
+        {
+            if (stepResult.TypedResult == null)
+            {
+                if (stepResult.IsSuccess
+                    && typeof(TResult) != typeof(UcliNoResult))
+                {
+                    throw new InvalidOperationException(
+                        "A successful Call must return the operation's declared TResult.");
+                }
+
+                return stepResult;
+            }
+
+            if (typeof(TResult) == typeof(UcliNoResult))
+            {
+                throw new InvalidOperationException(
+                    "An operation that declares UcliNoResult must not return a typed result.");
+            }
+
+            if (stepResult.TypedResult is not TResult typedResult)
+            {
+                throw new InvalidOperationException(
+                    "The operation returned a typed result that does not match its declared TResult.");
+            }
+
+            return Metadata.CompleteCallResult(stepResult);
         }
 
         private static bool TryReadArgs (

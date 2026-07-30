@@ -1,3 +1,5 @@
+using System.Text.Json;
+using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Tests;
@@ -19,13 +21,22 @@ public sealed class PlanServiceUnityResponseTests
                     Phase: IpcExecuteOperationPhase.Plan,
                     Applied: false,
                     Changed: false,
-                    Touched: []),
+                    Touched: [],
+                    OperationDescriptorDigest: OperationDescriptorDigest,
+                    Verdict: null,
+                    Result: null,
+                    Diagnostics: []),
             ]));
-        var service = CreateService(unityRequestExecutor: unityIpcRequestExecutor);
+        var service = CreateOpService(
+            CreateOperationDescriptor(),
+            unityIpcRequestExecutor);
 
         var result = await service.ExecuteAsync(
             RequestId,
-            CreateInput(),
+            CreateInput() with
+            {
+                RequestJson = OpRequestJson,
+            },
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
@@ -38,15 +49,146 @@ public sealed class PlanServiceUnityResponseTests
         Assert.Contains("planToken", error.Message, StringComparison.Ordinal);
     }
 
-    [Theory]
-    [MemberData(nameof(UnityExecutionToolErrorCodeCases))]
+    [Fact]
     [Trait("Size", "Small")]
-    public async Task Execute_WhenUnityExecutionFailsWithToolErrorCode_ReturnsToolErrorAndPreservesPayload (UcliCode errorCode)
+    public async Task Execute_WhenUnityResponseContainsResultForNoOpRequest_RejectsUntrustedResults ()
     {
         var service = CreateService(
-            unityRequestExecutor: new RecordingUnityRequestExecutor(UnityRequestExecutionResultTestFactory.Failure(
+            unityRequestExecutor: new RecordingUnityRequestExecutor(CreatePlanSuccess(
+                "plan-token-1",
+                [
+                    new IpcExecuteOperationResult(
+                        Op: UcliPrimitiveOperationNames.GoDescribe,
+                        Phase: IpcExecuteOperationPhase.Plan,
+                        Applied: false,
+                        Changed: false,
+                        Touched: [],
+                        OperationDescriptorDigest: OperationDescriptorDigest,
+                        Verdict: null,
+                        Result: null,
+                        Diagnostics: []),
+                ])));
+
+        var result = await service.ExecuteAsync(
+            RequestId,
+            CreateInput(),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ApplicationOutcome.ToolError, result.Outcome);
+        Assert.NotNull(result.Output);
+        Assert.Empty(result.Output!.OpResults);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
+        Assert.Contains("'opResults' field contains 1 items", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WhenOperationDescriptorDigestDoesNotMatch_RejectsUntrustedResults ()
+    {
+        var service = CreateOpService(
+            CreateOperationDescriptor(),
+            new RecordingUnityRequestExecutor(CreatePlanSuccess(
+                "plan-token-1",
+                [
+                    new IpcExecuteOperationResult(
+                        Op: UcliPrimitiveOperationNames.GoDescribe,
+                        Phase: IpcExecuteOperationPhase.Plan,
+                        Applied: false,
+                        Changed: false,
+                        Touched: [],
+                        OperationDescriptorDigest: Sha256Digest.Compute("other descriptor"u8),
+                        Verdict: null,
+                        Result: null,
+                        Diagnostics: []),
+                ])));
+
+        var result = await service.ExecuteAsync(
+            RequestId,
+            CreateInput() with
+            {
+                RequestJson = OpRequestJson,
+            },
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.NotNull(result.Output);
+        Assert.Empty(result.Output!.OpResults);
+        var error = Assert.Single(result.Errors);
+        Assert.Contains("operationDescriptorDigest", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WhenOperationResultViolatesRegisteredSchema_RejectsUntrustedResults ()
+    {
+        var operationDescriptor = CreateResultfulOperationDescriptor(
+            """{"type":"object","properties":{"value":{"type":"integer"}},"required":["value"],"additionalProperties":false}""");
+        var service = CreateOpService(
+            operationDescriptor,
+            new RecordingUnityRequestExecutor(CreatePlanSuccess(
+                "plan-token-1",
+                [
+                    new IpcExecuteOperationResult(
+                        Op: UcliPrimitiveOperationNames.GoDescribe,
+                        Phase: IpcExecuteOperationPhase.Plan,
+                        Applied: false,
+                        Changed: false,
+                        Touched: [],
+                        OperationDescriptorDigest: OperationDescriptorDigest,
+                        Verdict: null,
+                        Result: JsonSerializer.SerializeToElement(new
+                        {
+                            value = "not-an-integer",
+                        }),
+                        Diagnostics: []),
+                ])));
+
+        var result = await service.ExecuteAsync(
+            RequestId,
+            CreateInput() with
+            {
+                RequestJson = OpRequestJson,
+            },
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.NotNull(result.Output);
+        Assert.Empty(result.Output!.OpResults);
+        var error = Assert.Single(result.Errors);
+        Assert.Contains("registered result schema", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public Task Execute_WhenUnityExecutionFails_ReturnsToolErrorAndPreservesPayload ()
+    {
+        return AssertUnityExecutionFailureAsync(
+            new UnityRequestFailure(
+                UnityRequestFailureKind.General,
+                EditorLifecycleErrorCodes.EditorPlaymode,
                 "Unity execution failed.",
-                errorCode)));
+                startupFailure: null));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public Task Execute_WhenUnityExecutionTimesOut_ReturnsToolErrorAndPreservesPayload ()
+    {
+        return AssertUnityExecutionFailureAsync(
+            new UnityRequestFailure(
+                UnityRequestFailureKind.General,
+                ExecutionErrorCodes.IpcTimeout,
+                "Unity execution failed.",
+                startupFailure: null));
+    }
+
+    private static async Task AssertUnityExecutionFailureAsync (UnityRequestFailure failure)
+    {
+        var service = CreateService(
+            unityRequestExecutor: new RecordingUnityRequestExecutor(
+                UnityRequestExecutionResult.Failure(failure)));
 
         var result = await service.ExecuteAsync(
             RequestId,
@@ -59,17 +201,7 @@ public sealed class PlanServiceUnityResponseTests
         Assert.Equal(RequestId, result.Output!.RequestId);
         Assert.NotNull(result.Output.ReadIndex);
         var error = Assert.Single(result.Errors);
-        Assert.Equal(errorCode, error.Code);
+        Assert.Equal(failure.Code, error.Code);
     }
 
-    public static TheoryData<UcliCode> UnityExecutionToolErrorCodeCases ()
-    {
-        var data = new TheoryData<UcliCode>();
-        foreach (var errorCode in UnityExecutionToolErrorCodes)
-        {
-            data.Add(errorCode);
-        }
-
-        return data;
-    }
 }

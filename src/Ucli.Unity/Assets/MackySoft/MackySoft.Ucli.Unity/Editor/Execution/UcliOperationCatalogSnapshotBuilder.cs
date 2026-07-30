@@ -51,25 +51,7 @@ namespace MackySoft.Ucli.Unity.Execution
         {
             var operations = IndexJsonOrderingPolicy.OrderOpsEntries(registrations
                 .Where(registration => ShouldIncludeInCatalog(registration.Metadata.Exposure, includeEditLoweringOnly))
-                .Select(static registration =>
-                {
-                    var describeContract = registration.Metadata.DescribeContract;
-                    return new IndexOpEntryJsonContract(
-                        Name: registration.Metadata.OperationName,
-                        Kind: registration.Metadata.Kind,
-                        Policy: registration.Metadata.Policy,
-                        ArgsContract: describeContract.ArgsContract,
-                        ResultContract: describeContract.ResultContract,
-                        Exposure: registration.Metadata.Exposure == UcliOperationExposure.Public
-                            ? null
-                            : registration.Metadata.Exposure,
-                        PlayModeSupport: registration.Metadata.PlayModeSupport)
-                    {
-                        Description = describeContract.Description,
-                        Assurance = describeContract.Assurance,
-                        CodeContract = describeContract.CodeContract,
-                    };
-                }));
+                .Select(static registration => registration.Metadata.IndexContract));
 
             return new IpcOpsReadResponse(
                 GeneratedAtUtc: generatedAtUtc,

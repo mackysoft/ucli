@@ -12,9 +12,9 @@ internal static class OpsServiceInvocationAssert
         string expectedMessage,
         UcliCode expectedErrorCode)
     {
-        Assert.False(result.IsSuccess);
-        Assert.Equal(expectedMessage, result.Message);
-        Assert.Equal(expectedErrorCode, result.ErrorCode);
+        var failed = Assert.IsType<OpsListServiceResult.Failed>(result);
+        Assert.Equal(expectedMessage, failed.Error.Message);
+        Assert.Equal(expectedErrorCode, failed.Error.Code);
         CatalogListReadAndMappingSkipped(catalogAccessService, listResultMapper);
     }
 
@@ -25,8 +25,8 @@ internal static class OpsServiceInvocationAssert
         RecordingOpsListResultMapper listResultMapper,
         UcliCode expectedErrorCode)
     {
-        Assert.False(result.IsSuccess);
-        Assert.Equal(expectedErrorCode, result.ErrorCode);
+        var failed = Assert.IsType<OpsListServiceResult.Failed>(result);
+        Assert.Equal(expectedErrorCode, failed.Error.Code);
         Assert.Empty(preflightService.Invocations);
         CatalogListReadAndMappingSkipped(catalogAccessService, listResultMapper);
     }

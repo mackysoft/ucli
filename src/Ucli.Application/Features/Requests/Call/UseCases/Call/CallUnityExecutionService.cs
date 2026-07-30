@@ -5,7 +5,9 @@ using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Conversion;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Phase;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Postprocessing;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
+using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Validation;
 using MackySoft.Ucli.Application.Shared.Execution.ReadPostcondition;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Features.Requests.Call.UseCases.Call;
@@ -49,9 +51,11 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
             if (!deadline.TryGetRemainingTimeout(out var planTimeout))
             {
                 return CreateFailure(
-                    RequestFailureNormalizer.FromTransportFailure(
+                    ApplicationFailure.Timeout(
+                        "Timed out before Unity IPC plan request could begin.",
                         ExecutionErrorCodes.IpcTimeout,
-                        "Timed out before Unity IPC plan request could begin."),
+                        instancePath: null,
+                        startupFailure: null),
                     baseOutput);
             }
 
@@ -66,6 +70,7 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
                         UcliCommandIds.Plan,
                         input.FailFast,
                         input.AllowDangerous,
+                        planToken: null,
                         allowPlayMode: input.AllowPlayMode),
                     cancellationToken)
                 .ConfigureAwait(false);
@@ -80,6 +85,18 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
             var convertedPlanResponse = ExecuteResponseConverter.Convert(
                 planExecutionResult.Response!,
                 preparedRequest.UnityProject);
+            if (!OperationExecutionResultContractValidator.TryValidate(
+                    preparedRequest.Request,
+                    preparedRequest.OperationsByName,
+                    IpcExecuteOperationPhase.Plan,
+                    convertedPlanResponse,
+                    out var planResponseContractError))
+            {
+                return CreateFailure(
+                    ApplicationFailure.InternalError(planResponseContractError, UcliCoreErrorCodes.InternalError, instancePath: null, startupFailure: null),
+                    baseOutput);
+            }
+
             var planProject = convertedPlanResponse.Project ?? baseOutput.Project;
             var planOutput = new CallPlanOutput(
                 opResults: convertedPlanResponse.OpResults,
@@ -96,10 +113,9 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
 
             if (!convertedPlanResponse.IsSuccess)
             {
-                var prePlanFailureMessage = CreatePrePlanFailureMessage(executionOwnerCommand);
                 var failures = RequestFailureNormalizer.FromOperationErrors(convertedPlanResponse.Errors);
                 return CallServiceResult.Failure(
-                    RequestFailureNormalizer.ResolveMessage(failures, prePlanFailureMessage),
+                    failures[0].Message,
                     failures,
                     baseOutput);
             }
@@ -107,9 +123,11 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
             if (convertedPlanResponse.PlanToken == null)
             {
                 return CreateFailure(
-                    RequestFailureNormalizer.FromTransportFailure(
+                    ApplicationFailure.ContractViolation(
+                        "Execute response payload is invalid. The 'planToken' field is missing.",
                         UcliCoreErrorCodes.InternalError,
-                        "Execute response payload is invalid. The 'planToken' field is missing."),
+                        instancePath: null,
+                        startupFailure: null),
                     baseOutput);
             }
 
@@ -122,9 +140,11 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
         if (!deadline.TryGetRemainingTimeout(out var callTimeout))
         {
             return CreateFailure(
-                RequestFailureNormalizer.FromTransportFailure(
+                ApplicationFailure.Timeout(
+                    "Timed out before Unity IPC call request could begin.",
                     ExecutionErrorCodes.IpcTimeout,
-                    "Timed out before Unity IPC call request could begin."),
+                    instancePath: null,
+                    startupFailure: null),
                 baseOutput);
         }
 
@@ -154,6 +174,18 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
         var convertedCallResponse = ExecuteResponseConverter.Convert(
             callExecutionResult.Response!,
             preparedRequest.UnityProject);
+        if (!OperationExecutionResultContractValidator.TryValidate(
+                preparedRequest.Request,
+                preparedRequest.OperationsByName,
+                IpcExecuteOperationPhase.Call,
+                convertedCallResponse,
+                out var callResponseContractError))
+        {
+            return CreateFailure(
+                ApplicationFailure.InternalError(callResponseContractError, UcliCoreErrorCodes.InternalError, instancePath: null, startupFailure: null),
+                baseOutput);
+        }
+
         var callProject = convertedCallResponse.Project ?? baseOutput.Project;
         var executionOutput = baseOutput with
         {
@@ -173,7 +205,6 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
         convertedCallResponse = postprocessedCallResponse.Response;
         if (postprocessedCallResponse.PersistenceError != null)
         {
-            var callFailureMessage = CreateCallFailureMessage(executionOwnerCommand);
             var failures = RequestFailureNormalizer.FromOperationErrors(convertedCallResponse.Errors);
             return CallServiceResult.Failure(
                 postprocessedCallResponse.PersistenceError.Message,
@@ -183,10 +214,9 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
 
         if (!convertedCallResponse.IsSuccess)
         {
-            var callFailureMessage = CreateCallFailureMessage(executionOwnerCommand);
             var failures = RequestFailureNormalizer.FromOperationErrors(convertedCallResponse.Errors);
             return CallServiceResult.Failure(
-                RequestFailureNormalizer.ResolveMessage(failures, callFailureMessage),
+                failures[0].Message,
                 failures,
                 executionOutput);
         }
@@ -194,16 +224,6 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
         return CallServiceResult.Success(
             executionOutput,
             CreateSuccessMessage(executionOwnerCommand));
-    }
-
-    private static string CreatePrePlanFailureMessage (UcliCommand command)
-    {
-        return $"uCLI {command.Name} pre-plan failed.";
-    }
-
-    private static string CreateCallFailureMessage (UcliCommand command)
-    {
-        return $"uCLI {command.Name} failed.";
     }
 
     private static string CreateSuccessMessage (UcliCommand command)
@@ -215,9 +235,9 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
         string requestJson,
         UcliCommand command,
         bool failFast,
-        bool allowDangerous = false,
-        string? planToken = null,
-        bool allowPlayMode = false)
+        bool allowDangerous,
+        string? planToken,
+        bool allowPlayMode)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(requestJson);
         ArgumentNullException.ThrowIfNull(command);
@@ -228,7 +248,7 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
 
     private static CallServiceResult CreateFailure (
         ApplicationFailure error,
-        CallExecutionOutput? output = null)
+        CallExecutionOutput? output)
     {
         ArgumentNullException.ThrowIfNull(error);
 

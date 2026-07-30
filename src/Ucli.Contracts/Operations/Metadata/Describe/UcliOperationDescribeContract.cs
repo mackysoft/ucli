@@ -4,15 +4,13 @@ namespace MackySoft.Ucli.Contracts.Operations;
 public sealed class UcliOperationDescribeContract
 {
     /// <summary> Initializes a new instance of the <see cref="UcliOperationDescribeContract" /> class. </summary>
-    public UcliOperationDescribeContract ()
-    {
-    }
-
-    /// <summary> Initializes a new instance of the <see cref="UcliOperationDescribeContract" /> class. </summary>
     /// <param name="description"> The operation purpose description. </param>
     /// <param name="argsContract"> The generated contract for <c>steps[].args</c>. </param>
     /// <param name="resultContract">
     /// The generated contract for <c>opResults[].result</c>, or <see langword="null" /> when no result is emitted.
+    /// </param>
+    /// <param name="verdictContract">
+    /// The condition judged from a successful Call result, or <see langword="null" /> when the operation does not judge a condition.
     /// </param>
     /// <param name="assurance"> The machine-readable assurance metadata. </param>
     /// <param name="codeContract"> The optional source-facing code contract. </param>
@@ -20,12 +18,14 @@ public sealed class UcliOperationDescribeContract
         string? description,
         UcliOperationJsonContract? argsContract,
         UcliOperationJsonContract? resultContract,
+        UcliOperationVerdictContract? verdictContract,
         UcliOperationAssuranceContract? assurance,
         UcliOperationCodeContract? codeContract)
     {
         Description = description;
         ArgsContract = argsContract;
         ResultContract = resultContract;
+        VerdictContract = verdictContract;
         Assurance = assurance;
         CodeContract = codeContract;
     }
@@ -40,6 +40,11 @@ public sealed class UcliOperationDescribeContract
     /// Gets or sets the generated contract for <c>opResults[].result</c>, or <see langword="null" /> when no result is emitted.
     /// </summary>
     public UcliOperationJsonContract? ResultContract { get; set; }
+
+    /// <summary>
+    /// Gets or sets the condition judged from a successful Call result, or <see langword="null" /> when the operation does not judge a condition.
+    /// </summary>
+    public UcliOperationVerdictContract? VerdictContract { get; set; }
 
     /// <summary> Gets or sets the machine-readable assurance metadata. </summary>
     public UcliOperationAssuranceContract? Assurance { get; set; }

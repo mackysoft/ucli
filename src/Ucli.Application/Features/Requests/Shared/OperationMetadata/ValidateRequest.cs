@@ -7,4 +7,4 @@ namespace MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 internal sealed record ValidateRequest (
     int ProtocolVersion,
     IReadOnlyList<ValidateRequestStep> Steps,
-    bool AllowPlayMode = false);
+    bool AllowPlayMode);

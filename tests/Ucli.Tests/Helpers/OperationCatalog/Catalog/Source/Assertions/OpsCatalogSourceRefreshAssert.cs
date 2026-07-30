@@ -13,8 +13,8 @@ internal static class OpsCatalogSourceRefreshAssert
         string expectedSourceInputsHash,
         string expectedAssetSearchHash)
     {
-        Assert.True(result.IsSuccess);
-        Assert.Equal(expectedFallbackReason, result.FallbackReason);
+        var succeeded = AssertSucceeded(result);
+        Assert.Equal(expectedFallbackReason, succeeded.FallbackReason);
         ReadIndexInputFingerprintAssert.CoreFingerprintRequested(fingerprintProvider);
         Assert.Single(fingerprintProvider.FullInvocations);
         ReadIndexArtifactWriterAssert.OpsCatalogWrittenWithManifestInputSnapshot(
@@ -33,7 +33,7 @@ internal static class OpsCatalogSourceRefreshAssert
         string expectedGuidPathHash,
         string expectedCombinedHash)
     {
-        Assert.True(result.IsSuccess);
+        AssertSucceeded(result);
         ReadIndexInputFingerprintAssert.CoreFingerprintRequested(fingerprintProvider);
         Assert.Empty(fingerprintProvider.FullInvocations);
         ReadIndexArtifactWriterAssert.OpsCatalogWrittenWithManifestInputSnapshot(
@@ -52,9 +52,9 @@ internal static class OpsCatalogSourceRefreshAssert
         RecordingReadIndexArtifactWriter artifactWriter,
         string expectedFallbackReason)
     {
-        Assert.True(result.IsSuccess);
-        Assert.Contains(expectedFallbackReason, result.FallbackReason!, StringComparison.Ordinal);
-        Assert.Contains("input fingerprint could not be computed", result.FallbackReason!, StringComparison.Ordinal);
+        var succeeded = AssertSucceeded(result);
+        Assert.Contains(expectedFallbackReason, succeeded.FallbackReason!, StringComparison.Ordinal);
+        Assert.Contains("input fingerprint could not be computed", succeeded.FallbackReason!, StringComparison.Ordinal);
         OpsCatalogReaderAssert.ReadRequiresReadinessGate(reader);
         ReadIndexInputFingerprintAssert.CoreFingerprintRequested(fingerprintProvider);
         Assert.Empty(fingerprintProvider.FullInvocations);
@@ -68,12 +68,18 @@ internal static class OpsCatalogSourceRefreshAssert
         string expectedFallbackReason,
         string expectedRetryFailureMessage)
     {
-        Assert.True(result.IsSuccess);
-        Assert.Single(result.Snapshot!.Operations);
-        Assert.Equal(expectedFirstOperationName, result.Snapshot.Operations[0].Name);
-        Assert.Contains(expectedFallbackReason, result.FallbackReason!, StringComparison.Ordinal);
-        Assert.Contains("project inputs changed while the catalog was being read", result.FallbackReason!, StringComparison.Ordinal);
-        Assert.Contains(expectedRetryFailureMessage, result.FallbackReason!, StringComparison.Ordinal);
+        var succeeded = AssertSucceeded(result);
+        Assert.Single(succeeded.Snapshot.Operations);
+        Assert.Equal(expectedFirstOperationName, succeeded.Snapshot.Operations[0].Name);
+        Assert.Contains(expectedFallbackReason, succeeded.FallbackReason!, StringComparison.Ordinal);
+        Assert.Contains("project inputs changed while the catalog was being read", succeeded.FallbackReason!, StringComparison.Ordinal);
+        Assert.Contains(expectedRetryFailureMessage, succeeded.FallbackReason!, StringComparison.Ordinal);
         Assert.Empty(artifactWriter.OpsCatalogInvocations);
+    }
+
+    private static OpsCatalogSourceRefreshResult.Succeeded AssertSucceeded (
+        OpsCatalogSourceRefreshResult result)
+    {
+        return Assert.IsType<OpsCatalogSourceRefreshResult.Succeeded>(result);
     }
 }

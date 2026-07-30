@@ -33,21 +33,27 @@ public sealed class IpcOpsReadContractSerializationTests
     {
         var requestPayload = new IpcOpsReadRequest(FailFast: true, RequireReadinessGate: true);
         var describe = CreateGoDescribeContract();
+        var operationEntry = new IndexOpEntryJsonContract(
+            Name: UcliPrimitiveOperationNames.GoDescribe,
+            Kind: UcliOperationKind.Query,
+            Policy: OperationPolicy.Safe,
+            ArgsContract: describe.ArgsContract,
+            DescriptorDigest: null,
+            ResultContract: describe.ResultContract,
+            VerdictContract: describe.VerdictContract,
+            Exposure: null,
+            PlayModeSupport: UcliOperationPlayModeSupport.Disallowed)
+        {
+            Description = describe.Description,
+            Assurance = describe.Assurance,
+        };
+        operationEntry = operationEntry with
+        {
+            DescriptorDigest = UcliOperationDescriptorDigest.Calculate(operationEntry),
+        };
         var responsePayload = new IpcOpsReadResponse(
             GeneratedAtUtc: DateTimeOffset.Parse("2026-03-06T00:00:00+00:00"),
-            Operations:
-            [
-                new IndexOpEntryJsonContract(
-                    Name: UcliPrimitiveOperationNames.GoDescribe,
-                    Kind: UcliOperationKind.Query,
-                    Policy: OperationPolicy.Safe,
-                    ArgsContract: describe.ArgsContract,
-                    ResultContract: describe.ResultContract)
-                {
-                    Description = describe.Description,
-                    Assurance = describe.Assurance,
-                },
-            ]);
+            Operations: [operationEntry]);
 
         var request = IpcPayloadCodec.SerializeToElement(requestPayload);
         var response = IpcPayloadCodec.SerializeToElement(responsePayload);
@@ -63,6 +69,7 @@ public sealed class IpcOpsReadContractSerializationTests
                 .HasString("kind", "query")
                 .HasString("policy", "safe")
                 .HasString("playModeSupport", "disallowed")
+                .HasString("descriptorDigest", operationEntry.DescriptorDigest!.ToString())
                 .HasString("description", describe.Description!)
                 .HasProperty("argsContract", argsContract => argsContract
                     .HasString(
@@ -76,6 +83,10 @@ public sealed class IpcOpsReadContractSerializationTests
                         describe.ResultContract!.Value.ContractDigest.ToString())
                     .HasProperty("typeMetadata")
                     .HasProperty("schema"))
+                .HasProperty("verdictContract", verdictContract => verdictContract
+                    .HasString(
+                        "description",
+                        "The requested GameObject exists and its description is complete."))
                 .HasProperty("assurance", assurance => assurance
                     .HasBoolean("mayDirty", false)
                     .HasBoolean("mayPersist", false)
@@ -89,7 +100,7 @@ public sealed class IpcOpsReadContractSerializationTests
             "ucli.test.go.describe",
             serializerOptions.GetTypeInfo(typeof(GoDescribeArgs)),
             serializerOptions.GetTypeInfo(typeof(GameObjectDescriptionResult)));
-        return UcliOperationDescribeContractBuilder.Create(
+        return UcliOperationDescribeContractBuilder.CreateJudging(
             generationResult,
             "Returns a GameObject description including components and child hierarchy.",
             new UcliOperationAssuranceContract(
@@ -101,6 +112,9 @@ public sealed class IpcOpsReadContractSerializationTests
                 touchedContract: "Returns no touched resources.",
                 readPostconditionContract: "Does not stale read surfaces by itself.",
                 failureSemantics: "Failure means the observation was not fully produced.",
-                dangerousNotes: Array.Empty<string>()));
+                dangerousNotes: Array.Empty<string>()),
+            verdictContract: new UcliOperationVerdictContract(
+                "The requested GameObject exists and its description is complete."),
+            codeContract: null);
     }
 }

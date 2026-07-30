@@ -20,7 +20,8 @@ public sealed class OpsListFilterTests
                 ReadIndexMode: null,
                 NameRegex: "scene",
                 Kind: UcliOperationKind.Mutation,
-                MaxPolicy: OperationPolicy.Advanced),
+                MaxPolicy: OperationPolicy.Advanced,
+                FailFast: false),
             out var filter,
             out _));
         var snapshot = CreateListSnapshot(
@@ -48,7 +49,8 @@ public sealed class OpsListFilterTests
                 ReadIndexMode: null,
                 NameRegex: "^no\\.such\\.operation$",
                 Kind: null,
-                MaxPolicy: null),
+                MaxPolicy: null,
+                FailFast: false),
             out var filter,
             out _));
         var snapshot = CreateListSnapshot(

@@ -108,10 +108,11 @@ public sealed class ReadIndexValidationCatalogResolverTests
     [Trait("Size", "Small")]
     public async Task Resolve_WhenPersistedCatalogIsUsable_ReturnsMetadataBackedSuccess ()
     {
+        var generatedAtUtc = DateTimeOffset.Parse("2026-03-06T00:00:00+00:00");
         var resolver = new ReadIndexValidationCatalogResolver(new RecordingPersistedOpsCatalogReader
         {
             ReadResult = CreatePersistedReadResult(
-                DateTimeOffset.Parse("2026-03-06T00:00:00+00:00"),
+                generatedAtUtc,
                 IndexFreshness.Probable,
                 [CreateGoDescribeEntry()]),
         });
@@ -127,6 +128,53 @@ public sealed class ReadIndexValidationCatalogResolverTests
         Assert.True(result.ReadIndex.Used);
         Assert.True(result.ReadIndex.Hit);
         Assert.Equal(IndexFreshness.Probable, result.ReadIndex.Freshness);
-        Assert.Equal(DateTimeOffset.Parse("2026-03-06T00:00:00+00:00"), result.ReadIndex.GeneratedAtUtc);
+        Assert.Equal(generatedAtUtc, result.ReadIndex.GeneratedAtUtc);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task ResolveOperation_WhenPersistedGenerationMatches_ReturnsDescriptorFromThatGeneration ()
+    {
+        var generatedAtUtc = DateTimeOffset.Parse("2026-03-06T00:00:00+00:00");
+        var resolver = new ReadIndexValidationCatalogResolver(new RecordingPersistedOpsCatalogReader
+        {
+            ReadResult = CreatePersistedReadResult(
+                generatedAtUtc,
+                IndexFreshness.Probable,
+                [CreateGoDescribeEntry()]),
+        });
+
+        var descriptor = await resolver.ResolveOperationAsync(
+            ProjectContextTestFactory.CreateRepositoryFixtureUnityProject(),
+            ReadIndexMode.AllowStale,
+            generatedAtUtc,
+            UcliPrimitiveOperationNames.GoDescribe,
+            CancellationToken.None);
+
+        Assert.Equal(UcliPrimitiveOperationNames.GoDescribe, descriptor.Name);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task ResolveOperation_WhenPersistedGenerationDiffers_RejectsDescriptor ()
+    {
+        var resolver = new ReadIndexValidationCatalogResolver(new RecordingPersistedOpsCatalogReader
+        {
+            ReadResult = CreatePersistedReadResult(
+                DateTimeOffset.Parse("2026-03-06T00:00:00+00:00"),
+                IndexFreshness.Probable,
+                [CreateGoDescribeEntry()]),
+        });
+
+        var exception = await Assert.ThrowsAsync<OperationCatalogLoadException>(async () =>
+            await resolver.ResolveOperationAsync(
+                ProjectContextTestFactory.CreateRepositoryFixtureUnityProject(),
+                ReadIndexMode.AllowStale,
+                DateTimeOffset.Parse("2026-03-07T00:00:00+00:00"),
+                UcliPrimitiveOperationNames.GoDescribe,
+                CancellationToken.None));
+
+        Assert.Equal(ApplicationFailureKind.InternalError, exception.Error.Kind);
+        Assert.Contains("generation does not match", exception.Message, StringComparison.Ordinal);
     }
 }

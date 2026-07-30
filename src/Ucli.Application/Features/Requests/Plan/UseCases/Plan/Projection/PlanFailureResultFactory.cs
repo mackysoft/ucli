@@ -11,16 +11,14 @@ internal static class PlanFailureResultFactory
     /// <summary> Creates one failure result from a structured execution error. </summary>
     /// <param name="error"> The execution error. </param>
     /// <param name="output"> The available plan payload. </param>
-    /// <param name="errorCode"> The optional machine-readable error code. </param>
     /// <returns> The normalized failure result. </returns>
     public static PlanServiceResult FromExecutionError (
         ExecutionError error,
-        PlanExecutionOutput? output = null,
-        UcliCode? errorCode = null)
+        PlanExecutionOutput? output)
     {
         ArgumentNullException.ThrowIfNull(error);
 
-        var executionError = ApplicationFailure.FromExecutionError(error, errorCode);
+        var executionError = ApplicationFailure.FromExecutionError(error);
         return PlanServiceResult.Failure(
             error.Message,
             [
@@ -35,7 +33,7 @@ internal static class PlanFailureResultFactory
     /// <returns> The normalized failure result. </returns>
     public static PlanServiceResult FromValidationErrors (
         IReadOnlyList<ValidationError> validationErrors,
-        PlanExecutionOutput? output = null)
+        PlanExecutionOutput? output)
     {
         return PlanServiceResult.Failure(
             "Static validation failed.",

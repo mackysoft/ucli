@@ -31,9 +31,33 @@ public sealed class OperationCatalogLookupTests
     {
         var provider = new InMemoryOperationCatalogProvider(
         [
-            new UcliOperationDescriptor("ucli.z", UcliOperationKind.Query, OperationPolicy.Safe, ArgsSchemaJson),
-            new UcliOperationDescriptor("ucli.a", UcliOperationKind.Query, OperationPolicy.Safe, ArgsSchemaJson),
-            new UcliOperationDescriptor("ucli.m", UcliOperationKind.Query, OperationPolicy.Safe, ArgsSchemaJson),
+            new UcliOperationDescriptor(
+                "ucli.z",
+                UcliOperationKind.Query,
+                OperationPolicy.Safe,
+                ArgsSchemaJson,
+                Sha256DigestTestFactory.Compute("ucli.z"),
+                VerdictContract: null,
+                ResultSchemaJson: null,
+                Exposure: UcliOperationExposure.Public),
+            new UcliOperationDescriptor(
+                "ucli.a",
+                UcliOperationKind.Query,
+                OperationPolicy.Safe,
+                ArgsSchemaJson,
+                Sha256DigestTestFactory.Compute("ucli.a"),
+                VerdictContract: null,
+                ResultSchemaJson: null,
+                Exposure: UcliOperationExposure.Public),
+            new UcliOperationDescriptor(
+                "ucli.m",
+                UcliOperationKind.Query,
+                OperationPolicy.Safe,
+                ArgsSchemaJson,
+                Sha256DigestTestFactory.Compute("ucli.m"),
+                VerdictContract: null,
+                ResultSchemaJson: null,
+                Exposure: UcliOperationExposure.Public),
         ]);
         var catalog = new OperationCatalog(provider);
 
@@ -51,8 +75,24 @@ public sealed class OperationCatalogLookupTests
     {
         var provider = new InMemoryOperationCatalogProvider(
         [
-            new UcliOperationDescriptor(UcliPrimitiveOperationNames.SceneOpen, UcliOperationKind.Command, OperationPolicy.Safe, ArgsSchemaJson),
-            new UcliOperationDescriptor(UcliPrimitiveOperationNames.SceneOpen, UcliOperationKind.Command, OperationPolicy.Safe, ArgsSchemaJson),
+            new UcliOperationDescriptor(
+                UcliPrimitiveOperationNames.SceneOpen,
+                UcliOperationKind.Command,
+                OperationPolicy.Safe,
+                ArgsSchemaJson,
+                Sha256DigestTestFactory.Compute("scene open one"),
+                VerdictContract: null,
+                ResultSchemaJson: null,
+                Exposure: UcliOperationExposure.Public),
+            new UcliOperationDescriptor(
+                UcliPrimitiveOperationNames.SceneOpen,
+                UcliOperationKind.Command,
+                OperationPolicy.Safe,
+                ArgsSchemaJson,
+                Sha256DigestTestFactory.Compute("scene open two"),
+                VerdictContract: null,
+                ResultSchemaJson: null,
+                Exposure: UcliOperationExposure.Public),
         ]);
         var catalog = new OperationCatalog(provider);
 

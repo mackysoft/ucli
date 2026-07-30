@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Contracts.Configuration;
+using MackySoft.Ucli.Contracts.Cryptography;
 
 namespace MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
 
@@ -45,8 +46,11 @@ internal sealed class ValidatedOpsOperation
         Exposure = exposure;
         PlayModeSupport = contract.PlayModeSupport.Value;
         Description = contract.Description;
+        DescriptorDigest = contract.DescriptorDigest
+            ?? throw new ArgumentException("Operation descriptor digest must be defined.", nameof(contract));
         ArgsContract = contract.ArgsContract.Value;
         ResultContract = contract.ResultContract;
+        VerdictContract = contract.VerdictContract;
         Assurance = contract.Assurance;
         CodeContract = contract.CodeContract;
     }
@@ -69,11 +73,17 @@ internal sealed class ValidatedOpsOperation
     /// <summary> Gets the operation purpose description. </summary>
     public string Description { get; }
 
+    /// <summary> Gets the RFC 8785 digest of the semantic operation descriptor. </summary>
+    public Sha256Digest DescriptorDigest { get; }
+
     /// <summary> Gets the generated operation argument contract. </summary>
     public UcliOperationJsonContract ArgsContract { get; }
 
     /// <summary> Gets the generated operation result contract, or <see langword="null" /> when no result is emitted. </summary>
     public UcliOperationJsonContract? ResultContract { get; }
+
+    /// <summary> Gets the optional condition judged from a successful Call result. </summary>
+    public UcliOperationVerdictContract? VerdictContract { get; }
 
     /// <summary> Gets the operation assurance contract. </summary>
     public UcliOperationAssuranceContract Assurance { get; }
@@ -85,13 +95,17 @@ internal sealed class ValidatedOpsOperation
     public IndexOpEntryJsonContract ToJsonContract ()
     {
         return new IndexOpEntryJsonContract(
-            Name,
-            Kind,
-            Policy,
-            ArgsContract,
-            ResultContract,
-            Exposure,
-            PlayModeSupport)
+            Name: Name,
+            Kind: Kind,
+            Policy: Policy,
+            ArgsContract: ArgsContract,
+            ResultContract: ResultContract,
+            Exposure: Exposure == UcliOperationExposure.Public
+                ? null
+                : Exposure,
+            PlayModeSupport: PlayModeSupport,
+            DescriptorDigest: DescriptorDigest,
+            VerdictContract: VerdictContract)
         {
             Description = Description,
             Assurance = Assurance,

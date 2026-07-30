@@ -58,8 +58,11 @@ public sealed class ValidateCommandResultFactoryTests
     public void Create_WhenInfraFailureOccurs_ReturnsToolErrorEnvelope ()
     {
         var result = ValidateCommandResultFactory.Create(ValidateServiceResult.Failure(
-            "Index contract file 'ops.catalog.json' is malformed.",
-            ReadIndexErrorCodes.ReadIndexFormatInvalid,
+            ApplicationFailure.InternalError(
+                "Index contract file 'ops.catalog.json' is malformed.",
+                ReadIndexErrorCodes.ReadIndexFormatInvalid,
+                instancePath: null,
+                startupFailure: null),
             new ValidateExecutionOutput(ProjectIdentityInfoTestFactory.Create(), CreateReadIndexInfo())));
 
         Assert.Equal(UcliCommandNames.Validate, result.Command);

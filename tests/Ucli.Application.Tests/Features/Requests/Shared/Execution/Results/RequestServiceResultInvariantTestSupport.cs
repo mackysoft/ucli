@@ -4,27 +4,15 @@ internal static class RequestServiceResultInvariantTestSupport
 {
     public static readonly Guid RequestId = Guid.Parse("9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62");
 
-    public static readonly UcliCode[] InvalidArgumentErrorCodeValues =
-    [
-        UcliCoreErrorCodes.InvalidArgument,
-        PlanTokenErrorCodes.PlanTokenRequired,
-        PlanTokenErrorCodes.PlanTokenInvalid,
-        PlanTokenErrorCodes.PlanTokenExpired,
-        PlanTokenErrorCodes.PlanTokenRequestMismatch,
-        PlanTokenErrorCodes.StateChangedSincePlan,
-        .. ProjectContextErrorCodes.All,
-        IpcProtocolErrorCodes.ProtocolVersionMismatch,
-        ValidationErrorCodes.OperationNotFound,
-        OperationAuthorizationErrorCodes.OperationNotAllowed,
-        ValidationErrorCodes.OperationArgsInvalid,
-        ValidationErrorCodes.EditStepInvalid,
-    ];
-
     public static IReadOnlyList<ApplicationFailure> CreateErrors ()
     {
         return
         [
-            ApplicationFailure.InternalError("Failure message."),
+            ApplicationFailure.InternalError(
+                "Failure message.",
+                UcliCoreErrorCodes.InternalError,
+                instancePath: null,
+                startupFailure: null),
         ];
     }
 

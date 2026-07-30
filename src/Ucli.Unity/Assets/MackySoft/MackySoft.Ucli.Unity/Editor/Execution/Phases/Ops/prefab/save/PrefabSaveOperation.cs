@@ -17,7 +17,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
     [UcliOperation]
     internal sealed class PrefabSaveOperation : UcliOperation<PrefabPathArgs, UcliNoResult>
     {
-        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<PrefabPathArgs, UcliNoResult>(
+        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.CreateWithoutVerdict<PrefabPathArgs, UcliNoResult>(
             operationName: UcliPrimitiveOperationNames.PrefabSave,
             kind: UcliOperationKind.Mutation,
             description: "Saves an opened or previewed prefab asset.",
@@ -30,7 +30,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 touchedContract: "Reports the prefab resource when the operation saves or confirms request-attributed prefab changes.",
                 readPostconditionContract: "Prefab, asset search, GUID path, and readIndex surfaces covering the saved prefab may be stale after a successful call.",
                 failureSemantics: "Prefab save is not transactional; timeout, cancellation, or Unity failure can leave partial or indeterminate prefab file changes.",
-                dangerousNotes: new[] { "This operation can persist a prefab file and is not transactional across Unity save/import steps." }));
+                dangerousNotes: new[] { "This operation can persist a prefab file and is not transactional across Unity save/import steps." }),
+            requiresPreCallPlanReplay: false,
+            exposure: UcliOperationExposure.Public,
+            playModeSupport: UcliOperationPlayModeSupport.Disallowed,
+            codeContract: null);
 
         protected override Task<OperationPhaseStepResult> ValidateAsync (
             NormalizedOperation operation,
@@ -44,7 +48,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return Task.FromResult(failure!);
             }
 
-            return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false));
+            return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false,touched:System.Array.Empty<OperationTouch>()));
         }
 
         protected override Task<OperationPhaseStepResult> PlanAsync (

@@ -19,4 +19,4 @@ internal sealed record OpsCommandInput (
     string? NameRegex,
     UcliOperationKind? Kind,
     OperationPolicy? MaxPolicy,
-    bool FailFast = false) : IOpsPreflightInputSource;
+    bool FailFast) : IOpsPreflightInputSource;

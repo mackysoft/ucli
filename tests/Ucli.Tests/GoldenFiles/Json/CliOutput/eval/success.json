@@ -18,6 +18,8 @@
         "applied": true,
         "changed": false,
         "touched": [],
+        "operationDescriptorDigest": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+        "verdict": null,
         "result": {
           "sourceDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
           "sourceKind": "snippet",
@@ -56,6 +58,8 @@
           "applied": false,
           "changed": false,
           "touched": [],
+          "operationDescriptorDigest": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+          "verdict": null,
           "result": {
             "sourceDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             "sourceKind": "snippet",

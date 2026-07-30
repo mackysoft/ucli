@@ -64,9 +64,9 @@ internal sealed class OperationCatalog : IOperationCatalog
     public async ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetAllAsync (
         ResolvedUnityProjectContext unityProject,
         UcliConfig config,
-        UnityExecutionMode mode = UnityExecutionMode.Auto,
-        TimeSpan? timeout = null,
-        bool failFast = false,
+        UnityExecutionMode mode,
+        TimeSpan? timeout,
+        bool failFast,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();

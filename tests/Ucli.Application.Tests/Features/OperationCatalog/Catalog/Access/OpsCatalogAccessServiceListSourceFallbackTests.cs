@@ -46,12 +46,12 @@ public sealed class OpsCatalogAccessServiceListSourceFallbackTests
 
         var result = await service.ReadListAsync(context, CancellationToken.None);
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal(OpsCatalogSource.Source, result.Output!.AccessInfo.Source);
-        Assert.False(result.Output.AccessInfo.Used);
-        Assert.Equal(IndexFreshness.Fresh, result.Output.AccessInfo.Freshness);
-        Assert.Equal(generatedAtUtc, result.Output.AccessInfo.GeneratedAtUtc);
-        Assert.Contains("stale", result.Output.AccessInfo.FallbackReason, StringComparison.Ordinal);
+        var succeeded = Assert.IsType<OpsListReadResult.Succeeded>(result);
+        Assert.Equal(OpsCatalogSource.Source, succeeded.Output.AccessInfo.Source);
+        Assert.False(succeeded.Output.AccessInfo.Used);
+        Assert.Equal(IndexFreshness.Fresh, succeeded.Output.AccessInfo.Freshness);
+        Assert.Equal(generatedAtUtc, succeeded.Output.AccessInfo.GeneratedAtUtc);
+        Assert.Contains("stale", succeeded.Output.AccessInfo.FallbackReason, StringComparison.Ordinal);
         OpsCatalogAccessInvocationAssert.SourceRefreshedFromPreflight(
             sourceRefreshService,
             context,
@@ -83,10 +83,10 @@ public sealed class OpsCatalogAccessServiceListSourceFallbackTests
 
             var result = await service.ReadListAsync(context, CancellationToken.None);
 
-            Assert.True(result.IsSuccess);
-            Assert.Equal(OpsCatalogSource.Source, result.Output!.AccessInfo.Source);
-            Assert.False(result.Output.AccessInfo.Used);
-            Assert.Equal(generatedAtUtc, result.Output.AccessInfo.GeneratedAtUtc);
+            var succeeded = Assert.IsType<OpsListReadResult.Succeeded>(result);
+            Assert.Equal(OpsCatalogSource.Source, succeeded.Output.AccessInfo.Source);
+            Assert.False(succeeded.Output.AccessInfo.Used);
+            Assert.Equal(generatedAtUtc, succeeded.Output.AccessInfo.GeneratedAtUtc);
             OpsCatalogAccessInvocationAssert.SourceRefreshedFromPreflight(
                 sourceRefreshService,
                 context,
@@ -109,8 +109,8 @@ public sealed class OpsCatalogAccessServiceListSourceFallbackTests
 
         var result = await service.ReadListAsync(context, CancellationToken.None);
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal(OpsCatalogSource.Source, result.Output!.AccessInfo.Source);
+        var succeeded = Assert.IsType<OpsListReadResult.Succeeded>(result);
+        Assert.Equal(OpsCatalogSource.Source, succeeded.Output.AccessInfo.Source);
         OpsCatalogAccessInvocationAssert.SourceRefreshedFromPreflight(
             sourceRefreshService,
             context,
@@ -135,10 +135,10 @@ public sealed class OpsCatalogAccessServiceListSourceFallbackTests
 
         var result = await service.ReadListAsync(context, CancellationToken.None);
 
-        Assert.True(result.IsSuccess);
+        var succeeded = Assert.IsType<OpsListReadResult.Succeeded>(result);
         Assert.Equal(
             [UcliPrimitiveOperationNames.GoDescribe, UcliPrimitiveOperationNames.CsEval],
-            result.Output!.Snapshot.Operations.Select(static operation => operation.Name));
+            succeeded.Output.Snapshot.Operations.Select(static operation => operation.Name));
         OpsCatalogAccessInvocationAssert.SourceRefreshedFromPreflight(
             sourceRefreshService,
             context,

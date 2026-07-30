@@ -42,13 +42,15 @@ internal static class UcliStaticSchemaRegistrationCatalog
     {
         return
         [
-            Metadata<UcliStaticSchemaManifest>(
+            UcliStaticSchemaRegistration.SchemaSetMetadata(
                 "schema.manifest",
-                "schema-manifest.schema.json"),
-            Document<CommandResult>(
+                RootRelativePath.Parse("schema-manifest.schema.json"),
+                ResolveTypeInfo<UcliStaticSchemaManifest>()),
+            UcliStaticSchemaRegistration.CliOutputEnvelope(
                 "cli-output.envelope",
-                "cli-output/envelope.schema.json",
-                UcliStaticSchemaKind.CliOutputEnvelope),
+                RootRelativePath.Parse("cli-output/envelope.schema.json"),
+                CliOutputJsonSerializerOptions.Default.GetTypeInfo(
+                    UcliNonNullJsonObject.MakeValueType(typeof(CommandResult)))),
         ];
     }
 
@@ -56,15 +58,18 @@ internal static class UcliStaticSchemaRegistrationCatalog
     {
         return
         [
-            RequestDocument<UcliRequestJsonContract>(
+            UcliStaticSchemaRegistration.UserInputDocument(
                 "request.envelope",
-                "request/request-envelope.schema.json",
+                RootRelativePath.Parse("request/request-envelope.schema.json"),
+                IpcJsonSerializerOptions.StrictPropertyNames.GetTypeInfo(
+                    typeof(UcliRequestJsonContract)),
                 usages:
                 [
                     StandardInputUsage(UcliCommandNames.Call),
                     StandardInputUsage(UcliCommandNames.Plan),
                     StandardInputUsage(UcliCommandNames.Validate),
                 ],
+                staticDependencies: Array.Empty<string>(),
                 dynamicValidationSources: [UcliCommandNames.OpsDescribe]),
         ];
     }
@@ -73,98 +78,17 @@ internal static class UcliStaticSchemaRegistrationCatalog
     {
         return
         [
-            NonNullDocument<ArtifactRef>(
+            UcliStaticSchemaRegistration.CommonDefinition(
                 "common.artifact-ref",
-                "common/artifact-ref.schema.json",
-                UcliStaticSchemaKind.CommonDefinition),
-            NonNullDocument<ExecutionRef>(
+                RootRelativePath.Parse("common/artifact-ref.schema.json"),
+                CliOutputJsonSerializerOptions.Default.GetTypeInfo(
+                    UcliNonNullJsonObject.MakeValueType(typeof(ArtifactRef)))),
+            UcliStaticSchemaRegistration.CommonDefinition(
                 "common.execution-ref",
-                "common/execution-ref.schema.json",
-                UcliStaticSchemaKind.CommonDefinition),
+                RootRelativePath.Parse("common/execution-ref.schema.json"),
+                CliOutputJsonSerializerOptions.Default.GetTypeInfo(
+                    UcliNonNullJsonObject.MakeValueType(typeof(ExecutionRef)))),
         ];
-    }
-
-    private static UcliStaticSchemaRegistration Metadata<T> (
-        string name,
-        string path)
-    {
-        return Document<T>(
-            name,
-            path,
-            UcliStaticSchemaKind.SchemaSetMetadata);
-    }
-
-    private static UcliStaticSchemaRegistration Document<T> (
-        string name,
-        string path,
-        UcliStaticSchemaKind kind,
-        string? command = null,
-        CommandResultStatus? status = null)
-    {
-        return Document(
-            name,
-            path,
-            kind,
-            ResolveTypeInfo<T>(),
-            CreatePayloadMetadata(command, status));
-    }
-
-    private static UcliStaticSchemaRegistration NonNullDocument<T> (
-        string name,
-        string path,
-        UcliStaticSchemaKind kind)
-    {
-        var rootType = UcliNonNullJsonObject.MakeValueType(typeof(T));
-        return Document(
-            name,
-            path,
-            kind,
-            CliOutputJsonSerializerOptions.Default.GetTypeInfo(rootType),
-            metadata: null);
-    }
-
-    private static UcliStaticSchemaRegistration Document (
-        string name,
-        string path,
-        UcliStaticSchemaKind kind,
-        JsonTypeInfo typeInfo,
-        UcliStaticSchemaManifestMetadata? metadata)
-    {
-        return new UcliStaticSchemaRegistration(
-            name,
-            RootRelativePath.Parse(path),
-            kind,
-            typeInfo,
-            metadata);
-    }
-
-    private static UcliStaticSchemaRegistration RequestDocument<T> (
-        string name,
-        string path,
-        IReadOnlyList<UcliStaticSchemaUsage>? usages = null,
-        IReadOnlyList<string>? staticDependencies = null,
-        IReadOnlyList<string>? dynamicValidationSources = null)
-    {
-        return new UcliStaticSchemaRegistration(
-            name,
-            RootRelativePath.Parse(path),
-            UcliStaticSchemaKind.UserInputDocument,
-            IpcJsonSerializerOptions.StrictPropertyNames.GetTypeInfo(typeof(T)),
-            new UcliStaticSchemaManifestMetadata(
-                Command: null,
-                Status: null,
-                usages,
-                staticDependencies,
-                dynamicValidationSources));
-    }
-
-    private static UcliStaticSchemaManifestMetadata? CreatePayloadMetadata (
-        string? command,
-        CommandResultStatus? status)
-    {
-        return command == null && status == null
-            ? null
-            : new UcliStaticSchemaManifestMetadata(command, status);
     }
 
     private static UcliStaticSchemaUsage StandardInputUsage (string command)

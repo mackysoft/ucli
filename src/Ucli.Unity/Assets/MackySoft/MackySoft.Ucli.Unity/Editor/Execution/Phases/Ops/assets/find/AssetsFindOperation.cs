@@ -16,7 +16,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
     [UcliOperation]
     internal sealed class AssetsFindOperation : UcliOperation<AssetsFindArgs, AssetsFindResult>
     {
-        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<AssetsFindArgs, AssetsFindResult>(
+        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.CreateWithoutVerdict<AssetsFindArgs, AssetsFindResult>(
             operationName: UcliPrimitiveOperationNames.AssetsFind,
             kind: UcliOperationKind.Query,
             description: "Finds project assets by type, path prefix, or name substring.",
@@ -29,7 +29,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 touchedContract: "Returns no touched resources because asset search results are data, not mutation targets.",
                 readPostconditionContract: "Does not stale read surfaces by itself.",
                 failureSemantics: "Timeout, cancellation, or source read failure means the asset search was not fully produced.",
-                dangerousNotes: Array.Empty<string>()));
+                dangerousNotes: Array.Empty<string>()),
+            requiresPreCallPlanReplay: false,
+            exposure: UcliOperationExposure.Public,
+            playModeSupport: UcliOperationPlayModeSupport.Disallowed,
+            codeContract: null);
 
         protected override Task<OperationPhaseStepResult> ValidateAsync (
             NormalizedOperation operation,
@@ -39,7 +43,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         {
             cancellationToken.ThrowIfCancellationRequested();
             return Task.FromResult(TryValidate(operation, args, out _, out var failure)
-                ? OperationPhaseStepResult.Success(applied: false, changed: false)
+                ? OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>())
                 : failure!);
         }
 
@@ -89,10 +93,10 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     typeId: new UnityTypeId(match.TypeId));
             }
 
-            return OperationPhaseStepResult.Success(
+            return SuccessWithResult(
+                new AssetsFindResult(payloadMatches, windowedMatches.Window),
                 applied: false,
-                changed: false,
-                result: SerializeResultToElement(new AssetsFindResult(payloadMatches, windowedMatches.Window)));
+                changed: false,touched:Array.Empty<OperationTouch>());
         }
 
         private static bool TryValidate (

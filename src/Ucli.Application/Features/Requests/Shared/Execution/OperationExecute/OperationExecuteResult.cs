@@ -11,7 +11,7 @@ internal sealed record OperationExecuteResult
         IReadOnlyList<OperationExecutionOperationResult> opResults,
         IReadOnlyList<ApplicationFailure> errors,
         string message,
-        IReadOnlyList<OperationExecutionContractViolation>? contractViolations,
+        IReadOnlyList<OperationExecutionContractViolation> contractViolations,
         IpcExecuteReadPostcondition? readPostcondition,
         OperationExecutionPostReadSource? postReadSource,
         ProjectIdentityInfo? project)
@@ -25,7 +25,7 @@ internal sealed record OperationExecuteResult
         OpResults = opResults;
         Errors = errors;
         Message = message;
-        ContractViolations = contractViolations ?? [];
+        ContractViolations = contractViolations;
         ReadPostcondition = readPostcondition;
         PostReadSource = postReadSource;
         Project = project;
@@ -70,10 +70,11 @@ internal sealed record OperationExecuteResult
         string message,
         IpcExecuteReadPostcondition? readPostcondition,
         ProjectIdentityInfo project,
-        IReadOnlyList<OperationExecutionContractViolation>? contractViolations = null,
-        OperationExecutionPostReadSource? postReadSource = null)
+        IReadOnlyList<OperationExecutionContractViolation> contractViolations,
+        OperationExecutionPostReadSource? postReadSource)
     {
         ArgumentNullException.ThrowIfNull(opResults);
+        ArgumentNullException.ThrowIfNull(contractViolations);
         ArgumentException.ThrowIfNullOrWhiteSpace(message);
         ArgumentNullException.ThrowIfNull(project);
 
@@ -94,14 +95,16 @@ internal sealed record OperationExecuteResult
         IReadOnlyList<OperationExecutionOperationResult> opResults,
         IReadOnlyList<ApplicationFailure> errors,
         string message,
-        IReadOnlyList<OperationExecutionContractViolation>? contractViolations = null,
-        IpcExecuteReadPostcondition? readPostcondition = null,
-        ProjectIdentityInfo? project = null,
-        OperationExecutionPostReadSource? postReadSource = null)
+        IReadOnlyList<OperationExecutionContractViolation> contractViolations,
+        IpcExecuteReadPostcondition? readPostcondition,
+        ProjectIdentityInfo? project,
+        OperationExecutionPostReadSource? postReadSource)
     {
         ArgumentNullException.ThrowIfNull(opResults);
+        ArgumentNullException.ThrowIfNull(contractViolations);
         ArgumentException.ThrowIfNullOrWhiteSpace(message);
         var failureErrors = RequestServiceResultInvariants.RequireFailureErrors(errors);
+        _ = ApplicationFailureOutcomeResolver.Resolve(failureErrors);
 
         return new OperationExecuteResult(
             requestId,

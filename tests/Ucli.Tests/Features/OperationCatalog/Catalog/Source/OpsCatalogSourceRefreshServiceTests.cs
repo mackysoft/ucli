@@ -137,10 +137,10 @@ public sealed class OpsCatalogSourceRefreshServiceTests
             "readIndex disabled by mode.",
             CancellationToken.None);
 
-        Assert.True(result.IsSuccess);
-        Assert.NotNull(result.FallbackReason);
-        Assert.Contains("readIndex disabled by mode.", result.FallbackReason!, StringComparison.Ordinal);
-        Assert.Contains("Failed to persist refreshed ops readIndex. disk full", result.FallbackReason!, StringComparison.Ordinal);
+        var succeeded = Assert.IsType<OpsCatalogSourceRefreshResult.Succeeded>(result);
+        Assert.NotNull(succeeded.FallbackReason);
+        Assert.Contains("readIndex disabled by mode.", succeeded.FallbackReason, StringComparison.Ordinal);
+        Assert.Contains("Failed to persist refreshed ops readIndex. disk full", succeeded.FallbackReason, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -190,7 +190,11 @@ public sealed class OpsCatalogSourceRefreshServiceTests
         reader.Enqueue(CreateFetchResult(
             DateTimeOffset.Parse("2026-03-07T00:00:00+00:00"),
             [CreateGoDescribeEntry()]));
-        reader.Enqueue(OpsCatalogFetchResult.Failure("Unity source unavailable.", UcliCoreErrorCodes.InternalError));
+        reader.Enqueue(OpsCatalogFetchResult.Failure(ApplicationFailure.InternalError(
+            "Unity source unavailable.",
+            UcliCoreErrorCodes.InternalError,
+            instancePath: null,
+            startupFailure: null)));
         var fingerprintProvider = new RecordingReadIndexInputFingerprintProvider
         {
             Snapshot = CreateSnapshot("asset-search", "guid-path", "combined-2"),
@@ -257,9 +261,9 @@ public sealed class OpsCatalogSourceRefreshServiceTests
             "readIndex stale.",
             CancellationToken.None);
 
-        Assert.True(result.IsSuccess);
-        Assert.Single(result.Snapshot!.Operations);
-        Assert.Equal(UcliPrimitiveOperationNames.SceneSave, result.Snapshot.Operations[0].Name);
+        var succeeded = Assert.IsType<OpsCatalogSourceRefreshResult.Succeeded>(result);
+        Assert.Single(succeeded.Snapshot.Operations);
+        Assert.Equal(UcliPrimitiveOperationNames.SceneSave, succeeded.Snapshot.Operations[0].Name);
         ReadIndexArtifactWriterAssert.OpsCatalogWritten(artifactWriter, expectedSourceInputsHash: "combined-2");
     }
 

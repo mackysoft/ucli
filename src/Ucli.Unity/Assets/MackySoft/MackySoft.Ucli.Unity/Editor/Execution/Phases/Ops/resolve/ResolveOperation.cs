@@ -15,7 +15,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
     [UcliOperation]
     internal sealed class ResolveOperation : UcliOperation<ResolveSelectorArgs, IpcResolveOperationResult>
     {
-        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<ResolveSelectorArgs, IpcResolveOperationResult>(
+        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.CreateWithoutVerdict<ResolveSelectorArgs, IpcResolveOperationResult>(
             operationName: UcliPrimitiveOperationNames.Resolve,
             kind: UcliOperationKind.Query,
             description: "Resolves an asset, scene object, prefab object, or component reference to a Unity GlobalObjectId.",
@@ -28,7 +28,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 touchedContract: "Returns no touched resources because resolution reports an object identity, not a mutation target.",
                 readPostconditionContract: "Does not stale read surfaces by itself.",
                 failureSemantics: "Timeout, cancellation, or unresolved selector failure means no object identity was produced.",
-                dangerousNotes: Array.Empty<string>()));
+                dangerousNotes: Array.Empty<string>()),
+            requiresPreCallPlanReplay: false,
+            exposure: UcliOperationExposure.Public,
+            playModeSupport: UcliOperationPlayModeSupport.Disallowed,
+            codeContract: null);
 
         /// <summary> Executes validate phase for <c>ucli.resolve</c>. </summary>
         /// <param name="operation"> The normalized operation. </param>
@@ -52,7 +56,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return Task.FromResult(unsupportedSelectorResult!);
             }
 
-            return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false));
+            return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()));
         }
 
         /// <summary> Executes plan phase for <c>ucli.resolve</c>. </summary>
@@ -112,10 +116,10 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             StoreAliasIfNeeded(operation.As, executionContext, globalObjectId);
-            return Task.FromResult(OperationPhaseStepResult.Success(
+            return Task.FromResult(SuccessWithResult(
+                new IpcResolveOperationResult(globalObjectId),
                 applied: false,
-                changed: false,
-                result: SerializeResultToElement(new IpcResolveOperationResult(globalObjectId))));
+                changed: false,touched:Array.Empty<OperationTouch>()));
         }
 
         /// <summary> Stores one resolved reference to alias store when alias is specified. </summary>

@@ -16,13 +16,15 @@ public sealed class ValidateServiceSharedPreflightTests
         var preflightService = new RecordingRequestStaticValidationPreflightService
         {
             Result = RequestStaticValidationPreflightResult.Failure(
-                ExecutionError.InternalError("Index contract file 'ops.catalog.json' is malformed."),
+                ExecutionError.InternalError(
+                    "Index contract file 'ops.catalog.json' is malformed.",
+                    ReadIndexErrorCodes.ReadIndexFormatInvalid),
                 CreatePreparedRequestContext(),
                 CreateReadIndexInfo(
                     used: false,
                     hit: false,
                     freshness: IndexFreshness.Probable),
-                ReadIndexErrorCodes.ReadIndexFormatInvalid),
+                RequestStaticValidationCatalog.Unavailable),
         };
         var service = new ValidateService(
             CreateRequestPreparationService(RequestPreparationResult.Success(CreatePreparedRequestContext())),
@@ -63,6 +65,7 @@ public sealed class ValidateServiceSharedPreflightTests
                     used: true,
                     hit: true,
                     freshness: IndexFreshness.Probable),
+                RequestStaticValidationCatalog.Unavailable,
                 validationErrors),
         };
         var service = new ValidateService(
@@ -95,7 +98,8 @@ public sealed class ValidateServiceSharedPreflightTests
                 CreateReadIndexInfo(
                     used: true,
                     hit: true,
-                    freshness: IndexFreshness.Probable)),
+                    freshness: IndexFreshness.Probable),
+                RequestStaticValidationCatalog.Unavailable),
         };
         var service = new ValidateService(
             CreateRequestPreparationService(RequestPreparationResult.Success(CreatePreparedRequestContext())),

@@ -22,7 +22,7 @@ public sealed class CallServiceReadPostconditionTests
         var readPostcondition = ReadPostconditionTestFactory.CreateSceneTreeLite();
         var ipcRequestExecutor = new RecordingUnityRequestExecutor(
             UnityRequestExecutionResult.Success(
-                ExecuteUnityRequestResponseTestFactory.Create(
+                CreateUnityResponse(
                     status: IpcResponseStatus.Ok,
                     opResults:
                     [
@@ -37,7 +37,11 @@ public sealed class CallServiceReadPostconditionTests
                                     kind: UcliTouchedResourceKind.Scene,
                                     path: "Assets/Scenes/Main.unity",
                                     assetGuid: null),
-                            ]),
+                            ],
+                            OperationDescriptorDigest: OperationDescriptorDigest,
+                            Verdict: null,
+                            Result: null,
+                            Diagnostics: []),
                     ],
                     errors: [],
                     planToken: null,
@@ -83,11 +87,11 @@ public sealed class CallServiceReadPostconditionTests
         var readPostconditionStore = new TestMutationReadPostconditionStore
         {
             WriteResult = MutationReadPostconditionStoreOperationResult.Failure(
-                ExecutionError.InternalError("Failed to persist mutation read postcondition.")),
+                ExecutionError.InternalError("Failed to persist mutation read postcondition.",UcliCoreErrorCodes.InternalError)),
         };
         var ipcRequestExecutor = new RecordingUnityRequestExecutor(
             UnityRequestExecutionResult.Success(
-                ExecuteUnityRequestResponseTestFactory.Create(
+                CreateUnityResponse(
                     status: IpcResponseStatus.Ok,
                     opResults:
                     [
@@ -102,7 +106,11 @@ public sealed class CallServiceReadPostconditionTests
                                     kind: UcliTouchedResourceKind.Scene,
                                     path: "Assets/Scenes/Main.unity",
                                     assetGuid: null),
-                            ]),
+                            ],
+                            OperationDescriptorDigest: OperationDescriptorDigest,
+                            Verdict: null,
+                            Result: null,
+                            Diagnostics: []),
                     ],
                     errors: [],
                     planToken: null,

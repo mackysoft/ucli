@@ -20,9 +20,9 @@ internal sealed class RecordingOperationCatalogDiscoveryService : IOperationCata
     public ValueTask<IReadOnlyList<UcliOperationDescriptor>> DiscoverAsync (
         ResolvedUnityProjectContext unityProject,
         UcliConfig config,
-        UnityExecutionMode mode = UnityExecutionMode.Auto,
-        TimeSpan? timeout = null,
-        bool failFast = false,
+        UnityExecutionMode mode,
+        TimeSpan? timeout,
+        bool failFast,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();

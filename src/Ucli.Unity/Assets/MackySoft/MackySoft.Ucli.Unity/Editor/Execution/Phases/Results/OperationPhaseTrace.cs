@@ -1,7 +1,7 @@
+using System;
 using System.Collections.Generic;
 using System.Text.Json;
 using MackySoft.Ucli.Contracts;
-using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 
 #nullable enable
@@ -9,65 +9,69 @@ using MackySoft.Ucli.Contracts.Ipc;
 namespace MackySoft.Ucli.Unity.Execution.Phases
 {
     /// <summary> Represents one final per-operation trace entry produced by phase execution. </summary>
-    /// <param name="OpId"> The operation identifier. </param>
-    /// <param name="Op"> The operation name. </param>
-    /// <param name="Phase"> The final phase reached by this operation. </param>
-    /// <param name="Applied"> Whether operation was applied. </param>
-    /// <param name="Changed"> Whether operation produced changes. </param>
-    /// <param name="Touched"> The touched persistence-unit list. </param>
-    /// <param name="Failure"> The operation failure details; otherwise <see langword="null" />. </param>
-    internal sealed record OperationPhaseTrace (
-        IpcExecuteStepId OpId,
-        string Op,
-        OperationPhase Phase,
-        bool Applied,
-        bool Changed,
-        IReadOnlyList<OperationTouch> Touched,
-        OperationFailure? Failure)
+    internal sealed partial record OperationPhaseTrace
     {
-        /// <summary> Gets the optional query result payload produced by the final phase. </summary>
-        public JsonElement? Result { get; init; }
+        private readonly OperationPhaseStepResult outcome;
 
-        /// <summary> Gets the read-surface invalidations emitted by the final phase. </summary>
-        public IReadOnlyList<OperationReadInvalidation> ReadInvalidations { get; init; } = System.Array.Empty<OperationReadInvalidation>();
-
-        /// <summary> Gets non-fatal diagnostics emitted by this primitive trace. </summary>
-        public IReadOnlyList<OperationDiagnostic> Diagnostics { get; init; } = System.Array.Empty<OperationDiagnostic>();
-
-        /// <summary> Gets a value indicating whether this trace observed successful persistence. </summary>
-        public bool Persisted { get; init; }
-
-        /// <summary> Gets the operation metadata facts used to validate runtime results against declared assurance. </summary>
-        public ContractFacts? Contracts { get; init; }
-
-        /// <summary> Represents the assurance facts needed for runtime result consistency checks. </summary>
-        /// <param name="OperationKind"> The declared operation kind. </param>
-        /// <param name="MayDirty"> Whether the operation may dirty Unity objects or project state. </param>
-        /// <param name="MayPersist"> Whether the operation may persist project files. </param>
-        /// <param name="TouchedKinds"> The touched-resource kinds that may be reported. </param>
-        public sealed record ContractFacts (
-            UcliOperationKind OperationKind,
-            bool MayDirty,
-            bool MayPersist,
-            IReadOnlyList<UcliTouchedResourceKind> TouchedKinds)
+        private OperationPhaseTrace (
+            IpcExecuteStepId opId,
+            string op,
+            OperationPhase phase,
+            OperationPhaseStepResult outcome,
+            OperationContractFacts? contracts)
         {
-            /// <summary> Creates a facts snapshot from one operation metadata instance. </summary>
-            /// <param name="metadata"> The operation metadata. </param>
-            /// <returns> The immutable facts snapshot used by response validation. </returns>
-            public static ContractFacts FromMetadata (UcliOperationMetadata metadata)
+            OpId = opId ?? throw new ArgumentNullException(nameof(opId));
+            if (string.IsNullOrWhiteSpace(op))
             {
-                if (metadata == null)
-                {
-                    throw new System.ArgumentNullException(nameof(metadata));
-                }
-
-                var assurance = metadata.DescribeContract.Assurance;
-                return new ContractFacts(
-                    OperationKind: metadata.Kind,
-                    MayDirty: assurance?.MayDirty ?? false,
-                    MayPersist: assurance?.MayPersist ?? false,
-                    TouchedKinds: assurance?.TouchedKinds ?? System.Array.Empty<UcliTouchedResourceKind>());
+                throw new ArgumentException("Operation name must not be empty.", nameof(op));
             }
+
+            this.outcome = outcome ?? throw new ArgumentNullException(nameof(outcome));
+            if (outcome.TypedResult != null)
+            {
+                throw new ArgumentException("A trace requires a finalized serialized step result.", nameof(outcome));
+            }
+
+            Op = op;
+            Phase = phase;
+            Contracts = contracts;
+        }
+
+        public IpcExecuteStepId OpId { get; }
+
+        public string Op { get; }
+
+        public OperationPhase Phase { get; }
+
+        public bool Applied => outcome.Applied;
+
+        public bool Changed => outcome.Changed;
+
+        public IReadOnlyList<OperationTouch> Touched => outcome.Touched;
+
+        public OperationFailure? Failure => outcome.Failure;
+
+        public JsonElement? Result => outcome.Result;
+
+        public Verdict? Verdict => outcome.Verdict;
+
+        public IReadOnlyList<OperationReadInvalidation> ReadInvalidations => outcome.ReadInvalidations;
+
+        public IReadOnlyList<OperationDiagnostic> Diagnostics => outcome.Diagnostics;
+
+        public bool Persisted => outcome.Persisted;
+
+        public OperationContractFacts? Contracts { get; }
+
+        public OperationPhaseTrace WithFailure (OperationFailure failure)
+        {
+            if (Verdict.HasValue)
+            {
+                throw new InvalidOperationException(
+                    "A judging success trace cannot be converted into a failure trace.");
+            }
+
+            return new OperationPhaseTrace(OpId, Op, Phase, outcome.ReplaceFailure(failure), Contracts);
         }
     }
 }

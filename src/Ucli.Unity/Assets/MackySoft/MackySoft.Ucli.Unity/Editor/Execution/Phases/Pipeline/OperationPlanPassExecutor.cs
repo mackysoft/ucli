@@ -55,7 +55,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
                 if (accumulator.HasFailures)
                 {
-                    accumulator.AddSkippedStep(request.SourceSteps[stepIndex]);
+                    accumulator.AddSkippedStep(requestCompiler.CreateSkippedStep(request.SourceSteps[stepIndex]));
                     continue;
                 }
 
@@ -69,7 +69,10 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                         out var compileDiagnostics,
                         out var compileError))
                 {
-                    accumulator.AddCompileFailure(sourceStep, compileError, compileDiagnostics);
+                    accumulator.AddCompileFailure(
+                        requestCompiler.CreateSkippedStep(sourceStep),
+                        compileError,
+                        compileDiagnostics);
                     continue;
                 }
 

@@ -29,8 +29,8 @@ public sealed class OpsCatalogAccessServiceDescribeFailureTests
             UcliPrimitiveOperationNames.GoDescribe,
             CancellationToken.None);
 
-        Assert.False(result.IsSuccess);
-        Assert.Equal(UcliCoreErrorCodes.InvalidArgument, result.ErrorCode);
+        var failed = Assert.IsType<OpsDescribeReadResult.Failed>(result);
+        Assert.Equal(UcliCoreErrorCodes.InvalidArgument, failed.Error.Code);
     }
 
     [Fact]
@@ -52,7 +52,7 @@ public sealed class OpsCatalogAccessServiceDescribeFailureTests
             UcliPrimitiveOperationNames.SceneSave,
             CancellationToken.None);
 
-        Assert.False(result.IsSuccess);
-        Assert.Equal(UcliCoreErrorCodes.InvalidArgument, result.ErrorCode);
+        var failed = Assert.IsType<OpsDescribeReadResult.Failed>(result);
+        Assert.Equal(UcliCoreErrorCodes.InvalidArgument, failed.Error.Code);
     }
 }

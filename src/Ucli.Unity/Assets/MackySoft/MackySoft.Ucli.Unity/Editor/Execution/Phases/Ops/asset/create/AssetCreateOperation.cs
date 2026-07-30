@@ -17,7 +17,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
     [UcliOperation]
     internal sealed class AssetCreateOperation : UcliOperation<AssetCreateArgs, UcliNoResult>
     {
-        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<AssetCreateArgs, UcliNoResult>(
+        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.CreateWithoutVerdict<AssetCreateArgs, UcliNoResult>(
             operationName: UcliPrimitiveOperationNames.AssetCreate,
             kind: UcliOperationKind.Mutation,
             description: "Creates a Unity asset at a project-relative path.",
@@ -31,7 +31,10 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 readPostconditionContract: "Asset search, GUID path, schema, and readIndex surfaces covering the created asset may be stale after a successful call.",
                 failureSemantics: "Asset creation is not transactional; timeout, cancellation, or Unity failure can leave partial or indeterminate asset file changes.",
                 dangerousNotes: new[] { "This operation can create project files and is not transactional across Unity asset creation/import steps." }),
-            exposure: UcliOperationExposure.EditLoweringOnly);
+            requiresPreCallPlanReplay: false,
+            exposure: UcliOperationExposure.EditLoweringOnly,
+            playModeSupport: UcliOperationPlayModeSupport.Disallowed,
+            codeContract: null);
 
         protected override Task<OperationPhaseStepResult> ValidateAsync (
             NormalizedOperation operation,
@@ -46,7 +49,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             return Task.FromResult(TryValidatePlannedAssetPath(operation, executionContext, assetPath!, out failure)
-                ? OperationPhaseStepResult.Success(applied: false, changed: false)
+                ? OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>())
                 : failure!);
         }
 
@@ -78,10 +81,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 out temporaryAsset,
                 out var errorMessage))
             {
-                return Task.FromResult(OperationPhaseStepResult.Failed(new OperationFailure(
-                    Code: UcliCoreErrorCodes.InternalError,
-                    Message: errorMessage,
-                    OpId: operation.Id)));
+                return Task.FromResult(OperationPhaseStepResult.Failed(
+                    new OperationFailure(
+                        Code: UcliCoreErrorCodes.InternalError,
+                        Message: errorMessage,
+                        OpId: operation.Id),
+                    applied: false,
+                    changed: false,
+                    result: null,touched:Array.Empty<OperationTouch>()));
             }
 
             executionContext.SetPlannedAsset(assetPath!, operation.ExecutionKey, temporaryAsset!);
@@ -122,10 +129,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 asset = ScriptableObject.CreateInstance(assetType!);
                 if (asset == null)
                 {
-                    return Task.FromResult(OperationPhaseStepResult.Failed(new OperationFailure(
-                        Code: UcliCoreErrorCodes.InternalError,
-                        Message: $"Asset instance could not be created for type '{assetType!.FullName}'.",
-                        OpId: operation.Id)));
+                    return Task.FromResult(OperationPhaseStepResult.Failed(
+                        new OperationFailure(
+                            Code: UcliCoreErrorCodes.InternalError,
+                            Message: $"Asset instance could not be created for type '{assetType!.FullName}'.",
+                            OpId: operation.Id),
+                        applied: false,
+                        changed: false,
+                        result: null,touched:Array.Empty<OperationTouch>()));
                 }
 
                 AssetDatabase.CreateAsset(asset, assetPath!);

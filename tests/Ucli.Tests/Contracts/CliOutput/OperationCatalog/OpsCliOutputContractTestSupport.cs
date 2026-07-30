@@ -66,16 +66,24 @@ internal static class OpsCliOutputContractTestSupport
         var argsContract = describe.ArgsContract
             ?? throw new InvalidOperationException("The operation fixture must declare an args contract.");
 
-        return new IndexOpEntryJsonContract(
+        var descriptor = new IndexOpEntryJsonContract(
             Name: name,
             Kind: kind,
             Policy: policy,
             ArgsContract: argsContract,
-            ResultContract: describe.ResultContract)
+            DescriptorDigest: null,
+            VerdictContract: describe.VerdictContract,
+            ResultContract: describe.ResultContract,
+            Exposure: null,
+            PlayModeSupport: UcliOperationPlayModeSupport.Disallowed)
         {
             Description = describe.Description,
             Assurance = describe.Assurance,
             CodeContract = describe.CodeContract,
+        };
+        return descriptor with
+        {
+            DescriptorDigest = UcliOperationDescriptorDigest.Calculate(descriptor),
         };
     }
 
@@ -114,9 +122,10 @@ internal static class OpsCliOutputContractTestSupport
             operationName,
             serializerOptions.GetTypeInfo(typeof(GoDescribeArgs)),
             serializerOptions.GetTypeInfo(typeof(GameObjectDescriptionResult)));
-        return UcliOperationDescribeContractBuilder.Create(
+        return UcliOperationDescribeContractBuilder.CreateWithoutVerdict(
             generationResult,
             "Returns a GameObject description including components and child hierarchy.",
-            CreateAssurance(kind, policy));
+            CreateAssurance(kind, policy),
+            codeContract: null);
     }
 }

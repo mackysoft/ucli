@@ -20,7 +20,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
     [UcliOperation]
     internal sealed class ProjectRefreshPhaseOperation : UcliOperation<UcliEmptyArgs, UcliNoResult>
     {
-        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<UcliEmptyArgs, UcliNoResult>(
+        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.CreateWithoutVerdict<UcliEmptyArgs, UcliNoResult>(
             operationName: UcliPrimitiveOperationNames.ProjectRefresh,
             kind: UcliOperationKind.Command,
             description: "Refreshes Unity AssetDatabase and reports resources changed by import.",
@@ -50,7 +50,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 touchedContract: "Reports assets, scenes, prefabs, or ProjectSettings observed through Unity refresh callbacks and dirty-state deltas; the set is best-effort and depends on Unity import observation.",
                 readPostconditionContract: "Asset, GUID path, schema, scene, prefab, ProjectSettings, and readIndex surfaces may be stale after refresh/import.",
                 failureSemantics: "AssetDatabase refresh is not transactional; timeout, cancellation, domain reload, or import failure can leave partially imported or indeterminate project state.",
-                dangerousNotes: new[] { "This operation can run Unity import code and persist importer side effects outside the requested operation set." }));
+                dangerousNotes: new[] { "This operation can run Unity import code and persist importer side effects outside the requested operation set." }),
+            requiresPreCallPlanReplay: false,
+            exposure: UcliOperationExposure.Public,
+            playModeSupport: UcliOperationPlayModeSupport.Disallowed,
+            codeContract: null);
 
         /// <summary> Executes validate phase for <c>ucli.project.refresh</c>. </summary>
         /// <param name="operation"> The normalized operation. </param>
@@ -64,7 +68,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false));
+            return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false,touched:System.Array.Empty<OperationTouch>()));
         }
 
         /// <summary> Executes plan phase for <c>ucli.project.refresh</c>. </summary>
@@ -79,7 +83,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false));
+            return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false,touched:System.Array.Empty<OperationTouch>()));
         }
 
         /// <summary> Executes call phase for <c>ucli.project.refresh</c>. </summary>
@@ -143,7 +147,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return Task.FromResult(
                 result.WithReadInvalidations(
                     deduplicatedTouched.Count == 0
-                        ? null
+                        ? System.Array.Empty<OperationReadInvalidation>()
                         : OperationReadInvalidationUtilities.CreateForProjectRefresh(callbackTouched, deduplicatedTouched)));
         }
 

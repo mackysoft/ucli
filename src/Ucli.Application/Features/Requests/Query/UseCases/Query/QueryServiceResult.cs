@@ -12,8 +12,8 @@ internal sealed record QueryServiceResult
         IReadOnlyList<ApplicationFailure> errors,
         string message,
         ReadIndexInfo readIndex,
-        ProjectIdentityInfo? project = null,
-        IReadOnlyList<OperationExecutionContractViolation>? contractViolations = null)
+        ProjectIdentityInfo? project,
+        IReadOnlyList<OperationExecutionContractViolation> contractViolations)
     {
         if (requestId == Guid.Empty)
         {
@@ -26,7 +26,7 @@ internal sealed record QueryServiceResult
         Errors = errors;
         Message = message;
         ReadIndex = readIndex;
-        ContractViolations = contractViolations ?? [];
+        ContractViolations = contractViolations;
         Project = project;
     }
 
@@ -70,12 +70,13 @@ internal sealed record QueryServiceResult
         string message,
         ReadIndexInfo readIndex,
         ProjectIdentityInfo project,
-        IReadOnlyList<OperationExecutionContractViolation>? contractViolations = null)
+        IReadOnlyList<OperationExecutionContractViolation> contractViolations)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(commandName);
         ArgumentNullException.ThrowIfNull(opResults);
         ArgumentNullException.ThrowIfNull(readIndex);
         ArgumentNullException.ThrowIfNull(project);
+        ArgumentNullException.ThrowIfNull(contractViolations);
         ArgumentException.ThrowIfNullOrWhiteSpace(message);
 
         return new QueryServiceResult(
@@ -97,14 +98,16 @@ internal sealed record QueryServiceResult
         IReadOnlyList<ApplicationFailure> errors,
         string message,
         ReadIndexInfo readIndex,
-        ProjectIdentityInfo? project = null,
-        IReadOnlyList<OperationExecutionContractViolation>? contractViolations = null)
+        ProjectIdentityInfo? project,
+        IReadOnlyList<OperationExecutionContractViolation> contractViolations)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(commandName);
         ArgumentNullException.ThrowIfNull(opResults);
         ArgumentNullException.ThrowIfNull(readIndex);
+        ArgumentNullException.ThrowIfNull(contractViolations);
         ArgumentException.ThrowIfNullOrWhiteSpace(message);
         var failureErrors = RequestServiceResultInvariants.RequireFailureErrors(errors);
+        _ = ApplicationFailureOutcomeResolver.Resolve(failureErrors);
 
         return new QueryServiceResult(
             commandName,

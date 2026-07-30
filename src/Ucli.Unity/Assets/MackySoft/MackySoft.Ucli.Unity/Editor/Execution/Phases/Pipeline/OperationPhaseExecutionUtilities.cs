@@ -21,10 +21,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             IpcExecuteStepId operationId,
             string message)
         {
-            return OperationPhaseStepResult.Failed(new OperationFailure(
-                Code: UcliCoreErrorCodes.InvalidArgument,
-                Message: message,
-                OpId: operationId));
+            return OperationPhaseStepResult.Failed(
+                new OperationFailure(
+                    Code: UcliCoreErrorCodes.InvalidArgument,
+                    Message: message,
+                    OpId: operationId),
+                applied: false,
+                changed: false,
+                result: null,touched:Array.Empty<OperationTouch>());
         }
 
         /// <summary> Executes one phase step with exception-to-failure translation. </summary>
@@ -46,10 +50,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 var stepResult = await executor(cancellationToken);
                 if (stepResult == null)
                 {
-                    return OperationPhaseStepResult.Failed(new OperationFailure(
-                        Code: UcliCoreErrorCodes.InternalError,
-                        Message: $"Operation '{operation.Id}' returned null result at phase '{phase}'.",
-                        OpId: operation.Id));
+                    return OperationPhaseStepResult.Failed(
+                        new OperationFailure(
+                            Code: UcliCoreErrorCodes.InternalError,
+                            Message: $"Operation '{operation.Id}' returned null result at phase '{phase}'.",
+                            OpId: operation.Id),
+                        applied: false,
+                        changed: false,
+                        result: null,touched:Array.Empty<OperationTouch>());
                 }
 
                 return stepResult;
@@ -60,10 +68,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
             catch (Exception exception)
             {
-                return OperationPhaseStepResult.Failed(new OperationFailure(
-                    Code: UcliCoreErrorCodes.InternalError,
-                    Message: $"Unexpected error occurred in operation '{operation.Id}' at phase '{phase}'. {exception.Message}",
-                    OpId: operation.Id));
+                return OperationPhaseStepResult.Failed(
+                    new OperationFailure(
+                        Code: UcliCoreErrorCodes.InternalError,
+                        Message: $"Unexpected error occurred in operation '{operation.Id}' at phase '{phase}'. {exception.Message}",
+                        OpId: operation.Id),
+                    applied: false,
+                    changed: false,
+                    result: null,touched:Array.Empty<OperationTouch>());
             }
         }
 
@@ -113,21 +125,18 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             if (operation.PersistenceReportingPolicy == OperationPersistenceReportingPolicy.SuppressAll)
             {
-                return result with
-                {
-                    Touched = Array.Empty<OperationTouch>(),
-                    ReadInvalidations = Array.Empty<OperationReadInvalidation>(),
-                    Persisted = false,
-                };
+                return result.WithPersistenceReport(
+                    Array.Empty<OperationTouch>(),
+                    Array.Empty<OperationReadInvalidation>(),
+                    persisted: false);
             }
 
             if (operation.PersistenceReportingPolicy == OperationPersistenceReportingPolicy.SuppressScene)
             {
-                return result with
-                {
-                    Touched = FilterSceneTouched(result.Touched),
-                    ReadInvalidations = FilterSceneReadInvalidations(result.ReadInvalidations),
-                };
+                return result.WithPersistenceReport(
+                    FilterSceneTouched(result.Touched),
+                    FilterSceneReadInvalidations(result.ReadInvalidations),
+                    result.Persisted);
             }
 
             return result;
@@ -177,14 +186,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <returns> The skipped trace entry. </returns>
         public static OperationPhaseTrace CreateSkippedTrace (NormalizedOperation operation)
         {
-            return new OperationPhaseTrace(
-                OpId: operation.Id,
-                Op: operation.Op,
-                Phase: OperationPhase.Skipped,
-                Applied: false,
-                Changed: false,
-                Touched: Array.Empty<OperationTouch>(),
-                Failure: null);
+            return OperationPhaseTrace.Variants.SkippedBeforeContractResolution(
+                operation.Id,
+                operation.Op);
         }
     }
 }

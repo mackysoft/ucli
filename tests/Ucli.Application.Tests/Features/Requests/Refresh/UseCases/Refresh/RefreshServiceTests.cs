@@ -1,7 +1,6 @@
 using MackySoft.Ucli.Application.Features.Requests.Refresh.UseCases.Refresh;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.OperationExecute;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
-using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Tests.Refresh;
@@ -18,7 +17,9 @@ public sealed class RefreshServiceTests
             [],
             "uCLI refresh completed.",
             readPostcondition: null,
-            project: ProjectIdentityInfoTestFactory.CreateRepositoryFixture()));
+            project: ProjectIdentityInfoTestFactory.CreateRepositoryFixture(),
+            contractViolations: [],
+            postReadSource: null));
         var service = new RefreshService(operationExecuteService);
 
         var result = await service.ExecuteAsync(
@@ -37,10 +38,7 @@ public sealed class RefreshServiceTests
             UcliCommandIds.Refresh,
             expectedOperationId: "refresh",
             expectedOperationName: UcliPrimitiveOperationNames.ProjectRefresh,
-            expectedKind: UcliOperationKind.Command,
-            expectedPolicy: OperationPolicy.Advanced,
             expectedSuccessMessage: "uCLI refresh completed.",
-            expectedFailureMessage: "uCLI refresh failed.",
             expectedProjectPath: "/repo/UnityProject",
             expectedMode: UnityExecutionMode.Oneshot,
             expectedTimeoutMilliseconds: 1234,

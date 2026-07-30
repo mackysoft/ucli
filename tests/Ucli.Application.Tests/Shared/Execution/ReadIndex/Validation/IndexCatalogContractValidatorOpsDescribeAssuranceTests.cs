@@ -22,6 +22,7 @@ public sealed class IndexCatalogContractValidatorOpsDescribeAssuranceTests
                 failureSemantics: "Failure means the observation did not complete.",
                 dangerousNotes: Array.Empty<string>()),
         };
+        entry = IndexCatalogContractValidatorOpsTestSupport.WithDescriptorDigest(entry);
         var contract = IndexCatalogContractValidatorOpsTestSupport.CreateOpsDescribe(entry);
 
         var result = OpsDescribeSnapshot.TryCreate(contract, out var snapshot);
@@ -48,6 +49,7 @@ public sealed class IndexCatalogContractValidatorOpsDescribeAssuranceTests
                 failureSemantics: "Failure means the operation did not complete.",
                 dangerousNotes: ["Preview-state planning is not public raw safe."]),
         };
+        entry = IndexCatalogContractValidatorOpsTestSupport.WithDescriptorDigest(entry);
         var contract = IndexCatalogContractValidatorOpsTestSupport.CreateOpsDescribe(entry);
 
         var result = OpsDescribeSnapshot.TryCreate(contract, out var snapshot);

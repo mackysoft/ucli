@@ -20,6 +20,9 @@ public sealed class IndexOpsDescribeJsonFullMetadataTests
         Assert.Equal(UcliPrimitiveOperationNames.CsEval, operation.GetProperty("name").GetString());
         Assert.Equal("mutation", operation.GetProperty("kind").GetString());
         Assert.Equal("dangerous", operation.GetProperty("policy").GetString());
+        Assert.Equal(
+            expectedOperation.DescriptorDigest!.ToString(),
+            operation.GetProperty("descriptorDigest").GetString());
         Assert.Equal(expectedOperation.Description, operation.GetProperty("description").GetString());
         AssertGeneratedContractEquals(
             expectedOperation.ArgsContract!.Value,
@@ -27,6 +30,7 @@ public sealed class IndexOpsDescribeJsonFullMetadataTests
         AssertGeneratedContractEquals(
             expectedOperation.ResultContract!.Value,
             operation.GetProperty("resultContract"));
+        Assert.Equal(JsonValueKind.Null, operation.GetProperty("verdictContract").ValueKind);
 
         var assurance = operation.GetProperty("assurance");
         Assert.Contains(

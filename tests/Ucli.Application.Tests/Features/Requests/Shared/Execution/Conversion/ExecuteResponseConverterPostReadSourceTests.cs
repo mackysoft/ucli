@@ -17,7 +17,11 @@ public sealed class ExecuteResponseConverterPostReadSourceTests
                     Phase: IpcExecuteOperationPhase.Call,
                     Applied: true,
                     Changed: true,
-                    Touched: []),
+                    Touched: [],
+                    OperationDescriptorDigest: null,
+                    Verdict: null,
+                    Result: null,
+                    Diagnostics: []),
             ],
             postReadSource: new IpcExecutePostReadSource(
                 IpcExecutePostReadSource.CurrentSchemaVersion,
@@ -76,6 +80,8 @@ public sealed class ExecuteResponseConverterPostReadSourceTests
                   "applied": true,
                   "changed": true,
                   "touched": [],
+                  "operationDescriptorDigest": null,
+                  "verdict": null,
                   "diagnostics": []
                 }
               ],
@@ -185,6 +191,8 @@ public sealed class ExecuteResponseConverterPostReadSourceTests
                   "applied": true,
                   "changed": true,
                   "touched": [],
+                  "operationDescriptorDigest": null,
+                  "verdict": null,
                   "diagnostics": []
                 }
               ],
@@ -263,6 +271,8 @@ public sealed class ExecuteResponseConverterPostReadSourceTests
               "applied": true,
               "changed": true,
               "touched": [],
+              "operationDescriptorDigest": null,
+              "verdict": null,
               "diagnostics": []
             }
           ],

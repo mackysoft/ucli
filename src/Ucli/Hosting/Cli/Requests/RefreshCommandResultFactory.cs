@@ -51,6 +51,9 @@ internal static class RefreshCommandResultFactory
         ExecutionError error)
     {
         ArgumentNullException.ThrowIfNull(error);
-        return Create(OperationExecuteResultFactory.FromExecutionError(requestId, error));
+        return Create(OperationExecuteResultFactory.FromExecutionError(
+            requestId,
+            error,
+            project: null));
     }
 }

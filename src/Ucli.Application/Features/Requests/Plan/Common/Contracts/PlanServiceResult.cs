@@ -57,10 +57,11 @@ internal sealed record PlanServiceResult
     public static PlanServiceResult Failure (
         string message,
         IReadOnlyList<ApplicationFailure> errors,
-        PlanExecutionOutput? output = null)
+        PlanExecutionOutput? output)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(message);
         var failureErrors = RequestServiceResultInvariants.RequireFailureErrors(errors);
+        _ = ApplicationFailureOutcomeResolver.Resolve(failureErrors);
 
         return new PlanServiceResult(
             output,

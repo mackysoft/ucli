@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Access;
+using MackySoft.Ucli.Application.Features.OperationCatalog.Common.Contracts;
 using MackySoft.Ucli.Application.Features.OperationCatalog.UseCases.Ops.Projection;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -19,14 +20,16 @@ public sealed class OpsDescribeResultMapperTests
 
         var result = mapper.Map(CreateReadOutput(entry));
 
-        Assert.True(result.IsSuccess);
-        var operation = result.Output!.Operation;
+        var succeeded = Assert.IsType<OpsDescribeServiceResult.Succeeded>(result);
+        var operation = succeeded.Output.Operation;
         var expectedArgsContract = Assert.IsType<UcliOperationJsonContract>(entry.ArgsContract);
         var expectedResultContract = Assert.IsType<UcliOperationJsonContract>(entry.ResultContract);
         var actualResultContract = Assert.IsType<UcliOperationJsonContract>(operation.ResultContract);
         Assert.Equal(expectedArgsContract.ContractDigest, operation.ArgsContract.ContractDigest);
         Assert.Equal(expectedResultContract.ContractDigest, actualResultContract.ContractDigest);
         Assert.Equal(UcliOperationPlayModeSupport.Disallowed, operation.PlayModeSupport);
+        Assert.Equal(entry.DescriptorDigest, operation.DescriptorDigest);
+        Assert.Equal(entry.VerdictContract, operation.VerdictContract);
         Assert.Equal("Resolves an asset, scene object, prefab object, or component reference to a Unity GlobalObjectId.", operation.Description);
     }
 
@@ -45,15 +48,15 @@ public sealed class OpsDescribeResultMapperTests
 
         var result = mapper.Map(CreateReadOutput(entry));
 
-        Assert.True(result.IsSuccess);
-        Assert.NotNull(result.Output!.Operation.CodeContract);
-        Assert.Equal(UcliCodeLanguage.CSharp, result.Output.Operation.CodeContract!.Language);
-        Assert.Equal("public static object? | Task | Task<T> | ValueTask | ValueTask<T> Run(UcliCsEvalContext context)", result.Output.Operation.CodeContract.EntryPoint!.Signature);
-        Assert.Equal("Compiled source must contain exactly one public static Run(UcliCsEvalContext context) method returning object?, Task, Task<T>, ValueTask, or ValueTask<T>.", result.Output.Operation.CodeContract.EntryPoint.MatchRule);
+        var succeeded = Assert.IsType<OpsDescribeServiceResult.Succeeded>(result);
+        Assert.NotNull(succeeded.Output.Operation.CodeContract);
+        Assert.Equal(UcliCodeLanguage.CSharp, succeeded.Output.Operation.CodeContract!.Language);
+        Assert.Equal("public static object? | Task | Task<T> | ValueTask | ValueTask<T> Run(UcliCsEvalContext context)", succeeded.Output.Operation.CodeContract.EntryPoint!.Signature);
+        Assert.Equal("Compiled source must contain exactly one public static Run(UcliCsEvalContext context) method returning object?, Task, Task<T>, ValueTask, or ValueTask<T>.", succeeded.Output.Operation.CodeContract.EntryPoint.MatchRule);
         Assert.Equal(
             new[] { UcliCodeSourceFormKind.CompilationUnit, UcliCodeSourceFormKind.Snippet },
-            result.Output.Operation.CodeContract.SourceForms!.Select(static form => form.Kind!.Value));
-        Assert.Equal("MackySoft.Ucli.Unity.Execution.CsEval.UcliCsEvalContext", Assert.Single(result.Output.Operation.CodeContract.ApiTypes!).FullName);
+            succeeded.Output.Operation.CodeContract.SourceForms!.Select(static form => form.Kind!.Value));
+        Assert.Equal("MackySoft.Ucli.Unity.Execution.CsEval.UcliCsEvalContext", Assert.Single(succeeded.Output.Operation.CodeContract.ApiTypes!).FullName);
     }
 
     private static OpsDescribeReadOutput CreateReadOutput (IndexOpEntryJsonContract entry)
@@ -79,28 +82,40 @@ public sealed class OpsDescribeResultMapperTests
             name,
             serializerOptions.GetTypeInfo(typeof(ResolveSelectorArgs)),
             serializerOptions.GetTypeInfo(typeof(IpcResolveOperationResult)));
-        var describe = UcliOperationDescribeContractBuilder.Create(
-            generationResult,
-            "Resolves an asset, scene object, prefab object, or component reference to a Unity GlobalObjectId.",
-            new UcliOperationAssuranceContract(
-                sideEffects: Array.Empty<UcliOperationSideEffect>(),
-                touchedKinds: Array.Empty<UcliTouchedResourceKind>(),
-                planMode: UcliOperationPlanMode.ObservesLiveUnity,
-                planSemantics: "Validate arguments and observe Unity state without applying mutation.",
-                callSemantics: "Read Unity state without applying mutation.",
-                touchedContract: "Returns no touched resources.",
-                readPostconditionContract: "Does not stale read surfaces by itself.",
-                failureSemantics: "Failure means the observation was not fully produced.",
-                dangerousNotes: Array.Empty<string>()));
-        return new IndexOpEntryJsonContract(
+        var assurance = CreateAssurance(kind, policy);
+        var verdictContract = kind == UcliOperationKind.Query
+            ? new UcliOperationVerdictContract(
+                "The supplied reference resolves to one Unity object.")
+            : null;
+        var describe = verdictContract == null
+            ? UcliOperationDescribeContractBuilder.CreateWithoutVerdict(
+                generationResult,
+                "Resolves an asset, scene object, prefab object, or component reference to a Unity GlobalObjectId.",
+                assurance,
+                codeContract: null)
+            : UcliOperationDescribeContractBuilder.CreateJudging(
+                generationResult,
+                "Resolves an asset, scene object, prefab object, or component reference to a Unity GlobalObjectId.",
+                assurance,
+                verdictContract,
+                codeContract: null);
+        var entry = new IndexOpEntryJsonContract(
             Name: name,
             Kind: kind,
             Policy: policy,
             ArgsContract: describe.ArgsContract,
-            ResultContract: describe.ResultContract)
+            DescriptorDigest: null,
+            ResultContract: describe.ResultContract,
+            VerdictContract: describe.VerdictContract,
+            Exposure: null,
+            PlayModeSupport: UcliOperationPlayModeSupport.Disallowed)
         {
             Description = describe.Description,
-            Assurance = CreateAssurance(kind, policy),
+            Assurance = describe.Assurance,
+        };
+        return entry with
+        {
+            DescriptorDigest = UcliOperationDescriptorDigest.Calculate(entry),
         };
     }
 

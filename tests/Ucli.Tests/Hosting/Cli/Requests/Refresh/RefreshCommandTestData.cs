@@ -23,6 +23,7 @@ internal static class RefreshCommandTestData
             "uCLI refresh completed.",
             readPostcondition,
             project: ProjectIdentityInfoTestFactory.Create(),
+            contractViolations: [],
             postReadSource: postReadSource);
     }
 
@@ -67,17 +68,20 @@ internal static class RefreshCommandTestData
     private static OperationExecutionOperationResult CreateRefreshOperationResult (
         IReadOnlyList<OperationExecutionTouchedResource>? touched = null)
     {
-        return new OperationExecutionOperationResult(
-            Op: UcliPrimitiveOperationNames.ProjectRefresh,
-            Phase: IpcExecuteOperationPhase.Call,
-            Applied: true,
-            Changed: true,
-            Touched: touched ??
+        return OperationExecutionOperationResult.CreateWithoutVerdict(
+            op: UcliPrimitiveOperationNames.ProjectRefresh,
+            phase: IpcExecuteOperationPhase.Call,
+            applied: true,
+            changed: true,
+            touched: touched ??
             [
                 new OperationExecutionTouchedResource(
                     Kind: UcliTouchedResourceKind.Asset,
                     Path: "Assets/Example.txt",
                     AssetGuid: null),
-            ]);
+            ],
+            operationDescriptorDigest: RequestCommandResultTestValues.OperationDescriptorDigest,
+            result: null,
+            diagnostics: []);
     }
 }

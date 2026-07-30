@@ -20,7 +20,8 @@ public sealed class ValidateServiceTimeoutTests
                 CreateReadIndexInfo(
                     used: true,
                     hit: true,
-                    freshness: IndexFreshness.Probable)),
+                    freshness: IndexFreshness.Probable),
+                RequestStaticValidationCatalog.Unavailable),
             OnPrepare = cancellationToken =>
             {
                 timeProvider.Advance(TimeSpan.FromMilliseconds(101));
@@ -60,7 +61,8 @@ public sealed class ValidateServiceTimeoutTests
                 CreateReadIndexInfo(
                     used: true,
                     hit: true,
-                    freshness: IndexFreshness.Probable)),
+                    freshness: IndexFreshness.Probable),
+                RequestStaticValidationCatalog.Unavailable),
             OnPrepare = cancellationToken =>
             {
                 timeProvider.Advance(TimeSpan.FromMilliseconds(101));
@@ -104,7 +106,8 @@ public sealed class ValidateServiceTimeoutTests
                 CreateReadIndexInfo(
                     used: true,
                     hit: true,
-                    freshness: IndexFreshness.Probable)),
+                    freshness: IndexFreshness.Probable),
+                RequestStaticValidationCatalog.Unavailable),
         };
         var service = new ValidateService(
             CreateRequestPreparationService(RequestPreparationResult.Success(CreatePreparedRequestContext())),

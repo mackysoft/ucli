@@ -1,64 +1,51 @@
 namespace MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Access;
 
 /// <summary> Represents one normalized internal <c>ops describe</c> read result. </summary>
-internal sealed record OpsDescribeReadResult
+internal abstract record OpsDescribeReadResult
 {
-    private OpsDescribeReadResult (
-        OpsDescribeReadOutput? output,
-        string message,
-        UcliCode? errorCode,
-        StartupFailureDetail? startupFailure)
+    private OpsDescribeReadResult ()
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(message);
-        if (output is null)
-        {
-            ArgumentNullException.ThrowIfNull(errorCode);
-        }
-        else
-        {
-            if (errorCode is not null)
-            {
-                throw new ArgumentException("Successful describe read must not contain an error code.", nameof(errorCode));
-            }
-
-            if (startupFailure is not null)
-            {
-                throw new ArgumentException("Successful describe read must not contain startup failure details.", nameof(startupFailure));
-            }
-        }
-
-        Output = output;
-        Message = message;
-        ErrorCode = errorCode;
-        StartupFailure = startupFailure;
     }
 
-    public OpsDescribeReadOutput? Output { get; }
-
-    public string Message { get; }
-
-    public UcliCode? ErrorCode { get; }
-
-    public StartupFailureDetail? StartupFailure { get; }
-
-    /// <summary> Gets a value indicating whether the describe read succeeded. </summary>
-    public bool IsSuccess => Output is not null;
-
     /// <summary> Creates a successful describe-read result. </summary>
-    public static OpsDescribeReadResult Success (
+    public static Succeeded Success (
         OpsDescribeReadOutput output,
         string message)
     {
-        ArgumentNullException.ThrowIfNull(output);
-        return new OpsDescribeReadResult(output, message, null, null);
+        return new Succeeded(output, message);
     }
 
     /// <summary> Creates a failed describe-read result. </summary>
-    public static OpsDescribeReadResult Failure (
-        string message,
-        UcliCode errorCode,
-        StartupFailureDetail? startupFailure = null)
+    public static Failed Failure (ApplicationFailure failure)
     {
-        return new OpsDescribeReadResult(null, message, errorCode, startupFailure);
+        return new Failed(failure);
+    }
+
+    /// <summary> Represents a successful describe read. </summary>
+    internal sealed record Succeeded : OpsDescribeReadResult
+    {
+        public Succeeded (
+            OpsDescribeReadOutput output,
+            string message)
+        {
+            Output = output ?? throw new ArgumentNullException(nameof(output));
+            ArgumentException.ThrowIfNullOrWhiteSpace(message);
+            Message = message;
+        }
+
+        public OpsDescribeReadOutput Output { get; }
+
+        public string Message { get; }
+    }
+
+    /// <summary> Represents a failed describe read. </summary>
+    internal sealed record Failed : OpsDescribeReadResult
+    {
+        public Failed (ApplicationFailure error)
+        {
+            Error = error ?? throw new ArgumentNullException(nameof(error));
+        }
+
+        public ApplicationFailure Error { get; }
     }
 }

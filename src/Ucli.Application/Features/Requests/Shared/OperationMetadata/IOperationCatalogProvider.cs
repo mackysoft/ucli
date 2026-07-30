@@ -19,8 +19,8 @@ internal interface IOperationCatalogProvider
     ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetOperationsAsync (
         ResolvedUnityProjectContext unityProject,
         UcliConfig config,
-        UnityExecutionMode mode = UnityExecutionMode.Auto,
-        TimeSpan? timeout = null,
-        bool failFast = false,
+        UnityExecutionMode mode,
+        TimeSpan? timeout,
+        bool failFast,
         CancellationToken cancellationToken = default);
 }

@@ -24,11 +24,11 @@ public sealed class OpsCatalogAccessServiceListIndexTests
 
         var result = await service.ReadListAsync(CreatePreflightContext(ReadIndexMode.AllowStale), CancellationToken.None);
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal(OpsCatalogSource.Index, result.Output!.AccessInfo.Source);
-        Assert.True(result.Output.AccessInfo.Used);
-        Assert.True(result.Output.AccessInfo.Hit);
-        Assert.Equal(IndexFreshness.Probable, result.Output.AccessInfo.Freshness);
+        var succeeded = Assert.IsType<OpsListReadResult.Succeeded>(result);
+        Assert.Equal(OpsCatalogSource.Index, succeeded.Output.AccessInfo.Source);
+        Assert.True(succeeded.Output.AccessInfo.Used);
+        Assert.True(succeeded.Output.AccessInfo.Hit);
+        Assert.Equal(IndexFreshness.Probable, succeeded.Output.AccessInfo.Freshness);
     }
 
     [Fact]
@@ -51,10 +51,10 @@ public sealed class OpsCatalogAccessServiceListIndexTests
 
         var result = await service.ReadListAsync(CreatePreflightContext(ReadIndexMode.AllowStale), CancellationToken.None);
 
-        Assert.True(result.IsSuccess);
+        var succeeded = Assert.IsType<OpsListReadResult.Succeeded>(result);
         Assert.Equal(
             [UcliPrimitiveOperationNames.GoDescribe],
-            result.Output!.Snapshot.Operations.Select(static operation => operation.Name));
-        Assert.Equal(OpsCatalogSource.Index, result.Output.AccessInfo.Source);
+            succeeded.Output.Snapshot.Operations.Select(static operation => operation.Name));
+        Assert.Equal(OpsCatalogSource.Index, succeeded.Output.AccessInfo.Source);
     }
 }

@@ -11,19 +11,65 @@ internal static class IndexOpEntryJsonContractWriter
         IndexOpEntryJsonContract entry)
     {
         writer.WriteStartObject();
+        WriteDescriptorIdentity(writer, entry);
+        WriteNullableString(writer, "descriptorDigest", entry.DescriptorDigest?.ToString());
+        WriteDescriptorBody(writer, entry);
+        writer.WriteEndObject();
+    }
+
+    internal static void WriteDescriptorDigestInput (
+        Utf8JsonWriter writer,
+        IndexOpEntryJsonContract entry)
+    {
+        writer.WriteStartObject();
+        WriteDescriptorIdentity(writer, entry);
+        WriteDescriptorBody(writer, entry);
+        writer.WriteEndObject();
+    }
+
+    private static void WriteDescriptorIdentity (
+        Utf8JsonWriter writer,
+        IndexOpEntryJsonContract entry)
+    {
         WriteNullableString(writer, "name", entry.Name);
         WriteNullableVocabulary(writer, "kind", entry.Kind);
         WriteNullableVocabulary(writer, "policy", entry.Policy);
+        if (entry.Exposure.HasValue)
+        {
+            WriteNullableVocabulary(writer, "exposure", entry.Exposure);
+        }
         WriteNullableVocabulary(writer, "playModeSupport", entry.PlayModeSupport);
+    }
+
+    private static void WriteDescriptorBody (
+        Utf8JsonWriter writer,
+        IndexOpEntryJsonContract entry)
+    {
         WriteNullableString(writer, "description", entry.Description);
         WriteGeneratedContract(writer, "argsContract", entry.ArgsContract);
         WriteGeneratedContract(writer, "resultContract", entry.ResultContract);
+        WriteVerdictContract(writer, entry.VerdictContract);
         writer.WritePropertyName("assurance");
         JsonSerializer.Serialize(
             writer,
             entry.Assurance,
             IndexJsonContractSerializerOptions.Deserialize);
         WriteOperationCodeContract(writer, entry.CodeContract);
+    }
+
+    private static void WriteVerdictContract (
+        Utf8JsonWriter writer,
+        UcliOperationVerdictContract? verdictContract)
+    {
+        writer.WritePropertyName("verdictContract");
+        if (verdictContract == null)
+        {
+            writer.WriteNullValue();
+            return;
+        }
+
+        writer.WriteStartObject();
+        WriteNullableString(writer, "description", verdictContract.Description);
         writer.WriteEndObject();
     }
 

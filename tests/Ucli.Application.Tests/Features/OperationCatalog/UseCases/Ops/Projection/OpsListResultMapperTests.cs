@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Access;
+using MackySoft.Ucli.Application.Features.OperationCatalog.Common.Contracts;
 using MackySoft.Ucli.Application.Features.OperationCatalog.UseCases.Ops.Projection;
 using static MackySoft.Ucli.TestSupport.OperationCatalogTestFixtures;
 
@@ -30,12 +31,12 @@ public sealed class OpsListResultMapperTests
             output,
             output.Snapshot.Operations);
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe, result.Output!.Operations[0].Name);
-        Assert.Equal("Returns a GameObject description including components and child hierarchy.", result.Output.Operations[0].Description);
-        Assert.Equal(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneSave, result.Output.Operations[1].Name);
-        Assert.Equal("Saves a Unity scene asset.", result.Output.Operations[1].Description);
-        Assert.Equal(ReadIndexInfoSource.Index, result.Output.ReadIndex.Source);
-        Assert.Equal(MackySoft.Ucli.Contracts.Index.IndexFreshness.Fresh, result.Output.ReadIndex.Freshness);
+        var succeeded = Assert.IsType<OpsListServiceResult.Succeeded>(result);
+        Assert.Equal(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe, succeeded.Output.Operations[0].Name);
+        Assert.Equal("Returns a GameObject description including components and child hierarchy.", succeeded.Output.Operations[0].Description);
+        Assert.Equal(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneSave, succeeded.Output.Operations[1].Name);
+        Assert.Equal("Saves a Unity scene asset.", succeeded.Output.Operations[1].Description);
+        Assert.Equal(ReadIndexInfoSource.Index, succeeded.Output.ReadIndex.Source);
+        Assert.Equal(MackySoft.Ucli.Contracts.Index.IndexFreshness.Fresh, succeeded.Output.ReadIndex.Freshness);
     }
 }

@@ -16,7 +16,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
     [UcliOperation]
     internal sealed class AssetSetOperation : UcliOperation<AssetSetArgs, UcliNoResult>
     {
-        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<AssetSetArgs, UcliNoResult>(
+        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.CreateWithoutVerdict<AssetSetArgs, UcliNoResult>(
             operationName: UcliPrimitiveOperationNames.AssetSet,
             kind: UcliOperationKind.Mutation,
             description: "Assigns serialized property values on an asset or project asset target.",
@@ -30,7 +30,10 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 readPostconditionContract: "Asset and project settings read surfaces covering touched resources may be stale until refreshed.",
                 failureSemantics: "Failure before apply leaves no requested mutation; failure during apply may leave live Unity state partially changed.",
                 dangerousNotes: new[] { "This operation can dirty asset or ProjectSettings state without persisting it; callers must save or discard changes explicitly." }),
-            exposure: UcliOperationExposure.EditLoweringOnly);
+            requiresPreCallPlanReplay: false,
+            exposure: UcliOperationExposure.EditLoweringOnly,
+            playModeSupport: UcliOperationPlayModeSupport.Disallowed,
+            codeContract: null);
 
         protected override Task<OperationPhaseStepResult> ValidateAsync (
             NormalizedOperation operation,
@@ -40,7 +43,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         {
             cancellationToken.ThrowIfCancellationRequested();
             return Task.FromResult(TryResolveValidateTarget(operation, args, executionContext, out _, out var failure)
-                ? OperationPhaseStepResult.Success(applied: false, changed: false)
+                ? OperationPhaseStepResult.Success(applied: false, changed: false,touched:System.Array.Empty<OperationTouch>())
                 : failure!);
         }
 
@@ -62,10 +65,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 out var sandbox,
                 out var cloneErrorMessage))
             {
-                return Task.FromResult(OperationPhaseStepResult.Failed(new OperationFailure(
-                    Code: UcliCoreErrorCodes.InternalError,
-                    Message: cloneErrorMessage,
-                    OpId: operation.Id)));
+                return Task.FromResult(OperationPhaseStepResult.Failed(
+                    new OperationFailure(
+                        Code: UcliCoreErrorCodes.InternalError,
+                        Message: cloneErrorMessage,
+                        OpId: operation.Id),
+                    applied: false,
+                    changed: false,
+                    result: null,touched:System.Array.Empty<OperationTouch>()));
             }
 
             if (!SerializedObjectValueApplier.TryApply(
@@ -132,10 +139,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 out var sandbox,
                 out var cloneErrorMessage))
             {
-                return Task.FromResult(OperationPhaseStepResult.Failed(new OperationFailure(
-                    Code: UcliCoreErrorCodes.InternalError,
-                    Message: cloneErrorMessage,
-                    OpId: operation.Id)));
+                return Task.FromResult(OperationPhaseStepResult.Failed(
+                    new OperationFailure(
+                        Code: UcliCoreErrorCodes.InternalError,
+                        Message: cloneErrorMessage,
+                        OpId: operation.Id),
+                    applied: false,
+                    changed: false,
+                    result: null,touched:System.Array.Empty<OperationTouch>()));
             }
 
             if (!SerializedObjectValueApplier.TryApply(
@@ -153,10 +164,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             if (changed
                 && !AssetOperationUtilities.TryCopySerializedState(sandbox!, binding.UnityObject, out var copyErrorMessage))
             {
-                return Task.FromResult(OperationPhaseStepResult.Failed(new OperationFailure(
-                    Code: UcliCoreErrorCodes.InternalError,
-                    Message: $"Validated asset mutation could not be committed. {copyErrorMessage}",
-                    OpId: operation.Id)));
+                return Task.FromResult(OperationPhaseStepResult.Failed(
+                    new OperationFailure(
+                        Code: UcliCoreErrorCodes.InternalError,
+                        Message: $"Validated asset mutation could not be committed. {copyErrorMessage}",
+                        OpId: operation.Id),
+                    applied: false,
+                    changed: false,
+                    result: null,touched:System.Array.Empty<OperationTouch>()));
             }
 
             if (changed)

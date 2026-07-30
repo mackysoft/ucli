@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Features.Requests.Query.UseCases.Query;
+using MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Projection;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
@@ -51,6 +52,8 @@ internal static class QueryCommandResultFactory
         return Create(QueryServiceResultFactory.FromExecutionError(
             commandName,
             requestId,
-            error));
+            error,
+            ReadIndexInfoFactory.Unity(fallbackReason: null),
+            project: null));
     }
 }

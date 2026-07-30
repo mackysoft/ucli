@@ -1,5 +1,4 @@
 using System.Text.Json;
-using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 using MackySoft.Ucli.Application.Features.Requests.Call.Common.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
@@ -19,7 +18,11 @@ public sealed class CallCommandResultFactoryTests
         var result = CallCommandResultFactory.Create(CallServiceResult.Failure(
             "Call failed.",
             [
-                ApplicationFailure.InternalError("Call failed."),
+                ApplicationFailure.InternalError(
+                    "Call failed.",
+                    UcliCoreErrorCodes.InternalError,
+                    instancePath: null,
+                    startupFailure: null),
             ],
             new CallExecutionOutput(
                 requestId: Guid.Parse("9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62"),
@@ -28,7 +31,8 @@ public sealed class CallCommandResultFactoryTests
                 plan: new CallPlanOutput(
                     opResults: [],
                     planToken: null),
-                readPostcondition: null)));
+                readPostcondition: null,
+                postReadSource: null)));
 
         using var json = JsonDocument.Parse(ResultWriter.Write(result));
         var payload = json.RootElement.GetProperty("payload");
@@ -43,8 +47,13 @@ public sealed class CallCommandResultFactoryTests
         var result = CallCommandResultFactory.Create(CallServiceResult.Failure(
             "Call failed.",
             [
-                ApplicationFailure.InternalError("Call failed."),
-            ]));
+                ApplicationFailure.InternalError(
+                    "Call failed.",
+                    UcliCoreErrorCodes.InternalError,
+                    instancePath: null,
+                    startupFailure: null),
+            ],
+            output: null));
 
         using var json = JsonDocument.Parse(ResultWriter.Write(result));
         Assert.Equal(
@@ -63,8 +72,10 @@ public sealed class CallCommandResultFactoryTests
                 ApplicationFailure.UnityIpcFailure(
                     "Unity startup is blocked.",
                     DaemonErrorCodes.DaemonStartupBlocked,
+                    instancePath: null,
                     startupFailure: startupFailure),
-            ]));
+            ],
+            output: null));
 
         using var json = JsonDocument.Parse(ResultWriter.Write(result));
         var root = json.RootElement;
@@ -97,7 +108,8 @@ public sealed class CallCommandResultFactoryTests
                 plan: new CallPlanOutput(
                     opResults: [],
                     planToken: "plan-token-1"),
-                readPostcondition: readPostcondition),
+                readPostcondition: readPostcondition,
+                postReadSource: null),
             "uCLI call completed."));
 
         using var json = JsonDocument.Parse(ResultWriter.Write(result));

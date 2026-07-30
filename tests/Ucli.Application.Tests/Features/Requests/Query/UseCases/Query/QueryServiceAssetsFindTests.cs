@@ -26,6 +26,8 @@ public sealed class QueryServiceAssetsFindTests
         };
         var service = new QueryService(
             new StaticProjectContextResolver(ProjectContextResolutionResult.Success(QueryProjectContext)),
+            CreateOperationCatalog(UcliPrimitiveOperationNames.AssetsFind, OperationDescriptorDigest),
+            CreateReadIndexCatalogResolver(UcliPrimitiveOperationNames.AssetsFind, OperationDescriptorDigest),
             assetSearchLookupAccessService,
             new RecordingSceneTreeLiteAccessService(),
             new UnexpectedUnityRequestExecutor());
@@ -69,7 +71,19 @@ public sealed class QueryServiceAssetsFindTests
         };
         var sceneTreeLiteAccessService = new RecordingSceneTreeLiteAccessService();
         var unityRequestExecutor = new UnexpectedUnityRequestExecutor();
-        var service = new QueryService(projectContextResolver, assetSearchLookupAccessService, sceneTreeLiteAccessService, unityRequestExecutor);
+        var operationCatalog = CreateOperationCatalog(
+            UcliPrimitiveOperationNames.AssetsFind,
+            OperationDescriptorDigest);
+        var readIndexCatalogResolver = CreateReadIndexCatalogResolver(
+            UcliPrimitiveOperationNames.AssetsFind,
+            OperationDescriptorDigest);
+        var service = new QueryService(
+            projectContextResolver,
+            operationCatalog,
+            readIndexCatalogResolver,
+            assetSearchLookupAccessService,
+            sceneTreeLiteAccessService,
+            unityRequestExecutor);
 
         var result = await service.ExecuteAsync(
             RequestId,
@@ -96,6 +110,7 @@ public sealed class QueryServiceAssetsFindTests
 
         var opResult = Assert.Single(result.OpResults);
         Assert.Equal(UcliPrimitiveOperationNames.AssetsFind, opResult.Op);
+        Assert.Equal(OperationDescriptorDigest, opResult.OperationDescriptorDigest);
         Assert.True(opResult.Result.HasValue);
         var payload = opResult.Result!.Value;
         Assert.Equal(1, payload.GetProperty("matches").GetArrayLength());
@@ -107,6 +122,11 @@ public sealed class QueryServiceAssetsFindTests
         Assert.True(payload.GetProperty("window").TryGetProperty("nextCursor", out var nextCursor));
         Assert.False(string.IsNullOrWhiteSpace(nextCursor.GetString()));
         Assert.False(payload.GetProperty("window").TryGetProperty("after", out _));
+
+        Assert.Empty(operationCatalog.ProjectGetAllInvocations);
+        var catalogInvocation = Assert.Single(readIndexCatalogResolver.Invocations);
+        Assert.Equal(ReadIndexGeneratedAtUtc, catalogInvocation.ExpectedGeneration);
+        Assert.Equal(UcliPrimitiveOperationNames.AssetsFind, catalogInvocation.OperationName);
     }
 
     [Fact]
@@ -130,6 +150,8 @@ public sealed class QueryServiceAssetsFindTests
         };
         var service = new QueryService(
             projectContextResolver,
+            CreateOperationCatalog(UcliPrimitiveOperationNames.AssetsFind, OperationDescriptorDigest),
+            CreateReadIndexCatalogResolver(UcliPrimitiveOperationNames.AssetsFind, OperationDescriptorDigest),
             assetSearchLookupAccessService,
             new RecordingSceneTreeLiteAccessService(),
             new UnexpectedUnityRequestExecutor());
@@ -155,6 +177,46 @@ public sealed class QueryServiceAssetsFindTests
         Assert.Equal(cursor, payload.GetProperty("window").GetProperty("cursor").GetString());
         Assert.Equal(BoundedWindowCursorCodec.Encode(2), payload.GetProperty("window").GetProperty("nextCursor").GetString());
         Assert.Equal(3, payload.GetProperty("window").GetProperty("totalCount").GetInt32());
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WhenAssetLookupTimesOut_ReturnsTimeoutFailure ()
+    {
+        var assetSearchLookupAccessService = new RecordingAssetSearchLookupAccessService
+        {
+            Result = AssetSearchLookupReadResult.Failure(
+                "Asset lookup request timed out.",
+                ExecutionErrorCodes.IpcTimeout),
+        };
+        var service = new QueryService(
+            new StaticProjectContextResolver(ProjectContextResolutionResult.Success(QueryProjectContext)),
+            CreateOperationCatalog(UcliPrimitiveOperationNames.AssetsFind, OperationDescriptorDigest),
+            new RecordingReadIndexValidationCatalogResolver(),
+            assetSearchLookupAccessService,
+            new RecordingSceneTreeLiteAccessService(),
+            new UnexpectedUnityRequestExecutor());
+
+        var result = await service.ExecuteAsync(
+            RequestId,
+            CreateInput(
+                new QueryAssetsFindOperationRequest(
+                    CommandName: "query.assets.find",
+                    OperationId: new IpcExecuteStepId("assets.find"),
+                    OperationName: UcliPrimitiveOperationNames.AssetsFind,
+                    Query: new AssetSearchLookupQuery(
+                        new UnityTypeId("UnityEngine.Material, UnityEngine.CoreModule"),
+                        null,
+                        null),
+                    WindowOptions: BoundedWindowOptions.Unbounded)),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ApplicationOutcome.ToolError, result.Outcome);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(ApplicationFailureKind.Timeout, error.Kind);
+        Assert.Equal(ExecutionErrorCodes.IpcTimeout, error.Code);
+        Assert.Equal("Asset lookup request timed out.", error.Message);
     }
 
     private static AssetSearchLookupEntry CreateMaterialAssetEntry (

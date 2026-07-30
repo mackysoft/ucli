@@ -42,7 +42,9 @@ internal sealed class PlanCommandPreflightService : IPlanCommandPreflightService
         if (requestPreparationResult.Error != null)
         {
             return PlanCommandPreflightResult.Failure(
-                PlanFailureResultFactory.FromExecutionError(requestPreparationResult.Error));
+                PlanFailureResultFactory.FromExecutionError(
+                    requestPreparationResult.Error,
+                    output: null));
         }
 
         var preparedRequest = requestPreparationResult.PreparedRequest!;
@@ -61,8 +63,7 @@ internal sealed class PlanCommandPreflightService : IPlanCommandPreflightService
             return PlanCommandPreflightResult.Failure(
                 PlanFailureResultFactory.FromExecutionError(
                     requestStaticValidationPreflightResult.Error,
-                    output,
-                    requestStaticValidationPreflightResult.ErrorCode));
+                    output));
         }
 
         if (requestStaticValidationPreflightResult.HasValidationErrors)
@@ -76,7 +77,7 @@ internal sealed class PlanCommandPreflightService : IPlanCommandPreflightService
         return PlanCommandPreflightResult.Success(
             PlanExecutionOutputFactory.CreateBase(
                 requestId,
-                requestStaticValidationPreflightResult.PreparedRequest!,
-                requestStaticValidationPreflightResult.ReadIndex!));
+                requestStaticValidationPreflightResult.PreparedRequest,
+                requestStaticValidationPreflightResult.ReadIndex));
     }
 }

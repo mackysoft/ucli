@@ -7,21 +7,6 @@ internal static class UcliOperationDescribeContractValidator
 {
     public static bool TryValidatePublicRawOpDescribeContract (
         UcliOperationDescribeContract? describeContract,
-        string ownerName,
-        out string errorMessage)
-    {
-        return TryValidatePublicRawOpDescribeContractCore(
-            describeContract,
-            operationKind: null,
-            operationPolicy: null,
-            ownerName,
-            allowMayCreatePreviewState: false,
-            out _,
-            out errorMessage);
-    }
-
-    public static bool TryValidatePublicRawOpDescribeContract (
-        UcliOperationDescribeContract? describeContract,
         UcliOperationKind? operationKind,
         OperationPolicy? operationPolicy,
         string ownerName,
@@ -130,6 +115,27 @@ internal static class UcliOperationDescribeContractValidator
                 out errorMessage))
         {
             return false;
+        }
+
+        if (describeContract.VerdictContract != null)
+        {
+            if (operationKind != UcliOperationKind.Query)
+            {
+                errorMessage = $"{ownerName} may declare verdictContract only when kind is query.";
+                return false;
+            }
+
+            if (describeContract.ResultContract == null)
+            {
+                errorMessage = $"{ownerName} must declare resultContract when verdictContract is present.";
+                return false;
+            }
+
+            if (string.IsNullOrWhiteSpace(describeContract.VerdictContract.Description))
+            {
+                errorMessage = $"{ownerName} has an invalid verdictContract description.";
+                return false;
+            }
         }
 
         errorMessage = string.Empty;

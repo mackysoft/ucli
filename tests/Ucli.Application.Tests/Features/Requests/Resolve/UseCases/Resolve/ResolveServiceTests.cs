@@ -1,9 +1,11 @@
 using System.Text.Json;
 using MackySoft.Ucli.Application.Features.Requests.Resolve.UseCases.Resolve;
+using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Context;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts.Configuration;
+using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Tests;
@@ -14,6 +16,12 @@ public sealed class ResolveServiceTests
     private const string ChildGlobalObjectId = "GlobalObjectId_V1-2-11111111111111111111111111111111-2-0";
 
     private static readonly Guid RequestId = Guid.Parse("9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62");
+
+    private static readonly Sha256Digest OperationDescriptorDigest =
+        Sha256Digest.Compute("resolve-service-operation-descriptor"u8);
+
+    private static readonly DateTimeOffset ReadIndexGeneratedAtUtc =
+        DateTimeOffset.Parse("2026-04-25T00:00:00+00:00");
 
     private static readonly ProjectContext ResolveProjectContext = ProjectContextTestFactory.CreateRepositoryFixtureProject(
         UcliConfig.CreateDefault() with
@@ -46,12 +54,19 @@ public sealed class ResolveServiceTests
                         Hit: true,
                         Source: SceneTreeLiteSource.Index,
                         Freshness: IndexFreshness.Fresh,
-                        GeneratedAtUtc: DateTimeOffset.Parse("2026-04-25T00:00:00+00:00"),
+                        GeneratedAtUtc: ReadIndexGeneratedAtUtc,
                         FallbackReason: null)),
                 "Scene-tree-lite read completed."),
         };
+        var operationCatalog = CreateOperationCatalog();
+        var readIndexCatalogResolver = CreateReadIndexCatalogResolver();
         var unityRequestExecutor = new UnexpectedUnityRequestExecutor();
-        var service = new ResolveService(projectContextResolver, sceneTreeLiteAccessService, unityRequestExecutor);
+        var service = new ResolveService(
+            projectContextResolver,
+            sceneTreeLiteAccessService,
+            operationCatalog,
+            readIndexCatalogResolver,
+            unityRequestExecutor);
 
         var result = await service.ExecuteAsync(
             RequestId,
@@ -73,12 +88,18 @@ public sealed class ResolveServiceTests
         Assert.True(result.ReadIndex.Hit);
         Assert.Equal(ReadIndexInfoSource.Index, result.ReadIndex.Source);
         Assert.Equal(IndexFreshness.Fresh, result.ReadIndex.Freshness);
+        Assert.Empty(operationCatalog.ProjectGetAllInvocations);
+        var catalogInvocation = Assert.Single(readIndexCatalogResolver.Invocations);
+        Assert.Equal(ReadIndexGeneratedAtUtc, catalogInvocation.ExpectedGeneration);
+        Assert.Equal(UcliPrimitiveOperationNames.Resolve, catalogInvocation.OperationName);
 
         var opResult = Assert.Single(result.OpResults);
         Assert.Equal(UcliPrimitiveOperationNames.Resolve, opResult.Op);
         Assert.Equal(IpcExecuteOperationPhase.Plan, opResult.Phase);
         Assert.False(opResult.Applied);
         Assert.False(opResult.Changed);
+        Assert.Equal(OperationDescriptorDigest, opResult.OperationDescriptorDigest);
+        Assert.Null(opResult.Verdict);
         Assert.True(opResult.Result.HasValue);
         Assert.Equal(ChildGlobalObjectId, opResult.Result!.Value.GetProperty("globalObjectId").GetString());
     }
@@ -114,12 +135,18 @@ public sealed class ResolveServiceTests
                         Hit: true,
                         Source: SceneTreeLiteSource.Index,
                         Freshness: IndexFreshness.Fresh,
-                        GeneratedAtUtc: DateTimeOffset.Parse("2026-04-25T00:00:00+00:00"),
+                        GeneratedAtUtc: ReadIndexGeneratedAtUtc,
                         FallbackReason: null)),
                 "Scene-tree-lite read completed."),
         };
+        var operationCatalog = CreateOperationCatalog();
         var unityRequestExecutor = new UnexpectedUnityRequestExecutor();
-        var service = new ResolveService(projectContextResolver, sceneTreeLiteAccessService, unityRequestExecutor);
+        var service = new ResolveService(
+            projectContextResolver,
+            sceneTreeLiteAccessService,
+            operationCatalog,
+            CreateReadIndexCatalogResolver(),
+            unityRequestExecutor);
 
         var result = await service.ExecuteAsync(
             RequestId,
@@ -145,12 +172,51 @@ public sealed class ResolveServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Execute_WhenSceneReadRejectsInput_ReturnsInvalidArgumentWithoutUnityFallback ()
+    {
+        var sceneTreeLiteAccessService = new RecordingSceneTreeLiteAccessService
+        {
+            Result = SceneTreeLiteReadResult.Failure(
+                "Scene path could not be resolved.",
+                UcliCoreErrorCodes.InvalidArgument),
+        };
+        var service = new ResolveService(
+            new StaticProjectContextResolver(ProjectContextResolutionResult.Success(ResolveProjectContext)),
+            sceneTreeLiteAccessService,
+            CreateOperationCatalog(),
+            new RecordingReadIndexValidationCatalogResolver(),
+            new UnexpectedUnityRequestExecutor());
+
+        var result = await service.ExecuteAsync(
+            RequestId,
+            CreateInput(
+                selector: CreateSceneSelector(),
+                readIndexMode: ReadIndexMode.AllowStale),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ApplicationOutcome.InvalidArgument, result.Outcome);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(ApplicationFailureKind.InvalidInput, error.Kind);
+        Assert.Equal(UcliCoreErrorCodes.InvalidArgument, error.Code);
+        Assert.Equal("Scene path could not be resolved.", error.Message);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Execute_WhenSelectorRequiresUnityFallback_SendsResolveExecuteRequest ()
     {
         var projectContextResolver = new StaticProjectContextResolver(ProjectContextResolutionResult.Success(ResolveProjectContext));
         var sceneTreeLiteAccessService = new RecordingSceneTreeLiteAccessService();
-        var unityRequestExecutor = new RecordingUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateUnityResponse()));
-        var service = new ResolveService(projectContextResolver, sceneTreeLiteAccessService, unityRequestExecutor);
+        var operationCatalog = CreateOperationCatalog();
+        var unityRequestExecutor = new RecordingUnityRequestExecutor(
+            UnityRequestExecutionResult.Success(CreateUnityResponse(OperationDescriptorDigest)));
+        var service = new ResolveService(
+            projectContextResolver,
+            sceneTreeLiteAccessService,
+            operationCatalog,
+            new RecordingReadIndexValidationCatalogResolver(),
+            unityRequestExecutor);
 
         var result = await service.ExecuteAsync(
             RequestId,
@@ -201,12 +267,19 @@ public sealed class ResolveServiceTests
                         Hit: true,
                         Source: SceneTreeLiteSource.Index,
                         Freshness: IndexFreshness.Fresh,
-                        GeneratedAtUtc: DateTimeOffset.Parse("2026-04-25T00:00:00+00:00"),
+                        GeneratedAtUtc: ReadIndexGeneratedAtUtc,
                         FallbackReason: null)),
                 "Scene-tree-lite read completed."),
         };
-        var unityRequestExecutor = new RecordingUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateUnityResponse()));
-        var service = new ResolveService(projectContextResolver, sceneTreeLiteAccessService, unityRequestExecutor);
+        var operationCatalog = CreateOperationCatalog();
+        var unityRequestExecutor = new RecordingUnityRequestExecutor(
+            UnityRequestExecutionResult.Success(CreateUnityResponse(OperationDescriptorDigest)));
+        var service = new ResolveService(
+            projectContextResolver,
+            sceneTreeLiteAccessService,
+            operationCatalog,
+            new RecordingReadIndexValidationCatalogResolver(),
+            unityRequestExecutor);
 
         var result = await service.ExecuteAsync(
             RequestId,
@@ -233,6 +306,37 @@ public sealed class ResolveServiceTests
         Assert.Equal(ReadIndexInfoSource.Unity, result.ReadIndex.Source);
         Assert.False(result.ReadIndex.Used);
         Assert.Equal("Hierarchy path 'Root/Child' did not match a GameObject.", result.ReadIndex.FallbackReason);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WhenUnityResultUsesAnotherDescriptorDigest_RejectsResponse ()
+    {
+        var projectContextResolver = new StaticProjectContextResolver(ProjectContextResolutionResult.Success(ResolveProjectContext));
+        var sceneTreeLiteAccessService = new RecordingSceneTreeLiteAccessService();
+        var operationCatalog = CreateOperationCatalog();
+        var unityRequestExecutor = new RecordingUnityRequestExecutor(
+            UnityRequestExecutionResult.Success(
+                CreateUnityResponse(Sha256Digest.Compute("another descriptor"u8))));
+        var service = new ResolveService(
+            projectContextResolver,
+            sceneTreeLiteAccessService,
+            operationCatalog,
+            new RecordingReadIndexValidationCatalogResolver(),
+            unityRequestExecutor);
+
+        var result = await service.ExecuteAsync(
+            RequestId,
+            CreateInput(
+                selector: new ResolveAssetGuidSelectorInput(
+                    Guid.Parse("11111111-1111-1111-1111-111111111111"))),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ApplicationOutcome.ToolError, result.Outcome);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
+        Assert.Contains("operationDescriptorDigest", error.Message, StringComparison.Ordinal);
     }
 
     private static ResolveCommandInput CreateInput (
@@ -268,7 +372,7 @@ public sealed class ResolveServiceTests
             IndexSceneTreeLiteNodeChildrenState.Complete);
     }
 
-    private static UnityRequestResponse CreateUnityResponse ()
+    private static UnityRequestResponse CreateUnityResponse (Sha256Digest operationDescriptorDigest)
     {
         return ExecuteUnityRequestResponseTestFactory.Create(
             status: IpcResponseStatus.Ok,
@@ -279,16 +383,59 @@ public sealed class ResolveServiceTests
                     Phase: IpcExecuteOperationPhase.Plan,
                     Applied: false,
                     Changed: false,
-                    Touched: [])
-                {
-                    Result = JsonSerializer.SerializeToElement(new
+                    Touched: [],
+                    OperationDescriptorDigest: operationDescriptorDigest,
+                    Verdict: null,
+                    Result: JsonSerializer.SerializeToElement(new
                     {
                         globalObjectId = RootGlobalObjectId,
                     }),
-                },
+                    Diagnostics: []),
             ],
             errors: [],
             project: CreateUnityResponseProjectIdentity());
+    }
+
+    private static RecordingOperationCatalog CreateOperationCatalog ()
+    {
+        return new RecordingOperationCatalog
+        {
+            Operations =
+            [
+                CreateOperationDescriptor(OperationDescriptorDigest),
+            ],
+        };
+    }
+
+    private static RecordingReadIndexValidationCatalogResolver CreateReadIndexCatalogResolver ()
+    {
+        return new RecordingReadIndexValidationCatalogResolver
+        {
+            OperationDescriptor = CreateOperationDescriptor(OperationDescriptorDigest),
+        };
+    }
+
+    private static UcliOperationDescriptor CreateOperationDescriptor (Sha256Digest descriptorDigest)
+    {
+        return new UcliOperationDescriptor(
+            Name: UcliPrimitiveOperationNames.Resolve,
+            Kind: UcliOperationKind.Query,
+            Policy: OperationPolicy.Safe,
+            ArgsSchemaJson: """{"type":"object"}""",
+            DescriptorDigest: descriptorDigest,
+            VerdictContract: null,
+            ResultSchemaJson: """
+                {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "globalObjectId": { "type": "string" }
+                  },
+                  "required": [ "globalObjectId" ],
+                  "additionalProperties": false
+                }
+                """,
+            Exposure: UcliOperationExposure.Public);
     }
 
     private static IpcProjectIdentity CreateUnityResponseProjectIdentity ()

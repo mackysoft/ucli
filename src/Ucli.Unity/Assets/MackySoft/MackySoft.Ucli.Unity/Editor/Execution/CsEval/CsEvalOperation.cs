@@ -49,7 +49,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false));
+            return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()));
         }
 
         protected override Task<OperationPhaseStepResult> PlanAsync (
@@ -65,10 +65,10 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
                 return Task.FromResult(CreateInvalidArgumentFailure(operation, compilation.FailureMessage!, compilation.CreatePlanResult()));
             }
 
-            return Task.FromResult(OperationPhaseStepResult.Success(
+            return Task.FromResult(SuccessWithResult(
+                compilation.CreatePlanResult(),
                 applied: false,
-                changed: false,
-                result: SerializeResultToElement(compilation.CreatePlanResult())));
+                changed: false,touched:Array.Empty<OperationTouch>()));
         }
 
         protected override async Task<OperationPhaseStepResult> CallAsync (
@@ -244,12 +244,13 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
                 },
                 new[] { typeof(UcliCsEvalContext) });
 
-            return UcliOperationMetadata.Create<CsEvalArgs, CsEvalResult>(
+            return UcliOperationMetadata.CreateWithoutVerdict<CsEvalArgs, CsEvalResult>(
                 operationName: UcliPrimitiveOperationNames.CsEval,
                 kind: UcliOperationKind.Mutation,
                 description: "Compiles and executes a C# source unit in the Unity editor process as a dangerous eval operation.",
                 assurance: assurance,
                 requiresPreCallPlanReplay: true,
+                exposure: UcliOperationExposure.Public,
                 playModeSupport: UcliOperationPlayModeSupport.Allowed,
                 codeContract: codeContract);
         }
@@ -273,7 +274,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
                 touchedResources);
         }
 
-        private static OperationPhaseStepResult CreateCallSuccess (
+        private OperationPhaseStepResult CreateCallSuccess (
             CsEvalCompilationResult compilation,
             long durationMilliseconds,
             UcliCsEvalContext context,
@@ -282,11 +283,11 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
             var touchedResources = CsEvalTouchedResourceMapper.CreateResult(context);
             var touched = CsEvalTouchedResourceMapper.CreateTouches(context);
             var changed = IsChanged(touchedResources);
-            return OperationPhaseStepResult.Success(
+            return SuccessWithResult(
+                    CreateCallResult(compilation, durationMilliseconds, context, returnValue, touchedResources),
                     applied: true,
                     changed: changed,
-                    touched: touched,
-                    result: SerializeResultToElement(CreateCallResult(compilation, durationMilliseconds, context, returnValue, touchedResources)))
+                    touched: touched)
                 .WithReadInvalidations(CreateReadInvalidations());
         }
 
@@ -300,7 +301,10 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
                     Code: UcliCoreErrorCodes.InvalidArgument,
                     Message: message,
                     OpId: operation.Id),
-                result: SerializeResultToElement(result));
+                applied: false,
+                changed: false,
+                result: IpcPayloadCodec.SerializePublicRawOperationResultToElement(result),
+                touched: Array.Empty<OperationTouch>());
         }
 
         private static OperationPhaseStepResult CreatePostInvocationInvalidArgumentFailure (
@@ -321,7 +325,13 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
                     applied: true,
                     changed: changed,
                     touched: touched,
-                    result: SerializeResultToElement(CreateCallResult(compilation, durationMilliseconds, context, returnValue: null, touchedResources)))
+                    result: IpcPayloadCodec.SerializePublicRawOperationResultToElement(
+                        CreateCallResult(
+                            compilation,
+                            durationMilliseconds,
+                            context,
+                            returnValue: null,
+                            touchedResources)))
                 .WithReadInvalidations(CreateReadInvalidations());
         }
 

@@ -35,7 +35,8 @@ internal static class EvalCommandTestData
                         CreatePlanOperationResult(),
                     ],
                     planToken: "plan-token-1"),
-                readPostcondition: null),
+                readPostcondition: null,
+                postReadSource: null),
             "uCLI call completed.");
     }
 
@@ -47,20 +48,22 @@ internal static class EvalCommandTestData
                 ApplicationFailure.InvalidInput(
                     "Step 'eval' requires dangerous operation 'ucli.cs.eval'. Specify --allowDangerous to execute dangerous operations.",
                     OperationAuthorizationErrorCodes.OperationNotAllowed,
-                    "/steps/0"),
-            ]);
+                    "/steps/0",
+                    startupFailure: null),
+            ],
+            output: null);
     }
 
     private static OperationExecutionOperationResult CreateCallOperationResult ()
     {
-        return new OperationExecutionOperationResult(
-            Op: UcliPrimitiveOperationNames.CsEval,
-            Phase: IpcExecuteOperationPhase.Call,
-            Applied: true,
-            Changed: false,
-            Touched: [])
-        {
-            Result = IpcPayloadCodec.SerializeToElement(
+        return OperationExecutionOperationResult.CreateWithoutVerdict(
+            op: UcliPrimitiveOperationNames.CsEval,
+            phase: IpcExecuteOperationPhase.Call,
+            applied: true,
+            changed: false,
+            touched: [],
+            operationDescriptorDigest: RequestCommandResultTestValues.OperationDescriptorDigest,
+            result: IpcPayloadCodec.SerializeToElement(
                 new CsEvalResult(
                     SourceDigest,
                     UcliCodeSourceFormKind.Snippet,
@@ -80,19 +83,19 @@ internal static class EvalCommandTestData
                     new CsEvalTouchedResources(
                         CsEvalTouchedResourceState.None,
                         declared: null))),
-        };
+            diagnostics: []);
     }
 
     private static OperationExecutionOperationResult CreatePlanOperationResult ()
     {
-        return new OperationExecutionOperationResult(
-            Op: UcliPrimitiveOperationNames.CsEval,
-            Phase: IpcExecuteOperationPhase.Plan,
-            Applied: false,
-            Changed: false,
-            Touched: [])
-        {
-            Result = IpcPayloadCodec.SerializeToElement(
+        return OperationExecutionOperationResult.CreateWithoutVerdict(
+            op: UcliPrimitiveOperationNames.CsEval,
+            phase: IpcExecuteOperationPhase.Plan,
+            applied: false,
+            changed: false,
+            touched: [],
+            operationDescriptorDigest: RequestCommandResultTestValues.OperationDescriptorDigest,
+            result: IpcPayloadCodec.SerializeToElement(
                 new CsEvalResult(
                     SourceDigest,
                     UcliCodeSourceFormKind.Snippet,
@@ -103,7 +106,7 @@ internal static class EvalCommandTestData
                     logs: null,
                     returnValue: null,
                     touchedResources: null)),
-        };
+            diagnostics: []);
     }
 
     private static CsEvalCompileResult CreateSuccessfulCompileResult ()

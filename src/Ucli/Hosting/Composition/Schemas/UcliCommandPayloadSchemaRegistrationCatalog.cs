@@ -53,12 +53,12 @@ internal static class UcliCommandPayloadSchemaRegistrationCatalog
     {
         var statusText = TextVocabulary.GetText(status);
         var runtimePayloadType = UcliNonNullJsonObject.MakeValueType(typeInfo.Type);
-        return new UcliStaticSchemaRegistration(
+        return UcliStaticSchemaRegistration.CliOutputPayload(
             "cli-output.payload." + command + "." + statusText,
             RootRelativePath.Parse(
                 "cli-output/payload/" + command + "." + statusText + ".schema.json"),
-            UcliStaticSchemaKind.CliOutputPayload,
             CliOutputJsonSerializerOptions.Default.GetTypeInfo(runtimePayloadType),
-            new UcliStaticSchemaManifestMetadata(command, status));
+            command,
+            status);
     }
 }

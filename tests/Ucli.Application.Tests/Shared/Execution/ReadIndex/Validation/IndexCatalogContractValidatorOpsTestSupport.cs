@@ -20,21 +20,29 @@ internal static class IndexCatalogContractValidatorOpsTestSupport
             UcliPrimitiveOperationNames.GoDescribe,
             IpcJsonSerializerOptions.PublicRawOperationContracts.GetTypeInfo(typeof(GoDescribeArgs)),
             IpcJsonSerializerOptions.PublicRawOperationContracts.GetTypeInfo(typeof(GameObjectDescriptionResult)));
-        var describe = UcliOperationDescribeContractBuilder.Create(
+        var describe = UcliOperationDescribeContractBuilder.CreateJudging(
             generationResult,
             "Returns a GameObject description including components and child hierarchy.",
-            CreateSafeQueryAssurance());
+            CreateSafeQueryAssurance(),
+            verdictContract: new UcliOperationVerdictContract(
+                "The requested GameObject exists and its description is complete."),
+            codeContract: null);
 
-        return new IndexOpEntryJsonContract(
-            Name: UcliPrimitiveOperationNames.GoDescribe,
-            Kind: UcliOperationKind.Query,
-            Policy: OperationPolicy.Safe,
-            ArgsContract: describe.ArgsContract,
-            ResultContract: describe.ResultContract)
-        {
-            Description = describe.Description,
-            Assurance = describe.Assurance,
-        };
+        return WithDescriptorDigest(
+            new IndexOpEntryJsonContract(
+                Name: UcliPrimitiveOperationNames.GoDescribe,
+                Kind: UcliOperationKind.Query,
+                Policy: OperationPolicy.Safe,
+                ArgsContract: describe.ArgsContract,
+                DescriptorDigest: null,
+                ResultContract: describe.ResultContract,
+                VerdictContract: describe.VerdictContract,
+                Exposure: null,
+                PlayModeSupport: UcliOperationPlayModeSupport.Disallowed)
+            {
+                Description = describe.Description,
+                Assurance = describe.Assurance,
+            });
     }
 
     public static IndexOpEntryJsonContract CreateEditLoweringOnlyOpsEntry ()
@@ -53,20 +61,36 @@ internal static class IndexCatalogContractValidatorOpsTestSupport
             UcliPrimitiveOperationNames.CompSet,
             IpcJsonSerializerOptions.PublicRawOperationContracts.GetTypeInfo(typeof(ComponentSetArgs)),
             resultTypeInfo: null);
-        var describe = UcliOperationDescribeContractBuilder.Create(
+        var describe = UcliOperationDescribeContractBuilder.CreateWithoutVerdict(
             generationResult,
             "Assigns serialized property values on a component target.",
-            assurance);
+            assurance,
+            codeContract: null);
 
-        return new IndexOpEntryJsonContract(
-            Name: UcliPrimitiveOperationNames.CompSet,
-            Kind: UcliOperationKind.Mutation,
-            Policy: OperationPolicy.Advanced,
-            ArgsContract: describe.ArgsContract)
+        return WithDescriptorDigest(
+            new IndexOpEntryJsonContract(
+                Name: UcliPrimitiveOperationNames.CompSet,
+                Kind: UcliOperationKind.Mutation,
+                Policy: OperationPolicy.Advanced,
+                ArgsContract: describe.ArgsContract,
+                DescriptorDigest: null,
+                VerdictContract: null,
+                ResultContract: null,
+                Exposure: UcliOperationExposure.EditLoweringOnly,
+                PlayModeSupport: UcliOperationPlayModeSupport.Disallowed)
+            {
+                Description = describe.Description,
+                Assurance = describe.Assurance,
+            });
+    }
+
+    public static IndexOpEntryJsonContract WithDescriptorDigest (IndexOpEntryJsonContract operation)
+    {
+        ArgumentNullException.ThrowIfNull(operation);
+        var descriptorWithoutDigest = operation with { DescriptorDigest = null };
+        return descriptorWithoutDigest with
         {
-            Exposure = UcliOperationExposure.EditLoweringOnly,
-            Description = describe.Description,
-            Assurance = describe.Assurance,
+            DescriptorDigest = UcliOperationDescriptorDigest.Calculate(descriptorWithoutDigest),
         };
     }
 

@@ -58,9 +58,14 @@ public sealed class RefreshCommandPayloadTests
             [
                 ApplicationFailure.InternalError(
                     "Unity execution failed.",
-                    instancePath: "/steps/0"),
+                    UcliCoreErrorCodes.InternalError,
+                    instancePath: "/steps/0",
+                    startupFailure: null),
             ],
-            "uCLI refresh failed.");
+            contractViolations: [],
+            readPostcondition: null,
+            project: null,
+            postReadSource: null);
         var service = new RecordingRefreshService((_, _) => ValueTask.FromResult(failureResult));
         var command = new RefreshCommand(service, CommandResultTestWriter.Create());
 

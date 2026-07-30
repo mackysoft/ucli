@@ -1,5 +1,4 @@
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.OperationExecute;
-using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Requests;
 using MackySoft.Ucli.Tests.Hosting.Cli.Common.Execution;
 using static MackySoft.Ucli.Tests.RefreshCommandTestData;
@@ -18,17 +17,19 @@ public sealed class RefreshCommandGoldenOutputTests
                 CreateViolationOperationResult(),
             ],
             [
-                ApplicationFailure.FromCode(
-                    ExecuteRequestErrorCodes.OperationContractViolation,
+                ApplicationFailure.ContractViolation(
                     ContractViolationMessage,
-                    "/opResults/0"),
+                    ExecuteRequestErrorCodes.OperationContractViolation,
+                    "/opResults/0",
+                    startupFailure: null),
             ],
-            ContractViolationMessage,
             contractViolations:
             [
                 CreateContractViolation(),
             ],
-            project: ProjectIdentityInfoTestFactory.Create());
+            readPostcondition: null,
+            project: ProjectIdentityInfoTestFactory.Create(),
+            postReadSource: null);
         var service = new RecordingRefreshService((_, _) => ValueTask.FromResult(failureResult));
         var command = new RefreshCommand(service, CommandResultTestWriter.Create());
 
@@ -53,19 +54,21 @@ public sealed class RefreshCommandGoldenOutputTests
                 CreateViolationOperationResult(),
             ],
             [
-                ApplicationFailure.FromCode(
-                    ExecuteRequestErrorCodes.OperationContractViolation,
+                ApplicationFailure.ContractViolation(
                     ContractViolationMessage,
-                    "/opResults/0"),
+                    ExecuteRequestErrorCodes.OperationContractViolation,
+                    "/opResults/0",
+                    startupFailure: null),
             ],
-            ContractViolationMessage,
             contractViolations:
             [
                 CreateContractViolation(
                     expectedFact: "assurance.mayPersist=false",
                     observedResult: "executionTrace.persisted=true"),
             ],
-            project: ProjectIdentityInfoTestFactory.Create());
+            readPostcondition: null,
+            project: ProjectIdentityInfoTestFactory.Create(),
+            postReadSource: null);
         var service = new RecordingRefreshService((_, _) => ValueTask.FromResult(failureResult));
         var command = new RefreshCommand(service, CommandResultTestWriter.Create());
 

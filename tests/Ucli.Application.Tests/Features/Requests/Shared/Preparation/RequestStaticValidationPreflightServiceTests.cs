@@ -2,7 +2,6 @@ using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Preparation;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Configuration;
-using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Tests;
 
@@ -54,7 +53,7 @@ public sealed class RequestStaticValidationPreflightServiceTests
             resolver,
             new RecordingRequestStaticValidator
             {
-                Result = ValidationResult.Failure(ExecutionError.Timeout("Static validation timed out.")),
+                Result = ValidationResult.Failure(ExecutionError.Timeout("Static validation timed out.", ExecutionErrorCodes.IpcTimeout)),
             });
 
         var result = await service.PrepareAsync(
@@ -63,8 +62,8 @@ public sealed class RequestStaticValidationPreflightServiceTests
             cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
-        Assert.Equal(ExecutionErrorCodes.IpcTimeout, result.ErrorCode);
-        Assert.Same(preparedRequest, result.PreparedRequest);
+        Assert.Equal(ExecutionErrorCodes.IpcTimeout, result.Error!.Code);
+        Assert.Equal(preparedRequest.RequestJson, result.PreparedRequest.RequestJson);
         Assert.NotNull(result.ReadIndex);
         Assert.Equal(readIndex.GeneratedAtUtc, result.ReadIndex!.GeneratedAtUtc);
     }
@@ -144,8 +143,8 @@ public sealed class RequestStaticValidationPreflightServiceTests
 
         Assert.False(result.IsSuccess);
         Assert.True(result.HasValidationErrors);
-        Assert.Same(preparedRequest, result.PreparedRequest);
-        Assert.Same(readIndex, result.ReadIndex);
+        Assert.Equal(preparedRequest.RequestJson, result.PreparedRequest.RequestJson);
+        Assert.Equal(readIndex, result.ReadIndex);
         Assert.Single(result.ValidationErrors);
         Assert.Equal(ValidationErrorCodes.OperationArgsInvalid, result.ValidationErrors[0].Code);
         RequestStaticValidationInvocationAssert.PureStaticValidationReceivedAvailableOperationCatalog(
@@ -182,11 +181,13 @@ public sealed class RequestStaticValidationPreflightServiceTests
             cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        Assert.Same(preparedRequest, result.PreparedRequest);
-        Assert.Same(readIndex, result.ReadIndex);
+        Assert.Equal(preparedRequest.RequestJson, result.PreparedRequest.RequestJson);
+        Assert.Equal(readIndex, result.ReadIndex);
+        Assert.Equal(
+            resolver.Result!.Catalog.Operations.Select(static operation => operation.Name),
+            result.Catalog.Operations.Select(static operation => operation.Name));
         Assert.Empty(result.ValidationErrors);
         Assert.Null(result.Error);
-        Assert.Null(result.ErrorCode);
         RequestStaticValidationInvocationAssert.PureStaticValidationReceivedAvailableOperationCatalog(
             validator,
             preparedRequest,
@@ -203,7 +204,8 @@ public sealed class RequestStaticValidationPreflightServiceTests
             requestJson: """{"protocolVersion":1,"steps":[]}""",
             request: new ValidateRequest(
                 ProtocolVersion: 1,
-                Steps: Array.Empty<ValidateRequestStep>()),
+                Steps: Array.Empty<ValidateRequestStep>(),
+                AllowPlayMode: false),
             projectContext: ProjectContextTestFactory.CreateTemporaryFixtureProject());
     }
 
@@ -216,7 +218,11 @@ public sealed class RequestStaticValidationPreflightServiceTests
                     Name: "ucli.scene.open",
                     Kind: UcliOperationKind.Query,
                     Policy: OperationPolicy.Safe,
-                    ArgsSchemaJson: """{"type":"object"}"""),
+                    ArgsSchemaJson: """{"type":"object"}""",
+                    DescriptorDigest: Sha256DigestTestFactory.Compute("scene open"),
+                    VerdictContract: null,
+                    ResultSchemaJson: null,
+                    Exposure: UcliOperationExposure.Public),
             ]),
             readIndex ?? CreateReadIndexInfo(
                 used: true,

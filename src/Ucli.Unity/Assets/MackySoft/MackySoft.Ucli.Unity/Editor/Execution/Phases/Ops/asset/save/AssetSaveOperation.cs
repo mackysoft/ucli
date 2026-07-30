@@ -15,7 +15,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
     [UcliOperation]
     internal sealed class AssetSaveOperation : UcliOperation<AssetSaveArgs, UcliNoResult>
     {
-        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<AssetSaveArgs, UcliNoResult>(
+        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.CreateWithoutVerdict<AssetSaveArgs, UcliNoResult>(
             operationName: UcliPrimitiveOperationNames.AssetSave,
             kind: UcliOperationKind.Mutation,
             description: "Saves one request-attributed asset or ProjectSettings asset target.",
@@ -33,7 +33,10 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 readPostconditionContract: "Asset, ProjectSettings, GUID path, and readIndex surfaces covering the saved target may be stale after a successful call.",
                 failureSemantics: "Asset save is not transactional; timeout, cancellation, or Unity failure can leave partial or indeterminate file changes.",
                 dangerousNotes: new[] { "This operation can persist one asset or ProjectSettings file and is not transactional." }),
-            exposure: UcliOperationExposure.EditLoweringOnly);
+            requiresPreCallPlanReplay: false,
+            exposure: UcliOperationExposure.EditLoweringOnly,
+            playModeSupport: UcliOperationPlayModeSupport.Disallowed,
+            codeContract: null);
 
         protected override Task<OperationPhaseStepResult> ValidateAsync (
             NormalizedOperation operation,
@@ -43,7 +46,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         {
             cancellationToken.ThrowIfCancellationRequested();
             return Task.FromResult(TryResolveTarget(operation, args, executionContext, allowTemporaryState: true, out _, out var failure)
-                ? OperationPhaseStepResult.Success(applied: false, changed: false)
+                ? OperationPhaseStepResult.Success(applied: false, changed: false,touched:System.Array.Empty<OperationTouch>())
                 : failure!);
         }
 

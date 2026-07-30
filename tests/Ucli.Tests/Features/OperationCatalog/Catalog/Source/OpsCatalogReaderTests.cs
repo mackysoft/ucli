@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Source;
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts.Configuration;
@@ -34,12 +35,11 @@ public sealed class OpsCatalogReaderTests
             includeEditLoweringOnly: true,
             cancellationToken: CancellationToken.None);
 
-        Assert.True(result.IsSuccess);
-        Assert.NotNull(result.Snapshot);
-        Assert.Single(result.Snapshot.Operations);
-        Assert.Equal(UcliPrimitiveOperationNames.GoDescribe, result.Snapshot.Operations[0].Name);
-        Assert.Equal(UcliOperationKind.Query, result.Snapshot.Operations[0].Kind);
-        Assert.Equal(OperationPolicy.Safe, result.Snapshot.Operations[0].Policy);
+        var succeeded = Assert.IsType<OpsCatalogFetchResult.Succeeded>(result);
+        Assert.Single(succeeded.Snapshot.Operations);
+        Assert.Equal(UcliPrimitiveOperationNames.GoDescribe, succeeded.Snapshot.Operations[0].Name);
+        Assert.Equal(UcliOperationKind.Query, succeeded.Snapshot.Operations[0].Kind);
+        Assert.Equal(OperationPolicy.Safe, succeeded.Snapshot.Operations[0].Policy);
         var execution = UnityRequestExecutorAssert.PayloadExecutedOnce<UnityRequestPayload.OpsRead>(
             executor,
             UcliCommandIds.Ops,
@@ -72,11 +72,12 @@ public sealed class OpsCatalogReaderTests
             TimeSpan.FromMilliseconds(1200),
             failFast: false,
             requireReadinessGate: true,
+            includeEditLoweringOnly: false,
             cancellationToken: CancellationToken.None);
 
-        Assert.False(result.IsSuccess);
-        Assert.Equal(UcliCoreErrorCodes.InvalidArgument, result.ErrorCode);
-        Assert.Equal("invalid request", result.Message);
+        var failed = Assert.IsType<OpsCatalogFetchResult.Failed>(result);
+        Assert.Equal(UcliCoreErrorCodes.InvalidArgument, failed.Error.Code);
+        Assert.Equal("invalid request", failed.Error.Message);
     }
 
     [Fact]
@@ -100,11 +101,12 @@ public sealed class OpsCatalogReaderTests
             TimeSpan.FromMilliseconds(1200),
             failFast: false,
             requireReadinessGate: false,
+            includeEditLoweringOnly: false,
             cancellationToken: CancellationToken.None);
 
-        Assert.False(result.IsSuccess);
-        Assert.Equal(UcliCoreErrorCodes.InternalError, result.ErrorCode);
-        Assert.Contains("payload is invalid", result.Message, StringComparison.Ordinal);
+        var failed = Assert.IsType<OpsCatalogFetchResult.Failed>(result);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, failed.Error.Code);
+        Assert.Contains("payload is invalid", failed.Error.Message, StringComparison.Ordinal);
     }
 
     private static UnityRequestResponse CreateResponse (

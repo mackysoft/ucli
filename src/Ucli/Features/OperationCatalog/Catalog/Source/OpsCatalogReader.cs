@@ -1,6 +1,8 @@
 using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Source;
+using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Context.Project;
+using MackySoft.Ucli.Application.Shared.Execution.Results;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Execution.UnityRequest;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -27,7 +29,7 @@ internal sealed class OpsCatalogReader : IOpsCatalogReader
         TimeSpan timeout,
         bool failFast,
         bool requireReadinessGate,
-        bool includeEditLoweringOnly = false,
+        bool includeEditLoweringOnly,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(project);
@@ -50,9 +52,7 @@ internal sealed class OpsCatalogReader : IOpsCatalogReader
         if (!executionResult.IsSuccess)
         {
             return OpsCatalogFetchResult.Failure(
-                executionResult.Message,
-                executionResult.ErrorCode!,
-                executionResult.FailureInfo!.StartupFailure);
+                RequestFailureNormalizer.FromUnityRequestFailure(executionResult.FailureInfo!));
         }
 
         return CreateResultFromResponse(executionResult.Response!, "ops.read", includeEditLoweringOnly);
@@ -69,14 +69,18 @@ internal sealed class OpsCatalogReader : IOpsCatalogReader
         if (response.Errors.Count != 0)
         {
             var firstError = response.Errors[0];
-            return OpsCatalogFetchResult.Failure(firstError.Message, firstError.Code);
+            return OpsCatalogFetchResult.Failure(
+                RequestFailureNormalizer.FromOperationError(firstError));
         }
 
         if (!IpcPayloadCodec.TryDeserialize(response.Payload, out IpcOpsReadResponse payload, out var payloadError))
         {
             return OpsCatalogFetchResult.Failure(
-                $"{responseSourceName} payload is invalid. {payloadError.Message}",
-                UcliCoreErrorCodes.InternalError);
+                ApplicationFailure.ContractViolation(
+                    $"{responseSourceName} payload is invalid. {payloadError.Message}",
+                    UcliCoreErrorCodes.InternalError,
+                    instancePath: null,
+                    startupFailure: null));
         }
 
         if (!OpsCatalogSnapshot.TryCreate(
@@ -88,10 +92,14 @@ internal sealed class OpsCatalogReader : IOpsCatalogReader
                 out var validationError))
         {
             return OpsCatalogFetchResult.Failure(
-                $"{responseSourceName} payload is invalid. {validationError}",
-                UcliCoreErrorCodes.InternalError);
+                ApplicationFailure.ContractViolation(
+                    $"{responseSourceName} payload is invalid. {validationError}",
+                    UcliCoreErrorCodes.InternalError,
+                    instancePath: null,
+                    startupFailure: null));
         }
 
         return OpsCatalogFetchResult.Success(snapshot!);
     }
+
 }

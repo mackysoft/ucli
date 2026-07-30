@@ -40,13 +40,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 cancellationToken.ThrowIfCancellationRequested();
 
                 var preparedOperation = preparedOperations[i];
-                var contractFacts = OperationPhaseTrace.ContractFacts.FromMetadata(preparedOperation.PhaseOperation.Metadata);
+                var contractFacts = OperationContractFacts.FromMetadata(preparedOperation.PhaseOperation.Metadata);
                 if (hasFailed)
                 {
-                    operationTraces.Add(OperationPhaseExecutionUtilities.CreateSkippedTrace(preparedOperation.Operation) with
-                    {
-                        Contracts = contractFacts,
-                    });
+                    operationTraces.Add(OperationPhaseTrace.Variants.SkippedAgainstContract(
+                        preparedOperation.Operation.Id,
+                        preparedOperation.Operation.Op,
+                        contractFacts));
                     continue;
                 }
 
@@ -75,21 +75,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     if (!replayedPlanStepResult.IsSuccess)
                     {
                         var replayTouchedSnapshot = touched.ToArray();
-                        operationTraces.Add(new OperationPhaseTrace(
-                            OpId: preparedOperation.Operation.Id,
-                            Op: preparedOperation.Operation.Op,
-                            Phase: OperationPhase.Plan,
-                            Applied: replayedPlanStepResult.Applied,
-                            Changed: replayedPlanStepResult.Changed,
-                            Touched: replayTouchedSnapshot,
-                            Failure: replayedPlanStepResult.Failure)
-                        {
-                            Result = replayedPlanStepResult.Result,
-                            ReadInvalidations = replayedPlanStepResult.ReadInvalidations,
-                            Diagnostics = diagnostics.ToArray(),
-                            Persisted = persisted,
-                            Contracts = contractFacts,
-                        });
+                        operationTraces.Add(OperationPhaseTrace.Variants.PlanFailure(
+                            opId: preparedOperation.Operation.Id,
+                            op: preparedOperation.Operation.Op,
+                            outcome: replayedPlanStepResult.WithTraceAggregation(
+                                replayTouchedSnapshot,
+                                diagnostics.ToArray(),
+                                persisted),
+                            contracts: contractFacts));
                         errors.Add(replayedPlanStepResult.Failure!);
                         hasFailed = true;
                         continue;
@@ -112,41 +105,36 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
                 if (!callStepResult.IsSuccess)
                 {
-                    operationTraces.Add(new OperationPhaseTrace(
-                        OpId: preparedOperation.Operation.Id,
-                        Op: preparedOperation.Operation.Op,
-                        Phase: OperationPhase.Call,
-                        Applied: callStepResult.Applied,
-                        Changed: callStepResult.Changed,
-                        Touched: touchedSnapshot,
-                        Failure: callStepResult.Failure)
-                    {
-                        Result = callStepResult.Result,
-                        ReadInvalidations = callStepResult.ReadInvalidations,
-                        Diagnostics = diagnosticsSnapshot,
-                        Persisted = persisted,
-                        Contracts = contractFacts,
-                    });
+                    operationTraces.Add(OperationPhaseTrace.Variants.CallFailure(
+                        opId: preparedOperation.Operation.Id,
+                        op: preparedOperation.Operation.Op,
+                        outcome: callStepResult.WithTraceAggregation(
+                            touchedSnapshot,
+                            diagnosticsSnapshot,
+                            persisted),
+                        contracts: contractFacts));
                     errors.Add(callStepResult.Failure!);
                     hasFailed = true;
                     continue;
                 }
 
-                operationTraces.Add(new OperationPhaseTrace(
-                    OpId: preparedOperation.Operation.Id,
-                    Op: preparedOperation.Operation.Op,
-                    Phase: OperationPhase.Call,
-                    Applied: callStepResult.Applied,
-                    Changed: callStepResult.Changed,
-                    Touched: touchedSnapshot,
-                    Failure: null)
-                {
-                    Result = callStepResult.Result,
-                    ReadInvalidations = callStepResult.ReadInvalidations,
-                    Diagnostics = diagnosticsSnapshot,
-                    Persisted = persisted,
-                    Contracts = contractFacts,
-                });
+                operationTraces.Add(callStepResult.Verdict.HasValue
+                    ? OperationPhaseTrace.Variants.CallSuccessWithVerdict(
+                        opId: preparedOperation.Operation.Id,
+                        op: preparedOperation.Operation.Op,
+                        outcome: callStepResult.WithTraceAggregation(
+                            touchedSnapshot,
+                            diagnosticsSnapshot,
+                            persisted),
+                        contracts: contractFacts)
+                    : OperationPhaseTrace.Variants.CallSuccessWithoutVerdict(
+                        opId: preparedOperation.Operation.Id,
+                        op: preparedOperation.Operation.Op,
+                        outcome: callStepResult.WithTraceAggregation(
+                            touchedSnapshot,
+                            diagnosticsSnapshot,
+                            persisted),
+                        contracts: contractFacts));
             }
 
             return new CallPassResult(

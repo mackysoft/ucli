@@ -18,7 +18,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
     [UcliOperation]
     internal sealed class SceneTreeOperation : UcliOperation<SceneTreeArgs, SceneTreeResult>
     {
-        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<SceneTreeArgs, SceneTreeResult>(
+        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.CreateWithoutVerdict<SceneTreeArgs, SceneTreeResult>(
             operationName: UcliPrimitiveOperationNames.SceneTree,
             kind: UcliOperationKind.Query,
             description: "Returns the hierarchy tree for a Unity scene.",
@@ -31,7 +31,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 touchedContract: "Returns no touched resources because scene hierarchy data is observational, not dirty or persisted state.",
                 readPostconditionContract: "Does not stale read surfaces by itself.",
                 failureSemantics: "Timeout, cancellation, or source fallback failure means the hierarchy was not fully observed.",
-                dangerousNotes: Array.Empty<string>()));
+                dangerousNotes: Array.Empty<string>()),
+            requiresPreCallPlanReplay: false,
+            exposure: UcliOperationExposure.Public,
+            playModeSupport: UcliOperationPlayModeSupport.Disallowed,
+            codeContract: null);
 
         /// <summary> Executes validate phase for <c>ucli.scene.tree</c>. </summary>
         /// <param name="operation"> The normalized operation. </param>
@@ -51,7 +55,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             validationState.SceneLease.Dispose();
-            return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false));
+            return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()));
         }
 
         /// <summary> Executes plan phase for <c>ucli.scene.tree</c>. </summary>
@@ -114,10 +118,10 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     windowedRoots.Items,
                     validationState.SceneLease.CreateSourceState(),
                     windowedRoots.Window);
-                return Task.FromResult(OperationPhaseStepResult.Success(
+                return Task.FromResult(SuccessWithResult(
+                    tree,
                     applied: false,
-                    changed: false,
-                    result: SerializeResultToElement(tree)));
+                    changed: false,touched:Array.Empty<OperationTouch>()));
             }
         }
 

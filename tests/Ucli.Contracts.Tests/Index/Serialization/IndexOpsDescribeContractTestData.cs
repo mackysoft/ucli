@@ -11,7 +11,7 @@ internal static class IndexOpsDescribeContractTestData
             UcliPrimitiveOperationNames.GoDescribe,
             serializerOptions.GetTypeInfo(typeof(GoDescribeArgs)),
             serializerOptions.GetTypeInfo(typeof(GameObjectDescriptionResult)));
-        return UcliOperationDescribeContractBuilder.Create(
+        return UcliOperationDescribeContractBuilder.CreateJudging(
             generationResult,
             "Returns a GameObject description including components and child hierarchy.",
             new UcliOperationAssuranceContract(
@@ -23,6 +23,9 @@ internal static class IndexOpsDescribeContractTestData
                 touchedContract: "Returns no touched resources.",
                 readPostconditionContract: "Does not stale read surfaces by itself.",
                 failureSemantics: "Failure means the observation was not fully produced.",
-                dangerousNotes: Array.Empty<string>()));
+                dangerousNotes: Array.Empty<string>()),
+            verdictContract: new UcliOperationVerdictContract(
+                "The requested GameObject exists and its description is complete."),
+            codeContract: null);
     }
 }

@@ -17,7 +17,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
     [UcliOperation]
     internal sealed class PrefabOpenOperation : UcliOperation<PrefabPathArgs, UcliNoResult>
     {
-        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<PrefabPathArgs, UcliNoResult>(
+        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.CreateWithoutVerdict<PrefabPathArgs, UcliNoResult>(
             operationName: UcliPrimitiveOperationNames.PrefabOpen,
             kind: UcliOperationKind.Command,
             description: "Opens a prefab asset in the Unity editor.",
@@ -30,7 +30,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 touchedContract: "Reports the prefab resource as an observed editor context, not as a persisted mutation.",
                 readPostconditionContract: "Does not stale read surfaces by itself.",
                 failureSemantics: "Timeout, cancellation, or domain reload may leave the open prefab stage indeterminate.",
-                dangerousNotes: new[] { "This operation changes the active editor prefab stage without mutating prefab content." }));
+                dangerousNotes: new[] { "This operation changes the active editor prefab stage without mutating prefab content." }),
+            requiresPreCallPlanReplay: false,
+            exposure: UcliOperationExposure.Public,
+            playModeSupport: UcliOperationPlayModeSupport.Disallowed,
+            codeContract: null);
 
         protected override Task<OperationPhaseStepResult> ValidateAsync (
             NormalizedOperation operation,
@@ -44,7 +48,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return Task.FromResult(failure!);
             }
 
-            return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false));
+            return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()));
         }
 
         protected override Task<OperationPhaseStepResult> PlanAsync (

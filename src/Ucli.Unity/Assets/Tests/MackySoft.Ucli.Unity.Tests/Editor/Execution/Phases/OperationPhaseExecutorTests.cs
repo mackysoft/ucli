@@ -12,6 +12,7 @@ using MackySoft.FileSystem;
 using MackySoft.Text.Vocabularies;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
+using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.ContractReading;
 using MackySoft.Ucli.Contracts.Operations;
@@ -40,13 +41,13 @@ namespace MackySoft.Ucli.Unity.Tests
         public void InMemoryRegistry_WhenOperationNameIsDuplicated_ThrowsArgumentException ()
         {
             var first = new RecordingPhaseOperation(
-                validateResult: OperationPhaseStepResult.Success(),
-                planResult: OperationPhaseStepResult.Success(),
-                callResult: OperationPhaseStepResult.Success());
+                validateResult: OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()),
+                planResult: OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()),
+                callResult: OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()));
             var second = new RecordingPhaseOperation(
-                validateResult: OperationPhaseStepResult.Success(),
-                planResult: OperationPhaseStepResult.Success(),
-                callResult: OperationPhaseStepResult.Success());
+                validateResult: OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()),
+                planResult: OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()),
+                callResult: OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()));
 
             Assert.Throws<ArgumentException>(() =>
             {
@@ -61,9 +62,9 @@ namespace MackySoft.Ucli.Unity.Tests
         public void InMemoryRegistry_WhenOperationNameContainsOuterWhitespace_ThrowsArgumentException ()
         {
             var operation = new RecordingPhaseOperation(
-                validateResult: OperationPhaseStepResult.Success(),
-                planResult: OperationPhaseStepResult.Success(),
-                callResult: OperationPhaseStepResult.Success());
+                validateResult: OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()),
+                planResult: OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()),
+                callResult: OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()));
 
             Assert.Throws<ArgumentException>(() =>
             {
@@ -130,38 +131,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void PersistenceReportingPolicy_WhenAllReportingIsEnabled_PreservesResultInstance ()
-        {
-            var operation = new NormalizedOperation(
-                ExecutionKey: OperationExecutionKey.ForRawStep(new IpcExecuteStepId("op-save")),
-                Op: UcliPrimitiveOperationNames.AssetSave,
-                Args: JsonSerializer.SerializeToElement(new { }),
-                As: null,
-                Expect: null,
-                AliasReferences: OperationAliasReferenceMap.Empty,
-                PersistenceReportingPolicy: OperationPersistenceReportingPolicy.ReportAll,
-                AllowExplicitPrefabAssetMutation: false);
-            var result = OperationPhaseStepResult.Success(
-                    applied: true,
-                    changed: true,
-                    touched: new[]
-                    {
-                        OperationResourceUtilities.CreateTouch(new OperationResource(UcliTouchedResourceKind.Asset, "Assets/Value.asset")),
-                    })
-                .WithPersistence()
-                .WithReadInvalidations(new[]
-                {
-                    new OperationReadInvalidation(OperationReadInvalidationSurface.AssetSearch, null),
-                });
-
-            var reported = OperationPhaseExecutionUtilities.ApplyPersistenceReportingPolicy(operation, result);
-
-            Assert.That(reported, Is.SameAs(result));
-        }
-
-        [Test]
-        [Category("Size.Small")]
-        public void PersistenceReportingPolicy_WhenAllReportingIsSuppressed_RemovesPersistenceObservations ()
+        public void PersistenceReportingPolicy_WhenAllReportingIsSuppressed_PreservesFailureEvidenceAndRemovesPersistenceObservations ()
         {
             var operation = new NormalizedOperation(
                 ExecutionKey: OperationExecutionKey.ForEditPrimitive(new IpcExecuteStepId("edit-step"), primitiveIndex: 0),
@@ -173,7 +143,11 @@ namespace MackySoft.Ucli.Unity.Tests
                 PersistenceReportingPolicy: OperationPersistenceReportingPolicy.SuppressAll,
                 AllowExplicitPrefabAssetMutation: false);
             var resultPayload = JsonSerializer.SerializeToElement(new { value = 1 });
-            var result = OperationPhaseStepResult.Success(
+            var result = OperationPhaseStepResult.Failed(
+                    failure: new OperationFailure(
+                        UcliCoreErrorCodes.InternalError,
+                        "Failure evidence used to verify persistence-report filtering.",
+                        operation.Id),
                     applied: true,
                     changed: true,
                     touched: new[]
@@ -191,6 +165,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(reported.Applied, Is.True);
             Assert.That(reported.Changed, Is.True);
+            Assert.That(reported.Failure, Is.EqualTo(result.Failure));
             Assert.That(reported.Result, Is.EqualTo(result.Result));
             Assert.That(reported.Touched, Is.Empty);
             Assert.That(reported.ReadInvalidations, Is.Empty);
@@ -275,19 +250,6 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(operation.ValidateBodyCalled, Is.False);
         }
 
-        [TestCase("null")]
-        [TestCase("[]")]
-        [TestCase("\"text\"")]
-        [Category("Size.Small")]
-        public void OperationPhaseStepResult_WhenResultRootIsNotObject_ThrowsArgumentException (
-            string json)
-        {
-            using var document = JsonDocument.Parse(json);
-
-            Assert.Throws<ArgumentException>(() =>
-                OperationPhaseStepResult.Success(result: document.RootElement));
-        }
-
         [Test]
         [Category("Size.Small")]
         public async Task TypedOperation_WhenPlanArgsFailContractValidation_ReturnsInvalidArgumentWithoutCallingBody ()
@@ -360,12 +322,32 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator Execute_WhenCommandIsUnknown_RejectsBeforeExecutingOperation () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new RecordingPhaseOperation(
+                validateResult: OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()),
+                planResult: OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()),
+                callResult: OperationPhaseStepResult.Success(applied: true, changed: true,touched:Array.Empty<OperationTouch>()));
+            var executor = CreateExecutor(operation);
+            var request = CreateRequest("op-1", UcliPrimitiveOperationNames.Resolve);
+
+            var exception = await AsyncExceptionCapture.CaptureAsync<ArgumentOutOfRangeException>(
+                async () => await executor.ExecuteAsync((PhaseExecutionCommand)int.MaxValue, request),
+                "Unknown phase execution command rejection",
+                AsyncWaitTimeout);
+
+            Assert.That(exception.ParamName, Is.EqualTo("command"));
+            Assert.That(operation.CalledPhases, Is.Empty);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator Execute_WhenCommandIsPlan_ExecutesValidateAndPlanOnly () => UniTask.ToCoroutine(async () =>
         {
             var operation = new RecordingPhaseOperation(
-                validateResult: OperationPhaseStepResult.Success(),
-                planResult: OperationPhaseStepResult.Success(applied: false, changed: true),
-                callResult: OperationPhaseStepResult.Success(applied: true, changed: true));
+                validateResult: OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()),
+                planResult: OperationPhaseStepResult.Success(applied: false, changed: true,touched:Array.Empty<OperationTouch>()),
+                callResult: OperationPhaseStepResult.Success(applied: true, changed: true,touched:Array.Empty<OperationTouch>()));
             var executor = CreateExecutor(operation);
             var request = CreateRequest("op-1", UcliPrimitiveOperationNames.Resolve);
 
@@ -376,10 +358,10 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(trace.OperationTraces[0].Phase, Is.EqualTo(OperationPhase.Plan));
             Assert.That(trace.OperationTraces[0].Contracts, Is.Not.Null);
             Assert.That(trace.OperationTraces[0].Contracts!.OperationKind, Is.EqualTo(UcliOperationKind.Mutation));
-            Assert.That(trace.OperationTraces[0].Contracts!.MayDirty, Is.True);
+            Assert.That(trace.OperationTraces[0].Contracts!.Assurance.MayDirty, Is.True);
             CollectionAssert.AreEqual(
                 new[] { UcliTouchedResourceKind.Scene, UcliTouchedResourceKind.Prefab },
-                trace.OperationTraces[0].Contracts!.TouchedKinds);
+                trace.OperationTraces[0].Contracts!.Assurance.TouchedKinds);
         });
 
         [UnityTest]
@@ -387,9 +369,9 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator Execute_WhenPlanStepPersists_PreservesPersistenceEvidence () => UniTask.ToCoroutine(async () =>
         {
             var operation = new RecordingPhaseOperation(
-                validateResult: OperationPhaseStepResult.Success(),
-                planResult: OperationPhaseStepResult.Success(applied: false, changed: false).WithPersistence(),
-                callResult: OperationPhaseStepResult.Success(applied: true, changed: false));
+                validateResult: OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()),
+                planResult: OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()).WithPersistence(),
+                callResult: OperationPhaseStepResult.Success(applied: true, changed: false,touched:Array.Empty<OperationTouch>()));
             var executor = CreateExecutor(operation);
             var request = CreateRequest("op-1", UcliPrimitiveOperationNames.Resolve);
 
@@ -405,9 +387,9 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator Execute_WhenCommandIsCall_ExecutesValidatePlanAndCall () => UniTask.ToCoroutine(async () =>
         {
             var operation = new RecordingPhaseOperation(
-                validateResult: OperationPhaseStepResult.Success(),
-                planResult: OperationPhaseStepResult.Success(),
-                callResult: OperationPhaseStepResult.Success(applied: true, changed: true));
+                validateResult: OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()),
+                planResult: OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()),
+                callResult: OperationPhaseStepResult.Success(applied: true, changed: true,touched:Array.Empty<OperationTouch>()));
             var executor = CreateExecutor(operation);
             var request = CreateRequest("op-1", UcliPrimitiveOperationNames.Resolve);
 
@@ -418,10 +400,10 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(trace.OperationTraces[0].Phase, Is.EqualTo(OperationPhase.Call));
             Assert.That(trace.OperationTraces[0].Contracts, Is.Not.Null);
             Assert.That(trace.OperationTraces[0].Contracts!.OperationKind, Is.EqualTo(UcliOperationKind.Mutation));
-            Assert.That(trace.OperationTraces[0].Contracts!.MayDirty, Is.True);
+            Assert.That(trace.OperationTraces[0].Contracts!.Assurance.MayDirty, Is.True);
             CollectionAssert.AreEqual(
                 new[] { UcliTouchedResourceKind.Scene, UcliTouchedResourceKind.Prefab },
-                trace.OperationTraces[0].Contracts!.TouchedKinds);
+                trace.OperationTraces[0].Contracts!.Assurance.TouchedKinds);
         });
 
         [UnityTest]
@@ -429,9 +411,9 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator Execute_WhenCallStepPersists_PreservesPersistenceEvidence () => UniTask.ToCoroutine(async () =>
         {
             var operation = new RecordingPhaseOperation(
-                validateResult: OperationPhaseStepResult.Success(),
-                planResult: OperationPhaseStepResult.Success(),
-                callResult: OperationPhaseStepResult.Success(applied: true, changed: false).WithPersistence());
+                validateResult: OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()),
+                planResult: OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()),
+                callResult: OperationPhaseStepResult.Success(applied: true, changed: false,touched:Array.Empty<OperationTouch>()).WithPersistence());
             var executor = CreateExecutor(operation);
             var request = CreateRequest("op-1", UcliPrimitiveOperationNames.Resolve);
 
@@ -447,9 +429,9 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator Execute_WhenReplayPlanStepPersists_PreservesPersistenceEvidence () => UniTask.ToCoroutine(async () =>
         {
             var operation = new RecordingPhaseOperation(
-                validateResult: OperationPhaseStepResult.Success(),
-                planResult: OperationPhaseStepResult.Success(applied: false, changed: false).WithPersistence(),
-                callResult: OperationPhaseStepResult.Success(applied: true, changed: false),
+                validateResult: OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()),
+                planResult: OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()).WithPersistence(),
+                callResult: OperationPhaseStepResult.Success(applied: true, changed: false,touched:Array.Empty<OperationTouch>()),
                 requiresPreCallPlanReplay: true);
             var executor = CreateExecutor(operation);
             var request = CreateRequest("op-1", UcliPrimitiveOperationNames.Resolve);
@@ -469,12 +451,13 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator Execute_WhenFailingCallStepPersists_PreservesPersistenceEvidence () => UniTask.ToCoroutine(async () =>
         {
             var operation = new RecordingPhaseOperation(
-                validateResult: OperationPhaseStepResult.Success(),
-                planResult: OperationPhaseStepResult.Success(),
+                validateResult: OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()),
+                planResult: OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()),
                 callResult: OperationPhaseStepResult.Failed(
                     new OperationFailure(UcliCoreErrorCodes.InvalidArgument, "call failed", new IpcExecuteStepId("op-1")),
                     applied: true,
-                    changed: true).WithPersistence());
+                    changed: true,
+                    result: null,touched:Array.Empty<OperationTouch>()).WithPersistence());
             var executor = CreateExecutor(operation);
             var request = CreateRequest("op-1", UcliPrimitiveOperationNames.Resolve);
 
@@ -490,9 +473,9 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator Execute_WhenCommandIsPlanWithoutToken_ExecutesValidateAndPlanWithoutPlanToken () => UniTask.ToCoroutine(async () =>
         {
             var operation = new RecordingPhaseOperation(
-                validateResult: OperationPhaseStepResult.Success(),
-                planResult: OperationPhaseStepResult.Success(applied: false, changed: false),
-                callResult: OperationPhaseStepResult.Success(applied: true, changed: true));
+                validateResult: OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()),
+                planResult: OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()),
+                callResult: OperationPhaseStepResult.Success(applied: true, changed: true,touched:Array.Empty<OperationTouch>()));
             var coordinator = new StubPlanTokenCoordinator(
                 issueResultFactory: _ => PlanTokenIssueResult.Success("unused"),
                 requestValidationResultFactory: _ => PlanTokenValidationResult.Success(),
@@ -536,9 +519,9 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator Execute_WhenCallContainsDuplicateOperationNamesAndReplayIsNotRequired_DoesNotReplayPlanBeforeCall () => UniTask.ToCoroutine(async () =>
         {
             var operation = new RecordingPhaseOperation(
-                validateResult: OperationPhaseStepResult.Success(),
-                planResult: OperationPhaseStepResult.Success(),
-                callResult: OperationPhaseStepResult.Success(applied: true, changed: false));
+                validateResult: OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()),
+                planResult: OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()),
+                callResult: OperationPhaseStepResult.Success(applied: true, changed: false,touched:Array.Empty<OperationTouch>()));
             var executor = CreateExecutor(operation);
             var request = CreateRequest(
                 ("op-1", UcliPrimitiveOperationNames.Resolve),
@@ -581,9 +564,9 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator Execute_WhenCallContainsDangerousOperationWithoutAllowDangerous_DoesNotExecuteValidatePlanOrCallPhase () => UniTask.ToCoroutine(async () =>
         {
             var operation = new RecordingPhaseOperation(
-                validateResult: OperationPhaseStepResult.Success(),
-                planResult: OperationPhaseStepResult.Success(),
-                callResult: OperationPhaseStepResult.Success(applied: true, changed: true),
+                validateResult: OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()),
+                planResult: OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()),
+                callResult: OperationPhaseStepResult.Success(applied: true, changed: true,touched:Array.Empty<OperationTouch>()),
                 policy: OperationPolicy.Dangerous);
             var executor = CreateExecutor(CreateRegistry(("ucli.tests.dangerous", operation)));
             var request = CreateRequest("op-1", "ucli.tests.dangerous");
@@ -606,9 +589,9 @@ namespace MackySoft.Ucli.Unity.Tests
             scope.WriteConfigJson("{\"operationPolicy\":\"dangerous\",\"operationAllowlist\":[\"^ucli\\\\.tests\\\\.\"]}");
             var environment = scope.CreateEnvironment();
             var operation = new RecordingPhaseOperation(
-                validateResult: OperationPhaseStepResult.Success(),
-                planResult: OperationPhaseStepResult.Success(),
-                callResult: OperationPhaseStepResult.Success(applied: true, changed: true),
+                validateResult: OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()),
+                planResult: OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()),
+                callResult: OperationPhaseStepResult.Success(applied: true, changed: true,touched:Array.Empty<OperationTouch>()),
                 policy: OperationPolicy.Dangerous);
             var executor = CreateExecutor(
                 CreateRegistry(("ucli.tests.dangerous", operation)),
@@ -633,9 +616,9 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator Execute_WhenRawOperationIsEditLoweringOnly_DoesNotExecuteValidatePlanOrCallPhase () => UniTask.ToCoroutine(async () =>
         {
             var operation = new RecordingPhaseOperation(
-                validateResult: OperationPhaseStepResult.Success(),
-                planResult: OperationPhaseStepResult.Success(),
-                callResult: OperationPhaseStepResult.Success(applied: true, changed: true),
+                validateResult: OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()),
+                planResult: OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()),
+                callResult: OperationPhaseStepResult.Success(applied: true, changed: true,touched:Array.Empty<OperationTouch>()),
                 policy: OperationPolicy.Dangerous,
                 exposure: UcliOperationExposure.EditLoweringOnly);
             var executor = CreateExecutor(CreateRegistry(("ucli.tests.edit-lowering-only", operation)));
@@ -660,9 +643,9 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator Execute_WhenPlanRawOperationIsEditLoweringOnly_DoesNotIssuePlanTokenOrExecutePhase () => UniTask.ToCoroutine(async () =>
         {
             var operation = new RecordingPhaseOperation(
-                validateResult: OperationPhaseStepResult.Success(),
-                planResult: OperationPhaseStepResult.Success(),
-                callResult: OperationPhaseStepResult.Success(applied: true, changed: true),
+                validateResult: OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()),
+                planResult: OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()),
+                callResult: OperationPhaseStepResult.Success(applied: true, changed: true,touched:Array.Empty<OperationTouch>()),
                 exposure: UcliOperationExposure.EditLoweringOnly);
             var coordinator = new StubPlanTokenCoordinator(
                 issueResultFactory: _ => PlanTokenIssueResult.Success("unused-token"),
@@ -694,9 +677,9 @@ namespace MackySoft.Ucli.Unity.Tests
             _ = new GameObject("Root");
             EditorSceneManager.SaveScene(scene, scenePath);
             var operation = new RecordingPhaseOperation(
-                validateResult: OperationPhaseStepResult.Success(),
-                planResult: OperationPhaseStepResult.Success(),
-                callResult: OperationPhaseStepResult.Success(applied: true, changed: true),
+                validateResult: OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()),
+                planResult: OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()),
+                callResult: OperationPhaseStepResult.Success(applied: true, changed: true,touched:Array.Empty<OperationTouch>()),
                 exposure: UcliOperationExposure.EditLoweringOnly);
             var executor = CreateExecutor(CreateRegistry((UcliPrimitiveOperationNames.CompEnsure, operation)));
             var request = CreateEditRequest(new UcliEditRequestStepJsonContract
@@ -736,9 +719,9 @@ namespace MackySoft.Ucli.Unity.Tests
             scope.WriteConfigJson("{\"operationPolicy\":\"safe\",\"operationAllowlist\":[\"^ucli\\\\.tests\\\\.\"]}");
             var environment = scope.CreateEnvironment();
             var operation = new RecordingPhaseOperation(
-                validateResult: OperationPhaseStepResult.Success(),
-                planResult: OperationPhaseStepResult.Success(),
-                callResult: OperationPhaseStepResult.Success(applied: true, changed: true),
+                validateResult: OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()),
+                planResult: OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()),
+                callResult: OperationPhaseStepResult.Success(applied: true, changed: true,touched:Array.Empty<OperationTouch>()),
                 policy: OperationPolicy.Dangerous);
             var executor = CreateExecutor(
                 CreateRegistry(("ucli.tests.dangerous", operation)),
@@ -764,9 +747,9 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator Execute_WhenPlanSucceeds_IssuesPlanToken () => UniTask.ToCoroutine(async () =>
         {
             var operation = new RecordingPhaseOperation(
-                validateResult: OperationPhaseStepResult.Success(),
-                planResult: OperationPhaseStepResult.Success(),
-                callResult: OperationPhaseStepResult.Success());
+                validateResult: OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()),
+                planResult: OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()),
+                callResult: OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()));
             var coordinator = new StubPlanTokenCoordinator(
                 issueResultFactory: _ => PlanTokenIssueResult.Success("issued-token"),
                 requestValidationResultFactory: _ => PlanTokenValidationResult.Success(),
@@ -789,13 +772,13 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator Execute_WhenCallPlanTokenValidationFails_DoesNotExecuteCallPhase () => UniTask.ToCoroutine(async () =>
         {
             var firstOperation = new RecordingPhaseOperation(
-                validateResult: OperationPhaseStepResult.Success(),
-                planResult: OperationPhaseStepResult.Success(),
-                callResult: OperationPhaseStepResult.Success());
+                validateResult: OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()),
+                planResult: OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()),
+                callResult: OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()));
             var secondOperation = new RecordingPhaseOperation(
-                validateResult: OperationPhaseStepResult.Success(),
-                planResult: OperationPhaseStepResult.Success(),
-                callResult: OperationPhaseStepResult.Success());
+                validateResult: OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()),
+                planResult: OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()),
+                callResult: OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()));
             var coordinator = new StubPlanTokenCoordinator(
                 issueResultFactory: _ => PlanTokenIssueResult.Success("unused"),
                 requestValidationResultFactory: _ => PlanTokenValidationResult.Success(),
@@ -839,19 +822,16 @@ namespace MackySoft.Ucli.Unity.Tests
                         new IpcExecuteStepId("edit-1"),
                         IpcExecuteStepKind.Edit,
                         "edit",
-                        1),
+                        1,
+                        OperationDescriptorDigest: null),
                 },
                 CompiledDigestPayloadUtf8: CreateCompiledDigestPayloadUtf8(),
                 OperationTraces: new[]
                 {
-                    new OperationPhaseTrace(
-                        OpId: new IpcExecuteStepId("edit-1"),
-                        Op: "edit",
-                        Phase: OperationPhase.Validate,
-                        Applied: false,
-                        Changed: false,
-                        Touched: Array.Empty<OperationTouch>(),
-                        Failure: new OperationFailure(UcliCoreErrorCodes.InvalidArgument, "selection no longer resolves.", new IpcExecuteStepId("edit-1"))),
+                    OperationPhaseTrace.Variants.ValidationFailureBeforeContractResolution(
+                        new IpcExecuteStepId("edit-1"),
+                        "edit",
+                        new OperationFailure(UcliCoreErrorCodes.InvalidArgument, "selection no longer resolves.", new IpcExecuteStepId("edit-1"))),
                 },
                 Errors: new[]
                 {
@@ -898,19 +878,16 @@ namespace MackySoft.Ucli.Unity.Tests
                         new IpcExecuteStepId("edit-1"),
                         IpcExecuteStepKind.Edit,
                         "edit",
-                        1),
+                        1,
+                        OperationDescriptorDigest: null),
                 },
                 CompiledDigestPayloadUtf8: CreateCompiledDigestPayloadUtf8(),
                 OperationTraces: new[]
                 {
-                    new OperationPhaseTrace(
-                        OpId: new IpcExecuteStepId("edit-1"),
-                        Op: "edit",
-                        Phase: OperationPhase.Validate,
-                        Applied: false,
-                        Changed: false,
-                        Touched: Array.Empty<OperationTouch>(),
-                        Failure: new OperationFailure(UcliCoreErrorCodes.InvalidArgument, "selection no longer resolves.", new IpcExecuteStepId("edit-1"))),
+                    OperationPhaseTrace.Variants.ValidationFailureBeforeContractResolution(
+                        new IpcExecuteStepId("edit-1"),
+                        "edit",
+                        new OperationFailure(UcliCoreErrorCodes.InvalidArgument, "selection no longer resolves.", new IpcExecuteStepId("edit-1"))),
                 },
                 Errors: new[]
                 {
@@ -946,16 +923,24 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator Execute_WhenValidateFails_MarksRemainingOperationsAsSkipped () => UniTask.ToCoroutine(async () =>
         {
             var failingOperation = new RecordingPhaseOperation(
-                validateResult: OperationPhaseStepResult.Failed(new OperationFailure(UcliCoreErrorCodes.InvalidArgument, "invalid", new IpcExecuteStepId("op-1"))),
-                planResult: OperationPhaseStepResult.Success(),
-                callResult: OperationPhaseStepResult.Success());
+                validateResult: OperationPhaseStepResult.Failed(
+                    new OperationFailure(UcliCoreErrorCodes.InvalidArgument, "invalid", new IpcExecuteStepId("op-1")),
+                    applied: false,
+                    changed: false,
+                    result: null,touched:Array.Empty<OperationTouch>()),
+                planResult: OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()),
+                callResult: OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()));
             var skippedOperation = new RecordingPhaseOperation(
-                validateResult: OperationPhaseStepResult.Success(),
-                planResult: OperationPhaseStepResult.Success(),
-                callResult: OperationPhaseStepResult.Success());
-            var executor = CreateExecutor(CreateRegistry(
+                validateResult: OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()),
+                planResult: OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()),
+                callResult: OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()));
+            var registry = CreateRegistry(
                 (UcliPrimitiveOperationNames.Resolve, failingOperation),
-                (UcliPrimitiveOperationNames.SceneOpen, skippedOperation)));
+                (UcliPrimitiveOperationNames.SceneOpen, skippedOperation));
+            Assert.That(
+                registry.TryResolve(UcliPrimitiveOperationNames.SceneOpen, out var registeredSkippedOperation),
+                Is.True);
+            var executor = CreateExecutor(registry);
             var request = CreateRequest(
                 ("op-1", UcliPrimitiveOperationNames.Resolve),
                 ("op-2", UcliPrimitiveOperationNames.SceneOpen));
@@ -966,6 +951,9 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(trace.Steps.Count, Is.EqualTo(2));
             Assert.That(trace.Steps[0].PrimitiveCount, Is.EqualTo(1));
             Assert.That(trace.Steps[1].PrimitiveCount, Is.EqualTo(0));
+            Assert.That(
+                trace.Steps[1].OperationDescriptorDigest,
+                Is.EqualTo(registeredSkippedOperation.Metadata.DescriptorDigest));
             Assert.That(trace.OperationTraces.Count, Is.EqualTo(1));
             Assert.That(trace.OperationTraces[0].Phase, Is.EqualTo(OperationPhase.Validate));
             Assert.That(trace.OperationTraces[0].Failure, Is.Not.Null);
@@ -977,13 +965,17 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator Execute_WhenPlanFails_MarksRemainingOperationsAsSkipped () => UniTask.ToCoroutine(async () =>
         {
             var failingOperation = new RecordingPhaseOperation(
-                validateResult: OperationPhaseStepResult.Success(),
-                planResult: OperationPhaseStepResult.Failed(new OperationFailure(UcliCoreErrorCodes.InvalidArgument, "plan failed", new IpcExecuteStepId("op-1"))),
-                callResult: OperationPhaseStepResult.Success());
+                validateResult: OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()),
+                planResult: OperationPhaseStepResult.Failed(
+                    new OperationFailure(UcliCoreErrorCodes.InvalidArgument, "plan failed", new IpcExecuteStepId("op-1")),
+                    applied: false,
+                    changed: false,
+                    result: null,touched:Array.Empty<OperationTouch>()),
+                callResult: OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()));
             var skippedOperation = new RecordingPhaseOperation(
-                validateResult: OperationPhaseStepResult.Success(),
-                planResult: OperationPhaseStepResult.Success(),
-                callResult: OperationPhaseStepResult.Success());
+                validateResult: OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()),
+                planResult: OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()),
+                callResult: OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()));
             var executor = CreateExecutor(CreateRegistry(
                 (UcliPrimitiveOperationNames.Resolve, failingOperation),
                 (UcliPrimitiveOperationNames.SceneOpen, skippedOperation)));
@@ -1007,13 +999,17 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator Execute_WhenCallFails_MarksRemainingOperationsAsSkipped () => UniTask.ToCoroutine(async () =>
         {
             var failingOperation = new RecordingPhaseOperation(
-                validateResult: OperationPhaseStepResult.Success(),
-                planResult: OperationPhaseStepResult.Success(),
-                callResult: OperationPhaseStepResult.Failed(new OperationFailure(UcliCoreErrorCodes.InvalidArgument, "call failed", new IpcExecuteStepId("op-1"))));
+                validateResult: OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()),
+                planResult: OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()),
+                callResult: OperationPhaseStepResult.Failed(
+                    new OperationFailure(UcliCoreErrorCodes.InvalidArgument, "call failed", new IpcExecuteStepId("op-1")),
+                    applied: false,
+                    changed: false,
+                    result: null,touched:Array.Empty<OperationTouch>()));
             var skippedOperation = new RecordingPhaseOperation(
-                validateResult: OperationPhaseStepResult.Success(),
-                planResult: OperationPhaseStepResult.Success(),
-                callResult: OperationPhaseStepResult.Success());
+                validateResult: OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()),
+                planResult: OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()),
+                callResult: OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()));
             var executor = CreateExecutor(CreateRegistry(
                 (UcliPrimitiveOperationNames.Resolve, failingOperation),
                 (UcliPrimitiveOperationNames.SceneOpen, skippedOperation)));
@@ -1285,9 +1281,9 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator Execute_WhenCancellationRequested_ThrowsOperationCanceledException () => UniTask.ToCoroutine(async () =>
         {
             var operation = new RecordingPhaseOperation(
-                validateResult: OperationPhaseStepResult.Success(),
-                planResult: OperationPhaseStepResult.Success(),
-                callResult: OperationPhaseStepResult.Success());
+                validateResult: OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()),
+                planResult: OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()),
+                callResult: OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()));
             var executor = CreateExecutor(operation);
             using var cancellationTokenSource = new CancellationTokenSource();
             cancellationTokenSource.Cancel();
@@ -1305,9 +1301,9 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var replayOperation = new ReplayFailingPhaseOperation();
             var secondOperation = new RecordingPhaseOperation(
-                validateResult: OperationPhaseStepResult.Success(),
-                planResult: OperationPhaseStepResult.Success(),
-                callResult: OperationPhaseStepResult.Success(applied: true, changed: false));
+                validateResult: OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()),
+                planResult: OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()),
+                callResult: OperationPhaseStepResult.Success(applied: true, changed: false,touched:Array.Empty<OperationTouch>()));
             var executor = CreateExecutor(CreateRegistry(
                 ("ucli.tests.replay-failing", replayOperation),
                 (UcliPrimitiveOperationNames.Resolve, secondOperation)));
@@ -1684,22 +1680,40 @@ namespace MackySoft.Ucli.Unity.Tests
                 File.WriteAllText(absolutePath, "seed");
             }
 
+            var metadata = UcliOperationMetadata.CreateWithoutVerdict<UcliEmptyArgs, UcliNoResult>(
+                UcliPrimitiveOperationNames.Resolve,
+                UcliOperationKind.Query,
+                "Resolve one test reference.",
+                new UcliOperationAssuranceContract(
+                    sideEffects: new[] { UcliOperationSideEffect.ObservesUnityState },
+                    touchedKinds: Array.Empty<UcliTouchedResourceKind>(),
+                    planMode: UcliOperationPlanMode.ObservesLiveUnity,
+                    planSemantics: "Resolve a test reference without applying changes.",
+                    callSemantics: "Resolve a test reference without applying changes.",
+                    touchedContract: "Reports the resolved scene reference used by this fixture.",
+                    readPostconditionContract: "Does not stale read surfaces.",
+                    failureSemantics: "Failure means the reference was not resolved.",
+                    dangerousNotes: Array.Empty<string>()),
+                requiresPreCallPlanReplay: false,
+                exposure: UcliOperationExposure.Public,
+                playModeSupport: UcliOperationPlayModeSupport.Disallowed,
+                codeContract: null);
             return new[]
             {
-                new OperationPhaseTrace(
-                    OpId: new IpcExecuteStepId("op-1"),
-                    Op: UcliPrimitiveOperationNames.Resolve,
-                    Phase: OperationPhase.Plan,
-                    Applied: false,
-                    Changed: false,
-                    Touched: new[]
-                    {
-                        new OperationTouch(
-                            UcliTouchedResourceKind.Scene,
-                            relativePath,
-                            Guid.ParseExact("11111111111111111111111111111111", "N")),
-                    },
-                    Failure: null),
+                OperationPhaseTrace.Variants.PlanSuccess(
+                    opId: new IpcExecuteStepId("op-1"),
+                    op: UcliPrimitiveOperationNames.Resolve,
+                    outcome: OperationPhaseStepResult.Success(
+                        applied: false,
+                        changed: false,
+                        touched: new[]
+                        {
+                            new OperationTouch(
+                                UcliTouchedResourceKind.Scene,
+                                relativePath,
+                                Guid.ParseExact("11111111111111111111111111111111", "N")),
+                        }),
+                    contracts: OperationContractFacts.FromMetadata(metadata)),
             };
         }
 
@@ -1891,15 +1905,15 @@ namespace MackySoft.Ucli.Unity.Tests
                 this.operation = operation ?? throw new ArgumentNullException(nameof(operation));
                 var sourceMetadata = operation.Metadata;
                 var describeContract = sourceMetadata.DescribeContract;
-                Metadata = UcliOperationMetadata.Create<UcliEmptyArgs, UcliNoResult>(
+                Metadata = UcliOperationMetadata.CreateWithoutVerdict<UcliEmptyArgs, UcliNoResult>(
                     operationName,
                     sourceMetadata.Kind,
                     describeContract.Description!,
                     describeContract.Assurance!,
-                    sourceMetadata.RequiresPreCallPlanReplay,
-                    sourceMetadata.Exposure,
-                    sourceMetadata.PlayModeSupport,
-                    describeContract.CodeContract);
+                    requiresPreCallPlanReplay: sourceMetadata.RequiresPreCallPlanReplay,
+                    exposure: sourceMetadata.Exposure,
+                    playModeSupport: sourceMetadata.PlayModeSupport,
+                    codeContract: describeContract.CodeContract);
             }
 
             public UcliOperationMetadata Metadata { get; }
@@ -1931,11 +1945,15 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private sealed class RequiredTypedOperation : UcliOperation<RequiredTypedArgs, UcliNoResult>
         {
-            public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<RequiredTypedArgs, UcliNoResult>(
+            public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.CreateWithoutVerdict<RequiredTypedArgs, UcliNoResult>(
                 operationName: "ucli.tests.required",
                 kind: UcliOperationKind.Query,
                 description: "Test operation requiring one typed arg.",
-                assurance: CreateValidationOnlyAssurance());
+                assurance: CreateValidationOnlyAssurance(),
+                requiresPreCallPlanReplay: false,
+                exposure: UcliOperationExposure.Public,
+                playModeSupport: UcliOperationPlayModeSupport.Disallowed,
+                codeContract: null);
 
             public bool ValidateBodyCalled { get; private set; }
 
@@ -1950,7 +1968,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 CancellationToken cancellationToken)
             {
                 ValidateBodyCalled = true;
-                return Task.FromResult(OperationPhaseStepResult.Success());
+                return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()));
             }
 
             protected override Task<OperationPhaseStepResult> PlanAsync (
@@ -1960,7 +1978,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 CancellationToken cancellationToken)
             {
                 PlanBodyCalled = true;
-                return Task.FromResult(OperationPhaseStepResult.Success());
+                return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()));
             }
 
             protected override Task<OperationPhaseStepResult> CallAsync (
@@ -1970,7 +1988,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 CancellationToken cancellationToken)
             {
                 CallBodyCalled = true;
-                return Task.FromResult(OperationPhaseStepResult.Success());
+                return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()));
             }
         }
 
@@ -1982,11 +2000,15 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private sealed class AliasReferenceTypedOperation : UcliOperation<AliasReferenceTypedArgs, UcliNoResult>
         {
-            public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<AliasReferenceTypedArgs, UcliNoResult>(
+            public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.CreateWithoutVerdict<AliasReferenceTypedArgs, UcliNoResult>(
                 operationName: "ucli.tests.alias-reference",
                 kind: UcliOperationKind.Query,
                 description: "Test operation accepting one object reference.",
-                assurance: CreateValidationOnlyAssurance());
+                assurance: CreateValidationOnlyAssurance(),
+                requiresPreCallPlanReplay: false,
+                exposure: UcliOperationExposure.Public,
+                playModeSupport: UcliOperationPlayModeSupport.Disallowed,
+                codeContract: null);
 
             public bool ValidateBodyCalled { get; private set; }
 
@@ -1997,7 +2019,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 CancellationToken cancellationToken)
             {
                 ValidateBodyCalled = true;
-                return Task.FromResult(OperationPhaseStepResult.Success());
+                return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()));
             }
 
             protected override Task<OperationPhaseStepResult> PlanAsync (
@@ -2006,7 +2028,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 OperationExecutionContext executionContext,
                 CancellationToken cancellationToken)
             {
-                return Task.FromResult(OperationPhaseStepResult.Success());
+                return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()));
             }
 
             protected override Task<OperationPhaseStepResult> CallAsync (
@@ -2015,7 +2037,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 OperationExecutionContext executionContext,
                 CancellationToken cancellationToken)
             {
-                return Task.FromResult(OperationPhaseStepResult.Success());
+                return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()));
             }
         }
 
@@ -2029,11 +2051,15 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             public AsynchronousCallPhaseOperation (string operationName)
             {
-                Metadata = UcliOperationMetadata.Create<UcliEmptyArgs, UcliNoResult>(
+                Metadata = UcliOperationMetadata.CreateWithoutVerdict<UcliEmptyArgs, UcliNoResult>(
                     operationName,
                     UcliOperationKind.Mutation,
                     $"{operationName} test operation.",
-                    CreateMutableAssurance());
+                    CreateMutableAssurance(),
+                    requiresPreCallPlanReplay: false,
+                    exposure: UcliOperationExposure.Public,
+                    playModeSupport: UcliOperationPlayModeSupport.Disallowed,
+                    codeContract: null);
             }
 
             public UcliOperationMetadata Metadata { get; }
@@ -2043,7 +2069,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 OperationExecutionContext executionContext,
                 CancellationToken cancellationToken = default)
             {
-                return Task.FromResult(OperationPhaseStepResult.Success());
+                return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()));
             }
 
             public Task<OperationPhaseStepResult> PlanAsync (
@@ -2051,7 +2077,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 OperationExecutionContext executionContext,
                 CancellationToken cancellationToken = default)
             {
-                return Task.FromResult(OperationPhaseStepResult.Success());
+                return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()));
             }
 
             public async Task<OperationPhaseStepResult> CallAsync (
@@ -2060,7 +2086,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 CancellationToken cancellationToken = default)
             {
                 await Task.Delay(10, cancellationToken).ConfigureAwait(false);
-                return OperationPhaseStepResult.Success();
+                return OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>());
             }
         }
 
@@ -2068,11 +2094,15 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             public ThreadCapturingCallPhaseOperation (string operationName)
             {
-                Metadata = UcliOperationMetadata.Create<UcliEmptyArgs, UcliNoResult>(
+                Metadata = UcliOperationMetadata.CreateWithoutVerdict<UcliEmptyArgs, UcliNoResult>(
                     operationName,
                     UcliOperationKind.Mutation,
                     $"{operationName} test operation.",
-                    CreateMutableAssurance());
+                    CreateMutableAssurance(),
+                    requiresPreCallPlanReplay: false,
+                    exposure: UcliOperationExposure.Public,
+                    playModeSupport: UcliOperationPlayModeSupport.Disallowed,
+                    codeContract: null);
             }
 
             public UcliOperationMetadata Metadata { get; }
@@ -2084,7 +2114,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 OperationExecutionContext executionContext,
                 CancellationToken cancellationToken = default)
             {
-                return Task.FromResult(OperationPhaseStepResult.Success());
+                return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()));
             }
 
             public Task<OperationPhaseStepResult> PlanAsync (
@@ -2092,7 +2122,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 OperationExecutionContext executionContext,
                 CancellationToken cancellationToken = default)
             {
-                return Task.FromResult(OperationPhaseStepResult.Success());
+                return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()));
             }
 
             public Task<OperationPhaseStepResult> CallAsync (
@@ -2101,7 +2131,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 CancellationToken cancellationToken = default)
             {
                 CallThreadId = Thread.CurrentThread.ManagedThreadId;
-                return Task.FromResult(OperationPhaseStepResult.Success());
+                return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()));
             }
         }
 
@@ -2140,13 +2170,15 @@ namespace MackySoft.Ucli.Unity.Tests
                     }
                 }
 
-                Metadata = UcliOperationMetadata.Create<UcliEmptyArgs, UcliNoResult>(
+                Metadata = UcliOperationMetadata.CreateWithoutVerdict<UcliEmptyArgs, UcliNoResult>(
                     "ucli.tests.recording",
                     kind,
                     "ucli.tests.recording test operation.",
                     effectiveAssurance,
-                    requiresPreCallPlanReplay,
-                    exposure);
+                    requiresPreCallPlanReplay: requiresPreCallPlanReplay,
+                    exposure: exposure,
+                    playModeSupport: UcliOperationPlayModeSupport.Disallowed,
+                    codeContract: null);
             }
 
             public UcliOperationMetadata Metadata { get; }
@@ -2188,12 +2220,15 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             private IpcExecuteStepId? lastPlannedOperationId;
 
-            public UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<UcliEmptyArgs, UcliNoResult>(
+            public UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.CreateWithoutVerdict<UcliEmptyArgs, UcliNoResult>(
                 "ucli.tests.stateful",
                 UcliOperationKind.Query,
                 "ucli.tests.stateful test operation.",
                 CreateValidationOnlyAssurance(),
-                requiresPreCallPlanReplay: true);
+                requiresPreCallPlanReplay: true,
+                exposure: UcliOperationExposure.Public,
+                playModeSupport: UcliOperationPlayModeSupport.Disallowed,
+                codeContract: null);
 
             public Task<OperationPhaseStepResult> ValidateAsync (
                 NormalizedOperation operation,
@@ -2201,7 +2236,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 CancellationToken cancellationToken = default)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                return Task.FromResult(OperationPhaseStepResult.Success());
+                return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()));
             }
 
             public Task<OperationPhaseStepResult> PlanAsync (
@@ -2211,7 +2246,7 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 lastPlannedOperationId = operation.Id;
-                return Task.FromResult(OperationPhaseStepResult.Success());
+                return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()));
             }
 
             public Task<OperationPhaseStepResult> CallAsync (
@@ -2222,13 +2257,17 @@ namespace MackySoft.Ucli.Unity.Tests
                 cancellationToken.ThrowIfCancellationRequested();
                 if (lastPlannedOperationId != operation.Id)
                 {
-                    return Task.FromResult(OperationPhaseStepResult.Failed(new OperationFailure(
-                        Code: UcliCoreErrorCodes.InternalError,
-                        Message: "Call phase was not adjacent to the latest plan of the same operation.",
-                        OpId: operation.Id)));
+                    return Task.FromResult(OperationPhaseStepResult.Failed(
+                        new OperationFailure(
+                            Code: UcliCoreErrorCodes.InternalError,
+                            Message: "Call phase was not adjacent to the latest plan of the same operation.",
+                            OpId: operation.Id),
+                        applied: false,
+                        changed: false,
+                        result: null,touched:Array.Empty<OperationTouch>()));
                 }
 
-                return Task.FromResult(OperationPhaseStepResult.Success());
+                return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()));
             }
         }
 
@@ -2236,12 +2275,15 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             private int planCallCount;
 
-            public UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<UcliEmptyArgs, UcliNoResult>(
+            public UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.CreateWithoutVerdict<UcliEmptyArgs, UcliNoResult>(
                 "ucli.tests.replay-failing",
                 UcliOperationKind.Mutation,
                 "ucli.tests.replay-failing test operation.",
                 CreateMutableAssurance(OperationPolicy.Advanced),
-                requiresPreCallPlanReplay: true);
+                requiresPreCallPlanReplay: true,
+                exposure: UcliOperationExposure.Public,
+                playModeSupport: UcliOperationPlayModeSupport.Disallowed,
+                codeContract: null);
 
             public List<OperationPhase> CalledPhases { get; } = new List<OperationPhase>();
 
@@ -2252,7 +2294,7 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 CalledPhases.Add(OperationPhase.Validate);
-                return Task.FromResult(OperationPhaseStepResult.Success());
+                return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()));
             }
 
             public Task<OperationPhaseStepResult> PlanAsync (
@@ -2265,13 +2307,17 @@ namespace MackySoft.Ucli.Unity.Tests
                 planCallCount++;
                 if (planCallCount >= 2)
                 {
-                    return Task.FromResult(OperationPhaseStepResult.Failed(new OperationFailure(
-                        Code: UcliCoreErrorCodes.InvalidArgument,
-                        Message: "Replay plan failed.",
-                        OpId: operation.Id)));
+                    return Task.FromResult(OperationPhaseStepResult.Failed(
+                        new OperationFailure(
+                            Code: UcliCoreErrorCodes.InvalidArgument,
+                            Message: "Replay plan failed.",
+                            OpId: operation.Id),
+                        applied: false,
+                        changed: false,
+                        result: null,touched:Array.Empty<OperationTouch>()));
                 }
 
-                return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: true));
+                return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: true,touched:Array.Empty<OperationTouch>()));
             }
 
             public Task<OperationPhaseStepResult> CallAsync (
@@ -2281,17 +2327,21 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 CalledPhases.Add(OperationPhase.Call);
-                return Task.FromResult(OperationPhaseStepResult.Success(applied: true, changed: true));
+                return Task.FromResult(OperationPhaseStepResult.Success(applied: true, changed: true,touched:Array.Empty<OperationTouch>()));
             }
         }
 
         private sealed class ContextCapturingPhaseOperation : IUcliOperation
         {
-            public UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<UcliEmptyArgs, UcliNoResult>(
+            public UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.CreateWithoutVerdict<UcliEmptyArgs, UcliNoResult>(
                 "ucli.tests.context",
                 UcliOperationKind.Query,
                 "ucli.tests.context test operation.",
-                CreateValidationOnlyAssurance());
+                CreateValidationOnlyAssurance(),
+                requiresPreCallPlanReplay: false,
+                exposure: UcliOperationExposure.Public,
+                playModeSupport: UcliOperationPlayModeSupport.Disallowed,
+                codeContract: null);
 
             public OperationExecutionContext? ValidateContext { get; private set; }
 
@@ -2306,7 +2356,7 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 ValidateContext = executionContext;
-                return Task.FromResult(OperationPhaseStepResult.Success());
+                return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()));
             }
 
             public Task<OperationPhaseStepResult> PlanAsync (
@@ -2316,7 +2366,7 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 PlanContext = executionContext;
-                return Task.FromResult(OperationPhaseStepResult.Success());
+                return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()));
             }
 
             public Task<OperationPhaseStepResult> CallAsync (
@@ -2326,7 +2376,7 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 CallContext = executionContext;
-                return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false));
+                return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false,touched:Array.Empty<OperationTouch>()));
             }
         }
     }

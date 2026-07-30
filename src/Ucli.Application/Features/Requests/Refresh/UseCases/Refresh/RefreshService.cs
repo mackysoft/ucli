@@ -1,8 +1,5 @@
-using System.Text;
 using System.Text.Json;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.OperationExecute;
-using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
-using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Features.Requests.Refresh.UseCases.Refresh;
@@ -10,27 +7,14 @@ namespace MackySoft.Ucli.Application.Features.Requests.Refresh.UseCases.Refresh;
 /// <summary> Executes the <c>refresh</c> workflow by dispatching the fixed <c>ucli.project.refresh</c> operation definition. </summary>
 internal sealed class RefreshService : IRefreshService
 {
-    private static readonly UcliOperationJsonContractGenerationResult RefreshContract =
-        UcliOperationJsonContractGenerator.Generate(
-            UcliPrimitiveOperationNames.ProjectRefresh,
-            IpcJsonSerializerOptions.PublicRawOperationContracts.GetTypeInfo(typeof(UcliEmptyArgs)),
-            resultTypeInfo: null);
-
     private static readonly OperationExecuteDefinition RefreshOperation = new(
-        Command: UcliCommandIds.Refresh,
-        OperationId: new IpcExecuteStepId("refresh"),
-        Descriptor: new UcliOperationDescriptor(
-            Name: UcliPrimitiveOperationNames.ProjectRefresh,
-            Kind: UcliOperationKind.Command,
-            Policy: OperationPolicy.Advanced,
-            ArgsSchemaJson: Encoding.UTF8.GetString(
-                RefreshContract.GetArgsJsonSchemaUtf8()),
-            ResultSchemaJson: null),
-        Args: JsonSerializer.SerializeToElement(
+        command: UcliCommandIds.Refresh,
+        operationId: new IpcExecuteStepId("refresh"),
+        operationName: UcliPrimitiveOperationNames.ProjectRefresh,
+        args: JsonSerializer.SerializeToElement(
             new UcliEmptyArgs(),
             IpcJsonSerializerOptions.PublicRawOperationContracts),
-        SuccessMessage: "uCLI refresh completed.",
-        FailureMessage: "uCLI refresh failed.");
+        successMessage: "uCLI refresh completed.");
 
     private readonly IOperationExecuteService operationExecuteService;
 
