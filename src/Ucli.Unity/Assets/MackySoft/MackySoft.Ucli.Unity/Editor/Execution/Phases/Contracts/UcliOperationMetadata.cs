@@ -344,12 +344,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                         "The operation result does not match the judging metadata result type.");
                 }
 
+                var evaluatedVerdict = verdict.Evaluate(typedResult);
                 var serializedResult = IpcPayloadCodec.SerializePublicRawOperationResultToElement(
                     typedResult);
                 return stepResult with
                 {
                     Result = OperationPhaseStepResult.CloneResult(serializedResult),
-                    Verdict = verdict.Evaluate(typedResult),
+                    Verdict = evaluatedVerdict,
                     TypedResult = null,
                 };
             }
