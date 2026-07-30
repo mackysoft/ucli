@@ -81,7 +81,7 @@ public sealed class UnityBatchmodeProcessLauncherTests
             new RecordingUnityUcliPluginLocator
             {
                 Result = UnityUcliPluginLocateResult.NotFound(ExecutionError.InvalidArgument(
-                    "Unity project does not contain the uCLI Unity plugin.")),
+                    "Unity project does not contain the uCLI Unity plugin.", UcliCoreErrorCodes.InvalidArgument)),
             },
             new RecordingUnityProjectLockPreflightService());
 

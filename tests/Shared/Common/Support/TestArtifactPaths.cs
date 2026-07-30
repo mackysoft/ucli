@@ -5,6 +5,16 @@ namespace MackySoft.Ucli.TestSupport;
 
 internal static class TestArtifactPaths
 {
+    public static ArtifactsSession CreateSession (
+        Guid runId,
+        string artifactsDir)
+    {
+        return new ArtifactsSession(
+            runId,
+            Create(artifactsDir),
+            new DateTimeOffset(2026, 3, 8, 0, 0, 0, TimeSpan.Zero));
+    }
+
     public static ArtifactPaths Create (string artifactsDir)
     {
         var absoluteArtifactsDir = AbsolutePath.Parse(artifactsDir);

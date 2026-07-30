@@ -93,7 +93,7 @@ public sealed class IpcCompileContractSerializationTests
                 Message: "; expected"));
         var completedPayload = new CompileCompletedEntry(
             RunId: RunId,
-            Verdict: AssuranceVerdict.Fail,
+            Verdict: Verdict.Fail,
             ErrorCount: 1,
             WarningCount: 0,
             SummaryJsonPath: "/tmp/ucli/compile/run-1/summary.json",
@@ -134,7 +134,7 @@ public sealed class IpcCompileContractSerializationTests
                 .HasString("code", "CS1002"));
         JsonAssert.For(completed)
             .HasString("runId", RunIdText)
-            .HasString("verdict", "fail")
+            .HasString("verdict", TextVocabulary.GetText(Verdict.Fail))
             .HasInt32("errorCount", 1)
             .HasInt32("warningCount", 0)
             .HasString("summaryJsonPath", "/tmp/ucli/compile/run-1/summary.json")

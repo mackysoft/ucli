@@ -9,17 +9,11 @@ public sealed class CommandResultJsonContractWriterTests
     [Trait("Size", "Small")]
     public void Write_WritesFixedEnvelopeJson ()
     {
-        var result = new CommandResult(
-            ProtocolVersion: 1,
-            Command: UcliCommandNames.Status,
-            Status: CommandResultStatus.Error,
-            ExitCode: (int)CliExitCode.InvalidArgument,
-            Message: "Failed.",
-            Payload: new { sampleValue = true },
-            Errors:
-            [
-                new CommandError(UcliCoreErrorCodes.InvalidArgument, "Failed.", null),
-            ]);
+        var result = CommandResult.InvalidArgument(
+            UcliCommandNames.Status,
+            "Failed.",
+            UcliCoreErrorCodes.InvalidArgument,
+            new { sampleValue = true });
 
         var json = new CommandResultJsonContractWriter().Write(result);
 

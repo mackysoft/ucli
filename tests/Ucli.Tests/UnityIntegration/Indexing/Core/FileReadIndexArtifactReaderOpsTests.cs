@@ -1,5 +1,6 @@
 using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts.Configuration;
+using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Infrastructure.Storage;
@@ -251,7 +252,14 @@ public sealed class FileReadIndexArtifactReaderOpsTests
         var reader = FileReadIndexArtifactReaderTestSupport.CreateReader();
         var fingerprint = ProjectFingerprintTestFactory.Create("fingerprint");
         var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, fingerprint);
-        var operation = ReadIndexOperationTestFactory.CreateGoDescribeEntry() with { Name = "ucli.test.detail" };
+        var changedOperation = ReadIndexOperationTestFactory.CreateGoDescribeEntry() with
+        {
+            Name = "ucli.test.detail",
+        };
+        var operation = changedOperation with
+        {
+            DescriptorDigest = UcliOperationDescriptorDigest.Calculate(changedOperation),
+        };
         var persistedEntry = FileReadIndexArtifactReaderTestSupport.WriteOpsDescribe(AbsolutePath.Parse(scope.FullPath), fingerprint, operation, Sha256DigestTestFactory.Compute("source-hash"));
         var catalogEntry = new ValidatedOpsCatalogEntry(
             UcliPrimitiveOperationNames.GoDescribe,

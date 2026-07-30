@@ -112,10 +112,6 @@ public sealed class ApplicationFailureTests
             "Invalid input.",
             UcliCoreErrorCodes.InvalidArgument,
             outcome: ApplicationOutcome.ToolError));
-        Assert.ThrowsAny<ArgumentException>(() => ApplicationFailure.Create(
-            ApplicationFailureKind.ExternalProcessFailure,
-            "External process failed.",
-            outcome: ApplicationOutcome.TestFailure));
     }
 
     private sealed record DefaultApplicationFailureCase (

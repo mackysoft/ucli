@@ -42,7 +42,7 @@ public sealed class RequestPreparationServiceTests
     public async Task Prepare_WhenParseFails_ReturnsFailure ()
     {
         const string requestJson = """{"steps":[]}""";
-        var error = ExecutionError.InvalidArgument("request JSON is invalid.",UcliCoreErrorCodes.InvalidArgument);
+        var error = ExecutionError.InvalidArgument("request JSON is invalid.", UcliCoreErrorCodes.InvalidArgument);
         var service = CreateService(
             new RecordingValidateRequestJsonParser
             {
@@ -65,7 +65,7 @@ public sealed class RequestPreparationServiceTests
     public async Task Prepare_WhenUserRequestNormalizationFails_ReturnsFailureWithoutParsing ()
     {
         const string requestJson = """{"unknown":true,"steps":[]}""";
-        var error = ExecutionError.InvalidArgument("unknown property.",UcliCoreErrorCodes.InvalidArgument);
+        var error = ExecutionError.InvalidArgument("unknown property.", UcliCoreErrorCodes.InvalidArgument);
         var parser = new RecordingValidateRequestJsonParser
         {
             Result = ValidateRequestJsonParseResult.Success(CreateRequest()),
@@ -94,7 +94,7 @@ public sealed class RequestPreparationServiceTests
     public async Task Prepare_WhenUserRequestStepsPropertyIsMissing_ReturnsFailureWithoutParsingOrResolvingProject ()
     {
         const string requestJson = """{}""";
-        var error = ExecutionError.InvalidArgument("steps property is missing.",UcliCoreErrorCodes.InvalidArgument);
+        var error = ExecutionError.InvalidArgument("steps property is missing.", UcliCoreErrorCodes.InvalidArgument);
         var parser = new RecordingValidateRequestJsonParser
         {
             Result = ValidateRequestJsonParseResult.Success(CreateRequest()),
@@ -124,7 +124,7 @@ public sealed class RequestPreparationServiceTests
     public async Task Prepare_WhenProjectContextResolutionFails_ReturnsFailure ()
     {
         const string requestJson = """{"steps":[]}""";
-        var error = ExecutionError.InvalidArgument("project path is invalid.",UcliCoreErrorCodes.InvalidArgument);
+        var error = ExecutionError.InvalidArgument("project path is invalid.", UcliCoreErrorCodes.InvalidArgument);
         var service = CreateService(
             new RecordingValidateRequestJsonParser
             {

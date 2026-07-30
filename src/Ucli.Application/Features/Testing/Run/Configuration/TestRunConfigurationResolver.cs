@@ -147,13 +147,13 @@ internal sealed class TestRunConfigurationResolver : ITestRunConfigurationResolv
         if (!configuration.TestPlatform.HasValue)
         {
             errors.Add(ExecutionError.InvalidArgument(
-                $"testPlatform must be editmode, playmode, or a Unity BuildTarget literal. Actual: {configuration.RawTestPlatform}",UcliCoreErrorCodes.InvalidArgument));
+                $"testPlatform must be editmode, playmode, or a Unity BuildTarget literal. Actual: {configuration.RawTestPlatform}", UcliCoreErrorCodes.InvalidArgument));
         }
 
         if (configuration.TimeoutMilliseconds.HasValue && configuration.TimeoutMilliseconds.Value < MinTimeoutMilliseconds)
         {
             errors.Add(ExecutionError.InvalidArgument(
-                $"timeout must be in range {MinTimeoutMilliseconds}..{int.MaxValue}. Actual: {configuration.TimeoutMilliseconds.Value}",UcliCoreErrorCodes.InvalidArgument));
+                $"timeout must be in range {MinTimeoutMilliseconds}..{int.MaxValue}. Actual: {configuration.TimeoutMilliseconds.Value}", UcliCoreErrorCodes.InvalidArgument));
         }
 
         return errors;

@@ -54,7 +54,7 @@ public sealed class OperationExecuteServiceReadPostconditionTests
         var readPostconditionStore = new TestMutationReadPostconditionStore
         {
             WriteResult = MutationReadPostconditionStoreOperationResult.Failure(
-                ExecutionError.InternalError("Failed to persist mutation read postcondition.",UcliCoreErrorCodes.InternalError)),
+                ExecutionError.InternalError("Failed to persist mutation read postcondition.", UcliCoreErrorCodes.InternalError)),
         };
         var readPostcondition = ReadPostconditionTestFactory.CreateAssetSearch();
         var ipcRequestExecutor = new RecordingUnityRequestExecutor(

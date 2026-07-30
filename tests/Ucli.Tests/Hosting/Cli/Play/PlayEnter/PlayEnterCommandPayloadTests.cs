@@ -59,7 +59,9 @@ public sealed class PlayEnterCommandPayloadTests
         var output = PlayEnterCommandTestData.CreateOutput(IpcPlayTransitionOutcome.Timeout, includeAfter: false);
         var failure = ApplicationFailure.Timeout(
             "Unity Play Mode enter timed out after 1000 milliseconds.",
-            PlayModeErrorCodes.PlayModeTransitionTimeout);
+            PlayModeErrorCodes.PlayModeTransitionTimeout,
+            instancePath: null,
+            startupFailure: null);
 
         var result = await ExecuteAsync(PlayEnterExecutionResult.Failure(failure, output));
 
@@ -86,9 +88,11 @@ public sealed class PlayEnterCommandPayloadTests
             IpcPlayTransitionOutcome.Blocked,
             includeAfter: false,
             applicationState: IpcApplicationState.NotApplied);
-        var failure = ApplicationFailure.FromCode(
+        var failure = ApplicationFailure.UnityIpcFailure(
+            "Unity Play Mode enter is blocked.",
             PlayModeErrorCodes.PlayModeTransitionBlocked,
-            "Unity Play Mode enter is blocked.");
+            instancePath: null,
+            startupFailure: null);
 
         var result = await ExecuteAsync(PlayEnterExecutionResult.Failure(failure, output));
 

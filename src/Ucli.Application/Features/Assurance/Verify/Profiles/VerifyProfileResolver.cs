@@ -49,7 +49,7 @@ internal static class VerifyProfileResolver
         catch (JsonException exception)
         {
             return VerifyProfileResolutionResult.Failure(ExecutionError.InvalidArgument(
-                $"Verify profile JSON is invalid. {exception.Message}",UcliCoreErrorCodes.InvalidArgument));
+                $"Verify profile JSON is invalid. {exception.Message}", UcliCoreErrorCodes.InvalidArgument));
         }
     }
 
@@ -62,7 +62,7 @@ internal static class VerifyProfileResolver
             BuiltInProject => CreateBuiltIn(BuiltInProject, includeCompile: true, readyTarget: ReadyTarget.Execution, includePostRead: true),
             BuiltInScript => CreateBuiltIn(BuiltInScript, includeCompile: true, readyTarget: ReadyTarget.Execution, includePostRead: false),
             _ => VerifyProfileResolutionResult.Failure(ExecutionError.InvalidArgument(
-                $"Unsupported verify profile '{profile}'. Built-in profiles are {BuiltInDefault}, {BuiltInMutation}, {BuiltInProject}, and {BuiltInScript}.",UcliCoreErrorCodes.InvalidArgument)),
+                $"Unsupported verify profile '{profile}'. Built-in profiles are {BuiltInDefault}, {BuiltInMutation}, {BuiltInProject}, and {BuiltInScript}.", UcliCoreErrorCodes.InvalidArgument)),
         };
     }
 
@@ -432,7 +432,7 @@ internal static class VerifyProfileResolver
 
     private static ExecutionError InvalidProfileError (string message)
     {
-        return ExecutionError.InvalidArgument(message,UcliCoreErrorCodes.InvalidArgument);
+        return ExecutionError.InvalidArgument(message, UcliCoreErrorCodes.InvalidArgument);
     }
 
     private sealed record VerifyProfileStepReadResult (

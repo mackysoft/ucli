@@ -6,9 +6,6 @@ internal enum ApplicationOutcome
     /// <summary> Indicates successful command completion. </summary>
     Success = 0,
 
-    /// <summary> Indicates completed test execution with failing tests. </summary>
-    TestFailure = 1,
-
     /// <summary> Indicates infrastructure failures for test execution. </summary>
     InfrastructureError = 2,
 

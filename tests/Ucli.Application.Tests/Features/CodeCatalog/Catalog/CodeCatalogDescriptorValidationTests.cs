@@ -45,7 +45,6 @@ public sealed class CodeCatalogDescriptorValidationTests
             descriptor.AppearsIn,
             descriptor.AppliesTo,
             descriptor.CoverageImpact,
-            descriptor.VerdictSemantics,
             descriptor.ExecutionSemantics,
             descriptor.Inspect,
             descriptor.RelatedCodes));
@@ -114,7 +113,6 @@ public sealed class CodeCatalogDescriptorValidationTests
             descriptor.AppearsIn,
             descriptor.AppliesTo,
             descriptor.CoverageImpact,
-            descriptor.VerdictSemantics,
             descriptor.ExecutionSemantics,
             descriptor.Inspect,
             descriptor.RelatedCodes);

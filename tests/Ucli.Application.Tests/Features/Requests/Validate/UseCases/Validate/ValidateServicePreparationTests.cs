@@ -24,7 +24,7 @@ public sealed class ValidateServicePreparationTests
                 RequestStaticValidationCatalog.Unavailable),
         };
         var service = new ValidateService(
-            CreateRequestPreparationService(RequestPreparationResult.Failure(ExecutionError.InvalidArgument("project path is invalid.",UcliCoreErrorCodes.InvalidArgument))),
+            CreateRequestPreparationService(RequestPreparationResult.Failure(ExecutionError.InvalidArgument("project path is invalid.", UcliCoreErrorCodes.InvalidArgument))),
             new RecordingRequestStaticValidator
             {
                 Result = ValidationResult.Success(),

@@ -15,7 +15,6 @@ internal static class CodeCatalogDescriptorTestFactory
             AppearsIn: ["errors[].code"],
             AppliesTo: [UcliCommandIds.Status],
             CoverageImpact: null,
-            VerdictSemantics: null,
             ExecutionSemantics: new UcliErrorExecutionSemantics(
                 ImpliesNotApplied: true,
                 MayBeIndeterminate: false,

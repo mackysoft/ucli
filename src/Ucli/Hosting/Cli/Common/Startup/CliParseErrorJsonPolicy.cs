@@ -38,6 +38,7 @@ internal static class CliParseErrorJsonPolicy
         return CommandResult.InvalidArgument(
             commandName,
             parseErrorMessage,
+            UcliCoreErrorCodes.InvalidArgument,
             payload: UcliCommandCatalog.CreateDefaultErrorPayload(commandName));
     }
 }

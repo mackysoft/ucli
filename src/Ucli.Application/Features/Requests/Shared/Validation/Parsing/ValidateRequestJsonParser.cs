@@ -53,6 +53,6 @@ internal sealed class ValidateRequestJsonParser : IValidateRequestJsonParser
 
     private static ValidateRequestJsonParseResult Failure (string message)
     {
-        return ValidateRequestJsonParseResult.Failure(ExecutionError.InvalidArgument(message,UcliCoreErrorCodes.InvalidArgument));
+        return ValidateRequestJsonParseResult.Failure(ExecutionError.InvalidArgument(message, UcliCoreErrorCodes.InvalidArgument));
     }
 }

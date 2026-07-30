@@ -34,7 +34,7 @@ public sealed class CommandFailureProjectorTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void Create_WithInfrastructureFailure_ReturnsInfrastructureExitCode ()
+    public void Create_WithInfrastructureFailure_ReturnsToolErrorExitCode ()
     {
         var result = CommandFailureProjector.Create(
             "test",
@@ -42,7 +42,7 @@ public sealed class CommandFailureProjectorTests
                 "Unity test infrastructure failed.",
                 outcome: ApplicationOutcome.InfrastructureError));
 
-        Assert.Equal(2, result.ExitCode);
+        Assert.Equal((int)CliExitCode.ToolError, result.ExitCode);
     }
 
     private static void AssertProjectedExitCode (

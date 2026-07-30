@@ -14,8 +14,7 @@ internal static class ApplicationOutcomeCliExitCodeMapper
         return outcome switch
         {
             ApplicationOutcome.Success => 0,
-            ApplicationOutcome.TestFailure => 1,
-            ApplicationOutcome.InfrastructureError => 2,
+            ApplicationOutcome.InfrastructureError => (int)CliExitCode.ToolError,
             ApplicationOutcome.InvalidArgument => (int)CliExitCode.InvalidArgument,
             ApplicationOutcome.ToolError => (int)CliExitCode.ToolError,
             _ => (int)CliExitCode.ToolError,

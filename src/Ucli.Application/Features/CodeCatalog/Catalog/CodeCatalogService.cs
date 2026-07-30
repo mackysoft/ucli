@@ -133,7 +133,6 @@ internal sealed class CodeCatalogService : ICodeCatalogService
             AppearsIn: EmptyStrings,
             AppliesTo: EmptyCommands,
             CoverageImpact: null,
-            VerdictSemantics: null,
             ExecutionSemantics: null,
             Inspect: EmptyStrings,
             RelatedCodes: EmptyCodeValues);

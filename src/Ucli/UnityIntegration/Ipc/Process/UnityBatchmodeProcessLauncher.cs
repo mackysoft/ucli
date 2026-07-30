@@ -108,7 +108,7 @@ internal sealed class UnityBatchmodeProcessLauncher : IUnityDaemonProcessLaunche
         {
             await UnityProcessOwnership.TerminateAndDisposeBestEffortAsync(processHandle).ConfigureAwait(false);
             return UnityDaemonLaunchResult.Failure(ExecutionError.InternalError(
-                $"Failed to transfer Unity batchmode process lifetime ownership. {exception.Message}"));
+                $"Failed to transfer Unity batchmode process lifetime ownership. {exception.Message}", UcliCoreErrorCodes.InternalError));
         }
     }
 
@@ -128,7 +128,7 @@ internal sealed class UnityBatchmodeProcessLauncher : IUnityDaemonProcessLaunche
         if (unityLogPath is null)
         {
             return UnityBatchmodeProcessLaunchResult.Failure(ExecutionError.InvalidArgument(
-                "Unity log path must not be empty."));
+                "Unity log path must not be empty.", UcliCoreErrorCodes.InvalidArgument));
         }
 
         var envelopeCreated = false;
@@ -173,7 +173,7 @@ internal sealed class UnityBatchmodeProcessLauncher : IUnityDaemonProcessLaunche
             }
 
             return UnityBatchmodeProcessLaunchResult.Failure(ExecutionError.InternalError(
-                $"Failed to prepare Unity oneshot bootstrap. {exception.Message}"));
+                $"Failed to prepare Unity oneshot bootstrap. {exception.Message}", UcliCoreErrorCodes.InternalError));
         }
     }
 
@@ -256,7 +256,7 @@ internal sealed class UnityBatchmodeProcessLauncher : IUnityDaemonProcessLaunche
             if (process == null)
             {
                 return UnityBatchmodeProcessLaunchResult.Failure(ExecutionError.InternalError(
-                    "Unity batchmode process could not be started."));
+                    "Unity batchmode process could not be started.", UcliCoreErrorCodes.InternalError));
             }
 
             var processHandle = new UnityProcessHandle(process);
@@ -279,7 +279,7 @@ internal sealed class UnityBatchmodeProcessLauncher : IUnityDaemonProcessLaunche
         catch (Exception exception)
         {
             return UnityBatchmodeProcessLaunchResult.Failure(ExecutionError.InternalError(
-                $"Failed to start Unity batchmode process. {exception.Message}"));
+                $"Failed to start Unity batchmode process. {exception.Message}", UcliCoreErrorCodes.InternalError));
         }
     }
 

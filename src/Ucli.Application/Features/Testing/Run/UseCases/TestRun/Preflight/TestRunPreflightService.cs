@@ -131,7 +131,7 @@ internal sealed class TestRunPreflightService : ITestRunPreflightService
         {
             return TestRunConfigurationResolutionResult.Failure(
             [
-                ExecutionError.InternalError($"Unexpected error while resolving run configuration: {exception.Message}",UcliCoreErrorCodes.InternalError),
+                ExecutionError.InternalError($"Unexpected error while resolving run configuration: {exception.Message}", UcliCoreErrorCodes.InternalError),
             ]);
         }
     }

@@ -1,7 +1,6 @@
 using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Source;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Contracts.Operations;
 
 namespace MackySoft.Ucli.TestSupport;
 
@@ -11,9 +10,13 @@ internal static class OperationCatalogTestFixtures
         DateTimeOffset generatedAtUtc,
         IReadOnlyList<IndexOpEntryJsonContract> operations)
     {
+        ArgumentNullException.ThrowIfNull(operations);
+        var completedOperations = operations
+            .Select(WithDescriptorDigest)
+            .ToArray();
         if (!OpsCatalogSnapshot.TryCreate(
                 generatedAtUtc,
-                operations,
+                completedOperations,
                 "operations",
                 allowEditLoweringOnlyEntries: false,
                 out var snapshot,
@@ -68,16 +71,21 @@ internal static class OperationCatalogTestFixtures
             UcliPrimitiveOperationNames.GoDescribe,
             "Returns a GameObject description including components and child hierarchy.",
             assurance);
-        return new IndexOpEntryJsonContract(
-            Name: UcliPrimitiveOperationNames.GoDescribe,
-            Kind: UcliOperationKind.Query,
-            Policy: OperationPolicy.Safe,
-            ArgsContract: describe.ArgsContract,
-            ResultContract: describe.ResultContract)
-        {
-            Description = describe.Description,
-            Assurance = describe.Assurance,
-        };
+        return WithDescriptorDigest(
+            new IndexOpEntryJsonContract(
+                Name: UcliPrimitiveOperationNames.GoDescribe,
+                Kind: UcliOperationKind.Query,
+                Policy: OperationPolicy.Safe,
+                ArgsContract: describe.ArgsContract,
+                DescriptorDigest: null,
+                VerdictContract: null,
+                ResultContract: describe.ResultContract,
+                Exposure: null,
+                PlayModeSupport: UcliOperationPlayModeSupport.Disallowed)
+            {
+                Description = describe.Description,
+                Assurance = describe.Assurance,
+            });
     }
 
     public static IndexOpEntryJsonContract CreateSceneSaveEntry ()
@@ -96,15 +104,21 @@ internal static class OperationCatalogTestFixtures
             UcliPrimitiveOperationNames.SceneSave,
             "Saves a Unity scene asset.",
             assurance);
-        return new IndexOpEntryJsonContract(
-            Name: UcliPrimitiveOperationNames.SceneSave,
-            Kind: UcliOperationKind.Mutation,
-            Policy: OperationPolicy.Advanced,
-            ArgsContract: describe.ArgsContract)
-        {
-            Description = describe.Description,
-            Assurance = describe.Assurance,
-        };
+        return WithDescriptorDigest(
+            new IndexOpEntryJsonContract(
+                Name: UcliPrimitiveOperationNames.SceneSave,
+                Kind: UcliOperationKind.Mutation,
+                Policy: OperationPolicy.Advanced,
+                ArgsContract: describe.ArgsContract,
+                DescriptorDigest: null,
+                VerdictContract: null,
+                ResultContract: null,
+                Exposure: null,
+                PlayModeSupport: UcliOperationPlayModeSupport.Disallowed)
+            {
+                Description = describe.Description,
+                Assurance = describe.Assurance,
+            });
     }
 
     public static IndexOpEntryJsonContract CreateCsEvalEntry (string? name = null)
@@ -136,17 +150,21 @@ internal static class OperationCatalogTestFixtures
             operationName,
             "Executes arbitrary C# source inside the Unity Editor process.",
             assurance);
-        return new IndexOpEntryJsonContract(
-            Name: operationName,
-            Kind: UcliOperationKind.Mutation,
-            Policy: OperationPolicy.Dangerous,
-            ArgsContract: describe.ArgsContract,
-            ResultContract: describe.ResultContract,
-            PlayModeSupport: UcliOperationPlayModeSupport.Allowed)
-        {
-            Description = describe.Description,
-            Assurance = describe.Assurance,
-        };
+        return WithDescriptorDigest(
+            new IndexOpEntryJsonContract(
+                Name: operationName,
+                Kind: UcliOperationKind.Mutation,
+                Policy: OperationPolicy.Dangerous,
+                ArgsContract: describe.ArgsContract,
+                DescriptorDigest: null,
+                VerdictContract: null,
+                ResultContract: describe.ResultContract,
+                Exposure: null,
+                PlayModeSupport: UcliOperationPlayModeSupport.Allowed)
+            {
+                Description = describe.Description,
+                Assurance = describe.Assurance,
+            });
     }
 
     private static UcliOperationDescribeContract CreateDescribe<TArgs, TResult> (
@@ -161,10 +179,11 @@ internal static class OperationCatalogTestFixtures
             typeof(TResult) == typeof(UcliNoResult)
                 ? null
                 : serializerOptions.GetTypeInfo(typeof(TResult)));
-        return UcliOperationDescribeContractBuilder.Create(
+        return UcliOperationDescribeContractBuilder.CreateWithoutVerdict(
             generationResult,
             description,
-            assurance);
+            assurance,
+            codeContract: null);
     }
 
     private static UcliOperationAssuranceContract CreateSafeQueryAssurance (IReadOnlyList<UcliOperationSideEffect> sideEffects)
@@ -179,5 +198,14 @@ internal static class OperationCatalogTestFixtures
             readPostconditionContract: "Does not stale read surfaces by itself.",
             failureSemantics: "Failure means the observation was not fully produced.",
             dangerousNotes: Array.Empty<string>());
+    }
+
+    private static IndexOpEntryJsonContract WithDescriptorDigest (IndexOpEntryJsonContract operation)
+    {
+        var descriptorWithoutDigest = operation with { DescriptorDigest = null };
+        return descriptorWithoutDigest with
+        {
+            DescriptorDigest = UcliOperationDescriptorDigest.Calculate(descriptorWithoutDigest),
+        };
     }
 }

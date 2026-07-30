@@ -17,7 +17,13 @@ public sealed class CommandResultFactoryTests
     {
         const string command = "test";
         const string message = "error";
-        var error = new ExecutionError((ExecutionErrorKind)errorKind, message);
+        var error = (ExecutionErrorKind)errorKind switch
+        {
+            ExecutionErrorKind.InvalidArgument => ExecutionError.InvalidArgument(message, UcliCoreErrorCodes.InvalidArgument),
+            ExecutionErrorKind.Timeout => ExecutionError.Timeout(message, ExecutionErrorCodes.IpcTimeout),
+            ExecutionErrorKind.InternalError => ExecutionError.InternalError(message, UcliCoreErrorCodes.InternalError),
+            _ => throw new InvalidOperationException("Test case must use a defined execution error kind."),
+        };
 
         var result = CommandResultFactory.FromExecutionError(command, error);
 
@@ -43,15 +49,6 @@ public sealed class CommandResultFactoryTests
 
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
         Assert.Equal(ProjectContextErrorCodes.ProjectPathNotFound, Assert.Single(result.Errors).Code);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void FromExecutionError_WithUnsupportedKind_Throws ()
-    {
-        var error = new ExecutionError((ExecutionErrorKind)999, "Unsupported error kind.");
-
-        Assert.Throws<ArgumentOutOfRangeException>(() => CommandResultFactory.FromExecutionError("test", error));
     }
 
 }

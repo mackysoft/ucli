@@ -30,7 +30,7 @@ public sealed class TestRunServicePreflightFailureTests
             configurationResolver: new StubTestRunConfigurationResolver(
                 TestRunConfigurationResolutionResult.Failure(
                 [
-                    ExecutionError.InvalidArgument("testPlatform must be editmode, playmode, or a Unity BuildTarget literal.",UcliCoreErrorCodes.InvalidArgument),
+                    ExecutionError.InvalidArgument("testPlatform must be editmode, playmode, or a Unity BuildTarget literal.", UcliCoreErrorCodes.InvalidArgument),
                 ])),
             modeDecisionService: new StubModeDecisionService(UnityExecutionModeDecisionResult.Success(
                 new UnityExecutionModeDecision(UnityExecutionMode.Oneshot, false, UnityExecutionTarget.Oneshot, TimeSpan.FromSeconds(30)))),

@@ -6,6 +6,9 @@ internal enum CliExitCode
     /// <summary> Indicates successful command completion. </summary>
     Success = 0,
 
+    /// <summary> Indicates completed execution with a non-passing verdict. </summary>
+    NonPassingVerdict = 1,
+
     /// <summary> Indicates that command arguments could not be parsed or validated. </summary>
     InvalidArgument = 3,
 

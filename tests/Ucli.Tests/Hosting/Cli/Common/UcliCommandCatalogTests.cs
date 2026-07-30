@@ -16,6 +16,7 @@ public sealed class UcliCommandCatalogTests
             var result = CommandResult.InvalidArgument(
                 outputContract.Command,
                 "Invalid command arguments.",
+                UcliCoreErrorCodes.InvalidArgument,
                 payload: payload);
             var runtimePayloadType = UcliNonNullJsonObject.MakeValueType(
                 outputContract.ErrorPayloadTypeInfo.Type);

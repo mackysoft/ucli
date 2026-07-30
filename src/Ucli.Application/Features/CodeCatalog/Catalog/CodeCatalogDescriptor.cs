@@ -10,7 +10,6 @@ namespace MackySoft.Ucli.Application.Features.CodeCatalog.Catalog;
 /// <param name="AppearsIn"> JSON field paths where this code can appear. </param>
 /// <param name="AppliesTo"> CLI command identifiers associated with this code. </param>
 /// <param name="CoverageImpact"> Optional static coverage or completeness semantics. </param>
-/// <param name="VerdictSemantics"> Optional static assurance verdict semantics. </param>
 /// <param name="ExecutionSemantics"> Optional static execution and retry semantics. </param>
 /// <param name="Inspect"> Response fields or diagnostic commands callers should inspect. </param>
 /// <param name="RelatedCodes"> Adjacent globally unique code values. </param>
@@ -25,7 +24,6 @@ internal sealed record CodeCatalogDescriptor
         IReadOnlyList<string> AppearsIn,
         IReadOnlyList<UcliCommand> AppliesTo,
         object? CoverageImpact,
-        object? VerdictSemantics,
         UcliErrorExecutionSemantics? ExecutionSemantics,
         IReadOnlyList<string> Inspect,
         IReadOnlyList<UcliCode> RelatedCodes)
@@ -43,7 +41,6 @@ internal sealed record CodeCatalogDescriptor
         this.AppearsIn = AppearsIn;
         this.AppliesTo = AppliesTo;
         this.CoverageImpact = CoverageImpact;
-        this.VerdictSemantics = VerdictSemantics;
         this.ExecutionSemantics = ExecutionSemantics;
         this.Inspect = Inspect;
         this.RelatedCodes = RelatedCodes;
@@ -64,8 +61,6 @@ internal sealed record CodeCatalogDescriptor
     public IReadOnlyList<UcliCommand> AppliesTo { get; init; }
 
     public object? CoverageImpact { get; init; }
-
-    public object? VerdictSemantics { get; init; }
 
     public UcliErrorExecutionSemantics? ExecutionSemantics { get; init; }
 
