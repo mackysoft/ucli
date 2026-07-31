@@ -7,7 +7,6 @@ using MackySoft.Ucli.Contracts.Execution;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.Authorization;
 using MackySoft.Ucli.Contracts.Storage;
-using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Infrastructure.Execution;
 using MackySoft.Ucli.Infrastructure.Storage;
 
@@ -143,6 +142,76 @@ internal static class OneshotBootstrapEnvelopeStore
         }
 
         return envelope;
+    }
+
+    /// <summary>
+    /// Reads the bounded set of unexpired secret envelopes that may reconnect an already-started
+    /// Lifecycle Execution. The original CLI parent may have exited; the reconnecting client must
+    /// prove the Unity host by sending the idempotent Lifecycle Start request before any action.
+    /// </summary>
+    public static IReadOnlyList<IpcOneshotBootstrapEnvelope>
+        ReadLifecycleReconnectCandidates (
+            AbsolutePath storageRoot,
+            ProjectFingerprint expectedProjectFingerprint,
+            DateTimeOffset nowUtc)
+    {
+        if (expectedProjectFingerprint == null)
+        {
+            throw new ArgumentNullException(
+                nameof(expectedProjectFingerprint));
+        }
+        RequireUtcTimestamp(nowUtc, nameof(nowUtc));
+        var directoryPath =
+            UcliStoragePathResolver.ResolveOneshotBootstrapDirectory(
+                storageRoot,
+                expectedProjectFingerprint);
+        if (!Directory.Exists(directoryPath.Value))
+        {
+            return [];
+        }
+
+        FileSystemAccessBoundary.EnsureSecureDirectory(directoryPath);
+        var expectedEndpoint = UcliIpcEndpointResolver.ResolveDaemonEndpoint(
+            storageRoot,
+            expectedProjectFingerprint);
+        var candidates = new List<IpcOneshotBootstrapEnvelope>();
+        foreach (var rawPath in Directory.EnumerateFiles(
+                     directoryPath.Value,
+                     "*" + UcliStoragePathNames.OneshotBootstrapFileExtension,
+                     SearchOption.TopDirectoryOnly)
+                 .OrderBy(static path => path, StringComparer.Ordinal)
+                 .Take(MaximumMaintenanceFiles))
+        {
+            var envelopePath = AbsolutePath.Parse(rawPath);
+            if (!TryGetOwnedBootstrapId(
+                    envelopePath,
+                    out var bootstrapId))
+            {
+                continue;
+            }
+
+            try
+            {
+                var envelope = ReadEnvelope(envelopePath);
+                if (envelope.BootstrapId == bootstrapId
+                    && envelope.ProjectFingerprint
+                        == expectedProjectFingerprint
+                    && envelope.CreatedAtUtc <= nowUtc
+                    && envelope.ExitDeadlineUtc > nowUtc
+                    && envelope.Endpoint == expectedEndpoint.Contract)
+                {
+                    candidates.Add(envelope);
+                }
+            }
+            catch (Exception exception) when (
+                exception is InvalidDataException
+                    or IOException
+                    or UnauthorizedAccessException)
+            {
+            }
+        }
+
+        return candidates;
     }
 
     /// <summary> Deletes a file only while its complete immutable generation still matches the expected owner. </summary>
@@ -294,8 +363,7 @@ internal static class OneshotBootstrapEnvelopeStore
                 var envelope = ReadEnvelope(envelopePath);
                 if (envelope.BootstrapId == bootstrapId
                     && envelope.ProjectFingerprint == projectFingerprint
-                    && (envelope.ExitDeadlineUtc <= nowUtc
-                    || !ProcessLivenessProbe.IsSameProcess(envelope.ParentProcess)))
+                    && envelope.ExitDeadlineUtc <= nowUtc)
                 {
                     FileUtilities.EnsureRegularFile(envelopePath, "Oneshot bootstrap envelope");
                     File.Delete(envelopePath.Value);

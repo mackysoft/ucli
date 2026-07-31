@@ -1,6 +1,7 @@
 using MackySoft.FileSystem;
 using MackySoft.Tests;
 using MackySoft.Ucli.Contracts;
+using MackySoft.Ucli.Contracts.Execution;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.Authorization;
 using MackySoft.Ucli.Infrastructure.Execution;
@@ -186,6 +187,117 @@ public sealed class OneshotBootstrapEnvelopeStoreTests
             ProjectFingerprint,
             Guid.NewGuid(),
             nowUtc));
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public void ReadLifecycleReconnectCandidates_WhenOriginalParentExited_ReturnsUnexpiredSecretEnvelope ()
+    {
+        using var scope = TestDirectories.CreateTempScope(
+            "oneshot-bootstrap-envelope",
+            "reconnect-parent-exited");
+        var storageRoot = AbsolutePath.Parse(scope.FullPath);
+        var nowUtc = DateTimeOffset.UtcNow;
+        var envelope = new IpcOneshotBootstrapEnvelope(
+            BootstrapId: Guid.NewGuid(),
+            ParentProcess: new ProcessIdentity(
+                ProcessId: int.MaxValue,
+                Generation: 1),
+            ProjectFingerprint: ProjectFingerprint,
+            SessionToken: IpcSessionToken.CreateRandom(),
+            CreatedAtUtc: nowUtc,
+            ExitDeadlineUtc: nowUtc.AddMinutes(1),
+            Endpoint: UcliIpcEndpointResolver.ResolveDaemonEndpoint(
+                storageRoot,
+                ProjectFingerprint).Contract);
+        OneshotBootstrapEnvelopeStore.Create(storageRoot, envelope);
+
+        var candidates =
+            OneshotBootstrapEnvelopeStore
+                .ReadLifecycleReconnectCandidates(
+                    storageRoot,
+                    ProjectFingerprint,
+                    nowUtc);
+
+        Assert.Equal([envelope], candidates);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public void Create_WhenUnexpiredEnvelopeParentExited_PreservesReconnectCandidate ()
+    {
+        using var scope = TestDirectories.CreateTempScope(
+            "oneshot-bootstrap-envelope",
+            "preserve-reconnect-candidate");
+        var storageRoot = AbsolutePath.Parse(scope.FullPath);
+        var nowUtc = DateTimeOffset.UtcNow;
+        var reconnectEnvelope = new IpcOneshotBootstrapEnvelope(
+            BootstrapId: Guid.NewGuid(),
+            ParentProcess: new ProcessIdentity(
+                ProcessId: int.MaxValue,
+                Generation: 1),
+            ProjectFingerprint: ProjectFingerprint,
+            SessionToken: IpcSessionToken.CreateRandom(),
+            CreatedAtUtc: nowUtc,
+            ExitDeadlineUtc: nowUtc.AddMinutes(1),
+            Endpoint: UcliIpcEndpointResolver.ResolveDaemonEndpoint(
+                storageRoot,
+                ProjectFingerprint).Contract);
+        OneshotBootstrapEnvelopeStore.Create(
+            storageRoot,
+            reconnectEnvelope);
+
+        OneshotBootstrapEnvelopeStore.Create(
+            storageRoot,
+            CreateEnvelope(
+                storageRoot,
+                Guid.NewGuid(),
+                nowUtc,
+                nowUtc.AddMinutes(1)));
+
+        var candidates =
+            OneshotBootstrapEnvelopeStore
+                .ReadLifecycleReconnectCandidates(
+                    storageRoot,
+                    ProjectFingerprint,
+                    nowUtc);
+        Assert.Contains(reconnectEnvelope, candidates);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public void ReadLifecycleReconnectCandidates_IgnoresExpiredAndMalformedEnvelopes ()
+    {
+        using var scope = TestDirectories.CreateTempScope(
+            "oneshot-bootstrap-envelope",
+            "reconnect-filtering");
+        var storageRoot = AbsolutePath.Parse(scope.FullPath);
+        var nowUtc = DateTimeOffset.UtcNow;
+        var expiredEnvelope = CreateEnvelope(
+            storageRoot,
+            Guid.NewGuid(),
+            nowUtc.AddMinutes(-2),
+            nowUtc.AddMinutes(-1));
+        OneshotBootstrapEnvelopeStore.Create(
+            storageRoot,
+            expiredEnvelope);
+        var malformedPath =
+            UcliStoragePathResolver.ResolveOneshotBootstrapPath(
+                storageRoot,
+                ProjectFingerprint,
+                Guid.NewGuid());
+        WriteMalformedEnvelope(
+            malformedPath,
+            MalformedEnvelopeContent.InvalidJson);
+
+        var candidates =
+            OneshotBootstrapEnvelopeStore
+                .ReadLifecycleReconnectCandidates(
+                    storageRoot,
+                    ProjectFingerprint,
+                    nowUtc);
+
+        Assert.Empty(candidates);
     }
 
     [Fact]

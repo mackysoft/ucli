@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using MackySoft.Ucli.Contracts.Execution;
 using MackySoft.Ucli.Infrastructure.Execution;
 
@@ -7,23 +8,58 @@ public sealed class ProcessLivenessProbeTests
 {
     [Fact]
     [Trait("Size", "Small")]
-    public void CaptureCurrentProcess_ThenIsSameProcess_ReturnsTrue ()
+    public void ObserveIdentity_WhenExpectedProcessIsCurrent_ReturnsSame ()
     {
         var identity = ProcessLivenessProbe.CaptureCurrentProcess();
 
-        Assert.True(ProcessLivenessProbe.IsSameProcess(identity));
+        Assert.Equal(
+            ProcessIdentityObservation.Same,
+            ProcessLivenessProbe.ObserveIdentity(identity));
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void IsSameProcess_WhenGenerationDiffers_ReturnsFalse ()
+    public void ObserveIdentity_WhenProcessIdentifierWasReused_ReturnsConfirmedExitedOrReplaced ()
     {
         var current = ProcessLivenessProbe.CaptureCurrentProcess();
         var differentGeneration = new ProcessIdentity(
             current.ProcessId,
             current.Generation == ulong.MaxValue ? current.Generation - 1 : current.Generation + 1);
 
-        Assert.False(ProcessLivenessProbe.IsSameProcess(differentGeneration));
+        Assert.Equal(
+            ProcessIdentityObservation.ConfirmedExitedOrReplaced,
+            ProcessLivenessProbe.ObserveIdentity(differentGeneration));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void ObserveIdentity_WhenOperatingSystemProbeFails_ReturnsUnobservable ()
+    {
+        var current = ProcessLivenessProbe.CaptureCurrentProcess();
+
+        var observation = ProcessLivenessProbe.ObserveIdentity(
+            current,
+            _ => throw new Win32Exception("Simulated observation failure."));
+
+        Assert.Equal(
+            ProcessIdentityObservation.Unobservable,
+            observation);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void ObserveIdentity_WhenProcessIdentifierNoLongerExists_ReturnsConfirmedExitedOrReplaced ()
+    {
+        var current = ProcessLivenessProbe.CaptureCurrentProcess();
+
+        var observation = ProcessLivenessProbe.ObserveIdentity(
+            current,
+            _ => throw new ArgumentException(
+                "Simulated missing process identifier."));
+
+        Assert.Equal(
+            ProcessIdentityObservation.ConfirmedExitedOrReplaced,
+            observation);
     }
 
     [Theory]

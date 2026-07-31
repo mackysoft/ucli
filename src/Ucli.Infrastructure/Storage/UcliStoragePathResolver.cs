@@ -559,19 +559,6 @@ public static class UcliStoragePathResolver
             UcliStoragePathNames.TestArtifactsDirectoryName);
     }
 
-    /// <summary> Resolves one compile-artifacts directory under <c>.ucli/local/projects/&lt;projectStorageKey&gt;/artifacts/compile</c>. </summary>
-    /// <param name="storageRoot"> The guarded storage-root path. </param>
-    /// <param name="projectFingerprint"> The canonical project fingerprint. </param>
-    /// <returns> The absolute project-scoped compile-artifacts directory path. </returns>
-    public static AbsolutePath ResolveCompileArtifactsDirectory (
-        AbsolutePath storageRoot,
-        ProjectFingerprint projectFingerprint)
-    {
-        return ResolveUnderPath(
-            ResolveArtifactsDirectory(storageRoot, projectFingerprint),
-            UcliStoragePathNames.CompileArtifactsDirectoryName);
-    }
-
     /// <summary> Resolves the project-scoped screenshot artifact directory. </summary>
     /// <param name="storageRoot"> The storage-root path. </param>
     /// <param name="projectFingerprint"> The project fingerprint value. </param>
@@ -695,22 +682,6 @@ public static class UcliStoragePathResolver
     {
         return ResolveUnderPath(
             ResolveTestArtifactsDirectory(storageRoot, projectFingerprint),
-            StoragePathSegmentCodec.EncodeGuid(runId, nameof(runId)));
-    }
-
-    /// <summary> Resolves one compile-run directory under <c>.ucli/local/projects/&lt;projectStorageKey&gt;/artifacts/compile/&lt;runStorageKey&gt;</c>. </summary>
-    /// <param name="storageRoot"> The guarded storage-root path. </param>
-    /// <param name="projectFingerprint"> The canonical project fingerprint. </param>
-    /// <param name="runId"> The non-empty run identifier. </param>
-    /// <returns> The absolute compile-run artifacts directory path. </returns>
-    /// <exception cref="ArgumentException"> Thrown when <paramref name="runId" /> is empty. </exception>
-    public static AbsolutePath ResolveCompileRunArtifactsDirectory (
-        AbsolutePath storageRoot,
-        ProjectFingerprint projectFingerprint,
-        Guid runId)
-    {
-        return ResolveUnderPath(
-            ResolveCompileArtifactsDirectory(storageRoot, projectFingerprint),
             StoragePathSegmentCodec.EncodeGuid(runId, nameof(runId)));
     }
 

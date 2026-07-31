@@ -51,28 +51,77 @@ internal static class ProcessLivenessProbe
     /// <summary> Gets whether an identity still refers to the same live operating-system process generation. </summary>
     internal static bool IsSameProcess (ProcessIdentity expectedIdentity)
     {
+        return ObserveIdentity(expectedIdentity)
+            == ProcessIdentityObservation.Same;
+    }
+
+    /// <summary>
+    /// Observes whether an identity still refers to the same live
+    /// operating-system process generation.
+    /// </summary>
+    internal static ProcessIdentityObservation ObserveIdentity (
+        ProcessIdentity expectedIdentity)
+    {
+        return ObserveIdentity(expectedIdentity, Process.GetProcessById);
+    }
+
+    internal static ProcessIdentityObservation ObserveIdentity (
+        ProcessIdentity expectedIdentity,
+        Func<int, Process> processResolver)
+    {
         if (expectedIdentity == null)
         {
             throw new ArgumentNullException(nameof(expectedIdentity));
         }
+        if (processResolver == null)
+        {
+            throw new ArgumentNullException(nameof(processResolver));
+        }
 
+        Process process;
         try
         {
-            using var process = Process.GetProcessById(expectedIdentity.ProcessId);
-            if (process.HasExited)
-            {
-                return false;
-            }
-
-            return GetProcessGeneration(process) == expectedIdentity.Generation
-                && !process.HasExited;
+            process = processResolver(expectedIdentity.ProcessId);
         }
-        catch (Exception exception) when (exception is ArgumentException
-            or InvalidOperationException
+        catch (ArgumentException)
+        {
+            return ProcessIdentityObservation.ConfirmedExitedOrReplaced;
+        }
+        catch (Exception exception) when (exception is InvalidOperationException
             or Win32Exception
             or NotSupportedException)
         {
-            return false;
+            return ProcessIdentityObservation.Unobservable;
+        }
+
+        using (process)
+        {
+            try
+            {
+                if (process.HasExited)
+                {
+                    return ProcessIdentityObservation
+                        .ConfirmedExitedOrReplaced;
+                }
+
+                var generation = GetProcessGeneration(process);
+                if (generation != expectedIdentity.Generation)
+                {
+                    return ProcessIdentityObservation
+                        .ConfirmedExitedOrReplaced;
+                }
+
+                return process.HasExited
+                    ? ProcessIdentityObservation.ConfirmedExitedOrReplaced
+                    : ProcessIdentityObservation.Same;
+            }
+            catch (Exception exception) when (exception is ArgumentException
+                or InvalidOperationException
+                or Win32Exception
+                or NotSupportedException)
+            {
+                return ProcessIdentityObservation.Unobservable;
+            }
         }
     }
 
