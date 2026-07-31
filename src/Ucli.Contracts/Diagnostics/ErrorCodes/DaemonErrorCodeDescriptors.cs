@@ -18,7 +18,7 @@ internal static class DaemonErrorCodeDescriptors
     public static IReadOnlyList<UcliErrorDescriptor> All { get; } =
     [
         UcliErrorDescriptorFactory.Create(
-            code: DaemonErrorCodes.DaemonEditorModeMismatch,
+            code: DaemonErrorCodes.UnityEditorModeMismatch,
             category: "daemon",
             summary: "The requested Editor mode conflicts with an existing daemon session.",
             meaning: "A daemon is already associated with the project using a different Editor mode than the one requested by the command.",

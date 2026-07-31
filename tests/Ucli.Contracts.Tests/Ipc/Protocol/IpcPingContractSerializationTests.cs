@@ -3,6 +3,7 @@ using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Contracts.Tests.Ipc.Common;
 
@@ -30,24 +31,24 @@ public sealed class IpcPingContractSerializationTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void IpcUnityEditorObservation_SerializesEstablishedLifecycleWireShape ()
+    public void UnityEditorObservation_SerializesEstablishedLifecycleWireShape ()
     {
-        var response = new IpcUnityEditorObservation(
+        var response = new UnityEditorObservation(
             serverVersion: "0.5.0",
             unityVersion: "6000.1.4f1",
             projectFingerprint: ProjectFingerprint,
             state: new UnityEditorStateSnapshot(
-                editorMode: DaemonEditorMode.Batchmode,
-                lifecycleState: IpcEditorLifecycleState.PlayMode,
-                compileState: IpcCompileState.Ready,
-                generations: new IpcUnityGenerationSnapshot(
+                editorMode: UnityEditorMode.Batchmode,
+                lifecycleState: UnityEditorLifecycleState.PlayMode,
+                compileState: UnityEditorCompileState.Ready,
+                generations: new UnityEditorGenerationSnapshot(
                     CompileGeneration: 12,
                     DomainReloadGeneration: 7,
                     AssetRefreshGeneration: 8,
                     PlayModeGeneration: 42),
-                playMode: new IpcPlayModeSnapshot(
-                    State: IpcPlayModeState.Playing,
-                    Transition: IpcPlayModeTransition.None,
+                playMode: new UnityEditorPlayModeSnapshot(
+                    State: UnityEditorPlayModeState.Playing,
+                    Transition: UnityEditorPlayModeTransition.None,
                     IsPlaying: true,
                     IsPlayingOrWillChangePlaymode: true)),
             observedAtUtc: DateTimeOffset.Parse("2026-05-21T00:00:00+00:00"),
@@ -75,7 +76,7 @@ public sealed class IpcPingContractSerializationTests
             .HasString("observedAtUtc", "2026-05-21T00:00:00+00:00")
             .HasProperty("state", state => state
                 .HasString("editorMode", "batchmode")
-                .HasString("lifecycleState", TextVocabulary.GetText(IpcEditorLifecycleState.PlayMode))
+                .HasString("lifecycleState", TextVocabulary.GetText(UnityEditorLifecycleState.PlayMode))
                 .HasString("compileState", "ready")
                 .HasProperty("generations", generations => generations
                     .HasInt32("compileGeneration", 12)

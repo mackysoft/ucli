@@ -1,3 +1,6 @@
+using MackySoft.Ucli.Contracts.Editor;
+using MackySoft.Ucli.Contracts.Projects;
+
 namespace MackySoft.Ucli.Contracts.Ipc;
 
 /// <summary> Represents structured <c>build.run</c> error payload values. </summary>
@@ -7,8 +10,8 @@ namespace MackySoft.Ucli.Contracts.Ipc;
 /// <param name="Input"> The resolved input probe when available. </param>
 /// <param name="UnityBuildProfile"> The Unity Build Profile input evidence when available. </param>
 public sealed record IpcBuildRunErrorPayload (
-    IpcProjectIdentity? Project,
-    IpcUnityEditorObservation? LifecycleBefore,
+    UnityProjectIdentity? Project,
+    UnityEditorObservation? LifecycleBefore,
     IpcBuildDirtyState? DirtyState,
     IpcBuildInputProbe? Input,
     IpcUnityBuildProfileInput? UnityBuildProfile = null);

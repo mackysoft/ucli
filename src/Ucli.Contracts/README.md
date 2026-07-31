@@ -35,7 +35,9 @@ dotnet add package MackySoft.Ucli.Contracts --version <version>
 
 `ExecutionRef` identifies one long-lived logical execution by `(kind, id)` and the immutable definition digest fixed at registration. Its tagged lifecycle variants keep terminal-record references out of active and recovery JSON, and require a finalized `ArtifactRef` in terminal JSON. Feature code owns its state vocabulary, state transitions, and the deterministic mapping from feature state to the common lifecycle.
 
-Use `IpcJsonSerializerOptions` when exchanging these contracts across the CLI and Unity boundary. Their generated Draft 2020-12 schemas are delivered as `common.artifact-ref` and `common.execution-ref`.
+Lifecycle actions use the same `ExecutionRef` through endpoint re-registration. Each action owns its typed state machine and result while the shared Lifecycle Execution contract fixes the start identity and the immutable terminal-record shape. Provider-specific status values remain inside the action handler.
+
+Use `IpcJsonSerializerOptions` when exchanging these contracts across the CLI and Unity boundary. Their generated Draft 2020-12 schemas are delivered as `common.artifact-ref`, `common.execution-ref`, and `common.lifecycle-execution-terminal-record`.
 
 ## Operation Contracts
 

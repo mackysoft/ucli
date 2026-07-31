@@ -1,19 +1,32 @@
 using System.Text.Json.Serialization;
+using MackySoft.Ucli.Contracts.Execution.Lifecycle;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
-/// <summary> Represents a <c>compile</c> IPC response payload. </summary>
+/// <summary> Represents a successful <c>compile</c> Lifecycle Execution response. </summary>
 public sealed record IpcCompileResponse
 {
-    /// <summary> Initializes a compile response from its completed summary. </summary>
-    /// <param name="Summary"> The completed compile summary. </param>
-    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="Summary" /> is <see langword="null" />. </exception>
+    /// <summary> Initializes one completed compile response. </summary>
     [JsonConstructor]
-    public IpcCompileResponse (IpcCompileSummary Summary)
+    public IpcCompileResponse (
+        ExecutionRef lifecycleExecutionRef,
+        CompileLifecycleResult result)
     {
-        this.Summary = Summary ?? throw new ArgumentNullException(nameof(Summary));
+        LifecycleExecutionRef =
+            IpcLifecycleExecutionContractGuard.RequireSuccessfulReference(
+                lifecycleExecutionRef,
+                LifecycleExecutionKind.Compile,
+                nameof(lifecycleExecutionRef));
+        Result = result ?? throw new ArgumentNullException(nameof(result));
     }
 
-    /// <summary> Gets the completed compile summary. </summary>
-    public IpcCompileSummary Summary { get; }
+    /// <summary> Gets the completed terminal reference of the compile action. </summary>
+    [JsonInclude]
+    [JsonRequired]
+    public ExecutionRef LifecycleExecutionRef { get; private init; }
+
+    /// <summary> Gets the provider-independent compile result. </summary>
+    [JsonInclude]
+    [JsonRequired]
+    public CompileLifecycleResult Result { get; private init; }
 }

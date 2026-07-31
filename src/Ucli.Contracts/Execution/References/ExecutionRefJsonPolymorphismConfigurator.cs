@@ -8,11 +8,48 @@ internal static class ExecutionRefJsonPolymorphismConfigurator
 {
     public static bool TryConfigure (JsonTypeInfo typeInfo)
     {
-        if (typeInfo.Type != typeof(ExecutionRef))
+        if (typeInfo.Type == typeof(ExecutionRef))
         {
-            return false;
+            typeInfo.PolymorphismOptions = CreatePolymorphismOptions(
+                typeInfo,
+                typeof(ActiveExecutionRef),
+                typeof(RecoveryExecutionRef),
+                typeof(TerminalExecutionRef));
+            return true;
         }
 
+        if (typeInfo.Type == typeof(IRecoveryExecutionRef))
+        {
+            typeInfo.PolymorphismOptions = CreatePolymorphismOptions(
+                typeInfo,
+                typeof(RecoveryExecutionRef));
+            return true;
+        }
+
+        if (typeInfo.Type == typeof(IReconnectableExecutionRef))
+        {
+            typeInfo.PolymorphismOptions = CreatePolymorphismOptions(
+                typeInfo,
+                typeof(ActiveExecutionRef),
+                typeof(RecoveryExecutionRef));
+            return true;
+        }
+
+        if (typeInfo.Type == typeof(ITerminalExecutionRef))
+        {
+            typeInfo.PolymorphismOptions = CreatePolymorphismOptions(
+                typeInfo,
+                typeof(TerminalExecutionRef));
+            return true;
+        }
+
+        return false;
+    }
+
+    private static JsonPolymorphismOptions CreatePolymorphismOptions (
+        JsonTypeInfo typeInfo,
+        params Type[] referenceTypes)
+    {
         var lifecyclePropertyName = typeInfo.Options.PropertyNamingPolicy?.ConvertName(
                 nameof(ExecutionRef.Lifecycle))
             ?? nameof(ExecutionRef.Lifecycle);
@@ -22,16 +59,34 @@ internal static class ExecutionRefJsonPolymorphismConfigurator
             IgnoreUnrecognizedTypeDiscriminators = false,
             UnknownDerivedTypeHandling = JsonUnknownDerivedTypeHandling.FailSerialization,
         };
-        options.DerivedTypes.Add(new JsonDerivedType(
-            typeof(ActiveExecutionRef),
-            TextVocabulary.GetText(ExecutionLifecycle.Active)));
-        options.DerivedTypes.Add(new JsonDerivedType(
-            typeof(RecoveryExecutionRef),
-            TextVocabulary.GetText(ExecutionLifecycle.Recovery)));
-        options.DerivedTypes.Add(new JsonDerivedType(
-            typeof(TerminalExecutionRef),
-            TextVocabulary.GetText(ExecutionLifecycle.Terminal)));
-        typeInfo.PolymorphismOptions = options;
-        return true;
+        foreach (var referenceType in referenceTypes)
+        {
+            options.DerivedTypes.Add(new JsonDerivedType(
+                referenceType,
+                TextVocabulary.GetText(GetLifecycle(referenceType))));
+        }
+
+        return options;
+    }
+
+    private static ExecutionLifecycle GetLifecycle (Type referenceType)
+    {
+        if (referenceType == typeof(ActiveExecutionRef))
+        {
+            return ExecutionLifecycle.Active;
+        }
+        if (referenceType == typeof(RecoveryExecutionRef))
+        {
+            return ExecutionLifecycle.Recovery;
+        }
+        if (referenceType == typeof(TerminalExecutionRef))
+        {
+            return ExecutionLifecycle.Terminal;
+        }
+
+        throw new ArgumentOutOfRangeException(
+            nameof(referenceType),
+            referenceType,
+            "Execution reference polymorphism supports only concrete lifecycle branches.");
     }
 }

@@ -13,6 +13,7 @@ public abstract record ExecutionRef
     /// <param name="state"> The current state defined by the feature that owns the execution. </param>
     /// <param name="statusLocator"> The opaque feature-owned locator for subsequent operations, or <see langword="null" /> when none remains. </param>
     /// <exception cref="ArgumentNullException"> Thrown when a required reference value is <see langword="null" />. </exception>
+    /// <exception cref="ArgumentException"> Thrown when <paramref name="id" /> is empty. </exception>
     protected ExecutionRef (
         ExecutionKind kind,
         Guid id,
@@ -21,7 +22,7 @@ public abstract record ExecutionRef
         ExecutionStatusLocator? statusLocator)
     {
         Kind = kind ?? throw new ArgumentNullException(nameof(kind));
-        Id = id;
+        Id = ContractArgumentGuard.RequireNonEmptyGuid(id, nameof(id));
         DefinitionDigest = definitionDigest ?? throw new ArgumentNullException(nameof(definitionDigest));
         State = state ?? throw new ArgumentNullException(nameof(state));
         StatusLocator = statusLocator;

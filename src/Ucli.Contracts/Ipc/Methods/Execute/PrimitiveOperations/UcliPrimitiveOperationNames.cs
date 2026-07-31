@@ -60,9 +60,6 @@ public static class UcliPrimitiveOperationNames
     /// <summary> Gets the primitive operation name for <c>ucli.prefab.save</c>. </summary>
     public const string PrefabSave = "ucli.prefab.save";
 
-    /// <summary> Gets the primitive operation name for <c>ucli.project.refresh</c>. </summary>
-    public const string ProjectRefresh = "ucli.project.refresh";
-
     /// <summary> Gets the primitive operation name for <c>ucli.project.save</c>. </summary>
     public const string ProjectSave = "ucli.project.save";
 

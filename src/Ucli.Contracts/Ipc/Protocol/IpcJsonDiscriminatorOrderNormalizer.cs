@@ -3,8 +3,8 @@ using System.Text.Json;
 namespace MackySoft.Ucli.Contracts.Ipc;
 
 /// <summary>
-/// Moves the shared polymorphic discriminator to the first property of each JSON object before
-/// System.Text.Json 8 deserialization, without interpreting object shape or discriminator values.
+/// Moves the applicable shared polymorphic discriminator to the first property of each JSON object
+/// before System.Text.Json 8 deserialization, without interpreting discriminator values.
 /// </summary>
 internal static class IpcJsonDiscriminatorOrderNormalizer
 {
@@ -33,10 +33,14 @@ internal static class IpcJsonDiscriminatorOrderNormalizer
         switch (value.ValueKind)
         {
             case JsonValueKind.Object:
+                var discriminatorPropertyName =
+                    GetDiscriminatorPropertyName(value);
                 var propertyIndex = 0;
                 foreach (var property in value.EnumerateObject())
                 {
-                    if (property.NameEquals(UcliOperationContractPropertyNames.Kind) && propertyIndex != 0)
+                    if (discriminatorPropertyName is not null
+                        && property.NameEquals(discriminatorPropertyName)
+                        && propertyIndex != 0)
                     {
                         return true;
                     }
@@ -97,25 +101,56 @@ internal static class IpcJsonDiscriminatorOrderNormalizer
         Utf8JsonWriter writer,
         JsonElement value)
     {
+        var discriminatorPropertyName = GetDiscriminatorPropertyName(value);
         writer.WriteStartObject();
-        foreach (var property in value.EnumerateObject())
+        if (discriminatorPropertyName is not null)
         {
-            if (property.NameEquals(UcliOperationContractPropertyNames.Kind))
+            foreach (var property in value.EnumerateObject())
             {
-                WriteProperty(writer, property);
-                break;
+                if (property.NameEquals(discriminatorPropertyName))
+                {
+                    WriteProperty(writer, property);
+                    break;
+                }
             }
         }
 
         foreach (var property in value.EnumerateObject())
         {
-            if (!property.NameEquals(UcliOperationContractPropertyNames.Kind))
+            if (discriminatorPropertyName is null
+                || !property.NameEquals(discriminatorPropertyName))
             {
                 WriteProperty(writer, property);
             }
         }
 
         writer.WriteEndObject();
+    }
+
+    private static string? GetDiscriminatorPropertyName (JsonElement value)
+    {
+        // A reference also carries its product-defined "kind", so the tagged-union discriminator
+        // with the more specific structural role must win over the nested value vocabulary.
+        if (value.TryGetProperty("lifecycle", out _))
+        {
+            return "lifecycle";
+        }
+
+        if (value.TryGetProperty("locationKind", out _))
+        {
+            return "locationKind";
+        }
+
+        if (value.TryGetProperty("executionKind", out _))
+        {
+            return "executionKind";
+        }
+
+        return value.TryGetProperty(
+            UcliOperationContractPropertyNames.Kind,
+            out _)
+            ? UcliOperationContractPropertyNames.Kind
+            : null;
     }
 
     private static void WriteProperty (

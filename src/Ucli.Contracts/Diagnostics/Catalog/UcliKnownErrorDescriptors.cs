@@ -13,6 +13,7 @@ public static class UcliKnownErrorDescriptors
         IpcProtocolErrorCodeDescriptors.All,
         IpcSessionErrorCodeDescriptors.All,
         IpcTransportErrorCodeDescriptors.All,
+        LifecycleExecutionErrorCodeDescriptors.All,
         OperationAuthorizationErrorCodeDescriptors.All,
         PlanTokenErrorCodeDescriptors.All,
         PlayModeErrorCodeDescriptors.All,

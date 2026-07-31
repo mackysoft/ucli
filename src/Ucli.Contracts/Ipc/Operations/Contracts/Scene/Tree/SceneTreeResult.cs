@@ -1,7 +1,7 @@
 using System.Text.Json.Serialization;
 using MackySoft.Ucli.Contracts.Index;
-
 using MackySoft.JsonSchema.Generation.Annotations;
+using MackySoft.Ucli.Contracts.Projects;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 

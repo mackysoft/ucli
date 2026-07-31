@@ -138,6 +138,19 @@ public sealed class UcliErrorDescriptorTests
         Assert.Contains("payload.contractViolations[]", descriptor.Inspect);
     }
 
+    [Theory]
+    [InlineData("LIFECYCLE_EXECUTION_DEFINITION_CONFLICT")]
+    [InlineData("LIFECYCLE_EXECUTION_PROJECT_MISMATCH")]
+    [Trait("Size", "Small")]
+    public void LifecycleReconnectRejectionDescriptor_DoesNotEraseOriginalExecutionUncertainty (
+        string code)
+    {
+        var descriptor = FindDescriptor(new UcliCode(code));
+
+        Assert.Null(descriptor.ExecutionSemantics.ImpliesNotApplied);
+        Assert.True(descriptor.ExecutionSemantics.MayBeIndeterminate);
+    }
+
     [Fact]
     [Trait("Size", "Small")]
     public void IpcTimeoutDescriptor_MatchesPublishedTimeoutContract ()

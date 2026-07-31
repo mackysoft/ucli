@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
@@ -24,8 +25,8 @@ public sealed record IpcBuildRunResponse
     public IpcBuildRunResponse (
         Guid RunId,
         ProjectFingerprint ProjectFingerprint,
-        IpcUnityEditorObservation LifecycleBefore,
-        IpcUnityEditorObservation LifecycleAfter,
+        UnityEditorObservation LifecycleBefore,
+        UnityEditorObservation LifecycleAfter,
         IpcBuildDirtyState DirtyState,
         IpcBuildInputProbe Input,
         IpcBuildOutputLayout? OutputLayout,
@@ -58,9 +59,9 @@ public sealed record IpcBuildRunResponse
 
     public ProjectFingerprint ProjectFingerprint { get; }
 
-    public IpcUnityEditorObservation LifecycleBefore { get; }
+    public UnityEditorObservation LifecycleBefore { get; }
 
-    public IpcUnityEditorObservation LifecycleAfter { get; }
+    public UnityEditorObservation LifecycleAfter { get; }
 
     public IpcBuildDirtyState DirtyState { get; }
 

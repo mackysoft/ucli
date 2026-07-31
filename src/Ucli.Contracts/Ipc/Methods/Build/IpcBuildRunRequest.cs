@@ -5,6 +5,7 @@ using MackySoft.Ucli.Contracts.Assurance.Build;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
@@ -29,7 +30,7 @@ public sealed record IpcBuildRunRequest
         IpcBuildOutputLayout? OutputLayout,
         string BuildReportPath,
         string BuildLogPath,
-        IReadOnlyList<DaemonEditorMode> AllowedEditorModes,
+        IReadOnlyList<UnityEditorMode> AllowedEditorModes,
         BuildProfileProjectMutationMode ProjectMutationMode,
         BuildRunnerKind RunnerKind,
         Sha256Digest ProfileDigest,
@@ -145,7 +146,7 @@ public sealed record IpcBuildRunRequest
     public string BuildLogPath { get; }
 
     /// <summary> Gets an immutable, non-empty set of allowed editor modes in caller-specified order. </summary>
-    public IReadOnlyList<DaemonEditorMode> AllowedEditorModes { get; }
+    public IReadOnlyList<UnityEditorMode> AllowedEditorModes { get; }
 
     public BuildProfileProjectMutationMode ProjectMutationMode { get; }
 
@@ -321,8 +322,8 @@ public sealed record IpcBuildRunRequest
         return snapshot;
     }
 
-    private static IReadOnlyList<DaemonEditorMode> SnapshotAllowedEditorModes (
-        IReadOnlyList<DaemonEditorMode>? allowedEditorModes)
+    private static IReadOnlyList<UnityEditorMode> SnapshotAllowedEditorModes (
+        IReadOnlyList<UnityEditorMode>? allowedEditorModes)
     {
         if (allowedEditorModes == null)
         {
@@ -334,8 +335,8 @@ public sealed record IpcBuildRunRequest
             throw new ArgumentException("At least one allowed editor mode is required.", nameof(AllowedEditorModes));
         }
 
-        var snapshot = new DaemonEditorMode[allowedEditorModes.Count];
-        var seen = new HashSet<DaemonEditorMode>();
+        var snapshot = new UnityEditorMode[allowedEditorModes.Count];
+        var seen = new HashSet<UnityEditorMode>();
         for (var index = 0; index < allowedEditorModes.Count; index++)
         {
             var editorMode = allowedEditorModes[index];

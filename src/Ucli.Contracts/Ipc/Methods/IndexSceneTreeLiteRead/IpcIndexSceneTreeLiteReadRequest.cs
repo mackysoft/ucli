@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using MackySoft.Ucli.Contracts.Projects;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 

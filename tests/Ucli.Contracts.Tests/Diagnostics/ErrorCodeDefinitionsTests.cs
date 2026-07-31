@@ -34,7 +34,7 @@ public sealed class ErrorCodeDefinitionsTests
         Assert.Equal("SCREENSHOT_REQUIRES_GUI_SESSION", ScreenshotErrorCodes.ScreenshotRequiresGuiSession.Value);
         Assert.Equal("SCREENSHOT_REQUESTED_SIZE_UNSUPPORTED", ScreenshotErrorCodes.ScreenshotRequestedSizeUnsupported.Value);
         Assert.Equal("SCREENSHOT_CAPTURE_UNSUPPORTED", ScreenshotErrorCodes.ScreenshotCaptureUnsupported.Value);
-        Assert.Equal("DAEMON_EDITOR_MODE_MISMATCH", DaemonErrorCodes.DaemonEditorModeMismatch.Value);
+        Assert.Equal("DAEMON_EDITOR_MODE_MISMATCH", DaemonErrorCodes.UnityEditorModeMismatch.Value);
         Assert.Equal("INTERNAL_ERROR", UcliCoreErrorCodes.InternalError.Value);
     }
 }

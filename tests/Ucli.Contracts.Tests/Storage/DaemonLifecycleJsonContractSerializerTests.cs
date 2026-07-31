@@ -3,6 +3,7 @@ using System.Text.Json.Nodes;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Contracts.Tests.Storage;
 
@@ -87,7 +88,7 @@ public sealed class DaemonLifecycleJsonContractSerializerTests
         var exception = Assert.Throws<ArgumentException>(() => new DaemonLifecycleJsonContract(
             processId: 123,
             processStartedAtUtc: useProcessStartTimestamp ? nonUtcTimestamp : DateTimeOffset.UnixEpoch,
-            state: CreateState(IpcEditorLifecycleState.Ready),
+            state: CreateState(UnityEditorLifecycleState.Ready),
             observedAtUtc: useProcessStartTimestamp ? DateTimeOffset.UnixEpoch : nonUtcTimestamp,
             actionRequired: null,
             primaryDiagnostic: null,
@@ -180,7 +181,7 @@ public sealed class DaemonLifecycleJsonContractSerializerTests
             SessionGenerationId,
             observedAtUtc + TimeSpan.FromMinutes(5));
         var contract = CreateContract(
-            state: CreateState(IpcEditorLifecycleState.Recovering),
+            state: CreateState(UnityEditorLifecycleState.Recovering),
             recoveryLease: expectedLease);
 
         var json = DaemonLifecycleJsonContractSerializer.Serialize(contract);
@@ -199,7 +200,7 @@ public sealed class DaemonLifecycleJsonContractSerializerTests
             DateTimeOffset.UnixEpoch.AddMinutes(5));
 
         var exception = Assert.Throws<ArgumentException>(() => CreateContract(
-            state: CreateState(IpcEditorLifecycleState.Ready),
+            state: CreateState(UnityEditorLifecycleState.Ready),
             recoveryLease: recoveryLease));
 
         Assert.Equal("recoveryLease", exception.ParamName);
@@ -214,7 +215,7 @@ public sealed class DaemonLifecycleJsonContractSerializerTests
             DateTimeOffset.UnixEpoch);
 
         var exception = Assert.Throws<ArgumentException>(() => CreateContract(
-            state: CreateState(IpcEditorLifecycleState.Recovering),
+            state: CreateState(UnityEditorLifecycleState.Recovering),
             recoveryLease: recoveryLease));
 
         Assert.Equal("recoveryLease", exception.ParamName);
@@ -228,7 +229,7 @@ public sealed class DaemonLifecycleJsonContractSerializerTests
         return new DaemonLifecycleJsonContract(
             processId: 123,
             processStartedAtUtc: DateTimeOffset.UnixEpoch,
-            state: state ?? CreateState(IpcEditorLifecycleState.Ready),
+            state: state ?? CreateState(UnityEditorLifecycleState.Ready),
             observedAtUtc: DateTimeOffset.UnixEpoch,
             actionRequired: null,
             primaryDiagnostic: null,
@@ -238,16 +239,16 @@ public sealed class DaemonLifecycleJsonContractSerializerTests
             recoveryLease: recoveryLease);
     }
 
-    private static UnityEditorStateSnapshot CreateState (IpcEditorLifecycleState lifecycleState)
+    private static UnityEditorStateSnapshot CreateState (UnityEditorLifecycleState lifecycleState)
     {
         return new UnityEditorStateSnapshot(
-            DaemonEditorMode.Gui,
+            UnityEditorMode.Gui,
             lifecycleState,
-            IpcCompileState.Ready,
-            new IpcUnityGenerationSnapshot(1, 2, 3, 4),
-            new IpcPlayModeSnapshot(
-                IpcPlayModeState.Stopped,
-                IpcPlayModeTransition.None,
+            UnityEditorCompileState.Ready,
+            new UnityEditorGenerationSnapshot(1, 2, 3, 4),
+            new UnityEditorPlayModeSnapshot(
+                UnityEditorPlayModeState.Stopped,
+                UnityEditorPlayModeTransition.None,
                 IsPlaying: false,
                 IsPlayingOrWillChangePlaymode: false));
     }

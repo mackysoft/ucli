@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Contracts.Storage;
 
@@ -15,7 +16,7 @@ internal sealed record DaemonDiagnosisPrimaryDiagnosticJsonContract
     /// <summary> Initializes persisted primary diagnostic fields. </summary>
     [JsonConstructor]
     public DaemonDiagnosisPrimaryDiagnosticJsonContract (
-        DaemonDiagnosisPrimaryDiagnosticKind? Kind,
+        UnityEditorPrimaryDiagnosticKind? Kind,
         string? Code,
         string? File,
         int? Line,
@@ -37,7 +38,7 @@ internal sealed record DaemonDiagnosisPrimaryDiagnosticJsonContract
 
     [JsonInclude]
     [JsonRequired]
-    public DaemonDiagnosisPrimaryDiagnosticKind? Kind { get; private init; }
+    public UnityEditorPrimaryDiagnosticKind? Kind { get; private init; }
 
     [JsonInclude]
     [JsonRequired]

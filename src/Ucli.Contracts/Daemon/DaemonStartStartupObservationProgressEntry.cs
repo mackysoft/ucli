@@ -1,6 +1,7 @@
 using System.Text.Json.Serialization;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Contracts.Daemon;
 
@@ -16,7 +17,7 @@ public sealed record DaemonStartStartupObservationProgressEntry
         DaemonStartProgressPayloadKind PayloadKind,
         ProjectFingerprint ProjectFingerprint,
         int TimeoutMilliseconds,
-        DaemonEditorMode? EditorMode,
+        UnityEditorMode? EditorMode,
         DaemonStartupBlockedProcessPolicy OnStartupBlocked,
         Guid? LaunchAttemptId,
         DaemonSessionOwnerKind? OwnerKind,
@@ -109,7 +110,7 @@ public sealed record DaemonStartStartupObservationProgressEntry
 
     public int TimeoutMilliseconds { get; }
 
-    public DaemonEditorMode? EditorMode { get; }
+    public UnityEditorMode? EditorMode { get; }
 
     public DaemonStartupBlockedProcessPolicy OnStartupBlocked { get; }
 

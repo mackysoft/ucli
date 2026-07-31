@@ -4,7 +4,9 @@ using MackySoft.Ucli.Contracts.Cryptography;
 namespace MackySoft.Ucli.Contracts;
 
 /// <summary> References a logical execution that is recovering before it can be finalized. </summary>
-public sealed record RecoveryExecutionRef : ExecutionRef
+public sealed record RecoveryExecutionRef :
+    ExecutionRef,
+    IRecoveryExecutionRef
 {
     /// <summary> Initializes a recovering execution reference. </summary>
     /// <param name="kind"> The feature-defined execution kind. </param>

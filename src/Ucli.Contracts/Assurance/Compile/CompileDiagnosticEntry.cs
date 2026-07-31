@@ -1,37 +1,41 @@
 using System.Text.Json.Serialization;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.Contracts.Execution.Lifecycle;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Contracts.Assurance;
 
 /// <summary> Represents the <c>compile.diagnostic</c> stream payload. </summary>
 public sealed record CompileDiagnosticEntry
 {
-    /// <summary> Initializes one compile diagnostic entry for a non-empty run identifier. </summary>
-    /// <exception cref="ArgumentException"> Thrown when <paramref name="RunId" /> is empty. </exception>
+    /// <summary> Initializes one compile diagnostic entry for a non-empty execution identifier. </summary>
+    /// <exception cref="ArgumentException"> Thrown when <paramref name="ExecutionId" /> is empty. </exception>
     [JsonConstructor]
     public CompileDiagnosticEntry (
-        Guid RunId,
-        CompileRefreshOrigin RefreshOrigin,
-        IpcPrimaryDiagnostic? PrimaryDiagnostic)
+        Guid ExecutionId,
+        CompileLifecycleRefreshOrigin RefreshOrigin,
+        UnityEditorPrimaryDiagnostic? PrimaryDiagnostic)
     {
-        if (RunId == Guid.Empty)
+        if (ExecutionId == Guid.Empty)
         {
-            throw new ArgumentException("Run id must not be empty.", nameof(RunId));
+            throw new ArgumentException(
+                "Lifecycle Execution id must not be empty.",
+                nameof(ExecutionId));
         }
         if (!TextVocabulary.IsDefined(RefreshOrigin))
         {
             throw new ArgumentOutOfRangeException(nameof(RefreshOrigin), RefreshOrigin, "Compile refresh origin must be defined.");
         }
 
-        this.RunId = RunId;
+        this.ExecutionId = ExecutionId;
         this.RefreshOrigin = RefreshOrigin;
         this.PrimaryDiagnostic = PrimaryDiagnostic;
     }
 
-    public Guid RunId { get; }
+    public Guid ExecutionId { get; }
 
-    public CompileRefreshOrigin RefreshOrigin { get; }
+    public CompileLifecycleRefreshOrigin RefreshOrigin { get; }
 
-    public IpcPrimaryDiagnostic? PrimaryDiagnostic { get; }
+    public UnityEditorPrimaryDiagnostic? PrimaryDiagnostic { get; }
 }

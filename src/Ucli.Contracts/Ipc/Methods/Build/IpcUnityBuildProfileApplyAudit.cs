@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
@@ -14,8 +15,8 @@ public sealed record IpcUnityBuildProfileApplyAudit
     [JsonConstructor]
     public IpcUnityBuildProfileApplyAudit (
         bool Applied,
-        IpcUnityEditorObservation LifecycleBefore,
-        IpcUnityEditorObservation LifecycleAfter,
+        UnityEditorObservation LifecycleBefore,
+        UnityEditorObservation LifecycleAfter,
         IpcBuildDirtyState DirtyStateAfter)
     {
         this.Applied = Applied;
@@ -26,9 +27,9 @@ public sealed record IpcUnityBuildProfileApplyAudit
 
     public bool Applied { get; }
 
-    public IpcUnityEditorObservation LifecycleBefore { get; }
+    public UnityEditorObservation LifecycleBefore { get; }
 
-    public IpcUnityEditorObservation LifecycleAfter { get; }
+    public UnityEditorObservation LifecycleAfter { get; }
 
     public IpcBuildDirtyState DirtyStateAfter { get; }
 }

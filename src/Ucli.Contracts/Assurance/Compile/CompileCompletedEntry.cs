@@ -6,22 +6,21 @@ namespace MackySoft.Ucli.Contracts.Assurance;
 /// <summary> Represents the <c>compile.completed</c> stream payload. </summary>
 public sealed record CompileCompletedEntry
 {
-    /// <summary> Initializes one compile completion entry for a non-empty run identifier. </summary>
-    /// <exception cref="ArgumentException"> Thrown when <paramref name="RunId" /> is empty. </exception>
-    /// <exception cref="ArgumentNullException"> Thrown when a required path is <see langword="null" />. </exception>
+    /// <summary> Initializes one compile completion entry for a non-empty execution identifier. </summary>
+    /// <exception cref="ArgumentException"> Thrown when <paramref name="ExecutionId" /> is empty. </exception>
     /// <exception cref="ArgumentOutOfRangeException"> Thrown when a diagnostic count is negative or <paramref name="Verdict" /> has an undefined value. </exception>
     [JsonConstructor]
     public CompileCompletedEntry (
-        Guid RunId,
+        Guid ExecutionId,
         Verdict Verdict,
         int ErrorCount,
-        int WarningCount,
-        string SummaryJsonPath,
-        string DiagnosticsJsonPath)
+        int WarningCount)
     {
-        if (RunId == Guid.Empty)
+        if (ExecutionId == Guid.Empty)
         {
-            throw new ArgumentException("Run id must not be empty.", nameof(RunId));
+            throw new ArgumentException(
+                "Lifecycle Execution id must not be empty.",
+                nameof(ExecutionId));
         }
         if (!TextVocabulary.IsDefined(Verdict))
         {
@@ -36,15 +35,14 @@ public sealed record CompileCompletedEntry
             throw new ArgumentOutOfRangeException(nameof(WarningCount), WarningCount, "Warning count must not be negative.");
         }
 
-        this.RunId = RunId;
+        this.ExecutionId = ExecutionId;
         this.Verdict = Verdict;
         this.ErrorCount = ErrorCount;
         this.WarningCount = WarningCount;
-        this.SummaryJsonPath = SummaryJsonPath ?? throw new ArgumentNullException(nameof(SummaryJsonPath));
-        this.DiagnosticsJsonPath = DiagnosticsJsonPath ?? throw new ArgumentNullException(nameof(DiagnosticsJsonPath));
     }
 
-    public Guid RunId { get; }
+    /// <summary> Gets the completed compile Lifecycle Execution identifier. </summary>
+    public Guid ExecutionId { get; }
 
     [JsonInclude]
     [JsonRequired]
@@ -53,8 +51,4 @@ public sealed record CompileCompletedEntry
     public int ErrorCount { get; }
 
     public int WarningCount { get; }
-
-    public string SummaryJsonPath { get; }
-
-    public string DiagnosticsJsonPath { get; }
 }

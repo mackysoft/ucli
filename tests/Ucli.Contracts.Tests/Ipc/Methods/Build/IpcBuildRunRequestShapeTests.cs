@@ -3,6 +3,7 @@ using MackySoft.Ucli.Contracts.Assurance.Build;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Contracts.Tests.Ipc.Methods.Build;
 
@@ -60,7 +61,7 @@ public sealed class IpcBuildRunRequestShapeTests
             OutputLayout: outputLayout,
             BuildReportPath: "/tmp/ucli/build-report.json",
             BuildLogPath: "/tmp/ucli/build.log",
-            AllowedEditorModes: [DaemonEditorMode.Batchmode],
+            AllowedEditorModes: [UnityEditorMode.Batchmode],
             ProjectMutationMode: BuildProfileProjectMutationMode.Forbid,
             RunnerKind: BuildRunnerKind.BuildPipeline,
             ProfileDigest: ProfileDigest,
@@ -89,7 +90,7 @@ public sealed class IpcBuildRunRequestShapeTests
             OutputLayout: null,
             BuildReportPath: "/tmp/ucli/build-report.json",
             BuildLogPath: "/tmp/ucli/build.log",
-            AllowedEditorModes: [DaemonEditorMode.Batchmode],
+            AllowedEditorModes: [UnityEditorMode.Batchmode],
             ProjectMutationMode: BuildProfileProjectMutationMode.Forbid,
             RunnerKind: BuildRunnerKind.ExecuteMethod,
             ProfileDigest: ProfileDigest,
@@ -118,7 +119,7 @@ public sealed class IpcBuildRunRequestShapeTests
             OutputLayout: null,
             BuildReportPath: "/tmp/ucli/build-report.json",
             BuildLogPath: "/tmp/ucli/build.log",
-            AllowedEditorModes: [DaemonEditorMode.Batchmode],
+            AllowedEditorModes: [UnityEditorMode.Batchmode],
             ProjectMutationMode: BuildProfileProjectMutationMode.Forbid,
             RunnerKind: runnerKind,
             ProfileDigest: ProfileDigest,

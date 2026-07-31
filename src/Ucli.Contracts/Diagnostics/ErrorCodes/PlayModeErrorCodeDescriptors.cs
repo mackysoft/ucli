@@ -95,7 +95,7 @@ internal static class PlayModeErrorCodeDescriptors
             relatedCodes:
             [
                 PlayModeErrorCodes.PlayModeNotActive,
-                DaemonErrorCodes.DaemonEditorModeMismatch,
+                DaemonErrorCodes.UnityEditorModeMismatch,
             ]),
 
         UcliErrorDescriptorFactory.Create(

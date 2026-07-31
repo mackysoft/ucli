@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Contracts.Tests.Ipc;
 
@@ -19,16 +20,18 @@ public sealed class UnityIpcMethodCapabilitiesTests
 
     [Theory]
     [Trait("Size", "Small")]
+    [InlineData(UnityIpcMethod.LifecycleStart, true)]
+    [InlineData(UnityIpcMethod.Refresh, true)]
     [InlineData(UnityIpcMethod.Compile, true)]
     [InlineData(UnityIpcMethod.PlayEnter, true)]
     [InlineData(UnityIpcMethod.PlayExit, true)]
     [InlineData(UnityIpcMethod.BuildRun, false)]
     [InlineData(UnityIpcMethod.TestRun, false)]
-    public void SupportsRecoverableReplay_ReturnsMethodCapability (
+    public void SupportsLifecycleExecution_ReturnsMethodCapability (
         UnityIpcMethod method,
         bool expected)
     {
-        Assert.Equal(expected, UnityIpcMethodCapabilities.SupportsRecoverableReplay(method));
+        Assert.Equal(expected, UnityIpcMethodCapabilities.SupportsLifecycleExecution(method));
     }
 
     [Theory]
@@ -53,27 +56,27 @@ public sealed class UnityIpcMethodCapabilitiesTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void RecoverableReplayMethods_DoNotSupportStreaming ()
+    public void LifecycleExecutionMethods_DoNotSupportStreamingOrStatelessReplay ()
     {
         foreach (var method in Enum.GetValues<UnityIpcMethod>())
         {
             Assert.False(
-                UnityIpcMethodCapabilities.SupportsRecoverableReplay(method)
+                UnityIpcMethodCapabilities.SupportsLifecycleExecution(method)
                 && (UnityIpcMethodCapabilities.SupportsStreaming(method)
                     || UnityIpcMethodCapabilities.SupportsStatelessReadReplay(method)),
-                $"Method '{method}' cannot combine durable execution replay with streaming or stateless read replay.");
+                $"Lifecycle Execution method '{method}' cannot combine durable execution replay with streaming or stateless read replay.");
         }
     }
 
     [Theory]
     [Trait("Size", "Small")]
-    [InlineData(UnityIpcMethod.Compile, IpcEditorLifecycleState.CompileFailed, true)]
-    [InlineData(UnityIpcMethod.Compile, IpcEditorLifecycleState.SafeMode, true)]
-    [InlineData(UnityIpcMethod.Compile, IpcEditorLifecycleState.Ready, false)]
-    [InlineData(UnityIpcMethod.OpsRead, IpcEditorLifecycleState.CompileFailed, false)]
+    [InlineData(UnityIpcMethod.Compile, UnityEditorLifecycleState.CompileFailed, true)]
+    [InlineData(UnityIpcMethod.Compile, UnityEditorLifecycleState.SafeMode, true)]
+    [InlineData(UnityIpcMethod.Compile, UnityEditorLifecycleState.Ready, false)]
+    [InlineData(UnityIpcMethod.OpsRead, UnityEditorLifecycleState.CompileFailed, false)]
     public void AllowsStartupLifecycleState_ReturnsMethodCapability (
         UnityIpcMethod method,
-        IpcEditorLifecycleState lifecycleState,
+        UnityEditorLifecycleState lifecycleState,
         bool expected)
     {
         Assert.Equal(expected, UnityIpcMethodCapabilities.AllowsStartupLifecycleState(method, lifecycleState));
@@ -88,10 +91,10 @@ public sealed class UnityIpcMethodCapabilitiesTests
         var method = (UnityIpcMethod)value;
 
         Assert.Throws<ArgumentOutOfRangeException>(() => UnityIpcMethodCapabilities.SupportsStreaming(method));
-        Assert.Throws<ArgumentOutOfRangeException>(() => UnityIpcMethodCapabilities.SupportsRecoverableReplay(method));
+        Assert.Throws<ArgumentOutOfRangeException>(() => UnityIpcMethodCapabilities.SupportsLifecycleExecution(method));
         Assert.Throws<ArgumentOutOfRangeException>(() => UnityIpcMethodCapabilities.SupportsStatelessReadReplay(method));
         Assert.Throws<ArgumentOutOfRangeException>(() => UnityIpcMethodCapabilities.AllowsStartupLifecycleState(
             method,
-            IpcEditorLifecycleState.Ready));
+            UnityEditorLifecycleState.Ready));
     }
 }

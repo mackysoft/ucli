@@ -1,5 +1,7 @@
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.Contracts.Execution.Lifecycle;
+using MackySoft.Ucli.Contracts.Editor;
+using MackySoft.Ucli.Contracts.Execution;
 
 namespace MackySoft.Ucli.Contracts.Tests.Ipc.Common;
 
@@ -10,6 +12,8 @@ public sealed class IpcProtocolVocabularyTests
         { UnityIpcMethod.Ping, "ping" },
         { UnityIpcMethod.Execute, "execute" },
         { UnityIpcMethod.TestRun, "test.run" },
+        { UnityIpcMethod.LifecycleStart, "lifecycle.start" },
+        { UnityIpcMethod.Refresh, "project.refresh" },
         { UnityIpcMethod.Compile, "compile" },
         { UnityIpcMethod.BuildRun, "build.run" },
         { UnityIpcMethod.OpsRead, "ops.read" },
@@ -113,10 +117,10 @@ public sealed class IpcProtocolVocabularyTests
                 "shuttingDown",
                 "unavailable",
             ],
-            TextVocabulary.GetTexts<IpcEditorLifecycleState>());
+            TextVocabulary.GetTexts<UnityEditorLifecycleState>());
         Assert.Equal(
             ["ready", "compiling", "failed"],
-            TextVocabulary.GetTexts<IpcCompileState>());
+            TextVocabulary.GetTexts<UnityEditorCompileState>());
         Assert.Equal(
             [
                 "startup",
@@ -132,7 +136,7 @@ public sealed class IpcProtocolVocabularyTests
                 "shutdown",
                 "unavailable",
             ],
-            TextVocabulary.GetTexts<IpcEditorBlockingReason>());
+            TextVocabulary.GetTexts<UnityEditorBlockingReason>());
     }
 
     [Fact]
@@ -152,24 +156,24 @@ public sealed class IpcProtocolVocabularyTests
     [Trait("Size", "Small")]
     public void IpcPlayLiteralContracts_ExposeExpectedLiterals ()
     {
-        Assert.Equal(0, (int)IpcPlayModeState.Stopped);
-        Assert.Equal(1, (int)IpcPlayModeState.Entering);
-        Assert.Equal(2, (int)IpcPlayModeState.Playing);
-        Assert.Equal(3, (int)IpcPlayModeState.Exiting);
-        Assert.Equal(4, (int)IpcPlayModeState.Unknown);
-        Assert.Equal(0, (int)IpcPlayModeTransition.None);
-        Assert.Equal(1, (int)IpcPlayModeTransition.Entering);
-        Assert.Equal(2, (int)IpcPlayModeTransition.Exiting);
-        Assert.Equal(["enter", "exit"], TextVocabulary.GetTexts<IpcPlayTransitionCommand>());
+        Assert.Equal(0, (int)UnityEditorPlayModeState.Stopped);
+        Assert.Equal(1, (int)UnityEditorPlayModeState.Entering);
+        Assert.Equal(2, (int)UnityEditorPlayModeState.Playing);
+        Assert.Equal(3, (int)UnityEditorPlayModeState.Exiting);
+        Assert.Equal(4, (int)UnityEditorPlayModeState.Unknown);
+        Assert.Equal(0, (int)UnityEditorPlayModeTransition.None);
+        Assert.Equal(1, (int)UnityEditorPlayModeTransition.Entering);
+        Assert.Equal(2, (int)UnityEditorPlayModeTransition.Exiting);
+        Assert.Equal(["enter", "exit"], TextVocabulary.GetTexts<PlayLifecycleTransitionCommand>());
         Assert.Equal(
             ["entered", "alreadyEntered", "exited", "alreadyExited", "timeout", "blocked"],
-            TextVocabulary.GetTexts<IpcPlayTransitionOutcome>());
+            TextVocabulary.GetTexts<PlayLifecycleTransitionOutcome>());
         Assert.Equal(
-            ["notApplied", "applied", "indeterminate", "unknown"],
-            TextVocabulary.GetTexts<IpcApplicationState>());
-        Assert.False(TextVocabulary.IsDefined((IpcPlayTransitionCommand)0));
-        Assert.False(TextVocabulary.IsDefined((IpcPlayTransitionOutcome)0));
-        Assert.False(TextVocabulary.IsDefined((IpcApplicationState)0));
+            ["notApplied", "applied", "partiallyApplied", "indeterminate", "unknown"],
+            TextVocabulary.GetTexts<ExecutionApplicationState>());
+        Assert.False(TextVocabulary.IsDefined((PlayLifecycleTransitionCommand)0));
+        Assert.False(TextVocabulary.IsDefined((PlayLifecycleTransitionOutcome)0));
+        Assert.False(TextVocabulary.IsDefined((ExecutionApplicationState)0));
     }
 
     [Fact]
@@ -179,15 +183,15 @@ public sealed class IpcProtocolVocabularyTests
         Assert.Equal(["info", "warning", "error"], TextVocabulary.GetTexts<UcliDiagnosticSeverity>());
         Assert.Equal(["none", "partial", "indeterminate"], TextVocabulary.GetTexts<IpcExecuteDiagnosticCoverageImpact>());
         Assert.Equal(["validate", "plan", "call", "skipped"], TextVocabulary.GetTexts<IpcExecuteOperationPhase>());
-        Assert.Equal(["assetSearch", "guidPath", "sceneTreeLite"], TextVocabulary.GetTexts<IpcExecuteReadPostconditionSurface>());
-        Assert.Equal(["edit", "operation", "refresh"], TextVocabulary.GetTexts<IpcExecutePostReadSourceKind>());
+        Assert.Equal(["assetSearch", "guidPath", "sceneTreeLite"], TextVocabulary.GetTexts<ExecutionReadPostconditionSurface>());
+        Assert.Equal(["edit", "operation"], TextVocabulary.GetTexts<IpcExecutePostReadSourceKind>());
         Assert.Equal(["none", "context", "project"], TextVocabulary.GetTexts<IpcExecutePostReadCommit>());
         Assert.Equal(["deterministic", "unavailable"], TextVocabulary.GetTexts<IpcExecuteExpectedPostState>());
 
         Assert.False(TextVocabulary.IsDefined((UcliDiagnosticSeverity)0));
         Assert.False(TextVocabulary.IsDefined((IpcExecuteDiagnosticCoverageImpact)0));
         Assert.False(TextVocabulary.IsDefined((IpcExecuteOperationPhase)0));
-        Assert.False(TextVocabulary.IsDefined((IpcExecuteReadPostconditionSurface)0));
+        Assert.False(TextVocabulary.IsDefined((ExecutionReadPostconditionSurface)0));
         Assert.False(TextVocabulary.IsDefined((IpcExecutePostReadSourceKind)0));
         Assert.False(TextVocabulary.IsDefined((IpcExecutePostReadCommit)0));
         Assert.False(TextVocabulary.IsDefined((IpcExecuteExpectedPostState)0));

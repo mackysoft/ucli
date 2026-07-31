@@ -2,6 +2,7 @@ using System.Text.Json;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Contracts.Tests.Storage;
 
@@ -43,7 +44,7 @@ public sealed class DaemonSessionJsonContractSerializerTests
         Assert.Equal("token-123", contract.SessionToken);
         Assert.Equal(new ProjectFingerprint(ProjectFingerprintText), contract.ProjectFingerprint);
         Assert.Equal(DateTimeOffset.Parse("2026-03-02T00:00:00+00:00"), contract.IssuedAtUtc);
-        Assert.Equal(DaemonEditorMode.Batchmode, contract.EditorMode);
+        Assert.Equal(UnityEditorMode.Batchmode, contract.EditorMode);
         Assert.Equal(DaemonSessionOwnerKind.Cli, contract.OwnerKind);
         Assert.True(contract.CanShutdownProcess);
         Assert.Equal(IpcTransportKind.NamedPipe, contract.EndpointTransportKind);
@@ -158,7 +159,7 @@ public sealed class DaemonSessionJsonContractSerializerTests
             SessionToken: "token-123",
             ProjectFingerprint: new ProjectFingerprint(ProjectFingerprintText),
             IssuedAtUtc: DateTimeOffset.Parse("2026-03-02T00:00:00+00:00"),
-            EditorMode: DaemonEditorMode.Batchmode,
+            EditorMode: UnityEditorMode.Batchmode,
             OwnerKind: DaemonSessionOwnerKind.Cli,
             CanShutdownProcess: true,
             EndpointTransportKind: IpcTransportKind.NamedPipe,
@@ -262,7 +263,7 @@ public sealed class DaemonSessionJsonContractSerializerTests
             SessionToken: "token-123",
             ProjectFingerprint: new ProjectFingerprint(ProjectFingerprintText),
             IssuedAtUtc: DateTimeOffset.Parse("2026-03-02T00:00:00+00:00"),
-            EditorMode: DaemonEditorMode.Batchmode,
+            EditorMode: UnityEditorMode.Batchmode,
             OwnerKind: DaemonSessionOwnerKind.Cli,
             CanShutdownProcess: true,
             EndpointTransportKind: IpcTransportKind.NamedPipe,

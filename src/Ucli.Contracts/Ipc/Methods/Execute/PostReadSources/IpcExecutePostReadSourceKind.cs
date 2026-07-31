@@ -12,8 +12,4 @@ public enum IpcExecutePostReadSourceKind
     /// <summary> Indicates a public raw-operation step source. </summary>
     [VocabularyText("operation")]
     Operation = 2,
-
-    /// <summary> Indicates a project-refresh source. </summary>
-    [VocabularyText("refresh")]
-    Refresh = 3,
 }

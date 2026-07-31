@@ -6,8 +6,8 @@ namespace MackySoft.Ucli.Contracts.Cryptography;
 
 /// <summary> Represents one canonical lowercase hexadecimal SHA-256 digest. </summary>
 [JsonConverter(typeof(Sha256DigestJsonConverter))]
-[Length(64, 64)]
-[Pattern("^[0-9a-f]{64}$")]
+[Length(Sha256LowerHex.HexCharCount, Sha256LowerHex.HexCharCount)]
+[Pattern(Sha256LowerHex.CanonicalTextPattern)]
 public sealed class Sha256Digest : IEquatable<Sha256Digest>
 {
     private readonly string value;

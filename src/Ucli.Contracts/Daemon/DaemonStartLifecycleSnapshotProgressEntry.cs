@@ -1,6 +1,7 @@
 using System.Text.Json.Serialization;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Contracts.Daemon;
 
@@ -16,11 +17,11 @@ public sealed record DaemonStartLifecycleSnapshotProgressEntry
         DaemonStartProgressPayloadKind PayloadKind,
         ProjectFingerprint ProjectFingerprint,
         int TimeoutMilliseconds,
-        DaemonEditorMode? EditorMode,
+        UnityEditorMode? EditorMode,
         DaemonStartupBlockedProcessPolicy OnStartupBlocked,
-        IpcEditorLifecycleState LifecycleState,
-        IpcEditorBlockingReason? BlockingReason,
-        IpcUnityGenerationSnapshot Generations,
+        UnityEditorLifecycleState LifecycleState,
+        UnityEditorBlockingReason? BlockingReason,
+        UnityEditorGenerationSnapshot Generations,
         bool CanAcceptExecutionRequests)
     {
         if (PayloadKind != DaemonStartProgressPayloadKind.LifecycleSnapshot)
@@ -38,7 +39,7 @@ public sealed record DaemonStartLifecycleSnapshotProgressEntry
             throw new ArgumentOutOfRangeException(nameof(OnStartupBlocked), OnStartupBlocked, "Startup-blocked process policy must be defined.");
         }
 
-        if (!IpcEditorLifecycleSemantics.IsConsistent(LifecycleState, BlockingReason, CanAcceptExecutionRequests))
+        if (!UnityEditorLifecycleSemantics.IsConsistent(LifecycleState, BlockingReason, CanAcceptExecutionRequests))
         {
             throw new ArgumentException("Lifecycle state, blocking reason, and request acceptance must form a consistent tuple.", nameof(LifecycleState));
         }
@@ -60,15 +61,15 @@ public sealed record DaemonStartLifecycleSnapshotProgressEntry
 
     public int TimeoutMilliseconds { get; }
 
-    public DaemonEditorMode? EditorMode { get; }
+    public UnityEditorMode? EditorMode { get; }
 
     public DaemonStartupBlockedProcessPolicy OnStartupBlocked { get; }
 
-    public IpcEditorLifecycleState LifecycleState { get; }
+    public UnityEditorLifecycleState LifecycleState { get; }
 
-    public IpcEditorBlockingReason? BlockingReason { get; }
+    public UnityEditorBlockingReason? BlockingReason { get; }
 
-    public IpcUnityGenerationSnapshot Generations { get; }
+    public UnityEditorGenerationSnapshot Generations { get; }
 
     public bool CanAcceptExecutionRequests { get; }
 }

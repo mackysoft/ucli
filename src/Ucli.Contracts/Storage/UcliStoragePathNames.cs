@@ -90,9 +90,6 @@ public static class UcliStoragePathNames
     /// <summary> Gets the Unity editor log file name under one test-run artifacts directory. </summary>
     public const string TestEditorLogFileName = "editor.log";
 
-    /// <summary> Gets the compile-artifacts directory name under one project-scoped artifacts directory. </summary>
-    public const string CompileArtifactsDirectoryName = "compile";
-
     /// <summary> Gets the screenshot directory name under project-scoped artifact and work roots. </summary>
     public const string ScreenshotDirectoryName = "screenshot";
 
@@ -101,9 +98,6 @@ public static class UcliStoragePathNames
 
     /// <summary> Gets the normalized raw screenshot staging file name. </summary>
     public const string ScreenshotRawStagingFileName = "capture.rgba";
-
-    /// <summary> Gets the recoverable IPC operation directory name under one project-scoped directory. </summary>
-    public const string IpcOperationsDirectoryName = "ipc-operations";
 
     /// <summary> Gets the oneshot bootstrap-envelope directory name under one project-scoped directory. </summary>
     public const string OneshotBootstrapDirectoryName = "oneshot-bootstrap";
@@ -125,15 +119,6 @@ public static class UcliStoragePathNames
 
     /// <summary> Gets the build output directory name under one build run artifact directory. </summary>
     public const string BuildOutputDirectoryName = "output";
-
-    /// <summary> Gets the compile-run request artifact file name. </summary>
-    public const string CompileRequestFileName = "request.json";
-
-    /// <summary> Gets the compile-run summary artifact file name. </summary>
-    public const string CompileSummaryFileName = "summary.json";
-
-    /// <summary> Gets the compile-run diagnostics artifact file name. </summary>
-    public const string CompileDiagnosticsFileName = "diagnostics.json";
 
     /// <summary> Gets the shared config file name under <c>.ucli</c>. </summary>
     public const string ConfigFileName = "config.json";

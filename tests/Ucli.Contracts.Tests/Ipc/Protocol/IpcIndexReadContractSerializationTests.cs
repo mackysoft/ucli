@@ -2,6 +2,7 @@ using System.Text.Json;
 using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Projects;
 
 namespace MackySoft.Ucli.Contracts.Tests.Ipc.Common;
 

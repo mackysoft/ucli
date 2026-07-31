@@ -4,6 +4,7 @@ using MackySoft.Ucli.Contracts.Execution;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.Authorization;
 using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Contracts.Tests;
 
@@ -17,7 +18,6 @@ public sealed class RequiredProjectFingerprintContractTests
     [InlineData(ContractKind.DaemonBootstrap)]
     [InlineData(ContractKind.OneshotBootstrap)]
     [InlineData(ContractKind.CompileStarted)]
-    [InlineData(ContractKind.CompileSummary)]
     [InlineData(ContractKind.DaemonLifecycleSnapshot)]
     [InlineData(ContractKind.UnityEditorObservation)]
     [InlineData(ContractKind.DaemonStartupObservation)]
@@ -59,44 +59,34 @@ public sealed class RequiredProjectFingerprintContractTests
                 ExitDeadlineUtc: Timestamp,
                 Endpoint: new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-endpoint")),
             ContractKind.CompileStarted => new CompileStartedEntry(
-                RunId: RunId,
+                ExecutionId: RunId,
                 ProjectFingerprint: null!,
                 RequestedMode: AssuranceRequestedExecutionMode.Auto,
                 ResolvedMode: AssuranceResolvedExecutionMode.Daemon,
                 SessionKind: AssuranceSessionKind.Daemon,
                 TimeoutMilliseconds: 1000),
-            ContractKind.CompileSummary => new IpcCompileSummary(
-                RunId: RunId,
-                ProjectFingerprint: null!,
-                Completed: false,
-                StartedAtUtc: Timestamp,
-                CompletedAtUtc: null,
-                Refresh: null!,
-                ScriptCompilation: null!,
-                DomainReload: null!,
-                Lifecycle: null!),
             ContractKind.DaemonLifecycleSnapshot => new DaemonStartLifecycleSnapshotProgressEntry(
                 PayloadKind: DaemonStartProgressPayloadKind.LifecycleSnapshot,
                 ProjectFingerprint: null!,
                 TimeoutMilliseconds: 1000,
                 EditorMode: null,
                 OnStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
-                LifecycleState: IpcEditorLifecycleState.Ready,
+                LifecycleState: UnityEditorLifecycleState.Ready,
                 BlockingReason: null,
-                Generations: new IpcUnityGenerationSnapshot(0, 0, 0, 0),
+                Generations: new UnityEditorGenerationSnapshot(0, 0, 0, 0),
                 CanAcceptExecutionRequests: true),
-            ContractKind.UnityEditorObservation => new IpcUnityEditorObservation(
+            ContractKind.UnityEditorObservation => new UnityEditorObservation(
                 serverVersion: "1.0.0",
                 unityVersion: "6000.1.4f1",
                 projectFingerprint: null!,
                 state: new UnityEditorStateSnapshot(
-                    editorMode: DaemonEditorMode.Batchmode,
-                    lifecycleState: IpcEditorLifecycleState.Ready,
-                    compileState: IpcCompileState.Ready,
-                    generations: new IpcUnityGenerationSnapshot(0, 0, 0, 0),
-                    playMode: new IpcPlayModeSnapshot(
-                        IpcPlayModeState.Stopped,
-                        IpcPlayModeTransition.None,
+                    editorMode: UnityEditorMode.Batchmode,
+                    lifecycleState: UnityEditorLifecycleState.Ready,
+                    compileState: UnityEditorCompileState.Ready,
+                    generations: new UnityEditorGenerationSnapshot(0, 0, 0, 0),
+                    playMode: new UnityEditorPlayModeSnapshot(
+                        UnityEditorPlayModeState.Stopped,
+                        UnityEditorPlayModeTransition.None,
                         IsPlaying: false,
                         IsPlayingOrWillChangePlaymode: false)),
                 observedAtUtc: Timestamp,
@@ -165,7 +155,6 @@ public sealed class RequiredProjectFingerprintContractTests
         DaemonBootstrap,
         OneshotBootstrap,
         CompileStarted,
-        CompileSummary,
         DaemonLifecycleSnapshot,
         UnityEditorObservation,
         DaemonStartupObservation,

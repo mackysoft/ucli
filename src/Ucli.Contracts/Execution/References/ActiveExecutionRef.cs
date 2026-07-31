@@ -4,7 +4,9 @@ using MackySoft.Ucli.Contracts.Cryptography;
 namespace MackySoft.Ucli.Contracts;
 
 /// <summary> References a logical execution that can continue normal forward progress. </summary>
-public sealed record ActiveExecutionRef : ExecutionRef
+public sealed record ActiveExecutionRef :
+    ExecutionRef,
+    IReconnectableExecutionRef
 {
     /// <summary> Initializes an active execution reference. </summary>
     /// <param name="kind"> The feature-defined execution kind. </param>
