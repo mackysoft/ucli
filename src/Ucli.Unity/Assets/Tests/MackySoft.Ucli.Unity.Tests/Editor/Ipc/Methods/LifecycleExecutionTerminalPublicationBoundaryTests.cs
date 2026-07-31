@@ -45,12 +45,8 @@ namespace MackySoft.Ucli.Unity.Tests
             var start = await RegisterAsync(executionStore);
             var terminalPath = executionStore.Paths.ResolveTerminalRecordPath(
                 LifecycleExecutionKind.Refresh,
-                start.LifecycleExecutionRef.Id).Target.Value;
-            Directory.CreateDirectory(
-                Path.GetDirectoryName(terminalPath)
-                ?? throw new InvalidOperationException(
-                    "Terminal directory was not resolved."));
-            File.WriteAllText(terminalPath, "{}");
+                start.LifecycleExecutionRef.Id).Target;
+            WriteGuardedText(terminalPath, "{}");
             var expectedRecord = CreateTerminalRecord(start);
             var boundary = CreateBoundary(executionStore);
 
@@ -68,7 +64,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 failed.ReconnectableReference,
                 start);
 
-            File.Delete(terminalPath);
+            DeleteGuardedFileIfExists(terminalPath);
             var recovered = await boundary.RecoverAsync(
                 start.LifecycleExecutionRef.Id,
                 failed.ReconnectableReference,
@@ -91,8 +87,8 @@ namespace MackySoft.Ucli.Unity.Tests
             var start = await RegisterAsync(executionStore);
             var recordPath = executionStore.Paths.ResolveRecordPath(
                 LifecycleExecutionKind.Refresh,
-                start.LifecycleExecutionRef.Id).Value;
-            File.WriteAllText(recordPath, "{");
+                start.LifecycleExecutionRef.Id);
+            WriteGuardedText(recordPath, "{");
             var boundary = CreateBoundary(executionStore);
 
             var publication = await boundary.PublishAsync(

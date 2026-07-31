@@ -21,6 +21,7 @@ using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.Unity.Ipc;
 using NUnit.Framework;
 using UnityEngine.TestTools;
+using static MackySoft.Ucli.Unity.Tests.LifecycleExecutionHandlerTestSupport;
 
 namespace MackySoft.Ucli.Unity.Tests
 {
@@ -342,9 +343,8 @@ namespace MackySoft.Ucli.Unity.Tests
             var start = await StartExecutionAsync(executionStore, kind);
             var terminalPath = executionStore.Paths.ResolveTerminalRecordPath(
                 kind,
-                start.LifecycleExecutionRef.Id).Target.Value;
-            Directory.CreateDirectory(Path.GetDirectoryName(terminalPath));
-            await File.WriteAllTextAsync(
+                start.LifecycleExecutionRef.Id).Target;
+            await WriteGuardedTextAsync(
                 terminalPath,
                 "invalid-terminal-record",
                 CancellationToken.None);

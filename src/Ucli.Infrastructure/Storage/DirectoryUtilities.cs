@@ -9,28 +9,39 @@ internal static class DirectoryUtilities
     internal static bool Exists (AbsolutePath path)
     {
         EnsurePath(path, nameof(path));
-        return Directory.Exists(path.Value);
+        return Directory.Exists(FileSystemNativePathText.FromGuardedPath(path));
     }
 
     /// <summary> Ensures a directory exists at one guarded path. </summary>
     internal static void Create (AbsolutePath path)
     {
         EnsurePath(path, nameof(path));
-        Directory.CreateDirectory(path.Value);
+        Directory.CreateDirectory(FileSystemNativePathText.FromGuardedPath(path));
     }
 
     /// <summary> Gets the current filesystem attributes of one guarded directory path. </summary>
     internal static FileAttributes GetAttributes (AbsolutePath path)
     {
         EnsurePath(path, nameof(path));
-        return File.GetAttributes(path.Value);
+        return File.GetAttributes(FileSystemNativePathText.FromGuardedPath(path));
     }
 
     /// <summary> Gets whether an existing guarded directory contains no filesystem entries. </summary>
     internal static bool IsEmpty (AbsolutePath path)
     {
         EnsurePath(path, nameof(path));
-        return !Directory.EnumerateFileSystemEntries(path.Value).Any();
+        return !Directory
+            .EnumerateFileSystemEntries(FileSystemNativePathText.FromGuardedPath(path))
+            .Any();
+    }
+
+    /// <summary> Enumerates the immediate child directory names of one guarded path. </summary>
+    internal static IEnumerable<string> EnumerateDirectoryNames (AbsolutePath path)
+    {
+        EnsurePath(path, nameof(path));
+        return new DirectoryInfo(FileSystemNativePathText.FromGuardedPath(path))
+            .EnumerateDirectories()
+            .Select(directory => directory.Name);
     }
 
     /// <summary> Deletes an existing directory at one guarded path and treats absence as a no-op. </summary>
@@ -39,9 +50,10 @@ internal static class DirectoryUtilities
         bool recursive = false)
     {
         EnsurePath(path, nameof(path));
-        if (Directory.Exists(path.Value))
+        var nativePath = FileSystemNativePathText.FromGuardedPath(path);
+        if (Directory.Exists(nativePath))
         {
-            Directory.Delete(path.Value, recursive);
+            Directory.Delete(nativePath, recursive);
         }
     }
 
@@ -52,7 +64,9 @@ internal static class DirectoryUtilities
     {
         EnsurePath(source, nameof(source));
         EnsurePath(destination, nameof(destination));
-        Directory.Move(source.Value, destination.Value);
+        Directory.Move(
+            FileSystemNativePathText.FromGuardedPath(source),
+            FileSystemNativePathText.FromGuardedPath(destination));
     }
 
     private static void EnsurePath (

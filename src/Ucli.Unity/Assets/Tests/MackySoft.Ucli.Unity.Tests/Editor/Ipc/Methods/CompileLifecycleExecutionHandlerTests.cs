@@ -565,11 +565,11 @@ namespace MackySoft.Ucli.Unity.Tests
                 Assert.That(
                     checkpoint.ProviderReturnedAtUtc,
                     Is.Not.Null);
-                File.WriteAllText(
+                WriteGuardedText(
                     executionStore.Paths.ResolveCheckpointPath(
                         LifecycleExecutionKind.Compile,
                         start.LifecycleExecutionRef.Id,
-                        "compile-checkpoint.json").Value,
+                        "compile-checkpoint.json"),
                     "{");
                 await handler.RecoverAsync(
                     new LifecycleExecutionRecoveryRequest(
@@ -1079,10 +1079,10 @@ namespace MackySoft.Ucli.Unity.Tests
                     CancellationToken.None);
                 Assert.That(execution.IsTerminal, Is.False);
                 Assert.That(
-                    File.Exists(
+                    GuardedFileExists(
                         executionStore.Paths.ResolveTerminalRecordPath(
                             LifecycleExecutionKind.Compile,
-                            start.LifecycleExecutionRef.Id).Target.Value),
+                            start.LifecycleExecutionRef.Id).Target),
                     Is.False);
             });
 

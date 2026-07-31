@@ -122,13 +122,13 @@ namespace MackySoft.Ucli.Unity.Tests
                                 start.LifecycleExecutionRef.Id,
                                 "play-exit-checkpoint.json");
                         Assert.That(
-                            File.Exists(checkpointPath.Value),
+                            GuardedFileExists(checkpointPath),
                             Is.True,
                             "The typed checkpoint must exist before the Unity side effect.");
-                        var executionJson = File.ReadAllText(
+                        var executionJson = ReadGuardedText(
                             executionStore.Paths.ResolveRecordPath(
                                 LifecycleExecutionKind.PlayExit,
-                                start.LifecycleExecutionRef.Id).Value);
+                                start.LifecycleExecutionRef.Id));
                         StringAssert.Contains("\"exiting\"", executionJson);
                         exitRequestCount++;
                         readinessGate.Snapshot = CreateReadyStoppedSnapshot(11);

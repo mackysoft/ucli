@@ -8,6 +8,7 @@ using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Execution.Lifecycle;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Execution.Lifecycle;
+using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Unity.Ipc;
 using MackySoft.Ucli.Unity.Runtime;
 using NUnit.Framework;
@@ -24,12 +25,59 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var path = executionStore.Paths.ResolveTerminalRecordPath(
                 kind,
-                executionId).Target.Value;
+                executionId).Target;
             return JsonSerializer.Deserialize<TTerminalRecord>(
-                    File.ReadAllBytes(path),
+                    ReadGuardedBytes(path),
                     IpcJsonSerializerOptions.Default)
                 ?? throw new AssertionException(
                     $"{typeof(TTerminalRecord).Name} was empty.");
+        }
+
+        public static byte[] ReadGuardedBytes (AbsolutePath path)
+        {
+            var contents = FileUtilities
+                .ReadAllBytesOrNullAsync(path, CancellationToken.None)
+                .AsTask()
+                .GetAwaiter()
+                .GetResult();
+            return contents?.ToArray()
+                ?? throw new AssertionException(
+                    $"Guarded test file was not found: {path.Value}");
+        }
+
+        public static string ReadGuardedText (AbsolutePath path)
+        {
+            return FileUtilities.ReadAllTextOrNull(path)
+                ?? throw new AssertionException(
+                    $"Guarded test file was not found: {path.Value}");
+        }
+
+        public static void WriteGuardedText (
+            AbsolutePath path,
+            string contents)
+        {
+            FileUtilities.WriteAllTextAtomically(path, contents);
+        }
+
+        public static ValueTask WriteGuardedTextAsync (
+            AbsolutePath path,
+            string contents,
+            CancellationToken cancellationToken)
+        {
+            return FileUtilities.WriteAllTextAtomicallyAsync(
+                path,
+                contents,
+                cancellationToken);
+        }
+
+        public static bool GuardedFileExists (AbsolutePath path)
+        {
+            return FileUtilities.FileExists(path);
+        }
+
+        public static void DeleteGuardedFileIfExists (AbsolutePath path)
+        {
+            FileUtilities.DeleteIfExists(path);
         }
 
         internal sealed class TemporaryStorageScope : IDisposable

@@ -17,7 +17,7 @@ internal static class WindowsFileSystemNodeIdentityReader
         string subject)
     {
         using var handle = CreateFile(
-            path.Value,
+            FileSystemNativePathText.FromGuardedPath(path),
             desiredAccess: 0,
             FileShare.Read | FileShare.Write | FileShare.Delete,
             securityAttributes: IntPtr.Zero,

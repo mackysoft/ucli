@@ -178,15 +178,14 @@ internal sealed partial class FileLifecycleExecutionStore
         foreach (var kind in GetKinds())
         {
             var kindDirectory = paths.ResolveKindDirectory(kind);
-            if (!Directory.Exists(kindDirectory.Value))
+            if (!DirectoryUtilities.Exists(kindDirectory))
             {
                 continue;
             }
 
-            foreach (var directory in Directory.EnumerateDirectories(kindDirectory.Value))
+            foreach (var segment in DirectoryUtilities.EnumerateDirectoryNames(kindDirectory))
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                var segment = Path.GetFileName(directory);
                 if (!StoragePathSegmentCodec.TryDecodeNonEmptyGuid(segment, out var executionId))
                 {
                     continue;

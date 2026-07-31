@@ -208,7 +208,7 @@ public sealed class FileExclusiveLock : IDisposable
         var stream = UseNativeMacRegionLock
             ? OpenNativeMacStream(lockPath)
             : new FileStream(
-                lockPath.Value,
+                FileSystemNativePathText.FromGuardedPath(lockPath),
                 FileMode.OpenOrCreate,
                 FileAccess.ReadWrite,
                 FileShare.None);
@@ -283,7 +283,7 @@ public sealed class FileExclusiveLock : IDisposable
     private static FileStream OpenNativeMacStream (AbsolutePath lockPath)
     {
         using (new FileStream(
-            lockPath.Value,
+            FileSystemNativePathText.FromGuardedPath(lockPath),
             FileMode.OpenOrCreate,
             FileAccess.ReadWrite,
             FileShare.ReadWrite | FileShare.Delete))

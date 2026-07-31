@@ -128,11 +128,11 @@ namespace MackySoft.Ucli.Unity.Tests
                             CancellationToken.None);
                 Assert.That(checkpoint.SideEffectAdmitted, Is.True);
                 Assert.That(checkpoint.ProviderReturned, Is.True);
-                File.WriteAllText(
+                WriteGuardedText(
                     executionStore.Paths.ResolveCheckpointPath(
                         LifecycleExecutionKind.Refresh,
                         start.LifecycleExecutionRef.Id,
-                        "refresh-checkpoint.json").Value,
+                        "refresh-checkpoint.json"),
                     "{");
                 await handler.RecoverAsync(
                     new LifecycleExecutionRecoveryRequest(

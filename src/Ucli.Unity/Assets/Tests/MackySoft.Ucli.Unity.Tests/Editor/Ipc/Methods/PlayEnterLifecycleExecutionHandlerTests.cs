@@ -181,13 +181,15 @@ namespace MackySoft.Ucli.Unity.Tests
                                 LifecycleExecutionKind.PlayEnter,
                                 start.LifecycleExecutionRef.Id,
                                 "play-enter-checkpoint.json");
-                        Assert.That(File.Exists(checkpointPath.Value), Is.True);
+                        Assert.That(
+                            GuardedFileExists(checkpointPath),
+                            Is.True);
                         StringAssert.Contains(
                             "\"entering\"",
-                            File.ReadAllText(
+                            ReadGuardedText(
                                 executionStore.Paths.ResolveRecordPath(
                                     LifecycleExecutionKind.PlayEnter,
-                                    start.LifecycleExecutionRef.Id).Value));
+                                    start.LifecycleExecutionRef.Id)));
                         enterRequestCount++;
                         readinessGate.Snapshot = CreatePlayingSnapshot(11);
                     });
@@ -202,7 +204,7 @@ namespace MackySoft.Ucli.Unity.Tests
                         LifecycleExecutionKind.PlayEnter,
                         start.LifecycleExecutionRef.Id,
                         "play-enter-checkpoint.json");
-                File.WriteAllText(checkpointPath.Value, "{");
+                WriteGuardedText(checkpointPath, "{");
                 var second = await UnityIpcMethodHandlerTestInvoker.HandleAsync(
                     handler,
                     request,

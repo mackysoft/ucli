@@ -353,10 +353,10 @@ namespace MackySoft.Ucli.Unity.Tests
                         observedUtc);
                 }
 
-                File.WriteAllText(
+                WriteGuardedText(
                     executionStore.Paths.ResolveRecordPath(
                         definition.Kind,
-                        corruptExecutionId).Value,
+                        corruptExecutionId),
                     "{");
                 var handler = new RecordingRecoveryHandler(
                     LifecycleExecutionKind.Refresh);

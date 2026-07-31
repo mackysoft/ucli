@@ -409,7 +409,7 @@ internal sealed partial class FileLifecycleExecutionStore
 
         FileSystemAccessBoundary.EnsureSecureDirectory(destinationDirectory);
         PathArtifactRef artifactReference;
-        if (File.Exists(destination.Target.Value))
+        if (FileUtilities.FileExists(destination.Target))
         {
             using var session = ImmutableArtifactFileReadBoundary.OpenSession(
                 destination,

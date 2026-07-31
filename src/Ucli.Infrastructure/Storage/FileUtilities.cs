@@ -182,7 +182,7 @@ public static class FileUtilities
         EnsureRegularFile(path, "Read source");
 
         return new FileStream(
-            path.Value,
+            FileSystemNativePathText.FromGuardedPath(path),
             FileMode.Open,
             FileAccess.Read,
             FileShare.ReadWrite | FileShare.Delete,
@@ -197,7 +197,7 @@ public static class FileUtilities
         {
             throw new ArgumentNullException(nameof(path));
         }
-        return File.Exists(path.Value);
+        return File.Exists(FileSystemNativePathText.FromGuardedPath(path));
     }
 
     /// <summary> Writes exact bytes to one guarded file path. </summary>
@@ -213,7 +213,9 @@ public static class FileUtilities
         {
             throw new ArgumentNullException(nameof(contents));
         }
-        File.WriteAllBytes(path.Value, contents);
+        File.WriteAllBytes(
+            FileSystemNativePathText.FromGuardedPath(path),
+            contents);
     }
 
     /// <summary> Writes text atomically to one guarded target file path. </summary>
@@ -233,7 +235,8 @@ public static class FileUtilities
         {
             throw new InvalidOperationException($"Directory path could not be resolved: {path.Value}");
         }
-        Directory.CreateDirectory(directoryPath.Value);
+        Directory.CreateDirectory(
+            FileSystemNativePathText.FromGuardedPath(directoryPath));
         var temporaryStream = OpenAtomicWriteTemporaryFileInDirectory(directoryPath, out var temporaryPath);
         var temporaryFileOwned = true;
 
@@ -277,7 +280,8 @@ public static class FileUtilities
         {
             throw new InvalidOperationException($"Directory path could not be resolved: {path.Value}");
         }
-        Directory.CreateDirectory(directoryPath.Value);
+        Directory.CreateDirectory(
+            FileSystemNativePathText.FromGuardedPath(directoryPath));
         var temporaryStream = OpenAtomicWriteTemporaryFileInDirectory(directoryPath, out var temporaryPath);
         var temporaryFileOwned = true;
 
@@ -315,7 +319,8 @@ public static class FileUtilities
         {
             throw new InvalidOperationException($"Directory path could not be resolved: {path.Value}");
         }
-        Directory.CreateDirectory(directoryPath.Value);
+        Directory.CreateDirectory(
+            FileSystemNativePathText.FromGuardedPath(directoryPath));
         var temporaryStream = OpenAtomicWriteTemporaryFileInDirectory(directoryPath, out var temporaryPath);
         var temporaryFileOwned = true;
 
@@ -346,9 +351,9 @@ public static class FileUtilities
     /// <summary> Deletes one guarded file and treats a missing file as a valid no-op state. </summary>
     internal static void DeleteIfExists (AbsolutePath path)
     {
-        if (File.Exists(path.Value))
+        if (FileExists(path))
         {
-            File.Delete(path.Value);
+            File.Delete(FileSystemNativePathText.FromGuardedPath(path));
         }
     }
 
@@ -498,7 +503,7 @@ public static class FileUtilities
             try
             {
                 var stream = new FileStream(
-                    candidatePath.Value,
+                    FileSystemNativePathText.FromGuardedPath(candidatePath),
                     FileMode.CreateNew,
                     access,
                     share,
@@ -507,7 +512,10 @@ public static class FileUtilities
                 temporaryPath = candidatePath;
                 return stream;
             }
-            catch (IOException) when (File.Exists(candidatePath.Value) || Directory.Exists(candidatePath.Value))
+            catch (IOException) when (
+                FileExists(candidatePath)
+                || Directory.Exists(
+                    FileSystemNativePathText.FromGuardedPath(candidatePath)))
             {
                 // A concurrent reservation owns this random name; retry with another name.
             }
@@ -582,13 +590,17 @@ public static class FileUtilities
         EnsureWritableAtomicDestination(path);
         try
         {
-            File.Replace(temporaryPath.Value, path.Value, destinationBackupFileName: null, ignoreMetadataErrors: true);
+            File.Replace(
+                FileSystemNativePathText.FromGuardedPath(temporaryPath),
+                FileSystemNativePathText.FromGuardedPath(path),
+                destinationBackupFileName: null,
+                ignoreMetadataErrors: true);
         }
         catch (FileNotFoundException)
         {
             MoveOrReplaceWhenCreatedConcurrently(temporaryPath, path);
         }
-        catch (IOException) when (!File.Exists(path.Value))
+        catch (IOException) when (!FileExists(path))
         {
             MoveOrReplaceWhenCreatedConcurrently(temporaryPath, path);
         }
@@ -600,12 +612,18 @@ public static class FileUtilities
     {
         try
         {
-            File.Move(temporaryPath.Value, path.Value);
+            File.Move(
+                FileSystemNativePathText.FromGuardedPath(temporaryPath),
+                FileSystemNativePathText.FromGuardedPath(path));
         }
-        catch (IOException) when (File.Exists(path.Value))
+        catch (IOException) when (FileExists(path))
         {
             EnsureWritableAtomicDestination(path);
-            File.Replace(temporaryPath.Value, path.Value, destinationBackupFileName: null, ignoreMetadataErrors: true);
+            File.Replace(
+                FileSystemNativePathText.FromGuardedPath(temporaryPath),
+                FileSystemNativePathText.FromGuardedPath(path),
+                destinationBackupFileName: null,
+                ignoreMetadataErrors: true);
         }
     }
 
@@ -629,7 +647,8 @@ public static class FileUtilities
         FileAttributes attributes;
         try
         {
-            attributes = File.GetAttributes(path.Value);
+            attributes = File.GetAttributes(
+                FileSystemNativePathText.FromGuardedPath(path));
         }
         catch (FileNotFoundException)
         {

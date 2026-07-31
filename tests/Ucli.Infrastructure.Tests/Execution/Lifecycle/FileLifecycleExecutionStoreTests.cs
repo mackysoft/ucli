@@ -1,3 +1,4 @@
+using System.Runtime.Versioning;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -54,6 +55,40 @@ public sealed class FileLifecycleExecutionStoreTests
         Assert.NotNull(stored);
         Assert.Equal(result.Binding, stored.Start);
         Assert.False(stored.IsTerminal);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    [SupportedOSPlatform("windows")]
+    public async Task StartAndListEntries_OnWindowsWithLongStorageRoot_PreservesRecoverableExecution ()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        using var scope = TestDirectories.CreateTempScope(
+            "lifecycle-execution-store",
+            "long-storage-root");
+        var storageRoot = AbsolutePath.Parse(scope.GetPath(Path.Combine(
+            new string('a', 80),
+            new string('b', 80),
+            new string('c', 80))));
+        var store = new FileLifecycleExecutionStore(storageRoot, ProjectFingerprint);
+        var definition = new LifecycleExecutionDefinition(LifecycleExecutionKind.Refresh);
+        var executionId = Guid.NewGuid();
+        Assert.True(store.Paths.ResolveKindDirectory(definition.Kind).Value.Length >= 260);
+
+        await StartAsync(
+            store,
+            definition,
+            executionId,
+            CreateProject(),
+            CreateHost());
+
+        var entry = Assert.Single(store.ListEntries(CancellationToken.None));
+        Assert.Equal(definition.Kind, entry.Kind);
+        Assert.Equal(executionId, entry.ExecutionId);
     }
 
     [Fact]
