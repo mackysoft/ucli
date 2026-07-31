@@ -24,8 +24,6 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private readonly IIpcRequestPhaseScopeFactory phaseScopeFactory;
 
-        private readonly bool recoverableReplayAvailable;
-
         private readonly TimeSpan initialFrameReadTimeout;
 
         private readonly TimeSpan responseFrameWriteTimeout;
@@ -34,7 +32,6 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <param name="requestHandler"> The shared IPC request-handler dependency. </param>
         /// <param name="shutdownAdmissionCoordinator"> The shutdown exchange admission coordinator. </param>
         /// <param name="phaseScopeFactory"> The factory that converts request deadlines into exchange-owned monotonic phase scopes. </param>
-        /// <param name="recoverableReplayAvailable"> Whether this host has a durable recoverable-operation store available for replay. </param>
         /// <param name="initialFrameReadTimeout"> The upper bound for receiving the first request frame. </param>
         /// <param name="responseFrameWriteTimeout"> The upper bound for writing any response frame. </param>
         /// <exception cref="ArgumentNullException"> Thrown when a dependency is <see langword="null" />. </exception>
@@ -45,14 +42,12 @@ namespace MackySoft.Ucli.Unity.Ipc
             IUnityIpcRequestHandler requestHandler,
             IUnityShutdownAdmissionCoordinator shutdownAdmissionCoordinator,
             IIpcRequestPhaseScopeFactory phaseScopeFactory,
-            bool recoverableReplayAvailable,
             TimeSpan initialFrameReadTimeout,
             TimeSpan responseFrameWriteTimeout)
         {
             this.requestHandler = requestHandler ?? throw new ArgumentNullException(nameof(requestHandler));
             this.shutdownAdmissionCoordinator = shutdownAdmissionCoordinator ?? throw new ArgumentNullException(nameof(shutdownAdmissionCoordinator));
             this.phaseScopeFactory = phaseScopeFactory ?? throw new ArgumentNullException(nameof(phaseScopeFactory));
-            this.recoverableReplayAvailable = recoverableReplayAvailable;
             if (initialFrameReadTimeout <= TimeSpan.Zero
                 || initialFrameReadTimeout > IpcRequestPhasePlan.MaximumTimerDuration)
             {
@@ -137,8 +132,9 @@ namespace MackySoft.Ucli.Unity.Ipc
                 ObserveFault(MonitorPeerDisconnectAsync(stream, connectionLifetimeCancellationTokenSource));
             }
 
-            // Authorization is bounded by the request deadline and host generation. After the
-            // endpoint method is validated, non-recoverable execution also observes peer lifetime.
+            // Authorization is bounded by the request deadline and host generation. Lifecycle
+            // Executions survive response interruption and own their execution lifetime outside
+            // this connection; every other method also observes peer lifetime.
             var phaseScope = phaseScopeFactory.Create(
                 requestEnvelope,
                 cancellationToken,
@@ -188,8 +184,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     }
 
                     validatedRequest = validationResult.Request;
-                    if (!recoverableReplayAvailable
-                        || !UnityIpcMethodCapabilities.SupportsRecoverableReplay(validatedRequest.Method))
+                    if (!UnityIpcMethodCapabilities.SupportsLifecycleExecution(validatedRequest.Method))
                     {
                         phaseScope.AttachExecutionUpstream(connectionLifetimeCancellationTokenSource.Token);
                     }

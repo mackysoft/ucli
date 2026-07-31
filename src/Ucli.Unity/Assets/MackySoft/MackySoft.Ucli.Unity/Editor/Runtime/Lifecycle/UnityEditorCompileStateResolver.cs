@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Unity.Runtime
 {
@@ -6,18 +7,18 @@ namespace MackySoft.Ucli.Unity.Runtime
     internal static class UnityEditorCompileStateResolver
     {
         /// <summary> Resolves one compile state from the current compilation flags. </summary>
-        public static IpcCompileState Resolve (
+        public static UnityEditorCompileState Resolve (
             bool isCompiling,
             bool hasCompileFailure)
         {
             if (isCompiling)
             {
-                return IpcCompileState.Compiling;
+                return UnityEditorCompileState.Compiling;
             }
 
             return hasCompileFailure
-                ? IpcCompileState.Failed
-                : IpcCompileState.Ready;
+                ? UnityEditorCompileState.Failed
+                : UnityEditorCompileState.Ready;
         }
     }
 }

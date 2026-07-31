@@ -18,6 +18,8 @@ using UnityEditor.Build.Profile;
 
 #nullable enable
 
+using MackySoft.Ucli.Contracts.Editor;
+
 namespace MackySoft.Ucli.Unity.Build
 {
     /// <summary> Resolves Unity 6000 Build Profile asset inputs. </summary>
@@ -226,7 +228,7 @@ namespace MackySoft.Ucli.Unity.Build
         private IpcUnityBuildProfileInput CreateAppliedUnityBuildProfile (
             UnityBuildProfileAssetPath profilePath,
             Sha256Digest digest,
-            IpcUnityEditorObservation lifecycleBefore)
+            UnityEditorObservation lifecycleBefore)
         {
             // NOTE: After SetActiveBuildProfile succeeds, the editor has already been mutated.
             // Capture audit evidence without observing cancellation so post-apply failures still report

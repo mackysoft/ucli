@@ -9,6 +9,7 @@ using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Unity.Runtime;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
@@ -87,7 +88,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         /// <inheritdoc />
         public async Task WriteAsync (
-            UnityEditorObservation snapshot,
+            UnityEditorRuntimeObservation snapshot,
             DaemonLifecycleRecoveryLease recoveryLease,
             CancellationToken cancellationToken)
         {

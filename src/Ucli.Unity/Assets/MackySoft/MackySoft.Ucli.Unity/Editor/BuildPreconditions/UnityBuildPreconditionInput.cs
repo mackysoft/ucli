@@ -10,6 +10,8 @@ using MackySoft.Ucli.Contracts.Text;
 
 #nullable enable
 
+using MackySoft.Ucli.Contracts.Editor;
+
 namespace MackySoft.Ucli.Unity.Build
 {
     /// <summary> Represents build inputs resolved before Unity BuildPipeline precondition probing. </summary>
@@ -22,7 +24,7 @@ namespace MackySoft.Ucli.Unity.Build
             BuildProfileSceneSource SceneSource,
             IReadOnlyList<SceneAssetPath> ScenePaths,
             bool Development,
-            IReadOnlyList<DaemonEditorMode> AllowedEditorModes)
+            IReadOnlyList<UnityEditorMode> AllowedEditorModes)
         {
             if (!TextVocabulary.IsDefined(InputKind))
             {
@@ -58,6 +60,6 @@ namespace MackySoft.Ucli.Unity.Build
 
         public bool Development { get; }
 
-        public IReadOnlyList<DaemonEditorMode> AllowedEditorModes { get; }
+        public IReadOnlyList<UnityEditorMode> AllowedEditorModes { get; }
     }
 }

@@ -24,6 +24,9 @@ using PackageManagerPackageInfo = UnityEditor.PackageManager.PackageInfo;
 
 #nullable enable
 
+using MackySoft.Ucli.Contracts.Editor;
+using MackySoft.Ucli.Contracts.Projects;
+
 namespace MackySoft.Ucli.Unity.Tests
 {
     public sealed class UnityBuildPreconditionProbeTests
@@ -503,7 +506,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public async Task ProbeBeforeBuildAsync_WhenEditorModeIsDisallowed_ReturnsRuntimePolicyViolationBeforeTargetProbe ()
         {
-            var readinessGate = new MutableReadinessGate(CreateSnapshot(editorMode: DaemonEditorMode.Gui));
+            var readinessGate = new MutableReadinessGate(CreateSnapshot(editorMode: UnityEditorMode.Gui));
             var targetSupportProbe = new CountingBuildTargetSupportProbe(
                 UnityBuildTargetSupportProbeResult.Resolved(
                     BuildTarget.StandaloneLinux64,
@@ -647,7 +650,7 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             return new UnityBuildPreconditionProbe(
                 readinessGate ?? new MutableReadinessGate(CreateSnapshot()),
-                new IpcProjectIdentity(
+                new UnityProjectIdentity(
                     projectPath: ProjectPathTestValues.RepositoryUnityProject,
                     projectFingerprint: ProjectFingerprintTestFactory.Create("project-fingerprint"),
                     unityVersion: "6000.0.0f1"),
@@ -670,9 +673,9 @@ namespace MackySoft.Ucli.Unity.Tests
                 Development: false);
         }
 
-        private static DaemonEditorMode[] AllowedBatchmodeEditorModes ()
+        private static UnityEditorMode[] AllowedBatchmodeEditorModes ()
         {
-            return new[] { DaemonEditorMode.Batchmode };
+            return new[] { UnityEditorMode.Batchmode };
         }
 
         private static void AssertBuildInputsInvalidResult (UnityBuildPreconditionProbeResult result)
@@ -766,24 +769,24 @@ namespace MackySoft.Ucli.Unity.Tests
             }
         }
 
-        private static UnityEditorObservation CreateSnapshot (
-            DaemonEditorMode editorMode = DaemonEditorMode.Batchmode,
+        private static UnityEditorRuntimeObservation CreateSnapshot (
+            UnityEditorMode editorMode = UnityEditorMode.Batchmode,
             long compileGeneration = 1,
             long domainReloadGeneration = 1)
         {
-            return new UnityEditorObservation(
+            return new UnityEditorRuntimeObservation(
                 state: new UnityEditorStateSnapshot(
                     editorMode: editorMode,
-                    lifecycleState: IpcEditorLifecycleState.Ready,
-                    compileState: IpcCompileState.Ready,
-                    generations: new IpcUnityGenerationSnapshot(
+                    lifecycleState: UnityEditorLifecycleState.Ready,
+                    compileState: UnityEditorCompileState.Ready,
+                    generations: new UnityEditorGenerationSnapshot(
                         CompileGeneration: compileGeneration,
                         DomainReloadGeneration: domainReloadGeneration,
                         AssetRefreshGeneration: 0,
                         PlayModeGeneration: 1),
-                    playMode: new IpcPlayModeSnapshot(
-                        State: IpcPlayModeState.Stopped,
-                        Transition: IpcPlayModeTransition.None,
+                    playMode: new UnityEditorPlayModeSnapshot(
+                        State: UnityEditorPlayModeState.Stopped,
+                        Transition: UnityEditorPlayModeTransition.None,
                         IsPlaying: false,
                         IsPlayingOrWillChangePlaymode: false)),
                 observedAtUtc: new DateTimeOffset(2026, 6, 12, 0, 0, 0, TimeSpan.Zero));
@@ -799,18 +802,18 @@ namespace MackySoft.Ucli.Unity.Tests
             private readonly IpcError? error;
 
             public MutableReadinessGate (
-                UnityEditorObservation snapshot,
+                UnityEditorRuntimeObservation snapshot,
                 IpcError? error = null)
             {
                 Snapshot = snapshot;
                 this.error = error;
             }
 
-            public UnityEditorObservation Snapshot { get; set; }
+            public UnityEditorRuntimeObservation Snapshot { get; set; }
 
             public int CaptureObservationCallCount { get; private set; }
 
-            public UnityEditorObservation CaptureObservation ()
+            public UnityEditorRuntimeObservation CaptureObservation ()
             {
                 CaptureObservationCallCount++;
                 return Snapshot;

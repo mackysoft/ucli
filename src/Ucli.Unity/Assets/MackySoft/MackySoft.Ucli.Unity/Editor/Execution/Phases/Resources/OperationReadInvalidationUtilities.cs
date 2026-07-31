@@ -134,38 +134,5 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return invalidations;
         }
 
-        public static IReadOnlyList<OperationReadInvalidation> CreateForProjectRefresh (
-            IReadOnlyList<OperationTouch> callbackTouched,
-            IReadOnlyList<OperationTouch> touched)
-        {
-            var invalidations = new List<OperationReadInvalidation>();
-            var includesAssetLookupInvalidation = false;
-            for (var i = 0; i < callbackTouched.Count; i++)
-            {
-                var touch = callbackTouched[i];
-                if (touch.Kind == UcliTouchedResourceKind.ProjectSettings)
-                {
-                    continue;
-                }
-
-                if (!includesAssetLookupInvalidation)
-                {
-                    invalidations.AddRange(CreateAssetSearchAndGuidPath());
-                    includesAssetLookupInvalidation = true;
-                }
-            }
-
-            for (var i = 0; i < touched.Count; i++)
-            {
-                if (touched[i].Kind != UcliTouchedResourceKind.Scene)
-                {
-                    continue;
-                }
-
-                invalidations.AddRange(CreateSceneTreeLite(touched[i].Path));
-            }
-
-            return invalidations;
-        }
     }
 }

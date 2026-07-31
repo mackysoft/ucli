@@ -7,6 +7,7 @@ using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Unity.Runtime;
 using Microsoft.Extensions.DependencyInjection;
 using UnityEditor;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
@@ -47,7 +48,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                         new ExactSessionTokenValidator(sessionToken),
                         bootstrapContext.ProjectFingerprint,
                         daemonLogger,
-                        DaemonEditorMode.Batchmode)
+                        UnityEditorMode.Batchmode)
                     .AddUnityIpcDaemonHostServices(
                         bootstrapContext,
                         daemonLogStream,
@@ -84,6 +85,9 @@ namespace MackySoft.Ucli.Unity.Ipc
                             "IPC listener terminated before daemon endpoint ownership could become active.");
                     }
 
+                    serviceProvider
+                        .GetRequiredService<UnityLifecycleExecutionRecoveryCoordinator>()
+                        .Start();
                     daemonLogger.Info(
                         DaemonLogCategories.Lifecycle,
                         $"uCLI daemon started. repoRoot={bootstrapContext.RepositoryRoot.Value}, fingerprint={bootstrapContext.ProjectFingerprint}, endpoint={bootstrapContext.EndpointBinding.Endpoint.Address}");

@@ -1,5 +1,6 @@
 using System;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Projects;
 
 namespace MackySoft.Ucli.Unity.Execution.Dispatch
 {
@@ -13,7 +14,7 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
         /// <exception cref="ArgumentNullException"> Thrown when <paramref name="project" /> is <see langword="null" />. </exception>
         public ExecuteDispatchContext (
             Guid requestId,
-            IpcProjectIdentity project)
+            UnityProjectIdentity project)
         {
             if (requestId == Guid.Empty)
             {
@@ -28,6 +29,6 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
         public Guid RequestId { get; }
 
         /// <summary> Gets the Unity project identity served by this IPC host. </summary>
-        public IpcProjectIdentity Project { get; }
+        public UnityProjectIdentity Project { get; }
     }
 }

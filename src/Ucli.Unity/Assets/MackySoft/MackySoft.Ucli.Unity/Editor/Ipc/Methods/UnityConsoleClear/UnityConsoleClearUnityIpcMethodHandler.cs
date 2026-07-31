@@ -5,6 +5,7 @@ using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Runtime;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
@@ -77,7 +78,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             var snapshot = readinessGate.CaptureObservation();
-            if (snapshot.State.EditorMode != DaemonEditorMode.Gui)
+            if (snapshot.State.EditorMode != UnityEditorMode.Gui)
             {
                 var message = "Unity Console clear requires a GUI Unity Editor daemon session.";
                 daemonLogger.Warning(

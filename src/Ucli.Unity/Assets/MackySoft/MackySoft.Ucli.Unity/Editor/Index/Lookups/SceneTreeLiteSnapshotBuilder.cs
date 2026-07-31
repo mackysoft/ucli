@@ -6,6 +6,8 @@ using MackySoft.Ucli.Unity.SceneInspection;
 
 #nullable enable
 
+using MackySoft.Ucli.Contracts.Projects;
+
 namespace MackySoft.Ucli.Unity.Index
 {
     /// <summary> Builds one deterministic scene-tree-lite snapshot from current scene state. </summary>

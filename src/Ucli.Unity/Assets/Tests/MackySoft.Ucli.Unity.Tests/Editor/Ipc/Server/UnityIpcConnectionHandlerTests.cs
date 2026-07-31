@@ -35,7 +35,6 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var exception = Assert.Throws<ArgumentOutOfRangeException>(() => CreateConnectionHandler(
                 requestHandler: new StubRequestHandler(),
-                recoverableReplayAvailable: false,
                 initialFrameReadTimeout: IpcRequestPhasePlan.MaximumTimerDuration + TimeSpan.FromMilliseconds(1)));
 
             Assert.That(exception.ParamName, Is.EqualTo("initialFrameReadTimeout"));
@@ -47,8 +46,7 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var requestHandler = new StubRequestHandler();
             var handler = CreateConnectionHandler(
-                requestHandler: requestHandler,
-                recoverableReplayAvailable: false);
+                requestHandler: requestHandler);
             using var stream = new ThrowOnReadAndWriteStream();
 
             await handler.HandleAsync(stream, CancellationToken.None);
@@ -63,7 +61,6 @@ namespace MackySoft.Ucli.Unity.Tests
             var requestHandler = new StubRequestHandler();
             var handler = CreateConnectionHandler(
                 requestHandler: requestHandler,
-                recoverableReplayAvailable: false,
                 responseFrameWriteTimeout: TimeSpan.FromMilliseconds(25));
             using var stream = new MalformedReadBlockingWriteStream();
 
@@ -90,7 +87,6 @@ namespace MackySoft.Ucli.Unity.Tests
             var requestHandler = new StubRequestHandler();
             var handler = CreateConnectionHandler(
                 requestHandler: requestHandler,
-                recoverableReplayAvailable: false,
                 initialFrameReadTimeout: TimeSpan.FromMilliseconds(25));
             var pipeName = "ucli-" + Guid.NewGuid().ToString("N").Substring(0, 8);
             using var serverStream = new NamedPipeServerStream(
@@ -126,7 +122,6 @@ namespace MackySoft.Ucli.Unity.Tests
             var requestHandler = new StubRequestHandler();
             var handler = CreateConnectionHandler(
                 requestHandler: requestHandler,
-                recoverableReplayAvailable: false,
                 initialFrameReadTimeout: TimeSpan.FromSeconds(5));
             var pipeName = "ucli-" + Guid.NewGuid().ToString("N").Substring(0, 8);
             using var serverStream = new NamedPipeServerStream(
@@ -174,7 +169,6 @@ namespace MackySoft.Ucli.Unity.Tests
             var requestHandler = new StubRequestHandler();
             var handler = CreateConnectionHandler(
                 requestHandler: requestHandler,
-                recoverableReplayAvailable: false,
                 initialFrameReadTimeout: TimeSpan.FromMilliseconds(25));
             using var stream = new SynchronouslyBlockingReadStream();
             var handleTask = Task.Run(() => handler.HandleAsync(stream, CancellationToken.None));
@@ -211,7 +205,6 @@ namespace MackySoft.Ucli.Unity.Tests
             var requestHandler = new StubRequestHandler();
             var handler = CreateConnectionHandler(
                 requestHandler: requestHandler,
-                recoverableReplayAvailable: false,
                 initialFrameReadTimeout: TimeSpan.FromMilliseconds(25));
             var request = CreateShutdownRequest(Guid.NewGuid(), "single", CanonicalSessionToken);
             using var requestBytes = new MemoryStream();
@@ -266,7 +259,6 @@ namespace MackySoft.Ucli.Unity.Tests
             var requestHandler = new CancellationObservingRequestHandler();
             var handler = CreateConnectionHandler(
                 requestHandler: requestHandler,
-                recoverableReplayAvailable: false,
                 initialFrameReadTimeout: TimeSpan.FromSeconds(1));
             var request = new IpcRequestEnvelope(
                 protocolVersion: IpcProtocol.CurrentVersion,
@@ -313,89 +305,19 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
-        public IEnumerator Handle_WhenCompilePeerDisconnectsWithoutRecoverableReplay_CancelsExecution () => UniTask.ToCoroutine(async () =>
-        {
-            var requestHandler = new CancellationObservingRequestHandler();
-            var phaseScopeFactory = new RecordingIpcRequestPhaseScopeFactory();
-            var handler = CreateConnectionHandler(
-                requestHandler: requestHandler,
-                recoverableReplayAvailable: false,
-                initialFrameReadTimeout: TimeSpan.FromSeconds(1),
-                phaseScopeFactory: phaseScopeFactory);
-            var request = new IpcRequestEnvelope(
-                protocolVersion: IpcProtocol.CurrentVersion,
-                requestId: Guid.NewGuid(),
-                sessionToken: "token",
-                method: TextVocabulary.GetText(UnityIpcMethod.Compile),
-                payload: JsonSerializer.SerializeToElement(new { }),
-                responseMode: "single",
-                requestDeadlineUtc: DateTimeOffset.UtcNow + TimeSpan.FromSeconds(30),
-                requestDeadlineRemainingMilliseconds: 30_000);
-            var pipeName = "ucli-" + Guid.NewGuid().ToString("N").Substring(0, 8);
-            using var serverStream = new NamedPipeServerStream(
-                pipeName,
-                PipeDirection.InOut,
-                1,
-                PipeTransmissionMode.Byte,
-                PipeOptions.Asynchronous);
-            var connectionTask = serverStream.WaitForConnectionAsync(CancellationToken.None);
-            using var clientStream = new NamedPipeClientStream(
-                ".",
-                pipeName,
-                PipeDirection.InOut,
-                PipeOptions.Asynchronous);
-            clientStream.Connect((int)SignalWaitTimeout.TotalMilliseconds);
-            await TestAwaiter.WaitAsync(
-                connectionTask,
-                "Named pipe connection for non-replayable Compile peer-disconnect test",
-                SignalWaitTimeout);
-
-            using var hostCancellationTokenSource = new CancellationTokenSource();
-            var handleTask = handler.HandleAsync(serverStream, hostCancellationTokenSource.Token);
-            await IpcFrameCodec.WriteModelAsync(
-                clientStream,
-                request,
-                IpcJsonSerializerOptions.Default,
-                cancellationToken: CancellationToken.None);
-            await TestAwaiter.WaitAsync(
-                requestHandler.RequestObserved,
-                "Non-replayable Compile IPC request processing start",
-                SignalWaitTimeout);
-
-            clientStream.Dispose();
-
-            await TestAwaiter.WaitAsync(
-                requestHandler.CancellationObserved,
-                "Non-replayable Compile peer-disconnect cancellation",
-                SignalWaitTimeout);
-            var result = await TestAwaiter.WaitAsync(
-                handleTask,
-                "Peer-disconnected non-replayable Compile request completion",
-                SignalWaitTimeout);
-
-            Assert.That(phaseScopeFactory.CreateCalled, Is.True);
-            Assert.That(phaseScopeFactory.UpstreamCancellationToken, Is.EqualTo(hostCancellationTokenSource.Token));
-            Assert.That(result.HasTerminalResponse, Is.False);
-            Assert.That(result.Request, Is.Null);
-            Assert.That(result.Response, Is.Null);
-        });
-
-        [UnityTest]
-        [Category("Size.Small")]
-        public IEnumerator Handle_WhenCompilePeerDisconnectsWithRecoverableReplay_AllowsExecutionToReachTerminalState () => UniTask.ToCoroutine(async () =>
+        public IEnumerator Handle_WhenLifecycleExecutionPeerDisconnects_AllowsExecutionToReachTerminalState () => UniTask.ToCoroutine(async () =>
         {
             var requestHandler = new CompletableRequestHandler();
             var phaseScopeFactory = new RecordingIpcRequestPhaseScopeFactory();
             var handler = CreateConnectionHandler(
                 requestHandler: requestHandler,
-                recoverableReplayAvailable: true,
                 initialFrameReadTimeout: TimeSpan.FromSeconds(1),
                 phaseScopeFactory: phaseScopeFactory);
             var request = new IpcRequestEnvelope(
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: Guid.NewGuid(),
                 sessionToken: "token",
-                method: TextVocabulary.GetText(UnityIpcMethod.Compile),
+                method: TextVocabulary.GetText(UnityIpcMethod.LifecycleStart),
                 payload: JsonSerializer.SerializeToElement(new { }),
                 responseMode: "single",
                 requestDeadlineUtc: DateTimeOffset.UtcNow + TimeSpan.FromSeconds(30),
@@ -414,7 +336,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 PipeDirection.InOut,
                 PipeOptions.Asynchronous);
             clientStream.Connect((int)SignalWaitTimeout.TotalMilliseconds);
-            await TestAwaiter.WaitAsync(connectionTask, "Named pipe connection for recoverable peer-disconnect test", SignalWaitTimeout);
+            await TestAwaiter.WaitAsync(connectionTask, "Named pipe connection for Lifecycle Execution peer-disconnect test", SignalWaitTimeout);
 
             using var hostCancellationTokenSource = new CancellationTokenSource();
             var handleTask = handler.HandleAsync(serverStream, hostCancellationTokenSource.Token);
@@ -423,14 +345,14 @@ namespace MackySoft.Ucli.Unity.Tests
                 request,
                 IpcJsonSerializerOptions.Default,
                 cancellationToken: CancellationToken.None);
-            await TestAwaiter.WaitAsync(requestHandler.RequestObserved, "Recoverable IPC request processing start", SignalWaitTimeout);
+            await TestAwaiter.WaitAsync(requestHandler.RequestObserved, "Lifecycle Execution IPC request processing start", SignalWaitTimeout);
             var executionUsesHostLifetime = phaseScopeFactory.CreateCalled
                 && phaseScopeFactory.UpstreamCancellationToken == hostCancellationTokenSource.Token;
 
             clientStream.Dispose();
             requestHandler.Complete(request);
 
-            var result = await TestAwaiter.WaitAsync(handleTask, "Peer-disconnected recoverable request completion", SignalWaitTimeout);
+            var result = await TestAwaiter.WaitAsync(handleTask, "Peer-disconnected Lifecycle Execution request completion", SignalWaitTimeout);
 
             Assert.That(executionUsesHostLifetime, Is.True);
             Assert.That(requestHandler.CancellationObserved.IsCompleted, Is.False);
@@ -442,13 +364,12 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
-        public IEnumerator Handle_WhenExecutePeerDisconnectsWithRecoverableReplayAvailable_CancelsExecution () => UniTask.ToCoroutine(async () =>
+        public IEnumerator Handle_WhenNonLifecycleMethodPeerDisconnects_CancelsExecution () => UniTask.ToCoroutine(async () =>
         {
             var requestHandler = new CancellationObservingRequestHandler();
             var phaseScopeFactory = new RecordingIpcRequestPhaseScopeFactory();
             var handler = CreateConnectionHandler(
                 requestHandler: requestHandler,
-                recoverableReplayAvailable: true,
                 initialFrameReadTimeout: TimeSpan.FromSeconds(1),
                 phaseScopeFactory: phaseScopeFactory);
             var request = new IpcRequestEnvelope(
@@ -476,7 +397,7 @@ namespace MackySoft.Ucli.Unity.Tests
             clientStream.Connect((int)SignalWaitTimeout.TotalMilliseconds);
             await TestAwaiter.WaitAsync(
                 connectionTask,
-                "Named pipe connection for non-recoverable Execute peer-disconnect test",
+                "Named pipe connection for non-Lifecycle Execute peer-disconnect test",
                 SignalWaitTimeout);
 
             using var hostCancellationTokenSource = new CancellationTokenSource();
@@ -488,18 +409,18 @@ namespace MackySoft.Ucli.Unity.Tests
                 cancellationToken: CancellationToken.None);
             await TestAwaiter.WaitAsync(
                 requestHandler.RequestObserved,
-                "Non-recoverable Execute IPC request processing start",
+                "Non-Lifecycle Execute IPC request processing start",
                 SignalWaitTimeout);
 
             clientStream.Dispose();
 
             await TestAwaiter.WaitAsync(
                 requestHandler.CancellationObserved,
-                "Non-recoverable Execute peer-disconnect cancellation",
+                "Non-Lifecycle Execute peer-disconnect cancellation",
                 SignalWaitTimeout);
             var result = await TestAwaiter.WaitAsync(
                 handleTask,
-                "Peer-disconnected non-recoverable Execute request completion",
+                "Peer-disconnected non-Lifecycle Execute request completion",
                 SignalWaitTimeout);
 
             Assert.That(phaseScopeFactory.CreateCalled, Is.True);
@@ -517,8 +438,7 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 var requestHandler = new StubRequestHandler();
                 var handler = CreateConnectionHandler(
-                    requestHandler: requestHandler,
-                    recoverableReplayAvailable: false);
+                    requestHandler: requestHandler);
                 var request = CreateShutdownRequest(Guid.NewGuid(), "single", CanonicalSessionToken);
                 var pipeName = "ucli-" + Guid.NewGuid().ToString("N").Substring(0, 8);
                 using var serverStream = new NamedPipeServerStream(
@@ -622,7 +542,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 requestHandler: requestHandler,
                 shutdownAdmissionCoordinator: shutdownAdmission,
                 phaseScopeFactory: new IpcRequestPhaseScopeFactory(),
-                recoverableReplayAvailable: false,
                 initialFrameReadTimeout: UnityIpcConnectionHandler.DefaultInitialFrameReadTimeout,
                 responseFrameWriteTimeout: UnityIpcConnectionHandler.DefaultResponseFrameWriteTimeout);
             var request = new IpcRequestEnvelope(
@@ -684,7 +603,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 requestHandler: requestHandler,
                 shutdownAdmissionCoordinator: shutdownAdmission,
                 phaseScopeFactory: new IpcRequestPhaseScopeFactory(),
-                recoverableReplayAvailable: false,
                 initialFrameReadTimeout: UnityIpcConnectionHandler.DefaultInitialFrameReadTimeout,
                 responseFrameWriteTimeout: TimeSpan.FromMilliseconds(25));
 
@@ -717,8 +635,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 cancellationToken: CancellationToken.None);
             using var stream = new BlockingWriteMemoryStream(requestBytes.ToArray());
             var handler = CreateConnectionHandler(
-                requestHandler: new StubRequestHandler(),
-                recoverableReplayAvailable: false);
+                requestHandler: new StubRequestHandler());
             var lifecycleCancellationTokenSource = new CancellationTokenSource();
             var handleTask = handler.HandleAsync(stream, lifecycleCancellationTokenSource.Token);
             await TestAwaiter.WaitAsync(
@@ -765,8 +682,7 @@ namespace MackySoft.Ucli.Unity.Tests
             stream.Position = 0;
             var lifecycleCancellationTokenSource = new CancellationTokenSource();
             var handler = CreateConnectionHandler(
-                requestHandler: new CancelBeforeResponseWriteRequestHandler(lifecycleCancellationTokenSource),
-                recoverableReplayAvailable: false);
+                requestHandler: new CancelBeforeResponseWriteRequestHandler(lifecycleCancellationTokenSource));
 
             OperationCanceledException cancellationException = null;
             try
@@ -805,7 +721,6 @@ namespace MackySoft.Ucli.Unity.Tests
             using var stream = new SynchronouslyBlockingWriteMemoryStream(requestBytes.ToArray());
             var handler = CreateConnectionHandler(
                 requestHandler: requestHandler,
-                recoverableReplayAvailable: false,
                 responseFrameWriteTimeout: TimeSpan.FromMilliseconds(25));
             var handleTask = Task.Run(() => handler.HandleAsync(stream, CancellationToken.None));
             var completedWithinDeadline = false;
@@ -856,7 +771,6 @@ namespace MackySoft.Ucli.Unity.Tests
             using var stream = new DeadlineRaceWriteMemoryStream(requestBytes.ToArray());
             var handler = CreateConnectionHandler(
                 requestHandler: requestHandler,
-                recoverableReplayAvailable: false,
                 responseFrameWriteTimeout: TimeSpan.FromMilliseconds(25));
             var synchronizationContext = new ManuallyPumpedSynchronizationContext();
             var originalSynchronizationContext = SynchronizationContext.Current;
@@ -899,8 +813,7 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var requestHandler = new StubStreamingRequestHandler();
             var handler = CreateConnectionHandler(
-                requestHandler: requestHandler,
-                recoverableReplayAvailable: false);
+                requestHandler: requestHandler);
             var requestId = Guid.NewGuid();
             var request = new IpcRequestEnvelope(
                 protocolVersion: IpcProtocol.CurrentVersion,
@@ -960,8 +873,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 requestHandler: new UnityIpcRequestHandler(
                     sessionTokenValidator,
                     dispatcher,
-                    NoOpDaemonLogger.Instance),
-                recoverableReplayAvailable: false);
+                    NoOpDaemonLogger.Instance));
             var request = new IpcRequestEnvelope(
                 protocolVersion: IpcProtocol.CurrentVersion + 1,
                 requestId: Guid.NewGuid(),
@@ -996,8 +908,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 requestHandler: new UnityIpcRequestHandler(
                     sessionTokenValidator,
                     dispatcher,
-                    NoOpDaemonLogger.Instance),
-                recoverableReplayAvailable: false);
+                    NoOpDaemonLogger.Instance));
             var request = new IpcRequestEnvelope(
                 protocolVersion: IpcProtocol.CurrentVersion + 1,
                 requestId: Guid.NewGuid(),
@@ -1031,8 +942,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 new StubMethodDispatcher(),
                 NoOpDaemonLogger.Instance);
             var handler = CreateConnectionHandler(
-                requestHandler,
-                recoverableReplayAvailable: false);
+                requestHandler);
             var requestId = Guid.NewGuid();
             var request = new IpcRequestEnvelope(
                 protocolVersion: IpcProtocol.CurrentVersion + 1,
@@ -1082,8 +992,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 requestHandler: new UnityIpcRequestHandler(
                     sessionTokenValidator,
                     dispatcher,
-                    NoOpDaemonLogger.Instance),
-                recoverableReplayAvailable: false);
+                    NoOpDaemonLogger.Instance));
             var deadlineUtc = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(30);
             var requestIds = new[] { Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid() };
             var requests = new[]
@@ -1144,8 +1053,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 requestHandler: new UnityIpcRequestHandler(
                     sessionTokenValidator,
                     dispatcher,
-                    NoOpDaemonLogger.Instance),
-                recoverableReplayAvailable: false);
+                    NoOpDaemonLogger.Instance));
             var deadlineUtc = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(30);
             var requestIds = new[] { Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid() };
             var requests = new[]
@@ -1499,7 +1407,6 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private static UnityIpcConnectionHandler CreateConnectionHandler (
             IUnityIpcRequestHandler requestHandler,
-            bool recoverableReplayAvailable,
             TimeSpan? initialFrameReadTimeout = null,
             TimeSpan? responseFrameWriteTimeout = null,
             IIpcRequestPhaseScopeFactory phaseScopeFactory = null)
@@ -1508,7 +1415,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 requestHandler: requestHandler,
                 shutdownAdmissionCoordinator: new StrictShutdownAdmissionCoordinator(),
                 phaseScopeFactory: phaseScopeFactory ?? new IpcRequestPhaseScopeFactory(),
-                recoverableReplayAvailable: recoverableReplayAvailable,
                 initialFrameReadTimeout: initialFrameReadTimeout ?? UnityIpcConnectionHandler.DefaultInitialFrameReadTimeout,
                 responseFrameWriteTimeout: responseFrameWriteTimeout ?? UnityIpcConnectionHandler.DefaultResponseFrameWriteTimeout);
         }

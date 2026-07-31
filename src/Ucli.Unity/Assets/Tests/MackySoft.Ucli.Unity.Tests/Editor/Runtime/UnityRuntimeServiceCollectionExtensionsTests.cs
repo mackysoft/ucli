@@ -8,6 +8,7 @@ using MackySoft.Ucli.Unity.Runtime;
 using Microsoft.Extensions.DependencyInjection;
 using NUnit.Framework;
 using UnityEngine.TestTools;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Unity.Tests
 {
@@ -21,7 +22,7 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var mainThreadId = Thread.CurrentThread.ManagedThreadId;
             var services = new ServiceCollection();
-            services.AddUnityRuntimeServices(DaemonEditorMode.Gui);
+            services.AddUnityRuntimeServices(UnityEditorMode.Gui);
             using var serviceProvider = services.BuildServiceProvider();
 
             var executors = await Task.Run(() =>

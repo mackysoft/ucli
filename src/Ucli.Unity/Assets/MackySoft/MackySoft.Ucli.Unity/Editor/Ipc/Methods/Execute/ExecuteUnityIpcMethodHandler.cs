@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Dispatch;
+using MackySoft.Ucli.Contracts.Projects;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
@@ -11,14 +12,14 @@ namespace MackySoft.Ucli.Unity.Ipc
     {
         private readonly IExecuteRequestDispatcher executeRequestDispatcher;
 
-        private readonly IpcProjectIdentity projectIdentity;
+        private readonly UnityProjectIdentity projectIdentity;
 
         /// <summary> Initializes a new instance of the <see cref="ExecuteUnityIpcMethodHandler" /> class. </summary>
         /// <param name="executeRequestDispatcher"> The execute-request dispatcher dependency. </param>
         /// <param name="projectIdentity"> The project identity served by this Unity IPC host. </param>
         public ExecuteUnityIpcMethodHandler (
             IExecuteRequestDispatcher executeRequestDispatcher,
-            IpcProjectIdentity projectIdentity)
+            UnityProjectIdentity projectIdentity)
         {
             this.executeRequestDispatcher = executeRequestDispatcher ?? throw new ArgumentNullException(nameof(executeRequestDispatcher));
             this.projectIdentity = projectIdentity ?? throw new ArgumentNullException(nameof(projectIdentity));

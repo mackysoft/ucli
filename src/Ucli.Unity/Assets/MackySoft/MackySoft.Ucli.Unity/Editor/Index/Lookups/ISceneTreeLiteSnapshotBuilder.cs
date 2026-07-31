@@ -4,6 +4,8 @@ using MackySoft.Ucli.Contracts.Ipc;
 
 #nullable enable
 
+using MackySoft.Ucli.Contracts.Projects;
+
 namespace MackySoft.Ucli.Unity.Index
 {
     /// <summary> Builds one scene-tree-lite snapshot for a specific scene asset. </summary>

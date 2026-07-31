@@ -17,6 +17,7 @@ using UnityEngine.TestTools;
 #nullable enable
 
 using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.Contracts.Projects;
 
 namespace MackySoft.Ucli.Unity.Tests
 {

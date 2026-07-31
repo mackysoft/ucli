@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Unity.Runtime
 {
@@ -15,7 +16,7 @@ namespace MackySoft.Ucli.Unity.Runtime
         /// <param name="isUpdating"> Whether editor update/import work is in progress. </param>
         /// <param name="isRecoveringPending"> Whether daemon endpoint recovery is still in progress. </param>
         /// <returns> The lifecycle state. </returns>
-        public static IpcEditorLifecycleState Resolve (
+        public static UnityEditorLifecycleState Resolve (
             bool isStartupPending,
             bool isShuttingDown,
             bool isPlaymodeActive,
@@ -27,45 +28,45 @@ namespace MackySoft.Ucli.Unity.Runtime
         {
             if (isShuttingDown)
             {
-                return IpcEditorLifecycleState.ShuttingDown;
+                return UnityEditorLifecycleState.ShuttingDown;
             }
 
             if (isDomainReloading)
             {
-                return IpcEditorLifecycleState.DomainReloading;
+                return UnityEditorLifecycleState.DomainReloading;
             }
 
             if (isCompiling)
             {
-                return IpcEditorLifecycleState.Compiling;
+                return UnityEditorLifecycleState.Compiling;
             }
 
             if (hasCompileFailure)
             {
-                return IpcEditorLifecycleState.CompileFailed;
+                return UnityEditorLifecycleState.CompileFailed;
             }
 
             if (isUpdating)
             {
-                return IpcEditorLifecycleState.Reimporting;
+                return UnityEditorLifecycleState.Reimporting;
             }
 
             if (isRecoveringPending)
             {
-                return IpcEditorLifecycleState.Recovering;
+                return UnityEditorLifecycleState.Recovering;
             }
 
             if (isStartupPending)
             {
-                return IpcEditorLifecycleState.Starting;
+                return UnityEditorLifecycleState.Starting;
             }
 
             if (isPlaymodeActive)
             {
-                return IpcEditorLifecycleState.PlayMode;
+                return UnityEditorLifecycleState.PlayMode;
             }
 
-            return IpcEditorLifecycleState.Ready;
+            return UnityEditorLifecycleState.Ready;
         }
     }
 }

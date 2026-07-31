@@ -46,6 +46,32 @@ namespace MackySoft.Ucli.Unity.Ipc
             return TryDecodePayload(request, "TestRun", out payload, out errorResponse);
         }
 
+        /// <summary> Tries to decode one Lifecycle Execution start-registration request payload. </summary>
+        public static bool TryDecodeLifecycleExecutionStartRequest (
+            ValidatedUnityIpcRequest request,
+            out IpcLifecycleExecutionStartRequest? payload,
+            out IpcResponse? errorResponse)
+        {
+            return TryDecodePayload(
+                request,
+                "LifecycleExecutionStart",
+                out payload,
+                out errorResponse);
+        }
+
+        /// <summary> Tries to decode one project refresh request payload. </summary>
+        public static bool TryDecodeRefreshRequest (
+            ValidatedUnityIpcRequest request,
+            out IpcRefreshRequest? payload,
+            out IpcResponse? errorResponse)
+        {
+            return TryDecodePayload(
+                request,
+                "Refresh",
+                out payload,
+                out errorResponse);
+        }
+
         /// <summary> Tries to decode one compile request payload. </summary>
         /// <param name="request"> The incoming request envelope. </param>
         /// <param name="payload"> The decoded payload when successful. </param>

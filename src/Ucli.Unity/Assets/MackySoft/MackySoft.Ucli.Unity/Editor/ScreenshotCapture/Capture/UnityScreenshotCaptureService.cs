@@ -6,6 +6,7 @@ using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Runtime;
 using MackySoft.Ucli.Unity.ScreenshotCapture.Staging;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Unity.ScreenshotCapture.Capture
 {
@@ -123,7 +124,7 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Capture
             CancellationToken cancellationToken)
         {
             var snapshot = readinessGate.CaptureObservation();
-            if (snapshot.State.EditorMode != DaemonEditorMode.Gui)
+            if (snapshot.State.EditorMode != UnityEditorMode.Gui)
             {
                 return UnityEditorExecutionReadinessResult.Blocked(
                     snapshot,

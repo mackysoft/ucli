@@ -10,6 +10,9 @@ using MackySoft.Ucli.Unity.Execution.Phases;
 
 #nullable enable
 
+using MackySoft.Ucli.Contracts.Projects;
+using MackySoft.Ucli.Contracts.Execution;
+
 namespace MackySoft.Ucli.Unity.Execution.Dispatch
 {
     /// <summary> Builds execute-dispatch response envelopes from internal execution models. </summary>
@@ -101,7 +104,7 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
         /// <returns> The execute payload whose <c>opResults</c> are aggregated back to public step granularity. </returns>
         /// <exception cref="ArgumentNullException"> Thrown when <paramref name="steps" /> or <paramref name="operationTraces" /> is <see langword="null" />. </exception>
         private static IpcExecuteResponse CreateExecutePayload (
-            IpcProjectIdentity project,
+            UnityProjectIdentity project,
             IReadOnlyList<NormalizedRequestStep> steps,
             IReadOnlyList<OperationPhaseTrace> operationTraces,
             OperationPhase executedPass,
@@ -518,7 +521,7 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
 
         /// <summary> Creates one empty execute payload. </summary>
         /// <returns> The empty execute payload contract model. </returns>
-        private static IpcExecuteResponse CreateEmptyExecutePayload (IpcProjectIdentity project)
+        private static IpcExecuteResponse CreateEmptyExecutePayload (UnityProjectIdentity project)
         {
             return new IpcExecuteResponse(
                 Array.Empty<IpcExecuteOperationResult>(),
@@ -529,12 +532,12 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
                 contractViolations: null);
         }
 
-        private static IpcExecuteReadPostcondition? CreateReadPostcondition (
+        private static ExecutionReadPostcondition? CreateReadPostcondition (
             IReadOnlyList<OperationPhaseTrace> operationTraces,
             DateTimeOffset issuedAtUtc)
         {
-            var requirements = new List<IpcExecuteReadPostconditionRequirement>();
-            var seen = new HashSet<(IpcExecuteReadPostconditionSurface Surface, UnityScenePath? ScenePath)>();
+            var requirements = new List<ExecutionReadPostconditionRequirement>();
+            var seen = new HashSet<(ExecutionReadPostconditionSurface Surface, UnityScenePath? ScenePath)>();
             for (var traceIndex = 0; traceIndex < operationTraces.Count; traceIndex++)
             {
                 var operationTrace = operationTraces[traceIndex];
@@ -551,7 +554,7 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
                         continue;
                     }
 
-                    requirements.Add(new IpcExecuteReadPostconditionRequirement(
+                    requirements.Add(new ExecutionReadPostconditionRequirement(
                         Surface: surface,
                         MinSafeGeneratedAtUtc: issuedAtUtc,
                         ScenePath: scenePath));
@@ -560,7 +563,7 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
 
             return requirements.Count == 0
                 ? null
-                : new IpcExecuteReadPostcondition(requirements.ToArray());
+                : new ExecutionReadPostcondition(requirements.ToArray());
         }
 
         /// <summary> Creates IPC errors from operation failures. </summary>
@@ -659,18 +662,18 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
             }
         }
 
-        private static IpcExecuteReadPostconditionSurface MapReadPostconditionSurface (OperationReadInvalidationSurface surface)
+        private static ExecutionReadPostconditionSurface MapReadPostconditionSurface (OperationReadInvalidationSurface surface)
         {
             switch (surface)
             {
                 case OperationReadInvalidationSurface.AssetSearch:
-                    return IpcExecuteReadPostconditionSurface.AssetSearch;
+                    return ExecutionReadPostconditionSurface.AssetSearch;
 
                 case OperationReadInvalidationSurface.GuidPath:
-                    return IpcExecuteReadPostconditionSurface.GuidPath;
+                    return ExecutionReadPostconditionSurface.GuidPath;
 
                 case OperationReadInvalidationSurface.SceneTreeLite:
-                    return IpcExecuteReadPostconditionSurface.SceneTreeLite;
+                    return ExecutionReadPostconditionSurface.SceneTreeLite;
 
                 default:
                     throw new InvalidOperationException($"Unsupported read invalidation surface '{surface}'.");

@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts;
@@ -13,6 +14,8 @@ using MackySoft.Ucli.Unity.Ipc;
 using MackySoft.Ucli.Unity.Project;
 using Microsoft.Extensions.DependencyInjection;
 using NUnit.Framework;
+using MackySoft.Ucli.Contracts.Execution.Lifecycle;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Unity.Tests
 {
@@ -23,7 +26,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void AddDaemonHostServices_ResolvesConnectionHandlerServerAndRecoverableStore ()
+        public void AddDaemonHostServices_ResolvesConnectionHandlerAndServer ()
         {
             var services = CreateApplicationServices(
                 out var projectPath,
@@ -52,14 +55,104 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(
                 serviceProvider.GetRequiredService<IUnityIpcServer>(),
                 Is.TypeOf<UnityIpcServer>());
+
+            var compileExecutionHandler =
+                serviceProvider.GetRequiredService<
+                    CompileLifecycleExecutionHandler>();
+            var refreshExecutionHandler =
+                serviceProvider.GetRequiredService<
+                    RefreshLifecycleExecutionHandler>();
+            var playEnterExecutionHandler =
+                serviceProvider.GetRequiredService<
+                    PlayEnterLifecycleExecutionHandler>();
+            var playExitExecutionHandler =
+                serviceProvider.GetRequiredService<
+                    PlayExitLifecycleExecutionHandler>();
             Assert.That(
-                serviceProvider.GetRequiredService<IRecoverableIpcOperationStore>(),
-                Is.TypeOf<FileRecoverableIpcOperationStore>());
+                serviceProvider.GetRequiredService<
+                    ICompileLifecycleExecutionHandler>(),
+                Is.SameAs(compileExecutionHandler));
+            Assert.That(
+                serviceProvider.GetRequiredService<
+                    IRefreshLifecycleExecutionHandler>(),
+                Is.SameAs(refreshExecutionHandler));
+            Assert.That(
+                serviceProvider.GetRequiredService<
+                    IPlayEnterLifecycleExecutionHandler>(),
+                Is.SameAs(playEnterExecutionHandler));
+            Assert.That(
+                serviceProvider.GetRequiredService<
+                    IPlayExitLifecycleExecutionHandler>(),
+                Is.SameAs(playExitExecutionHandler));
+            Assert.That(
+                serviceProvider
+                    .GetServices<ILifecycleExecutionRecoveryHandler>()
+                    .Single(handler =>
+                        handler.Kind == LifecycleExecutionKind.Compile),
+                Is.SameAs(compileExecutionHandler));
+            Assert.That(
+                serviceProvider
+                    .GetServices<ILifecycleExecutionRecoveryHandler>()
+                    .Single(handler =>
+                        handler.Kind == LifecycleExecutionKind.Refresh),
+                Is.SameAs(refreshExecutionHandler));
+            Assert.That(
+                serviceProvider
+                    .GetServices<ILifecycleExecutionRecoveryHandler>()
+                    .Single(handler =>
+                        handler.Kind == LifecycleExecutionKind.PlayEnter),
+                Is.SameAs(playEnterExecutionHandler));
+            Assert.That(
+                serviceProvider
+                    .GetServices<ILifecycleExecutionRecoveryHandler>()
+                    .Single(handler =>
+                        handler.Kind == LifecycleExecutionKind.PlayExit),
+                Is.SameAs(playExitExecutionHandler));
+            Assert.That(
+                serviceProvider
+                    .GetServices<IUnityIpcMethodHandler>()
+                    .Single(handler =>
+                        handler.Method == UnityIpcMethod.Compile),
+                Is.TypeOf<CompileUnityIpcMethodHandler>());
+            Assert.That(
+                serviceProvider
+                    .GetServices<IUnityIpcMethodHandler>()
+                    .Single(handler =>
+                        handler.Method == UnityIpcMethod.Refresh),
+                Is.TypeOf<RefreshUnityIpcMethodHandler>());
+            Assert.That(
+                serviceProvider
+                    .GetServices<IUnityIpcMethodHandler>()
+                    .Single(handler =>
+                        handler.Method == UnityIpcMethod.PlayEnter),
+                Is.TypeOf<PlayEnterUnityIpcMethodHandler>());
+            Assert.That(
+                serviceProvider
+                    .GetServices<IUnityIpcMethodHandler>()
+                    .Single(handler =>
+                        handler.Method == UnityIpcMethod.PlayExit),
+                Is.TypeOf<PlayExitUnityIpcMethodHandler>());
+            Assert.That(
+                serviceProvider.GetRequiredService<
+                    ICompileLifecycleExecutionProvider>(),
+                Is.TypeOf<UnityEditorCompileLifecycleExecutionProvider>());
+            Assert.That(
+                serviceProvider.GetRequiredService<
+                    IRefreshLifecycleExecutionProvider>(),
+                Is.TypeOf<UnityEditorRefreshLifecycleExecutionProvider>());
+            Assert.That(
+                serviceProvider.GetRequiredService<
+                    IPlayEnterLifecycleExecutionProvider>(),
+                Is.TypeOf<UnityEditorPlayEnterLifecycleExecutionProvider>());
+            Assert.That(
+                serviceProvider.GetRequiredService<
+                    IPlayExitLifecycleExecutionProvider>(),
+                Is.TypeOf<UnityEditorPlayExitLifecycleExecutionProvider>());
         }
 
         [Test]
         [Category("Size.Small")]
-        public void AddOneshotHostServices_ResolvesSuppliedWatchdogAndHostWithoutRecoverableStore ()
+        public void AddOneshotHostServices_ResolvesSuppliedWatchdogAndHost ()
         {
             var services = CreateApplicationServices(out _, out var projectFingerprint);
             var endpoint = CreateEndpoint("oneshot");
@@ -85,7 +178,9 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 services.AddUnityIpcOneshotHostServices(
                     UnityIpcEndpointBinding.Create(endpoint),
-                    watchdog);
+                    watchdog,
+                    endpointRegistrationGenerationId: Guid.NewGuid(),
+                    editorInstanceId: Guid.NewGuid());
 
                 using var serviceProvider = services.BuildServiceProvider();
 
@@ -93,14 +188,20 @@ namespace MackySoft.Ucli.Unity.Tests
                     serviceProvider.GetRequiredService<OneshotProcessLifetimeWatchdog>(),
                     Is.SameAs(watchdog));
                 Assert.That(
+                    serviceProvider.GetRequiredService<
+                        ILifecycleExecutionHostLifetimeObserver>(),
+                    Is.SameAs(watchdog));
+                Assert.That(
+                    serviceProvider.GetRequiredService<
+                        ILifecycleExecutionDeadlineScheduler>(),
+                    Is.SameAs(serviceProvider.GetRequiredService<
+                        UnityLifecycleExecutionRecoveryCoordinator>()));
+                Assert.That(
                     serviceProvider.GetRequiredService<IUnityIpcConnectionHandler>(),
                     Is.TypeOf<UnityOneshotConnectionHandler>());
                 Assert.That(
                     serviceProvider.GetRequiredService<IUnityIpcServer>(),
                     Is.TypeOf<UnityIpcServer>());
-                Assert.That(
-                    serviceProvider.GetService<IRecoverableIpcOperationStore>(),
-                    Is.Null);
                 Assert.That(Volatile.Read(ref exitCount), Is.EqualTo(0));
             }
             finally
@@ -122,7 +223,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 new PermitAllSessionTokenValidator(),
                 projectFingerprint,
                 NoOpDaemonLogger.Instance,
-                DaemonEditorMode.Batchmode);
+                UnityEditorMode.Batchmode);
             return services;
         }
 

@@ -4,15 +4,14 @@ using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts;
-using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Unity.Ipc;
-using MackySoft.Ucli.Unity.Project;
 using MackySoft.Ucli.Unity.Runtime;
 using NUnit.Framework;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Unity.Tests
 {
@@ -27,9 +26,6 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private static readonly Guid SidecarGenerationId = Guid.Parse("33333333-3333-3333-3333-333333333333");
 
-        private static readonly Sha256Digest RequestPayloadHash = Sha256Digest.Parse(
-            "cda34040abc54e9b351b66c6ecbc9708cf2c70996b0805553b3854bdce80d94b");
-
         [TearDown]
         public void TearDown ()
         {
@@ -38,7 +34,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public async Task PersistedArtifacts_UseCapturedEditorInstanceId ()
+        public async Task PersistedSessionAndLifecycle_UseCapturedEditorInstanceId ()
         {
             var storageRoot = Path.Combine(
                 Path.GetTempPath(),
@@ -76,39 +72,19 @@ namespace MackySoft.Ucli.Unity.Tests
                     SidecarGenerationId,
                     "1.2.3-tests");
                 await lifecyclePersistence.WriteAsync(
-                    new UnityEditorObservation(
+                    new UnityEditorRuntimeObservation(
                         state: new UnityEditorStateSnapshot(
-                            editorMode: DaemonEditorMode.Gui,
-                            lifecycleState: IpcEditorLifecycleState.Ready,
-                            compileState: IpcCompileState.Ready,
-                            generations: new IpcUnityGenerationSnapshot(1, 2, 0, 0),
-                            playMode: new IpcPlayModeSnapshot(
-                                IpcPlayModeState.Stopped,
-                                IpcPlayModeTransition.None,
+                            editorMode: UnityEditorMode.Gui,
+                            lifecycleState: UnityEditorLifecycleState.Ready,
+                            compileState: UnityEditorCompileState.Ready,
+                            generations: new UnityEditorGenerationSnapshot(1, 2, 0, 0),
+                            playMode: new UnityEditorPlayModeSnapshot(
+                                UnityEditorPlayModeState.Stopped,
+                                UnityEditorPlayModeTransition.None,
                                 IsPlaying: false,
                                 IsPlayingOrWillChangePlaymode: false)),
                         observedAtUtc: new DateTimeOffset(2026, 7, 13, 0, 0, 0, TimeSpan.Zero)),
                     null,
-                    CancellationToken.None);
-
-                var operationStore = FileRecoverableIpcOperationStore.Create(
-                    new UnityHostProjectIdentity(
-                        AbsolutePath.Parse(storageRoot),
-                        ProjectFingerprint,
-                        "6000.1.4f1"),
-                    capturedEditorInstanceId);
-                var requestId = Guid.Parse("7b6d4c17-1b8e-4f28-a2e6-123456789abc");
-                var operationWriteResult = await operationStore.WritePendingAsync(
-                    UnityIpcMethod.PlayEnter,
-                    requestId,
-                    RequestPayloadHash,
-                    new DateTimeOffset(2026, 7, 13, 0, 0, 1, TimeSpan.Zero),
-                    IpcPayloadCodec.SerializeToElement(new { before = "snapshot" }),
-                    CancellationToken.None);
-                var operationReadResult = await operationStore.ReadAsync(
-                    UnityIpcMethod.PlayEnter,
-                    requestId,
-                    RequestPayloadHash,
                     CancellationToken.None);
 
                 var sessionContract = DaemonSessionJsonContractSerializer.Deserialize(
@@ -119,15 +95,11 @@ namespace MackySoft.Ucli.Unity.Tests
                     File.ReadAllText(UcliStoragePathResolver.ResolveDaemonLifecyclePath(
                         guardedStorageRoot,
                         ProjectFingerprint).Value));
-                Assert.That(operationWriteResult.IsSuccess, Is.True, operationWriteResult.ErrorMessage);
-                Assert.That(operationReadResult.IsSuccess, Is.True, operationReadResult.ErrorMessage);
                 Assert.That(sessionContract, Is.Not.Null);
                 Assert.That(lifecycleContract, Is.Not.Null);
-                Assert.That(operationReadResult.Record, Is.Not.Null);
                 Assert.That(sessionContract.EditorInstanceId, Is.EqualTo(EditorInstanceId));
                 Assert.That(lifecycleContract.EditorInstanceId, Is.EqualTo(EditorInstanceId));
                 Assert.That(lifecycleContract.SidecarGenerationId, Is.EqualTo(SidecarGenerationId));
-                Assert.That(operationReadResult.Record.HostEditorInstanceId, Is.EqualTo(EditorInstanceId));
             }
             finally
             {

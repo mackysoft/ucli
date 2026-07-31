@@ -11,6 +11,7 @@ using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Unity.Ipc;
 using MackySoft.Ucli.Unity.Runtime;
 using NUnit.Framework;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Unity.Tests
 {
@@ -77,7 +78,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 PredecessorSidecarGenerationId,
                 "1.2.3-tests");
             var snapshot = CreateObservation(
-                IpcEditorLifecycleState.Recovering,
+                UnityEditorLifecycleState.Recovering,
                 observedAtUtc);
             var recoveryLease = new DaemonLifecycleRecoveryLease(
                 SessionGenerationId,
@@ -94,12 +95,12 @@ namespace MackySoft.Ucli.Unity.Tests
                     File.ReadAllText(sidecarPath.Value));
 
                 Assert.That(contract, Is.Not.Null);
-                Assert.That(contract.State.LifecycleState, Is.EqualTo(IpcEditorLifecycleState.Recovering));
+                Assert.That(contract.State.LifecycleState, Is.EqualTo(UnityEditorLifecycleState.Recovering));
                 Assert.That(
-                    IpcEditorLifecycleSemantics.ResolveBlockingReason(contract.State.LifecycleState),
-                    Is.EqualTo(IpcEditorBlockingReason.Recovery));
+                    UnityEditorLifecycleSemantics.ResolveBlockingReason(contract.State.LifecycleState),
+                    Is.EqualTo(UnityEditorBlockingReason.Recovery));
                 Assert.That(
-                    IpcEditorLifecycleSemantics.CanAcceptExecutionRequests(contract.State.LifecycleState),
+                    UnityEditorLifecycleSemantics.CanAcceptExecutionRequests(contract.State.LifecycleState),
                     Is.False);
                 Assert.That(contract.ObservedAtUtc, Is.EqualTo(observedAtUtc));
                 Assert.That(contract.SidecarGenerationId, Is.EqualTo(PredecessorSidecarGenerationId));
@@ -144,7 +145,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 guardedStorageRoot,
                 OwnershipProjectFingerprint);
             var observation = CreateObservation(
-                IpcEditorLifecycleState.Ready,
+                UnityEditorLifecycleState.Ready,
                 CreateObservedAtUtc(0));
 
             try
@@ -173,19 +174,19 @@ namespace MackySoft.Ucli.Unity.Tests
             }
         }
 
-        private static UnityEditorObservation CreateObservation (
-            IpcEditorLifecycleState lifecycleState,
+        private static UnityEditorRuntimeObservation CreateObservation (
+            UnityEditorLifecycleState lifecycleState,
             DateTimeOffset observedAtUtc)
         {
-            return new UnityEditorObservation(
+            return new UnityEditorRuntimeObservation(
                 state: new UnityEditorStateSnapshot(
-                    editorMode: DaemonEditorMode.Gui,
+                    editorMode: UnityEditorMode.Gui,
                     lifecycleState: lifecycleState,
-                    compileState: IpcCompileState.Ready,
-                    generations: new IpcUnityGenerationSnapshot(1, 2, 0, 0),
-                    playMode: new IpcPlayModeSnapshot(
-                        IpcPlayModeState.Stopped,
-                        IpcPlayModeTransition.None,
+                    compileState: UnityEditorCompileState.Ready,
+                    generations: new UnityEditorGenerationSnapshot(1, 2, 0, 0),
+                    playMode: new UnityEditorPlayModeSnapshot(
+                        UnityEditorPlayModeState.Stopped,
+                        UnityEditorPlayModeTransition.None,
                         IsPlaying: false,
                         IsPlayingOrWillChangePlaymode: false)),
                 observedAtUtc: observedAtUtc);

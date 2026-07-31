@@ -11,6 +11,8 @@ using UnityEditor;
 
 #nullable enable
 
+using MackySoft.Ucli.Contracts.Projects;
+
 namespace MackySoft.Ucli.Unity.Build
 {
     /// <summary> Invokes uCLI executeMethod build runner methods through the shared Unity bridge contract. </summary>
@@ -27,7 +29,7 @@ namespace MackySoft.Ucli.Unity.Build
         /// <summary> Invokes the executeMethod runner described by a validated explicit execution request. </summary>
         public BuildExecuteMethodInvocationResult Run (
             BuildRunExecutionRequest.ExplicitExecuteMethod request,
-            IpcProjectIdentity projectIdentity,
+            UnityProjectIdentity projectIdentity,
             UnityBuildResolvedInput resolvedInput,
             IBuildExecuteMethodProgressSink? progressSink)
         {
@@ -104,7 +106,7 @@ namespace MackySoft.Ucli.Unity.Build
 
         private static UcliBuildRunnerContext CreateContext (
             BuildRunExecutionRequest.ExplicitExecuteMethod request,
-            IpcProjectIdentity projectIdentity,
+            UnityProjectIdentity projectIdentity,
             UnityBuildResolvedInput resolvedInput)
         {
             var scenes = new string[resolvedInput.ScenePaths.Length];

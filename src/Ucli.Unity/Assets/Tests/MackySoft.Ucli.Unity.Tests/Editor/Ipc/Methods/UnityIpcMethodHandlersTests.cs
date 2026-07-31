@@ -23,6 +23,8 @@ using MackySoft.Ucli.Unity.Ipc;
 using MackySoft.Ucli.Unity.Runtime;
 using NUnit.Framework;
 using UnityEngine.TestTools;
+using MackySoft.Ucli.Contracts.Editor;
+using MackySoft.Ucli.Contracts.Projects;
 
 namespace MackySoft.Ucli.Unity.Tests
 {
@@ -31,7 +33,7 @@ namespace MackySoft.Ucli.Unity.Tests
         private static readonly ProjectFingerprint ProjectFingerprint =
             ProjectFingerprintTestFactory.Create("unity-ipc-method-handlers");
 
-        private static readonly IpcProjectIdentity ProjectIdentity = new IpcProjectIdentity(
+        private static readonly UnityProjectIdentity ProjectIdentity = new UnityProjectIdentity(
             ProjectPathTestValues.RepositoryUnityProject,
             ProjectFingerprint,
             "6000.1.4f1");
@@ -55,16 +57,16 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(response.Status, Is.EqualTo(IpcResponseStatus.Ok));
             Assert.That(response.Errors, Is.Empty);
-            Assert.That(IpcPayloadCodec.TryDeserialize(response.Payload, out IpcUnityEditorObservation payload, out _), Is.True);
+            Assert.That(IpcPayloadCodec.TryDeserialize(response.Payload, out UnityEditorObservation payload, out _), Is.True);
             Assert.That(payload.ServerVersion, Is.EqualTo("1.2.3"));
-            Assert.That(payload.State.EditorMode, Is.EqualTo(DaemonEditorMode.Batchmode));
+            Assert.That(payload.State.EditorMode, Is.EqualTo(UnityEditorMode.Batchmode));
             Assert.That(payload.ProjectFingerprint, Is.EqualTo(ProjectFingerprint));
-            Assert.That(payload.State.LifecycleState, Is.EqualTo(IpcEditorLifecycleState.Ready));
+            Assert.That(payload.State.LifecycleState, Is.EqualTo(UnityEditorLifecycleState.Ready));
             Assert.That(payload.State.Generations.CompileGeneration, Is.EqualTo(1));
             Assert.That(payload.State.Generations.DomainReloadGeneration, Is.EqualTo(1));
             Assert.That(payload.State.PlayMode, Is.Not.Null);
-            Assert.That(payload.State.PlayMode!.State, Is.EqualTo(IpcPlayModeState.Stopped));
-            Assert.That(payload.State.PlayMode.Transition, Is.EqualTo(IpcPlayModeTransition.None));
+            Assert.That(payload.State.PlayMode!.State, Is.EqualTo(UnityEditorPlayModeState.Stopped));
+            Assert.That(payload.State.PlayMode.Transition, Is.EqualTo(UnityEditorPlayModeTransition.None));
             Assert.That(payload.State.PlayMode.IsPlaying, Is.False);
             Assert.That(payload.State.PlayMode.IsPlayingOrWillChangePlaymode, Is.False);
         });
@@ -93,7 +95,7 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var handler = new PingUnityIpcMethodHandler(
                 new StubServerVersionProvider("1.2.3"),
-                new StubUnityEditorReadinessGate(DaemonEditorMode.Gui),
+                new StubUnityEditorReadinessGate(UnityEditorMode.Gui),
                 CreateProjectIdentity(),
                 NoOpDaemonLogger.Instance);
             var request = CreatePingRequest(Guid.NewGuid(), new IpcPingRequest("client"));
@@ -101,8 +103,8 @@ namespace MackySoft.Ucli.Unity.Tests
             var response = await UnityIpcMethodHandlerTestInvoker.HandleAsync(handler, request, CancellationToken.None);
 
             Assert.That(response.Status, Is.EqualTo(IpcResponseStatus.Ok));
-            Assert.That(IpcPayloadCodec.TryDeserialize(response.Payload, out IpcUnityEditorObservation payload, out _), Is.True);
-            Assert.That(payload.State.EditorMode, Is.EqualTo(DaemonEditorMode.Gui));
+            Assert.That(IpcPayloadCodec.TryDeserialize(response.Payload, out UnityEditorObservation payload, out _), Is.True);
+            Assert.That(payload.State.EditorMode, Is.EqualTo(UnityEditorMode.Gui));
             Assert.That(payload.ProjectFingerprint, Is.EqualTo(ProjectFingerprint));
         });
 
@@ -129,10 +131,10 @@ namespace MackySoft.Ucli.Unity.Tests
             var firstResponse = await UnityIpcMethodHandlerTestInvoker.HandleAsync(handler, CreatePingRequest(Guid.NewGuid(), new IpcPingRequest("client")), CancellationToken.None);
             var secondResponse = await UnityIpcMethodHandlerTestInvoker.HandleAsync(handler, CreatePingRequest(Guid.NewGuid(), new IpcPingRequest("client")), CancellationToken.None);
 
-            Assert.That(IpcPayloadCodec.TryDeserialize(firstResponse.Payload, out IpcUnityEditorObservation firstPayload, out _), Is.True);
-            Assert.That(IpcPayloadCodec.TryDeserialize(secondResponse.Payload, out IpcUnityEditorObservation secondPayload, out _), Is.True);
-            Assert.That(firstPayload.State.LifecycleState, Is.EqualTo(IpcEditorLifecycleState.Starting));
-            Assert.That(secondPayload.State.LifecycleState, Is.EqualTo(IpcEditorLifecycleState.Starting));
+            Assert.That(IpcPayloadCodec.TryDeserialize(firstResponse.Payload, out UnityEditorObservation firstPayload, out _), Is.True);
+            Assert.That(IpcPayloadCodec.TryDeserialize(secondResponse.Payload, out UnityEditorObservation secondPayload, out _), Is.True);
+            Assert.That(firstPayload.State.LifecycleState, Is.EqualTo(UnityEditorLifecycleState.Starting));
+            Assert.That(secondPayload.State.LifecycleState, Is.EqualTo(UnityEditorLifecycleState.Starting));
 
             telemetryState.ObserveEditorUpdate(
                 isPlaymodeActive: false,
@@ -140,8 +142,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 isUpdating: false);
             var readyResponse = await UnityIpcMethodHandlerTestInvoker.HandleAsync(handler, CreatePingRequest(Guid.NewGuid(), new IpcPingRequest("client")), CancellationToken.None);
 
-            Assert.That(IpcPayloadCodec.TryDeserialize(readyResponse.Payload, out IpcUnityEditorObservation readyPayload, out _), Is.True);
-            Assert.That(readyPayload.State.LifecycleState, Is.EqualTo(IpcEditorLifecycleState.Ready));
+            Assert.That(IpcPayloadCodec.TryDeserialize(readyResponse.Payload, out UnityEditorObservation readyPayload, out _), Is.True);
+            Assert.That(readyPayload.State.LifecycleState, Is.EqualTo(UnityEditorLifecycleState.Ready));
         });
 
         [UnityTest]
@@ -166,14 +168,14 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var response = await UnityIpcMethodHandlerTestInvoker.HandleAsync(handler, CreatePingRequest(Guid.NewGuid(), new IpcPingRequest("client")), CancellationToken.None);
 
-            Assert.That(IpcPayloadCodec.TryDeserialize(response.Payload, out IpcUnityEditorObservation payload, out _), Is.True);
-            Assert.That(payload.State.LifecycleState, Is.EqualTo(IpcEditorLifecycleState.PlayMode));
+            Assert.That(IpcPayloadCodec.TryDeserialize(response.Payload, out UnityEditorObservation payload, out _), Is.True);
+            Assert.That(payload.State.LifecycleState, Is.EqualTo(UnityEditorLifecycleState.PlayMode));
             Assert.That(
-                IpcEditorLifecycleSemantics.ResolveBlockingReason(payload.State.LifecycleState),
-                Is.EqualTo(IpcEditorBlockingReason.PlayMode));
+                UnityEditorLifecycleSemantics.ResolveBlockingReason(payload.State.LifecycleState),
+                Is.EqualTo(UnityEditorBlockingReason.PlayMode));
             Assert.That(payload.State.PlayMode, Is.Not.Null);
-            Assert.That(payload.State.PlayMode!.State, Is.EqualTo(IpcPlayModeState.Playing));
-            Assert.That(payload.State.PlayMode.Transition, Is.EqualTo(IpcPlayModeTransition.None));
+            Assert.That(payload.State.PlayMode!.State, Is.EqualTo(UnityEditorPlayModeState.Playing));
+            Assert.That(payload.State.PlayMode.Transition, Is.EqualTo(UnityEditorPlayModeTransition.None));
             Assert.That(payload.State.PlayMode.IsPlaying, Is.True);
             Assert.That(payload.State.PlayMode.IsPlayingOrWillChangePlaymode, Is.True);
         });
@@ -258,11 +260,11 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public IEnumerator PlayStatusHandler_WhenPayloadIsValid_ReturnsLifecycleSnapshotWithoutReadinessWait () => UniTask.ToCoroutine(async () =>
         {
-            var readinessGate = new StubUnityEditorReadinessGate(DaemonEditorMode.Gui);
+            var readinessGate = new StubUnityEditorReadinessGate(UnityEditorMode.Gui);
             var handler = new PlayStatusUnityIpcMethodHandler(
                 new StubServerVersionProvider("1.2.3"),
                 readinessGate,
-                new IpcProjectIdentity(ProjectPathTestValues.RepositoryUnityProject, ProjectFingerprint, "6000.1.4f1"),
+                new UnityProjectIdentity(ProjectPathTestValues.RepositoryUnityProject, ProjectFingerprint, "6000.1.4f1"),
                 NoOpDaemonLogger.Instance);
             var request = CreatePlayStatusRequest(Guid.NewGuid(), new IpcPlayStatusRequest());
 
@@ -275,24 +277,24 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(readinessGate.CallCount, Is.EqualTo(0));
             Assert.That(IpcPayloadCodec.TryDeserialize(response.Payload, out IpcPlayStatusResponse payload, out _), Is.True);
             Assert.That(payload.Snapshot.ServerVersion, Is.EqualTo("1.2.3"));
-            Assert.That(payload.Snapshot.State.EditorMode, Is.EqualTo(DaemonEditorMode.Gui));
+            Assert.That(payload.Snapshot.State.EditorMode, Is.EqualTo(UnityEditorMode.Gui));
             Assert.That(payload.Snapshot.UnityVersion, Is.EqualTo("6000.1.4f1"));
             Assert.That(payload.Snapshot.ProjectFingerprint, Is.EqualTo(ProjectFingerprint));
-            Assert.That(payload.Snapshot.State.LifecycleState, Is.EqualTo(IpcEditorLifecycleState.Ready));
-            Assert.That(payload.Snapshot.State.CompileState, Is.EqualTo(IpcCompileState.Ready));
+            Assert.That(payload.Snapshot.State.LifecycleState, Is.EqualTo(UnityEditorLifecycleState.Ready));
+            Assert.That(payload.Snapshot.State.CompileState, Is.EqualTo(UnityEditorCompileState.Ready));
             Assert.That(payload.Snapshot.State.PlayMode, Is.Not.Null);
-            Assert.That(payload.Snapshot.State.PlayMode!.State, Is.EqualTo(IpcPlayModeState.Stopped));
+            Assert.That(payload.Snapshot.State.PlayMode!.State, Is.EqualTo(UnityEditorPlayModeState.Stopped));
         });
 
         [UnityTest]
         [Category("Size.Small")]
         public IEnumerator PlayStatusHandler_WhenPayloadIsInvalid_ReturnsInvalidArgumentWithoutCapturingSnapshot () => UniTask.ToCoroutine(async () =>
         {
-            var readinessGate = new StubUnityEditorReadinessGate(DaemonEditorMode.Gui);
+            var readinessGate = new StubUnityEditorReadinessGate(UnityEditorMode.Gui);
             var handler = new PlayStatusUnityIpcMethodHandler(
                 new StubServerVersionProvider("1.2.3"),
                 readinessGate,
-                new IpcProjectIdentity(ProjectPathTestValues.RepositoryUnityProject, ProjectFingerprint, "6000.1.4f1"),
+                new UnityProjectIdentity(ProjectPathTestValues.RepositoryUnityProject, ProjectFingerprint, "6000.1.4f1"),
                 NoOpDaemonLogger.Instance);
             var request = CreatePlayStatusRequest(Guid.NewGuid(), 123);
 
@@ -1413,7 +1415,7 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator UnityConsoleClearHandler_WhenPayloadIsValidAndEditorModeIsGui_CallsClearerAndReturnsOk () => UniTask.ToCoroutine(async () =>
         {
             var clearer = new StubUnityConsoleClearer(UnityConsoleClearResult.Success());
-            var handler = CreateUnityConsoleClearHandler(clearer, DaemonEditorMode.Gui);
+            var handler = CreateUnityConsoleClearHandler(clearer, UnityEditorMode.Gui);
             var request = CreateUnityConsoleClearRequest(
                 Guid.NewGuid(),
                 new IpcUnityConsoleClearRequest("tests"));
@@ -1431,7 +1433,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public IEnumerator UnityConsoleClearHandler_WhenPayloadIsInvalid_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
         {
-            var handler = CreateUnityConsoleClearHandler(new StubUnityConsoleClearer(UnityConsoleClearResult.Success()), DaemonEditorMode.Gui);
+            var handler = CreateUnityConsoleClearHandler(new StubUnityConsoleClearer(UnityConsoleClearResult.Success()), UnityEditorMode.Gui);
             var request = CreateUnityConsoleClearRequest(Guid.NewGuid(), 123);
 
             var response = await UnityIpcMethodHandlerTestInvoker.HandleAsync(handler, request, CancellationToken.None);
@@ -1446,7 +1448,7 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator UnityConsoleClearHandler_WhenRequestedByIsEmpty_ReturnsInvalidArgumentWithoutCallingClearer () => UniTask.ToCoroutine(async () =>
         {
             var clearer = new StubUnityConsoleClearer(UnityConsoleClearResult.Success());
-            var handler = CreateUnityConsoleClearHandler(clearer, DaemonEditorMode.Gui);
+            var handler = CreateUnityConsoleClearHandler(clearer, UnityEditorMode.Gui);
             var request = CreateUnityConsoleClearRequest(
                 Guid.NewGuid(),
                 new IpcUnityConsoleClearRequest(" "));
@@ -1464,7 +1466,7 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator UnityConsoleClearHandler_WhenRequestedByContainsInvalidCharacter_ReturnsInvalidArgumentWithoutCallingClearer () => UniTask.ToCoroutine(async () =>
         {
             var clearer = new StubUnityConsoleClearer(UnityConsoleClearResult.Success());
-            var handler = CreateUnityConsoleClearHandler(clearer, DaemonEditorMode.Gui);
+            var handler = CreateUnityConsoleClearHandler(clearer, UnityEditorMode.Gui);
             var request = CreateUnityConsoleClearRequest(
                 Guid.NewGuid(),
                 new IpcUnityConsoleClearRequest("logs.unity.clear\n"));
@@ -1482,7 +1484,7 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator UnityConsoleClearHandler_WhenRequestedByIsTooLong_ReturnsInvalidArgumentWithoutCallingClearer () => UniTask.ToCoroutine(async () =>
         {
             var clearer = new StubUnityConsoleClearer(UnityConsoleClearResult.Success());
-            var handler = CreateUnityConsoleClearHandler(clearer, DaemonEditorMode.Gui);
+            var handler = CreateUnityConsoleClearHandler(clearer, UnityEditorMode.Gui);
             var request = CreateUnityConsoleClearRequest(
                 Guid.NewGuid(),
                 new IpcUnityConsoleClearRequest(new string('a', 65)));
@@ -1500,7 +1502,7 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator UnityConsoleClearHandler_WhenEditorModeIsBatchmode_ReturnsInvalidArgumentWithoutCallingClearer () => UniTask.ToCoroutine(async () =>
         {
             var clearer = new StubUnityConsoleClearer(UnityConsoleClearResult.Success());
-            var handler = CreateUnityConsoleClearHandler(clearer, DaemonEditorMode.Batchmode);
+            var handler = CreateUnityConsoleClearHandler(clearer, UnityEditorMode.Batchmode);
             var request = CreateUnityConsoleClearRequest(
                 Guid.NewGuid(),
                 new IpcUnityConsoleClearRequest("tests"));
@@ -1519,7 +1521,7 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var handler = CreateUnityConsoleClearHandler(
                 new StubUnityConsoleClearer(UnityConsoleClearResult.Failure("UnityEditor.LogEntries.Clear could not be resolved.")),
-                DaemonEditorMode.Gui);
+                UnityEditorMode.Gui);
             var request = CreateUnityConsoleClearRequest(
                 Guid.NewGuid(),
                 new IpcUnityConsoleClearRequest("tests"));
@@ -1872,7 +1874,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Func<bool> isPlaymodeActiveProvider)
         {
             return new UnityEditorReadinessGate(
-                DaemonEditorMode.Batchmode,
+                UnityEditorMode.Batchmode,
                 new UnityEditorLifecycleMonitor(
                     lifecycleTelemetryState,
                     isCompilingProvider,
@@ -2064,9 +2066,9 @@ namespace MackySoft.Ucli.Unity.Tests
                 ProjectIdentity);
         }
 
-        private static IpcProjectIdentity CreateProjectIdentity ()
+        private static UnityProjectIdentity CreateProjectIdentity ()
         {
-            return new IpcProjectIdentity(
+            return new UnityProjectIdentity(
                 projectPath: ProjectPathTestValues.RepositoryUnityProject,
                 projectFingerprint: ProjectFingerprint,
                 unityVersion: "6000.1.4f1");
@@ -2084,7 +2086,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private static UnityConsoleClearUnityIpcMethodHandler CreateUnityConsoleClearHandler (
             IUnityConsoleClearer clearer,
-            DaemonEditorMode editorMode)
+            UnityEditorMode editorMode)
         {
             return new UnityConsoleClearUnityIpcMethodHandler(
                 clearer,

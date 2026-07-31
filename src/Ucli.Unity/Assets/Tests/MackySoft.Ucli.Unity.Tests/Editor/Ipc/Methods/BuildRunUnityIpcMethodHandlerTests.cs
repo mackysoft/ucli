@@ -34,6 +34,8 @@ using UnityEngine.TestTools;
 
 #nullable enable
 
+using MackySoft.Ucli.Contracts.Editor;
+
 namespace MackySoft.Ucli.Unity.Tests
 {
     public sealed class BuildRunUnityIpcMethodHandlerTests
@@ -1517,7 +1519,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 OutputLayout: outputLayout ?? defaultOutputLayout,
                 BuildReportPath: buildReportPath ?? paths.BuildReportPath,
                 BuildLogPath: buildLogPath ?? paths.BuildLogPath,
-                AllowedEditorModes: new[] { DaemonEditorMode.Batchmode },
+                AllowedEditorModes: new[] { UnityEditorMode.Batchmode },
                 ProjectMutationMode: projectMutationMode,
                 RunnerKind: BuildRunnerKind.BuildPipeline,
                 ProfileDigest: ProfileDigest,
@@ -1575,7 +1577,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 OutputLayout: null,
                 BuildReportPath: paths.BuildReportPath,
                 BuildLogPath: paths.BuildLogPath,
-                AllowedEditorModes: new[] { DaemonEditorMode.Batchmode },
+                AllowedEditorModes: new[] { UnityEditorMode.Batchmode },
                 ProjectMutationMode: BuildProfileProjectMutationMode.Forbid,
                 RunnerKind: BuildRunnerKind.ExecuteMethod,
                 ProfileDigest: ProfileDigest,
@@ -1666,7 +1668,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 OutputLayout: null,
                 BuildReportPath: paths.BuildReportPath,
                 BuildLogPath: paths.BuildLogPath,
-                AllowedEditorModes: new[] { DaemonEditorMode.Batchmode },
+                AllowedEditorModes: new[] { UnityEditorMode.Batchmode },
                 ProjectMutationMode: BuildProfileProjectMutationMode.Forbid,
                 RunnerKind: BuildRunnerKind.BuildPipeline,
                 ProfileDigest: ProfileDigest,
@@ -1757,17 +1759,17 @@ namespace MackySoft.Ucli.Unity.Tests
             };
         }
 
-        private static UnityEditorObservation CreateObservation ()
+        private static UnityEditorRuntimeObservation CreateObservation ()
         {
-            return new UnityEditorObservation(
+            return new UnityEditorRuntimeObservation(
                 state: new UnityEditorStateSnapshot(
-                    editorMode: DaemonEditorMode.Batchmode,
-                    lifecycleState: IpcEditorLifecycleState.Ready,
-                    compileState: IpcCompileState.Ready,
-                    generations: new IpcUnityGenerationSnapshot(1, 1, 1, 1),
-                    playMode: new IpcPlayModeSnapshot(
-                        State: IpcPlayModeState.Stopped,
-                        Transition: IpcPlayModeTransition.None,
+                    editorMode: UnityEditorMode.Batchmode,
+                    lifecycleState: UnityEditorLifecycleState.Ready,
+                    compileState: UnityEditorCompileState.Ready,
+                    generations: new UnityEditorGenerationSnapshot(1, 1, 1, 1),
+                    playMode: new UnityEditorPlayModeSnapshot(
+                        State: UnityEditorPlayModeState.Stopped,
+                        Transition: UnityEditorPlayModeTransition.None,
                         IsPlaying: false,
                         IsPlayingOrWillChangePlaymode: false)),
                 observedAtUtc: new DateTimeOffset(2026, 6, 12, 0, 0, 0, TimeSpan.Zero));
@@ -1779,7 +1781,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             public int EnsureExecutionReadyCallCount { get; private set; }
 
-            public UnityEditorObservation CaptureObservation ()
+            public UnityEditorRuntimeObservation CaptureObservation ()
             {
                 CaptureObservationCallCount++;
                 return CreateObservation();
@@ -2007,20 +2009,20 @@ namespace MackySoft.Ucli.Unity.Tests
             }
         }
 
-        private static IpcUnityEditorObservation Create ()
+        private static UnityEditorObservation Create ()
         {
-            return new IpcUnityEditorObservation(
+            return new UnityEditorObservation(
                 serverVersion: "1.2.3",
                 unityVersion: "6000.1.4f1",
                 projectFingerprint: ProjectFingerprint,
                 state: new UnityEditorStateSnapshot(
-                    editorMode: DaemonEditorMode.Batchmode,
-                    lifecycleState: IpcEditorLifecycleState.Ready,
-                    compileState: IpcCompileState.Ready,
-                    generations: new IpcUnityGenerationSnapshot(11, 12, 13, 14),
-                    playMode: new IpcPlayModeSnapshot(
-                        State: IpcPlayModeState.Stopped,
-                        Transition: IpcPlayModeTransition.None,
+                    editorMode: UnityEditorMode.Batchmode,
+                    lifecycleState: UnityEditorLifecycleState.Ready,
+                    compileState: UnityEditorCompileState.Ready,
+                    generations: new UnityEditorGenerationSnapshot(11, 12, 13, 14),
+                    playMode: new UnityEditorPlayModeSnapshot(
+                        State: UnityEditorPlayModeState.Stopped,
+                        Transition: UnityEditorPlayModeTransition.None,
                         IsPlaying: false,
                         IsPlayingOrWillChangePlaymode: false)),
                 observedAtUtc: new DateTimeOffset(2026, 6, 12, 0, 0, 0, TimeSpan.Zero),

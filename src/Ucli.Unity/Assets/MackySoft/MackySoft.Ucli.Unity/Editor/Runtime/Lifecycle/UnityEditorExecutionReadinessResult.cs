@@ -1,5 +1,6 @@
 using System;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Unity.Runtime
 {
@@ -7,7 +8,7 @@ namespace MackySoft.Ucli.Unity.Runtime
     internal sealed record UnityEditorExecutionReadinessResult
     {
         private UnityEditorExecutionReadinessResult (
-            UnityEditorObservation observation,
+            UnityEditorRuntimeObservation observation,
             IpcError error)
         {
             Observation = observation;
@@ -18,7 +19,7 @@ namespace MackySoft.Ucli.Unity.Runtime
         public bool IsReady => Error == null;
 
         /// <summary> Gets the Unity Editor observation captured at decision time. </summary>
-        public UnityEditorObservation Observation { get; }
+        public UnityEditorRuntimeObservation Observation { get; }
 
         /// <summary> Gets the lifecycle gate error when execution is blocked; otherwise <see langword="null" />. </summary>
         public IpcError Error { get; }
@@ -26,7 +27,7 @@ namespace MackySoft.Ucli.Unity.Runtime
         /// <summary> Creates a successful readiness result. </summary>
         /// <param name="observation"> The Unity Editor observation captured at decision time. </param>
         /// <returns> The successful readiness result. </returns>
-        public static UnityEditorExecutionReadinessResult Ready (UnityEditorObservation observation)
+        public static UnityEditorExecutionReadinessResult Ready (UnityEditorRuntimeObservation observation)
         {
             return new UnityEditorExecutionReadinessResult(
                 observation ?? throw new ArgumentNullException(nameof(observation)),
@@ -38,7 +39,7 @@ namespace MackySoft.Ucli.Unity.Runtime
         /// <param name="error"> The lifecycle gate error. </param>
         /// <returns> The failed readiness result. </returns>
         public static UnityEditorExecutionReadinessResult Blocked (
-            UnityEditorObservation observation,
+            UnityEditorRuntimeObservation observation,
             IpcError error)
         {
             return new UnityEditorExecutionReadinessResult(

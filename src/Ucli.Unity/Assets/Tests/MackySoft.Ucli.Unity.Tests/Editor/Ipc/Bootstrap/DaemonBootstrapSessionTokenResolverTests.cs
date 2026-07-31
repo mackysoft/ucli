@@ -11,6 +11,7 @@ using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Unity.Ipc;
 using NUnit.Framework;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Unity.Tests
 {
@@ -277,7 +278,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 },
                 SessionGenerationMismatch.EditorMode => contract with
                 {
-                    EditorMode = DaemonEditorMode.Gui,
+                    EditorMode = UnityEditorMode.Gui,
                 },
                 SessionGenerationMismatch.OwnerKind => contract with
                 {
@@ -311,7 +312,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 SessionToken: sessionToken,
                 ProjectFingerprint: ProjectFingerprint,
                 IssuedAtUtc: issuedAtUtc,
-                EditorMode: DaemonEditorMode.Batchmode,
+                EditorMode: UnityEditorMode.Batchmode,
                 OwnerKind: DaemonSessionOwnerKind.Cli,
                 CanShutdownProcess: true,
                 EndpointTransportKind: Endpoint.TransportKind,

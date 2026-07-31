@@ -290,6 +290,85 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
+        public void MarkLifecycleExecutionStarted_WhenParentDisappears_IgnoresParentAndExecutionDeadlineUntilBootstrapHardExit ()
+        {
+            var lifecycleExecutionTimeout = TimeSpan.FromMinutes(1);
+            var bootstrapHardExitTimeout =
+                lifecycleExecutionTimeout + TimeSpan.FromSeconds(3);
+            var elapsedTicks = 0L;
+            var executionDeadlineInspectionCount = 0;
+            var executionDeadlineInspectionObserved = new TaskCompletionSource<bool>(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+            var exitObserved = new TaskCompletionSource<bool>(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+            var parentIsAlive = 1;
+            using var watchdog = new OneshotProcessLifetimeWatchdog(
+                storageRoot: StorageRoot,
+                bootstrapEnvelope: CreateBootstrapEnvelope(
+                    ObservedUtc + bootstrapHardExitTimeout),
+                pollInterval: PollInterval,
+                parentProcessIsSameProcess: _ => Volatile.Read(ref parentIsAlive) != 0,
+                observedUtcNow: ObservedUtc,
+                monotonicClock: new DelegatingMonotonicClock(() =>
+                {
+                    var elapsed = new TimeSpan(Interlocked.Read(ref elapsedTicks));
+                    if (elapsed >= lifecycleExecutionTimeout
+                        && Interlocked.Increment(
+                            ref executionDeadlineInspectionCount) >= 2)
+                    {
+                        executionDeadlineInspectionObserved.TrySetResult(true);
+                    }
+
+                    return elapsed;
+                }),
+                tryDeleteEnvelopeIfOwned: static (_, _) => true,
+                terminateProcess: () => exitObserved.TrySetResult(true));
+
+            watchdog.MarkLifecycleExecutionStarted(
+                ObservedUtc + lifecycleExecutionTimeout);
+            Volatile.Write(ref parentIsAlive, 0);
+            Interlocked.Exchange(
+                ref elapsedTicks,
+                lifecycleExecutionTimeout.Ticks);
+
+            Assert.That(
+                executionDeadlineInspectionObserved.Task.Wait(SignalWaitTimeout),
+                Is.True);
+            Assert.That(exitObserved.Task.IsCompleted, Is.False);
+
+            Interlocked.Exchange(
+                ref elapsedTicks,
+                bootstrapHardExitTimeout.Ticks);
+
+            Assert.That(exitObserved.Task.Wait(SignalWaitTimeout), Is.True);
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void MarkRequestCompleted_AfterLifecycleExecutionStarted_ReenablesParentMonitoring ()
+        {
+            var parentIsAlive = 1;
+            var exitObserved = new TaskCompletionSource<bool>(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+            using var watchdog = new OneshotProcessLifetimeWatchdog(
+                storageRoot: StorageRoot,
+                bootstrapEnvelope: CreateBootstrapEnvelope(ObservedUtc.AddMinutes(3)),
+                pollInterval: PollInterval,
+                parentProcessIsSameProcess: _ => Volatile.Read(ref parentIsAlive) != 0,
+                observedUtcNow: ObservedUtc,
+                monotonicClock: new ManualMonotonicClock(),
+                tryDeleteEnvelopeIfOwned: static (_, _) => true,
+                terminateProcess: () => exitObserved.TrySetResult(true));
+
+            watchdog.MarkLifecycleExecutionStarted(ObservedUtc.AddMinutes(2));
+            watchdog.MarkRequestCompleted();
+            Volatile.Write(ref parentIsAlive, 0);
+
+            Assert.That(exitObserved.Task.Wait(SignalWaitTimeout), Is.True);
+        }
+
+        [Test]
+        [Category("Size.Small")]
         public void Dispose_WhileParentProbeIsInFlight_PreventsExitAfterParentDisappears ()
         {
             var probeEntered = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);

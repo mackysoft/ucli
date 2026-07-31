@@ -9,6 +9,7 @@ using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Build;
 using NUnit.Framework;
 using UnityEditor;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Unity.Tests
 {
@@ -127,7 +128,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     LocationPathName: locationPathName),
                 BuildReportPath: buildReportPath,
                 BuildLogPath: buildLogPath,
-                AllowedEditorModes: new[] { DaemonEditorMode.Batchmode },
+                AllowedEditorModes: new[] { UnityEditorMode.Batchmode },
                 ProjectMutationMode: BuildProfileProjectMutationMode.Forbid,
                 RunnerKind: BuildRunnerKind.BuildPipeline,
                 ProfileDigest: Sha256Digest.Parse(new string('a', 64)),

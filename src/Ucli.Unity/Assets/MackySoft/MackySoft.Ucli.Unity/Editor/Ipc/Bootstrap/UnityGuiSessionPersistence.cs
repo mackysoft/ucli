@@ -12,6 +12,7 @@ using MackySoft.Ucli.Contracts.Ipc.Authorization;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.Infrastructure.Storage;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
@@ -94,7 +95,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     SessionToken: sessionToken.GetEncodedValue(),
                     ProjectFingerprint: projectFingerprint,
                     IssuedAtUtc: issuedAtUtc,
-                    EditorMode: DaemonEditorMode.Gui,
+                    EditorMode: UnityEditorMode.Gui,
                     OwnerKind: sessionOptions.OwnerKind,
                     CanShutdownProcess: sessionOptions.CanShutdownProcess,
                     EndpointTransportKind: endpoint.TransportKind,
@@ -285,7 +286,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             if (sessionContract.SchemaVersion != DaemonSessionStorageContract.CurrentSchemaVersion
                 || sessionContract.SessionGenerationId == Guid.Empty
                 || sessionContract.ProjectFingerprint != projectFingerprint
-                || sessionContract.EditorMode != DaemonEditorMode.Gui
+                || sessionContract.EditorMode != UnityEditorMode.Gui
                 || sessionContract.ProcessId != currentProcessId
                 || sessionContract.EditorInstanceId != currentEditorInstanceId)
             {

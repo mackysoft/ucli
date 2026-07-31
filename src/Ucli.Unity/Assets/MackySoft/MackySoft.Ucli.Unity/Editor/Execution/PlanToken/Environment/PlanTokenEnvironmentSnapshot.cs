@@ -4,6 +4,7 @@ using System;
 using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Unity.Execution.PlanToken
 {
@@ -20,7 +21,7 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
             AbsolutePath repositoryRoot,
             ProjectFingerprint projectFingerprint,
             string unityVersion,
-            IpcCompileState compileState,
+            UnityEditorCompileState compileState,
             long domainReloadGeneration)
         {
             ProjectRoot = projectRoot ?? throw new ArgumentNullException(nameof(projectRoot));
@@ -44,7 +45,7 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
         public string UnityVersion { get; init; }
 
         /// <summary> Gets the current compile state. </summary>
-        public IpcCompileState CompileState { get; init; }
+        public UnityEditorCompileState CompileState { get; init; }
 
         /// <summary> Gets the current domain-reload generation marker. </summary>
         public long DomainReloadGeneration { get; init; }

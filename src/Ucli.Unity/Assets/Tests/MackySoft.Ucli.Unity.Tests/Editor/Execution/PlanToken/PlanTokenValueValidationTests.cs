@@ -12,6 +12,8 @@ using NUnit.Framework;
 
 #nullable enable
 
+using MackySoft.Ucli.Contracts.Editor;
+
 namespace MackySoft.Ucli.Unity.Tests
 {
     public sealed class PlanTokenValueValidationTests
@@ -37,7 +39,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 repositoryRoot: AbsolutePath.Parse(Path.Combine(Path.GetTempPath(), "repo")),
                 projectFingerprint: null!,
                 unityVersion: "6000.0.0f1",
-                compileState: IpcCompileState.Ready,
+                compileState: UnityEditorCompileState.Ready,
                 domainReloadGeneration: 1));
 
             Assert.That(exception!.ParamName, Is.EqualTo("projectFingerprint"));
