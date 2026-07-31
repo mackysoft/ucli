@@ -394,7 +394,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 var executionStore = scope.CreateExecutionStore(ProjectFingerprint);
                 var start = await RegisterAsync(
                     executionStore,
-                    DateTimeOffset.UtcNow.AddMilliseconds(100));
+                    DateTimeOffset.UtcNow.AddSeconds(1));
                 var before = CreateReadySnapshot();
                 var checkpointStore =
                     new FileRefreshLifecycleExecutionCheckpointStore(
@@ -403,6 +403,20 @@ namespace MackySoft.Ucli.Unity.Tests
                     start.LifecycleExecutionRef.Id,
                     CreateObservation(before),
                     CancellationToken.None);
+                var refreshingReference =
+                    LifecycleExecutionReferenceFactory.CreateStateProjection(
+                        start.LifecycleExecutionRef,
+                        ExecutionLifecycle.Active,
+                        LifecycleExecutionState.Refreshing);
+                Assert.That(
+                    (await executionStore.TryAcquireSideEffectRightAsync(
+                        start.LifecycleExecutionRef,
+                        refreshingReference,
+                        start.Host
+                            .CurrentEndpointRegistrationGenerationId,
+                        CancellationToken.None)).Outcome,
+                    Is.EqualTo(
+                        LifecycleExecutionSideEffectRightOutcome.Acquired));
                 var admitted = await checkpointStore.MarkAdmittedAsync(
                     prepared,
                     CancellationToken.None);

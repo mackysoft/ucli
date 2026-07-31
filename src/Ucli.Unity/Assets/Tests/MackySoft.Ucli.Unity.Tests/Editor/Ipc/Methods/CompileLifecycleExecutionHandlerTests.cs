@@ -1095,7 +1095,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 var executionStore = scope.CreateExecutionStore(ProjectFingerprint);
                 var start = await RegisterAsync(
                     executionStore,
-                    DateTimeOffset.UtcNow.AddMilliseconds(100));
+                    DateTimeOffset.UtcNow.AddSeconds(1));
                 var before = CreateReadySnapshot();
                 var checkpointStore =
                     new FileCompileLifecycleExecutionCheckpointStore(
@@ -1103,10 +1103,28 @@ namespace MackySoft.Ucli.Unity.Tests
                 var prepared = await checkpointStore.WritePreparedAsync(
                     start.LifecycleExecutionRef.Id,
                     CreateObservation(before),
-                    CreatePendingResult(before),
+                    CreatePendingResult(before, requested: false),
                     CancellationToken.None);
-                _ = await checkpointStore.MarkAdmittedAsync(
+                var refreshingReference =
+                    LifecycleExecutionReferenceFactory.CreateStateProjection(
+                        start.LifecycleExecutionRef,
+                        ExecutionLifecycle.Active,
+                        LifecycleExecutionState.Refreshing);
+                Assert.That(
+                    (await executionStore.TryAcquireSideEffectRightAsync(
+                        start.LifecycleExecutionRef,
+                        refreshingReference,
+                        start.Host
+                            .CurrentEndpointRegistrationGenerationId,
+                        CancellationToken.None)).Outcome,
+                    Is.EqualTo(
+                        LifecycleExecutionSideEffectRightOutcome.Acquired));
+                var admitted = await checkpointStore.MarkAdmittedAsync(
                     prepared,
+                    CancellationToken.None);
+                _ = await checkpointStore.MarkDispatchPreparedAsync(
+                    admitted,
+                    DateTimeOffset.UtcNow,
                     CancellationToken.None);
                 var refreshRequestCount = 0;
                 var terminalSnapshot = CreateReadySnapshot(
