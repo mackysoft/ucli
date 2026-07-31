@@ -38,7 +38,7 @@ internal sealed class CompileProgressTextProjector : ICliCommandProgressTextProj
 
     private static string CreateStartedText (CompileStartedEntry entry)
     {
-        const string Prefix = "compile runId=";
+        const string Prefix = "compile executionId=";
         const string RequestedModeLabel = " requestedMode=";
         const string ResolvedModeLabel = " resolvedMode=";
         const string SessionKindLabel = " sessionKind=";
@@ -67,7 +67,7 @@ internal sealed class CompileProgressTextProjector : ICliCommandProgressTextProj
             {
                 var writer = new SpanTextWriter(destination);
                 writer.Append(Prefix);
-                writer.Append(state.Entry.RunId);
+                writer.Append(state.Entry.ExecutionId);
                 writer.Append(RequestedModeLabel);
                 writer.Append(state.RequestedMode);
                 writer.Append(ResolvedModeLabel);
@@ -82,7 +82,7 @@ internal sealed class CompileProgressTextProjector : ICliCommandProgressTextProj
 
     private static string CreateRefreshStartedText (CompileRefreshStartedEntry entry)
     {
-        const string Prefix = "compile refresh runId=";
+        const string Prefix = "compile refresh executionId=";
         const string OriginLabel = " refreshOrigin=";
         const string SourceLabel = " observationSource=";
         const string Status = " started";
@@ -102,7 +102,7 @@ internal sealed class CompileProgressTextProjector : ICliCommandProgressTextProj
             {
                 var writer = new SpanTextWriter(destination);
                 writer.Append(Prefix);
-                writer.Append(state.Entry.RunId);
+                writer.Append(state.Entry.ExecutionId);
                 writer.Append(OriginLabel);
                 writer.Append(state.RefreshOrigin);
                 writer.Append(SourceLabel);
@@ -113,18 +113,11 @@ internal sealed class CompileProgressTextProjector : ICliCommandProgressTextProj
 
     private static string CreateRecoveredText (CompileRecoveredEntry entry)
     {
-        const string Prefix = "compile recovery runId=";
-        const string PollsLabel = " pollAttempts=";
-        const string SummaryLabel = " summaryJsonPath=";
+        const string Prefix = "compile recovery executionId=";
         const string Status = " recovered";
 
-        var pollAttemptsLength = SpanTextLength.GetInvariantInt64Length(entry.PollAttempts);
         var length = checked(Prefix.Length
             + SpanTextLength.GuidDLength
-            + PollsLabel.Length
-            + pollAttemptsLength
-            + SummaryLabel.Length
-            + entry.SummaryJsonPath.Length
             + Status.Length);
         return string.Create(
             length,
@@ -133,18 +126,14 @@ internal sealed class CompileProgressTextProjector : ICliCommandProgressTextProj
             {
                 var writer = new SpanTextWriter(destination);
                 writer.Append(Prefix);
-                writer.Append(state.RunId);
-                writer.Append(PollsLabel);
-                writer.AppendInvariant(state.PollAttempts);
-                writer.Append(SummaryLabel);
-                writer.Append(state.SummaryJsonPath);
+                writer.Append(state.ExecutionId);
                 writer.Append(Status);
             });
     }
 
     private static string CreateDiagnosticText (CompileDiagnosticEntry entry)
     {
-        const string Prefix = "compile diagnostic runId=";
+        const string Prefix = "compile diagnostic executionId=";
         const string OriginLabel = " refreshOrigin=";
         const string Separator = ": ";
 
@@ -160,7 +149,7 @@ internal sealed class CompileProgressTextProjector : ICliCommandProgressTextProj
                 {
                     var writer = new SpanTextWriter(destination);
                     writer.Append(Prefix);
-                    writer.Append(state.Entry.RunId);
+                    writer.Append(state.Entry.ExecutionId);
                     writer.Append(OriginLabel);
                     writer.Append(state.RefreshOrigin);
                 });
@@ -184,12 +173,12 @@ internal sealed class CompileProgressTextProjector : ICliCommandProgressTextProj
             + message.Length);
         return string.Create(
             diagnosticLength,
-            (entry.RunId, RefreshOrigin: refreshOrigin, Kind: kind, Code: code, Message: message),
+            (entry.ExecutionId, RefreshOrigin: refreshOrigin, Kind: kind, Code: code, Message: message),
             static (destination, state) =>
             {
                 var writer = new SpanTextWriter(destination);
                 writer.Append(Prefix);
-                writer.Append(state.RunId);
+                writer.Append(state.ExecutionId);
                 writer.Append(OriginLabel);
                 writer.Append(state.RefreshOrigin);
                 writer.Append(' ');
@@ -203,7 +192,7 @@ internal sealed class CompileProgressTextProjector : ICliCommandProgressTextProj
 
     private static string CreateCompletedText (CompileCompletedEntry entry)
     {
-        const string Prefix = "compile runId=";
+        const string Prefix = "compile executionId=";
         const string VerdictLabel = " verdict=";
         const string ErrorsLabel = " errorCount=";
         const string WarningsLabel = " warningCount=";
@@ -228,7 +217,7 @@ internal sealed class CompileProgressTextProjector : ICliCommandProgressTextProj
             {
                 var writer = new SpanTextWriter(destination);
                 writer.Append(Prefix);
-                writer.Append(state.Entry.RunId);
+                writer.Append(state.Entry.ExecutionId);
                 writer.Append(VerdictLabel);
                 writer.Append(state.Verdict);
                 writer.Append(ErrorsLabel);

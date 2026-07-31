@@ -62,6 +62,7 @@ internal static class PlayCommandAssert
             result,
             service.Invocations,
             UcliCommandNames.PlayEnter);
+        HasEmptyTransitionErrorPayload(result);
     }
 
     public static void InvalidTimeoutRejectedBeforeExitExecution (
@@ -72,6 +73,7 @@ internal static class PlayCommandAssert
             result,
             service.Invocations,
             UcliCommandNames.PlayExit);
+        HasEmptyTransitionErrorPayload(result);
     }
 
     public static void InvalidTimeoutRejectedBeforeStatusExecution (
@@ -94,5 +96,19 @@ internal static class PlayCommandAssert
         var invocation = Assert.Single(invocations);
         Assert.Equal(expectedCancellationToken, invocation.CancellationToken);
         Assert.Equal(expectedInput, invocation.Input);
+    }
+
+    private static void HasEmptyTransitionErrorPayload (
+        CommandExecutionResult result)
+    {
+        using var outputJson =
+            StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        var payload = outputJson.RootElement.GetProperty("payload");
+        JsonAssert.For(payload)
+            .HasString("payloadKind", "empty");
+        Assert.Equal(
+            new[] { "payloadKind" },
+            payload.EnumerateObject()
+                .Select(static property => property.Name));
     }
 }

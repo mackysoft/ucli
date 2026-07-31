@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 
@@ -13,7 +14,7 @@ internal interface IDaemonPingInfoClient
     /// <returns> A task that resolves to the decoded ping payload. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityProject" /> is <see langword="null" />. </exception>
     /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="timeout" /> is less than or equal to <see cref="TimeSpan.Zero" />. </exception>
-    ValueTask<IpcUnityEditorObservation> PingAndReadAsync (
+    ValueTask<UnityEditorObservation> PingAndReadAsync (
         ResolvedUnityProjectContext unityProject,
         TimeSpan timeout,
         bool validateProjectFingerprint,
@@ -29,7 +30,7 @@ internal interface IDaemonPingInfoClient
     /// <returns> A task that resolves to the decoded ping payload. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityProject" />, <paramref name="session" />, or <paramref name="deadline" /> is <see langword="null" />. </exception>
     /// <exception cref="ArgumentException"> Thrown when <paramref name="requestId" /> is empty. </exception>
-    ValueTask<IpcUnityEditorObservation> PingSessionAndReadAsync (
+    ValueTask<UnityEditorObservation> PingSessionAndReadAsync (
         ResolvedUnityProjectContext unityProject,
         DaemonSession session,
         Guid requestId,

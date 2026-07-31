@@ -1,4 +1,6 @@
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Execution;
+using MackySoft.Ucli.Contracts.Projects;
 
 namespace MackySoft.Ucli.Application.Tests;
 
@@ -15,7 +17,7 @@ internal static class MutationReadPostconditionStoreAssert
         return invocation;
     }
 
-    public static IpcExecuteReadPostconditionRequirement WrittenSceneTreeLiteRequirement (
+    public static ExecutionReadPostconditionRequirement WrittenSceneTreeLiteRequirement (
         TestMutationReadPostconditionStore store,
         string expectedStorageRoot,
         ProjectFingerprint expectedProjectFingerprint,
@@ -23,12 +25,12 @@ internal static class MutationReadPostconditionStoreAssert
     {
         var invocation = WrittenOnceForProject(store, expectedStorageRoot, expectedProjectFingerprint);
         var requirement = Assert.Single(invocation.ReadPostcondition.Requirements);
-        Assert.Equal(IpcExecuteReadPostconditionSurface.SceneTreeLite, requirement.Surface);
+        Assert.Equal(ExecutionReadPostconditionSurface.SceneTreeLite, requirement.Surface);
         Assert.Equal(new UnityScenePath(expectedScenePath), requirement.ScenePath);
         return requirement;
     }
 
-    public static IpcExecuteReadPostconditionRequirement WrittenAssetSearchRequirement (
+    public static ExecutionReadPostconditionRequirement WrittenAssetSearchRequirement (
         TestMutationReadPostconditionStore store,
         string expectedStorageRoot,
         ProjectFingerprint expectedProjectFingerprint,
@@ -36,7 +38,7 @@ internal static class MutationReadPostconditionStoreAssert
     {
         var invocation = WrittenOnceForProject(store, expectedStorageRoot, expectedProjectFingerprint);
         var requirement = Assert.Single(invocation.ReadPostcondition.Requirements);
-        Assert.Equal(IpcExecuteReadPostconditionSurface.AssetSearch, requirement.Surface);
+        Assert.Equal(ExecutionReadPostconditionSurface.AssetSearch, requirement.Surface);
         Assert.Equal(expectedMinSafeGeneratedAtUtc, requirement.MinSafeGeneratedAtUtc);
         return requirement;
     }

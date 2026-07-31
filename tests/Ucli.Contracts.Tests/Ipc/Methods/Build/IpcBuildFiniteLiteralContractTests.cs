@@ -3,6 +3,7 @@ using MackySoft.Ucli.Contracts.Assurance.Build;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Contracts.Tests.Ipc.Methods.Build;
 
@@ -133,7 +134,7 @@ public sealed class IpcBuildFiniteLiteralContractTests
                 OutputLayout: null,
                 BuildReportPath: "/tmp/ucli/build-report.json",
                 BuildLogPath: "/tmp/ucli/build.log",
-                AllowedEditorModes: [DaemonEditorMode.Batchmode],
+                AllowedEditorModes: [UnityEditorMode.Batchmode],
                 ProjectMutationMode: BuildProfileProjectMutationMode.Forbid,
                 RunnerKind: BuildRunnerKind.BuildPipeline,
                 ProfileDigest: Sha256Digest.Parse(new string('a', 64)),

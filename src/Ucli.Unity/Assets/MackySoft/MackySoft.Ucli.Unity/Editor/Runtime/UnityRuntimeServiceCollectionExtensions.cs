@@ -2,6 +2,7 @@ using System;
 using System.Threading;
 using MackySoft.Ucli.Contracts.Daemon;
 using Microsoft.Extensions.DependencyInjection;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Unity.Runtime
 {
@@ -14,7 +15,7 @@ namespace MackySoft.Ucli.Unity.Runtime
         /// <returns> The updated service collection. </returns>
         public static IServiceCollection AddUnityRuntimeServices (
             this IServiceCollection services,
-            DaemonEditorMode editorMode)
+            UnityEditorMode editorMode)
         {
             if (services == null)
             {

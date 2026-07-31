@@ -29,4 +29,5 @@ internal static class UnityDaemonReadinessPolicy
 
         return UnityEditorReadinessPolicy.IsWaitableRegressionError(firstError.Code);
     }
+
 }

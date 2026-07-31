@@ -1,6 +1,7 @@
 using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Shared.Execution.ReadPostcondition;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Execution;
 
 namespace MackySoft.Ucli.Application.Tests;
 
@@ -32,7 +33,7 @@ internal sealed class TestMutationReadPostconditionStore : IMutationReadPostcond
     public ValueTask<MutationReadPostconditionStoreOperationResult> WriteMergedAsync (
         AbsolutePath storageRoot,
         ProjectFingerprint projectFingerprint,
-        IpcExecuteReadPostcondition readPostcondition,
+        ExecutionReadPostcondition readPostcondition,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -49,6 +50,6 @@ internal sealed class TestMutationReadPostconditionStore : IMutationReadPostcond
     internal readonly record struct WriteInvocation (
         AbsolutePath StorageRoot,
         ProjectFingerprint ProjectFingerprint,
-        IpcExecuteReadPostcondition ReadPostcondition,
+        ExecutionReadPostcondition ReadPostcondition,
         CancellationToken CancellationToken);
 }

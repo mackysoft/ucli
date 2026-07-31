@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Contracts.Daemon;
 
@@ -10,7 +11,7 @@ public sealed record DaemonStartProgressEntry
     public DaemonStartProgressEntry (
         ProjectFingerprint ProjectFingerprint,
         int TimeoutMilliseconds,
-        DaemonEditorMode? EditorMode,
+        UnityEditorMode? EditorMode,
         DaemonStartupBlockedProcessPolicy OnStartupBlocked,
         CommandProgressResult? Result,
         string? StartStatus,
@@ -31,7 +32,7 @@ public sealed record DaemonStartProgressEntry
 
     public int TimeoutMilliseconds { get; }
 
-    public DaemonEditorMode? EditorMode { get; }
+    public UnityEditorMode? EditorMode { get; }
 
     public DaemonStartupBlockedProcessPolicy OnStartupBlocked { get; }
 

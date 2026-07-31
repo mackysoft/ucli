@@ -1,4 +1,5 @@
 using MackySoft.FileSystem;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Startup;
 
@@ -12,7 +13,7 @@ internal sealed record DaemonStartupObservation
         Guid? LaunchAttemptId,
         DaemonStartupProcessAction ProcessAction,
         DaemonStartupRetryDisposition RetryDisposition,
-        DaemonEditorMode? EditorMode,
+        UnityEditorMode? EditorMode,
         DaemonSessionOwnerKind? OwnerKind,
         bool? CanShutdownProcess,
         int? ProcessId,
@@ -114,7 +115,7 @@ internal sealed record DaemonStartupObservation
 
     public DaemonStartupRetryDisposition RetryDisposition { get; }
 
-    public DaemonEditorMode? EditorMode { get; }
+    public UnityEditorMode? EditorMode { get; }
 
     public DaemonSessionOwnerKind? OwnerKind { get; }
 

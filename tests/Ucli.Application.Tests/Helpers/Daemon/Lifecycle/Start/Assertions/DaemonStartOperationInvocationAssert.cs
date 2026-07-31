@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Tests;
 
@@ -155,7 +156,7 @@ internal static class DaemonStartOperationInvocationAssert
     public static RecordingDaemonLaunchService.Invocation FreshLaunchAttempted (
         RecordingDaemonLaunchService launchService,
         ResolvedUnityProjectContext? expectedUnityProject = null,
-        DaemonEditorMode? expectedEditorMode = null,
+        UnityEditorMode? expectedEditorMode = null,
         DaemonStartupBlockedProcessPolicy? expectedStartupBlockedPolicy = null)
     {
         var invocation = Assert.Single(launchService.Invocations);
@@ -182,7 +183,7 @@ internal static class DaemonStartOperationInvocationAssert
         RecordingDaemonExistingSessionGateService existingSessionGateService,
         RecordingDaemonLaunchService launchService,
         ResolvedUnityProjectContext? expectedUnityProject = null,
-        DaemonEditorMode? expectedEditorMode = null)
+        UnityEditorMode? expectedEditorMode = null)
     {
         ExistingSessionGateSkipped(existingSessionGateService);
         return FreshLaunchAttempted(launchService, expectedUnityProject, expectedEditorMode);

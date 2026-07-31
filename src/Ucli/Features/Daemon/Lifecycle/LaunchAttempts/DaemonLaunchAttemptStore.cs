@@ -6,6 +6,7 @@ using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Infrastructure.Storage;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Features.Daemon.Lifecycle.LaunchAttempts;
 
@@ -401,10 +402,10 @@ internal sealed class DaemonLaunchAttemptStore : IDaemonLaunchAttemptStore
                 $"Daemon launch-attempt processAction is invalid: {diagnosisPath}"));
         }
 
-        DaemonEditorMode? editorMode = null;
+        UnityEditorMode? editorMode = null;
         if (contract.EditorMode is not null)
         {
-            if (!TextVocabulary.TryGetValue(contract.EditorMode, out DaemonEditorMode parsedEditorMode))
+            if (!TextVocabulary.TryGetValue(contract.EditorMode, out UnityEditorMode parsedEditorMode))
             {
                 return DaemonLaunchAttemptReadResult.Failure(ExecutionError.InvalidArgument(
                     $"Daemon launch-attempt editorMode is invalid: {diagnosisPath}"));

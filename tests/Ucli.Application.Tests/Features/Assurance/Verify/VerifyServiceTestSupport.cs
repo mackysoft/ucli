@@ -10,13 +10,16 @@ using MackySoft.Ucli.Application.Features.Assurance.Verify.Profiles;
 using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Common;
 using MackySoft.Ucli.Application.Shared.Context;
 using MackySoft.Ucli.Application.Tests.Features.Assurance.Payload;
+using MackySoft.Ucli.Contracts.Editor;
+using MackySoft.Ucli.Contracts.Execution.Lifecycle;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Tests.Features.Assurance.Verify;
 
 internal static class VerifyServiceTestSupport
 {
-    public static readonly Guid CompileRunId = Guid.Parse("34c0c330-8798-4ec1-87ae-3d0ae87fc715");
+    public static readonly Guid CompileExecutionId =
+        Guid.Parse("34c0c330-8798-4ec1-87ae-3d0ae87fc715");
     public static readonly Guid TestRunId = Guid.Parse("83ca6714-565c-4c9d-a3ca-44446393afca");
 
     private static string ProjectPathJson { get; } = JsonSerializer.Serialize(ProjectPathTestValues.RepositoryUnityProject);
@@ -135,20 +138,14 @@ internal static class VerifyServiceTestSupport
         AssuranceClaimStatus claimStatus)
     {
         var failed = claimStatus == AssuranceClaimStatus.Failed;
-        var compileSummaryPath = Path.Combine(
-            project.ProjectPath,
-            ".ucli",
-            "local",
-            "compile",
-            "run-1",
-            "summary.json");
-        var compileDiagnosticsPath = Path.Combine(
-            project.ProjectPath,
-            ".ucli",
-            "local",
-            "compile",
-            "run-1",
-            "diagnostics.json");
+        var lifecycleExecutionRef =
+            AssuranceExecutionOutputTestFactory.CreateCompileExecutionRef(
+                CompileExecutionId);
+        var terminalRecordRef =
+            (PathArtifactRef)lifecycleExecutionRef.TerminalRecordRef;
+        var terminalRecordReport = AssuranceReportReference.FromPath(
+            terminalRecordRef.Path.Value,
+            terminalRecordRef.Digest);
         var scriptCompilation = new CompileScriptCompilationOutput(
             Started: true,
             Completed: true,
@@ -160,6 +157,10 @@ internal static class VerifyServiceTestSupport
                 PrimaryDiagnostic: null));
         return CompileExecutionResult.Completed(new CompileExecutionOutput(
             Project: project,
+            LifecycleExecutionRef: lifecycleExecutionRef,
+            Verdict: failed
+                ? Verdict.Fail
+                : Verdict.Pass,
             Verifiers:
             [
                 new CompileVerifierOutput(
@@ -179,7 +180,11 @@ internal static class VerifyServiceTestSupport
                     Required: true,
                     VerifierRef: new AssuranceVerifierId("compile"),
                     Statement: "Unity script compilation has no errors.",
-                    Subject: new Dictionary<string, object?>(StringComparer.Ordinal),
+                    Subject: new Dictionary<string, object?>(StringComparer.Ordinal)
+                    {
+                        ["kind"] = "unityCompile",
+                        ["executionId"] = CompileExecutionId,
+                    },
                     Evidence:
                     [
                         CompileScriptEvidenceOutput.Create(
@@ -190,18 +195,13 @@ internal static class VerifyServiceTestSupport
             ],
             Reports: new Dictionary<string, AssuranceReportReference>(StringComparer.Ordinal)
             {
-                [AssuranceReportIds.CompileSummary.Value] = AssuranceReportReference.FromPath(compileSummaryPath, digest: null),
-                [AssuranceReportIds.CompileDiagnostics.Value] = AssuranceReportReference.FromPath(compileDiagnosticsPath, digest: null),
+                [AssuranceReportIds.CompileSummary.Value] = terminalRecordReport,
+                [AssuranceReportIds.CompileDiagnostics.Value] = terminalRecordReport,
             },
             ResidualRisks: [],
-            RequestedMode: AssuranceRequestedExecutionMode.Auto,
-            ResolvedMode: AssuranceResolvedExecutionMode.Oneshot,
-            SessionKind: AssuranceSessionKind.TransientProbe,
-            TimeoutMilliseconds: 10000,
             Compile: new CompileOutput(
-                runId: CompileRunId,
                 refresh: new CompileRefreshOutput(
-                    Origin: CompileRefreshOrigin.AssetDatabaseRefresh,
+                    Origin: CompileLifecycleRefreshOrigin.AssetDatabaseRefresh,
                     Requested: true,
                     StartedAtUtc: DateTimeOffset.Parse("2026-05-17T00:00:00Z"),
                     CompletedAtUtc: DateTimeOffset.Parse("2026-05-17T00:00:01Z"),
@@ -216,11 +216,11 @@ internal static class VerifyServiceTestSupport
                 lifecycle: new CompileLifecycleOutput(
                     ServerVersion: "0.5.0",
                     UnityVersion: "6000.1.4f1",
-                    EditorMode: DaemonEditorMode.Batchmode,
-                    LifecycleState: IpcEditorLifecycleState.Ready,
+                    EditorMode: UnityEditorMode.Batchmode,
+                    LifecycleState: UnityEditorLifecycleState.Ready,
                     BlockingReason: null,
-                    CompileState: IpcCompileState.Ready,
-                    Generations: new IpcUnityGenerationSnapshot(
+                    CompileState: UnityEditorCompileState.Ready,
+                    Generations: new UnityEditorGenerationSnapshot(
                         CompileGeneration: 2,
                         DomainReloadGeneration: 1,
                         AssetRefreshGeneration: 1,

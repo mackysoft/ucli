@@ -1,6 +1,9 @@
 using System.Net.Sockets;
 using System.Text.Json;
+using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
+using MackySoft.Ucli.Contracts.Editor;
+using MackySoft.Ucli.Contracts.Execution.Lifecycle;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Tests.Helpers.Ipc;
 using MackySoft.Ucli.UnityIntegration.Ipc.Dispatch;
@@ -19,8 +22,8 @@ public sealed class UnityDaemonReadinessGateTests
     {
         var timeProvider = new ManualTimeProvider();
         var pingClient = new RecordingDaemonPingInfoClient(
-            CreatePingPayload(IpcEditorLifecycleState.Busy),
-            CreatePingPayload(IpcEditorLifecycleState.Ready));
+            CreatePingPayload(UnityEditorLifecycleState.Busy),
+            CreatePingPayload(UnityEditorLifecycleState.Ready));
         var daemonClient = new RecordingUnityIpcClient(CreateSuccessResult());
         var gate = new UnityDaemonReadinessGate(pingClient, timeProvider);
         var unityProject = CreateContext("wait-ready");
@@ -46,7 +49,7 @@ public sealed class UnityDaemonReadinessGateTests
     public async Task Execute_WhenFailFastBusyState_ReturnsEditorBusyWithoutDispatch ()
     {
         var pingClient = new RecordingDaemonPingInfoClient(CreatePingPayload(
-            IpcEditorLifecycleState.Busy));
+            UnityEditorLifecycleState.Busy));
         var daemonClient = new RecordingUnityIpcClient(CreateSuccessResult());
         var gate = new UnityDaemonReadinessGate(pingClient, TimeProvider.System);
 
@@ -69,7 +72,7 @@ public sealed class UnityDaemonReadinessGateTests
     public async Task Execute_WhenDomainReloadingState_ReturnsEditorDomainReloadingWithoutDispatch ()
     {
         var pingClient = new RecordingDaemonPingInfoClient(CreatePingPayload(
-            IpcEditorLifecycleState.DomainReloading));
+            UnityEditorLifecycleState.DomainReloading));
         var daemonClient = new RecordingUnityIpcClient(CreateSuccessResult());
         var gate = new UnityDaemonReadinessGate(pingClient, TimeProvider.System);
         var unityProject = CreateContext("domain-reloading");
@@ -93,9 +96,9 @@ public sealed class UnityDaemonReadinessGateTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenGuiSessionIsInPlaymode_ReturnsEditorPlaymodeWithoutDispatch ()
     {
-        var pingClient = new RecordingDaemonPingInfoClient(IpcUnityEditorObservationTestFactory.Create(
-            IpcEditorLifecycleState.PlayMode,
-            DaemonEditorMode.Gui));
+        var pingClient = new RecordingDaemonPingInfoClient(UnityEditorObservationTestFactory.Create(
+            UnityEditorLifecycleState.PlayMode,
+            UnityEditorMode.Gui));
         var daemonClient = new RecordingUnityIpcClient(CreateSuccessResult());
         var gate = new UnityDaemonReadinessGate(pingClient, TimeProvider.System);
         var unityProject = CreateContext("gui-playmode");
@@ -122,7 +125,7 @@ public sealed class UnityDaemonReadinessGateTests
         var timeProvider = new ManualTimeProvider();
         var pingClient = new RecordingDaemonPingInfoClient(
             new TimeoutException("probe timed out"),
-            CreatePingPayload(IpcEditorLifecycleState.Ready));
+            CreatePingPayload(UnityEditorLifecycleState.Ready));
         var daemonClient = new RecordingUnityIpcClient(CreateSuccessResult());
         var gate = new UnityDaemonReadinessGate(pingClient, timeProvider);
         var unityProject = CreateContext("probe-timeout-ready");
@@ -198,8 +201,8 @@ public sealed class UnityDaemonReadinessGateTests
     public async Task Execute_WhenLateWaitableRegressionOccurs_RewaitsAndRedispatches ()
     {
         var pingClient = new RecordingDaemonPingInfoClient(
-            CreatePingPayload(IpcEditorLifecycleState.Ready),
-            CreatePingPayload(IpcEditorLifecycleState.Ready));
+            CreatePingPayload(UnityEditorLifecycleState.Ready),
+            CreatePingPayload(UnityEditorLifecycleState.Ready));
         var daemonClient = new RecordingUnityIpcClient(
             UnityRequestExecutionResult.Success(UnityRequestResponseTestFactory.Create(CreateErrorResponse(
                 EditorLifecycleErrorCodes.EditorBusy,
@@ -229,7 +232,7 @@ public sealed class UnityDaemonReadinessGateTests
         var deadline = ExecutionDeadline.Start(TimeSpan.FromMilliseconds(100), timeProvider);
         timeProvider.Advance(TimeSpan.FromMilliseconds(120));
         var pingClient = new RecordingDaemonPingInfoClient(CreatePingPayload(
-            IpcEditorLifecycleState.Ready));
+            UnityEditorLifecycleState.Ready));
         var daemonClient = new RecordingUnityIpcClient(CreateSuccessResult());
         var gate = new UnityDaemonReadinessGate(pingClient, timeProvider);
 
@@ -264,6 +267,67 @@ public sealed class UnityDaemonReadinessGateTests
             ExecutionDeadline.Start(TimeSpan.FromSeconds(30), TimeProvider.System),
             new RecordingUnityIpcClient(CreateSuccessResult()),
             cancellationTokenSource.Token).AsTask());
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task ExecuteLifecycleStartAdmission_WhenPolicyWaitsAndRetriesRejectedStart_ReusesDispatch ()
+    {
+        var timeProvider = new ManualTimeProvider();
+        var pingClient = new RecordingDaemonPingInfoClient(
+            CreatePingPayload(UnityEditorLifecycleState.Ready),
+            CreatePingPayload(UnityEditorLifecycleState.Ready),
+            CreatePingPayload(UnityEditorLifecycleState.Ready));
+        var daemonClient = new RecordingUnityIpcClient(
+            UnityRequestExecutionResult.Success(
+                UnityRequestResponseTestFactory.Create(
+                    CreateErrorResponse(
+                        EditorLifecycleErrorCodes.EditorBusy,
+                        "The Start request was rejected before persistence."))),
+            CreateSuccessResult());
+        var gate = new UnityDaemonReadinessGate(pingClient, timeProvider);
+        var policy = new RecordingStartAdmissionPolicy(
+            UnityReadinessDecision.Wait(),
+            UnityReadinessDecision.Ready(),
+            UnityReadinessDecision.Ready());
+        var registration =
+            UnityIpcRequestBuilderTestSupport.CreateLifecycleRegistration(
+                LifecycleExecutionKind.Compile,
+                timeProvider: timeProvider,
+                executionTimeout: TimeSpan.FromSeconds(30));
+        var dispatchRequest = UnityIpcDispatchRequest.LifecycleExecution(
+            UnityIpcMethod.Compile,
+            registration,
+            requiredStart: null,
+            static start => IpcPayloadCodec.SerializeToElement(
+                new IpcCompileRequest(start)),
+            policy);
+
+        var executionTask = gate.ExecuteLifecycleStartAdmissionAsync(
+            CreateContext("lifecycle-start-policy"),
+            dispatchRequest,
+            policy,
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(30), timeProvider),
+            daemonClient,
+            CancellationToken.None).AsTask();
+
+        await pingClient.WaitForFirstInvocationAsync(
+            "Lifecycle start admission initial probe",
+            AsyncWaitTimeout);
+        timeProvider.Advance(TimeSpan.FromMilliseconds(100));
+        var result = await executionTask;
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(3, policy.EvaluationCount);
+        Assert.Equal(
+            EditorLifecycleErrorCodes.EditorBusy,
+            Assert.Single(policy.RejectedStartErrorCodes));
+        Assert.Equal(2, daemonClient.Invocations.Count);
+        Assert.All(
+            daemonClient.Invocations,
+            invocation => Assert.Same(
+                dispatchRequest,
+                invocation.DispatchRequest));
     }
 
     private static ResolvedUnityProjectContext CreateContext (string testCaseName)
@@ -312,9 +376,40 @@ public sealed class UnityDaemonReadinessGateTests
         return JsonDocument.Parse("{}").RootElement.Clone();
     }
 
-    private static IpcUnityEditorObservation CreatePingPayload (IpcEditorLifecycleState lifecycleState)
+    private static UnityEditorObservation CreatePingPayload (UnityEditorLifecycleState lifecycleState)
     {
-        return IpcUnityEditorObservationTestFactory.Create(lifecycleState);
+        return UnityEditorObservationTestFactory.Create(lifecycleState);
     }
 
+    private sealed class RecordingStartAdmissionPolicy :
+        ILifecycleExecutionStartAdmissionPolicy
+    {
+        private readonly Queue<UnityReadinessDecision> decisions;
+
+        public RecordingStartAdmissionPolicy (
+            params UnityReadinessDecision[] decisions)
+        {
+            this.decisions = new Queue<UnityReadinessDecision>(decisions);
+        }
+
+        public bool FailFast => false;
+
+        public int EvaluationCount { get; private set; }
+
+        public List<UcliCode> RejectedStartErrorCodes { get; } = [];
+
+        public UnityReadinessDecision Evaluate (
+            UnityEditorObservation observation)
+        {
+            ArgumentNullException.ThrowIfNull(observation);
+            EvaluationCount++;
+            return decisions.Dequeue();
+        }
+
+        public bool ShouldRetryAfterRejectedStart (UcliCode errorCode)
+        {
+            RejectedStartErrorCodes.Add(errorCode);
+            return true;
+        }
+    }
 }

@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Contracts.Editor;
+
 namespace MackySoft.Ucli.Application.Tests;
 
 internal static class DaemonStartProgressAssert
@@ -10,7 +12,7 @@ internal static class DaemonStartProgressAssert
         var startedEntry = Assert.IsType<DaemonStartProgressEntry>(progressSink.Entries[0].Payload);
         Assert.Equal(expectedProjectFingerprint, startedEntry.ProjectFingerprint);
         Assert.Equal(expectedTimeoutMilliseconds, startedEntry.TimeoutMilliseconds);
-        Assert.Equal(DaemonEditorMode.Batchmode, startedEntry.EditorMode);
+        Assert.Equal(UnityEditorMode.Batchmode, startedEntry.EditorMode);
         Assert.Equal(DaemonStartupBlockedProcessPolicy.Auto, startedEntry.OnStartupBlocked);
         Assert.Null(startedEntry.Result);
         var completedEntry = Assert.IsType<DaemonStartProgressEntry>(progressSink.Entries[^1].Payload);

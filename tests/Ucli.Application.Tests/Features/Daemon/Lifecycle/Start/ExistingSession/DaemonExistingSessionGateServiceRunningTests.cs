@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Contracts.Editor;
+
 namespace MackySoft.Ucli.Application.Tests.Daemon;
 
 using MackySoft.Ucli.Application.Shared.Foundation;
@@ -24,8 +26,8 @@ public sealed class DaemonExistingSessionGateServiceRunningTests
         Assert.NotNull(result);
         Assert.Equal(DaemonStartStatus.AlreadyRunning, result!.Status);
         Assert.Equal(session, result.Session);
-        var lifecycleObservation = Assert.IsType<IpcUnityEditorObservation>(result.LifecycleObservation);
-        Assert.Equal(IpcEditorLifecycleState.Ready, lifecycleObservation.State.LifecycleState);
+        var lifecycleObservation = Assert.IsType<UnityEditorObservation>(result.LifecycleObservation);
+        Assert.Equal(UnityEditorLifecycleState.Ready, lifecycleObservation.State.LifecycleState);
     }
 
     [Fact]
@@ -34,7 +36,7 @@ public sealed class DaemonExistingSessionGateServiceRunningTests
     {
         var session = DaemonSessionTestFactory.Create(
             processId: 4006,
-            editorMode: DaemonEditorMode.Gui);
+            editorMode: UnityEditorMode.Gui);
         var pingClient = new RecordingDaemonPingInfoClient(
             DaemonExistingSessionGateServiceTestSupport.CreateReadyPingResponse());
         var service = DaemonExistingSessionGateServiceTestSupport.CreateService(
@@ -60,7 +62,7 @@ public sealed class DaemonExistingSessionGateServiceRunningTests
         var session = DaemonSessionTestFactory.Create(processId: 4010);
         var service = DaemonExistingSessionGateServiceTestSupport.CreateService(
             daemonPingInfoClient: new RecordingDaemonPingInfoClient(
-                DaemonExistingSessionGateServiceTestSupport.CreatePingResponse(IpcEditorLifecycleState.Compiling)));
+                DaemonExistingSessionGateServiceTestSupport.CreatePingResponse(UnityEditorLifecycleState.Compiling)));
 
         var result = await service.TryHandleExistingSessionAsync(
             ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-existing-running-compiling")),
@@ -72,8 +74,8 @@ public sealed class DaemonExistingSessionGateServiceRunningTests
         Assert.NotNull(result);
         Assert.Equal(DaemonStartStatus.AlreadyRunning, result!.Status);
         Assert.Equal(session, result.Session);
-        var lifecycleObservation = Assert.IsType<IpcUnityEditorObservation>(result.LifecycleObservation);
-        Assert.Equal(IpcEditorLifecycleState.Compiling, lifecycleObservation.State.LifecycleState);
+        var lifecycleObservation = Assert.IsType<UnityEditorObservation>(result.LifecycleObservation);
+        Assert.Equal(UnityEditorLifecycleState.Compiling, lifecycleObservation.State.LifecycleState);
     }
 
     [Fact]
@@ -89,13 +91,13 @@ public sealed class DaemonExistingSessionGateServiceRunningTests
             ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-existing-running-mismatch")),
             session,
             ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new ManualTimeProvider()),
-            editorMode: DaemonEditorMode.Gui,
+            editorMode: UnityEditorMode.Gui,
             cancellationToken: CancellationToken.None);
 
         Assert.NotNull(result);
         Assert.Equal(DaemonStartStatus.Failed, result!.Status);
         var error = Assert.IsType<ExecutionError>(result.Error);
         Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
-        Assert.Equal(DaemonErrorCodes.DaemonEditorModeMismatch, error.Code);
+        Assert.Equal(DaemonErrorCodes.UnityEditorModeMismatch, error.Code);
     }
 }

@@ -13,11 +13,11 @@ internal static class PlayExitCommandResultFactory
         CliOutputJsonSerializerOptions.Default.GetTypeInfo(typeof(PlayExitExecutionOutput));
 
     public static JsonTypeInfo ErrorPayloadTypeInfo { get; } =
-        CommandErrorPayload.TypeInfo<PlayTransitionErrorCommandPayload>();
+        PlayTransitionErrorCommandPayloadFactory.TypeInfo;
 
     public static object CreateEmptyErrorPayload ()
     {
-        return CommandErrorPayload.Empty<PlayTransitionErrorCommandPayload>();
+        return PlayTransitionErrorCommandPayloadFactory.Empty();
     }
 
     /// <summary> Creates one command result for <c>play exit</c>. </summary>
@@ -38,10 +38,9 @@ internal static class PlayExitCommandResultFactory
         return CommandFailureProjector.Create(
             UcliCommandNames.PlayExit,
             executionResult.Message,
-            executionResult.Output == null
+            executionResult.FailureContext == null
                 ? CreateEmptyErrorPayload()
-                : CommandErrorPayload.Detailed(
-                    PlayTransitionErrorCommandPayload.From(executionResult.Output)),
+                : PlayTransitionErrorCommandPayloadFactory.From(executionResult),
             [executionResult.Error!]);
     }
 

@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Contracts.Editor;
+
 namespace MackySoft.Tests;
 
 internal static class DaemonStartServiceAssert
@@ -6,7 +8,7 @@ internal static class DaemonStartServiceAssert
         RecordingDaemonStartService service,
         string? expectedProjectPath,
         int? expectedTimeoutMilliseconds,
-        DaemonEditorMode? expectedEditorMode,
+        UnityEditorMode? expectedEditorMode,
         DaemonStartupBlockedProcessPolicy expectedOnStartupBlocked)
     {
         var invocation = Assert.Single(service.Invocations);

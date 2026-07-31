@@ -2,6 +2,8 @@ using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 using MackySoft.Ucli.Application.Features.Play.Common.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.Contracts.Execution.Lifecycle;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Features.Play.Common.Projection;
 
@@ -11,7 +13,7 @@ internal static class PlayOutputProjectionFactory
     /// <summary> Creates one public lifecycle output from a Unity Editor observation. </summary>
     /// <param name="observation"> The Unity Editor observation. </param>
     /// <returns> The public lifecycle snapshot output. </returns>
-    public static PlayLifecycleSnapshotOutput CreateSnapshotOutput (IpcUnityEditorObservation observation)
+    public static PlayLifecycleSnapshotOutput CreateSnapshotOutput (UnityEditorObservation observation)
     {
         ArgumentNullException.ThrowIfNull(observation);
 
@@ -22,10 +24,10 @@ internal static class PlayOutputProjectionFactory
             UnityVersion: StringValueNormalizer.TrimToNull(observation.UnityVersion),
             ProjectFingerprint: observation.ProjectFingerprint,
             LifecycleState: state.LifecycleState,
-            BlockingReason: IpcEditorLifecycleSemantics.ResolveBlockingReason(state.LifecycleState),
+            BlockingReason: UnityEditorLifecycleSemantics.ResolveBlockingReason(state.LifecycleState),
             CompileState: state.CompileState,
             Generations: state.Generations,
-            CanAcceptExecutionRequests: IpcEditorLifecycleSemantics.CanAcceptExecutionRequests(state.LifecycleState),
+            CanAcceptExecutionRequests: UnityEditorLifecycleSemantics.CanAcceptExecutionRequests(state.LifecycleState),
             ObservedAtUtc: observation.ObservedAtUtc,
             ActionRequired: observation.ActionRequired,
             PrimaryDiagnostic: CreatePrimaryDiagnosticOutput(observation.PrimaryDiagnostic),
@@ -35,7 +37,7 @@ internal static class PlayOutputProjectionFactory
     /// <summary> Creates one public transition output from a validated IPC transition result. </summary>
     /// <param name="transition"> The validated IPC transition result. </param>
     /// <returns> The projected transition output. </returns>
-    public static PlayTransitionOutput CreateTransitionOutput (IpcPlayTransitionResult transition)
+    public static PlayTransitionOutput CreateTransitionOutput (PlayLifecycleTransitionResult transition)
     {
         ArgumentNullException.ThrowIfNull(transition);
 
@@ -48,10 +50,29 @@ internal static class PlayOutputProjectionFactory
             ApplicationState: transition.ApplicationState);
     }
 
+    /// <summary> Creates one public success transition from a validated action result. </summary>
+    public static PlayTransitionSuccessOutput CreateSuccessTransitionOutput (
+        PlayLifecycleTransitionResult transition)
+    {
+        ArgumentNullException.ThrowIfNull(transition);
+        if (!transition.IsSuccessful)
+        {
+            throw new ArgumentException(
+                "A public Play Mode success transition requires a successful action result.",
+                nameof(transition));
+        }
+
+        return new PlayTransitionSuccessOutput(
+            transition.Transition,
+            transition.Result,
+            CreateSnapshotOutput(transition.Before),
+            CreateSnapshotOutput(transition.After!));
+    }
+
     /// <summary> Creates one public primary diagnostic projection. </summary>
     /// <param name="diagnostic"> The IPC diagnostic contract. </param>
     /// <returns> The diagnostic output, or <see langword="null" /> when absent or invalid. </returns>
-    public static DaemonPrimaryDiagnosticOutput? CreatePrimaryDiagnosticOutput (IpcPrimaryDiagnostic? diagnostic)
+    public static DaemonPrimaryDiagnosticOutput? CreatePrimaryDiagnosticOutput (UnityEditorPrimaryDiagnostic? diagnostic)
     {
         if (diagnostic?.Kind is not { } kind)
         {

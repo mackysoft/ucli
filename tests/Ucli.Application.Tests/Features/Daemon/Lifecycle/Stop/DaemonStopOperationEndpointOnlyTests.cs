@@ -3,6 +3,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Stop;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using static MackySoft.Ucli.Application.Tests.Daemon.DaemonStopOperationTestSupport;
 using static MackySoft.Ucli.Application.Tests.DaemonCleanupInvocationAssert;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Tests.Daemon;
 
@@ -16,7 +17,7 @@ public sealed class DaemonStopOperationEndpointOnlyTests
             processId: 456,
             ownerKind: DaemonSessionOwnerKind.User,
             canShutdownProcess: false,
-            editorMode: DaemonEditorMode.Gui);
+            editorMode: UnityEditorMode.Gui);
         var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(
             ProjectFingerprintTestFactory.Create("fingerprint-stop-disallowed"));
         var shutdownClient = new RecordingDaemonShutdownClient
@@ -52,7 +53,7 @@ public sealed class DaemonStopOperationEndpointOnlyTests
             processId: 456,
             ownerKind: DaemonSessionOwnerKind.User,
             canShutdownProcess: false,
-            editorMode: DaemonEditorMode.Gui);
+            editorMode: UnityEditorMode.Gui);
         var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(
             ProjectFingerprintTestFactory.Create("fingerprint-stop-endpoint-timeout"));
         var shutdownClient = new RecordingDaemonShutdownClient
@@ -86,7 +87,7 @@ public sealed class DaemonStopOperationEndpointOnlyTests
             processId: 457,
             ownerKind: DaemonSessionOwnerKind.Cli,
             canShutdownProcess: false,
-            editorMode: DaemonEditorMode.Gui);
+            editorMode: UnityEditorMode.Gui);
         var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(
             ProjectFingerprintTestFactory.Create("fingerprint-stop-cli-endpoint-only"));
         var shutdownClient = new RecordingDaemonShutdownClient

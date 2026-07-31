@@ -24,6 +24,9 @@ using UnityEngine.SceneManagement;
 
 #nullable enable
 
+using MackySoft.Ucli.Contracts.Editor;
+using MackySoft.Ucli.Contracts.Projects;
+
 namespace MackySoft.Ucli.Unity.Tests
 {
     public sealed class Unity6000BuildProfileInputResolverTests
@@ -190,9 +193,9 @@ namespace MackySoft.Ucli.Unity.Tests
                 new CountingBuildTargetSupportProbe()));
         }
 
-        private static IpcProjectIdentity CreateProjectIdentity ()
+        private static UnityProjectIdentity CreateProjectIdentity ()
         {
-            return new IpcProjectIdentity(
+            return new UnityProjectIdentity(
                 projectPath: UnityProjectPathResolver.ResolveProjectRootPath().Value,
                 projectFingerprint: ProjectFingerprint,
                 unityVersion: Application.unityVersion);
@@ -213,7 +216,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 OutputLayout: null,
                 BuildReportPath: Path.Combine(outputPath, "build-report.json"),
                 BuildLogPath: Path.Combine(outputPath, "build.log"),
-                AllowedEditorModes: new[] { DaemonEditorMode.Batchmode },
+                AllowedEditorModes: new[] { UnityEditorMode.Batchmode },
                 ProjectMutationMode: BuildProfileProjectMutationMode.Forbid,
                 RunnerKind: BuildRunnerKind.BuildPipeline,
                 ProfileDigest: Sha256Digest.Parse(new string('a', 64)),
@@ -313,22 +316,22 @@ namespace MackySoft.Ucli.Unity.Tests
                 File.ReadAllBytes(UnityAssetPathUtility.ResolveProjectRelativePath(assetPath).Value));
         }
 
-        private static UnityEditorObservation CreateObservation (int captureIndex)
+        private static UnityEditorRuntimeObservation CreateObservation (int captureIndex)
         {
             var generation = (long)captureIndex * 10L;
-            return new UnityEditorObservation(
+            return new UnityEditorRuntimeObservation(
                 state: new UnityEditorStateSnapshot(
-                    editorMode: DaemonEditorMode.Batchmode,
-                    lifecycleState: IpcEditorLifecycleState.Ready,
-                    compileState: IpcCompileState.Ready,
-                    generations: new IpcUnityGenerationSnapshot(
+                    editorMode: UnityEditorMode.Batchmode,
+                    lifecycleState: UnityEditorLifecycleState.Ready,
+                    compileState: UnityEditorCompileState.Ready,
+                    generations: new UnityEditorGenerationSnapshot(
                         CompileGeneration: generation + 1,
                         DomainReloadGeneration: generation + 2,
                         AssetRefreshGeneration: generation + 4,
                         PlayModeGeneration: generation + 3),
-                    playMode: new IpcPlayModeSnapshot(
-                        State: IpcPlayModeState.Stopped,
-                        Transition: IpcPlayModeTransition.None,
+                    playMode: new UnityEditorPlayModeSnapshot(
+                        State: UnityEditorPlayModeState.Stopped,
+                        Transition: UnityEditorPlayModeTransition.None,
                         IsPlaying: false,
                         IsPlayingOrWillChangePlaymode: false)),
                 observedAtUtc: new DateTimeOffset(2026, 6, 20, 0, 0, 0, TimeSpan.Zero));
@@ -338,7 +341,7 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             private int captureCount;
 
-            public UnityEditorObservation CaptureObservation ()
+            public UnityEditorRuntimeObservation CaptureObservation ()
             {
                 captureCount++;
                 return CreateObservation(captureCount);

@@ -3,6 +3,7 @@ using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Tests.Helpers.Ipc;
 using MackySoft.Ucli.UnityIntegration.Indexing.Scenes;
+using MackySoft.Ucli.Contracts.Projects;
 
 namespace MackySoft.Ucli.Tests.Scenes;
 

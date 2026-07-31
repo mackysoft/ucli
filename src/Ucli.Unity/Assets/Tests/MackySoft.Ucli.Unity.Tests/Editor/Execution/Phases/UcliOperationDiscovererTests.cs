@@ -26,6 +26,7 @@ namespace MackySoft.Ucli.Unity.Tests
     {
         private const string AssemblyCSharpEditorFixtureOperationName = "ucli.tests.assembly-csharp-editor.discover";
         private const string AssemblyCSharpEditorAssemblyName = "Assembly-CSharp-Editor";
+        private const string RemovedProjectRefreshOperationName = "ucli.project.refresh";
 
         private readonly ServiceProvider operationServiceProvider = CreateOperationServiceProvider();
 
@@ -279,6 +280,25 @@ namespace MackySoft.Ucli.Unity.Tests
                     Is.False,
                     $"Public operation schema declared request-local property '{UcliOperationContractPropertyNames.Alias}': {snapshot.Catalog.Operations[i].Name}");
             }
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void BuildCatalog_WhenLegacyProjectRefreshOperationWasRemoved_OmitsDiscoveryAndDescribeContracts ()
+        {
+            var operations = UcliOperationDiscoverer.Discover(operationServiceProvider);
+
+            var snapshot = UcliOperationCatalogSnapshotBuilder.Build(operations);
+
+            Assert.That(
+                ContainsOperation(operations, RemovedProjectRefreshOperationName),
+                Is.False);
+            Assert.That(
+                snapshot.Catalog.Operations!.Select(static entry => entry.Name),
+                Does.Not.Contain(RemovedProjectRefreshOperationName));
+            Assert.That(
+                snapshot.RequestValidationCatalog.Operations!.Select(static entry => entry.Name),
+                Does.Not.Contain(RemovedProjectRefreshOperationName));
         }
 
         [Test]

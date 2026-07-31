@@ -7,6 +7,7 @@ using MackySoft.Ucli.Application.Features.Daemon.UseCases.Inventory;
 using MackySoft.Ucli.Application.Shared.Git;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Tests.Daemon;
 
@@ -124,9 +125,9 @@ internal static class DaemonListQueryServiceTestSupport
                 "fp-current",
                 "unity.log")),
             StartupPhase: DaemonDiagnosisStartupPhase.EndpointRegistration,
-            ActionRequired: DaemonDiagnosisActionRequired.InspectUnityLog,
+            ActionRequired: UnityEditorActionRequired.InspectUnityLog,
             PrimaryDiagnostic: new DaemonPrimaryDiagnostic(
-                Kind: DaemonDiagnosisPrimaryDiagnosticKind.ProcessExit,
+                Kind: UnityEditorPrimaryDiagnosticKind.ProcessExit,
                 Code: null,
                 File: null,
                 Line: null,
@@ -150,12 +151,12 @@ internal static class DaemonListQueryServiceTestSupport
         return CreatePingClient((_, _, _, _, cancellationToken) =>
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return ValueTask.FromException<IpcUnityEditorObservation>(exception);
+            return ValueTask.FromException<UnityEditorObservation>(exception);
         });
     }
 
     public static RecordingDaemonPingInfoClient CreatePingClient (
-        Func<ResolvedUnityProjectContext, DaemonSession, ExecutionDeadline, bool, CancellationToken, ValueTask<IpcUnityEditorObservation>> handler)
+        Func<ResolvedUnityProjectContext, DaemonSession, ExecutionDeadline, bool, CancellationToken, ValueTask<UnityEditorObservation>> handler)
     {
         ArgumentNullException.ThrowIfNull(handler);
 
@@ -165,9 +166,9 @@ internal static class DaemonListQueryServiceTestSupport
         };
     }
 
-    public static IpcUnityEditorObservation CreatePingResponse (ResolvedUnityProjectContext unityProject)
+    public static UnityEditorObservation CreatePingResponse (ResolvedUnityProjectContext unityProject)
     {
-        return IpcUnityEditorObservationTestFactory.Create(
+        return UnityEditorObservationTestFactory.Create(
             projectFingerprint: unityProject.ProjectFingerprint);
     }
 

@@ -2,6 +2,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Contracts.Ipc;
 using DaemonStartStartupProgressObservation = MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Progress.DaemonStartStartupProgressObservation;
 using IDaemonStartProgressObserver = MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Progress.IDaemonStartProgressObserver;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.TestSupport;
 
@@ -74,7 +75,7 @@ internal sealed class CollectingDaemonStartProgressObserver : IDaemonStartProgre
     }
 
     public ValueTask EmitLifecycleObservedAsync (
-        IpcUnityEditorObservation lifecycleObservation,
+        UnityEditorObservation lifecycleObservation,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();

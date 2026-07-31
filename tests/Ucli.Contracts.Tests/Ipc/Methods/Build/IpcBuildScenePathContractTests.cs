@@ -3,6 +3,7 @@ using MackySoft.Ucli.Contracts.Assurance.Build;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Contracts.Tests.Ipc.Methods.Build;
 
@@ -15,7 +16,7 @@ public sealed class IpcBuildScenePathContractTests
     [Trait("Size", "Small")]
     public void IpcBuildRunRequest_WhenScenePathsIsNull_ThrowsArgumentNullException ()
     {
-        var exception = Assert.Throws<ArgumentNullException>(() => CreateRequest(null!, [DaemonEditorMode.Batchmode]));
+        var exception = Assert.Throws<ArgumentNullException>(() => CreateRequest(null!, [UnityEditorMode.Batchmode]));
 
         Assert.Equal("ScenePaths", exception.ParamName);
     }
@@ -24,7 +25,7 @@ public sealed class IpcBuildScenePathContractTests
     [Trait("Size", "Small")]
     public void IpcBuildRunRequest_WhenScenePathsContainsNull_ThrowsArgumentException ()
     {
-        var exception = Assert.Throws<ArgumentException>(() => CreateRequest([null!], [DaemonEditorMode.Batchmode]));
+        var exception = Assert.Throws<ArgumentException>(() => CreateRequest([null!], [UnityEditorMode.Batchmode]));
 
         Assert.Equal("ScenePaths", exception.ParamName);
     }
@@ -35,7 +36,7 @@ public sealed class IpcBuildScenePathContractTests
     {
         var expected = new SceneAssetPath("Assets/Scenes/Main.unity");
         var source = new[] { expected };
-        var request = CreateRequest(source, [DaemonEditorMode.Batchmode]);
+        var request = CreateRequest(source, [UnityEditorMode.Batchmode]);
 
         source[0] = new SceneAssetPath("Assets/Scenes/Other.unity");
 
@@ -68,14 +69,14 @@ public sealed class IpcBuildScenePathContractTests
     [Trait("Size", "Small")]
     public void IpcBuildRunRequest_WhenAllowedEditorModeSourceChanges_PreservesSnapshot ()
     {
-        var source = new[] { DaemonEditorMode.Batchmode };
+        var source = new[] { UnityEditorMode.Batchmode };
         var request = CreateRequest(
             [new SceneAssetPath("Assets/Scenes/Main.unity")],
             source);
 
-        source[0] = DaemonEditorMode.Gui;
+        source[0] = UnityEditorMode.Gui;
 
-        Assert.Equal(DaemonEditorMode.Batchmode, Assert.Single(request.AllowedEditorModes));
+        Assert.Equal(UnityEditorMode.Batchmode, Assert.Single(request.AllowedEditorModes));
     }
 
     [Fact]
@@ -111,7 +112,7 @@ public sealed class IpcBuildScenePathContractTests
 
     private static IpcBuildRunRequest CreateRequest (
         IReadOnlyList<SceneAssetPath> scenePaths,
-        IReadOnlyList<DaemonEditorMode> allowedEditorModes)
+        IReadOnlyList<UnityEditorMode> allowedEditorModes)
     {
         return new IpcBuildRunRequest(
             RunId: RunId,

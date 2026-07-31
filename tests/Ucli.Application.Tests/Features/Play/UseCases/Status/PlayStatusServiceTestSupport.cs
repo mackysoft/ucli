@@ -5,6 +5,7 @@ using MackySoft.Ucli.Application.Features.Play.Common;
 using MackySoft.Ucli.Application.Features.Play.UseCases.Status;
 using MackySoft.Ucli.Application.Shared.Context;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Tests.Play;
 
@@ -54,7 +55,7 @@ internal static class PlayStatusServiceTestSupport
     public static DaemonSession CreatePlaySession ()
     {
         return DaemonSessionTestFactory.CreateUserOwned(
-            DaemonEditorMode.Gui,
+            UnityEditorMode.Gui,
             PlaySessionEndpointAddress,
             editorInstanceId: PlaySessionEditorInstanceId);
     }
@@ -67,8 +68,8 @@ internal static class PlayStatusServiceTestSupport
 
     public static DaemonLifecycleObservation CreateLifecycleObservation (
         DaemonSession session,
-        IpcEditorLifecycleState lifecycleState = IpcEditorLifecycleState.PlayMode,
-        IpcPlayModeState playModeState = IpcPlayModeState.Playing,
+        UnityEditorLifecycleState lifecycleState = UnityEditorLifecycleState.PlayMode,
+        UnityEditorPlayModeState playModeState = UnityEditorPlayModeState.Playing,
         bool isPlaying = true,
         bool isPlayingOrWillChangePlaymode = true,
         long playModeGeneration = 9,
@@ -78,19 +79,19 @@ internal static class PlayStatusServiceTestSupport
             processId: session.ProcessId!.Value,
             processStartedAtUtc: session.ProcessStartedAtUtc!.Value,
             state: new UnityEditorStateSnapshot(
-                editorMode: DaemonEditorMode.Gui,
+                editorMode: UnityEditorMode.Gui,
                 lifecycleState: lifecycleState,
-                compileState: lifecycleState == IpcEditorLifecycleState.Compiling
-                    ? IpcCompileState.Compiling
-                    : IpcCompileState.Ready,
-                generations: new IpcUnityGenerationSnapshot(
+                compileState: lifecycleState == UnityEditorLifecycleState.Compiling
+                    ? UnityEditorCompileState.Compiling
+                    : UnityEditorCompileState.Ready,
+                generations: new UnityEditorGenerationSnapshot(
                     CompileGeneration: 12,
                     DomainReloadGeneration: 7,
                     AssetRefreshGeneration: 4,
                     PlayModeGeneration: playModeGeneration),
-                playMode: new IpcPlayModeSnapshot(
+                playMode: new UnityEditorPlayModeSnapshot(
                     State: playModeState,
-                    Transition: IpcPlayModeTransition.None,
+                    Transition: UnityEditorPlayModeTransition.None,
                     IsPlaying: isPlaying,
                     IsPlayingOrWillChangePlaymode: isPlayingOrWillChangePlaymode)),
             observedAtUtc: ObservedAtUtc,
@@ -104,26 +105,26 @@ internal static class PlayStatusServiceTestSupport
     }
 
     public static IpcPlayStatusResponse CreateStatusResponse (
-        IpcPlayModeSnapshot? playMode = null,
+        UnityEditorPlayModeSnapshot? playMode = null,
         long playModeGeneration = 2,
         ProjectFingerprint? projectFingerprint = null)
     {
-        return new IpcPlayStatusResponse(new IpcUnityEditorObservation(
+        return new IpcPlayStatusResponse(new UnityEditorObservation(
             serverVersion: "0.5.0",
             unityVersion: "6000.1.4f1",
             projectFingerprint: projectFingerprint ?? PlayProjectContext.UnityProject.ProjectFingerprint,
             state: new UnityEditorStateSnapshot(
-                editorMode: DaemonEditorMode.Gui,
-                lifecycleState: IpcEditorLifecycleState.Ready,
-                compileState: IpcCompileState.Ready,
-                generations: new IpcUnityGenerationSnapshot(
+                editorMode: UnityEditorMode.Gui,
+                lifecycleState: UnityEditorLifecycleState.Ready,
+                compileState: UnityEditorCompileState.Ready,
+                generations: new UnityEditorGenerationSnapshot(
                     CompileGeneration: 12,
                     DomainReloadGeneration: 7,
                     AssetRefreshGeneration: 4,
                     PlayModeGeneration: playModeGeneration),
-                playMode: playMode ?? new IpcPlayModeSnapshot(
-                    State: IpcPlayModeState.Stopped,
-                    Transition: IpcPlayModeTransition.None,
+                playMode: playMode ?? new UnityEditorPlayModeSnapshot(
+                    State: UnityEditorPlayModeState.Stopped,
+                    Transition: UnityEditorPlayModeTransition.None,
                     IsPlaying: false,
                     IsPlayingOrWillChangePlaymode: false)),
             observedAtUtc: ObservedAtUtc,

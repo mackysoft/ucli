@@ -1,3 +1,4 @@
+using System;
 using UnityEditor;
 
 namespace MackySoft.Ucli.Unity.Runtime
@@ -8,13 +9,31 @@ namespace MackySoft.Ucli.Unity.Runtime
         /// <inheritdoc />
         public void EnterPlayMode ()
         {
-            EditorApplication.EnterPlaymode();
+            try
+            {
+                EditorApplication.EnterPlaymode();
+            }
+            catch (Exception exception)
+            {
+                throw new UnityPlayModeTransitionException(
+                    "Unity rejected the Play Mode enter request.",
+                    exception);
+            }
         }
 
         /// <inheritdoc />
         public void ExitPlayMode ()
         {
-            EditorApplication.ExitPlaymode();
+            try
+            {
+                EditorApplication.ExitPlaymode();
+            }
+            catch (Exception exception)
+            {
+                throw new UnityPlayModeTransitionException(
+                    "Unity rejected the Play Mode exit request.",
+                    exception);
+            }
         }
     }
 }

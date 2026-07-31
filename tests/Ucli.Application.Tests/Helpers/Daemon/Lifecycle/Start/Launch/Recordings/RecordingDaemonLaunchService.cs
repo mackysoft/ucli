@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Progress;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Tests;
 
@@ -7,16 +8,16 @@ internal sealed class RecordingDaemonLaunchService : IDaemonLaunchService
     private readonly List<Invocation> invocations = [];
 
     public DaemonStartResult NextResult { get; set; } =
-        DaemonStartResult.Started(DaemonSessionTestFactory.Create(processId: 9090), IpcUnityEditorObservationTestFactory.Create());
+        DaemonStartResult.Started(DaemonSessionTestFactory.Create(processId: 9090), UnityEditorObservationTestFactory.Create());
 
-    public Func<ResolvedUnityProjectContext, ExecutionDeadline, DaemonEditorMode, DaemonStartupBlockedProcessPolicy, IDaemonStartProgressObserver?, CancellationToken, ValueTask<DaemonStartResult>>? Handler { get; set; }
+    public Func<ResolvedUnityProjectContext, ExecutionDeadline, UnityEditorMode, DaemonStartupBlockedProcessPolicy, IDaemonStartProgressObserver?, CancellationToken, ValueTask<DaemonStartResult>>? Handler { get; set; }
 
     public IReadOnlyList<Invocation> Invocations => invocations;
 
     public ValueTask<DaemonStartResult> LaunchAsync (
         ResolvedUnityProjectContext unityProject,
         ExecutionDeadline deadline,
-        DaemonEditorMode editorMode,
+        UnityEditorMode editorMode,
         DaemonStartupBlockedProcessPolicy onStartupBlocked,
         IDaemonStartProgressObserver? progressObserver = null,
         CancellationToken cancellationToken = default)
@@ -36,7 +37,7 @@ internal sealed class RecordingDaemonLaunchService : IDaemonLaunchService
     internal readonly record struct Invocation (
         ResolvedUnityProjectContext UnityProject,
         ExecutionDeadline Deadline,
-        DaemonEditorMode EditorMode,
+        UnityEditorMode EditorMode,
         DaemonStartupBlockedProcessPolicy OnStartupBlocked,
         IDaemonStartProgressObserver? ProgressObserver,
         CancellationToken CancellationToken);

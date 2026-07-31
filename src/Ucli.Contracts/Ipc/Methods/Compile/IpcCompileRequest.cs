@@ -1,24 +1,23 @@
 using System.Text.Json.Serialization;
+using MackySoft.Ucli.Contracts.Execution.Lifecycle;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
-/// <summary> Represents a <c>compile</c> IPC request payload. </summary>
+/// <summary> Represents a typed <c>compile</c> Lifecycle Execution request. </summary>
 public sealed record IpcCompileRequest
 {
-    /// <summary> Initializes a compile request for one non-empty run identifier. </summary>
-    /// <param name="RunId"> The CLI-generated compile run identifier. </param>
-    /// <exception cref="ArgumentException"> Thrown when <paramref name="RunId" /> is empty. </exception>
+    /// <summary> Initializes one request from the durable compile start binding. </summary>
     [JsonConstructor]
-    public IpcCompileRequest (Guid RunId)
+    public IpcCompileRequest (LifecycleExecutionStartBinding start)
     {
-        if (RunId == Guid.Empty)
-        {
-            throw new ArgumentException("Run id must not be empty.", nameof(RunId));
-        }
-
-        this.RunId = RunId;
+        Start = IpcLifecycleExecutionContractGuard.RequireStart(
+            start,
+            LifecycleExecutionKind.Compile,
+            nameof(start));
     }
 
-    /// <summary> Gets the non-empty compile run identifier. </summary>
-    public Guid RunId { get; }
+    /// <summary> Gets the durable facts fixed before the compile side effect. </summary>
+    [JsonInclude]
+    [JsonRequired]
+    public LifecycleExecutionStartBinding Start { get; private init; }
 }

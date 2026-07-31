@@ -3,12 +3,17 @@ using MackySoft.Ucli.Application.Features.Assurance.Compile.Payload;
 using MackySoft.Ucli.Application.Features.Assurance.Ready;
 using MackySoft.Ucli.Application.Features.Assurance.Verify.Payload;
 using MackySoft.Ucli.Contracts.Assurance.Build;
+using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Execution.Lifecycle;
 
 namespace MackySoft.Ucli.Application.Tests.Features.Assurance.Payload;
 
 internal static class AssuranceExecutionOutputTestFactory
 {
+    private static readonly Guid CompileExecutionId =
+        Guid.Parse("22222222-2222-2222-2222-222222222222");
+
     public static BuildOutput CreateBuildOutput ()
     {
         var digest = Sha256DigestTestFactory.Create('1');
@@ -53,9 +58,8 @@ internal static class AssuranceExecutionOutputTestFactory
     public static CompileOutput CreateCompileOutput ()
     {
         return new CompileOutput(
-            Guid.Parse("22222222-2222-2222-2222-222222222222"),
             new CompileRefreshOutput(
-                CompileRefreshOrigin.AssetDatabaseRefresh,
+                CompileLifecycleRefreshOrigin.AssetDatabaseRefresh,
                 Requested: true,
                 DateTimeOffset.UnixEpoch,
                 DateTimeOffset.UnixEpoch,
@@ -84,6 +88,28 @@ internal static class AssuranceExecutionOutputTestFactory
                 ObservedAtUtc: DateTimeOffset.UnixEpoch,
                 ActionRequired: null,
                 PrimaryDiagnostic: null));
+    }
+
+    public static TerminalExecutionRef CreateCompileExecutionRef (
+        Guid? executionId = null)
+    {
+        var actualExecutionId = executionId ?? CompileExecutionId;
+        var definition = new LifecycleExecutionDefinition(
+            LifecycleExecutionKind.Compile);
+        return new TerminalExecutionRef(
+            definition.ExecutionKind,
+            actualExecutionId,
+            LifecycleExecutionDefinitionDigest.Calculate(definition),
+            new ExecutionState(TextVocabulary.GetText(LifecycleExecutionState.Completed)),
+            statusLocator: null,
+            new PathArtifactRef(
+                LifecycleExecutionArtifactContract.TerminalRecordKind,
+                LifecycleExecutionArtifactContract.TerminalRecordMediaType,
+                new ArtifactPath(
+                    $"lifecycle-executions/{actualExecutionId:N}/terminal-record.json"),
+                Sha256Digest.Parse(new string('a', 64)),
+                sizeBytes: 512,
+                DateTimeOffset.UnixEpoch));
     }
 
     public static ReadyLifecycleOutput CreateReadyLifecycleOutput ()

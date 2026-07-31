@@ -1,4 +1,6 @@
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Execution;
+using MackySoft.Ucli.Contracts.Projects;
 
 namespace MackySoft.Ucli.TestSupport;
 
@@ -9,32 +11,32 @@ internal static class ReadPostconditionTestFactory
     public static readonly DateTimeOffset DefaultMinSafeGeneratedAtUtc =
         DateTimeOffset.Parse("2026-04-23T01:02:03+00:00");
 
-    public static IpcExecuteReadPostcondition CreateAssetSearch (
+    public static ExecutionReadPostcondition CreateAssetSearch (
         DateTimeOffset? minSafeGeneratedAtUtc = null)
     {
         return Create(
-            IpcExecuteReadPostconditionSurface.AssetSearch,
+            ExecutionReadPostconditionSurface.AssetSearch,
             minSafeGeneratedAtUtc);
     }
 
-    public static IpcExecuteReadPostcondition CreateSceneTreeLite (
+    public static ExecutionReadPostcondition CreateSceneTreeLite (
         DateTimeOffset? minSafeGeneratedAtUtc = null,
         string scenePath = SceneTreeLiteScenePath)
     {
         return Create(
-            IpcExecuteReadPostconditionSurface.SceneTreeLite,
+            ExecutionReadPostconditionSurface.SceneTreeLite,
             minSafeGeneratedAtUtc,
             scenePath);
     }
 
-    private static IpcExecuteReadPostcondition Create (
-        IpcExecuteReadPostconditionSurface surface,
+    private static ExecutionReadPostcondition Create (
+        ExecutionReadPostconditionSurface surface,
         DateTimeOffset? minSafeGeneratedAtUtc,
         string? scenePath = null)
     {
-        return new IpcExecuteReadPostcondition(
+        return new ExecutionReadPostcondition(
         [
-            new IpcExecuteReadPostconditionRequirement(
+            new ExecutionReadPostconditionRequirement(
                 Surface: surface,
                 MinSafeGeneratedAtUtc: minSafeGeneratedAtUtc ?? DefaultMinSafeGeneratedAtUtc,
                 ScenePath: scenePath == null ? null : new UnityScenePath(scenePath)),

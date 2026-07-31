@@ -5,7 +5,6 @@ using MackySoft.Ucli.Application.Features.Assurance.Compile.Catalog;
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Contracts;
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Execution;
 using MackySoft.Ucli.Application.Features.Assurance.Ready;
-using MackySoft.Ucli.Application.Features.Assurance.Semantics;
 using MackySoft.Ucli.Application.Features.Assurance.Verify.Catalog;
 using MackySoft.Ucli.Application.Features.Assurance.Verify.Contracts;
 using MackySoft.Ucli.Application.Features.Assurance.Verify.Execution;
@@ -47,7 +46,6 @@ using MackySoft.Ucli.Application.Features.Requests.Plan.UseCases.Plan;
 using MackySoft.Ucli.Application.Features.Requests.Query.UseCases.Query;
 using MackySoft.Ucli.Application.Features.Requests.Refresh.UseCases.Refresh;
 using MackySoft.Ucli.Application.Features.Requests.Resolve.UseCases.Resolve;
-using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.OperationExecute;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Phase;
 using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Preparation;
@@ -65,6 +63,7 @@ using MackySoft.Ucli.Application.Features.Testing.Run.UseCases.TestRun.Pipeline;
 using MackySoft.Ucli.Application.Features.Testing.Run.UseCases.TestRun.Preflight;
 using MackySoft.Ucli.Application.Features.Testing.Run.UseCases.TestRun.Projection;
 using MackySoft.Ucli.Application.Shared.Context;
+using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Assets;
 using MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Scenes;
 using MackySoft.Ucli.Application.Shared.Identifiers;
@@ -102,6 +101,7 @@ public static class UcliApplicationServiceCollectionExtensions
     private static IServiceCollection AddUcliApplicationSharedServices (this IServiceCollection services)
     {
         services.AddSingleton<IGuidGenerator, GuidGenerator>();
+        services.AddSingleton<LifecycleExecutionRegistrationIssuer>();
         services.AddSingleton<IProjectPathInputResolver, ProjectPathInputResolver>();
         services.AddSingleton<IProjectContextResolver, ProjectContextResolver>();
         services.AddSingleton<IUnityExecutionModeDecisionService, UnityExecutionModeDecisionService>();
@@ -140,8 +140,6 @@ public static class UcliApplicationServiceCollectionExtensions
         services.AddSingleton<IValidateRequestJsonParser, ValidateRequestJsonParser>();
 
         services.AddSingleton<IPhaseExecutionPreflightService, PhaseExecutionPreflightService>();
-        services.AddSingleton<IOperationExecuteService, OperationExecuteService>();
-
         services.AddSingleton<IOperationCatalogDiscoveryService, OperationCatalogDiscoveryService>();
         services.AddSingleton<IOperationCatalogProvider, OperationCatalogProvider>();
         services.AddSingleton<IOperationCatalog, OperationCatalog>();
@@ -223,6 +221,7 @@ public static class UcliApplicationServiceCollectionExtensions
     private static IServiceCollection AddUcliApplicationPlayServices (this IServiceCollection services)
     {
         services.AddSingleton<IPlayCommandExecutionContextResolver, PlayCommandExecutionContextResolver>();
+        services.AddSingleton<PlayTransitionWorkflow>();
         services.AddSingleton<IPlayEnterService, PlayEnterService>();
         services.AddSingleton<IPlayExitService, PlayExitService>();
         services.AddSingleton<IPlayStatusService, PlayStatusService>();

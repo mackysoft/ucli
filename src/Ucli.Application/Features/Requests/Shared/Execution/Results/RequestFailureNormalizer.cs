@@ -42,6 +42,13 @@ internal static class RequestFailureNormalizer
     {
         ArgumentNullException.ThrowIfNull(failure);
 
+        if (failure.Code == ExecutionErrorCodes.Canceled)
+        {
+            return ApplicationFailure.Canceled(
+                failure.Message,
+                failure.Code);
+        }
+
         if (failure.Code == ExecutionErrorCodes.IpcTimeout)
         {
             return ApplicationFailure.Timeout(failure.Message, failure.Code, startupFailure: failure.StartupFailure);

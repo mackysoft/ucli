@@ -1,5 +1,6 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Progress;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Tests;
 
@@ -15,7 +16,7 @@ internal sealed class RecordingDaemonExistingSessionGateService : IDaemonExistin
         ResolvedUnityProjectContext unityProject,
         DaemonSession session,
         ExecutionDeadline deadline,
-        DaemonEditorMode? editorMode,
+        UnityEditorMode? editorMode,
         IDaemonStartProgressObserver? progressObserver = null,
         CancellationToken cancellationToken = default)
     {
@@ -31,7 +32,7 @@ internal sealed class RecordingDaemonExistingSessionGateService : IDaemonExistin
         ResolvedUnityProjectContext UnityProject,
         DaemonSession Session,
         ExecutionDeadline Deadline,
-        DaemonEditorMode? EditorMode,
+        UnityEditorMode? EditorMode,
         IDaemonStartProgressObserver? ProgressObserver,
         CancellationToken CancellationToken);
 }

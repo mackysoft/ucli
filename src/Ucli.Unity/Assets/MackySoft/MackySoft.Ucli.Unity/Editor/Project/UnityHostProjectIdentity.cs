@@ -2,6 +2,7 @@ using System;
 using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Projects;
 
 namespace MackySoft.Ucli.Unity.Project
 {
@@ -28,7 +29,7 @@ namespace MackySoft.Ucli.Unity.Project
             string unityVersion)
         {
             ProjectPath = projectPath ?? throw new ArgumentNullException(nameof(projectPath));
-            IpcIdentity = new IpcProjectIdentity(
+            IpcIdentity = new UnityProjectIdentity(
                 projectPath.Value,
                 projectFingerprint,
                 unityVersion);
@@ -41,6 +42,6 @@ namespace MackySoft.Ucli.Unity.Project
         public ProjectFingerprint ProjectFingerprint => IpcIdentity.ProjectFingerprint;
 
         /// <summary> Gets the wire identity projected into IPC responses and public runner contexts. </summary>
-        public IpcProjectIdentity IpcIdentity { get; }
+        public UnityProjectIdentity IpcIdentity { get; }
     }
 }

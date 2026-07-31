@@ -2,6 +2,7 @@ using System.Text.Json;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Contracts.Tests.Ipc.Lifecycle;
 
@@ -23,7 +24,7 @@ public sealed class UnityEditorStateSnapshotContractTests
 
         Assert.Throws<ArgumentOutOfRangeException>(() =>
         {
-            _ = new IpcUnityGenerationSnapshot(values[0], values[1], values[2], values[3]);
+            _ = new UnityEditorGenerationSnapshot(values[0], values[1], values[2], values[3]);
         });
     }
 
@@ -42,7 +43,7 @@ public sealed class UnityEditorStateSnapshotContractTests
 
         Assert.Throws<JsonException>(() =>
         {
-            _ = json.Deserialize<IpcUnityGenerationSnapshot>(IpcJsonSerializerOptions.Default);
+            _ = json.Deserialize<UnityEditorGenerationSnapshot>(IpcJsonSerializerOptions.Default);
         });
     }
 
@@ -61,7 +62,7 @@ public sealed class UnityEditorStateSnapshotContractTests
 
         Assert.Throws<JsonException>(() =>
         {
-            _ = json.Deserialize<IpcPlayModeSnapshot>(IpcJsonSerializerOptions.Default);
+            _ = json.Deserialize<UnityEditorPlayModeSnapshot>(IpcJsonSerializerOptions.Default);
         });
     }
 
@@ -99,7 +100,7 @@ public sealed class UnityEditorStateSnapshotContractTests
 
         Assert.Throws<ArgumentException>(() =>
         {
-            _ = new IpcUnityEditorObservation(
+            _ = new UnityEditorObservation(
                 versions[0],
                 versions[1],
                 ProjectFingerprint,
@@ -120,7 +121,7 @@ public sealed class UnityEditorStateSnapshotContractTests
                      new DateTimeOffset(2026, 7, 15, 9, 0, 0, TimeSpan.FromHours(9)),
                  })
         {
-            var exception = Assert.Throws<ArgumentException>(() => new IpcUnityEditorObservation(
+            var exception = Assert.Throws<ArgumentException>(() => new UnityEditorObservation(
                 "server",
                 "unity",
                 ProjectFingerprint,
@@ -141,16 +142,16 @@ public sealed class UnityEditorStateSnapshotContractTests
     {
         Func<object> construction = fieldName switch
         {
-            "actionRequired" => () => new IpcUnityEditorObservation(
+            "actionRequired" => () => new UnityEditorObservation(
                 "server",
                 "unity",
                 ProjectFingerprint,
                 CreateState(),
                 DateTimeOffset.UnixEpoch,
-                actionRequired: (DaemonDiagnosisActionRequired)0,
+                actionRequired: (UnityEditorActionRequired)0,
                 primaryDiagnostic: null),
-            "primaryDiagnosticKind" => () => new IpcPrimaryDiagnostic(
-                Kind: (DaemonDiagnosisPrimaryDiagnosticKind)0,
+            "primaryDiagnosticKind" => () => new UnityEditorPrimaryDiagnostic(
+                Kind: (UnityEditorPrimaryDiagnosticKind)0,
                 Code: null,
                 File: null,
                 Line: null,
@@ -173,8 +174,8 @@ public sealed class UnityEditorStateSnapshotContractTests
     public void PrimaryDiagnosticJson_WhenRequiredFieldIsMissing_ThrowsJsonException (string propertyName)
     {
         var json = JsonSerializer.SerializeToNode(
-            new IpcPrimaryDiagnostic(
-                DaemonDiagnosisPrimaryDiagnosticKind.Compiler,
+            new UnityEditorPrimaryDiagnostic(
+                UnityEditorPrimaryDiagnosticKind.Compiler,
                 null,
                 null,
                 null,
@@ -185,7 +186,7 @@ public sealed class UnityEditorStateSnapshotContractTests
 
         Assert.Throws<JsonException>(() =>
         {
-            _ = json.Deserialize<IpcPrimaryDiagnostic>(IpcJsonSerializerOptions.Default);
+            _ = json.Deserialize<UnityEditorPrimaryDiagnostic>(IpcJsonSerializerOptions.Default);
         });
     }
 
@@ -193,7 +194,7 @@ public sealed class UnityEditorStateSnapshotContractTests
     [Trait("Size", "Small")]
     public void UnityEditorObservationJson_UsesCaseInsensitiveConstructorParameterBinding ()
     {
-        var expected = new IpcUnityEditorObservation(
+        var expected = new UnityEditorObservation(
             "server",
             "unity",
             ProjectFingerprint,
@@ -203,7 +204,7 @@ public sealed class UnityEditorStateSnapshotContractTests
             primaryDiagnostic: null);
         var json = JsonSerializer.Serialize(expected, IpcJsonSerializerOptions.Default);
 
-        var actual = JsonSerializer.Deserialize<IpcUnityEditorObservation>(
+        var actual = JsonSerializer.Deserialize<UnityEditorObservation>(
             json,
             IpcJsonSerializerOptions.Default);
 
@@ -218,7 +219,7 @@ public sealed class UnityEditorStateSnapshotContractTests
     {
         Func<object> construction = contractName switch
         {
-            "observation" => () => new IpcUnityEditorObservation(
+            "observation" => () => new UnityEditorObservation(
                 "server",
                 "unity",
                 ProjectFingerprint,
@@ -277,7 +278,7 @@ public sealed class UnityEditorStateSnapshotContractTests
         var state = CreateState();
         object contract = contractName switch
         {
-            "observation" => new IpcUnityEditorObservation(
+            "observation" => new UnityEditorObservation(
                 "server",
                 "unity",
                 ProjectFingerprint,
@@ -302,23 +303,23 @@ public sealed class UnityEditorStateSnapshotContractTests
     private static UnityEditorStateSnapshot CreateState ()
     {
         return new UnityEditorStateSnapshot(
-            DaemonEditorMode.Gui,
-            IpcEditorLifecycleState.Ready,
-            IpcCompileState.Ready,
+            UnityEditorMode.Gui,
+            UnityEditorLifecycleState.Ready,
+            UnityEditorCompileState.Ready,
             CreateGenerations(),
             CreatePlayMode());
     }
 
-    private static IpcUnityGenerationSnapshot CreateGenerations ()
+    private static UnityEditorGenerationSnapshot CreateGenerations ()
     {
-        return new IpcUnityGenerationSnapshot(1, 2, 3, 4);
+        return new UnityEditorGenerationSnapshot(1, 2, 3, 4);
     }
 
-    private static IpcPlayModeSnapshot CreatePlayMode ()
+    private static UnityEditorPlayModeSnapshot CreatePlayMode ()
     {
-        return new IpcPlayModeSnapshot(
-            IpcPlayModeState.Stopped,
-            IpcPlayModeTransition.None,
+        return new UnityEditorPlayModeSnapshot(
+            UnityEditorPlayModeState.Stopped,
+            UnityEditorPlayModeTransition.None,
             IsPlaying: false,
             IsPlayingOrWillChangePlaymode: false);
     }

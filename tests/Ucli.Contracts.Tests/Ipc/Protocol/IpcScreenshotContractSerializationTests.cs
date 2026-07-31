@@ -2,6 +2,7 @@ using System.Text.Json;
 using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Contracts.Tests.Ipc.Common;
 
@@ -29,17 +30,17 @@ public sealed class IpcScreenshotContractSerializationTests
                 Height: 1080,
                 ColorSpace: IpcScreenshotColorSpace.Linear,
                 State: new UnityEditorStateSnapshot(
-                    editorMode: DaemonEditorMode.Gui,
-                    lifecycleState: IpcEditorLifecycleState.PlayMode,
-                    compileState: IpcCompileState.Ready,
-                    generations: new IpcUnityGenerationSnapshot(
+                    editorMode: UnityEditorMode.Gui,
+                    lifecycleState: UnityEditorLifecycleState.PlayMode,
+                    compileState: UnityEditorCompileState.Ready,
+                    generations: new UnityEditorGenerationSnapshot(
                         CompileGeneration: 6,
                         DomainReloadGeneration: 7,
                         AssetRefreshGeneration: 8,
                         PlayModeGeneration: 9),
-                    playMode: new IpcPlayModeSnapshot(
-                        State: IpcPlayModeState.Playing,
-                        Transition: IpcPlayModeTransition.None,
+                    playMode: new UnityEditorPlayModeSnapshot(
+                        State: UnityEditorPlayModeState.Playing,
+                        Transition: UnityEditorPlayModeTransition.None,
                         IsPlaying: true,
                         IsPlayingOrWillChangePlaymode: true))),
             Staging: new IpcScreenshotStagingImage(
@@ -257,12 +258,12 @@ public sealed class IpcScreenshotContractSerializationTests
     }
 
     [Theory]
-    [InlineData(IpcEditorLifecycleState.Ready, IpcPlayModeState.Stopped, false, false)]
-    [InlineData(IpcEditorLifecycleState.PlayMode, IpcPlayModeState.Playing, true, true)]
+    [InlineData(UnityEditorLifecycleState.Ready, UnityEditorPlayModeState.Stopped, false, false)]
+    [InlineData(UnityEditorLifecycleState.PlayMode, UnityEditorPlayModeState.Playing, true, true)]
     [Trait("Size", "Small")]
     public void ScreenshotCapture_WithSupportedStableState_Constructs (
-        IpcEditorLifecycleState lifecycleState,
-        IpcPlayModeState playModeState,
+        UnityEditorLifecycleState lifecycleState,
+        UnityEditorPlayModeState playModeState,
         bool isPlaying,
         bool isPlayingOrWillChangePlaymode)
     {
@@ -276,9 +277,9 @@ public sealed class IpcScreenshotContractSerializationTests
             IpcScreenshotColorSpace.Linear,
             CreateState(
                 lifecycleState,
-                IpcCompileState.Ready,
+                UnityEditorCompileState.Ready,
                 playModeState,
-                IpcPlayModeTransition.None,
+                UnityEditorPlayModeTransition.None,
                 isPlaying,
                 isPlayingOrWillChangePlaymode));
 
@@ -286,20 +287,20 @@ public sealed class IpcScreenshotContractSerializationTests
     }
 
     [Theory]
-    [InlineData(IpcScreenshotTarget.Game, IpcEditorLifecycleState.Ready, IpcCompileState.Ready, IpcPlayModeState.Playing, IpcPlayModeTransition.None, true, true)]
-    [InlineData(IpcScreenshotTarget.Game, IpcEditorLifecycleState.PlayMode, IpcCompileState.Compiling, IpcPlayModeState.Playing, IpcPlayModeTransition.None, true, true)]
-    [InlineData(IpcScreenshotTarget.Game, IpcEditorLifecycleState.PlayMode, IpcCompileState.Ready, IpcPlayModeState.Playing, IpcPlayModeTransition.Entering, true, true)]
-    [InlineData(IpcScreenshotTarget.Game, IpcEditorLifecycleState.PlayMode, IpcCompileState.Ready, IpcPlayModeState.Playing, IpcPlayModeTransition.None, false, true)]
-    [InlineData(IpcScreenshotTarget.Game, IpcEditorLifecycleState.PlayMode, IpcCompileState.Ready, IpcPlayModeState.Playing, IpcPlayModeTransition.None, true, false)]
-    [InlineData(IpcScreenshotTarget.Game, IpcEditorLifecycleState.Ready, IpcCompileState.Ready, IpcPlayModeState.Stopped, IpcPlayModeTransition.None, true, false)]
-    [InlineData(IpcScreenshotTarget.Game, IpcEditorLifecycleState.Ready, IpcCompileState.Ready, IpcPlayModeState.Stopped, IpcPlayModeTransition.None, false, true)]
+    [InlineData(IpcScreenshotTarget.Game, UnityEditorLifecycleState.Ready, UnityEditorCompileState.Ready, UnityEditorPlayModeState.Playing, UnityEditorPlayModeTransition.None, true, true)]
+    [InlineData(IpcScreenshotTarget.Game, UnityEditorLifecycleState.PlayMode, UnityEditorCompileState.Compiling, UnityEditorPlayModeState.Playing, UnityEditorPlayModeTransition.None, true, true)]
+    [InlineData(IpcScreenshotTarget.Game, UnityEditorLifecycleState.PlayMode, UnityEditorCompileState.Ready, UnityEditorPlayModeState.Playing, UnityEditorPlayModeTransition.Entering, true, true)]
+    [InlineData(IpcScreenshotTarget.Game, UnityEditorLifecycleState.PlayMode, UnityEditorCompileState.Ready, UnityEditorPlayModeState.Playing, UnityEditorPlayModeTransition.None, false, true)]
+    [InlineData(IpcScreenshotTarget.Game, UnityEditorLifecycleState.PlayMode, UnityEditorCompileState.Ready, UnityEditorPlayModeState.Playing, UnityEditorPlayModeTransition.None, true, false)]
+    [InlineData(IpcScreenshotTarget.Game, UnityEditorLifecycleState.Ready, UnityEditorCompileState.Ready, UnityEditorPlayModeState.Stopped, UnityEditorPlayModeTransition.None, true, false)]
+    [InlineData(IpcScreenshotTarget.Game, UnityEditorLifecycleState.Ready, UnityEditorCompileState.Ready, UnityEditorPlayModeState.Stopped, UnityEditorPlayModeTransition.None, false, true)]
     [Trait("Size", "Small")]
     public void ScreenshotCapture_WithUnsupportedOrIncoherentState_ThrowsArgumentException (
         IpcScreenshotTarget target,
-        IpcEditorLifecycleState lifecycleState,
-        IpcCompileState compileState,
-        IpcPlayModeState playModeState,
-        IpcPlayModeTransition playModeTransition,
+        UnityEditorLifecycleState lifecycleState,
+        UnityEditorCompileState compileState,
+        UnityEditorPlayModeState playModeState,
+        UnityEditorPlayModeTransition playModeTransition,
         bool isPlaying,
         bool isPlayingOrWillChangePlaymode)
     {
@@ -363,28 +364,28 @@ public sealed class IpcScreenshotContractSerializationTests
     private static UnityEditorStateSnapshot CreateStableEditState ()
     {
         return CreateState(
-            IpcEditorLifecycleState.Ready,
-            IpcCompileState.Ready,
-            IpcPlayModeState.Stopped,
-            IpcPlayModeTransition.None,
+            UnityEditorLifecycleState.Ready,
+            UnityEditorCompileState.Ready,
+            UnityEditorPlayModeState.Stopped,
+            UnityEditorPlayModeTransition.None,
             isPlaying: false,
             isPlayingOrWillChangePlaymode: false);
     }
 
     private static UnityEditorStateSnapshot CreateState (
-        IpcEditorLifecycleState lifecycleState,
-        IpcCompileState compileState,
-        IpcPlayModeState playModeState,
-        IpcPlayModeTransition playModeTransition,
+        UnityEditorLifecycleState lifecycleState,
+        UnityEditorCompileState compileState,
+        UnityEditorPlayModeState playModeState,
+        UnityEditorPlayModeTransition playModeTransition,
         bool isPlaying,
         bool isPlayingOrWillChangePlaymode)
     {
         return new UnityEditorStateSnapshot(
-            DaemonEditorMode.Gui,
+            UnityEditorMode.Gui,
             lifecycleState,
             compileState,
-            new IpcUnityGenerationSnapshot(1, 2, 3, 4),
-            new IpcPlayModeSnapshot(
+            new UnityEditorGenerationSnapshot(1, 2, 3, 4),
+            new UnityEditorPlayModeSnapshot(
                 playModeState,
                 playModeTransition,
                 isPlaying,

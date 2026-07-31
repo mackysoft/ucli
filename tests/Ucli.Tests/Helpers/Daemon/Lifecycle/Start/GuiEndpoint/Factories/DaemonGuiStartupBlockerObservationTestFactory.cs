@@ -1,6 +1,7 @@
 using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Tests.Helpers.Daemon;
 
@@ -15,7 +16,7 @@ internal static class DaemonGuiStartupBlockerObservationTestFactory
         DaemonStartupRetryDisposition retryDisposition = DaemonStartupRetryDisposition.RetryAfterFix,
         string message = "Unity Editor startup is blocked because scripts have compiler errors.",
         DaemonDiagnosisStartupPhase startupPhase = DaemonDiagnosisStartupPhase.ScriptCompilation,
-        DaemonDiagnosisActionRequired actionRequired = DaemonDiagnosisActionRequired.FixCompileErrors,
+        UnityEditorActionRequired actionRequired = UnityEditorActionRequired.FixCompileErrors,
         DaemonPrimaryDiagnostic? primaryDiagnostic = null)
     {
         return new DaemonGuiStartupBlockerObservation(

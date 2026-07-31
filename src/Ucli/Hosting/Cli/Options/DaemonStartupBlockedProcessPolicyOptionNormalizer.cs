@@ -1,5 +1,4 @@
 using MackySoft.Ucli.Application.Shared.Foundation;
-
 using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Hosting.Cli.Options;

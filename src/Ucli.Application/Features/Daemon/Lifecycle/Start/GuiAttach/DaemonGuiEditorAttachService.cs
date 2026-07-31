@@ -6,6 +6,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Progress;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.GuiAttach;
 
@@ -49,7 +50,7 @@ internal sealed class DaemonGuiEditorAttachService : IDaemonGuiEditorAttachServi
     public async ValueTask<DaemonStartResult?> TryAttachExistingGuiEditorAsync (
         ResolvedUnityProjectContext unityProject,
         ExecutionDeadline deadline,
-        DaemonEditorMode? editorMode,
+        UnityEditorMode? editorMode,
         DaemonStartupBlockedProcessPolicy onStartupBlocked,
         IDaemonStartProgressObserver? progressObserver = null,
         CancellationToken cancellationToken = default)
@@ -100,11 +101,11 @@ internal sealed class DaemonGuiEditorAttachService : IDaemonGuiEditorAttachServi
             return null;
         }
 
-        if (editorMode == DaemonEditorMode.Batchmode)
+        if (editorMode == UnityEditorMode.Batchmode)
         {
             return DaemonStartResult.Failure(ExecutionError.InvalidArgument(
                 "Requested daemon editorMode 'batchmode' conflicts with an existing GUI Editor process for the target project.",
-                DaemonErrorCodes.DaemonEditorModeMismatch));
+                DaemonErrorCodes.UnityEditorModeMismatch));
         }
 
         if (!deadline.TryGetRemainingTimeout(out var waitTimeout))
@@ -282,7 +283,7 @@ internal sealed class DaemonGuiEditorAttachService : IDaemonGuiEditorAttachServi
             .ConfigureAwait(false);
         var policyResolution = DaemonStartupBlockedProcessPolicyResolver.Resolve(
             onStartupBlocked,
-            DaemonEditorMode.Gui,
+            UnityEditorMode.Gui,
             DaemonSessionOwnerKind.User,
             canShutdownProcess: false,
             marker.ProcessId);
@@ -292,7 +293,7 @@ internal sealed class DaemonGuiEditorAttachService : IDaemonGuiEditorAttachServi
             LaunchAttemptId: null,
             ProcessAction: policyResolution.ProcessActionWhenNotTerminated,
             RetryDisposition: DaemonStartupRetryDisposition.WaitThenRetry,
-            EditorMode: DaemonEditorMode.Gui,
+            EditorMode: UnityEditorMode.Gui,
             OwnerKind: DaemonSessionOwnerKind.User,
             CanShutdownProcess: false,
             ProcessId: marker.ProcessId,
@@ -330,7 +331,7 @@ internal sealed class DaemonGuiEditorAttachService : IDaemonGuiEditorAttachServi
         await progressObserver.EmitWaitingForEndpointAsync(
                 new DaemonStartStartupProgressObservation(
                     LaunchAttemptId: null,
-                    EditorMode: DaemonEditorMode.Gui,
+                    EditorMode: UnityEditorMode.Gui,
                     OwnerKind: DaemonSessionOwnerKind.User,
                     CanShutdownProcess: false,
                     ProcessId: marker.ProcessId,
@@ -348,7 +349,7 @@ internal sealed class DaemonGuiEditorAttachService : IDaemonGuiEditorAttachServi
     private static async ValueTask EmitEndpointReadyAsync (
         IDaemonStartProgressObserver? progressObserver,
         DaemonSession session,
-        IpcUnityEditorObservation? lifecycleObservation,
+        UnityEditorObservation? lifecycleObservation,
         CancellationToken cancellationToken)
     {
         if (progressObserver is null)

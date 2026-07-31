@@ -1,4 +1,6 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
+using MackySoft.Ucli.Contracts.Editor;
+
 namespace MackySoft.Ucli.Tests.Daemon;
 
 using MackySoft.Ucli.Application.Shared.Foundation;
@@ -20,13 +22,13 @@ public sealed class DaemonLaunchSessionServiceTests
             timeProvider: new ManualTimeProvider(expectedIssuedAtUtc));
         var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-session-init"));
 
-        var result = await service.InitializeAsync(context, DaemonEditorMode.Batchmode, CancellationToken.None);
+        var result = await service.InitializeAsync(context, UnityEditorMode.Batchmode, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         var session = Assert.IsType<DaemonSession>(result.Session);
         Assert.Equal(expectedSessionGenerationId, session.SessionGenerationId);
         Assert.Equal(expectedIssuedAtUtc, session.IssuedAtUtc);
-        var writtenSession = DaemonSessionStoreAssert.InitialSessionWrittenFor(sessionStore, context, DaemonEditorMode.Batchmode);
+        var writtenSession = DaemonSessionStoreAssert.InitialSessionWrittenFor(sessionStore, context, UnityEditorMode.Batchmode);
         Assert.Equal(session, writtenSession);
     }
 
@@ -46,11 +48,11 @@ public sealed class DaemonLaunchSessionServiceTests
             timeProvider: TimeProvider.System);
         var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-session-init-fail"));
 
-        var result = await service.InitializeAsync(context, DaemonEditorMode.Batchmode, CancellationToken.None);
+        var result = await service.InitializeAsync(context, UnityEditorMode.Batchmode, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(expectedError, result.Error);
-        DaemonSessionStoreAssert.InitialSessionWrittenFor(sessionStore, context, DaemonEditorMode.Batchmode);
+        DaemonSessionStoreAssert.InitialSessionWrittenFor(sessionStore, context, UnityEditorMode.Batchmode);
     }
 
     [Fact]
@@ -65,10 +67,10 @@ public sealed class DaemonLaunchSessionServiceTests
             timeProvider: TimeProvider.System);
         var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-session-gui"));
 
-        var result = await service.InitializeAsync(context, DaemonEditorMode.Gui, CancellationToken.None);
+        var result = await service.InitializeAsync(context, UnityEditorMode.Gui, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        var writtenSession = DaemonSessionStoreAssert.InitialSessionWrittenFor(sessionStore, context, DaemonEditorMode.Gui);
+        var writtenSession = DaemonSessionStoreAssert.InitialSessionWrittenFor(sessionStore, context, UnityEditorMode.Gui);
         Assert.Equal(result.Session, writtenSession);
     }
 

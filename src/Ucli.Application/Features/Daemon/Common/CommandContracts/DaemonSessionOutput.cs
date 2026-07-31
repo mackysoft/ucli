@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 
@@ -16,7 +17,7 @@ namespace MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 internal sealed record DaemonSessionOutput (
     ProjectFingerprint ProjectFingerprint,
     DateTimeOffset IssuedAtUtc,
-    DaemonEditorMode EditorMode,
+    UnityEditorMode EditorMode,
     DaemonSessionOwnerKind OwnerKind,
     bool CanShutdownProcess,
     IpcTransportKind EndpointTransportKind,

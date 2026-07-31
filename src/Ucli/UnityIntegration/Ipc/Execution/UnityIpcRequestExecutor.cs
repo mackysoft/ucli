@@ -4,8 +4,8 @@ using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Execution.UnityRequest;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.UnityIntegration.Ipc.Clients;
+using MackySoft.Ucli.UnityIntegration.Ipc.Dispatch;
 using MackySoft.Ucli.UnityIntegration.Ipc.Failures;
 
 namespace MackySoft.Ucli.UnityIntegration.Ipc.Execution;
@@ -55,11 +55,31 @@ internal sealed class UnityIpcRequestExecutor : IUnityRequestExecutor, IUnityStr
     {
         ValidateExecutionInputs(command, timeout, config, unityProject, payload, cancellationToken);
         var dispatchRequest = requestBuilder.Build(payload);
-        var deadline = ExecutionDeadline.Start(timeout, timeProvider);
+        if (!TryCreateRequestDeadline(
+                dispatchRequest,
+                timeout,
+                out var deadline))
+        {
+            return UnityRequestExecutionResult.Failure(
+                UnityIpcFailureClassifier.Timeout(
+                    "Lifecycle Execution deadline expired before Unity target resolution."));
+        }
+
+        if (dispatchRequest.RequiredStart is not null)
+        {
+            return await clientSelector.ReconnectAsync(
+                    unityProject,
+                    dispatchRequest,
+                    dispatchRequest.RequiredStart,
+                    deadline!,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+
         var targetResolution = await targetResolver.ResolveAsync(
                 mode,
                 unityProject,
-                deadline,
+                deadline!,
                 cancellationToken)
             .ConfigureAwait(false);
         if (!targetResolution.IsSuccess)
@@ -69,19 +89,32 @@ internal sealed class UnityIpcRequestExecutor : IUnityRequestExecutor, IUnityStr
 
         var unityIpcClient = clientSelector.Select(targetResolution.Target);
         if (targetResolution.Target == UnityExecutionTarget.Daemon
+            && dispatchRequest.StartAdmissionPolicy is not null)
+        {
+            return await daemonReadinessGate.ExecuteLifecycleStartAdmissionAsync(
+                    unityProject,
+                    dispatchRequest,
+                    dispatchRequest.StartAdmissionPolicy,
+                    deadline!,
+                    unityIpcClient,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        if (targetResolution.Target == UnityExecutionTarget.Daemon
             && daemonReadinessGate.TryReadReadinessGatedOpsRead(dispatchRequest, out var opsReadRequest))
         {
             return await daemonReadinessGate.ExecuteAsync(
                     unityProject,
                     dispatchRequest,
                     opsReadRequest!,
-                    deadline,
+                    deadline!,
                     unityIpcClient,
                     cancellationToken)
                 .ConfigureAwait(false);
         }
 
-        if (!deadline.TryGetRemainingTimeout(out _))
+        if (!deadline!.TryGetRemainingTimeout(out _))
         {
             return UnityRequestExecutionResult.Failure(UnityIpcFailureClassifier.Timeout(
                 "Timed out before Unity IPC request dispatch could begin."));
@@ -90,7 +123,7 @@ internal sealed class UnityIpcRequestExecutor : IUnityRequestExecutor, IUnityStr
         return await unityIpcClient.SendAsync(
                 unityProject,
                 dispatchRequest,
-                deadline,
+                deadline!,
                 cancellationToken)
             .ConfigureAwait(false);
     }
@@ -160,5 +193,23 @@ internal sealed class UnityIpcRequestExecutor : IUnityRequestExecutor, IUnityStr
         ArgumentNullException.ThrowIfNull(payload);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
         cancellationToken.ThrowIfCancellationRequested();
+    }
+
+    private bool TryCreateRequestDeadline (
+        UnityIpcDispatchRequest dispatchRequest,
+        TimeSpan timeout,
+        out ExecutionDeadline? deadline)
+    {
+        ArgumentNullException.ThrowIfNull(dispatchRequest);
+        if (!dispatchRequest.BeginsLifecycleExecution)
+        {
+            deadline = ExecutionDeadline.Start(timeout, timeProvider);
+            return true;
+        }
+
+        return ExecutionDeadline.TryStartUntil(
+            dispatchRequest.Registration!.DeadlineUtc,
+            timeProvider,
+            out deadline);
     }
 }

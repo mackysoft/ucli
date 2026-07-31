@@ -85,7 +85,7 @@ internal sealed class DaemonStartCommand
             return errorResult.ExitCode;
         }
 
-        var normalizedEditorModeResult = DaemonEditorModeOptionNormalizer.Normalize(editorMode);
+        var normalizedEditorModeResult = UnityEditorModeOptionNormalizer.Normalize(editorMode);
         if (!normalizedEditorModeResult.IsSuccess)
         {
             var errorResult = CreateExecutionErrorResult(normalizedEditorModeResult.Error!);

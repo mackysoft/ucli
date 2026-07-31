@@ -7,6 +7,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Shared.Execution.Progress;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.UseCases.Start;
 
@@ -60,7 +61,7 @@ internal sealed class DaemonStartService : IDaemonStartService
     public async ValueTask<DaemonStartExecutionResult> StartAsync (
         string? projectPath,
         int? timeoutMilliseconds,
-        DaemonEditorMode? editorMode,
+        UnityEditorMode? editorMode,
         DaemonStartupBlockedProcessPolicy onStartupBlocked,
         ICommandProgressSink? progressSink = null,
         CancellationToken cancellationToken = default)
@@ -172,10 +173,10 @@ internal sealed class DaemonStartService : IDaemonStartService
             TimeoutMilliseconds: effectiveTimeoutMilliseconds,
             Session: daemonSessionOutputMapper.ToOutput(startResult.Session!),
             LifecycleState: lifecycleObservation.State.LifecycleState,
-            BlockingReason: IpcEditorLifecycleSemantics.ResolveBlockingReason(lifecycleObservation.State.LifecycleState),
+            BlockingReason: UnityEditorLifecycleSemantics.ResolveBlockingReason(lifecycleObservation.State.LifecycleState),
             Generations: lifecycleObservation.State.Generations,
             PlayMode: lifecycleObservation.State.PlayMode,
-            CanAcceptExecutionRequests: IpcEditorLifecycleSemantics.CanAcceptExecutionRequests(lifecycleObservation.State.LifecycleState));
+            CanAcceptExecutionRequests: UnityEditorLifecycleSemantics.CanAcceptExecutionRequests(lifecycleObservation.State.LifecycleState));
         var success = DaemonStartExecutionResult.Success(output);
         await EmitProgressOutsideBudgetAsync(
                 timeoutBudget,

@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Execution;
 
 namespace MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Conversion;
 
@@ -15,7 +16,7 @@ internal sealed record ExecuteResponseConversionResult (
     IReadOnlyList<OperationExecutionError> Errors,
     IReadOnlyList<OperationExecutionContractViolation> ContractViolations,
     string? PlanToken,
-    IpcExecuteReadPostcondition? ReadPostcondition,
+    ExecutionReadPostcondition? ReadPostcondition,
     OperationExecutionPostReadSource? PostReadSource,
     ProjectIdentityInfo? Project)
 {

@@ -1,5 +1,6 @@
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Probe;
 
@@ -35,7 +36,7 @@ internal static class DaemonPingResponseCodec
     /// <returns> <see langword="true" /> when the ping payload is decoded; otherwise <see langword="false" />. </returns>
     public static bool TryDecodePayload (
         IpcResponse response,
-        out IpcUnityEditorObservation? payload,
+        out UnityEditorObservation? payload,
         out DaemonPingResponseException? error)
     {
         ArgumentNullException.ThrowIfNull(response);
@@ -46,7 +47,7 @@ internal static class DaemonPingResponseCodec
             return false;
         }
 
-        if (!IpcPayloadCodec.TryDeserialize(response.Payload, out IpcUnityEditorObservation parsedPayload, out var readError))
+        if (!IpcPayloadCodec.TryDeserialize(response.Payload, out UnityEditorObservation parsedPayload, out var readError))
         {
             payload = null;
             error = new DaemonPingResponseException($"Daemon ping payload is invalid. {readError.Message}");
@@ -69,7 +70,7 @@ internal static class DaemonPingResponseCodec
         IpcResponse response,
         ProjectFingerprint expectedProjectFingerprint,
         string operationName,
-        out IpcUnityEditorObservation? payload,
+        out UnityEditorObservation? payload,
         out DaemonPingResponseException? error)
     {
         ArgumentNullException.ThrowIfNull(expectedProjectFingerprint);

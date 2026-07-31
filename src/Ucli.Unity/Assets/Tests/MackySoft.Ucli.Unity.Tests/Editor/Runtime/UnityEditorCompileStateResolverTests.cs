@@ -1,20 +1,21 @@
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Runtime;
 using NUnit.Framework;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Unity.Tests
 {
     public sealed class UnityEditorCompileStateResolverTests
     {
-        [TestCase(false, false, IpcCompileState.Ready)]
-        [TestCase(true, false, IpcCompileState.Compiling)]
-        [TestCase(false, true, IpcCompileState.Failed)]
-        [TestCase(true, true, IpcCompileState.Compiling)]
+        [TestCase(false, false, UnityEditorCompileState.Ready)]
+        [TestCase(true, false, UnityEditorCompileState.Compiling)]
+        [TestCase(false, true, UnityEditorCompileState.Failed)]
+        [TestCase(true, true, UnityEditorCompileState.Compiling)]
         [Category("Size.Small")]
         public void Resolve_WhenCompilationFlagsChange_ReturnsExpectedState (
             bool isCompiling,
             bool hasCompileFailure,
-            IpcCompileState expected)
+            UnityEditorCompileState expected)
         {
             var actual = UnityEditorCompileStateResolver.Resolve(isCompiling, hasCompileFailure);
 

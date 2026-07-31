@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Contracts.Editor;
+
 namespace MackySoft.Ucli.Tests.Daemon;
 
 using MackySoft.Tests;
@@ -24,7 +26,7 @@ public sealed class DaemonGuiStartupObserverTests
         var session = DaemonSessionTestFactory.Create(
             sessionToken: "session-token",
             projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint-gui-observer-session"),
-            editorMode: DaemonEditorMode.Gui,
+            editorMode: UnityEditorMode.Gui,
             endpointTransportKind: IpcTransportKind.UnixDomainSocket,
             endpointAddress: "/tmp/ipc.sock",
             processId: 4321);
@@ -32,8 +34,8 @@ public sealed class DaemonGuiStartupObserverTests
         {
             NextResult = DaemonGuiSessionRegistrationWaitResult.Success(
                 session,
-                IpcUnityEditorObservationTestFactory.Create(
-                    editorMode: DaemonEditorMode.Gui,
+                UnityEditorObservationTestFactory.Create(
+                    editorMode: UnityEditorMode.Gui,
                     projectFingerprint: session.ProjectFingerprint)),
         };
         var logReader = new UnexpectedUnityLogReader(
@@ -71,7 +73,7 @@ public sealed class DaemonGuiStartupObserverTests
             NextResult = CreateSuccessfulWaitResult(DaemonSessionTestFactory.Create(
                 sessionToken: "session-token",
                 projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint-gui-observer-session"),
-                editorMode: DaemonEditorMode.Gui,
+                editorMode: UnityEditorMode.Gui,
                 endpointTransportKind: IpcTransportKind.UnixDomainSocket,
                 endpointAddress: "/tmp/ipc.sock",
                 processId: 4321)),
@@ -131,11 +133,11 @@ public sealed class DaemonGuiStartupObserverTests
         Assert.Equal(DaemonStartupBlockingReason.Compile, classification.StartupBlockingReason);
         Assert.Equal(DaemonStartupRetryDisposition.RetryAfterFix, classification.RetryDisposition);
         Assert.Equal(DaemonDiagnosisReason.UnityScriptCompilationFailed, classification.Reason);
-        Assert.Equal(DaemonDiagnosisActionRequired.FixCompileErrors, classification.ActionRequired);
+        Assert.Equal(UnityEditorActionRequired.FixCompileErrors, classification.ActionRequired);
         Assert.Equal(processStartedAtUtc, blockerObservation.ProcessStartedAtUtc);
         var primaryDiagnostic = Assert.IsType<DaemonPrimaryDiagnostic>(classification.PrimaryDiagnostic);
         Assert.Equal(DaemonDiagnosisStartupPhase.ScriptCompilation, classification.StartupPhase);
-        Assert.Equal(DaemonDiagnosisPrimaryDiagnosticKind.Compiler, primaryDiagnostic.Kind);
+        Assert.Equal(UnityEditorPrimaryDiagnosticKind.Compiler, primaryDiagnostic.Kind);
         Assert.Equal("CS1739", primaryDiagnostic.Code);
         Assert.Equal("Assets/Foo.cs", primaryDiagnostic.File);
         Assert.Equal(74, primaryDiagnostic.Line);
@@ -151,40 +153,40 @@ public sealed class DaemonGuiStartupObserverTests
         DaemonDiagnosisReason.UnityPackageResolutionFailed,
         DaemonStartupRetryDisposition.RetryAfterFix,
         DaemonDiagnosisStartupPhase.PackageResolution,
-        DaemonDiagnosisActionRequired.ResolvePackages,
-        DaemonDiagnosisPrimaryDiagnosticKind.PackageResolution)]
+        UnityEditorActionRequired.ResolvePackages,
+        UnityEditorPrimaryDiagnosticKind.PackageResolution)]
     [InlineData(
         "Unity Editor entered Safe Mode and is waiting for user action.\n",
         DaemonStartupBlockingReason.SafeMode,
         DaemonDiagnosisReason.EditorUserActionRequired,
         DaemonStartupRetryDisposition.ManualActionRequired,
         DaemonDiagnosisStartupPhase.UserAction,
-        DaemonDiagnosisActionRequired.ResolveUnityDialog,
-        DaemonDiagnosisPrimaryDiagnosticKind.UnityDialog)]
+        UnityEditorActionRequired.ResolveUnityDialog,
+        UnityEditorPrimaryDiagnosticKind.UnityDialog)]
     [InlineData(
         "Could not load file or assembly 'MackySoft.Ucli.Infrastructure'\n",
         DaemonStartupBlockingReason.UcliPlugin,
         DaemonDiagnosisReason.UcliPluginDependencyMissing,
         DaemonStartupRetryDisposition.RetryAfterFix,
         DaemonDiagnosisStartupPhase.ScriptCompilation,
-        DaemonDiagnosisActionRequired.ResolvePackages,
-        DaemonDiagnosisPrimaryDiagnosticKind.PluginDependency)]
+        UnityEditorActionRequired.ResolvePackages,
+        UnityEditorPrimaryDiagnosticKind.PluginDependency)]
     [InlineData(
         "Multiple precompiled assemblies with the same name Newtonsoft.Json.dll included on the current platform.\n",
         DaemonStartupBlockingReason.PrecompiledAssemblyConflict,
         DaemonDiagnosisReason.PrecompiledAssemblyConflict,
         DaemonStartupRetryDisposition.RetryAfterFix,
         DaemonDiagnosisStartupPhase.ScriptCompilation,
-        DaemonDiagnosisActionRequired.FixCompileErrors,
-        DaemonDiagnosisPrimaryDiagnosticKind.Compiler)]
+        UnityEditorActionRequired.FixCompileErrors,
+        UnityEditorPrimaryDiagnosticKind.Compiler)]
     public async Task WaitForStartup_WhenClassifiedStartupBlockerAppearsInLog_ReturnsExpectedBlocker (
         string logText,
         DaemonStartupBlockingReason expectedStartupBlockingReason,
         DaemonDiagnosisReason expectedReason,
         DaemonStartupRetryDisposition expectedRetryDisposition,
         DaemonDiagnosisStartupPhase expectedStartupPhase,
-        DaemonDiagnosisActionRequired expectedActionRequired,
-        DaemonDiagnosisPrimaryDiagnosticKind expectedPrimaryDiagnosticKind)
+        UnityEditorActionRequired expectedActionRequired,
+        UnityEditorPrimaryDiagnosticKind expectedPrimaryDiagnosticKind)
     {
         var awaiter = new RecordingDaemonGuiSessionRegistrationAwaiter
         {
@@ -255,8 +257,8 @@ public sealed class DaemonGuiStartupObserverTests
         Assert.Equal(DaemonStartupBlockingReason.ProcessExit, classification.StartupBlockingReason);
         Assert.Equal(DaemonStartupRetryDisposition.Unknown, classification.RetryDisposition);
         Assert.Equal(DaemonDiagnosisReason.EditorExitedBeforeBootstrap, classification.Reason);
-        Assert.Equal(DaemonDiagnosisActionRequired.InspectUnityLog, classification.ActionRequired);
-        Assert.Equal(DaemonDiagnosisPrimaryDiagnosticKind.ProcessExit, classification.PrimaryDiagnostic!.Kind);
+        Assert.Equal(UnityEditorActionRequired.InspectUnityLog, classification.ActionRequired);
+        Assert.Equal(UnityEditorPrimaryDiagnosticKind.ProcessExit, classification.PrimaryDiagnostic!.Kind);
     }
 
     [Fact]
@@ -299,7 +301,7 @@ public sealed class DaemonGuiStartupObserverTests
         Assert.Equal(DaemonStartupBlockingReason.Compile, classification.StartupBlockingReason);
         Assert.Equal(DaemonStartupRetryDisposition.RetryAfterFix, classification.RetryDisposition);
         Assert.Equal(DaemonDiagnosisReason.UnityScriptCompilationFailed, classification.Reason);
-        Assert.Equal(DaemonDiagnosisPrimaryDiagnosticKind.Compiler, classification.PrimaryDiagnostic!.Kind);
+        Assert.Equal(UnityEditorPrimaryDiagnosticKind.Compiler, classification.PrimaryDiagnostic!.Kind);
     }
 
     [Fact]
@@ -338,8 +340,8 @@ public sealed class DaemonGuiStartupObserverTests
     {
         return DaemonGuiSessionRegistrationWaitResult.Success(
             session,
-            IpcUnityEditorObservationTestFactory.Create(
-                editorMode: DaemonEditorMode.Gui,
+            UnityEditorObservationTestFactory.Create(
+                editorMode: UnityEditorMode.Gui,
                 projectFingerprint: session.ProjectFingerprint));
     }
 

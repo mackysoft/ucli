@@ -40,22 +40,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 phaseScope.ExecutionCancellation);
         }
 
-        public static async ValueTask<IpcResponse> HandleRecoverableAsync (
-            IRecoverableUnityIpcMethodHandler handler,
-            IpcRequestEnvelope request,
-            RecoverableIpcOperationContext context,
-            CancellationToken cancellationToken = default)
-        {
-            using var phaseScope = new IpcRequestPhaseScopeFactory().Create(
-                request,
-                cancellationToken,
-                TimeSpan.FromSeconds(1));
-            return await handler.HandleRecoverableAsync(
-                CreateValidatedRequest(request, handler.Method, IpcResponseMode.Single),
-                context,
-                phaseScope.ExecutionCancellation);
-        }
-
         private static ValidatedUnityIpcRequest CreateValidatedRequest (
             IpcRequestEnvelope request,
             UnityIpcMethod method,

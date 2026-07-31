@@ -563,7 +563,7 @@ public sealed class IpcDaemonReachabilityProbeTests
                 request,
                 IpcResponseStatus.Ok,
                 [],
-                IpcUnityEditorObservationTestFactory.Create(
+                UnityEditorObservationTestFactory.Create(
                     projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint")));
         }
 

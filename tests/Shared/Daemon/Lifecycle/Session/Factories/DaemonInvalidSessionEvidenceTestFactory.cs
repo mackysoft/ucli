@@ -1,5 +1,6 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.TestSupport;
 
@@ -16,7 +17,7 @@ internal static class DaemonInvalidSessionEvidenceTestFactory
             SessionToken: "raw-token-is-intentionally-not-projected",
             ProjectFingerprint: projectFingerprint,
             IssuedAtUtc: default,
-            EditorMode: DaemonEditorMode.Batchmode,
+            EditorMode: UnityEditorMode.Batchmode,
             OwnerKind: DaemonSessionOwnerKind.Cli,
             CanShutdownProcess: true,
             EndpointTransportKind: null,

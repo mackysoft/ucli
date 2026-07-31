@@ -17,6 +17,7 @@ using MackySoft.Ucli.Unity.Ipc;
 using MackySoft.Ucli.Unity.Runtime;
 using NUnit.Framework;
 using UnityEngine.TestTools;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Unity.Tests
 {
@@ -580,7 +581,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
                 Assert.That(
                     sharedState.LatestObservation.State.LifecycleState,
-                    Is.EqualTo(IpcEditorLifecycleState.Recovering));
+                    Is.EqualTo(UnityEditorLifecycleState.Recovering));
                 Assert.That(sharedState.LatestRecoveryLease, Is.Not.Null);
                 Assert.That(
                     sharedState.LatestRecoveryLease.SessionGenerationId,
@@ -974,19 +975,19 @@ namespace MackySoft.Ucli.Unity.Tests
             return await UnityGuiSessionPersistence.PublishAsync(preparedSession, CancellationToken.None);
         }
 
-        private static UnityEditorObservation CreateReadyObservation (
+        private static UnityEditorRuntimeObservation CreateReadyObservation (
             DateTimeOffset observedAtUtc,
             long generation)
         {
-            return new UnityEditorObservation(
+            return new UnityEditorRuntimeObservation(
                 state: new UnityEditorStateSnapshot(
-                    editorMode: DaemonEditorMode.Gui,
-                    lifecycleState: IpcEditorLifecycleState.Ready,
-                    compileState: IpcCompileState.Ready,
-                    generations: new IpcUnityGenerationSnapshot(generation, generation, 0, 0),
-                    playMode: new IpcPlayModeSnapshot(
-                        IpcPlayModeState.Stopped,
-                        IpcPlayModeTransition.None,
+                    editorMode: UnityEditorMode.Gui,
+                    lifecycleState: UnityEditorLifecycleState.Ready,
+                    compileState: UnityEditorCompileState.Ready,
+                    generations: new UnityEditorGenerationSnapshot(generation, generation, 0, 0),
+                    playMode: new UnityEditorPlayModeSnapshot(
+                        UnityEditorPlayModeState.Stopped,
+                        UnityEditorPlayModeTransition.None,
                         IsPlaying: false,
                         IsPlayingOrWillChangePlaymode: false)),
                 observedAtUtc);
@@ -1004,11 +1005,11 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             private readonly object syncRoot = new object();
 
-            private UnityEditorObservation latestObservation;
+            private UnityEditorRuntimeObservation latestObservation;
 
             private DaemonLifecycleRecoveryLease latestRecoveryLease;
 
-            public UnityEditorObservation LatestObservation
+            public UnityEditorRuntimeObservation LatestObservation
             {
                 get
                 {
@@ -1031,7 +1032,7 @@ namespace MackySoft.Ucli.Unity.Tests
             }
 
             public void Write (
-                UnityEditorObservation observation,
+                UnityEditorRuntimeObservation observation,
                 DaemonLifecycleRecoveryLease recoveryLease)
             {
                 lock (syncRoot)
@@ -1075,7 +1076,7 @@ namespace MackySoft.Ucli.Unity.Tests
             public int DeleteCount => Volatile.Read(ref deleteCount);
 
             public async Task WriteAsync (
-                UnityEditorObservation snapshot,
+                UnityEditorRuntimeObservation snapshot,
                 DaemonLifecycleRecoveryLease recoveryLease,
                 CancellationToken cancellationToken)
             {
@@ -1115,14 +1116,14 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private sealed class StaticAvailabilityObservationSource : IUnityEditorAvailabilityObservationSource
         {
-            private readonly UnityEditorObservation observation;
+            private readonly UnityEditorRuntimeObservation observation;
 
-            public StaticAvailabilityObservationSource (UnityEditorObservation observation)
+            public StaticAvailabilityObservationSource (UnityEditorRuntimeObservation observation)
             {
                 this.observation = observation ?? throw new ArgumentNullException(nameof(observation));
             }
 
-            public UnityEditorObservation CaptureAvailabilityObservation ()
+            public UnityEditorRuntimeObservation CaptureAvailabilityObservation ()
             {
                 return observation;
             }

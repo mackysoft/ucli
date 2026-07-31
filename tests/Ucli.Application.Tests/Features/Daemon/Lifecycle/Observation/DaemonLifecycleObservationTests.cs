@@ -1,5 +1,6 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Observation;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Tests.Daemon;
 
@@ -30,7 +31,7 @@ public sealed class DaemonLifecycleObservationTests
     public void Constructor_WhenProcessIdIsNotPositive_ThrowsArgumentOutOfRangeException (int processId)
     {
         Assert.Throws<ArgumentOutOfRangeException>(() => CreateObservation(
-            IpcEditorLifecycleState.Ready,
+            UnityEditorLifecycleState.Ready,
             processId: processId));
     }
 
@@ -39,7 +40,7 @@ public sealed class DaemonLifecycleObservationTests
     public void Constructor_WhenProcessStartedAtUtcIsDefault_ThrowsArgumentException ()
     {
         var exception = Assert.Throws<ArgumentException>(() => CreateObservation(
-            IpcEditorLifecycleState.Ready,
+            UnityEditorLifecycleState.Ready,
             processStartedAtUtc: new DateTimeOffset()));
 
         Assert.Equal("processStartedAtUtc", exception.ParamName);
@@ -50,7 +51,7 @@ public sealed class DaemonLifecycleObservationTests
     public void Constructor_WhenObservedAtUtcIsDefault_ThrowsArgumentException ()
     {
         var exception = Assert.Throws<ArgumentException>(() => CreateObservation(
-            IpcEditorLifecycleState.Ready,
+            UnityEditorLifecycleState.Ready,
             observedAtUtc: new DateTimeOffset()));
 
         Assert.Equal("observedAtUtc", exception.ParamName);
@@ -65,7 +66,7 @@ public sealed class DaemonLifecycleObservationTests
         var nonUtcTimestamp = new DateTimeOffset(2026, 7, 15, 12, 0, 0, TimeSpan.FromHours(9));
 
         var exception = Assert.Throws<ArgumentException>(() => CreateObservation(
-            IpcEditorLifecycleState.Ready,
+            UnityEditorLifecycleState.Ready,
             processStartedAtUtc: useProcessStartTimestamp ? nonUtcTimestamp : null,
             observedAtUtc: useProcessStartTimestamp ? null : nonUtcTimestamp));
 
@@ -81,7 +82,7 @@ public sealed class DaemonLifecycleObservationTests
         var exception = Assert.Throws<ArgumentException>(() => new DaemonLifecycleObservation(
             processId: 1234,
             processStartedAtUtc: DateTimeOffset.UnixEpoch,
-            state: CreateState(IpcEditorLifecycleState.Ready),
+            state: CreateState(UnityEditorLifecycleState.Ready),
             observedAtUtc: DateTimeOffset.UnixEpoch.AddSeconds(1),
             actionRequired: null,
             primaryDiagnostic: null,
@@ -99,7 +100,7 @@ public sealed class DaemonLifecycleObservationTests
         var exception = Assert.Throws<ArgumentException>(() => new DaemonLifecycleObservation(
             processId: 1234,
             processStartedAtUtc: DateTimeOffset.UnixEpoch,
-            state: CreateState(IpcEditorLifecycleState.Ready),
+            state: CreateState(UnityEditorLifecycleState.Ready),
             observedAtUtc: DateTimeOffset.UnixEpoch.AddSeconds(1),
             actionRequired: null,
             primaryDiagnostic: null,
@@ -116,17 +117,17 @@ public sealed class DaemonLifecycleObservationTests
     [Trait("Size", "Small")]
     public void LifecycleDerivedValues_WhenLifecycleStateChanges_FollowCurrentState ()
     {
-        var ready = CreateObservation(IpcEditorLifecycleState.Ready);
-        var recovering = CreateObservation(IpcEditorLifecycleState.Recovering);
+        var ready = CreateObservation(UnityEditorLifecycleState.Ready);
+        var recovering = CreateObservation(UnityEditorLifecycleState.Recovering);
 
         Assert.Null(ready.BlockingReason);
         Assert.True(ready.CanAcceptExecutionRequests);
-        Assert.Equal(IpcEditorBlockingReason.Recovery, recovering.BlockingReason);
+        Assert.Equal(UnityEditorBlockingReason.Recovery, recovering.BlockingReason);
         Assert.False(recovering.CanAcceptExecutionRequests);
     }
 
     private static DaemonLifecycleObservation CreateObservation (
-        IpcEditorLifecycleState lifecycleState,
+        UnityEditorLifecycleState lifecycleState,
         int processId = 1234,
         DateTimeOffset? processStartedAtUtc = null,
         DateTimeOffset? observedAtUtc = null)
@@ -143,16 +144,16 @@ public sealed class DaemonLifecycleObservationTests
             recoveryLease: null);
     }
 
-    private static UnityEditorStateSnapshot CreateState (IpcEditorLifecycleState lifecycleState)
+    private static UnityEditorStateSnapshot CreateState (UnityEditorLifecycleState lifecycleState)
     {
         return new UnityEditorStateSnapshot(
-            editorMode: DaemonEditorMode.Gui,
+            editorMode: UnityEditorMode.Gui,
             lifecycleState: lifecycleState,
-            compileState: IpcCompileState.Ready,
-            generations: new IpcUnityGenerationSnapshot(1, 2, 0, 0),
-            playMode: new IpcPlayModeSnapshot(
-                IpcPlayModeState.Stopped,
-                IpcPlayModeTransition.None,
+            compileState: UnityEditorCompileState.Ready,
+            generations: new UnityEditorGenerationSnapshot(1, 2, 0, 0),
+            playMode: new UnityEditorPlayModeSnapshot(
+                UnityEditorPlayModeState.Stopped,
+                UnityEditorPlayModeTransition.None,
                 IsPlaying: false,
                 IsPlayingOrWillChangePlaymode: false));
     }

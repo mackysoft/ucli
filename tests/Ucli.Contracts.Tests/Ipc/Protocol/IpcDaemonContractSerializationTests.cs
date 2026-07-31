@@ -3,6 +3,7 @@ using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Contracts.Tests.Ipc.Common;
 
@@ -31,7 +32,7 @@ public sealed class IpcDaemonContractSerializationTests
                 DaemonStartProgressPayloadKind.StartupObservation,
                 ProjectFingerprint,
                 120000,
-                DaemonEditorMode.Batchmode,
+                UnityEditorMode.Batchmode,
                 DaemonStartupBlockedProcessPolicy.Terminate,
                 LaunchAttemptId,
                 DaemonSessionOwnerKind.Cli,
@@ -49,11 +50,11 @@ public sealed class IpcDaemonContractSerializationTests
                 DaemonStartProgressPayloadKind.LifecycleSnapshot,
                 ProjectFingerprint,
                 120000,
-                DaemonEditorMode.Batchmode,
+                UnityEditorMode.Batchmode,
                 DaemonStartupBlockedProcessPolicy.Terminate,
-                IpcEditorLifecycleState.Ready,
+                UnityEditorLifecycleState.Ready,
                 null,
-                new IpcUnityGenerationSnapshot(1, 2, 3, 4),
+                new UnityEditorGenerationSnapshot(1, 2, 3, 4),
                 true));
 
         JsonAssert.For(startupObservation)
@@ -96,7 +97,7 @@ public sealed class IpcDaemonContractSerializationTests
             DaemonStartProgressPayloadKind.StartupObservation,
             ProjectFingerprint,
             120000,
-            DaemonEditorMode.Batchmode,
+            UnityEditorMode.Batchmode,
             DaemonStartupBlockedProcessPolicy.Terminate,
             Guid.Empty,
             DaemonSessionOwnerKind.Cli,
@@ -119,7 +120,7 @@ public sealed class IpcDaemonContractSerializationTests
             DaemonStartProgressPayloadKind.LifecycleSnapshot,
             ProjectFingerprint,
             120000,
-            DaemonEditorMode.Batchmode,
+            UnityEditorMode.Batchmode,
             DaemonStartupBlockedProcessPolicy.Terminate,
             LaunchAttemptId,
             DaemonSessionOwnerKind.Cli,
@@ -142,11 +143,11 @@ public sealed class IpcDaemonContractSerializationTests
             DaemonStartProgressPayloadKind.LifecycleSnapshot,
             ProjectFingerprint,
             120000,
-            DaemonEditorMode.Batchmode,
+            UnityEditorMode.Batchmode,
             DaemonStartupBlockedProcessPolicy.Terminate,
-            IpcEditorLifecycleState.Compiling,
-            IpcEditorBlockingReason.Busy,
-            new IpcUnityGenerationSnapshot(1, 2, 3, 4),
+            UnityEditorLifecycleState.Compiling,
+            UnityEditorBlockingReason.Busy,
+            new UnityEditorGenerationSnapshot(1, 2, 3, 4),
             false));
     }
 
@@ -174,7 +175,7 @@ public sealed class IpcDaemonContractSerializationTests
         var payload = new DaemonStartProgressEntry(
             ProjectFingerprint: ProjectFingerprint,
             TimeoutMilliseconds: 10000,
-            EditorMode: DaemonEditorMode.Batchmode,
+            EditorMode: UnityEditorMode.Batchmode,
             OnStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
             Result: CommandProgressResult.Failed,
             StartStatus: "failed",

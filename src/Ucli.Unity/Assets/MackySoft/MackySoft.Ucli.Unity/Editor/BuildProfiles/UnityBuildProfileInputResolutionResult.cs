@@ -2,6 +2,8 @@ using MackySoft.Ucli.Contracts.Ipc;
 
 #nullable enable
 
+using MackySoft.Ucli.Contracts.Editor;
+
 namespace MackySoft.Ucli.Unity.Build
 {
     /// <summary> Represents Unity Build Profile input resolution output. </summary>
@@ -10,7 +12,7 @@ namespace MackySoft.Ucli.Unity.Build
         UnityBuildPreconditionInput? PreconditionInput,
         ResolvedBuildPipelineOutputLayout? OutputLayout,
         IpcUnityBuildProfileInput? UnityBuildProfile,
-        IpcUnityEditorObservation? LifecycleBefore,
+        UnityEditorObservation? LifecycleBefore,
         IpcBuildDirtyState? DirtyState,
         IpcError? Error)
     {
@@ -34,7 +36,7 @@ namespace MackySoft.Ucli.Unity.Build
         public static UnityBuildProfileInputResolutionResult Failure (
             IpcError error,
             IpcUnityBuildProfileInput? unityBuildProfile = null,
-            IpcUnityEditorObservation? lifecycleBefore = null,
+            UnityEditorObservation? lifecycleBefore = null,
             IpcBuildDirtyState? dirtyState = null)
         {
             return new UnityBuildProfileInputResolutionResult(

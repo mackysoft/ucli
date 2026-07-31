@@ -1,6 +1,11 @@
+using MackySoft.Ucli.Contracts.Execution.Lifecycle;
+using MackySoft.Ucli.Contracts.Editor;
+
 namespace MackySoft.Ucli.Tests.Ipc;
 
+using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Tests.Helpers.Ipc;
 using MackySoft.Ucli.UnityIntegration.Ipc.Dispatch;
 using MackySoft.Ucli.UnityIntegration.Ipc.Execution;
 using MackySoft.Ucli.UnityIntegration.Ipc.Process;
@@ -78,28 +83,43 @@ public sealed class UnityIpcRequestBuilderBasicPayloadTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void Build_WithCompile_CreatesCompilePayload ()
+    public void Build_WithCompile_CreatesCompileLifecycleRegistration ()
     {
         var builder = new UnityIpcRequestBuilder();
+        var definition = new LifecycleExecutionDefinition(
+            LifecycleExecutionKind.Compile);
+        var registration = new LifecycleExecutionRegistration(
+            definition,
+            RunIdTestValues.Compile,
+            DateTimeOffset.UnixEpoch.AddSeconds(30),
+            DateTimeOffset.UnixEpoch);
 
-        var request = builder.Build(new UnityRequestPayload.Compile(RunIdTestValues.Compile));
+        var request = builder.Build(
+            new UnityRequestPayload.Compile(
+                registration,
+                requiredStart: null));
 
         Assert.Equal(UnityIpcMethod.Compile, request.Method);
+        Assert.Same(registration, request.Registration);
         Assert.Equal(
-            UnityIpcResponseReplayPolicy.DurableSameHostSuccessor,
+            UnityIpcResponseReplayPolicy.LifecycleExecutionSameHostSuccessor,
             request.ResponseReplayPolicy);
-        Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcCompileRequest payload, out _));
-        Assert.Equal(RunIdTestValues.Compile, payload.RunId);
-        Assert.False(request.Payload.TryGetProperty("timeoutMilliseconds", out _));
+        var startRequest = request.CreateLifecycleStartRequest();
+        Assert.Equal(LifecycleExecutionKind.Compile, startRequest.Kind);
+        Assert.Equal(RunIdTestValues.Compile, startRequest.ExecutionId);
+        Assert.Equal(
+            LifecycleExecutionDefinitionDigest.Calculate(definition),
+            startRequest.DefinitionDigest);
+        Assert.Throws<InvalidOperationException>(() => request.Payload);
         Assert.True(UnityIpcMethodCapabilities.AllowsStartupLifecycleState(
             request.Method,
-            IpcEditorLifecycleState.CompileFailed));
+            UnityEditorLifecycleState.CompileFailed));
         Assert.True(UnityIpcMethodCapabilities.AllowsStartupLifecycleState(
             request.Method,
-            IpcEditorLifecycleState.SafeMode));
+            UnityEditorLifecycleState.SafeMode));
         Assert.False(UnityIpcMethodCapabilities.AllowsStartupLifecycleState(
             request.Method,
-            IpcEditorLifecycleState.Ready));
+            UnityEditorLifecycleState.Ready));
     }
 
     [Fact]
@@ -117,7 +137,7 @@ public sealed class UnityIpcRequestBuilderBasicPayloadTests
         Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcPlayStatusRequest _, out _));
         Assert.False(UnityIpcMethodCapabilities.AllowsStartupLifecycleState(
             request.Method,
-            IpcEditorLifecycleState.SafeMode));
+            UnityEditorLifecycleState.SafeMode));
     }
 
     [Fact]
@@ -145,7 +165,7 @@ public sealed class UnityIpcRequestBuilderBasicPayloadTests
         Assert.Equal(UnityIpcResponseReplayPolicy.None, request.ResponseReplayPolicy);
         Assert.False(UnityIpcMethodCapabilities.AllowsStartupLifecycleState(
             request.Method,
-            IpcEditorLifecycleState.SafeMode));
+            UnityEditorLifecycleState.SafeMode));
     }
 
     [Fact]
@@ -153,18 +173,27 @@ public sealed class UnityIpcRequestBuilderBasicPayloadTests
     public void Build_WithPlayEnter_CreatesPlayEnterPayload ()
     {
         var builder = new UnityIpcRequestBuilder();
+        var registration = UnityIpcRequestBuilderTestSupport.CreateLifecycleRegistration(
+            LifecycleExecutionKind.PlayEnter);
 
-        var request = builder.Build(new UnityRequestPayload.PlayEnter());
+        var request = builder.Build(
+            new UnityRequestPayload.PlayEnter(
+                registration,
+                requiredStart: null));
 
         Assert.Equal(UnityIpcMethod.PlayEnter, request.Method);
+        Assert.Same(registration, request.Registration);
         Assert.Equal(
-            UnityIpcResponseReplayPolicy.DurableSameHostSuccessor,
+            UnityIpcResponseReplayPolicy.LifecycleExecutionSameHostSuccessor,
             request.ResponseReplayPolicy);
-        Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcPlayEnterRequest _, out _));
-        Assert.False(request.Payload.TryGetProperty("timeoutMilliseconds", out _));
+        var start = LifecycleExecutionIpcTestResponseFactory.CreateStartBinding(
+            request.CreateLifecycleStartRequest());
+        var actionPayload = request.CreateLifecycleActionPayload(start);
+        Assert.True(IpcPayloadCodec.TryDeserialize(actionPayload, out IpcPlayEnterRequest _, out _));
+        Assert.False(actionPayload.TryGetProperty("timeoutMilliseconds", out _));
         Assert.False(UnityIpcMethodCapabilities.AllowsStartupLifecycleState(
             request.Method,
-            IpcEditorLifecycleState.SafeMode));
+            UnityEditorLifecycleState.SafeMode));
     }
 
     [Fact]
@@ -172,17 +201,26 @@ public sealed class UnityIpcRequestBuilderBasicPayloadTests
     public void Build_WithPlayExit_CreatesPlayExitPayload ()
     {
         var builder = new UnityIpcRequestBuilder();
+        var registration = UnityIpcRequestBuilderTestSupport.CreateLifecycleRegistration(
+            LifecycleExecutionKind.PlayExit);
 
-        var request = builder.Build(new UnityRequestPayload.PlayExit());
+        var request = builder.Build(
+            new UnityRequestPayload.PlayExit(
+                registration,
+                requiredStart: null));
 
         Assert.Equal(UnityIpcMethod.PlayExit, request.Method);
+        Assert.Same(registration, request.Registration);
         Assert.Equal(
-            UnityIpcResponseReplayPolicy.DurableSameHostSuccessor,
+            UnityIpcResponseReplayPolicy.LifecycleExecutionSameHostSuccessor,
             request.ResponseReplayPolicy);
-        Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcPlayExitRequest _, out _));
-        Assert.False(request.Payload.TryGetProperty("timeoutMilliseconds", out _));
+        var start = LifecycleExecutionIpcTestResponseFactory.CreateStartBinding(
+            request.CreateLifecycleStartRequest());
+        var actionPayload = request.CreateLifecycleActionPayload(start);
+        Assert.True(IpcPayloadCodec.TryDeserialize(actionPayload, out IpcPlayExitRequest _, out _));
+        Assert.False(actionPayload.TryGetProperty("timeoutMilliseconds", out _));
         Assert.False(UnityIpcMethodCapabilities.AllowsStartupLifecycleState(
             request.Method,
-            IpcEditorLifecycleState.SafeMode));
+            UnityEditorLifecycleState.SafeMode));
     }
 }

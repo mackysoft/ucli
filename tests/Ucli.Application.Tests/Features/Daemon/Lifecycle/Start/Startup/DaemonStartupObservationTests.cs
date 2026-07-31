@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Startup;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Tests.Daemon;
 
@@ -36,7 +37,7 @@ public sealed class DaemonStartupObservationTests
             },
             InvalidEnumField.EditorMode => CreateValidValues() with
             {
-                EditorMode = (DaemonEditorMode)int.MaxValue,
+                EditorMode = (UnityEditorMode)int.MaxValue,
             },
             InvalidEnumField.OwnerKind => CreateValidValues() with
             {
@@ -145,7 +146,7 @@ public sealed class DaemonStartupObservationTests
             Guid.Parse("01234567-89ab-cdef-0123-456789abcdef"),
             DaemonStartupProcessAction.None,
             DaemonStartupRetryDisposition.Unknown,
-            DaemonEditorMode.Batchmode,
+            UnityEditorMode.Batchmode,
             DaemonSessionOwnerKind.Cli,
             true,
             1234,
@@ -174,7 +175,7 @@ public sealed class DaemonStartupObservationTests
         Guid? LaunchAttemptId,
         DaemonStartupProcessAction ProcessAction,
         DaemonStartupRetryDisposition RetryDisposition,
-        DaemonEditorMode? EditorMode,
+        UnityEditorMode? EditorMode,
         DaemonSessionOwnerKind? OwnerKind,
         bool? CanShutdownProcess,
         int? ProcessId,

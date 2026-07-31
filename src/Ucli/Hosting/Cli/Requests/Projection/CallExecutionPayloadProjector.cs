@@ -8,6 +8,7 @@ using MackySoft.Ucli.Application.Shared.Execution.Results;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
+using MackySoft.Ucli.Contracts.Execution;
 
 namespace MackySoft.Ucli.Hosting.Cli.Requests.Projection;
 
@@ -97,7 +98,7 @@ internal static class CallExecutionPayloadProjector
         [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         IReadOnlyList<OperationExecutionContractViolation>? ContractViolations,
         [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        IpcExecuteReadPostcondition? ReadPostcondition,
+        ExecutionReadPostcondition? ReadPostcondition,
         [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         OperationExecutionPostReadSource? PostReadSource,
         [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -113,7 +114,7 @@ internal static class CallExecutionPayloadProjector
         [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         IReadOnlyList<OperationExecutionContractViolation>? ContractViolations,
         [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        IpcExecuteReadPostcondition? ReadPostcondition,
+        ExecutionReadPostcondition? ReadPostcondition,
         [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         OperationExecutionPostReadSource? PostReadSource,
         [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

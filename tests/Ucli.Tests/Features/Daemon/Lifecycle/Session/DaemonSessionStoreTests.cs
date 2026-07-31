@@ -1,6 +1,8 @@
 using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Infrastructure.Storage;
+using MackySoft.Ucli.Contracts.Editor;
+
 namespace MackySoft.Ucli.Tests.Daemon;
 
 using System.Runtime.Versioning;
@@ -333,7 +335,7 @@ public sealed class DaemonSessionStoreTests
         var projectFingerprint = ProjectFingerprintTestFactory.Create("fingerprint-non-guid-editor-instance-id");
         var session = DaemonSessionTestFactory.Create(
             projectFingerprint: projectFingerprint,
-            editorMode: DaemonEditorMode.Gui,
+            editorMode: UnityEditorMode.Gui,
             editorInstanceId: DaemonSessionTestFactory.DefaultEditorInstanceId);
         var sessionPath = UcliStoragePathResolver.ResolveSessionPath(AbsolutePath.Parse(scope.FullPath), projectFingerprint);
         Directory.CreateDirectory(Path.GetDirectoryName(sessionPath.Value)!);
@@ -423,7 +425,7 @@ public sealed class DaemonSessionStoreTests
         var session = DaemonSessionTestFactory.Create(
             projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint-gui-user-owner"),
             sessionToken: "token-1",
-            editorMode: DaemonEditorMode.Gui,
+            editorMode: UnityEditorMode.Gui,
             ownerKind: DaemonSessionOwnerKind.User,
             canShutdownProcess: false,
             editorInstanceId: DaemonSessionTestFactory.DefaultEditorInstanceId);

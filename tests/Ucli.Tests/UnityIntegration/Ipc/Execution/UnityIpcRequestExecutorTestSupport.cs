@@ -8,6 +8,7 @@ using MackySoft.Ucli.Tests.Helpers.Unity;
 using MackySoft.Ucli.UnityIntegration.Ipc.Clients;
 using MackySoft.Ucli.UnityIntegration.Ipc.Execution;
 using MackySoft.Ucli.UnityIntegration.Ipc.Process;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Tests.Ipc;
 
@@ -102,7 +103,7 @@ internal static class UnityIpcRequestExecutorTestSupport
         ProjectFingerprint projectFingerprint)
     {
         var payload = IpcPayloadCodec.SerializeToElement(CreatePingPayload(
-            IpcEditorLifecycleState.Ready,
+            UnityEditorLifecycleState.Ready,
             projectFingerprint));
         return new IpcResponse(
             protocolVersion: IpcProtocol.CurrentVersion,
@@ -112,11 +113,11 @@ internal static class UnityIpcRequestExecutorTestSupport
             errors: Array.Empty<IpcError>());
     }
 
-    public static IpcUnityEditorObservation CreatePingPayload (
-        IpcEditorLifecycleState lifecycleState,
+    public static UnityEditorObservation CreatePingPayload (
+        UnityEditorLifecycleState lifecycleState,
         ProjectFingerprint? projectFingerprint = null)
     {
-        return IpcUnityEditorObservationTestFactory.Create(
+        return UnityEditorObservationTestFactory.Create(
             lifecycleState,
             projectFingerprint: projectFingerprint);
     }

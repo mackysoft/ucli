@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Execution;
 
 namespace MackySoft.Ucli.Application.Shared.Execution.ReadPostcondition;
 
@@ -7,4 +8,4 @@ namespace MackySoft.Ucli.Application.Shared.Execution.ReadPostcondition;
 /// <param name="Requirements"> The merged read requirements. </param>
 internal sealed record MutationReadPostconditionDocument (
     int SchemaVersion,
-    IReadOnlyList<IpcExecuteReadPostconditionRequirement> Requirements);
+    IReadOnlyList<ExecutionReadPostconditionRequirement> Requirements);

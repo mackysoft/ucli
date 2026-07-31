@@ -1,6 +1,7 @@
 using MackySoft.Ucli.Application.Features.Assurance.Build.Profiles;
 using MackySoft.Ucli.Contracts.Assurance.Build;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Tests.Features.Assurance.Build;
 
@@ -38,8 +39,8 @@ public sealed class BuildProfileResolverResolvedModelTests
             profile.Policy.Runtime.AllowedExecutionModes);
         Assert.Equal(
             [
-                DaemonEditorMode.Batchmode,
-                DaemonEditorMode.Gui,
+                UnityEditorMode.Batchmode,
+                UnityEditorMode.Gui,
             ],
             profile.Policy.Runtime.AllowedEditorModes);
         Assert.Equal(BuildProfileProjectMutationMode.Forbid, profile.Policy.ProjectMutationMode);
@@ -108,7 +109,7 @@ public sealed class BuildProfileResolverResolvedModelTests
         Assert.Equal(BuildProfileSceneSource.EditorBuildSettings, scenes.Source);
         Assert.True(inputs.Options.Development);
         Assert.Equal([BuildProfileRuntimeExecutionMode.Daemon], profile.Policy.Runtime.AllowedExecutionModes);
-        Assert.Equal([DaemonEditorMode.Batchmode], profile.Policy.Runtime.AllowedEditorModes);
+        Assert.Equal([UnityEditorMode.Batchmode], profile.Policy.Runtime.AllowedEditorModes);
         Assert.Equal(BuildProfileProjectMutationMode.Audit, profile.Policy.ProjectMutationMode);
     }
 
@@ -151,7 +152,7 @@ public sealed class BuildProfileResolverResolvedModelTests
         var profile = result.Profile!;
         Assert.Equal(BuildProfileProjectMutationMode.AllowWithAudit, profile.Policy.ProjectMutationMode);
         Assert.Equal([BuildProfileRuntimeExecutionMode.Oneshot], profile.Policy.Runtime.AllowedExecutionModes);
-        Assert.Equal([DaemonEditorMode.Gui], profile.Policy.Runtime.AllowedEditorModes);
+        Assert.Equal([UnityEditorMode.Gui], profile.Policy.Runtime.AllowedEditorModes);
     }
 
     [Fact]

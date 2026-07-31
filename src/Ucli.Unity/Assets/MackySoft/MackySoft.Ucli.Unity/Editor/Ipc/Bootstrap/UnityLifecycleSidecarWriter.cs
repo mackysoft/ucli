@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Runtime;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
@@ -72,7 +73,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         /// <summary> Persists the initial snapshot before endpoint publication commits. </summary>
         public Task InitializeAsync (
-            UnityEditorObservation snapshot,
+            UnityEditorRuntimeObservation snapshot,
             CancellationToken cancellationToken)
         {
             if (snapshot == null)
@@ -102,7 +103,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// Schedules one snapshot and replaces any older snapshot that has not begun writing.
         /// </summary>
         public bool TryEnqueue (
-            UnityEditorObservation snapshot,
+            UnityEditorRuntimeObservation snapshot,
             out long version)
         {
             return TryEnqueueCore(
@@ -113,7 +114,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         /// <summary> Schedules the recovery observation written before one domain reload. </summary>
         public bool TryEnqueueDomainReloadRecovery (
-            UnityEditorObservation snapshot,
+            UnityEditorRuntimeObservation snapshot,
             DaemonLifecycleRecoveryLease recoveryLease,
             out long version)
         {
@@ -126,7 +127,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         }
 
         private bool TryEnqueueCore (
-            UnityEditorObservation snapshot,
+            UnityEditorRuntimeObservation snapshot,
             DaemonLifecycleRecoveryLease recoveryLease,
             out long version)
         {
@@ -295,7 +296,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         }
 
         private async Task InitializeCoreAsync (
-            UnityEditorObservation snapshot,
+            UnityEditorRuntimeObservation snapshot,
             CancellationToken callerCancellationToken)
         {
             using var initializationCancellationSource = CancellationTokenSource.CreateLinkedTokenSource(
@@ -636,13 +637,13 @@ namespace MackySoft.Ucli.Unity.Ipc
         {
             public WriteRequest (
                 long version,
-                UnityEditorObservation snapshot,
+                UnityEditorRuntimeObservation snapshot,
                 DaemonLifecycleRecoveryLease recoveryLease)
             {
                 Version = version;
                 Snapshot = snapshot ?? throw new ArgumentNullException(nameof(snapshot));
                 if (recoveryLease != null
-                    && (snapshot.State.LifecycleState != IpcEditorLifecycleState.Recovering
+                    && (snapshot.State.LifecycleState != UnityEditorLifecycleState.Recovering
                         || recoveryLease.ExpiresAtUtc <= snapshot.ObservedAtUtc.ToUniversalTime()))
                 {
                     throw new ArgumentException(
@@ -655,7 +656,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             public long Version { get; }
 
-            public UnityEditorObservation Snapshot { get; }
+            public UnityEditorRuntimeObservation Snapshot { get; }
 
             public DaemonLifecycleRecoveryLease RecoveryLease { get; }
         }

@@ -4,6 +4,7 @@ using TextVocabulary = MackySoft.Text.Vocabularies.Vocabulary;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
 using UnityEditor;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Unity.Runtime
 {
@@ -121,10 +122,10 @@ namespace MackySoft.Ucli.Unity.Runtime
 
         /// <summary> Restores the last observed stable Play Mode state. </summary>
         /// <returns> The persisted stable Play Mode state, or <see langword="null" /> when none is stored. </returns>
-        public static IpcPlayModeState? RestorePlayModeStableState ()
+        public static UnityEditorPlayModeState? RestorePlayModeStableState ()
         {
             var persistedState = SessionState.GetString(PlayModeStableStateKey, string.Empty);
-            if (!VocabularyInputParser.TryParseTrimmed<IpcPlayModeState>(persistedState, out var state) || !IsStableState(state))
+            if (!VocabularyInputParser.TryParseTrimmed<UnityEditorPlayModeState>(persistedState, out var state) || !IsStableState(state))
             {
                 return null;
             }
@@ -142,7 +143,7 @@ namespace MackySoft.Ucli.Unity.Runtime
 
         /// <summary> Stores the last observed stable Play Mode state. </summary>
         /// <param name="state"> The stable Play Mode state value. </param>
-        public static void SetPlayModeStableState (IpcPlayModeState state)
+        public static void SetPlayModeStableState (UnityEditorPlayModeState state)
         {
             if (!IsStableState(state))
             {
@@ -162,7 +163,7 @@ namespace MackySoft.Ucli.Unity.Runtime
 
         /// <summary> Stores one persisted stable Play Mode state value. </summary>
         /// <param name="state"> The stable state value to store, or <see langword="null" /> to clear it. </param>
-        internal static void SetPlayModeStableStateForTests (IpcPlayModeState? state)
+        internal static void SetPlayModeStableStateForTests (UnityEditorPlayModeState? state)
         {
             if (!state.HasValue)
             {
@@ -224,9 +225,9 @@ namespace MackySoft.Ucli.Unity.Runtime
             SessionState.SetString(key, value.ToString(CultureInfo.InvariantCulture));
         }
 
-        private static bool IsStableState (IpcPlayModeState state)
+        private static bool IsStableState (UnityEditorPlayModeState state)
         {
-            return state is IpcPlayModeState.Playing or IpcPlayModeState.Stopped;
+            return state is UnityEditorPlayModeState.Playing or UnityEditorPlayModeState.Stopped;
         }
     }
 }

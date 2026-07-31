@@ -1,6 +1,7 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Stop;
 using MackySoft.Ucli.Application.Shared.Execution.Progress;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Tests;
 
@@ -14,7 +15,7 @@ internal sealed class RecordingDaemonProjectLifecycleGateway : IDaemonProjectLif
 
     public DaemonStopResult? TryStopProjectResult { get; set; }
 
-    public Func<ResolvedUnityProjectContext, TimeSpan, DaemonEditorMode?, DaemonStartupBlockedProcessPolicy, IDaemonProjectLifecycleProgressObserver?, ICommandProgressSink?, CancellationToken, ValueTask<DaemonStartResult>>? EnsureRunningHandler { get; set; }
+    public Func<ResolvedUnityProjectContext, TimeSpan, UnityEditorMode?, DaemonStartupBlockedProcessPolicy, IDaemonProjectLifecycleProgressObserver?, ICommandProgressSink?, CancellationToken, ValueTask<DaemonStartResult>>? EnsureRunningHandler { get; set; }
 
     public Func<ResolvedUnityProjectContext, TimeSpan, CancellationToken, ValueTask<DaemonStopResult?>>? TryStopProjectHandler { get; set; }
 
@@ -25,7 +26,7 @@ internal sealed class RecordingDaemonProjectLifecycleGateway : IDaemonProjectLif
     public ValueTask<DaemonStartResult> EnsureRunningAsync (
         ResolvedUnityProjectContext unityProject,
         TimeSpan timeout,
-        DaemonEditorMode? editorMode,
+        UnityEditorMode? editorMode,
         DaemonStartupBlockedProcessPolicy onStartupBlocked,
         IDaemonProjectLifecycleProgressObserver? progressObserver = null,
         ICommandProgressSink? supervisorProgressSink = null,
@@ -80,7 +81,7 @@ internal sealed class RecordingDaemonProjectLifecycleGateway : IDaemonProjectLif
     internal readonly record struct EnsureRunningInvocation (
         ResolvedUnityProjectContext UnityProject,
         TimeSpan Timeout,
-        DaemonEditorMode? EditorMode,
+        UnityEditorMode? EditorMode,
         DaemonStartupBlockedProcessPolicy OnStartupBlocked,
         IDaemonProjectLifecycleProgressObserver? ProgressObserver,
         ICommandProgressSink? SupervisorProgressSink,

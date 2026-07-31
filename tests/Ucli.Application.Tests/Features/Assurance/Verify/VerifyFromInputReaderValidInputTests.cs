@@ -65,43 +65,6 @@ public sealed class VerifyFromInputReaderValidInputTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void Read_WithValidRefreshInput_ReturnsNormalizedInput ()
-    {
-        var result = VerifyFromInputReader.Read(
-            CreateValidInputJson(
-                CreateDefaultOpResultJson(op: UcliPrimitiveOperationNames.ProjectRefresh),
-                command: "refresh",
-                postReadSourceJson:
-                """
-                {
-                  "schemaVersion": 1,
-                  "steps": [
-                    {
-                      "sourceKind": "refresh",
-                      "playModeMutation": false,
-                      "commit": null,
-                      "persistenceExpected": true,
-                      "expectedPostState": "unavailable"
-                    }
-                  ]
-                }
-                """),
-            DefaultProjectFingerprint);
-
-        Assert.True(result.IsSuccess);
-        var input = result.Input!;
-        Assert.Equal("refresh", input.Command);
-        var opResult = Assert.Single(input.OpResults);
-        Assert.Equal(UcliPrimitiveOperationNames.ProjectRefresh, opResult.Op);
-        Assert.Equal(IpcExecutePostReadSourceKind.Refresh, opResult.PostReadSource.SourceKind);
-        Assert.Null(opResult.PostReadSource.Commit);
-        Assert.True(opResult.PostReadSource.PersistenceExpected);
-        Assert.Equal(IpcExecuteExpectedPostState.Unavailable, opResult.PostReadSource.ExpectedPostState);
-        Assert.True(input.NeedsPostRead);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
     public void Read_WithNoOpInput_ReturnsNormalizedInput ()
     {
         var projectFingerprintText = DefaultProjectFingerprint.ToString();

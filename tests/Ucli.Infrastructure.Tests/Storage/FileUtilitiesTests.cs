@@ -98,6 +98,39 @@ public sealed class FileUtilitiesTests
     }
 
     [Fact]
+    [Trait("Size", "Medium")]
+    [SupportedOSPlatform("windows")]
+    public async Task AtomicWriteAndRead_OnWindowsWithLongPath_RoundTripsExactBytes ()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        using var scope = TestDirectories.CreateTempScope("infrastructure-storage", "bounded-read-long-path");
+        var relativePath = Path.Combine(
+            new string('a', 80),
+            new string('b', 80),
+            new string('c', 80),
+            "checkpoint.json");
+        var path = scope.GetPath(relativePath);
+        var expected = new byte[] { 0x00, 0x7f, 0x80, 0xff };
+        Assert.True(path.Length >= 260);
+        await FileUtilities.WriteAllBytesAtomicallyAsync(
+            AbsolutePath.Parse(path),
+            expected,
+            CancellationToken.None);
+
+        var contents = await FileUtilities.ReadBytesOrNullWithinLimitAsync(
+            AbsolutePath.Parse(path),
+            expected.Length,
+            CancellationToken.None);
+
+        Assert.NotNull(contents);
+        Assert.Equal(expected, contents.Value.ToArray());
+    }
+
+    [Fact]
     [Trait("Size", "Small")]
     public async Task ReadBytesOrNullWithinLimitAsync_WhenFileExceedsLimit_ThrowsIOException ()
     {

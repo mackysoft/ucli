@@ -5,6 +5,7 @@ using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Hosting.Cli.Daemon;
 using MackySoft.Ucli.Tests.Hosting.Cli.Common.Execution;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Tests;
 
@@ -17,7 +18,7 @@ public sealed class DaemonStatusCommandTests
         var session = new DaemonSessionOutput(
             ProjectFingerprint: ProjectFingerprintTestFactory.Create("fp-gui"),
             IssuedAtUtc: new DateTimeOffset(2026, 03, 12, 1, 2, 3, TimeSpan.Zero),
-            EditorMode: DaemonEditorMode.Gui,
+            EditorMode: UnityEditorMode.Gui,
             OwnerKind: DaemonSessionOwnerKind.User,
             CanShutdownProcess: false,
             EndpointTransportKind: IpcTransportKind.UnixDomainSocket,
@@ -29,11 +30,11 @@ public sealed class DaemonStatusCommandTests
             DaemonStatusExecutionResult.Success(new DaemonStatusExecutionOutput(
                 DaemonStatus: DaemonStatusKind.Running,
                 ServerVersion: "0.0.2",
-                EditorMode: DaemonEditorMode.Gui,
-                LifecycleState: IpcEditorLifecycleState.PlayMode,
-                BlockingReason: IpcEditorBlockingReason.PlayMode,
-                CompileState: IpcCompileState.Ready,
-                Generations: new IpcUnityGenerationSnapshot(3, 5, 0, 8),
+                EditorMode: UnityEditorMode.Gui,
+                LifecycleState: UnityEditorLifecycleState.PlayMode,
+                BlockingReason: UnityEditorBlockingReason.PlayMode,
+                CompileState: UnityEditorCompileState.Ready,
+                Generations: new UnityEditorGenerationSnapshot(3, 5, 0, 8),
                 CanAcceptExecutionRequests: false,
                 TimeoutMilliseconds: 3000,
                 Session: session,
@@ -42,9 +43,9 @@ public sealed class DaemonStatusCommandTests
                 ObservedAtUtc: new DateTimeOffset(2026, 03, 12, 1, 3, 0, TimeSpan.Zero),
                 ActionRequired: null,
                 PrimaryDiagnostic: null,
-                PlayMode: new IpcPlayModeSnapshot(
-                    State: IpcPlayModeState.Playing,
-                    Transition: IpcPlayModeTransition.None,
+                PlayMode: new UnityEditorPlayModeSnapshot(
+                    State: UnityEditorPlayModeState.Playing,
+                    Transition: UnityEditorPlayModeTransition.None,
                     IsPlaying: true,
                     IsPlayingOrWillChangePlaymode: true))));
         var command = new DaemonStatusCommand(service, CommandResultTestWriter.Create());
@@ -65,8 +66,8 @@ public sealed class DaemonStatusCommandTests
             .HasProperty("payload", payload => payload
                 .HasString("daemonStatus", "running")
                 .HasString("editorMode", "gui")
-                .HasString("lifecycleState", TextVocabulary.GetText(IpcEditorLifecycleState.PlayMode))
-                .HasString("blockingReason", TextVocabulary.GetText(IpcEditorBlockingReason.PlayMode))
+                .HasString("lifecycleState", TextVocabulary.GetText(UnityEditorLifecycleState.PlayMode))
+                .HasString("blockingReason", TextVocabulary.GetText(UnityEditorBlockingReason.PlayMode))
                 .HasProperty("generations", generations => generations
                     .HasInt32("compileGeneration", 3)
                     .HasInt32("domainReloadGeneration", 5)
@@ -103,7 +104,7 @@ public sealed class DaemonStatusCommandTests
             ProcessStartedAtUtc: new DateTimeOffset(2026, 03, 12, 4, 5, 0, TimeSpan.Zero),
             UnityLogPath: "/repo/.ucli/local/projects/04hkaps9lf6uu0938ljojaudts0i6hb7h6lsrro14d2mf2dbpnng/unity.log",
             StartupPhase: DaemonDiagnosisStartupPhase.EndpointRegistration,
-            ActionRequired: DaemonDiagnosisActionRequired.InspectUnityLog,
+            ActionRequired: UnityEditorActionRequired.InspectUnityLog,
             PrimaryDiagnostic: null);
         var launchAttempt = new DaemonLaunchAttemptOutput(
             LaunchAttemptId: Guid.Parse("01234567-89ab-cdef-0123-456789abcdef"),
@@ -163,7 +164,7 @@ public sealed class DaemonStatusCommandTests
                         .HasString("reason", TextVocabulary.GetText(DaemonDiagnosisReason.GuiEndpointNotRegistered))
                         .HasString("unityLogPath", "/repo/.ucli/local/projects/04hkaps9lf6uu0938ljojaudts0i6hb7h6lsrro14d2mf2dbpnng/unity.log")
                         .HasString("startupPhase", TextVocabulary.GetText(DaemonDiagnosisStartupPhase.EndpointRegistration))
-                        .HasString("actionRequired", TextVocabulary.GetText(DaemonDiagnosisActionRequired.InspectUnityLog)))));
+                        .HasString("actionRequired", TextVocabulary.GetText(UnityEditorActionRequired.InspectUnityLog)))));
 
         var payloadJson = outputJson.RootElement.GetProperty("payload");
         Assert.False(payloadJson.TryGetProperty("runtimeKind", out _));

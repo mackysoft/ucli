@@ -18,4 +18,14 @@ internal sealed class RecordingCompileService : RecordingProgressCommandService<
     {
         return ExecuteRecordedAsync(input, progressSink, cancellationToken);
     }
+
+    public ValueTask<CompileExecutionResult> ReconnectAsync (
+        CompileCommandInput input,
+        ExecutionRef lifecycleExecutionRef,
+        ICommandProgressSink? progressSink = null,
+        CancellationToken cancellationToken = default)
+    {
+        throw new InvalidOperationException(
+            "Compile reconnect was not expected.");
+    }
 }

@@ -8,6 +8,12 @@ namespace MackySoft.Ucli.Contracts;
 [JsonConverter(typeof(ProjectFingerprintJsonConverter))]
 public sealed class ProjectFingerprint : IEquatable<ProjectFingerprint>
 {
+    /// <summary> Gets the canonical serialized length. </summary>
+    internal const int CanonicalTextLength = Sha256LowerHex.HexCharCount;
+
+    /// <summary> Gets the JSON Schema pattern for the canonical serialized value. </summary>
+    internal const string CanonicalTextPattern = Sha256LowerHex.CanonicalTextPattern;
+
     private readonly string value;
 
     /// <summary> Initializes one canonical project fingerprint. </summary>

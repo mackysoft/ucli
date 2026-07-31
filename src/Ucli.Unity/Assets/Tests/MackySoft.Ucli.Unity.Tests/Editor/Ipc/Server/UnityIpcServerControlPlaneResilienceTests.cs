@@ -19,6 +19,7 @@ using MackySoft.Ucli.Unity.Ipc;
 using MackySoft.Ucli.Unity.Runtime;
 using NUnit.Framework;
 using UnityEngine.TestTools;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Unity.Tests
 {
@@ -94,13 +95,13 @@ namespace MackySoft.Ucli.Unity.Tests
                     CreatePingRequest(CanonicalSessionToken));
                 Assert.That(pingResponse.Status, Is.EqualTo(IpcResponseStatus.Ok));
                 Assert.That(pingResponse.Errors, Is.Empty);
-                var pingObservation = pingResponse.Payload.Deserialize<IpcUnityEditorObservation>(SerializerOptions);
+                var pingObservation = pingResponse.Payload.Deserialize<UnityEditorObservation>(SerializerOptions);
                 Assert.That(pingObservation, Is.Not.Null);
                 Assert.That(
                     pingObservation.State.LifecycleState,
-                    Is.EqualTo(IpcEditorLifecycleState.Busy));
+                    Is.EqualTo(UnityEditorLifecycleState.Busy));
                 Assert.That(
-                    IpcEditorLifecycleSemantics.CanAcceptExecutionRequests(pingObservation.State.LifecycleState),
+                    UnityEditorLifecycleSemantics.CanAcceptExecutionRequests(pingObservation.State.LifecycleState),
                     Is.False);
 
                 var playStatusResponse = await SendNamedPipeRequestAsync(
@@ -114,7 +115,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     playStatus.Snapshot.State.LifecycleState,
                     Is.EqualTo(pingObservation.State.LifecycleState));
                 Assert.That(
-                    IpcEditorLifecycleSemantics.CanAcceptExecutionRequests(
+                    UnityEditorLifecycleSemantics.CanAcceptExecutionRequests(
                         playStatus.Snapshot.State.LifecycleState),
                     Is.False);
 
@@ -238,9 +239,7 @@ namespace MackySoft.Ucli.Unity.Tests
                         shutdownAdmissionCoordinator),
                 },
                 mutationExecutor,
-                controlExecutor,
-                recoverableOperationStore: null,
-                daemonLogger: NoOpDaemonLogger.Instance);
+                controlExecutor);
             var requestHandler = new UnityIpcRequestHandler(
                 new StubSessionTokenValidator(accepted: true),
                 methodDispatcher,
@@ -249,7 +248,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 requestHandler,
                 shutdownAdmissionCoordinator,
                 new IpcRequestPhaseScopeFactory(),
-                recoverableReplayAvailable: true,
                 UnityIpcConnectionHandler.DefaultInitialFrameReadTimeout,
                 UnityIpcConnectionHandler.DefaultResponseFrameWriteTimeout);
             return new UnityIpcServer(
@@ -309,7 +307,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 isShuttingDown: false,
                 isStartupPending: false);
             return new UnityEditorReadinessGate(
-                DaemonEditorMode.Gui,
+                UnityEditorMode.Gui,
                 new UnityEditorLifecycleMonitor(
                     telemetryState,
                     static () => false,
@@ -331,9 +329,9 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             private readonly object syncRoot = new object();
 
-            private UnityEditorObservation latestSnapshot;
+            private UnityEditorRuntimeObservation latestSnapshot;
 
-            public UnityEditorObservation LatestSnapshot
+            public UnityEditorRuntimeObservation LatestSnapshot
             {
                 get
                 {
@@ -345,7 +343,7 @@ namespace MackySoft.Ucli.Unity.Tests
             }
 
             public Task WriteAsync (
-                UnityEditorObservation snapshot,
+                UnityEditorRuntimeObservation snapshot,
                 DaemonLifecycleRecoveryLease recoveryLease,
                 CancellationToken cancellationToken)
             {

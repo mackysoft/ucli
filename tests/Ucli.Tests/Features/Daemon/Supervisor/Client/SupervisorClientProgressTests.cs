@@ -2,6 +2,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Tests.Helpers.Daemon;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Tests.Supervisor;
 
@@ -32,7 +33,7 @@ public sealed class SupervisorClientProgressTests
             Guid.NewGuid(),
             SupervisorClientTestSupport.CreateUnityProject(),
             ExecutionDeadline.Start(TimeSpan.FromSeconds(5), TimeProvider.System),
-            editorMode: DaemonEditorMode.Gui,
+            editorMode: UnityEditorMode.Gui,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Terminate,
             progressSink,
             cancellationToken: CancellationToken.None);
@@ -65,7 +66,7 @@ public sealed class SupervisorClientProgressTests
             Guid.NewGuid(),
             SupervisorClientTestSupport.CreateUnityProject(),
             ExecutionDeadline.Start(TimeSpan.FromSeconds(5), TimeProvider.System),
-            editorMode: DaemonEditorMode.Gui,
+            editorMode: UnityEditorMode.Gui,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
             progressSink,
             cancellationToken: CancellationToken.None);
@@ -90,7 +91,7 @@ public sealed class SupervisorClientProgressTests
             Guid.NewGuid(),
             SupervisorClientTestSupport.CreateUnityProject(),
             ExecutionDeadline.Start(TimeSpan.FromSeconds(5), TimeProvider.System),
-            editorMode: DaemonEditorMode.Gui,
+            editorMode: UnityEditorMode.Gui,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
             progressSink,
             cancellationToken: CancellationToken.None);

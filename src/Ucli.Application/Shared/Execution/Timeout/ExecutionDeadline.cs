@@ -69,6 +69,48 @@ internal sealed class ExecutionDeadline
             AddUtcClamped(observedAtUtc, timeout));
     }
 
+    /// <summary>
+    /// Tries to create a deadline ending at one previously fixed UTC instant.
+    /// </summary>
+    /// <param name="utcDeadline"> The non-default UTC instant at which the budget ends. </param>
+    /// <param name="timeProvider"> The time provider used for UTC and monotonic observations. </param>
+    /// <param name="deadline">
+    /// The created deadline when <paramref name="utcDeadline" /> is still in the future;
+    /// otherwise, <see langword="null" />.
+    /// </param>
+    /// <returns>
+    /// <see langword="true" /> when a positive remaining budget was created;
+    /// otherwise, <see langword="false" />.
+    /// </returns>
+    public static bool TryStartUntil (
+        DateTimeOffset utcDeadline,
+        TimeProvider timeProvider,
+        out ExecutionDeadline? deadline)
+    {
+        ArgumentNullException.ThrowIfNull(timeProvider);
+        if (utcDeadline == default || utcDeadline.Offset != TimeSpan.Zero)
+        {
+            throw new ArgumentException(
+                "Deadline must be a non-default UTC value.",
+                nameof(utcDeadline));
+        }
+
+        var startTimestamp = timeProvider.GetTimestamp();
+        var remaining = utcDeadline - timeProvider.GetUtcNow();
+        if (remaining <= TimeSpan.Zero)
+        {
+            deadline = null;
+            return false;
+        }
+
+        deadline = new ExecutionDeadline(
+            timeProvider,
+            startTimestamp,
+            remaining,
+            utcDeadline);
+        return true;
+    }
+
     /// <summary> Gets whether the execution deadline has already elapsed. </summary>
     public bool IsExpired => !TryGetRemainingTimeout(out _);
 

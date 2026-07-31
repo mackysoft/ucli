@@ -5,6 +5,7 @@ using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Application.Shared.Git;
 using MackySoft.Ucli.Contracts.Ipc;
 using static MackySoft.Ucli.Application.Tests.Daemon.DaemonListQueryServiceTestSupport;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Tests.Daemon;
 
@@ -72,7 +73,7 @@ public sealed class DaemonListQueryServiceTests
                 ProjectPath: worktreeA.UnityProjectRoot.Value,
                 ProjectFingerprint: ProjectFingerprintTestFactory.Create("fp-a"),
                 ProcessId: 1001,
-                EditorMode: DaemonEditorMode.Batchmode,
+                EditorMode: UnityEditorMode.Batchmode,
                 OwnerKind: DaemonSessionOwnerKind.Cli,
                 CanShutdownProcess: true,
                 EndpointAddress: "endpoint-a"),
@@ -83,7 +84,7 @@ public sealed class DaemonListQueryServiceTests
                 ProjectPath: worktreeB.UnityProjectRoot.Value,
                 ProjectFingerprint: ProjectFingerprintTestFactory.Create("fp-b"),
                 ProcessId: 1002,
-                EditorMode: DaemonEditorMode.Batchmode,
+                EditorMode: UnityEditorMode.Batchmode,
                 OwnerKind: DaemonSessionOwnerKind.Cli,
                 CanShutdownProcess: true,
                 EndpointAddress: "endpoint-b"));
@@ -100,21 +101,21 @@ public sealed class DaemonListQueryServiceTests
             projectFingerprint: ProjectFingerprintTestFactory.Create("fp-current"),
             endpointAddress: "endpoint-gui",
             processId: 3101,
-            editorMode: DaemonEditorMode.Gui,
+            editorMode: UnityEditorMode.Gui,
             ownerKind: DaemonSessionOwnerKind.User,
             canShutdownProcess: false);
-        var pingResponse = new IpcUnityEditorObservation(
+        var pingResponse = new UnityEditorObservation(
             serverVersion: "0.0.2",
             unityVersion: "6000.1.4f1",
             projectFingerprint: currentProject.ProjectFingerprint,
             state: new UnityEditorStateSnapshot(
-                editorMode: DaemonEditorMode.Gui,
-                lifecycleState: IpcEditorLifecycleState.PlayMode,
-                compileState: IpcCompileState.Ready,
-                generations: new IpcUnityGenerationSnapshot(3, 5, 0, 1),
-                playMode: new IpcPlayModeSnapshot(
-                    IpcPlayModeState.Playing,
-                    IpcPlayModeTransition.None,
+                editorMode: UnityEditorMode.Gui,
+                lifecycleState: UnityEditorLifecycleState.PlayMode,
+                compileState: UnityEditorCompileState.Ready,
+                generations: new UnityEditorGenerationSnapshot(3, 5, 0, 1),
+                playMode: new UnityEditorPlayModeSnapshot(
+                    UnityEditorPlayModeState.Playing,
+                    UnityEditorPlayModeTransition.None,
                     IsPlaying: true,
                     IsPlayingOrWillChangePlaymode: true)),
             observedAtUtc: DateTimeOffset.UnixEpoch,
@@ -133,11 +134,11 @@ public sealed class DaemonListQueryServiceTests
         var output = Assert.IsType<DaemonListExecutionOutput>(result.Output);
         var item = Assert.Single(output.Items);
         Assert.Equal(DaemonListItemState.Running, item.State);
-        Assert.Equal(DaemonEditorMode.Gui, item.EditorMode);
+        Assert.Equal(UnityEditorMode.Gui, item.EditorMode);
         Assert.Equal(DaemonSessionOwnerKind.User, item.OwnerKind);
         Assert.False(item.CanShutdownProcess);
-        Assert.Equal(IpcEditorLifecycleState.PlayMode, item.LifecycleState);
-        Assert.Equal(IpcEditorBlockingReason.PlayMode, item.BlockingReason);
+        Assert.Equal(UnityEditorLifecycleState.PlayMode, item.LifecycleState);
+        Assert.Equal(UnityEditorBlockingReason.PlayMode, item.BlockingReason);
         Assert.False(item.CanAcceptExecutionRequests);
         Assert.Null(item.Diagnosis);
     }

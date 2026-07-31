@@ -5,6 +5,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.LaunchAttempts;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Features.Daemon.UseCases.Status;
 using static MackySoft.Ucli.Application.Tests.Daemon.DaemonStatusServiceTestSupport;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Tests.Daemon;
 
@@ -76,7 +77,7 @@ public sealed class DaemonStatusServiceProjectionTests
             StartupBlockingReason: DaemonStartupBlockingReason.EndpointNotRegistered,
             RetryDisposition: DaemonStartupRetryDisposition.WaitThenRetry,
             ProcessAction: DaemonStartupProcessAction.Terminated,
-            EditorMode: DaemonEditorMode.Gui,
+            EditorMode: UnityEditorMode.Gui,
             ProcessId: 1234,
             ProcessStartedAtUtc: new DateTimeOffset(2026, 03, 12, 0, 0, 1, TimeSpan.Zero),
             UnityLogPath: AbsolutePath.Parse(Path.Combine(

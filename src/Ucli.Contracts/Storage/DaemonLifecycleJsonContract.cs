@@ -2,6 +2,7 @@ using System.Text.Json.Serialization;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Contracts.Storage;
 
@@ -15,8 +16,8 @@ internal sealed record DaemonLifecycleJsonContract
         DateTimeOffset? processStartedAtUtc,
         UnityEditorStateSnapshot state,
         DateTimeOffset? observedAtUtc,
-        DaemonDiagnosisActionRequired? actionRequired,
-        IpcPrimaryDiagnostic? primaryDiagnostic,
+        UnityEditorActionRequired? actionRequired,
+        UnityEditorPrimaryDiagnostic? primaryDiagnostic,
         Guid sidecarGenerationId,
         string? serverVersion,
         Guid? editorInstanceId,
@@ -55,7 +56,7 @@ internal sealed record DaemonLifecycleJsonContract
         }
 
         if (recoveryLease is not null
-            && (validatedState.LifecycleState != IpcEditorLifecycleState.Recovering
+            && (validatedState.LifecycleState != UnityEditorLifecycleState.Recovering
                 || observedAtUtc is not DateTimeOffset observationTimestamp
                 || recoveryLease.ExpiresAtUtc <= observationTimestamp))
         {
@@ -91,10 +92,10 @@ internal sealed record DaemonLifecycleJsonContract
     public DateTimeOffset? ObservedAtUtc { get; }
 
     /// <summary> Gets the normalized action required to resolve the current lifecycle state. </summary>
-    public DaemonDiagnosisActionRequired? ActionRequired { get; }
+    public UnityEditorActionRequired? ActionRequired { get; }
 
     /// <summary> Gets the primary machine-readable diagnostic for the current lifecycle state. </summary>
-    public IpcPrimaryDiagnostic? PrimaryDiagnostic { get; }
+    public UnityEditorPrimaryDiagnostic? PrimaryDiagnostic { get; }
 
     /// <summary> Gets the lifecycle sidecar writer generation that owns this persisted observation. </summary>
     [JsonInclude]

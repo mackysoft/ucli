@@ -1,4 +1,6 @@
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Projects;
+using MackySoft.Ucli.Contracts.Execution;
 
 namespace MackySoft.Ucli.TestSupport;
 
@@ -9,12 +11,12 @@ internal static class ExecuteUnityRequestResponseTestFactory
         IReadOnlyList<IpcExecuteOperationResult> opResults,
         IReadOnlyList<IpcError> errors,
         string? planToken = null,
-        IpcExecuteReadPostcondition? readPostcondition = null,
-        IpcProjectIdentity? project = null)
+        ExecutionReadPostcondition? readPostcondition = null,
+        UnityProjectIdentity? project = null)
     {
         var payload = new IpcExecuteResponse(
             opResults,
-            project ?? new IpcProjectIdentity(
+            project ?? new UnityProjectIdentity(
                 projectPath: ProjectPathTestValues.RepositoryUnityProject,
                 projectFingerprint: ProjectFingerprintTestFactory.Create("project-fingerprint"),
                 unityVersion: "6000.1.4f1"),

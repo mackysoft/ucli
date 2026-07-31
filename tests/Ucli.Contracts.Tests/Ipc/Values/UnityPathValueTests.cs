@@ -1,6 +1,7 @@
 using System.Reflection;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Json;
+using MackySoft.Ucli.Contracts.Projects;
 
 namespace MackySoft.Ucli.Contracts.Tests.Ipc.Values;
 

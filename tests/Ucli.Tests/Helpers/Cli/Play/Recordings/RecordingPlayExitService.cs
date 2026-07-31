@@ -15,4 +15,13 @@ internal sealed class RecordingPlayExitService : RecordingCommandService<PlayExi
     {
         return ExecuteRecordedAsync(input, cancellationToken);
     }
+
+    public ValueTask<PlayExitExecutionResult> ReconnectAsync (
+        PlayExitCommandInput input,
+        ExecutionRef lifecycleExecutionRef,
+        CancellationToken cancellationToken = default)
+    {
+        throw new InvalidOperationException(
+            "Play exit reconnect was not expected.");
+    }
 }

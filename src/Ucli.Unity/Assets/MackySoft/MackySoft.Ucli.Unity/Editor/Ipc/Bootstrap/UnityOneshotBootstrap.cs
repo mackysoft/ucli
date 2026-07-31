@@ -11,6 +11,7 @@ using MackySoft.Ucli.Unity.Project;
 using MackySoft.Ucli.Unity.Runtime;
 using Microsoft.Extensions.DependencyInjection;
 using UnityEditor;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
@@ -43,14 +44,19 @@ namespace MackySoft.Ucli.Unity.Ipc
                 UnityMainThreadDaemonConsoleLogSink.CaptureCurrent());
             try
             {
+                var editorInstanceId = UnityEditorSessionStateStore.GetOrCreateEditorInstanceId();
                 var endpointBinding = UnityBatchmodeBootstrapEndpointValidator.ResolveValidatedOneshotEndpoint(bootstrapEnvelope);
                 var services = new ServiceCollection();
                 services.AddUnityIpcApplicationServices(
                     new ExactSessionTokenValidator(bootstrapEnvelope.SessionToken),
                     bootstrapEnvelope.ProjectFingerprint,
                     daemonLogger,
-                    DaemonEditorMode.Batchmode);
-                services.AddUnityIpcOneshotHostServices(endpointBinding, lifetimeWatchdog);
+                    UnityEditorMode.Batchmode);
+                services.AddUnityIpcOneshotHostServices(
+                    endpointBinding,
+                    lifetimeWatchdog,
+                    bootstrapEnvelope.BootstrapId,
+                    editorInstanceId);
 
                 IServiceProvider serviceProvider = services.BuildServiceProvider();
                 IUnityIpcServer server = null;
@@ -79,6 +85,9 @@ namespace MackySoft.Ucli.Unity.Ipc
                             "IPC listener terminated before oneshot endpoint ownership could become active.");
                     }
 
+                    serviceProvider
+                        .GetRequiredService<UnityLifecycleExecutionRecoveryCoordinator>()
+                        .Start();
                     var completedTask = await Task.WhenAny(requestCompletionTask, serverTerminationTask);
                     if (ReferenceEquals(completedTask, serverTerminationTask))
                     {

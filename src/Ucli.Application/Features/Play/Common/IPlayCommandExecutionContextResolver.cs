@@ -18,4 +18,14 @@ internal interface IPlayCommandExecutionContextResolver
         string sessionNotAvailableMessage,
         string requiresGuiEditorMessage,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Resolves project and caller-wait facts for an existing Lifecycle Execution without selecting
+    /// a current daemon session.
+    /// </summary>
+    ValueTask<PlayCommandExecutionContextResolutionResult> ResolveReconnectAsync (
+        string? projectPath,
+        int? timeoutMilliseconds,
+        UcliCommand command,
+        CancellationToken cancellationToken = default);
 }

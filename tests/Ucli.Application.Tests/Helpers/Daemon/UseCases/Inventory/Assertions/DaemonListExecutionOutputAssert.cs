@@ -1,5 +1,6 @@
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 using MackySoft.Ucli.Application.Features.Daemon.UseCases.Inventory;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Tests;
 
@@ -52,7 +53,7 @@ internal static class DaemonListExecutionOutputAssert
         string ProjectPath,
         ProjectFingerprint ProjectFingerprint,
         int ProcessId,
-        DaemonEditorMode EditorMode,
+        UnityEditorMode EditorMode,
         DaemonSessionOwnerKind OwnerKind,
         bool CanShutdownProcess,
         string EndpointAddress);

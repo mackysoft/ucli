@@ -6,6 +6,7 @@ using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Infrastructure.Storage;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Features.Daemon.Lifecycle.Observation;
 
@@ -143,9 +144,9 @@ internal sealed class DaemonLifecycleStore : IDaemonLifecycleStore
     }
 
     private static bool TryValidatePrimaryDiagnostic (
-        IpcPrimaryDiagnostic? primaryDiagnostic,
+        UnityEditorPrimaryDiagnostic? primaryDiagnostic,
         AbsolutePath path,
-        out IpcPrimaryDiagnostic? normalizedDiagnostic,
+        out UnityEditorPrimaryDiagnostic? normalizedDiagnostic,
         out ExecutionError? error)
     {
         normalizedDiagnostic = null;
@@ -173,7 +174,7 @@ internal sealed class DaemonLifecycleStore : IDaemonLifecycleStore
             return false;
         }
 
-        normalizedDiagnostic = new IpcPrimaryDiagnostic(
+        normalizedDiagnostic = new UnityEditorPrimaryDiagnostic(
             Kind: primaryDiagnostic.Kind.Value,
             Code: StringValueNormalizer.TrimToNull(primaryDiagnostic.Code),
             File: StringValueNormalizer.TrimToNull(primaryDiagnostic.File),

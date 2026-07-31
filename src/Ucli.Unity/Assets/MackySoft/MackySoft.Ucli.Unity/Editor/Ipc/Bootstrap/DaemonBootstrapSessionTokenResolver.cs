@@ -9,6 +9,7 @@ using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.Authorization;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Infrastructure.Storage;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
@@ -92,7 +93,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 || sessionContract.ProjectFingerprint != bootstrapContext.ProjectFingerprint
                 || sessionContract.IssuedAtUtc.Offset != TimeSpan.Zero
                 || sessionContract.IssuedAtUtc != bootstrapContext.SessionIssuedAtUtc
-                || sessionContract.EditorMode != DaemonEditorMode.Batchmode
+                || sessionContract.EditorMode != UnityEditorMode.Batchmode
                 || sessionContract.OwnerKind != DaemonSessionOwnerKind.Cli
                 || !sessionContract.CanShutdownProcess
                 || sessionContract.EndpointTransportKind is not IpcTransportKind endpointTransportKind)

@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Tests.Helpers.Daemon;
 
@@ -49,8 +50,8 @@ internal static class SupervisorProgressAssert
         Assert.Equal(TextVocabulary.GetText(DaemonStartProgressEvent.LifecycleObserved), progress.EventName);
         var payload = Assert.IsType<DaemonStartLifecycleSnapshotProgressEntry>(progress.Payload);
         Assert.Equal(DaemonStartProgressPayloadKind.LifecycleSnapshot, payload.PayloadKind);
-        Assert.Equal(IpcEditorLifecycleState.Compiling, payload.LifecycleState);
-        Assert.Equal(IpcEditorBlockingReason.Compile, payload.BlockingReason);
+        Assert.Equal(UnityEditorLifecycleState.Compiling, payload.LifecycleState);
+        Assert.Equal(UnityEditorBlockingReason.Compile, payload.BlockingReason);
         Assert.False(payload.CanAcceptExecutionRequests);
     }
 }

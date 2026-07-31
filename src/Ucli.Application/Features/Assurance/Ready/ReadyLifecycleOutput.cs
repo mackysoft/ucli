@@ -1,5 +1,6 @@
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Features.Assurance.Ready;
 
@@ -7,13 +8,13 @@ namespace MackySoft.Ucli.Application.Features.Assurance.Ready;
 internal sealed record ReadyLifecycleOutput (
     string? ServerVersion,
     string? UnityVersion,
-    DaemonEditorMode? EditorMode,
-    IpcEditorLifecycleState? LifecycleState,
-    IpcEditorBlockingReason? BlockingReason,
-    IpcCompileState? CompileState,
-    IpcUnityGenerationSnapshot? Generations,
+    UnityEditorMode? EditorMode,
+    UnityEditorLifecycleState? LifecycleState,
+    UnityEditorBlockingReason? BlockingReason,
+    UnityEditorCompileState? CompileState,
+    UnityEditorGenerationSnapshot? Generations,
     bool CanAcceptExecutionRequests,
     DateTimeOffset? ObservedAtUtc,
-    DaemonDiagnosisActionRequired? ActionRequired,
+    UnityEditorActionRequired? ActionRequired,
     ReadyPrimaryDiagnosticOutput? PrimaryDiagnostic,
-    IpcPlayModeSnapshot? PlayMode);
+    UnityEditorPlayModeSnapshot? PlayMode);

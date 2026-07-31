@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Runtime;
+using MackySoft.Ucli.Contracts.Projects;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
@@ -12,7 +13,7 @@ namespace MackySoft.Ucli.Unity.Ipc
     {
         private readonly IServerVersionProvider serverVersionProvider;
         private readonly IUnityEditorAvailabilityObservationSource availabilityObservationSource;
-        private readonly IpcProjectIdentity projectIdentity;
+        private readonly UnityProjectIdentity projectIdentity;
         private readonly IDaemonLogger daemonLogger;
 
         /// <summary> Initializes a new instance of the <see cref="PingUnityIpcMethodHandler" /> class. </summary>
@@ -21,7 +22,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         public PingUnityIpcMethodHandler (
             IServerVersionProvider serverVersionProvider,
             IUnityEditorAvailabilityObservationSource availabilityObservationSource,
-            IpcProjectIdentity projectIdentity,
+            UnityProjectIdentity projectIdentity,
             IDaemonLogger daemonLogger)
         {
             this.serverVersionProvider = serverVersionProvider ?? throw new ArgumentNullException(nameof(serverVersionProvider));

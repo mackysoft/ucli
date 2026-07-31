@@ -1,166 +1,295 @@
-using MackySoft.Ucli.Application.Features.Assurance.Compile.Artifacts;
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Execution;
-using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 using MackySoft.Ucli.Application.Shared.Context;
+using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
+using MackySoft.Ucli.Contracts.Cryptography;
+using MackySoft.Ucli.Contracts.Editor;
+using MackySoft.Ucli.Contracts.Execution;
+using MackySoft.Ucli.Contracts.Execution.Lifecycle;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Contracts.Projects;
 
 namespace MackySoft.Ucli.Application.Tests.Features.Assurance.Compile;
 
 internal static class CompileServiceTestSupport
 {
-    public static readonly Guid RunId = Guid.Parse("0b143533-fbc2-41ee-bc33-08d80b4fc359");
-    public static readonly Guid OtherRunId = Guid.Parse("5d948e1f-d4cd-4357-9f79-eb86604cd355");
+    public static readonly Guid ExecutionId =
+        Guid.Parse("0b143533-fbc2-41ee-bc33-08d80b4fc359");
+    public static readonly Guid OtherExecutionId =
+        Guid.Parse("5d948e1f-d4cd-4357-9f79-eb86604cd355");
+    public static readonly DateTimeOffset StartedAtUtc =
+        DateTimeOffset.Parse("2026-05-17T00:00:00Z");
 
     public static CompileService CreateService (
         IProjectContextResolver? projectContextResolver = null,
         IUnityExecutionModeDecisionService? modeDecisionService = null,
         IUnityRequestExecutor? unityRequestExecutor = null,
-        IGuidGenerator? runIdGenerator = null,
-        ICompileRunArtifactStore? artifactStore = null,
-        TimeProvider? timeProvider = null)
+        ILifecycleExecutionReconnectResolver? reconnectResolver = null,
+        IGuidGenerator? executionIdGenerator = null,
+        TimeProvider? timeProvider = null,
+        ILifecycleExecutionHostExitTerminalizer? hostExitTerminalizer = null)
     {
+        var resolvedTimeProvider =
+            timeProvider ?? new ManualTimeProvider(StartedAtUtc);
         return new CompileService(
-            projectContextResolver ?? new StaticProjectContextResolver(ProjectContextResolutionResult.Success(ProjectContextTestFactory.Create())),
-            modeDecisionService ?? new StubModeDecisionService(UnityExecutionModeDecisionResult.Success(new UnityExecutionModeDecision(
-                UnityExecutionMode.Auto,
-                DaemonRunning: false,
-                UnityExecutionTarget.Oneshot,
-                TimeSpan.FromSeconds(10)))),
-            unityRequestExecutor ?? new RecordingUnityRequestExecutor(CreateCompileResponseResult(CreateSummary())),
-            runIdGenerator ?? new StaticGuidGenerator(RunId),
-            artifactStore ?? new StubCompileRunArtifactStore(),
-            timeProvider ?? TimeProvider.System);
+            projectContextResolver
+                ?? new StaticProjectContextResolver(
+                    ProjectContextResolutionResult.Success(
+                        ProjectContextTestFactory.Create())),
+            modeDecisionService
+                ?? new StubModeDecisionService(
+                    UnityExecutionModeDecisionResult.Success(
+                        new UnityExecutionModeDecision(
+                            UnityExecutionMode.Auto,
+                            DaemonRunning: false,
+                            UnityExecutionTarget.Oneshot,
+                            TimeSpan.FromSeconds(10)))),
+            unityRequestExecutor
+                ?? new RecordingUnityRequestExecutor(
+                    CreateCompileResponseResult(CreateResult())),
+            reconnectResolver
+                ?? new RecordingLifecycleExecutionReconnectResolver(
+                    CreateTerminalResolution(
+                        CreateResult(),
+                        Verdict.Pass)),
+            hostExitTerminalizer
+                ?? new UnexpectedLifecycleExecutionHostExitTerminalizer(),
+            new LifecycleExecutionRegistrationIssuer(
+                executionIdGenerator
+                    ?? new StaticGuidGenerator(ExecutionId),
+                resolvedTimeProvider),
+            resolvedTimeProvider);
     }
 
-    public static UnityRequestExecutionResult CreateCompileResponseResult (IpcCompileSummary summary)
+    public static UnityRequestExecutionResult CreateCompileResponseResult (
+        CompileLifecycleResult result,
+        Guid? executionId = null)
     {
-        return UnityRequestExecutionResult.Success(new UnityRequestResponse(
-            IpcPayloadCodec.SerializeToElement(new IpcCompileResponse(summary)),
-            []));
+        var actualExecutionId = executionId ?? ExecutionId;
+        return UnityRequestExecutionResult.Success(
+            new UnityRequestResponse(
+                IpcPayloadCodec.SerializeToElement(
+                    new IpcCompileResponse(
+                        CreateTerminalReference(actualExecutionId),
+                        result)),
+                []),
+            CreateStart(actualExecutionId));
     }
 
-    public static IpcCompileSummary CreateSummary (
-        Guid? runId = null,
-        ProjectFingerprint? projectFingerprint = null,
-        int errorCount = 0)
+    public static UnityRequestExecutionResult CreateCompileErrorResponseResult (
+        ExecutionApplicationState applicationState,
+        OperationExecutionError error,
+        ExecutionRef? lifecycleExecutionRef = null,
+        CompileLifecycleResult? result = null,
+        UnityEditorObservation? observedLifecycle = null)
+    {
+        return UnityRequestExecutionResult.Success(
+            new UnityRequestResponse(
+                IpcPayloadCodec.SerializeToElement(
+                    new IpcCompileErrorResponse(
+                        lifecycleExecutionRef,
+                        applicationState,
+                        result,
+                        observedLifecycle)),
+                [error]),
+            lifecycleExecutionRef == null
+                ? null
+                : CreateStart(lifecycleExecutionRef.Id));
+    }
+
+    public static LifecycleExecutionReconnectResolution.Terminal
+        CreateTerminalResolution (
+            CompileLifecycleResult result,
+            Verdict verdict,
+            Guid? executionId = null)
+    {
+        var terminalReference = CreateTerminalReference(executionId);
+        return new LifecycleExecutionReconnectResolution.Terminal(
+            terminalReference,
+            CreateCompletedTerminalRecord(
+                result,
+                verdict,
+                executionId));
+    }
+
+    public static CompileLifecycleExecutionTerminalRecord
+        CreateCompletedTerminalRecord (
+            CompileLifecycleResult result,
+            Verdict verdict,
+            Guid? executionId = null)
+    {
+        ArgumentNullException.ThrowIfNull(result);
+        var actualExecutionId = executionId ?? ExecutionId;
+        var start = CreateStart(actualExecutionId);
+        return new CompileLifecycleExecutionTerminalRecord(
+            actualExecutionId,
+            start.LifecycleExecutionRef.DefinitionDigest,
+            start.Project,
+            start.Host,
+            start.StartedGeneration,
+            result.Lifecycle.State?.Generations
+                ?? throw new ArgumentException(
+                    "A completed compile test result requires terminal generation evidence.",
+                    nameof(result)),
+            start.DeadlineUtc,
+            start.StartedAtUtc,
+            StartedAtUtc.AddSeconds(5),
+            LifecycleExecutionTerminalReason.Completed,
+            ExecutionApplicationState.Applied,
+            result,
+            verdict,
+            Array.Empty<ArtifactRef>());
+    }
+
+    public static RecoveryExecutionRef CreatePublishingReference (
+        Guid? executionId = null)
+    {
+        var actualExecutionId = executionId ?? ExecutionId;
+        var definition = new LifecycleExecutionDefinition(
+            LifecycleExecutionKind.Compile);
+        return new RecoveryExecutionRef(
+            definition.ExecutionKind,
+            actualExecutionId,
+            LifecycleExecutionDefinitionDigest.Calculate(definition),
+            new ExecutionState(TextVocabulary.GetText(
+                LifecycleExecutionState.Publishing)),
+            new ExecutionStatusLocator(
+                $"lifecycle-executions/{actualExecutionId:N}/status.json"));
+    }
+
+    public static LifecycleExecutionStartBinding CreateStart (
+        Guid? executionId = null)
+    {
+        var actualExecutionId = executionId ?? ExecutionId;
+        var definition = new LifecycleExecutionDefinition(
+            LifecycleExecutionKind.Compile);
+        var registrationGeneration =
+            Guid.Parse("10000000-0000-0000-0000-000000000001");
+        return new LifecycleExecutionStartBinding(
+            new ActiveExecutionRef(
+                definition.ExecutionKind,
+                actualExecutionId,
+                LifecycleExecutionDefinitionDigest.Calculate(definition),
+                new ExecutionState("registered"),
+                new ExecutionStatusLocator(
+                    $"lifecycle-executions/{actualExecutionId:N}/status.json")),
+            new UnityProjectIdentity(
+                ProjectContextTestFactory.UnityProjectRoot,
+                ProjectContextTestFactory.ProjectFingerprint,
+                ProjectContextTestFactory.UnityVersion),
+            new LifecycleExecutionHostRegistration(
+                new ProcessIdentity(4200, 123456),
+                Guid.Parse("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"),
+                registrationGeneration,
+                registrationGeneration),
+            new UnityEditorGenerationSnapshot(
+                CompileGeneration: 12,
+                DomainReloadGeneration: 7,
+                AssetRefreshGeneration: 3,
+                PlayModeGeneration: 2),
+            StartedAtUtc.AddSeconds(10),
+            StartedAtUtc);
+    }
+
+    public static TerminalExecutionRef CreateTerminalReference (
+        Guid? executionId = null)
+    {
+        return CreateTerminalReference(
+            LifecycleExecutionState.Completed,
+            executionId);
+    }
+
+    public static TerminalExecutionRef CreateFailedTerminalReference (
+        Guid? executionId = null)
+    {
+        return CreateTerminalReference(
+            LifecycleExecutionState.Failed,
+            executionId);
+    }
+
+    private static TerminalExecutionRef CreateTerminalReference (
+        LifecycleExecutionState state,
+        Guid? executionId)
+    {
+        var actualExecutionId = executionId ?? ExecutionId;
+        var definition = new LifecycleExecutionDefinition(
+            LifecycleExecutionKind.Compile);
+        return new TerminalExecutionRef(
+            definition.ExecutionKind,
+            actualExecutionId,
+            LifecycleExecutionDefinitionDigest.Calculate(definition),
+            new ExecutionState(TextVocabulary.GetText(state)),
+            new ExecutionStatusLocator(
+                $"lifecycle-executions/{actualExecutionId:N}/status.json"),
+            new PathArtifactRef(
+                LifecycleExecutionArtifactContract.TerminalRecordKind,
+                LifecycleExecutionArtifactContract.TerminalRecordMediaType,
+                new ArtifactPath(
+                    $"lifecycle-executions/{actualExecutionId:N}/terminal-record.json"),
+                Sha256Digest.Parse(new string('f', 64)),
+                sizeBytes: 512,
+                StartedAtUtc.AddSeconds(5)));
+    }
+
+    public static CompileLifecycleResult CreateResult (int errorCount = 0)
     {
         var primaryDiagnostic = errorCount == 0
             ? null
-            : new IpcPrimaryDiagnostic(
-                Kind: DaemonDiagnosisPrimaryDiagnosticKind.Compiler,
+            : new UnityEditorPrimaryDiagnostic(
+                Kind: UnityEditorPrimaryDiagnosticKind.Compiler,
                 Code: "CS1002",
                 File: "Assets/Broken.cs",
                 Line: 4,
                 Column: 16,
                 Message: "; expected");
         var canAcceptExecutionRequests = errorCount == 0;
-        return new IpcCompileSummary(
-            RunId: runId ?? RunId,
-            ProjectFingerprint: projectFingerprint ?? ProjectContextTestFactory.ProjectFingerprint,
-            Completed: true,
-            StartedAtUtc: DateTimeOffset.Parse("2026-05-17T00:00:00Z"),
-            CompletedAtUtc: DateTimeOffset.Parse("2026-05-17T00:00:02Z"),
-            Refresh: new IpcCompileSummary.RefreshEvidence(
-                Origin: CompileRefreshOrigin.AssetDatabaseRefresh,
+        return new CompileLifecycleResult(
+            new CompileLifecycleResult.RefreshEvidence(
+                Origin: CompileLifecycleRefreshOrigin.AssetDatabaseRefresh,
                 Requested: true,
-                StartedAtUtc: DateTimeOffset.Parse("2026-05-17T00:00:00Z"),
-                CompletedAtUtc: DateTimeOffset.Parse("2026-05-17T00:00:02Z"),
+                StartedAtUtc: StartedAtUtc,
+                CompletedAtUtc: StartedAtUtc.AddSeconds(2),
                 Completed: true),
-            ScriptCompilation: new IpcCompileSummary.ScriptCompilationEvidence(
+            new CompileLifecycleResult.ScriptCompilationEvidence(
                 Started: true,
                 Completed: true,
                 CompileGenerationBefore: 12,
                 CompileGenerationAfter: 14,
-                Diagnostics: new IpcCompileSummary.DiagnosticsEvidence(
+                Diagnostics: new CompileLifecycleResult.DiagnosticsEvidence(
                     ErrorCount: errorCount,
                     WarningCount: 0,
                     PrimaryDiagnostic: primaryDiagnostic)),
-            DomainReload: new IpcCompileSummary.DomainReloadEvidence(
+            new CompileLifecycleResult.DomainReloadEvidence(
                 ReloadRequired: false,
                 ReloadObserved: false,
                 GenerationBefore: 7,
                 GenerationAfter: 7,
                 Settled: true),
-            Lifecycle: new IpcCompileSummary.LifecycleEvidence(
+            new CompileLifecycleResult.LifecycleEvidence(
                 ServerVersion: "0.5.0",
-                UnityVersion: "6000.1.4f1",
+                UnityVersion: ProjectContextTestFactory.UnityVersion,
                 State: new UnityEditorStateSnapshot(
-                    editorMode: DaemonEditorMode.Batchmode,
+                    editorMode: UnityEditorMode.Batchmode,
                     lifecycleState: canAcceptExecutionRequests
-                        ? IpcEditorLifecycleState.Ready
-                        : IpcEditorLifecycleState.CompileFailed,
+                        ? UnityEditorLifecycleState.Ready
+                        : UnityEditorLifecycleState.CompileFailed,
                     compileState: canAcceptExecutionRequests
-                        ? IpcCompileState.Ready
-                        : IpcCompileState.Failed,
-                    generations: new IpcUnityGenerationSnapshot(
+                        ? UnityEditorCompileState.Ready
+                        : UnityEditorCompileState.Failed,
+                    generations: new UnityEditorGenerationSnapshot(
                         CompileGeneration: 14,
                         DomainReloadGeneration: 7,
                         AssetRefreshGeneration: 3,
                         PlayModeGeneration: 2),
-                    playMode: new IpcPlayModeSnapshot(
-                        State: IpcPlayModeState.Stopped,
-                        Transition: IpcPlayModeTransition.None,
+                    playMode: new UnityEditorPlayModeSnapshot(
+                        State: UnityEditorPlayModeState.Stopped,
+                        Transition: UnityEditorPlayModeTransition.None,
                         IsPlaying: false,
                         IsPlayingOrWillChangePlaymode: false)),
-                ObservedAtUtc: DateTimeOffset.Parse("2026-05-17T00:00:03Z"),
-                ActionRequired: canAcceptExecutionRequests ? null : DaemonDiagnosisActionRequired.FixCompileErrors,
+                ObservedAtUtc: StartedAtUtc.AddSeconds(3),
+                ActionRequired: canAcceptExecutionRequests
+                    ? null
+                    : UnityEditorActionRequired.FixCompileErrors,
                 PrimaryDiagnostic: primaryDiagnostic));
-    }
-
-    public static StartupFailureDetail CreateCompilerStartupFailure ()
-    {
-        return CreateStartupFailure(
-            DaemonDiagnosisReason.UnityScriptCompilationFailed,
-            new DaemonPrimaryDiagnosticOutput(
-                Kind: DaemonDiagnosisPrimaryDiagnosticKind.Compiler,
-                Code: "CS0246",
-                File: "Assets/Broken.cs",
-                Line: 10,
-                Column: 5,
-                Message: "MissingType could not be found."));
-    }
-
-    public static StartupFailureDetail CreateStartupFailure (
-        DaemonDiagnosisReason reason,
-        DaemonPrimaryDiagnosticOutput? primaryDiagnostic)
-    {
-        return new StartupFailureDetail(
-            Startup: new DaemonStartupObservationOutput(
-                StartupStatus: DaemonStartupStatus.Blocked,
-                StartupBlockingReason: reason == DaemonDiagnosisReason.UnityScriptCompilationFailed
-                    ? DaemonStartupBlockingReason.Compile
-                    : DaemonStartupBlockingReason.PackageResolution,
-                LaunchAttemptId: null,
-                EditorMode: DaemonEditorMode.Batchmode,
-                OwnerKind: DaemonSessionOwnerKind.Cli,
-                CanShutdownProcess: null,
-                ProcessId: 1234,
-                StartedAtUtc: DateTimeOffset.Parse("2026-05-17T00:00:00Z"),
-                ElapsedMilliseconds: 1200,
-                ProcessAction: DaemonStartupProcessAction.Unknown,
-                ProcessTermination: null,
-                ArtifactPath: null,
-                RetryDisposition: DaemonStartupRetryDisposition.ManualActionRequired),
-            Diagnosis: new DaemonDiagnosisOutput(
-                Reason: reason,
-                Message: reason == DaemonDiagnosisReason.UnityScriptCompilationFailed
-                    ? "Unity script compilation failed."
-                    : "Unity package resolution failed.",
-                ReportedBy: DaemonDiagnosisReportedBy.Cli,
-                IsInferred: true,
-                UpdatedAtUtc: DateTimeOffset.Parse("2026-05-17T00:00:02Z"),
-                ProcessId: 1234,
-                EditorInstancePath: null,
-                ProcessStartedAtUtc: DateTimeOffset.Parse("2026-05-17T00:00:00Z"),
-                UnityLogPath: "/workspace/UnityProject/Logs/Editor.log",
-                StartupPhase: DaemonDiagnosisStartupPhase.ScriptCompilation,
-                ActionRequired: reason == DaemonDiagnosisReason.UnityScriptCompilationFailed
-                    ? DaemonDiagnosisActionRequired.FixCompileErrors
-                    : DaemonDiagnosisActionRequired.ResolvePackages,
-                PrimaryDiagnostic: primaryDiagnostic),
-            RetryDisposition: DaemonStartupRetryDisposition.ManualActionRequired,
-            SafeToRetryImmediately: false);
     }
 }

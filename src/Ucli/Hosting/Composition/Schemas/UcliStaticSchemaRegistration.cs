@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization.Metadata;
 using MackySoft.FileSystem;
+using MackySoft.Ucli.Contracts.Execution.Lifecycle;
 using MackySoft.Ucli.Contracts.Schemas;
 
 namespace MackySoft.Ucli.Hosting.Composition.Schemas;
@@ -14,6 +15,8 @@ internal sealed record UcliStaticSchemaRegistration
         JsonTypeInfo typeInfo,
         string? command,
         CommandResultStatus? status,
+        bool hasOperationApplicationStateConstraints,
+        LifecycleExecutionKind? lifecycleExecutionKind,
         IReadOnlyList<UcliStaticSchemaUsage> usages,
         IReadOnlyList<string> staticDependencies,
         IReadOnlyList<string> dynamicValidationSources)
@@ -26,6 +29,9 @@ internal sealed record UcliStaticSchemaRegistration
         TypeInfo = typeInfo ?? throw new ArgumentNullException(nameof(typeInfo));
         Command = command;
         Status = status;
+        HasOperationApplicationStateConstraints =
+            hasOperationApplicationStateConstraints;
+        LifecycleExecutionKind = lifecycleExecutionKind;
         Usages = Snapshot(usages);
         StaticDependencies = Snapshot(staticDependencies);
         DynamicValidationSources = Snapshot(dynamicValidationSources);
@@ -48,6 +54,18 @@ internal sealed record UcliStaticSchemaRegistration
 
     /// <summary> Gets the matching command-result status, or null for a non-payload schema. </summary>
     public CommandResultStatus? Status { get; }
+
+    /// <summary>
+    /// Gets whether this contract contains operation-only application-state
+    /// constraints.
+    /// </summary>
+    public bool HasOperationApplicationStateConstraints { get; }
+
+    /// <summary>
+    /// Gets the Lifecycle Execution action whose CLI output contract is refined,
+    /// or null when the payload is not action-specific.
+    /// </summary>
+    public LifecycleExecutionKind? LifecycleExecutionKind { get; }
 
     /// <summary> Gets the serializer contract used by the actual product boundary. </summary>
     public JsonTypeInfo TypeInfo { get; }
@@ -108,6 +126,43 @@ internal sealed record UcliStaticSchemaRegistration
         string command,
         CommandResultStatus status)
     {
+        return CreateCliOutputPayload(
+            name,
+            path,
+            typeInfo,
+            command,
+            status,
+            hasOperationApplicationStateConstraints: false);
+    }
+
+    /// <summary>
+    /// Registers one operation-execution command payload with its operation-only
+    /// application-state constraints.
+    /// </summary>
+    public static UcliStaticSchemaRegistration OperationExecutionCliOutputPayload (
+        string name,
+        RootRelativePath path,
+        JsonTypeInfo typeInfo,
+        string command,
+        CommandResultStatus status)
+    {
+        return CreateCliOutputPayload(
+            name,
+            path,
+            typeInfo,
+            command,
+            status,
+            hasOperationApplicationStateConstraints: true);
+    }
+
+    private static UcliStaticSchemaRegistration CreateCliOutputPayload (
+        string name,
+        RootRelativePath path,
+        JsonTypeInfo typeInfo,
+        string command,
+        CommandResultStatus status,
+        bool hasOperationApplicationStateConstraints)
+    {
         ArgumentException.ThrowIfNullOrWhiteSpace(command);
         if (!TextVocabulary.IsDefined(status))
         {
@@ -124,6 +179,58 @@ internal sealed record UcliStaticSchemaRegistration
             typeInfo,
             command,
             status,
+            hasOperationApplicationStateConstraints,
+            lifecycleExecutionKind: null,
+            Array.Empty<UcliStaticSchemaUsage>(),
+            Array.Empty<string>(),
+            Array.Empty<string>());
+    }
+
+    /// <summary>
+    /// Registers one action-specific Lifecycle Execution command payload.
+    /// </summary>
+    public static UcliStaticSchemaRegistration LifecycleExecutionCliOutputPayload (
+        string name,
+        RootRelativePath path,
+        JsonTypeInfo typeInfo,
+        string command,
+        LifecycleExecutionKind executionKind,
+        CommandResultStatus status)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(command);
+        if (!TextVocabulary.IsDefined(executionKind))
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(executionKind),
+                executionKind,
+                "Lifecycle Execution kind must be defined.");
+        }
+        if (!TextVocabulary.IsDefined(status))
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(status),
+                status,
+                "Command result status must be defined.");
+        }
+        if (!string.Equals(
+            command,
+            TextVocabulary.GetText(executionKind),
+            StringComparison.Ordinal))
+        {
+            throw new ArgumentException(
+                "The command must match the registered Lifecycle Execution kind.",
+                nameof(command));
+        }
+
+        return new UcliStaticSchemaRegistration(
+            name,
+            path,
+            UcliStaticSchemaKind.CliOutputPayload,
+            typeInfo,
+            command,
+            status,
+            hasOperationApplicationStateConstraints: false,
+            lifecycleExecutionKind: executionKind,
             Array.Empty<UcliStaticSchemaUsage>(),
             Array.Empty<string>(),
             Array.Empty<string>());
@@ -148,6 +255,8 @@ internal sealed record UcliStaticSchemaRegistration
             typeInfo,
             command: null,
             status: null,
+            hasOperationApplicationStateConstraints: false,
+            lifecycleExecutionKind: null,
             usages,
             staticDependencies,
             dynamicValidationSources);
@@ -166,6 +275,8 @@ internal sealed record UcliStaticSchemaRegistration
             typeInfo,
             command: null,
             status: null,
+            hasOperationApplicationStateConstraints: false,
+            lifecycleExecutionKind: null,
             Array.Empty<UcliStaticSchemaUsage>(),
             Array.Empty<string>(),
             Array.Empty<string>());

@@ -1,6 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Startup;
 
@@ -9,7 +10,7 @@ internal sealed record DaemonStartupReadinessProbeResult
 {
     private DaemonStartupReadinessProbeResult (
         ExecutionError? error,
-        IpcUnityEditorObservation? lifecycleObservation,
+        UnityEditorObservation? lifecycleObservation,
         DaemonStartupFailureClassification? failureClassification)
     {
         Error = error;
@@ -26,7 +27,7 @@ internal sealed record DaemonStartupReadinessProbeResult
     public ExecutionError? Error { get; }
 
     /// <summary> Gets the endpoint-registered lifecycle observation when probing succeeded; otherwise <see langword="null" />. </summary>
-    public IpcUnityEditorObservation? LifecycleObservation { get; }
+    public UnityEditorObservation? LifecycleObservation { get; }
 
     /// <summary> Gets the classified startup blocker when probing failed with a known blocker; otherwise <see langword="null" />. </summary>
     public DaemonStartupFailureClassification? FailureClassification { get; }
@@ -35,7 +36,7 @@ internal sealed record DaemonStartupReadinessProbeResult
     /// <param name="lifecycleObservation"> The endpoint-registered lifecycle observation. </param>
     /// <returns> The successful endpoint-registration probe result. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="lifecycleObservation" /> is <see langword="null" />. </exception>
-    public static DaemonStartupReadinessProbeResult Ready (IpcUnityEditorObservation lifecycleObservation)
+    public static DaemonStartupReadinessProbeResult Ready (UnityEditorObservation lifecycleObservation)
     {
         ArgumentNullException.ThrowIfNull(lifecycleObservation);
         return new DaemonStartupReadinessProbeResult(

@@ -1,6 +1,7 @@
 using System.Text.Json;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Execution.Lifecycle;
 
 namespace MackySoft.Ucli.Contracts.Tests.Execution.References;
 
@@ -108,6 +109,112 @@ public sealed class ExecutionRefTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void ReconnectableReferences_RoundTripThroughTheActiveAndRecoveryTaggedUnion ()
+    {
+        IReconnectableExecutionRef[] references =
+        [
+            new ActiveExecutionRef(
+                Kind,
+                Id,
+                DefinitionDigest,
+                State,
+                StatusLocator),
+            new RecoveryExecutionRef(
+                Kind,
+                Id,
+                DefinitionDigest,
+                new ExecutionState("recovering"),
+                StatusLocator),
+        ];
+
+        foreach (var reference in references)
+        {
+            var json = JsonSerializer.Serialize(
+                reference,
+                IpcJsonSerializerOptions.StrictPropertyNames);
+            var roundTripped =
+                JsonSerializer.Deserialize<IReconnectableExecutionRef>(
+                    json,
+                    IpcJsonSerializerOptions.StrictPropertyNames);
+
+            Assert.Equal(reference, roundTripped);
+            using var document = JsonDocument.Parse(json);
+            Assert.Equal(
+                TextVocabulary.GetText(reference.Lifecycle),
+                document.RootElement.GetProperty("lifecycle").GetString());
+            Assert.True(
+                roundTripped is ActiveExecutionRef
+                    or RecoveryExecutionRef);
+        }
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void RecoveryReference_RoundTripsThroughTheRecoveryOnlyTaggedUnion ()
+    {
+        IRecoveryExecutionRef reference = new RecoveryExecutionRef(
+            Kind,
+            Id,
+            DefinitionDigest,
+            new ExecutionState("recovering"),
+            StatusLocator);
+
+        var json = JsonSerializer.Serialize(
+            reference,
+            IpcJsonSerializerOptions.StrictPropertyNames);
+        var roundTripped = JsonSerializer.Deserialize<IRecoveryExecutionRef>(
+            json,
+            IpcJsonSerializerOptions.StrictPropertyNames);
+
+        Assert.Equal(reference, roundTripped);
+        using var document = JsonDocument.Parse(json);
+        Assert.Equal(
+            TextVocabulary.GetText(ExecutionLifecycle.Recovery),
+            document.RootElement.GetProperty("lifecycle").GetString());
+        Assert.Equal(
+            TextVocabulary.GetText(LifecycleExecutionState.Recovering),
+            document.RootElement.GetProperty("state").GetString());
+        Assert.IsType<RecoveryExecutionRef>(roundTripped);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void TerminalReference_RoundTripsThroughTheTerminalOnlyTaggedUnion ()
+    {
+        ITerminalExecutionRef reference = new TerminalExecutionRef(
+            Kind,
+            Id,
+            DefinitionDigest,
+            new ExecutionState("completed"),
+            statusLocator: null,
+            new PathArtifactRef(
+                new ArtifactKind("programRun.terminalRecord"),
+                new ArtifactMediaType("application/json"),
+                new ArtifactPath("program-runs/terminal-record.json"),
+                Sha256Digest.Parse(new string('d', 64)),
+                sizeBytes: 128,
+                new DateTimeOffset(2026, 7, 28, 12, 0, 0, TimeSpan.Zero)));
+
+        var json = JsonSerializer.Serialize(
+            reference,
+            IpcJsonSerializerOptions.StrictPropertyNames);
+        var roundTripped = JsonSerializer.Deserialize<ITerminalExecutionRef>(
+            json,
+            IpcJsonSerializerOptions.StrictPropertyNames);
+
+        Assert.Equal(reference, roundTripped);
+        using var document = JsonDocument.Parse(json);
+        Assert.Equal(
+            TextVocabulary.GetText(ExecutionLifecycle.Terminal),
+            document.RootElement.GetProperty("lifecycle").GetString());
+        Assert.Equal(
+            TextVocabulary.GetText(LifecycleExecutionState.Completed),
+            document.RootElement.GetProperty("state").GetString());
+        Assert.IsType<TerminalExecutionRef>(roundTripped);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void EnsureDefinitionConsistencyWith_RejectsDigestReuseForTheSameIdentity ()
     {
         var established = new ActiveExecutionRef(
@@ -127,6 +234,21 @@ public sealed class ExecutionRefTests
             () => established.EnsureDefinitionConsistencyWith(conflicting));
 
         Assert.Equal("candidate", exception.ParamName);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Constructor_WhenExecutionIdIsEmpty_RejectsValue ()
+    {
+        var exception = Assert.Throws<ArgumentException>(() =>
+            new ActiveExecutionRef(
+                Kind,
+                Guid.Empty,
+                DefinitionDigest,
+                State,
+                StatusLocator));
+
+        Assert.Equal("id", exception.ParamName);
     }
 
     [Theory]

@@ -3,6 +3,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Stop;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Tests.Helpers.Daemon;
 using MackySoft.Ucli.Tests.Helpers.Ipc;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Tests.Supervisor;
 
@@ -78,7 +79,7 @@ internal static class SupervisorProjectGatewayTestSupport
     public static DaemonStartProgressEmitter CreateStartProgressEmitter (
         CollectingCommandProgressSink progressSink,
         int timeoutMilliseconds = StartTimeoutMilliseconds,
-        DaemonEditorMode? editorMode = null,
+        UnityEditorMode? editorMode = null,
         DaemonStartupBlockedProcessPolicy onStartupBlocked = DaemonStartupBlockedProcessPolicy.Auto)
     {
         return new DaemonStartProgressEmitter(

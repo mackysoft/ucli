@@ -5,6 +5,7 @@ using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Features.Daemon.Lifecycle.Observation;
 using MackySoft.Ucli.Infrastructure.Storage;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Tests.Daemon;
 
@@ -27,8 +28,8 @@ public sealed class DaemonLifecycleStoreTests
         var readResult = await store.ReadAsync(storageRoot, projectFingerprint, CancellationToken.None);
 
         Assert.True(readResult.IsSuccess);
-        Assert.Equal(IpcEditorLifecycleState.CompileFailed, readResult.Observation!.State.LifecycleState);
-        Assert.Equal(IpcEditorBlockingReason.CompileFailed, readResult.Observation.BlockingReason);
+        Assert.Equal(UnityEditorLifecycleState.CompileFailed, readResult.Observation!.State.LifecycleState);
+        Assert.Equal(UnityEditorBlockingReason.CompileFailed, readResult.Observation.BlockingReason);
         Assert.False(readResult.Observation.CanAcceptExecutionRequests);
     }
 
@@ -61,8 +62,8 @@ public sealed class DaemonLifecycleStoreTests
         using var scope = TestDirectories.CreateTempScope("daemon-lifecycle-store", "invalid-primary-diagnostic-kind");
         var storageRoot = AbsolutePath.Parse(scope.FullPath);
         var store = new DaemonLifecycleStore();
-        var contract = CreateContract(primaryDiagnostic: new IpcPrimaryDiagnostic(
-                Kind: DaemonDiagnosisPrimaryDiagnosticKind.Compiler,
+        var contract = CreateContract(primaryDiagnostic: new UnityEditorPrimaryDiagnostic(
+                Kind: UnityEditorPrimaryDiagnosticKind.Compiler,
                 Code: "CS1739",
                 File: "Assets/Foo.cs",
                 Line: 74,
@@ -93,8 +94,8 @@ public sealed class DaemonLifecycleStoreTests
         await WriteContractAsync(
             storageRoot,
             ProjectFingerprintTestFactory.Create("fingerprint-diagnostic"),
-            CreateContract(primaryDiagnostic: new IpcPrimaryDiagnostic(
-                Kind: DaemonDiagnosisPrimaryDiagnosticKind.Compiler,
+            CreateContract(primaryDiagnostic: new UnityEditorPrimaryDiagnostic(
+                Kind: UnityEditorPrimaryDiagnosticKind.Compiler,
                 Code: " CS1739 ",
                 File: " Assets/Foo.cs ",
                 Line: 74,
@@ -104,8 +105,8 @@ public sealed class DaemonLifecycleStoreTests
         var readResult = await store.ReadAsync(storageRoot, ProjectFingerprintTestFactory.Create("fingerprint-diagnostic"), CancellationToken.None);
 
         Assert.True(readResult.IsSuccess);
-        var diagnostic = Assert.IsType<IpcPrimaryDiagnostic>(readResult.Observation!.PrimaryDiagnostic);
-        Assert.Equal(DaemonDiagnosisPrimaryDiagnosticKind.Compiler, diagnostic.Kind);
+        var diagnostic = Assert.IsType<UnityEditorPrimaryDiagnostic>(readResult.Observation!.PrimaryDiagnostic);
+        Assert.Equal(UnityEditorPrimaryDiagnosticKind.Compiler, diagnostic.Kind);
         Assert.Equal("CS1739", diagnostic.Code);
         Assert.Equal("Assets/Foo.cs", diagnostic.File);
         Assert.Equal(74, diagnostic.Line);
@@ -150,13 +151,13 @@ public sealed class DaemonLifecycleStoreTests
         var storageRoot = AbsolutePath.Parse(scope.FullPath);
         var store = new DaemonLifecycleStore();
         var state = new UnityEditorStateSnapshot(
-            editorMode: DaemonEditorMode.Gui,
-            lifecycleState: IpcEditorLifecycleState.PlayMode,
-            compileState: IpcCompileState.Ready,
-            generations: new IpcUnityGenerationSnapshot(1, 2, 0, 3),
-            playMode: new IpcPlayModeSnapshot(
-                IpcPlayModeState.Playing,
-                IpcPlayModeTransition.None,
+            editorMode: UnityEditorMode.Gui,
+            lifecycleState: UnityEditorLifecycleState.PlayMode,
+            compileState: UnityEditorCompileState.Ready,
+            generations: new UnityEditorGenerationSnapshot(1, 2, 0, 3),
+            playMode: new UnityEditorPlayModeSnapshot(
+                UnityEditorPlayModeState.Playing,
+                UnityEditorPlayModeTransition.None,
                 IsPlaying: true,
                 IsPlayingOrWillChangePlaymode: true));
         await WriteContractAsync(
@@ -169,8 +170,8 @@ public sealed class DaemonLifecycleStoreTests
         Assert.True(readResult.IsSuccess);
         Assert.Equal("0.5.0", readResult.Observation!.ServerVersion);
         Assert.False(readResult.Observation.CanAcceptExecutionRequests);
-        Assert.Equal(IpcPlayModeState.Playing, readResult.Observation.State.PlayMode.State);
-        Assert.Equal(IpcPlayModeTransition.None, readResult.Observation.State.PlayMode.Transition);
+        Assert.Equal(UnityEditorPlayModeState.Playing, readResult.Observation.State.PlayMode.State);
+        Assert.Equal(UnityEditorPlayModeTransition.None, readResult.Observation.State.PlayMode.Transition);
         Assert.True(readResult.Observation.State.PlayMode.IsPlaying);
         Assert.True(readResult.Observation.State.PlayMode.IsPlayingOrWillChangePlaymode);
         Assert.Equal(3, readResult.Observation.State.Generations.PlayModeGeneration);
@@ -189,13 +190,13 @@ public sealed class DaemonLifecycleStoreTests
             Guid.Parse("33333333-3333-3333-3333-333333333333"),
             observedAtUtc + TimeSpan.FromMinutes(5));
         var recoveringState = new UnityEditorStateSnapshot(
-            editorMode: DaemonEditorMode.Gui,
-            lifecycleState: IpcEditorLifecycleState.Recovering,
-            compileState: IpcCompileState.Ready,
-            generations: new IpcUnityGenerationSnapshot(1, 2, 0, 0),
-            playMode: new IpcPlayModeSnapshot(
-                IpcPlayModeState.Stopped,
-                IpcPlayModeTransition.None,
+            editorMode: UnityEditorMode.Gui,
+            lifecycleState: UnityEditorLifecycleState.Recovering,
+            compileState: UnityEditorCompileState.Ready,
+            generations: new UnityEditorGenerationSnapshot(1, 2, 0, 0),
+            playMode: new UnityEditorPlayModeSnapshot(
+                UnityEditorPlayModeState.Stopped,
+                UnityEditorPlayModeTransition.None,
                 IsPlaying: false,
                 IsPlayingOrWillChangePlaymode: false));
         await WriteContractAsync(
@@ -211,8 +212,8 @@ public sealed class DaemonLifecycleStoreTests
 
     private static DaemonLifecycleJsonContract CreateContract (
         UnityEditorStateSnapshot? state = null,
-        DaemonDiagnosisActionRequired? actionRequired = DaemonDiagnosisActionRequired.FixCompileErrors,
-        IpcPrimaryDiagnostic? primaryDiagnostic = null,
+        UnityEditorActionRequired? actionRequired = UnityEditorActionRequired.FixCompileErrors,
+        UnityEditorPrimaryDiagnostic? primaryDiagnostic = null,
         string? serverVersion = null,
         Guid? editorInstanceId = null,
         DaemonLifecycleRecoveryLease? recoveryLease = null)
@@ -221,13 +222,13 @@ public sealed class DaemonLifecycleStoreTests
             processId: 1234,
             processStartedAtUtc: new DateTimeOffset(2026, 03, 09, 0, 0, 1, TimeSpan.Zero),
             state: state ?? new UnityEditorStateSnapshot(
-                editorMode: DaemonEditorMode.Gui,
-                lifecycleState: IpcEditorLifecycleState.CompileFailed,
-                compileState: IpcCompileState.Failed,
-                generations: new IpcUnityGenerationSnapshot(1, 1, 0, 0),
-                playMode: new IpcPlayModeSnapshot(
-                    IpcPlayModeState.Stopped,
-                    IpcPlayModeTransition.None,
+                editorMode: UnityEditorMode.Gui,
+                lifecycleState: UnityEditorLifecycleState.CompileFailed,
+                compileState: UnityEditorCompileState.Failed,
+                generations: new UnityEditorGenerationSnapshot(1, 1, 0, 0),
+                playMode: new UnityEditorPlayModeSnapshot(
+                    UnityEditorPlayModeState.Stopped,
+                    UnityEditorPlayModeTransition.None,
                     IsPlaying: false,
                     IsPlayingOrWillChangePlaymode: false)),
             observedAtUtc: new DateTimeOffset(2026, 03, 09, 0, 0, 2, TimeSpan.Zero),

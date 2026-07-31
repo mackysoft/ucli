@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Contracts.Editor;
+
 namespace MackySoft.Ucli.Application.Tests.Daemon;
 
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Acquisition;
@@ -35,7 +37,7 @@ internal static class DaemonExistingSessionGateServiceTestSupport
 
     public static DaemonLifecycleObservation CreateLifecycleObservation (
         DaemonSession session,
-        IpcEditorLifecycleState lifecycleState,
+        UnityEditorLifecycleState lifecycleState,
         DateTimeOffset? observedAtUtc = null,
         Guid? editorInstanceId = null)
     {
@@ -47,14 +49,14 @@ internal static class DaemonExistingSessionGateServiceTestSupport
                 lifecycleState: lifecycleState,
                 compileState: lifecycleState switch
                 {
-                    IpcEditorLifecycleState.Compiling => IpcCompileState.Compiling,
-                    IpcEditorLifecycleState.CompileFailed => IpcCompileState.Failed,
-                    _ => IpcCompileState.Ready,
+                    UnityEditorLifecycleState.Compiling => UnityEditorCompileState.Compiling,
+                    UnityEditorLifecycleState.CompileFailed => UnityEditorCompileState.Failed,
+                    _ => UnityEditorCompileState.Ready,
                 },
-                generations: new IpcUnityGenerationSnapshot(1, 2, 0, 0),
-                playMode: new IpcPlayModeSnapshot(
-                    IpcPlayModeState.Stopped,
-                    IpcPlayModeTransition.None,
+                generations: new UnityEditorGenerationSnapshot(1, 2, 0, 0),
+                playMode: new UnityEditorPlayModeSnapshot(
+                    UnityEditorPlayModeState.Stopped,
+                    UnityEditorPlayModeTransition.None,
                     IsPlaying: false,
                     IsPlayingOrWillChangePlaymode: false)),
             observedAtUtc: observedAtUtc ?? DefaultUtcNow,
@@ -75,7 +77,7 @@ internal static class DaemonExistingSessionGateServiceTestSupport
         return DaemonSessionTestFactory.Create(
             processId: processId,
             projectFingerprint: projectFingerprint,
-            editorMode: DaemonEditorMode.Gui,
+            editorMode: UnityEditorMode.Gui,
             ownerKind: DaemonSessionOwnerKind.User,
             canShutdownProcess: false,
             editorInstanceId: editorInstanceId);
@@ -89,7 +91,7 @@ internal static class DaemonExistingSessionGateServiceTestSupport
         {
             ReadResult = DaemonLifecycleObservationReadResult.Success(CreateLifecycleObservation(
                 session,
-                IpcEditorLifecycleState.Recovering,
+                UnityEditorLifecycleState.Recovering,
                 observedAtUtc: observedAtUtc)),
         };
     }
@@ -103,15 +105,15 @@ internal static class DaemonExistingSessionGateServiceTestSupport
         };
     }
 
-    public static IpcUnityEditorObservation CreatePingResponse (IpcEditorLifecycleState lifecycleState)
+    public static UnityEditorObservation CreatePingResponse (UnityEditorLifecycleState lifecycleState)
     {
-        return IpcUnityEditorObservationTestFactory.Create(
+        return UnityEditorObservationTestFactory.Create(
             lifecycleState,
             projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint"));
     }
 
-    public static IpcUnityEditorObservation CreateReadyPingResponse ()
+    public static UnityEditorObservation CreateReadyPingResponse ()
     {
-        return CreatePingResponse(IpcEditorLifecycleState.Ready);
+        return CreatePingResponse(UnityEditorLifecycleState.Ready);
     }
 }

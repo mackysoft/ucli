@@ -4,11 +4,12 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Acquisition;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Observation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
+using MackySoft.Ucli.Contracts.Editor;
+using MackySoft.Ucli.Contracts.Execution.Lifecycle;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Tests.Helpers.Ipc;
 using MackySoft.Ucli.UnityIntegration.Ipc.Clients;
 using MackySoft.Ucli.UnityIntegration.Ipc.Dispatch;
-using MackySoft.Ucli.UnityIntegration.Ipc.Execution;
 using MackySoft.Ucli.UnityIntegration.Ipc.Process;
 using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 using static MackySoft.Ucli.Tests.Ipc.UnityDaemonIpcClientTestSupport;
@@ -552,10 +553,10 @@ public sealed class UnityDaemonIpcClientDispatchTests
 
         var sendTask = client.SendAsync(
                 ResolvedUnityProjectContextTestFactory.Create(),
-                new UnityIpcDispatchRequest(
-                    UnityIpcMethod.PlayEnter,
-                    CreateDispatchPayload(),
-                    UnityBatchmodeLaunchOptions.Default),
+                CreateLifecycleDispatchRequest(
+                    LifecycleExecutionKind.PlayEnter,
+                    timeProvider,
+                    TimeSpan.FromSeconds(5)),
                 ExecutionDeadline.Start(TimeSpan.FromSeconds(5), timeProvider),
                 CancellationToken.None)
             .AsTask();
@@ -575,8 +576,9 @@ public sealed class UnityDaemonIpcClientDispatchTests
         Assert.Equal(UnityRequestFailureKind.TransportInterrupted, result.FailureInfo!.FailureKind);
         Assert.Equal(EditorLifecycleErrorCodes.EditorUnavailable, result.ErrorCode);
         Assert.Contains(interruption.Message, result.Message, StringComparison.Ordinal);
-        Assert.Single(transportClient.Requests);
-        _ = IpcRequestAssert.SingleRequestId(transportClient.Requests);
+        var actionRequests = IpcRequestAssert.ActionRequests(transportClient.Requests);
+        Assert.Single(actionRequests);
+        _ = IpcRequestAssert.SingleRequestId(actionRequests);
         Assert.Equal(
             DateTimeOffset.UnixEpoch + DaemonTimeouts.ProbeAttemptTimeoutCap,
             timeProvider.GetUtcNow());
@@ -653,7 +655,7 @@ public sealed class UnityDaemonIpcClientDispatchTests
             transportClient,
             DaemonSessionAcquisitionCoordinatorTestFactory.Create(
                 sessionStore));
-        var dispatchRequest = new UnityIpcRequestBuilder().Build(new UnityRequestPayload.Compile(RunIdTestValues.Compile));
+        var dispatchRequest = CreateDispatchRequest();
 
         var result = await client.SendAsync(
             ResolvedUnityProjectContextTestFactory.Create(),
@@ -666,6 +668,145 @@ public sealed class UnityDaemonIpcClientDispatchTests
         var request = Assert.Single(transportClient.Requests);
         Assert.Equal(DateTimeOffset.UnixEpoch + TimeSpan.FromSeconds(30), request.RequestDeadlineUtc);
         Assert.False(request.Payload.TryGetProperty("timeoutMilliseconds", out _));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task SendAsync_WithNewLifecycleExecution_UsesCompletionDeadlineForIpcDelivery ()
+    {
+        var timeProvider = new ManualTimeProvider();
+        var transportClient = new RecordingIpcTransportClient(
+            request => CreateResponse(request.RequestId));
+        var client = new UnityDaemonIpcClient(
+            transportClient,
+            DaemonSessionAcquisitionCoordinatorTestFactory.Create(
+                new QueuedDaemonSessionStore(
+                    CreateSessionReadResult("daemon-token"))));
+        var dispatchRequest = CreateLifecycleDispatchRequest(
+            LifecycleExecutionKind.Compile,
+            timeProvider,
+            TimeSpan.FromSeconds(30));
+        var executionDeadline =
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(30), timeProvider);
+
+        var result = await client.SendAsync(
+            ResolvedUnityProjectContextTestFactory.Create(),
+            dispatchRequest,
+            executionDeadline,
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Collection(
+            transportClient.Requests,
+            lifecycleStartRequest =>
+            {
+                Assert.Equal(
+                    DateTimeOffset.UnixEpoch + TimeSpan.FromSeconds(33),
+                    lifecycleStartRequest.RequestDeadlineUtc);
+                Assert.True(IpcPayloadCodec.TryDeserialize(
+                    lifecycleStartRequest.Payload,
+                    out IpcLifecycleExecutionStartRequest start,
+                    out var readError),
+                    readError.Message);
+                Assert.Equal(
+                    DateTimeOffset.UnixEpoch + TimeSpan.FromSeconds(30),
+                    start.DeadlineUtc);
+            },
+            actionRequest => Assert.Equal(
+                DateTimeOffset.UnixEpoch + TimeSpan.FromSeconds(33),
+                actionRequest.RequestDeadlineUtc));
+        Assert.All(
+            transportClient.Timeouts,
+            timeout => Assert.Equal(TimeSpan.FromSeconds(33), timeout));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task SendAsync_WhenCallerCancelsAfterLifecycleStart_KeepsActionDispatchRunning ()
+    {
+        using var callerCancellation = new CancellationTokenSource();
+        var actionResponseSource =
+            new TaskCompletionSource<IpcResponse>(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+        var transportClient = new RecordingIpcTransportClient(
+            (request, _) =>
+            {
+                callerCancellation.Cancel();
+                return new ValueTask<IpcResponse>(actionResponseSource.Task);
+            });
+        var client = new UnityDaemonIpcClient(
+            transportClient,
+            DaemonSessionAcquisitionCoordinatorTestFactory.Create(
+                new QueuedDaemonSessionStore(
+                    CreateSessionReadResult("daemon-token"))));
+
+        var result = await client.SendAsync(
+            ResolvedUnityProjectContextTestFactory.Create(),
+            CreateLifecycleDispatchRequest(LifecycleExecutionKind.Compile),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(30), TimeProvider.System),
+            callerCancellation.Token);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ExecutionErrorCodes.Canceled, result.ErrorCode);
+        Assert.NotNull(result.LifecycleExecutionStart);
+        Assert.True(result.LifecycleActionDispatched);
+        var actionRequest = Assert.Single(
+            IpcRequestAssert.ActionRequests(transportClient.Requests));
+        Assert.Equal(TextVocabulary.GetText(UnityIpcMethod.Compile), actionRequest.Method);
+        Assert.False(transportClient.CancellationTokens[^1].CanBeCanceled);
+
+        actionResponseSource.TrySetResult(CreateResponse(actionRequest.RequestId));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task SendAsync_WhenExecutionDeadlineExpiresAfterStartWrite_UsesCompletionGraceForActionDelivery ()
+    {
+        var timeProvider = new ManualTimeProvider();
+        var transportClient = new RecordingIpcTransportClient(
+            request =>
+            {
+                switch (IpcRequestAssert.ParseMethod(request))
+                {
+                    case UnityIpcMethod.LifecycleStart:
+                        var response =
+                            LifecycleExecutionIpcTestResponseFactory.TryCreateResponse(request)!;
+                        timeProvider.Advance(TimeSpan.FromSeconds(31));
+                        return response;
+                    case UnityIpcMethod.Compile:
+                        return CreateResponse(request.RequestId);
+                    default:
+                        throw new Xunit.Sdk.XunitException(
+                            $"Unexpected method: {request.Method}");
+                }
+            },
+            createLifecycleStartResponses: false);
+        var client = new UnityDaemonIpcClient(
+            transportClient,
+            DaemonSessionAcquisitionCoordinatorTestFactory.Create(
+                new QueuedDaemonSessionStore(
+                    CreateSessionReadResult("daemon-token"))));
+
+        var result = await client.SendAsync(
+            ResolvedUnityProjectContextTestFactory.Create(),
+            CreateLifecycleDispatchRequest(
+                LifecycleExecutionKind.Compile,
+                timeProvider,
+                TimeSpan.FromSeconds(30)),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(30), timeProvider),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.NotNull(result.LifecycleExecutionStart);
+        Assert.True(result.LifecycleActionDispatched);
+        var actionRequest = Assert.Single(
+            IpcRequestAssert.ActionRequests(transportClient.Requests));
+        Assert.Equal(
+            DateTimeOffset.UnixEpoch + TimeSpan.FromSeconds(33),
+            actionRequest.RequestDeadlineUtc);
+        Assert.Equal(
+            TimeSpan.FromSeconds(2),
+            transportClient.Timeouts[^1]);
     }
 
     [Theory]
@@ -968,7 +1109,7 @@ public sealed class UnityDaemonIpcClientDispatchTests
             new RecordingDaemonProcessIdentityAssessor(DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess));
         var currentSession = DaemonSessionTestFactory.Create(
             sessionToken: "daemon-token",
-            editorMode: DaemonEditorMode.Gui,
+            editorMode: UnityEditorMode.Gui,
             ownerKind: DaemonSessionOwnerKind.User,
             canShutdownProcess: false,
             editorInstanceId: DaemonSessionTestFactory.DefaultEditorInstanceId);

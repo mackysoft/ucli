@@ -1,8 +1,10 @@
 using System.Text.Json;
 using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Cryptography;
+using MackySoft.Ucli.Contracts.Execution;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.ContractReading;
+using MackySoft.Ucli.Contracts.Projects;
 
 namespace MackySoft.Ucli.Contracts.Tests.Ipc.Common;
 
@@ -22,9 +24,9 @@ public sealed class IpcExecuteContractSerializationTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void IpcProjectIdentity_Constructor_WithNullProjectPath_ThrowsArgumentNullException ()
+    public void UnityProjectIdentity_Constructor_WithNullProjectPath_ThrowsArgumentNullException ()
     {
-        var exception = Assert.Throws<ArgumentNullException>(() => new IpcProjectIdentity(
+        var exception = Assert.Throws<ArgumentNullException>(() => new UnityProjectIdentity(
             projectPath: null!,
             projectFingerprint: new ProjectFingerprint(ProjectFingerprintText),
             unityVersion: "6000.1.4f1"));
@@ -38,9 +40,9 @@ public sealed class IpcExecuteContractSerializationTests
     [InlineData("relative/UnityProject")]
     [InlineData("project/../UnityProject/")]
     [Trait("Size", "Small")]
-    public void IpcProjectIdentity_Constructor_PreservesProjectPathWireText (string projectPath)
+    public void UnityProjectIdentity_Constructor_PreservesProjectPathWireText (string projectPath)
     {
-        var identity = new IpcProjectIdentity(
+        var identity = new UnityProjectIdentity(
             projectPath,
             new ProjectFingerprint(ProjectFingerprintText),
             "6000.1.4f1");
@@ -50,9 +52,9 @@ public sealed class IpcExecuteContractSerializationTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void IpcProjectIdentity_Constructor_WithNullProjectFingerprint_ThrowsArgumentNullException ()
+    public void UnityProjectIdentity_Constructor_WithNullProjectFingerprint_ThrowsArgumentNullException ()
     {
-        var exception = Assert.Throws<ArgumentNullException>(() => new IpcProjectIdentity(
+        var exception = Assert.Throws<ArgumentNullException>(() => new UnityProjectIdentity(
             projectPath: ProjectPath,
             projectFingerprint: null!,
             unityVersion: "6000.1.4f1"));
@@ -62,9 +64,9 @@ public sealed class IpcExecuteContractSerializationTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void IpcProjectIdentity_Constructor_WithNullUnityVersion_ThrowsArgumentNullException ()
+    public void UnityProjectIdentity_Constructor_WithNullUnityVersion_ThrowsArgumentNullException ()
     {
-        var exception = Assert.Throws<ArgumentNullException>(() => new IpcProjectIdentity(
+        var exception = Assert.Throws<ArgumentNullException>(() => new UnityProjectIdentity(
             projectPath: ProjectPath,
             projectFingerprint: new ProjectFingerprint(ProjectFingerprintText),
             unityVersion: null!));
@@ -76,9 +78,9 @@ public sealed class IpcExecuteContractSerializationTests
     [InlineData("")]
     [InlineData(" ")]
     [Trait("Size", "Small")]
-    public void IpcProjectIdentity_Constructor_WithEmptyUnityVersion_ThrowsArgumentException (string unityVersion)
+    public void UnityProjectIdentity_Constructor_WithEmptyUnityVersion_ThrowsArgumentException (string unityVersion)
     {
-        var exception = Assert.Throws<ArgumentException>(() => new IpcProjectIdentity(
+        var exception = Assert.Throws<ArgumentException>(() => new UnityProjectIdentity(
             ProjectPath,
             new ProjectFingerprint(ProjectFingerprintText),
             unityVersion));
@@ -90,9 +92,9 @@ public sealed class IpcExecuteContractSerializationTests
     [InlineData(" 6000.1.4f1")]
     [InlineData("6000.1.4f1 ")]
     [Trait("Size", "Small")]
-    public void IpcProjectIdentity_Constructor_WithOuterWhitespaceInUnityVersion_ThrowsArgumentException (string unityVersion)
+    public void UnityProjectIdentity_Constructor_WithOuterWhitespaceInUnityVersion_ThrowsArgumentException (string unityVersion)
     {
-        var exception = Assert.Throws<ArgumentException>(() => new IpcProjectIdentity(
+        var exception = Assert.Throws<ArgumentException>(() => new UnityProjectIdentity(
             ProjectPath,
             new ProjectFingerprint(ProjectFingerprintText),
             unityVersion));
@@ -180,7 +182,7 @@ public sealed class IpcExecuteContractSerializationTests
         var exception = Assert.Throws<ArgumentException>(() => new IpcExecuteResponse(
             [
                 new IpcExecuteOperationResult(
-                    Op: UcliPrimitiveOperationNames.ProjectRefresh,
+                    Op: UcliPrimitiveOperationNames.ProjectSave,
                     Phase: IpcExecuteOperationPhase.Call,
                     Applied: true,
                     Changed: true,
@@ -198,10 +200,10 @@ public sealed class IpcExecuteContractSerializationTests
             [
                 new IpcExecuteContractViolation(
                     InstancePath: "/opResults/1",
-                    Operation: UcliPrimitiveOperationNames.ProjectRefresh,
+                    Operation: UcliPrimitiveOperationNames.ProjectSave,
                     ExpectedFact: "assurance.mayDirty=false",
                     ObservedResult: "opResults[].changed=true",
-                    ApplicationState: IpcApplicationState.Indeterminate),
+                    ApplicationState: ExecutionApplicationState.Indeterminate),
             ]));
 
         Assert.Equal("contractViolations", exception.ParamName);
@@ -355,7 +357,7 @@ public sealed class IpcExecuteContractSerializationTests
         var response = new IpcExecuteResponse(
             [
                 new IpcExecuteOperationResult(
-                    Op: UcliPrimitiveOperationNames.ProjectRefresh,
+                    Op: UcliPrimitiveOperationNames.ProjectSave,
                     Phase: IpcExecuteOperationPhase.Call,
                     Applied: true,
                     Changed: true,
@@ -373,10 +375,10 @@ public sealed class IpcExecuteContractSerializationTests
             [
                 new IpcExecuteContractViolation(
                     InstancePath: "/opResults/0",
-                    Operation: UcliPrimitiveOperationNames.ProjectRefresh,
+                    Operation: UcliPrimitiveOperationNames.ProjectSave,
                     ExpectedFact: "assurance.mayDirty=false",
                     ObservedResult: "opResults[].changed=true",
-                    ApplicationState: IpcApplicationState.Indeterminate),
+                    ApplicationState: ExecutionApplicationState.Indeterminate),
             ]);
 
         var jsonElement = IpcPayloadCodec.SerializeToElement(response);
@@ -384,10 +386,10 @@ public sealed class IpcExecuteContractSerializationTests
             .HasArrayLength("contractViolations", 1)
             .HasProperty("contractViolations", 0, violation => violation
                 .HasString("instancePath", "/opResults/0")
-                .HasString("operation", UcliPrimitiveOperationNames.ProjectRefresh)
+                .HasString("operation", UcliPrimitiveOperationNames.ProjectSave)
                 .HasString("expectedFact", "assurance.mayDirty=false")
                 .HasString("observedResult", "opResults[].changed=true")
-                .HasString("applicationState", TextVocabulary.GetText(IpcApplicationState.Indeterminate)));
+                .HasString("applicationState", TextVocabulary.GetText(ExecutionApplicationState.Indeterminate)));
 
         var roundTrip = JsonSerializer.Deserialize<IpcExecuteResponse>(
             jsonElement.GetRawText(),
@@ -396,10 +398,10 @@ public sealed class IpcExecuteContractSerializationTests
         Assert.NotNull(roundTrip);
         var violationResult = Assert.Single(roundTrip.ContractViolations!);
         Assert.Equal("/opResults/0", violationResult.InstancePath);
-        Assert.Equal(UcliPrimitiveOperationNames.ProjectRefresh, violationResult.Operation);
+        Assert.Equal(UcliPrimitiveOperationNames.ProjectSave, violationResult.Operation);
         Assert.Equal("assurance.mayDirty=false", violationResult.ExpectedFact);
         Assert.Equal("opResults[].changed=true", violationResult.ObservedResult);
-        Assert.Equal(IpcApplicationState.Indeterminate, violationResult.ApplicationState);
+        Assert.Equal(ExecutionApplicationState.Indeterminate, violationResult.ApplicationState);
     }
 
     [Fact]
@@ -587,10 +589,10 @@ public sealed class IpcExecuteContractSerializationTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void IpcExecuteReadPostconditionRequirement_Constructor_WithDefaultTimestamp_ThrowsArgumentException ()
+    public void ExecutionReadPostconditionRequirement_Constructor_WithDefaultTimestamp_ThrowsArgumentException ()
     {
-        var exception = Assert.Throws<ArgumentException>(() => new IpcExecuteReadPostconditionRequirement(
-            IpcExecuteReadPostconditionSurface.AssetSearch,
+        var exception = Assert.Throws<ArgumentException>(() => new ExecutionReadPostconditionRequirement(
+            ExecutionReadPostconditionSurface.AssetSearch,
             default,
             ScenePath: null));
 
@@ -598,13 +600,13 @@ public sealed class IpcExecuteContractSerializationTests
     }
 
     [Theory]
-    [InlineData(IpcExecuteReadPostconditionSurface.AssetSearch)]
-    [InlineData(IpcExecuteReadPostconditionSurface.GuidPath)]
+    [InlineData(ExecutionReadPostconditionSurface.AssetSearch)]
+    [InlineData(ExecutionReadPostconditionSurface.GuidPath)]
     [Trait("Size", "Small")]
-    public void IpcExecuteReadPostconditionRequirement_Constructor_WhenProjectSurfaceHasScenePath_ThrowsArgumentException (
-        IpcExecuteReadPostconditionSurface surface)
+    public void ExecutionReadPostconditionRequirement_Constructor_WhenProjectSurfaceHasScenePath_ThrowsArgumentException (
+        ExecutionReadPostconditionSurface surface)
     {
-        var exception = Assert.Throws<ArgumentException>(() => new IpcExecuteReadPostconditionRequirement(
+        var exception = Assert.Throws<ArgumentException>(() => new ExecutionReadPostconditionRequirement(
             surface,
             DateTimeOffset.Parse("2026-04-23T00:00:00+00:00"),
             new UnityScenePath("Assets/Scenes/Main.unity")));
@@ -643,14 +645,14 @@ public sealed class IpcExecuteContractSerializationTests
             ],
             CreateProjectIdentity(),
             planToken: null,
-            readPostcondition: new IpcExecuteReadPostcondition(
+            readPostcondition: new ExecutionReadPostcondition(
             [
-                new IpcExecuteReadPostconditionRequirement(
-                    Surface: IpcExecuteReadPostconditionSurface.AssetSearch,
+                new ExecutionReadPostconditionRequirement(
+                    Surface: ExecutionReadPostconditionSurface.AssetSearch,
                     MinSafeGeneratedAtUtc: DateTimeOffset.Parse("2026-04-23T00:00:00+00:00"),
                     ScenePath: null),
-                new IpcExecuteReadPostconditionRequirement(
-                    Surface: IpcExecuteReadPostconditionSurface.SceneTreeLite,
+                new ExecutionReadPostconditionRequirement(
+                    Surface: ExecutionReadPostconditionSurface.SceneTreeLite,
                     MinSafeGeneratedAtUtc: DateTimeOffset.Parse("2026-04-23T00:00:00+00:00"),
                     ScenePath: new UnityScenePath("Assets/Scenes/Main.unity")),
             ]),
@@ -662,10 +664,10 @@ public sealed class IpcExecuteContractSerializationTests
             .HasProperty("readPostcondition", readPostcondition => readPostcondition
                 .HasArrayLength("requirements", 2)
                 .HasProperty("requirements", 0, requirement => requirement
-                    .HasString("surface", TextVocabulary.GetText(IpcExecuteReadPostconditionSurface.AssetSearch))
+                    .HasString("surface", TextVocabulary.GetText(ExecutionReadPostconditionSurface.AssetSearch))
                     .HasString("minSafeGeneratedAtUtc", "2026-04-23T00:00:00+00:00"))
                 .HasProperty("requirements", 1, requirement => requirement
-                    .HasString("surface", TextVocabulary.GetText(IpcExecuteReadPostconditionSurface.SceneTreeLite))
+                    .HasString("surface", TextVocabulary.GetText(ExecutionReadPostconditionSurface.SceneTreeLite))
                     .HasString("scenePath", "Assets/Scenes/Main.unity")
                     .HasString("minSafeGeneratedAtUtc", "2026-04-23T00:00:00+00:00")));
         Assert.False(json.GetProperty("readPostcondition").GetProperty("requirements")[0].TryGetProperty("scenePath", out _));
@@ -774,7 +776,7 @@ public sealed class IpcExecuteContractSerializationTests
                     Operation: UcliPrimitiveOperationNames.SceneQuery,
                     ExpectedFact: "operation.kind=query",
                     ObservedResult: "opResults[].applied=true",
-                    ApplicationState: IpcApplicationState.Applied),
+                    ApplicationState: ExecutionApplicationState.Applied),
             ]);
 
         var json = IpcPayloadCodec.SerializeToElement(response);
@@ -785,7 +787,23 @@ public sealed class IpcExecuteContractSerializationTests
                 .HasString("operation", UcliPrimitiveOperationNames.SceneQuery)
                 .HasString("expectedFact", "operation.kind=query")
                 .HasString("observedResult", "opResults[].applied=true")
-                .HasString("applicationState", TextVocabulary.GetText(IpcApplicationState.Applied)));
+                .HasString("applicationState", TextVocabulary.GetText(ExecutionApplicationState.Applied)));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcExecuteContractViolation_WhenApplicationStateIsPartial_RejectsValue ()
+    {
+        var exception = Assert.Throws<ArgumentOutOfRangeException>(() =>
+            new IpcExecuteContractViolation(
+                InstancePath: "/opResults/0",
+                Operation: UcliPrimitiveOperationNames.ProjectSave,
+                ExpectedFact: "assurance.mayDirty=false",
+                ObservedResult: "opResults[].changed=true",
+                ApplicationState:
+                    ExecutionApplicationState.PartiallyApplied));
+
+        Assert.Equal("ApplicationState", exception.ParamName);
     }
 
     [Fact]
@@ -808,9 +826,9 @@ public sealed class IpcExecuteContractSerializationTests
         Assert.False(jsonElement.TryGetProperty("contractViolations", out _));
     }
 
-    private static IpcProjectIdentity CreateProjectIdentity ()
+    private static UnityProjectIdentity CreateProjectIdentity ()
     {
-        return new IpcProjectIdentity(
+        return new UnityProjectIdentity(
             projectPath: ProjectPath,
             projectFingerprint: new ProjectFingerprint(ProjectFingerprintText),
             unityVersion: "6000.1.4f1");

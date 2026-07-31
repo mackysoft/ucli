@@ -24,45 +24,6 @@ public sealed class PostReadClaimBuilderTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void Build_WithPersistenceTouched_ReturnsPassedRequiredClaim ()
-    {
-        var input = CreateInput(CreateOperationResult(
-            sourceKind: IpcExecutePostReadSourceKind.Refresh,
-            commit: null,
-            persistenceExpected: true,
-            expectedPostState: IpcExecuteExpectedPostState.Unavailable,
-            touchedCount: 1,
-            op: UcliPrimitiveOperationNames.ProjectRefresh));
-
-        var claimSet = PostReadClaimBuilder.Build(input, profileRequired: true);
-
-        var claim = Assert.Single(claimSet.Claims, static claim => claim.Id == VerifyClaimCodes.PersistenceUnitTouched);
-        Assert.True(claim.Required);
-        Assert.Equal(AssuranceClaimStatus.Passed, claim.Status);
-        Assert.Equal(AssuranceCoverage.Full, claim.Coverage);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void Build_WithPersistenceExpectedAndNoTouchedUnits_ReturnsIndeterminateClaim ()
-    {
-        var input = CreateInput(CreateOperationResult(
-            sourceKind: IpcExecutePostReadSourceKind.Refresh,
-            commit: null,
-            persistenceExpected: true,
-            expectedPostState: IpcExecuteExpectedPostState.Unavailable,
-            touchedCount: 0,
-            op: UcliPrimitiveOperationNames.ProjectRefresh));
-
-        var claimSet = PostReadClaimBuilder.Build(input, profileRequired: true);
-
-        var claim = Assert.Single(claimSet.Claims, static claim => claim.Id == VerifyClaimCodes.PersistenceUnitTouched);
-        Assert.Equal(AssuranceClaimStatus.Indeterminate, claim.Status);
-        Assert.Equal(AssuranceCoverage.None, claim.Coverage);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
     public void Build_WithReadPostconditionRequirement_ReturnsReadSurfaceClaim ()
     {
         var input = CreateInput(readPostconditionRequirementCount: 1);
@@ -96,7 +57,6 @@ public sealed class PostReadClaimBuilderTests
     [Theory]
     [Trait("Size", "Small")]
     [InlineData(IpcExecutePostReadSourceKind.Operation, null, false, UcliPrimitiveOperationNames.SceneOpen)]
-    [InlineData(IpcExecutePostReadSourceKind.Refresh, null, true, UcliPrimitiveOperationNames.ProjectRefresh)]
     public void Build_WithUnavailablePostState_ReturnsOutOfScopePostMutationClaim (
         IpcExecutePostReadSourceKind sourceKind,
         IpcExecutePostReadCommit? commit,

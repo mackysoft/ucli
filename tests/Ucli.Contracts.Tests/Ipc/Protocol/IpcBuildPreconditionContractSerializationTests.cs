@@ -7,6 +7,7 @@ using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Contracts.Text;
 using static MackySoft.Ucli.Contracts.Tests.Ipc.Common.IpcBuildContractSerializationTestSupport;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Contracts.Tests.Ipc.Common;
 
@@ -59,28 +60,28 @@ public sealed class IpcBuildPreconditionContractSerializationTests
                 Scenes: [new SceneAssetPath("Assets/Scenes/Main.unity")],
                 BuildOptions: "Development"));
         var lifecycle = IpcPayloadCodec.SerializeToElement(
-            new IpcUnityEditorObservation(
+            new UnityEditorObservation(
                 serverVersion: "1.2.3",
                 unityVersion: "6000.0.0f1",
                 projectFingerprint: TestProjectFingerprint,
                 state: new UnityEditorStateSnapshot(
-                    editorMode: DaemonEditorMode.Batchmode,
-                    lifecycleState: IpcEditorLifecycleState.CompileFailed,
-                    compileState: IpcCompileState.Failed,
-                    generations: new IpcUnityGenerationSnapshot(
+                    editorMode: UnityEditorMode.Batchmode,
+                    lifecycleState: UnityEditorLifecycleState.CompileFailed,
+                    compileState: UnityEditorCompileState.Failed,
+                    generations: new UnityEditorGenerationSnapshot(
                         CompileGeneration: 1,
                         DomainReloadGeneration: 2,
                         AssetRefreshGeneration: 3,
                         PlayModeGeneration: 4),
-                    playMode: new IpcPlayModeSnapshot(
-                        State: IpcPlayModeState.Stopped,
-                        Transition: IpcPlayModeTransition.None,
+                    playMode: new UnityEditorPlayModeSnapshot(
+                        State: UnityEditorPlayModeState.Stopped,
+                        Transition: UnityEditorPlayModeTransition.None,
                         IsPlaying: false,
                         IsPlayingOrWillChangePlaymode: false)),
                 observedAtUtc: DateTimeOffset.Parse("2026-06-12T00:00:00+00:00"),
-                actionRequired: DaemonDiagnosisActionRequired.FixCompileErrors,
-                primaryDiagnostic: new IpcPrimaryDiagnostic(
-                    Kind: DaemonDiagnosisPrimaryDiagnosticKind.Compiler,
+                actionRequired: UnityEditorActionRequired.FixCompileErrors,
+                primaryDiagnostic: new UnityEditorPrimaryDiagnostic(
+                    Kind: UnityEditorPrimaryDiagnosticKind.Compiler,
                     Code: "CS1002",
                     File: "Assets/Broken.cs",
                     Line: 4,
@@ -110,7 +111,7 @@ public sealed class IpcBuildPreconditionContractSerializationTests
             .HasString("unityVersion", "6000.0.0f1")
             .HasString("projectFingerprint", TestProjectFingerprint.ToString())
             .HasString("observedAtUtc", "2026-06-12T00:00:00+00:00")
-            .HasString("actionRequired", TextVocabulary.GetText(DaemonDiagnosisActionRequired.FixCompileErrors))
+            .HasString("actionRequired", TextVocabulary.GetText(UnityEditorActionRequired.FixCompileErrors))
             .HasProperty("primaryDiagnostic", diagnostic => diagnostic
                 .HasString("kind", "compiler")
                 .HasString("code", "CS1002")
@@ -120,8 +121,8 @@ public sealed class IpcBuildPreconditionContractSerializationTests
                 .HasString("message", "; expected"))
             .HasProperty("state", state => state
                 .HasString("editorMode", "batchmode")
-                .HasString("lifecycleState", TextVocabulary.GetText(IpcEditorLifecycleState.CompileFailed))
-                .HasString("compileState", TextVocabulary.GetText(IpcCompileState.Failed))
+                .HasString("lifecycleState", TextVocabulary.GetText(UnityEditorLifecycleState.CompileFailed))
+                .HasString("compileState", TextVocabulary.GetText(UnityEditorCompileState.Failed))
                 .HasProperty("generations", generations => generations
                     .HasInt32("compileGeneration", 1)
                     .HasInt32("domainReloadGeneration", 2)

@@ -1,5 +1,4 @@
-using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
 
@@ -11,13 +10,13 @@ internal static class UnityEditorReadinessPolicy
     /// <param name="failFast"> Whether waitable states should fail immediately. </param>
     /// <returns> The readiness decision. </returns>
     public static UnityReadinessDecision Evaluate (
-        IpcUnityEditorObservation pingResponse,
+        UnityEditorObservation pingResponse,
         bool failFast)
     {
         ArgumentNullException.ThrowIfNull(pingResponse);
 
         var lifecycleState = pingResponse.State.LifecycleState;
-        if (IpcEditorLifecycleSemantics.CanAcceptExecutionRequests(lifecycleState))
+        if (UnityEditorLifecycleSemantics.CanAcceptExecutionRequests(lifecycleState))
         {
             return UnityReadinessDecision.Ready();
         }
@@ -29,40 +28,40 @@ internal static class UnityEditorReadinessPolicy
 
         return lifecycleState switch
         {
-            IpcEditorLifecycleState.Starting => UnityReadinessDecision.Failure(
+            UnityEditorLifecycleState.Starting => UnityReadinessDecision.Failure(
                 EditorLifecycleErrorCodes.EditorStarting,
                 "Unity editor startup is still in progress. Retry without --failFast or wait until lifecycleState=ready before executing request."),
-            IpcEditorLifecycleState.Recovering => UnityReadinessDecision.Failure(
+            UnityEditorLifecycleState.Recovering => UnityReadinessDecision.Failure(
                 EditorLifecycleErrorCodes.EditorRecovering,
                 "Unity editor daemon endpoint is recovering. Retry without --failFast or wait until lifecycleState=ready before executing request."),
-            IpcEditorLifecycleState.Busy => UnityReadinessDecision.Failure(
+            UnityEditorLifecycleState.Busy => UnityReadinessDecision.Failure(
                 EditorLifecycleErrorCodes.EditorBusy,
                 "Unity editor is busy with internal work. Retry without --failFast or wait until lifecycleState=ready before executing request."),
-            IpcEditorLifecycleState.Compiling => UnityReadinessDecision.Failure(
+            UnityEditorLifecycleState.Compiling => UnityReadinessDecision.Failure(
                 EditorLifecycleErrorCodes.EditorCompiling,
                 "Unity editor is compiling scripts. Retry without --failFast or wait until lifecycleState=ready before executing request."),
-            IpcEditorLifecycleState.CompileFailed => UnityReadinessDecision.Failure(
+            UnityEditorLifecycleState.CompileFailed => UnityReadinessDecision.Failure(
                 EditorLifecycleErrorCodes.EditorCompileFailed,
                 "Unity editor has script compilation errors. Fix compiler errors and wait until lifecycleState=ready before executing request."),
-            IpcEditorLifecycleState.DomainReloading => UnityReadinessDecision.Failure(
+            UnityEditorLifecycleState.DomainReloading => UnityReadinessDecision.Failure(
                 EditorLifecycleErrorCodes.EditorDomainReloading,
                 "Unity editor is reloading the AppDomain. Retry after lifecycleState=ready before executing request."),
-            IpcEditorLifecycleState.Reimporting => UnityReadinessDecision.Failure(
+            UnityEditorLifecycleState.Reimporting => UnityReadinessDecision.Failure(
                 EditorLifecycleErrorCodes.EditorReimporting,
                 "Unity editor is refreshing or reimporting assets. Retry without --failFast or wait until lifecycleState=ready before executing request."),
-            IpcEditorLifecycleState.PlayMode => UnityReadinessDecision.Failure(
+            UnityEditorLifecycleState.PlayMode => UnityReadinessDecision.Failure(
                 EditorLifecycleErrorCodes.EditorPlaymode,
                 "Unity editor is in Play Mode. Exit Play Mode and wait until lifecycleState=ready before executing request."),
-            IpcEditorLifecycleState.ModalBlocked => UnityReadinessDecision.Failure(
+            UnityEditorLifecycleState.ModalBlocked => UnityReadinessDecision.Failure(
                 EditorLifecycleErrorCodes.EditorModalBlocked,
                 "Unity editor is blocked by a modal dialog. Resolve the dialog and wait until lifecycleState=ready before executing request."),
-            IpcEditorLifecycleState.SafeMode => UnityReadinessDecision.Failure(
+            UnityEditorLifecycleState.SafeMode => UnityReadinessDecision.Failure(
                 EditorLifecycleErrorCodes.EditorSafeMode,
                 "Unity editor is in Safe Mode. Resolve compiler errors and wait until lifecycleState=ready before executing request."),
-            IpcEditorLifecycleState.ShuttingDown => UnityReadinessDecision.Failure(
+            UnityEditorLifecycleState.ShuttingDown => UnityReadinessDecision.Failure(
                 EditorLifecycleErrorCodes.EditorShuttingDown,
                 "Unity editor is shutting down and cannot accept execution requests."),
-            IpcEditorLifecycleState.Unavailable => UnityReadinessDecision.Failure(
+            UnityEditorLifecycleState.Unavailable => UnityReadinessDecision.Failure(
                 EditorLifecycleErrorCodes.EditorUnavailable,
                 "Unity editor lifecycle is unavailable because the daemon endpoint cannot be observed."),
             _ => UnityReadinessDecision.Failure(
@@ -98,12 +97,13 @@ internal static class UnityEditorReadinessPolicy
             || errorCode == EditorLifecycleErrorCodes.EditorUnavailable;
     }
 
-    private static bool IsWaitableLifecycleState (IpcEditorLifecycleState lifecycleState)
+    private static bool IsWaitableLifecycleState (UnityEditorLifecycleState lifecycleState)
     {
-        return lifecycleState is IpcEditorLifecycleState.Starting
-            or IpcEditorLifecycleState.Recovering
-            or IpcEditorLifecycleState.Busy
-            or IpcEditorLifecycleState.Compiling
-            or IpcEditorLifecycleState.Reimporting;
+        return lifecycleState is UnityEditorLifecycleState.Starting
+            or UnityEditorLifecycleState.Recovering
+            or UnityEditorLifecycleState.Busy
+            or UnityEditorLifecycleState.Compiling
+            or UnityEditorLifecycleState.Reimporting;
     }
+
 }

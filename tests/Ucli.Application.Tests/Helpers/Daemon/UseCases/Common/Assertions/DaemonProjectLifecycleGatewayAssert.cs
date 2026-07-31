@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Shared.Execution.Progress;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Tests;
 
@@ -8,7 +9,7 @@ internal static class DaemonProjectLifecycleGatewayAssert
         RecordingDaemonProjectLifecycleGateway gateway,
         ResolvedUnityProjectContext expectedUnityProject,
         TimeSpan maximumTimeout,
-        DaemonEditorMode? expectedEditorMode = null,
+        UnityEditorMode? expectedEditorMode = null,
         DaemonStartupBlockedProcessPolicy? expectedStartupBlockedPolicy = null)
     {
         var invocation = Assert.Single(gateway.EnsureRunningInvocations);

@@ -1,4 +1,6 @@
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Execution;
+using MackySoft.Ucli.Contracts.Projects;
 
 namespace MackySoft.Ucli.Application.Shared.Execution.ReadPostcondition;
 
@@ -14,7 +16,7 @@ internal static class MutationReadPostconditionAccessEvaluator
         return EvaluateCoreAsync(
             store,
             project,
-            IpcExecuteReadPostconditionSurface.AssetSearch,
+            ExecutionReadPostconditionSurface.AssetSearch,
             scenePath: null,
             generatedAtUtc,
             "asset-search",
@@ -30,7 +32,7 @@ internal static class MutationReadPostconditionAccessEvaluator
         return EvaluateCoreAsync(
             store,
             project,
-            IpcExecuteReadPostconditionSurface.GuidPath,
+            ExecutionReadPostconditionSurface.GuidPath,
             scenePath: null,
             generatedAtUtc,
             "guid-path",
@@ -48,7 +50,7 @@ internal static class MutationReadPostconditionAccessEvaluator
         return EvaluateCoreAsync(
             store,
             project,
-            IpcExecuteReadPostconditionSurface.SceneTreeLite,
+            ExecutionReadPostconditionSurface.SceneTreeLite,
             scenePath,
             generatedAtUtc,
             "scene-tree-lite",
@@ -58,7 +60,7 @@ internal static class MutationReadPostconditionAccessEvaluator
     private static async ValueTask<MutationReadPostconditionEvaluationResult> EvaluateCoreAsync (
         IMutationReadPostconditionStore store,
         ResolvedUnityProjectContext project,
-        IpcExecuteReadPostconditionSurface surface,
+        ExecutionReadPostconditionSurface surface,
         UnityScenePath? scenePath,
         DateTimeOffset generatedAtUtc,
         string surfaceDescription,
@@ -94,9 +96,9 @@ internal static class MutationReadPostconditionAccessEvaluator
             $"Existing {surfaceDescription} index generatedAtUtc '{generatedAtUtc:O}' is older than mutation read postcondition '{requirement.MinSafeGeneratedAtUtc:O}'.");
     }
 
-    private static IpcExecuteReadPostconditionRequirement? FindRequirement (
-        IpcExecuteReadPostcondition? readPostcondition,
-        IpcExecuteReadPostconditionSurface surface,
+    private static ExecutionReadPostconditionRequirement? FindRequirement (
+        ExecutionReadPostcondition? readPostcondition,
+        ExecutionReadPostconditionSurface surface,
         UnityScenePath? scenePath)
     {
         if (readPostcondition == null)
@@ -124,12 +126,12 @@ internal static class MutationReadPostconditionAccessEvaluator
     }
 
     private static bool MatchesScenePath (
-        IpcExecuteReadPostconditionSurface surface,
+        ExecutionReadPostconditionSurface surface,
         UnityScenePath? requirementScenePath,
         UnityScenePath? scenePath)
     {
         return requirementScenePath == scenePath
-            || (surface == IpcExecuteReadPostconditionSurface.SceneTreeLite
+            || (surface == ExecutionReadPostconditionSurface.SceneTreeLite
                 && requirementScenePath == null);
     }
 }

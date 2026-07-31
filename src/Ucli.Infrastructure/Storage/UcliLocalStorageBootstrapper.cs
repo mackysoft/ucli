@@ -22,24 +22,24 @@ public static class UcliLocalStorageBootstrapper
         }
 
         EnsureDirectoryIsNotReparsePointIfExists(ucliDirectoryPath!);
-        Directory.CreateDirectory(ucliDirectoryPath!.Value);
+        DirectoryUtilities.Create(ucliDirectoryPath!);
         EnsureDirectoryIsNotReparsePointIfExists(ucliDirectoryPath!);
 
         EnsureLocalGitIgnoreExists(ucliDirectoryPath!);
 
         EnsureDirectoryIsNotReparsePointIfExists(localDirectoryPath!);
-        Directory.CreateDirectory(localDirectoryPath!.Value);
+        DirectoryUtilities.Create(localDirectoryPath!);
         EnsureDirectoryIsNotReparsePointIfExists(localDirectoryPath!);
     }
 
     private static void EnsureDirectoryIsNotReparsePointIfExists (AbsolutePath directoryPath)
     {
-        if (!Directory.Exists(directoryPath.Value))
+        if (!DirectoryUtilities.Exists(directoryPath))
         {
             return;
         }
 
-        var attributes = File.GetAttributes(directoryPath.Value);
+        var attributes = DirectoryUtilities.GetAttributes(directoryPath);
         if ((attributes & FileAttributes.ReparsePoint) != 0)
         {
             throw new IOException($"Local storage directory must not be a reparse point: {directoryPath}");
@@ -51,7 +51,7 @@ public static class UcliLocalStorageBootstrapper
         var gitIgnorePath = ContainedPath.Create(
             ucliDirectoryPath,
             RootRelativePath.Parse(UcliStoragePathNames.GitIgnoreFileName)).Target;
-        if (File.Exists(gitIgnorePath.Value))
+        if (FileUtilities.FileExists(gitIgnorePath))
         {
             return;
         }
@@ -59,7 +59,7 @@ public static class UcliLocalStorageBootstrapper
         try
         {
             using var stream = new FileStream(
-                gitIgnorePath.Value,
+                FileSystemNativePathText.FromGuardedPath(gitIgnorePath),
                 FileMode.CreateNew,
                 FileAccess.Write,
                 FileShare.Read);
@@ -67,7 +67,7 @@ public static class UcliLocalStorageBootstrapper
             writer.Write(LocalDirectoryIgnoreEntry);
             writer.Write(Environment.NewLine);
         }
-        catch (IOException) when (File.Exists(gitIgnorePath.Value))
+        catch (IOException) when (FileUtilities.FileExists(gitIgnorePath))
         {
         }
     }

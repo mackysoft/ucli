@@ -7,7 +7,7 @@ namespace MackySoft.Ucli.Contracts.Tests.Assurance;
 
 public sealed class AssuranceProgressContractTests
 {
-    private static readonly Guid RunId = Guid.Parse("fedcba98-7654-3210-fedc-ba9876543210");
+    private static readonly Guid ExecutionId = Guid.Parse("fedcba98-7654-3210-fedc-ba9876543210");
     private static readonly Sha256Digest ProfileDigest = Sha256Digest.Parse(new string('a', 64));
 
     [Fact]
@@ -17,11 +17,9 @@ public sealed class AssuranceProgressContractTests
         using var document = JsonDocument.Parse(
             $$"""
             {
-              "runId": "{{RunId:D}}",
+              "executionId": "{{ExecutionId:D}}",
               "errorCount": 0,
-              "warningCount": 0,
-              "summaryJsonPath": "summary.json",
-              "diagnosticsJsonPath": "diagnostics.json"
+              "warningCount": 0
             }
             """);
 

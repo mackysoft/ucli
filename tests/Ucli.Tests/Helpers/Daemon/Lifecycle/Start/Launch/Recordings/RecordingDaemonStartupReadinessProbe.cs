@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Tests.Helpers.Daemon;
 
@@ -8,7 +9,7 @@ internal sealed class RecordingDaemonStartupReadinessProbe : IDaemonStartupReadi
 
     public DaemonStartupReadinessProbeResult NextResult { get; set; } =
         DaemonStartupReadinessProbeResult.Ready(
-            IpcUnityEditorObservationTestFactory.Create(IpcEditorLifecycleState.Ready));
+            UnityEditorObservationTestFactory.Create(UnityEditorLifecycleState.Ready));
 
     public Action? OnWaitUntilReady { get; set; }
 

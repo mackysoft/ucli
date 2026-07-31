@@ -7,6 +7,7 @@ using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Tests.Screenshot;
 
@@ -83,7 +84,7 @@ public sealed class ScreenshotCaptureServiceTests
         var output = result.Output!;
         Assert.Equal(target, output.Capture.Target);
         Assert.Equal(7, output.Capture.State.Generations.DomainReloadGeneration);
-        Assert.Equal(IpcPlayModeState.Stopped, output.Capture.State.PlayMode.State);
+        Assert.Equal(UnityEditorPlayModeState.Stopped, output.Capture.State.PlayMode.State);
         Assert.Equal(Sha256Digest.Parse(new string('b', 64)), output.Artifact.Digest);
     }
 
@@ -105,8 +106,8 @@ public sealed class ScreenshotCaptureServiceTests
             requestedHeight,
             target: target,
             state: CreateState(
-                lifecycleState: IpcEditorLifecycleState.PlayMode,
-                playModeState: IpcPlayModeState.Playing,
+                lifecycleState: UnityEditorLifecycleState.PlayMode,
+                playModeState: UnityEditorPlayModeState.Playing,
                 isPlaying: true,
                 isPlayingOrWillChangePlaymode: true));
         var artifactStore = new RecordingScreenshotArtifactStore();
@@ -122,8 +123,8 @@ public sealed class ScreenshotCaptureServiceTests
         Assert.True(result.IsSuccess);
         Assert.Single(artifactStore.CommitRequests);
         Assert.Equal(target, result.Output!.Capture.Target);
-        Assert.Equal(IpcEditorLifecycleState.PlayMode, result.Output.Capture.State.LifecycleState);
-        Assert.Equal(IpcPlayModeState.Playing, result.Output.Capture.State.PlayMode.State);
+        Assert.Equal(UnityEditorLifecycleState.PlayMode, result.Output.Capture.State.LifecycleState);
+        Assert.Equal(UnityEditorPlayModeState.Playing, result.Output.Capture.State.PlayMode.State);
     }
 
     [Fact]
@@ -133,7 +134,7 @@ public sealed class ScreenshotCaptureServiceTests
         var response = CreateResponse(
             width: 1920,
             height: 1080,
-            playModeState: TextVocabulary.GetText(IpcPlayModeState.Playing));
+            playModeState: TextVocabulary.GetText(UnityEditorPlayModeState.Playing));
         var unityExecutor = new RecordingUnityRequestExecutor(UnityRequestExecutionResult.Success(response));
         var artifactStore = new RecordingScreenshotArtifactStore();
         var service = CreateService(CreateGuiSessionResult(), unityExecutor, artifactStore);
@@ -401,7 +402,7 @@ public sealed class ScreenshotCaptureServiceTests
     private static DaemonSessionReadResult CreateGuiSessionResult ()
     {
         return DaemonSessionReadResultTestFactory.Found(DaemonSessionTestFactory.CreateUserOwned(
-            editorMode: DaemonEditorMode.Gui,
+            editorMode: UnityEditorMode.Gui,
             endpointAddress: "ucli-screenshot",
             editorInstanceId: DaemonSessionTestFactory.DefaultEditorInstanceId));
     }
@@ -493,9 +494,9 @@ public sealed class ScreenshotCaptureServiceTests
                 colorSpace = colorSpace ?? TextVocabulary.GetText(IpcScreenshotColorSpace.Linear),
                 state = new
                 {
-                    editorMode = TextVocabulary.GetText(DaemonEditorMode.Gui),
-                    lifecycleState = lifecycleState ?? TextVocabulary.GetText(IpcEditorLifecycleState.Ready),
-                    compileState = compileState ?? TextVocabulary.GetText(IpcCompileState.Ready),
+                    editorMode = TextVocabulary.GetText(UnityEditorMode.Gui),
+                    lifecycleState = lifecycleState ?? TextVocabulary.GetText(UnityEditorLifecycleState.Ready),
+                    compileState = compileState ?? TextVocabulary.GetText(UnityEditorCompileState.Ready),
                     generations = new
                     {
                         compileGeneration = 5,
@@ -505,8 +506,8 @@ public sealed class ScreenshotCaptureServiceTests
                     },
                     playMode = new
                     {
-                        state = playModeState ?? TextVocabulary.GetText(IpcPlayModeState.Stopped),
-                        transition = TextVocabulary.GetText(IpcPlayModeTransition.None),
+                        state = playModeState ?? TextVocabulary.GetText(UnityEditorPlayModeState.Stopped),
+                        transition = TextVocabulary.GetText(UnityEditorPlayModeTransition.None),
                         isPlaying = false,
                         isPlayingOrWillChangePlaymode = false,
                     },
@@ -531,23 +532,23 @@ public sealed class ScreenshotCaptureServiceTests
     }
 
     private static UnityEditorStateSnapshot CreateState (
-        IpcEditorLifecycleState lifecycleState = IpcEditorLifecycleState.Ready,
-        IpcCompileState compileState = IpcCompileState.Ready,
-        IpcPlayModeState playModeState = IpcPlayModeState.Stopped,
-        IpcPlayModeTransition playModeTransition = IpcPlayModeTransition.None,
+        UnityEditorLifecycleState lifecycleState = UnityEditorLifecycleState.Ready,
+        UnityEditorCompileState compileState = UnityEditorCompileState.Ready,
+        UnityEditorPlayModeState playModeState = UnityEditorPlayModeState.Stopped,
+        UnityEditorPlayModeTransition playModeTransition = UnityEditorPlayModeTransition.None,
         bool isPlaying = false,
         bool isPlayingOrWillChangePlaymode = false)
     {
         return new UnityEditorStateSnapshot(
-            editorMode: DaemonEditorMode.Gui,
+            editorMode: UnityEditorMode.Gui,
             lifecycleState,
             compileState,
-            generations: new IpcUnityGenerationSnapshot(
+            generations: new UnityEditorGenerationSnapshot(
                 CompileGeneration: 5,
                 DomainReloadGeneration: 7,
                 AssetRefreshGeneration: 8,
                 PlayModeGeneration: 9),
-            playMode: new IpcPlayModeSnapshot(
+            playMode: new UnityEditorPlayModeSnapshot(
                 State: playModeState,
                 Transition: playModeTransition,
                 IsPlaying: isPlaying,

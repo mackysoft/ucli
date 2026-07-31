@@ -5,6 +5,7 @@ using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Infrastructure.Project;
 using MackySoft.Ucli.Tests.Helpers.Daemon;
 using static MackySoft.Ucli.Tests.Supervisor.SupervisorRequestDispatcherTestSupport;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Tests.Supervisor;
 
@@ -19,7 +20,7 @@ public sealed class SupervisorRequestDispatcherStreamingTests
         var session = DaemonSessionTestFactory.Create(
             sessionToken: "session-token",
             issuedAtUtc: new DateTimeOffset(2026, 03, 11, 0, 0, 0, TimeSpan.Zero),
-            editorMode: DaemonEditorMode.Gui,
+            editorMode: UnityEditorMode.Gui,
             ownerKind: DaemonSessionOwnerKind.User,
             canShutdownProcess: false,
             endpointTransportKind: IpcTransportKind.UnixDomainSocket,
@@ -31,14 +32,14 @@ public sealed class SupervisorRequestDispatcherStreamingTests
         {
             StartResult = DaemonStartResult.Started(
                 session,
-                IpcUnityEditorObservationTestFactory.Create(projectFingerprint: session.ProjectFingerprint)),
+                UnityEditorObservationTestFactory.Create(projectFingerprint: session.ProjectFingerprint)),
             OnStart = async (progressObserver, cancellationToken) =>
             {
                 Assert.NotNull(progressObserver);
                 await progressObserver!.EmitWaitingForEndpointAsync(
                         new DaemonStartStartupProgressObservation(
                             LaunchAttemptId: Guid.Parse("01234567-89ab-cdef-0123-456789abcdef"),
-                            EditorMode: DaemonEditorMode.Gui,
+                            EditorMode: UnityEditorMode.Gui,
                             OwnerKind: DaemonSessionOwnerKind.User,
                             CanShutdownProcess: false,
                             ProcessId: 42,
@@ -70,7 +71,7 @@ public sealed class SupervisorRequestDispatcherStreamingTests
                     new SupervisorIpcContracts.EnsureRunningRequest(
                         UnityProjectRoot: unityProjectRoot.Value,
                         ProjectFingerprint: projectFingerprint,
-                        EditorMode: DaemonEditorMode.Gui,
+                        EditorMode: UnityEditorMode.Gui,
                         OnStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto)),
                 responseMode: TextVocabulary.GetText(IpcResponseMode.Stream),
                 requestDeadlineUtc: CreateEnsureRunningDeadline(1000),
@@ -104,7 +105,7 @@ public sealed class SupervisorRequestDispatcherStreamingTests
             unityProjectRoot,
             projectFingerprint,
             TimeSpan.FromMilliseconds(1000),
-            DaemonEditorMode.Gui,
+            UnityEditorMode.Gui,
             DaemonStartupBlockedProcessPolicy.Auto);
     }
 
@@ -124,7 +125,7 @@ public sealed class SupervisorRequestDispatcherStreamingTests
                 await progressObserver!.EmitWaitingForEndpointAsync(
                         new DaemonStartStartupProgressObservation(
                             LaunchAttemptId: Guid.Parse("11234567-89ab-cdef-0123-456789abcdef"),
-                            EditorMode: DaemonEditorMode.Batchmode,
+                            EditorMode: UnityEditorMode.Batchmode,
                             OwnerKind: DaemonSessionOwnerKind.Cli,
                             CanShutdownProcess: true,
                             ProcessId: 42,
@@ -155,7 +156,7 @@ public sealed class SupervisorRequestDispatcherStreamingTests
                     new SupervisorIpcContracts.EnsureRunningRequest(
                         UnityProjectRoot: unityProjectRoot.Value,
                         ProjectFingerprint: projectFingerprint,
-                        EditorMode: DaemonEditorMode.Batchmode,
+                        EditorMode: UnityEditorMode.Batchmode,
                         OnStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto)),
                 responseMode: TextVocabulary.GetText(IpcResponseMode.Stream),
                 requestDeadlineUtc: timeProvider.GetUtcNow().AddSeconds(5),
@@ -190,7 +191,7 @@ public sealed class SupervisorRequestDispatcherStreamingTests
                 await progressObserver!.EmitWaitingForEndpointAsync(
                         new DaemonStartStartupProgressObservation(
                             LaunchAttemptId: Guid.Parse("01234567-89ab-cdef-0123-456789abcdef"),
-                            EditorMode: DaemonEditorMode.Batchmode,
+                            EditorMode: UnityEditorMode.Batchmode,
                             OwnerKind: DaemonSessionOwnerKind.Cli,
                             CanShutdownProcess: true,
                             ProcessId: 42,
@@ -222,7 +223,7 @@ public sealed class SupervisorRequestDispatcherStreamingTests
                     new SupervisorIpcContracts.EnsureRunningRequest(
                         UnityProjectRoot: unityProjectRoot.Value,
                         ProjectFingerprint: projectFingerprint,
-                        EditorMode: DaemonEditorMode.Batchmode,
+                        EditorMode: UnityEditorMode.Batchmode,
                         OnStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto)),
                 responseMode: TextVocabulary.GetText(IpcResponseMode.Stream),
                 requestDeadlineUtc: CreateEnsureRunningDeadline(1000),
@@ -239,7 +240,7 @@ public sealed class SupervisorRequestDispatcherStreamingTests
             unityProjectRoot,
             projectFingerprint,
             TimeSpan.FromMilliseconds(1000),
-            DaemonEditorMode.Batchmode,
+            UnityEditorMode.Batchmode,
             DaemonStartupBlockedProcessPolicy.Auto);
         Assert.Empty(frames);
     }
@@ -269,7 +270,7 @@ public sealed class SupervisorRequestDispatcherStreamingTests
                 new SupervisorIpcContracts.EnsureRunningRequest(
                     UnityProjectRoot: unityProjectRoot.Value,
                     ProjectFingerprint: projectFingerprint,
-                    EditorMode: DaemonEditorMode.Batchmode,
+                    EditorMode: UnityEditorMode.Batchmode,
                     OnStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto)),
             responseMode: TextVocabulary.GetText(IpcResponseMode.Single),
             requestDeadlineUtc: CreateEnsureRunningDeadline(1000),
@@ -301,7 +302,7 @@ public sealed class SupervisorRequestDispatcherStreamingTests
                 await progressObserver!.EmitWaitingForEndpointAsync(
                         new DaemonStartStartupProgressObservation(
                             LaunchAttemptId: Guid.Parse("21234567-89ab-cdef-0123-456789abcdef"),
-                            EditorMode: DaemonEditorMode.Batchmode,
+                            EditorMode: UnityEditorMode.Batchmode,
                             OwnerKind: DaemonSessionOwnerKind.Cli,
                             CanShutdownProcess: true,
                             ProcessId: 42,
@@ -333,7 +334,7 @@ public sealed class SupervisorRequestDispatcherStreamingTests
                     new SupervisorIpcContracts.EnsureRunningRequest(
                         UnityProjectRoot: unityProjectRoot.Value,
                         ProjectFingerprint: projectFingerprint,
-                        EditorMode: DaemonEditorMode.Batchmode,
+                        EditorMode: UnityEditorMode.Batchmode,
                         OnStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto)),
                 responseMode: TextVocabulary.GetText(IpcResponseMode.Stream),
                 requestDeadlineUtc: CreateEnsureRunningDeadline(1000),

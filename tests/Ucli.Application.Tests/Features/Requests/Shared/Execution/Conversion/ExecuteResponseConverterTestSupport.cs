@@ -2,6 +2,7 @@ using System.Text.Json;
 using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Projects;
 
 namespace MackySoft.Ucli.Application.Tests.Requests.Shared.Execution.Conversion;
 
@@ -55,9 +56,9 @@ internal static class ExecuteResponseConverterTestSupport
             contractViolations: contractViolations);
     }
 
-    public static IpcProjectIdentity CreateProjectIdentity ()
+    public static UnityProjectIdentity CreateProjectIdentity ()
     {
-        return new IpcProjectIdentity(
+        return new UnityProjectIdentity(
             projectPath: ExpectedProject.UnityProjectRoot.Value,
             projectFingerprint: ExpectedProjectFingerprint,
             unityVersion: "6000.1.4f1");

@@ -8,6 +8,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Progress;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Recovery;
 using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start;
 
@@ -76,7 +77,7 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
     public async ValueTask<DaemonStartResult> StartAsync (
         ResolvedUnityProjectContext unityProject,
         ExecutionDeadline deadline,
-        DaemonEditorMode? editorMode,
+        UnityEditorMode? editorMode,
         DaemonStartupBlockedProcessPolicy onStartupBlocked,
         IDaemonStartProgressObserver? progressObserver = null,
         CancellationToken cancellationToken = default)
@@ -235,7 +236,7 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
         DaemonSessionReadResult readResult,
         ExecutionDeadline deadline,
         ExecutionError? diagnosisCleanupError,
-        DaemonEditorMode? editorMode,
+        UnityEditorMode? editorMode,
         DaemonStartupBlockedProcessPolicy onStartupBlocked,
         IDaemonStartProgressObserver? progressObserver,
         CancellationToken cancellationToken)
@@ -278,7 +279,7 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
         ResolvedUnityProjectContext unityProject,
         ExecutionDeadline deadline,
         ExecutionError? diagnosisCleanupError,
-        DaemonEditorMode? editorMode,
+        UnityEditorMode? editorMode,
         DaemonStartupBlockedProcessPolicy onStartupBlocked,
         IDaemonStartProgressObserver? progressObserver,
         CancellationToken cancellationToken)

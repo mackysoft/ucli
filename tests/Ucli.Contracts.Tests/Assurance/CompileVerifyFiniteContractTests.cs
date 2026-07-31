@@ -2,6 +2,7 @@ using System.Text.Json;
 using MackySoft.Ucli.Contracts.Assurance;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Execution.Lifecycle;
 
 namespace MackySoft.Ucli.Contracts.Tests.Assurance;
 
@@ -18,7 +19,7 @@ public sealed class CompileVerifyFiniteContractTests
         Assert.Equal("postRead", TextVocabulary.GetText(VerifyStepKind.PostRead));
         Assert.Equal("unityTestRunner", TextVocabulary.GetText(AssuranceEffect.UnityTestRunner));
         Assert.Equal("error", TextVocabulary.GetText(VerifyDiagnosticImpact.Error));
-        Assert.Equal("diagnosticsRead", TextVocabulary.GetText(CompileRefreshOrigin.DiagnosticsRead));
+        Assert.Equal("diagnosticsRead", TextVocabulary.GetText(CompileLifecycleRefreshOrigin.DiagnosticsRead));
         Assert.Equal("lifecycleSnapshot", TextVocabulary.GetText(CompileEvidenceKind.LifecycleSnapshot));
     }
 
@@ -56,7 +57,7 @@ public sealed class CompileVerifyFiniteContractTests
                 "hostDispatch")).ParamName);
         Assert.Equal(
             "Origin",
-            Assert.Throws<ArgumentOutOfRangeException>(() => new IpcCompileSummary.RefreshEvidence(
+            Assert.Throws<ArgumentOutOfRangeException>(() => new CompileLifecycleResult.RefreshEvidence(
                 default,
                 Requested: true,
                 StartedAtUtc: DateTimeOffset.UtcNow,
@@ -100,7 +101,7 @@ public sealed class CompileVerifyFiniteContractTests
             SkipReason: null));
         var refresh = IpcPayloadCodec.SerializeToElement(new CompileRefreshStartedEntry(
             Guid.NewGuid(),
-            CompileRefreshOrigin.AssetDatabaseRefresh,
+            CompileLifecycleRefreshOrigin.AssetDatabaseRefresh,
             "hostDispatch"));
 
         Assert.Equal("file", profile.GetProperty("profileSource").GetString());

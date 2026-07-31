@@ -9,16 +9,22 @@ using MackySoft.Ucli.Unity.Runtime;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
-    /// <summary> Monitors the request deadline until response completion and the parent process until oneshot termination. </summary>
-    internal sealed class OneshotProcessLifetimeWatchdog : IDisposable
+    /// <summary>
+    /// Monitors the active oneshot process contract until normal completion or hard exit.
+    /// </summary>
+    internal sealed class OneshotProcessLifetimeWatchdog :
+        IDisposable,
+        ILifecycleExecutionHostLifetimeObserver
     {
         private const int RequestDeadlineMonitoringState = 0;
 
-        private const int ParentOnlyMonitoringState = 1;
+        private const int LifecycleExecutionHardExitMonitoringState = 1;
 
-        private const int ExitRequestedState = 2;
+        private const int ParentOnlyMonitoringState = 2;
 
-        private const int DisposedState = 3;
+        private const int ExitRequestedState = 3;
+
+        private const int DisposedState = 4;
 
         private static readonly TimeSpan ProductionPollInterval = TimeSpan.FromMilliseconds(250);
 
@@ -28,7 +34,11 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private readonly Func<ProcessIdentity, bool> parentProcessIsSameProcess;
 
-        private readonly TimeSpan monotonicRequestExitDeadline;
+        private readonly DateTimeOffset observedUtcAtConstruction;
+
+        private readonly TimeSpan monotonicElapsedAtConstruction;
+
+        private readonly TimeSpan monotonicBootstrapExitDeadline;
 
         private readonly IMonotonicClock monotonicClock;
 
@@ -73,6 +83,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     nameof(observedUtcNow));
             }
 
+            observedUtcAtConstruction = observedUtcNow;
             this.monotonicClock = monotonicClock ?? throw new ArgumentNullException(nameof(monotonicClock));
             this.tryDeleteEnvelopeIfOwned = tryDeleteEnvelopeIfOwned ?? throw new ArgumentNullException(nameof(tryDeleteEnvelopeIfOwned));
             this.terminateProcess = terminateProcess ?? throw new ArgumentNullException(nameof(terminateProcess));
@@ -86,10 +97,9 @@ namespace MackySoft.Ucli.Unity.Ipc
                     "Monotonic clock elapsed time must not be negative.");
             }
 
-            var remainingTime = bootstrapEnvelope.ExitDeadlineUtc - observedUtcNow;
-            monotonicRequestExitDeadline = remainingTime > TimeSpan.Zero
-                ? monotonicNow + remainingTime
-                : monotonicNow;
+            monotonicElapsedAtConstruction = monotonicNow;
+            monotonicBootstrapExitDeadline = ResolveMonotonicDeadline(
+                bootstrapEnvelope.ExitDeadlineUtc);
             timer = new Timer(
                 static state => ((OneshotProcessLifetimeWatchdog)state).InspectLifetime(),
                 this,
@@ -132,13 +142,49 @@ namespace MackySoft.Ucli.Unity.Ipc
                 });
         }
 
-        /// <summary> Stops enforcing the request deadline after a terminal response while retaining parent-process monitoring. </summary>
+        /// <summary>
+        /// Stops parent-process monitoring after durable Lifecycle Execution registration and enforces only
+        /// the bootstrap hard-exit deadline fixed by the caller.
+        /// </summary>
+        /// <param name="deadlineUtc"> The immutable Lifecycle Execution deadline. </param>
+        internal void MarkLifecycleExecutionStarted (DateTimeOffset deadlineUtc)
+        {
+            if (deadlineUtc == default || deadlineUtc.Offset != TimeSpan.Zero)
+            {
+                throw new ArgumentException(
+                    "Lifecycle Execution deadline must be a non-default UTC timestamp.",
+                    nameof(deadlineUtc));
+            }
+
+            if (deadlineUtc > bootstrapEnvelope.ExitDeadlineUtc)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(deadlineUtc),
+                    deadlineUtc,
+                    "Lifecycle Execution deadline must not exceed the oneshot bootstrap hard-exit deadline.");
+            }
+
+            _ = Interlocked.CompareExchange(
+                ref lifetimeState,
+                LifecycleExecutionHardExitMonitoringState,
+                RequestDeadlineMonitoringState);
+        }
+
+        /// <inheritdoc />
+        void ILifecycleExecutionHostLifetimeObserver.OnStartAccepted (
+            DateTimeOffset deadlineUtc)
+        {
+            MarkLifecycleExecutionStarted(deadlineUtc);
+        }
+
+        /// <summary> Transitions a terminal request to parent-process monitoring while oneshot cleanup completes. </summary>
         internal void MarkRequestCompleted ()
         {
             while (true)
             {
                 var observedState = Volatile.Read(ref lifetimeState);
-                if (observedState != RequestDeadlineMonitoringState)
+                if (observedState != RequestDeadlineMonitoringState
+                    && observedState != LifecycleExecutionHardExitMonitoringState)
                 {
                     return;
                 }
@@ -146,7 +192,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 if (Interlocked.CompareExchange(
                         ref lifetimeState,
                         ParentOnlyMonitoringState,
-                        RequestDeadlineMonitoringState) == RequestDeadlineMonitoringState)
+                        observedState) == observedState)
                 {
                     return;
                 }
@@ -186,8 +232,17 @@ namespace MackySoft.Ucli.Unity.Ipc
                 switch (observedState)
                 {
                     case RequestDeadlineMonitoringState:
-                        if (monotonicClock.Elapsed < monotonicRequestExitDeadline
+                        if (monotonicClock.Elapsed < monotonicBootstrapExitDeadline
                             && parentProcessIsSameProcess(bootstrapEnvelope.ParentProcess))
+                        {
+                            return;
+                        }
+
+                        break;
+
+                    case LifecycleExecutionHardExitMonitoringState:
+                        if (monotonicClock.Elapsed
+                            < monotonicBootstrapExitDeadline)
                         {
                             return;
                         }
@@ -231,6 +286,14 @@ namespace MackySoft.Ucli.Unity.Ipc
                 terminateProcess();
                 return;
             }
+        }
+
+        private TimeSpan ResolveMonotonicDeadline (DateTimeOffset deadlineUtc)
+        {
+            var remainingTime = deadlineUtc - observedUtcAtConstruction;
+            return remainingTime > TimeSpan.Zero
+                ? monotonicElapsedAtConstruction + remainingTime
+                : monotonicElapsedAtConstruction;
         }
     }
 }

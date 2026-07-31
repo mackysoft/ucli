@@ -11,6 +11,7 @@ using MackySoft.Ucli.Unity.ScreenshotCapture;
 using MackySoft.Ucli.Unity.ScreenshotCapture.Capture;
 using MackySoft.Ucli.Unity.ScreenshotCapture.Staging;
 using NUnit.Framework;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Unity.Tests
 {
@@ -25,7 +26,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var backend = new StubCaptureBackend(CreateBackendSuccess());
             var writer = new StubStagingImageWriter();
             var service = new UnityScreenshotCaptureService(
-                new SequenceReadinessGate(CreateSnapshot(DaemonEditorMode.Batchmode, domainReloadGeneration: 1)),
+                new SequenceReadinessGate(CreateSnapshot(UnityEditorMode.Batchmode, domainReloadGeneration: 1)),
                 backend,
                 writer);
 
@@ -43,7 +44,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public void CaptureAsync_WithStableGuiFence_WritesRawImageAndReturnsObservedMetadata ()
         {
-            var snapshot = CreateSnapshot(DaemonEditorMode.Gui, domainReloadGeneration: 7);
+            var snapshot = CreateSnapshot(UnityEditorMode.Gui, domainReloadGeneration: 7);
             var backend = new StubCaptureBackend(CreateBackendSuccess());
             var writer = new StubStagingImageWriter();
             var service = new UnityScreenshotCaptureService(
@@ -70,16 +71,16 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.Response.CaptureId, Is.EqualTo(CaptureId));
             Assert.That(
                 result.Response.Capture.State.LifecycleState,
-                Is.EqualTo(IpcEditorLifecycleState.Ready));
+                Is.EqualTo(UnityEditorLifecycleState.Ready));
             Assert.That(
                 result.Response.Capture.State.CompileState,
-                Is.EqualTo(IpcCompileState.Ready));
+                Is.EqualTo(UnityEditorCompileState.Ready));
             Assert.That(
                 result.Response.Capture.ColorSpace,
                 Is.EqualTo(IpcScreenshotColorSpace.Linear));
             Assert.That(
                 result.Response.Capture.State.Generations,
-                Is.EqualTo(new IpcUnityGenerationSnapshot(3, 7, 5, 2)));
+                Is.EqualTo(new UnityEditorGenerationSnapshot(3, 7, 5, 2)));
             Assert.That(
                 result.Response.Staging.PixelFormat,
                 Is.EqualTo(IpcScreenshotPixelFormat.Rgba8Srgb));
@@ -105,7 +106,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 isShuttingDown: false,
                 isStartupPending: false);
             var readinessGate = new UnityEditorReadinessGate(
-                DaemonEditorMode.Gui,
+                UnityEditorMode.Gui,
                 new UnityEditorLifecycleMonitor(
                     telemetryState,
                     static () => false,
@@ -135,7 +136,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(writer.WriteCallCount, Is.EqualTo(1));
             Assert.That(
                 readinessGate.CaptureAvailabilityObservation().State.LifecycleState,
-                Is.EqualTo(IpcEditorLifecycleState.Busy));
+                Is.EqualTo(UnityEditorLifecycleState.Busy));
         }
 
         [Test]
@@ -146,8 +147,8 @@ namespace MackySoft.Ucli.Unity.Tests
             var writer = new StubStagingImageWriter();
             var service = new UnityScreenshotCaptureService(
                 new SequenceReadinessGate(
-                    CreateSnapshot(DaemonEditorMode.Gui, domainReloadGeneration: 7),
-                    CreateSnapshot(DaemonEditorMode.Gui, domainReloadGeneration: 8)),
+                    CreateSnapshot(UnityEditorMode.Gui, domainReloadGeneration: 7),
+                    CreateSnapshot(UnityEditorMode.Gui, domainReloadGeneration: 8)),
                 backend,
                 writer);
 
@@ -164,15 +165,15 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public void CaptureAsync_WhenOnlyObservationMetadataChanges_PublishesStagingImage ()
         {
-            var captured = CreateSnapshot(DaemonEditorMode.Gui, domainReloadGeneration: 7);
-            var before = new UnityEditorObservation(
+            var captured = CreateSnapshot(UnityEditorMode.Gui, domainReloadGeneration: 7);
+            var before = new UnityEditorRuntimeObservation(
                 captured.State,
                 new DateTimeOffset(2026, 7, 13, 0, 0, 0, TimeSpan.Zero));
-            var after = new UnityEditorObservation(
+            var after = new UnityEditorRuntimeObservation(
                 before.State,
                 new DateTimeOffset(2026, 7, 13, 0, 0, 1, TimeSpan.Zero),
-                new IpcPrimaryDiagnostic(
-                    Kind: DaemonDiagnosisPrimaryDiagnosticKind.Compiler,
+                new UnityEditorPrimaryDiagnostic(
+                    Kind: UnityEditorPrimaryDiagnosticKind.Compiler,
                     Code: "CS0000",
                     File: null,
                     Line: null,
@@ -201,11 +202,11 @@ namespace MackySoft.Ucli.Unity.Tests
             var service = new UnityScreenshotCaptureService(
                 new SequenceReadinessGate(
                     CreateSnapshot(
-                        DaemonEditorMode.Gui,
+                        UnityEditorMode.Gui,
                         domainReloadGeneration: 7,
                         assetRefreshGeneration: 11),
                     CreateSnapshot(
-                        DaemonEditorMode.Gui,
+                        UnityEditorMode.Gui,
                         domainReloadGeneration: 7,
                         assetRefreshGeneration: 12)),
                 backend,
@@ -225,7 +226,7 @@ namespace MackySoft.Ucli.Unity.Tests
         public void CaptureAsync_WhenCancelledAfterPublish_DeletesPublishedStagingImage ()
         {
             using var cancellationTokenSource = new CancellationTokenSource();
-            var snapshot = CreateSnapshot(DaemonEditorMode.Gui, domainReloadGeneration: 7);
+            var snapshot = CreateSnapshot(UnityEditorMode.Gui, domainReloadGeneration: 7);
             var writer = new StubStagingImageWriter(() => cancellationTokenSource.Cancel());
             var service = new UnityScreenshotCaptureService(
                 new SequenceReadinessGate(snapshot, snapshot),
@@ -243,7 +244,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public void CaptureAsync_WhenWriterReportsWrongSize_DeletesPublishedStagingImage ()
         {
-            var snapshot = CreateSnapshot(DaemonEditorMode.Gui, domainReloadGeneration: 7);
+            var snapshot = CreateSnapshot(UnityEditorMode.Gui, domainReloadGeneration: 7);
             var writer = new StubStagingImageWriter(reportedSizeBytes: 7);
             var service = new UnityScreenshotCaptureService(
                 new SequenceReadinessGate(snapshot, snapshot),
@@ -266,7 +267,7 @@ namespace MackySoft.Ucli.Unity.Tests
             IpcScreenshotTarget target)
         {
             var snapshot = CreateSnapshot(
-                DaemonEditorMode.Gui,
+                UnityEditorMode.Gui,
                 domainReloadGeneration: 7,
                 isPlaying: true);
             var backend = new StubCaptureBackend(CreateBackendSuccess());
@@ -284,10 +285,10 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.Response.Capture.Target, Is.EqualTo(target));
             Assert.That(
                 result.Response.Capture.State.LifecycleState,
-                Is.EqualTo(IpcEditorLifecycleState.PlayMode));
+                Is.EqualTo(UnityEditorLifecycleState.PlayMode));
             Assert.That(
                 result.Response.Capture.State.PlayMode.State,
-                Is.EqualTo(IpcPlayModeState.Playing));
+                Is.EqualTo(UnityEditorPlayModeState.Playing));
         }
 
         [TestCase(IpcScreenshotTarget.Game)]
@@ -296,15 +297,15 @@ namespace MackySoft.Ucli.Unity.Tests
         public void CaptureAsync_DuringPlayModeTransition_ReturnsCaptureUnsupported (
             IpcScreenshotTarget target)
         {
-            var snapshot = new UnityEditorObservation(
+            var snapshot = new UnityEditorRuntimeObservation(
                 new UnityEditorStateSnapshot(
-                    DaemonEditorMode.Gui,
-                    IpcEditorLifecycleState.PlayMode,
-                    IpcCompileState.Ready,
-                    new IpcUnityGenerationSnapshot(3, 7, 5, 2),
-                    new IpcPlayModeSnapshot(
-                        IpcPlayModeState.Playing,
-                        IpcPlayModeTransition.Exiting,
+                    UnityEditorMode.Gui,
+                    UnityEditorLifecycleState.PlayMode,
+                    UnityEditorCompileState.Ready,
+                    new UnityEditorGenerationSnapshot(3, 7, 5, 2),
+                    new UnityEditorPlayModeSnapshot(
+                        UnityEditorPlayModeState.Playing,
+                        UnityEditorPlayModeTransition.Exiting,
                         IsPlaying: true,
                         IsPlayingOrWillChangePlaymode: true)),
                 DateTimeOffset.UnixEpoch);
@@ -327,15 +328,15 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public void CaptureAsync_WhenGeneralReadinessAcceptsIncoherentState_ReturnsCaptureUnsupported ()
         {
-            var snapshot = new UnityEditorObservation(
+            var snapshot = new UnityEditorRuntimeObservation(
                 new UnityEditorStateSnapshot(
-                    DaemonEditorMode.Gui,
-                    IpcEditorLifecycleState.Ready,
-                    IpcCompileState.Ready,
-                    new IpcUnityGenerationSnapshot(3, 7, 5, 2),
-                    new IpcPlayModeSnapshot(
-                        IpcPlayModeState.Playing,
-                        IpcPlayModeTransition.None,
+                    UnityEditorMode.Gui,
+                    UnityEditorLifecycleState.Ready,
+                    UnityEditorCompileState.Ready,
+                    new UnityEditorGenerationSnapshot(3, 7, 5, 2),
+                    new UnityEditorPlayModeSnapshot(
+                        UnityEditorPlayModeState.Playing,
+                        UnityEditorPlayModeTransition.None,
                         IsPlaying: true,
                         IsPlayingOrWillChangePlaymode: true)),
                 DateTimeOffset.UnixEpoch);
@@ -379,29 +380,29 @@ namespace MackySoft.Ucli.Unity.Tests
             return new byte[] { 1, 2, 3, 255, 4, 5, 6, 255 };
         }
 
-        private static UnityEditorObservation CreateSnapshot (
-            DaemonEditorMode editorMode,
+        private static UnityEditorRuntimeObservation CreateSnapshot (
+            UnityEditorMode editorMode,
             long domainReloadGeneration,
             bool isPlaying = false,
             long assetRefreshGeneration = 5)
         {
-            return new UnityEditorObservation(
+            return new UnityEditorRuntimeObservation(
                 state: new UnityEditorStateSnapshot(
                     editorMode: editorMode,
                     lifecycleState: isPlaying
-                        ? IpcEditorLifecycleState.PlayMode
-                        : IpcEditorLifecycleState.Ready,
-                    compileState: IpcCompileState.Ready,
-                    generations: new IpcUnityGenerationSnapshot(
+                        ? UnityEditorLifecycleState.PlayMode
+                        : UnityEditorLifecycleState.Ready,
+                    compileState: UnityEditorCompileState.Ready,
+                    generations: new UnityEditorGenerationSnapshot(
                         CompileGeneration: 3,
                         DomainReloadGeneration: domainReloadGeneration,
                         AssetRefreshGeneration: assetRefreshGeneration,
                         PlayModeGeneration: 2),
-                    playMode: new IpcPlayModeSnapshot(
+                    playMode: new UnityEditorPlayModeSnapshot(
                         State: isPlaying
-                            ? IpcPlayModeState.Playing
-                            : IpcPlayModeState.Stopped,
-                        Transition: IpcPlayModeTransition.None,
+                            ? UnityEditorPlayModeState.Playing
+                            : UnityEditorPlayModeState.Stopped,
+                        Transition: UnityEditorPlayModeTransition.None,
                         IsPlaying: isPlaying,
                         IsPlayingOrWillChangePlaymode: isPlaying)),
                 observedAtUtc: DateTimeOffset.UnixEpoch);
@@ -471,16 +472,16 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private sealed class SequenceReadinessGate : IUnityEditorReadinessGate
         {
-            private readonly UnityEditorObservation[] snapshots;
+            private readonly UnityEditorRuntimeObservation[] snapshots;
 
             private int snapshotIndex;
 
-            public SequenceReadinessGate (params UnityEditorObservation[] snapshots)
+            public SequenceReadinessGate (params UnityEditorRuntimeObservation[] snapshots)
             {
                 this.snapshots = snapshots;
             }
 
-            public UnityEditorObservation CaptureObservation ()
+            public UnityEditorRuntimeObservation CaptureObservation ()
             {
                 var index = Math.Min(snapshotIndex, snapshots.Length - 1);
                 snapshotIndex++;

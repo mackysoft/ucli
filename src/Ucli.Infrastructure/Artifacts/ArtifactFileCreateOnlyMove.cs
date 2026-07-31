@@ -1,5 +1,7 @@
 using System.ComponentModel;
 using System.Runtime.InteropServices;
+using MackySoft.FileSystem;
+using MackySoft.Ucli.Infrastructure.Storage;
 
 namespace MackySoft.Ucli.Infrastructure.Artifacts;
 
@@ -24,14 +26,16 @@ internal static class ArtifactFileCreateOnlyMove
         cancellationToken.ThrowIfCancellationRequested();
         source.EnsureStillBound();
         MovePath(
-            paths.TemporaryFile.Target.Value,
-            paths.DestinationFile.Target.Value);
+            paths.TemporaryFile.Target,
+            paths.DestinationFile.Target);
         source.MoveBindingTo(
             paths.DestinationFile,
             ImmutableArtifactFilePublisher.DestinationFileSubject);
     }
 
-    private static void MovePath (string source, string destination)
+    private static void MovePath (
+        AbsolutePath source,
+        AbsolutePath destination)
     {
         if (IsWindows())
         {
@@ -41,13 +45,13 @@ internal static class ArtifactFileCreateOnlyMove
 
         if (IsLinux())
         {
-            MoveLinux(source, destination);
+            MoveLinux(source.Value, destination.Value);
             return;
         }
 
         if (IsMacOS())
         {
-            MoveMacOs(source, destination);
+            MoveMacOs(source.Value, destination.Value);
             return;
         }
 
@@ -55,12 +59,16 @@ internal static class ArtifactFileCreateOnlyMove
             "Create-only artifact publication is supported on Windows, Linux, and macOS.");
     }
 
-    private static void MoveWindows (string source, string destination)
+    private static void MoveWindows (
+        AbsolutePath source,
+        AbsolutePath destination)
     {
-        if (!MoveFile(source, destination))
+        if (!MoveFile(
+                FileSystemNativePathText.FromGuardedPath(source),
+                FileSystemNativePathText.FromGuardedPath(destination)))
         {
             throw CreateIOException(
-                $"Immutable artifact create-only move failed: {destination}");
+                $"Immutable artifact create-only move failed: {destination.Value}");
         }
     }
 

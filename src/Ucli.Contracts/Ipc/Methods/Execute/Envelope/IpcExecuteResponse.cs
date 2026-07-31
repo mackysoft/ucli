@@ -1,4 +1,6 @@
 using System.Text.Json.Serialization;
+using MackySoft.Ucli.Contracts.Projects;
+using MackySoft.Ucli.Contracts.Execution;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
@@ -21,9 +23,9 @@ public sealed record IpcExecuteResponse
     [JsonConstructor]
     public IpcExecuteResponse (
         IReadOnlyList<IpcExecuteOperationResult> opResults,
-        IpcProjectIdentity project,
+        UnityProjectIdentity project,
         string? planToken,
-        IpcExecuteReadPostcondition? readPostcondition,
+        ExecutionReadPostcondition? readPostcondition,
         IpcExecutePostReadSource? postReadSource,
         IReadOnlyList<IpcExecuteContractViolation>? contractViolations)
     {
@@ -102,7 +104,7 @@ public sealed record IpcExecuteResponse
     public IReadOnlyList<IpcExecuteOperationResult> OpResults { get; }
 
     /// <summary> Gets the resolved Unity project identity for the request. </summary>
-    public IpcProjectIdentity Project { get; }
+    public UnityProjectIdentity Project { get; }
 
     /// <summary> Gets the optional plan token issued by the <c>plan</c> command. </summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -110,7 +112,7 @@ public sealed record IpcExecuteResponse
 
     /// <summary> Gets the optional mutation-to-read postcondition contract emitted after call execution. </summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public IpcExecuteReadPostcondition? ReadPostcondition { get; }
+    public ExecutionReadPostcondition? ReadPostcondition { get; }
 
     /// <summary> Gets source facts needed to verify post-read claims from this portable result. </summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

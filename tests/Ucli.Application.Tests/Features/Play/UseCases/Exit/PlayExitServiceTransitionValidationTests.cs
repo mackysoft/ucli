@@ -1,4 +1,6 @@
 using MackySoft.Ucli.Application.Features.Play.UseCases.Exit;
+using MackySoft.Ucli.Contracts.Editor;
+using MackySoft.Ucli.Contracts.Execution.Lifecycle;
 using MackySoft.Ucli.Contracts.Ipc;
 using static MackySoft.Ucli.Application.Tests.Play.PlayExitServiceTestSupport;
 
@@ -11,16 +13,16 @@ public sealed class PlayExitServiceTransitionValidationTests
     public async Task Execute_WhenAlreadyExitedChangesGeneration_ReturnsStateUnknown ()
     {
         var before = CreateSnapshot(
-            IpcEditorLifecycleState.Compiling,
+            UnityEditorLifecycleState.Compiling,
             CreateStoppedPlayMode(),
             playModeGeneration: 9);
         var after = CreateSnapshot(
-            IpcEditorLifecycleState.Compiling,
+            UnityEditorLifecycleState.Compiling,
             CreateStoppedPlayMode(),
             playModeGeneration: 10);
-        var response = new IpcPlayTransitionResponse(new IpcPlayTransitionResult(
-            IpcPlayTransitionCommand.Exit,
-            IpcPlayTransitionOutcome.AlreadyExited,
+        var response = new IpcPlayTransitionResponse(CreateTerminalReference(), new PlayLifecycleTransitionResult(
+            PlayLifecycleTransitionCommand.Exit,
+            PlayLifecycleTransitionOutcome.AlreadyExited,
             before,
             After: after,
             Observed: null,
@@ -36,49 +38,19 @@ public sealed class PlayExitServiceTransitionValidationTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Execute_WhenResponseProjectFingerprintDiffers_ReturnsMismatchFailure ()
-    {
-        var before = CreateSnapshot(
-            IpcEditorLifecycleState.PlayMode,
-            CreatePlayingPlayMode(),
-            playModeGeneration: 2,
-            projectFingerprint: ProjectFingerprintTestFactory.Create("other-project-fingerprint"));
-        var after = CreateSnapshot(
-            IpcEditorLifecycleState.Ready,
-            CreateStoppedPlayMode(),
-            playModeGeneration: 3,
-            projectFingerprint: ProjectFingerprintTestFactory.Create("other-project-fingerprint"));
-        var response = new IpcPlayTransitionResponse(new IpcPlayTransitionResult(
-            IpcPlayTransitionCommand.Exit,
-            IpcPlayTransitionOutcome.Exited,
-            before,
-            After: after,
-            Observed: null,
-            ApplicationState: null));
-        var requestExecutor = new RecordingUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateResponse(response)));
-        var service = CreateService(PlayProjectContext, CreateGuiSessionStore(), requestExecutor);
-
-        var result = await service.ExecuteAsync(new PlayExitCommandInput(null, null), CancellationToken.None);
-
-        Assert.False(result.IsSuccess);
-        Assert.Contains("projectFingerprint mismatch", result.Error!.Message, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
     public async Task Execute_WhenExitedDoesNotChangeGeneration_ReturnsStateUnknown ()
     {
         var before = CreateSnapshot(
-            IpcEditorLifecycleState.PlayMode,
+            UnityEditorLifecycleState.PlayMode,
             CreatePlayingPlayMode(),
             playModeGeneration: 2);
         var after = CreateSnapshot(
-            IpcEditorLifecycleState.Ready,
+            UnityEditorLifecycleState.Ready,
             CreateStoppedPlayMode(),
             playModeGeneration: 2);
-        var response = new IpcPlayTransitionResponse(new IpcPlayTransitionResult(
-            IpcPlayTransitionCommand.Exit,
-            IpcPlayTransitionOutcome.Exited,
+        var response = new IpcPlayTransitionResponse(CreateTerminalReference(), new PlayLifecycleTransitionResult(
+            PlayLifecycleTransitionCommand.Exit,
+            PlayLifecycleTransitionOutcome.Exited,
             before,
             After: after,
             Observed: null,
@@ -97,16 +69,16 @@ public sealed class PlayExitServiceTransitionValidationTests
     public async Task Execute_WhenExitedAfterSnapshotIsStillPlaymode_ReturnsStateUnknown ()
     {
         var before = CreateSnapshot(
-            IpcEditorLifecycleState.PlayMode,
+            UnityEditorLifecycleState.PlayMode,
             CreatePlayingPlayMode(),
             playModeGeneration: 2);
         var after = CreateSnapshot(
-            IpcEditorLifecycleState.PlayMode,
+            UnityEditorLifecycleState.PlayMode,
             CreateStoppedPlayMode(),
             playModeGeneration: 3);
-        var response = new IpcPlayTransitionResponse(new IpcPlayTransitionResult(
-            IpcPlayTransitionCommand.Exit,
-            IpcPlayTransitionOutcome.Exited,
+        var response = new IpcPlayTransitionResponse(CreateTerminalReference(), new PlayLifecycleTransitionResult(
+            PlayLifecycleTransitionCommand.Exit,
+            PlayLifecycleTransitionOutcome.Exited,
             before,
             After: after,
             Observed: null,

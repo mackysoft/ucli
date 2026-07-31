@@ -5,6 +5,7 @@ using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Application.Shared.Identifiers;
 using MackySoft.Ucli.Features.Daemon.Common.Ipc;
 using MackySoft.Ucli.Infrastructure.Ipc;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Features.Daemon.Lifecycle.Start.Launch;
 
@@ -45,7 +46,7 @@ internal sealed class DaemonLaunchSessionService : IDaemonLaunchSessionService
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityProject" /> is <see langword="null" />. </exception>
     public async ValueTask<DaemonLaunchSessionWriteResult> InitializeAsync (
         ResolvedUnityProjectContext unityProject,
-        DaemonEditorMode editorMode,
+        UnityEditorMode editorMode,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();

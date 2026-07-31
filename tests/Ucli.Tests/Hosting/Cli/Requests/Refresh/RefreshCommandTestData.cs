@@ -1,87 +1,114 @@
-using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.OperationExecute;
-using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Application.Features.Requests.Refresh.UseCases.Refresh;
+using MackySoft.Ucli.Contracts.Cryptography;
+using MackySoft.Ucli.Contracts.Editor;
+using MackySoft.Ucli.Contracts.Execution;
+using MackySoft.Ucli.Contracts.Execution.Lifecycle;
 
 namespace MackySoft.Ucli.Tests;
 
 internal static class RefreshCommandTestData
 {
-    public const string ContractViolationMessage = "Operation result violated declared assurance facts.";
-
     public const string RequestId = "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62";
+    public const string ExecutionId = "ab0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c63";
 
     public static readonly Guid RequestGuid = Guid.Parse(RequestId);
+    public static readonly Guid ExecutionGuid = Guid.Parse(ExecutionId);
+    public static readonly DateTimeOffset StartedAtUtc =
+        new(2026, 7, 31, 1, 2, 3, TimeSpan.Zero);
 
-    public static OperationExecuteResult CreateSuccessResult (
-        IpcExecuteReadPostcondition? readPostcondition = null,
-        OperationExecutionPostReadSource? postReadSource = null)
+    public static RefreshExecutionResult CreateSuccessResult (
+        ExecutionReadPostcondition? readPostcondition = null)
     {
-        return OperationExecuteResultFactory.Success(
-            RequestGuid,
-            [
-                CreateRefreshOperationResult(),
-            ],
-            "uCLI refresh completed.",
-            readPostcondition,
-            project: ProjectIdentityInfoTestFactory.Create(),
-            contractViolations: [],
-            postReadSource: postReadSource);
+        var refresh = new RefreshLifecycleResult.RefreshEvidence(
+            StartedAtUtc,
+            StartedAtUtc.AddSeconds(2),
+            domainReloadGenerationBefore: 1,
+            domainReloadGenerationAfter: 2);
+        return RefreshExecutionResult.Success(
+            new RefreshExecutionOutput(
+                ProjectIdentityInfoTestFactory.Create(),
+                RequestGuid,
+                CreateTerminalReference(completed: true),
+                refresh,
+                CreateObservation(domainReloadGeneration: 2),
+                readPostcondition));
     }
 
-    public static OperationExecutionOperationResult CreateViolationOperationResult ()
+    public static RefreshExecutionResult CreateFailureResult ()
     {
-        return CreateRefreshOperationResult(
-            touched:
-            [
-                new OperationExecutionTouchedResource(
-                    Kind: UcliTouchedResourceKind.Asset,
-                    Path: "Assets/Example.txt",
-                    AssetGuid: null),
-            ]);
+        return RefreshExecutionResult.Failure(
+            ApplicationFailure.FromCode(
+                LifecycleExecutionErrorCodes.DeadlineExceeded,
+                "Refresh deadline exceeded."),
+            new RefreshExecutionErrorOutput(
+                ProjectIdentityInfoTestFactory.Create(),
+                RequestGuid,
+                CreateTerminalReference(completed: false),
+                ExecutionApplicationState.Applied,
+                Refresh: new RefreshLifecycleStartEvidence(StartedAtUtc, 1),
+                ObservedLifecycle: CreateObservation(domainReloadGeneration: 1),
+                ReadPostcondition: null));
     }
 
-    public static OperationExecutionContractViolation CreateContractViolation (
-        string expectedFact = "assurance.mayDirty=false",
-        string observedResult = "opResults[].changed=true")
+    public static RefreshExecutionResult CreatePublicationFailureResult ()
     {
-        return new OperationExecutionContractViolation(
-            InstancePath: "/opResults/0",
-            Operation: UcliPrimitiveOperationNames.ProjectRefresh,
-            ExpectedFact: expectedFact,
-            ObservedResult: observedResult,
-            ApplicationState: IpcApplicationState.Applied);
+        var lifecycle = CreateObservation(domainReloadGeneration: 2);
+        return RefreshExecutionResult.Failure(
+            ApplicationFailure.FromCode(
+                LifecycleExecutionErrorCodes.TerminalPublicationFailed,
+                "Refresh terminal record could not be published."),
+            new RefreshExecutionErrorOutput(
+                ProjectIdentityInfoTestFactory.Create(),
+                RequestGuid,
+                CreatePublishingReference(),
+                ExecutionApplicationState.Applied,
+                new RefreshLifecycleStartEvidence(StartedAtUtc, 1),
+                lifecycle,
+                ReadPostcondition: null));
     }
 
-    public static OperationExecutionPostReadSource CreateRefreshPostReadSource ()
+    private static UnityEditorObservation CreateObservation (
+        long domainReloadGeneration)
     {
-        return new OperationExecutionPostReadSource(
-            IpcExecutePostReadSource.CurrentSchemaVersion,
-            [
-                new OperationExecutionPostReadSourceStep(
-                    SourceKind: IpcExecutePostReadSourceKind.Refresh,
-                    PlayModeMutation: false,
-                    Commit: null,
-                    PersistenceExpected: true,
-                    ExpectedPostState: IpcExecuteExpectedPostState.Unavailable),
-            ]);
+        return UnityEditorObservationTestFactory.Create(
+            projectFingerprint: ProjectIdentityInfoTestFactory.ProjectFingerprint,
+            generations: new UnityEditorGenerationSnapshot(0, domainReloadGeneration, 1, 0),
+            observedAtUtc: StartedAtUtc.AddSeconds(2));
     }
 
-    private static OperationExecutionOperationResult CreateRefreshOperationResult (
-        IReadOnlyList<OperationExecutionTouchedResource>? touched = null)
+    private static TerminalExecutionRef CreateTerminalReference (bool completed)
     {
-        return OperationExecutionOperationResult.CreateWithoutVerdict(
-            op: UcliPrimitiveOperationNames.ProjectRefresh,
-            phase: IpcExecuteOperationPhase.Call,
-            applied: true,
-            changed: true,
-            touched: touched ??
-            [
-                new OperationExecutionTouchedResource(
-                    Kind: UcliTouchedResourceKind.Asset,
-                    Path: "Assets/Example.txt",
-                    AssetGuid: null),
-            ],
-            operationDescriptorDigest: RequestCommandResultTestValues.OperationDescriptorDigest,
-            result: null,
-            diagnostics: []);
+        var definition = new LifecycleExecutionDefinition(LifecycleExecutionKind.Refresh);
+        return new TerminalExecutionRef(
+            definition.ExecutionKind,
+            ExecutionGuid,
+            LifecycleExecutionDefinitionDigest.Calculate(definition),
+            new ExecutionState(TextVocabulary.GetText(
+                completed
+                    ? LifecycleExecutionState.Completed
+                    : LifecycleExecutionState.Failed)),
+            statusLocator: null,
+            new PathArtifactRef(
+                LifecycleExecutionArtifactContract.TerminalRecordKind,
+                LifecycleExecutionArtifactContract.TerminalRecordMediaType,
+                new ArtifactPath(
+                    $".ucli/local/artifacts/lifecycle-execution/refresh/{ExecutionGuid:N}/terminal.json"),
+                Sha256Digest.Parse(new string('a', 64)),
+                sizeBytes: 123,
+                StartedAtUtc.AddSeconds(2)));
+    }
+
+    private static RecoveryExecutionRef CreatePublishingReference ()
+    {
+        var definition = new LifecycleExecutionDefinition(
+            LifecycleExecutionKind.Refresh);
+        return new RecoveryExecutionRef(
+            definition.ExecutionKind,
+            ExecutionGuid,
+            LifecycleExecutionDefinitionDigest.Calculate(definition),
+            new ExecutionState(TextVocabulary.GetText(
+                LifecycleExecutionState.Publishing)),
+            new ExecutionStatusLocator(
+                $".ucli/local/lifecycle-executions/{ExecutionGuid:N}/execution.json"));
     }
 }

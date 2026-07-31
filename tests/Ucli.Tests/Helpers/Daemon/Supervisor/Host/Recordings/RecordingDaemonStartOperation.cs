@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Tests.Helpers.Daemon;
 
@@ -19,7 +20,7 @@ internal sealed class RecordingDaemonStartOperation : IDaemonStartOperation
     public async ValueTask<DaemonStartResult> StartAsync (
         ResolvedUnityProjectContext unityProject,
         ExecutionDeadline deadline,
-        DaemonEditorMode? editorMode,
+        UnityEditorMode? editorMode,
         DaemonStartupBlockedProcessPolicy onStartupBlocked,
         IDaemonStartProgressObserver? progressObserver = null,
         CancellationToken cancellationToken = default)
@@ -61,7 +62,7 @@ internal sealed class RecordingDaemonStartOperation : IDaemonStartOperation
             sessionToken: "session-token",
             projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint"),
             issuedAtUtc: new DateTimeOffset(2026, 03, 11, 0, 0, 0, TimeSpan.Zero),
-            editorMode: DaemonEditorMode.Batchmode,
+            editorMode: UnityEditorMode.Batchmode,
             ownerKind: DaemonSessionOwnerKind.Cli,
             canShutdownProcess: true,
             endpointTransportKind: IpcTransportKind.UnixDomainSocket,
@@ -71,14 +72,14 @@ internal sealed class RecordingDaemonStartOperation : IDaemonStartOperation
             ownerProcessId: 24);
         return DaemonStartResult.AlreadyRunning(
             session,
-            IpcUnityEditorObservationTestFactory.Create(projectFingerprint: session.ProjectFingerprint));
+            UnityEditorObservationTestFactory.Create(projectFingerprint: session.ProjectFingerprint));
     }
 
     internal readonly record struct Invocation (
         ResolvedUnityProjectContext UnityProject,
         ExecutionDeadline Deadline,
         TimeSpan RemainingTimeout,
-        DaemonEditorMode? EditorMode,
+        UnityEditorMode? EditorMode,
         DaemonStartupBlockedProcessPolicy OnStartupBlocked,
         IDaemonStartProgressObserver? ProgressObserver,
         CancellationToken CancellationToken);

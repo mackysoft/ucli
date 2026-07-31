@@ -1,6 +1,7 @@
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.UseCases.Start;
 
@@ -19,8 +20,8 @@ internal sealed record DaemonStartExecutionOutput (
     DaemonStatusKind DaemonStatus,
     int TimeoutMilliseconds,
     DaemonSessionOutput Session,
-    IpcEditorLifecycleState LifecycleState,
-    IpcEditorBlockingReason? BlockingReason,
-    IpcUnityGenerationSnapshot Generations,
-    IpcPlayModeSnapshot PlayMode,
+    UnityEditorLifecycleState LifecycleState,
+    UnityEditorBlockingReason? BlockingReason,
+    UnityEditorGenerationSnapshot Generations,
+    UnityEditorPlayModeSnapshot PlayMode,
     bool CanAcceptExecutionRequests);

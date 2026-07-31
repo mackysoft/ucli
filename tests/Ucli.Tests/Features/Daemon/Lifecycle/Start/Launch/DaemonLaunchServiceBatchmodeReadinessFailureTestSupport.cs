@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Contracts.Editor;
+
 namespace MackySoft.Ucli.Tests.Daemon;
 
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
@@ -140,7 +142,7 @@ internal static class DaemonLaunchServiceBatchmodeReadinessFailureTestSupport
             return Service.LaunchAsync(
                 Context,
                 ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), TimeProvider),
-                DaemonEditorMode.Batchmode,
+                UnityEditorMode.Batchmode,
                 DaemonStartupBlockedProcessPolicy.Auto,
                 cancellationToken: cancellationToken);
         }

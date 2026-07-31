@@ -21,10 +21,6 @@ public sealed class UcliStoragePathResolverArtifactContractTests
             nameof(UcliStoragePathResolver.ResolveTestRunArtifactsDirectory),
             static (storageRoot, projectFingerprint, runId) =>
                 UcliStoragePathResolver.ResolveTestRunArtifactsDirectory(storageRoot, projectFingerprint, runId)),
-        new(
-            nameof(UcliStoragePathResolver.ResolveCompileRunArtifactsDirectory),
-            static (storageRoot, projectFingerprint, runId) =>
-                UcliStoragePathResolver.ResolveCompileRunArtifactsDirectory(storageRoot, projectFingerprint, runId)),
     ];
 
     [Fact]
@@ -67,36 +63,6 @@ public sealed class UcliStoragePathResolverArtifactContractTests
             resolvedPath,
             UcliStoragePathNames.ArtifactsDirectoryName,
             UcliStoragePathNames.TestArtifactsDirectoryName,
-            UcliStoragePathResolverTestSupport.RunIdSegment);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void ResolveCompileArtifactsDirectory_ReturnsProjectScopedPath ()
-    {
-        var resolvedPath = UcliStoragePathResolver.ResolveCompileArtifactsDirectory(
-            UcliStoragePathResolverTestSupport.StorageRoot,
-            UcliStoragePathResolverTestSupport.ProjectFingerprint);
-
-        UcliStoragePathResolverTestSupport.AssertProjectPath(
-            resolvedPath,
-            UcliStoragePathNames.ArtifactsDirectoryName,
-            UcliStoragePathNames.CompileArtifactsDirectoryName);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void ResolveCompileRunArtifactsDirectory_ReturnsRunScopedPath ()
-    {
-        var resolvedPath = UcliStoragePathResolver.ResolveCompileRunArtifactsDirectory(
-            UcliStoragePathResolverTestSupport.StorageRoot,
-            UcliStoragePathResolverTestSupport.ProjectFingerprint,
-            UcliStoragePathResolverTestSupport.RunId);
-
-        UcliStoragePathResolverTestSupport.AssertProjectPath(
-            resolvedPath,
-            UcliStoragePathNames.ArtifactsDirectoryName,
-            UcliStoragePathNames.CompileArtifactsDirectoryName,
             UcliStoragePathResolverTestSupport.RunIdSegment);
     }
 

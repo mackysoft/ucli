@@ -4,7 +4,7 @@ using MackySoft.Ucli.Contracts.Cryptography;
 namespace MackySoft.Ucli.Contracts;
 
 /// <summary> References a logical execution whose immutable terminal record has been finalized. </summary>
-public sealed record TerminalExecutionRef : ExecutionRef
+public sealed record TerminalExecutionRef : ExecutionRef, ITerminalExecutionRef
 {
     /// <summary> Initializes a terminal execution reference. </summary>
     /// <param name="kind"> The feature-defined execution kind. </param>

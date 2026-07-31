@@ -9,6 +9,7 @@ using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Features.Daemon.Common.Ipc;
 using MackySoft.Ucli.Tests.Helpers.Ipc;
 using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Tests.Features.Daemon.Common.Ipc;
 
@@ -915,7 +916,7 @@ public sealed class DaemonIpcRequestSenderTests
     {
         return DaemonSessionTestFactory.Create(
             sessionToken: sessionToken,
-            editorMode: DaemonEditorMode.Gui,
+            editorMode: UnityEditorMode.Gui,
             ownerKind: DaemonSessionOwnerKind.User,
             canShutdownProcess: false,
             endpointTransportKind: IpcTransportKind.UnixDomainSocket,
@@ -931,12 +932,12 @@ public sealed class DaemonIpcRequestSenderTests
             processStartedAtUtc: session.ProcessStartedAtUtc!.Value,
             state: new UnityEditorStateSnapshot(
                 editorMode: session.EditorMode,
-                lifecycleState: IpcEditorLifecycleState.DomainReloading,
-                compileState: IpcCompileState.Ready,
-                generations: new IpcUnityGenerationSnapshot(1, 2, 0, 0),
-                playMode: new IpcPlayModeSnapshot(
-                    IpcPlayModeState.Stopped,
-                    IpcPlayModeTransition.None,
+                lifecycleState: UnityEditorLifecycleState.DomainReloading,
+                compileState: UnityEditorCompileState.Ready,
+                generations: new UnityEditorGenerationSnapshot(1, 2, 0, 0),
+                playMode: new UnityEditorPlayModeSnapshot(
+                    UnityEditorPlayModeState.Stopped,
+                    UnityEditorPlayModeTransition.None,
                     IsPlaying: false,
                     IsPlayingOrWillChangePlaymode: false)),
             observedAtUtc: DateTimeOffset.UtcNow,

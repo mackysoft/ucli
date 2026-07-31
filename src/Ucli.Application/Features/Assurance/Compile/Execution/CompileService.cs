@@ -1,28 +1,29 @@
-using MackySoft.FileSystem;
-using MackySoft.Ucli.Application.Features.Assurance.Compile.Artifacts;
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Contracts;
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Payload;
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Vocabulary;
 using MackySoft.Ucli.Application.Features.Assurance.Semantics;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
 using MackySoft.Ucli.Application.Shared.Context;
+using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Application.Shared.Execution.Progress;
-using MackySoft.Ucli.Application.Shared.Identifiers;
+using MackySoft.Ucli.Contracts.Editor;
+using MackySoft.Ucli.Contracts.Execution;
+using MackySoft.Ucli.Contracts.Execution.Lifecycle;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Features.Assurance.Compile.Execution;
 
-/// <summary> Executes compile assurance probes and compiles the result into an assurance packet. </summary>
+/// <summary> Executes compile assurance through the typed compile Lifecycle Execution handler. </summary>
 internal sealed class CompileService : ICompileService
 {
-    private const string ProgressObservationSourceHostDispatch = "hostDispatch";
-
     internal static readonly AssuranceVerifierId VerifierId = new("compile");
 
     private static readonly IReadOnlyList<CompileResidualRiskOutput> EmptyResidualRisks =
         Array.Empty<CompileResidualRiskOutput>();
+
+    private static readonly LifecycleExecutionDefinition Definition =
+        new(LifecycleExecutionKind.Compile);
 
     private readonly IProjectContextResolver projectContextResolver;
 
@@ -30,9 +31,11 @@ internal sealed class CompileService : ICompileService
 
     private readonly IUnityRequestExecutor unityRequestExecutor;
 
-    private readonly IGuidGenerator runIdGenerator;
+    private readonly ILifecycleExecutionReconnectResolver reconnectResolver;
 
-    private readonly ICompileRunArtifactStore artifactStore;
+    private readonly ILifecycleExecutionHostExitTerminalizer hostExitTerminalizer;
+
+    private readonly LifecycleExecutionRegistrationIssuer registrationIssuer;
 
     private readonly TimeProvider timeProvider;
 
@@ -41,16 +44,25 @@ internal sealed class CompileService : ICompileService
         IProjectContextResolver projectContextResolver,
         IUnityExecutionModeDecisionService executionModeDecisionService,
         IUnityRequestExecutor unityRequestExecutor,
-        IGuidGenerator runIdGenerator,
-        ICompileRunArtifactStore artifactStore,
+        ILifecycleExecutionReconnectResolver reconnectResolver,
+        ILifecycleExecutionHostExitTerminalizer hostExitTerminalizer,
+        LifecycleExecutionRegistrationIssuer registrationIssuer,
         TimeProvider timeProvider)
     {
-        this.projectContextResolver = projectContextResolver ?? throw new ArgumentNullException(nameof(projectContextResolver));
-        this.executionModeDecisionService = executionModeDecisionService ?? throw new ArgumentNullException(nameof(executionModeDecisionService));
-        this.unityRequestExecutor = unityRequestExecutor ?? throw new ArgumentNullException(nameof(unityRequestExecutor));
-        this.runIdGenerator = runIdGenerator ?? throw new ArgumentNullException(nameof(runIdGenerator));
-        this.artifactStore = artifactStore ?? throw new ArgumentNullException(nameof(artifactStore));
-        this.timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
+        this.projectContextResolver = projectContextResolver
+            ?? throw new ArgumentNullException(nameof(projectContextResolver));
+        this.executionModeDecisionService = executionModeDecisionService
+            ?? throw new ArgumentNullException(nameof(executionModeDecisionService));
+        this.unityRequestExecutor = unityRequestExecutor
+            ?? throw new ArgumentNullException(nameof(unityRequestExecutor));
+        this.reconnectResolver = reconnectResolver
+            ?? throw new ArgumentNullException(nameof(reconnectResolver));
+        this.hostExitTerminalizer = hostExitTerminalizer
+            ?? throw new ArgumentNullException(nameof(hostExitTerminalizer));
+        this.registrationIssuer = registrationIssuer
+            ?? throw new ArgumentNullException(nameof(registrationIssuer));
+        this.timeProvider = timeProvider
+            ?? throw new ArgumentNullException(nameof(timeProvider));
     }
 
     /// <inheritdoc />
@@ -63,10 +75,17 @@ internal sealed class CompileService : ICompileService
         cancellationToken.ThrowIfCancellationRequested();
 
         var resolvedProgressSink = progressSink ?? NullCommandProgressSink.Instance;
-        var contextResult = await projectContextResolver.ResolveAsync(input.ProjectPath, cancellationToken).ConfigureAwait(false);
+        var contextResult = await projectContextResolver.ResolveAsync(
+                input.ProjectPath,
+                cancellationToken)
+            .ConfigureAwait(false);
         if (!contextResult.IsSuccess)
         {
-            return CompileExecutionResult.Failed(contextResult.Error!, project: null);
+            return CompileExecutionResult.Failed(
+                contextResult.Error!,
+                project: null,
+                lifecycleExecutionRef: null,
+                ExecutionApplicationState.NotApplied);
         }
 
         var context = contextResult.Context!;
@@ -77,15 +96,23 @@ internal sealed class CompileService : ICompileService
             context.Config);
         if (!timeoutResult.IsSuccess)
         {
-            return CompileExecutionResult.Failed(timeoutResult.Error!, project);
+            return CompileExecutionResult.Failed(
+                timeoutResult.Error!,
+                project,
+                lifecycleExecutionRef: null,
+                ExecutionApplicationState.NotApplied);
         }
 
         var timeout = timeoutResult.Timeout!.Value;
         var requestedMode = input.Mode ?? UnityExecutionMode.Auto;
-        var deadline = ExecutionDeadline.Start(timeout, timeProvider);
-        if (!deadline.TryGetRemainingTimeout(out var modeDecisionTimeout))
+        var executionDeadline = ExecutionDeadline.Start(timeout, timeProvider);
+        if (!executionDeadline.TryGetRemainingTimeout(out var modeDecisionTimeout))
         {
-            return CompileExecutionResult.Failed(CreateTimeoutFailure(timeout), project);
+            return CompileExecutionResult.Failed(
+                CreateTimeoutFailure(timeout),
+                project,
+                lifecycleExecutionRef: null,
+                ExecutionApplicationState.NotApplied);
         }
 
         var modeDecisionResult = await executionModeDecisionService.DecideAsync(
@@ -96,247 +123,546 @@ internal sealed class CompileService : ICompileService
             .ConfigureAwait(false);
         if (!modeDecisionResult.IsSuccess)
         {
-            if (modeDecisionResult.HasContractError)
-            {
-                var contractError = modeDecisionResult.ContractError!;
-                return CompileExecutionResult.Failed(
-                    ApplicationFailure.EnvironmentError(contractError.Message, contractError.Code, instancePath: null),
-                    project);
-            }
+            var failure = modeDecisionResult.HasContractError
+                ? ApplicationFailure.EnvironmentError(
+                    modeDecisionResult.ContractError!.Message,
+                    modeDecisionResult.ContractError.Code,
+                    instancePath: null)
+                : ApplicationFailure.FromExecutionError(modeDecisionResult.Error!);
+            return CompileExecutionResult.Failed(
+                failure,
+                project,
+                lifecycleExecutionRef: null,
+                ExecutionApplicationState.NotApplied);
+        }
 
-            return CompileExecutionResult.Failed(modeDecisionResult.Error!, project);
+        if (!executionDeadline.TryGetRemainingTimeout(out var requestTimeout))
+        {
+            return CompileExecutionResult.Failed(
+                CreateTimeoutFailure(timeout),
+                project,
+                lifecycleExecutionRef: null,
+                ExecutionApplicationState.NotApplied);
         }
 
         var executionTarget = modeDecisionResult.Decision!.Target;
-        if (!deadline.TryGetRemainingTimeout(out var requestTimeout))
+        if (!registrationIssuer.TryIssueBeforeDeadline(
+                Definition,
+                executionDeadline.UtcDeadline,
+                out var registration))
         {
-            return CompileExecutionResult.Failed(CreateTimeoutFailure(timeout), project);
+            return CompileExecutionResult.Failed(
+                CreateTimeoutFailure(timeout),
+                project,
+                lifecycleExecutionRef: null,
+                ExecutionApplicationState.NotApplied);
         }
 
-        var runId = runIdGenerator.Generate();
         await EmitStartedAsync(
                 resolvedProgressSink,
-                runId,
+                registration.ExecutionId,
                 project,
                 requestedMode,
                 executionTarget,
                 timeout,
                 cancellationToken)
             .ConfigureAwait(false);
-        await EmitRefreshStartedAsync(resolvedProgressSink, runId, cancellationToken).ConfigureAwait(false);
-        var responseSummary = await DispatchCompileAsync(
+        return await ExecuteRegisteredAsync(
                 context,
                 project,
-                UnityExecutionTargetModeMapper.ToExplicitMode(executionTarget),
+                registration,
+                UnityExecutionTargetModeMapper.ToExplicitMode(
+                    executionTarget),
                 requestTimeout,
-                runId,
                 resolvedProgressSink,
+                reconnectedExecutionRef: null,
+                requiredStart: null,
                 cancellationToken)
             .ConfigureAwait(false);
-        if (!responseSummary.IsSuccess && !responseSummary.ShouldReadArtifact)
-        {
-            return CompileExecutionResult.Failed(responseSummary.FailureInfo!, project);
-        }
-
-        var summary = responseSummary.Summary;
-        if (summary is null || !summary.Completed)
-        {
-            var artifactResult = await ReadSummaryUntilDeadlineAsync(
-                    context.UnityProject,
-                    runId,
-                    deadline,
-                    responseSummary.FailureInfo,
-                    timeout,
-                    cancellationToken)
-                .ConfigureAwait(false);
-            if (!artifactResult.IsSuccess)
-            {
-                return CompileExecutionResult.Failed(artifactResult.FailureInfo!, project);
-            }
-
-            summary = artifactResult.Summary!;
-            await EmitRecoveredAsync(
-                    resolvedProgressSink,
-                    summary,
-                    artifactStore.ResolveSummaryPath(context.UnityProject, runId),
-                    responseSummary.FailureInfo,
-                    artifactResult.PollAttempts,
-                    cancellationToken)
-                .ConfigureAwait(false);
-        }
-
-        var completedSummary = summary ?? throw new InvalidOperationException("Compile summary was not resolved.");
-        var summaryValidationFailure = ValidateSummary(
-            completedSummary,
-            runId,
-            context.UnityProject.ProjectFingerprint,
-            requireCompleted: true);
-        if (summaryValidationFailure != null)
-        {
-            return CompileExecutionResult.Failed(summaryValidationFailure, project);
-        }
-
-        var summaryJsonPath = artifactStore.ResolveSummaryPath(context.UnityProject, runId);
-        var diagnosticsJsonPath = artifactStore.ResolveDiagnosticsPath(context.UnityProject, runId);
-        var output = CreateOutput(
-            project,
-            requestedMode,
-            executionTarget,
-            timeout,
-            completedSummary,
-            summaryJsonPath,
-            diagnosticsJsonPath);
-        await EmitCompletedAsync(
-                resolvedProgressSink,
-                output,
-                summaryJsonPath,
-                diagnosticsJsonPath,
-                cancellationToken)
-            .ConfigureAwait(false);
-        return CompileExecutionResult.Completed(output);
     }
 
-    private async ValueTask<CompileDispatchResult> DispatchCompileAsync (
+    /// <inheritdoc />
+    public async ValueTask<CompileExecutionResult> ReconnectAsync (
+        CompileCommandInput input,
+        ExecutionRef lifecycleExecutionRef,
+        ICommandProgressSink? progressSink = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(input);
+        ArgumentNullException.ThrowIfNull(lifecycleExecutionRef);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var contextResult = await projectContextResolver.ResolveAsync(
+                input.ProjectPath,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (!contextResult.IsSuccess)
+        {
+            return CompileExecutionResult.Failed(
+                contextResult.Error!,
+                project: null,
+                lifecycleExecutionRef: null,
+                ExecutionApplicationState.NotApplied);
+        }
+
+        var context = contextResult.Context!;
+        var project = ProjectIdentityInfo.From(context.UnityProject);
+        var timeoutResult = IpcCommandTimeoutResolver.ResolveNormalized(
+            input.TimeoutMilliseconds,
+            UcliCommandIds.Compile,
+            context.Config);
+        if (!timeoutResult.IsSuccess)
+        {
+            return CompileExecutionResult.Failed(
+                timeoutResult.Error!,
+                project,
+                lifecycleExecutionRef: null,
+                ExecutionApplicationState.NotApplied);
+        }
+
+        var reconnectResult = await reconnectResolver.ResolveAsync(
+                context.UnityProject,
+                Definition,
+                lifecycleExecutionRef,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (reconnectResult
+            is LifecycleExecutionReconnectResolution.PublicationFailed
+                publicationFailed)
+        {
+            return CompileExecutionResult.Failed(
+                publicationFailed.Failure,
+                project,
+                publicationFailed.CurrentReference,
+                ExecutionApplicationState.Indeterminate);
+        }
+        if (reconnectResult
+            is LifecycleExecutionReconnectResolution.Rejected rejected)
+        {
+            return CompileExecutionResult.Failed(
+                rejected.Failure,
+                project,
+                lifecycleExecutionRef: null,
+                ExecutionApplicationState.NotApplied);
+        }
+        if (reconnectResult
+            is LifecycleExecutionReconnectResolution.Terminal terminal)
+        {
+            return await CreateResultFromTerminalRecordAsync(
+                    project,
+                    terminal.ExecutionReference,
+                    terminal.TerminalRecord,
+                    progressSink ?? NullCommandProgressSink.Instance)
+                .ConfigureAwait(false);
+        }
+
+        var open =
+            (LifecycleExecutionReconnectResolution.Open)reconnectResult;
+        try
+        {
+            return await ExecuteRegisteredAsync(
+                    context,
+                    project,
+                    open.Registration,
+                    UnityExecutionMode.Auto,
+                    timeoutResult.Timeout!.Value,
+                    progressSink ?? NullCommandProgressSink.Instance,
+                    open.CurrentReference,
+                    open.RequiredStart,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+            when (cancellationToken.IsCancellationRequested)
+        {
+            return CompileExecutionResult.Failed(
+                ApplicationFailure.Canceled(
+                    "Waiting for the reconnected Unity compile execution was canceled.",
+                    ExecutionErrorCodes.Canceled),
+                project,
+                open.CurrentReference,
+                ExecutionApplicationState.Unknown);
+        }
+    }
+
+    private async ValueTask<CompileExecutionResult> ExecuteRegisteredAsync (
         ProjectContext context,
         ProjectIdentityInfo project,
-        UnityExecutionMode mode,
+        LifecycleExecutionRegistration registration,
+        UnityExecutionMode executionMode,
         TimeSpan requestTimeout,
-        Guid runId,
         ICommandProgressSink progressSink,
+        ExecutionRef? reconnectedExecutionRef,
+        LifecycleExecutionStartBinding? requiredStart,
         CancellationToken cancellationToken)
     {
         var executionResult = await unityRequestExecutor.ExecuteAsync(
                 UcliCommandIds.Compile,
-                mode,
-                requestTimeout,
+                executionMode,
+                LifecycleExecutionTiming.AddResponseDeliveryGrace(requestTimeout),
                 context.Config,
                 context.UnityProject,
-                new UnityRequestPayload.Compile(runId),
+                new UnityRequestPayload.Compile(
+                    registration,
+                    requiredStart),
                 cancellationToken)
             .ConfigureAwait(false);
         if (!executionResult.IsSuccess)
         {
-            var failureInfo = executionResult.FailureInfo!;
-            if (TryCreateDiagnosticsReadSummary(
-                    failureInfo.StartupFailure,
-                    project,
-                    runId,
-                    out var diagnosticsReadSummary))
+            if (executionResult.ConfirmedHostExit is not null)
             {
-                var writeError = await artifactStore.WriteArtifactsAsync(
-                        context.UnityProject,
-                        runId,
-                        diagnosticsReadSummary!,
-                        cancellationToken)
-                    .ConfigureAwait(false);
-                if (writeError != null)
+                var start = executionResult.LifecycleExecutionStart!;
+                var currentReference =
+                    reconnectedExecutionRef
+                    ?? start.LifecycleExecutionRef;
+                var terminalFacts =
+                    LifecycleExecutionTerminalFactsPolicy.ResolveHostExit(
+                        start,
+                        currentReference,
+                        executionResult.LifecycleActionDispatched,
+                        timeProvider.GetUtcNow());
+                var terminalization =
+                    await hostExitTerminalizer.TerminalizeAsync(
+                            context.UnityProject,
+                            start,
+                            currentReference,
+                            terminalFacts,
+                            CreateHostExitTerminalRecord)
+                        .ConfigureAwait(false);
+                if (terminalization
+                    is LifecycleExecutionHostExitTerminalizationResult
+                        .PublicationFailed publicationFailed)
                 {
-                    return CompileDispatchResult.Failure(ApplicationFailure.FromExecutionError(writeError));
+                    var fixedCompileRecord =
+                        publicationFailed.FixedTerminalRecord
+                            as CompileLifecycleExecutionTerminalRecord;
+                    return CompileExecutionResult.Failed(
+                        publicationFailed.Failure,
+                        project,
+                        publicationFailed.ExecutionReference,
+                        publicationFailed.ApplicationState,
+                        fixedCompileRecord?.Result,
+                        observedLifecycle: null);
                 }
 
-                await EmitDiagnosticAsync(progressSink, diagnosticsReadSummary!, cancellationToken).ConfigureAwait(false);
-                return CompileDispatchResult.Success(diagnosticsReadSummary!);
+                var published =
+                    (LifecycleExecutionHostExitTerminalizationResult.Published)
+                        terminalization;
+                return await CreateResultFromTerminalRecordAsync(
+                        project,
+                        published.ExecutionReference,
+                        published.TerminalRecord,
+                        progressSink)
+                    .ConfigureAwait(false);
             }
 
-            var failure = RequestFailureNormalizer.FromUnityRequestFailure(failureInfo);
-            if (failureInfo.StartupFailure != null)
-            {
-                return CompileDispatchResult.Failure(failure);
-            }
-
-            return CompileDispatchResult.ArtifactRecoverableFailure(failure);
+            var waitFailure = LifecycleExecutionWaitFailure.Resolve(
+                durableStartExecutionReference: executionResult
+                    .LifecycleExecutionStart
+                    ?.LifecycleExecutionRef,
+                isCallerCancellation: executionResult
+                    .FailureInfo!.Code
+                    == ExecutionErrorCodes.Canceled,
+                lifecycleActionDispatched:
+                    executionResult.LifecycleActionDispatched,
+                establishedExecutionReference:
+                    reconnectedExecutionRef);
+            return CompileExecutionResult.Failed(
+                NormalizeWaitFailure(executionResult.FailureInfo!),
+                project,
+                waitFailure.ExecutionReference,
+                waitFailure.ApplicationState);
         }
 
         var response = executionResult.Response!;
+        if (response.Errors.Count != 0
+            && executionResult.LifecycleExecutionStart is null)
+        {
+            return CompileExecutionResult.Failed(
+                RequestFailureNormalizer.FromOperationError(
+                    response.Errors[0]),
+                project,
+                reconnectedExecutionRef,
+                reconnectedExecutionRef == null
+                    ? ExecutionApplicationState.NotApplied
+                    : ExecutionApplicationState.Unknown);
+        }
+
         if (response.Errors.Count != 0)
         {
-            var firstError = response.Errors[0];
-            if (firstError.Code == IpcTransportErrorCodes.IpcTimeout
-                || firstError.Code == PlayModeErrorCodes.PlayModeTransitionTimeout)
-            {
-                return CompileDispatchResult.ArtifactRecoverableFailure(
-                    RequestFailureNormalizer.FromOperationError(firstError));
-            }
-
-            return CompileDispatchResult.Failure(
-                RequestFailureNormalizer.FromOperationError(firstError));
+            return CreateFailureFromResponse(
+                project,
+                registration,
+                executionResult,
+                response,
+                reconnectedExecutionRef);
         }
 
-        if (!IpcPayloadCodec.TryDeserialize(response.Payload, out IpcCompileResponse compileResponse, out var payloadError))
+        if (!IpcPayloadCodec.TryDeserialize(
+                response.Payload,
+                out IpcCompileResponse compileResponse,
+                out var payloadError))
         {
-            return CompileDispatchResult.Failure(ApplicationFailure.InternalError(
-                $"Unity compile payload is invalid. {payloadError.Message}", UcliCoreErrorCodes.InternalError,
-                instancePath: null,
-                startupFailure: null));
+            return CreateInvalidPayloadFailure(
+                project,
+                executionResult,
+                reconnectedExecutionRef,
+                $"Unity compile payload is invalid. {payloadError.Message}");
         }
 
-        var summaryValidationFailure = ValidateSummary(
-            compileResponse.Summary,
-            runId,
-            project.ProjectFingerprint,
-            requireCompleted: false);
-        if (summaryValidationFailure != null)
+        if (!registration.HasSameIdentity(
+                compileResponse.LifecycleExecutionRef))
         {
-            return CompileDispatchResult.Failure(summaryValidationFailure);
+            return CreateInvalidPayloadFailure(
+                project,
+                executionResult,
+                reconnectedExecutionRef,
+                "Unity compile response identifies a different Lifecycle Execution.");
         }
 
-        return CompileDispatchResult.Success(compileResponse.Summary);
+        var terminalResolution = await reconnectResolver.ResolveAsync(
+                context.UnityProject,
+                Definition,
+                compileResponse.LifecycleExecutionRef,
+                CancellationToken.None)
+            .ConfigureAwait(false);
+        if (terminalResolution
+            is LifecycleExecutionReconnectResolution.PublicationFailed
+                terminalPublicationFailed)
+        {
+            return CompileExecutionResult.Failed(
+                terminalPublicationFailed.Failure,
+                project,
+                terminalPublicationFailed.CurrentReference,
+                ExecutionApplicationState.Applied,
+                compileResponse.Result,
+                observedLifecycle: null);
+        }
+        if (terminalResolution
+            is LifecycleExecutionReconnectResolution.Rejected rejected)
+        {
+            var retainedReference =
+                reconnectedExecutionRef
+                ?? executionResult.LifecycleExecutionStart
+                    ?.LifecycleExecutionRef;
+            return CompileExecutionResult.Failed(
+                rejected.Failure,
+                project,
+                retainedReference,
+                retainedReference is null
+                    ? ExecutionApplicationState.NotApplied
+                    : ExecutionApplicationState.Applied,
+                retainedReference is null
+                    ? null
+                    : compileResponse.Result,
+                observedLifecycle: null);
+        }
+        if (terminalResolution
+                is not LifecycleExecutionReconnectResolution.Terminal terminal
+            || terminal.TerminalRecord
+                is not CompileLifecycleExecutionTerminalRecord compileRecord)
+        {
+            return CreateInvalidPayloadFailure(
+                project,
+                executionResult,
+                reconnectedExecutionRef,
+                "Unity compile success did not resolve a typed compile Terminal Record.");
+        }
+        if (!Equals(compileResponse.Result, compileRecord.Result))
+        {
+            return CompileExecutionResult.Failed(
+                ApplicationFailure.InternalError(
+                    "Unity compile result does not match its reverified Terminal Record.",
+                    UcliCoreErrorCodes.InternalError,
+                    instancePath: null,
+                    startupFailure: null),
+                project,
+                LifecycleExecutionFailureReferenceProjection
+                    .CreatePublishing(terminal.ExecutionReference),
+                ExecutionApplicationState.Applied,
+                compileResponse.Result,
+                observedLifecycle: null);
+        }
+
+        return await CreateResultFromTerminalRecordAsync(
+                project,
+                terminal.ExecutionReference,
+                compileRecord,
+                progressSink)
+            .ConfigureAwait(false);
     }
 
-    private async ValueTask<CompileSummaryPollResult> ReadSummaryUntilDeadlineAsync (
-        ResolvedUnityProjectContext unityProject,
-        Guid runId,
-        ExecutionDeadline deadline,
-        ApplicationFailure? dispatchFailure,
-        TimeSpan timeout,
-        CancellationToken cancellationToken)
+    private static async ValueTask<CompileExecutionResult>
+        CreateResultFromTerminalRecordAsync (
+            ProjectIdentityInfo project,
+            ExecutionRef executionReference,
+            LifecycleExecutionTerminalRecord terminalRecord,
+            ICommandProgressSink progressSink)
     {
-        var pollAttempts = 0;
-        while (true)
+        if (executionReference is not TerminalExecutionRef terminalReference
+            || terminalRecord
+                is not CompileLifecycleExecutionTerminalRecord compileRecord)
         {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            pollAttempts++;
-            var readResult = await artifactStore.ReadSummaryAsync(unityProject, runId, cancellationToken).ConfigureAwait(false);
-            if (readResult.IsSuccess)
-            {
-                var summary = readResult.Summary!;
-                var summaryValidationFailure = ValidateSummary(
-                    summary,
-                    runId,
-                    unityProject.ProjectFingerprint,
-                    requireCompleted: false);
-                if (summaryValidationFailure != null)
-                {
-                    return CompileSummaryPollResult.Failure(summaryValidationFailure, pollAttempts);
-                }
-
-                if (summary.Completed)
-                {
-                    return CompileSummaryPollResult.Success(summary, pollAttempts);
-                }
-            }
-            else if (!readResult.IsMissing)
-            {
-                return CompileSummaryPollResult.Failure(ApplicationFailure.FromExecutionError(readResult.Error!), pollAttempts);
-            }
-
-            if (!deadline.TryGetRemainingTimeout(out var remainingTimeout))
-            {
-                return CompileSummaryPollResult.Failure(dispatchFailure ?? ApplicationFailure.Timeout(
-                    $"Unity compile assurance timed out after {timeout.TotalMilliseconds:0} milliseconds.",
-                    ExecutionErrorCodes.IpcTimeout,
-                    instancePath: null,
-                    startupFailure: null), pollAttempts);
-            }
-
-            await TimeProviderDelay.DelayAsync(GetRetryDelay(remainingTimeout), timeProvider, cancellationToken).ConfigureAwait(false);
+            return CompileExecutionResult.Failed(
+                ApplicationFailure.InternalError(
+                    "Compile reconnection did not resolve a typed compile Terminal Record."),
+                project,
+                executionReference,
+                ExecutionApplicationState.Indeterminate);
         }
+
+        if (compileRecord.TerminalReason
+            != LifecycleExecutionTerminalReason.Completed)
+        {
+            return CompileExecutionResult.Failed(
+                CreateTerminalFailure(compileRecord.TerminalReason),
+                project,
+                terminalReference,
+                compileRecord.ApplicationState,
+                compileRecord.Result,
+                observedLifecycle: null);
+        }
+
+        var output = CreateOutput(
+            project,
+            terminalReference,
+            compileRecord.Result!,
+            compileRecord.Verdict!.Value);
+        await EmitCompletedAsync(
+                progressSink,
+                output,
+                CancellationToken.None)
+            .ConfigureAwait(false);
+        return CompileExecutionResult.Completed(output);
+    }
+
+    private static LifecycleExecutionTerminalRecord
+        CreateHostExitTerminalRecord (
+            LifecycleExecutionStartBinding start,
+            LifecycleExecutionTerminalFacts terminalFacts)
+    {
+        return new CompileLifecycleExecutionTerminalRecord(
+            start.LifecycleExecutionRef.Id,
+            start.LifecycleExecutionRef.DefinitionDigest,
+            start.Project,
+            start.Host,
+            start.StartedGeneration,
+            terminalGeneration: null,
+            start.DeadlineUtc,
+            start.StartedAtUtc,
+            terminalFacts.CompletedAtUtc,
+            terminalFacts.TerminalReason,
+            terminalFacts.ApplicationState,
+            result: null,
+            verdict: null,
+            Array.Empty<ArtifactRef>());
+    }
+
+    private static ApplicationFailure CreateTerminalFailure (
+        LifecycleExecutionTerminalReason terminalReason)
+    {
+        return terminalReason switch
+        {
+            LifecycleExecutionTerminalReason.ActionFailed =>
+                ApplicationFailure.InternalError(
+                    "Unity compile action ended with an explicit failure."),
+            LifecycleExecutionTerminalReason.DeadlineExceeded =>
+                ApplicationFailure.Timeout(
+                    "Compile reached its durable execution deadline.",
+                    LifecycleExecutionErrorCodes.DeadlineExceeded),
+            LifecycleExecutionTerminalReason.ProjectMismatch =>
+                ApplicationFailure.ContractViolation(
+                    "Compile recovery project does not match its durable start.",
+                    LifecycleExecutionErrorCodes.ProjectMismatch),
+            LifecycleExecutionTerminalReason.HostMismatch =>
+                ApplicationFailure.ContractViolation(
+                    "Compile recovery host does not match its durable start.",
+                    LifecycleExecutionErrorCodes.HostMismatch),
+            LifecycleExecutionTerminalReason.GenerationMismatch =>
+                ApplicationFailure.ContractViolation(
+                    "Compile recovery generation was not a proven successor.",
+                    LifecycleExecutionErrorCodes.GenerationMismatch),
+            LifecycleExecutionTerminalReason.UnityExited =>
+                ApplicationFailure.ExternalProcessFailure(
+                    "The Unity Editor hosting compile exited before completion.",
+                    LifecycleExecutionErrorCodes.UnityExited),
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(terminalReason),
+                terminalReason,
+                "Completed compile Terminal Records are projected as success."),
+        };
+    }
+
+    private static CompileExecutionResult CreateFailureFromResponse (
+        ProjectIdentityInfo project,
+        LifecycleExecutionRegistration registration,
+        UnityRequestExecutionResult executionResult,
+        UnityRequestResponse response,
+        ExecutionRef? reconnectedExecutionRef)
+    {
+        if (!IpcPayloadCodec.TryDeserialize(
+                response.Payload,
+                out IpcCompileErrorResponse errorResponse,
+                out var payloadError))
+        {
+            return CreateInvalidPayloadFailure(
+                project,
+                executionResult,
+                reconnectedExecutionRef,
+                $"Unity compile error payload is invalid. {payloadError.Message}");
+        }
+
+        if (errorResponse.LifecycleExecutionRef != null
+            && !registration.HasSameIdentity(
+                errorResponse.LifecycleExecutionRef))
+        {
+            return CreateInvalidPayloadFailure(
+                project,
+                executionResult,
+                reconnectedExecutionRef,
+                "Unity compile error response identifies a different Lifecycle Execution.");
+        }
+
+        var retainedReference =
+            errorResponse.LifecycleExecutionRef
+            ?? reconnectedExecutionRef;
+        return CompileExecutionResult.Failed(
+            RequestFailureNormalizer.FromOperationError(response.Errors[0]),
+            project,
+            retainedReference,
+            errorResponse.LifecycleExecutionRef == null
+                && reconnectedExecutionRef != null
+                    ? ExecutionApplicationState.Unknown
+                    : errorResponse.ApplicationState,
+            errorResponse.Result,
+            errorResponse.ObservedLifecycle);
+    }
+
+    private static CompileExecutionResult CreateInvalidPayloadFailure (
+        ProjectIdentityInfo project,
+        UnityRequestExecutionResult executionResult,
+        ExecutionRef? reconnectedExecutionRef,
+        string message)
+    {
+        var retainedReference =
+            executionResult.LifecycleExecutionStart?.LifecycleExecutionRef
+            ?? reconnectedExecutionRef;
+        return CompileExecutionResult.Failed(
+            ApplicationFailure.InternalError(
+                message,
+                UcliCoreErrorCodes.InternalError,
+                instancePath: null,
+                startupFailure: null),
+            project,
+            retainedReference,
+            retainedReference == null
+                ? ExecutionApplicationState.NotApplied
+                : ExecutionApplicationState.Unknown);
     }
 
     private static ValueTask EmitStartedAsync (
         ICommandProgressSink progressSink,
-        Guid runId,
+        Guid executionId,
         ProjectIdentityInfo project,
         UnityExecutionMode requestedMode,
         UnityExecutionTarget executionTarget,
@@ -346,7 +672,7 @@ internal sealed class CompileService : ICompileService
         return progressSink.OnEntryAsync(
             CompileProgressEventNames.Started,
             new CompileStartedEntry(
-                RunId: runId,
+                ExecutionId: executionId,
                 ProjectFingerprint: project.ProjectFingerprint,
                 RequestedMode: AssuranceExecutionModeCodec.ToRequestedMode(requestedMode),
                 ResolvedMode: AssuranceExecutionModeCodec.ToResolvedMode(executionTarget),
@@ -355,84 +681,38 @@ internal sealed class CompileService : ICompileService
             cancellationToken);
     }
 
-    private static ValueTask EmitRefreshStartedAsync (
-        ICommandProgressSink progressSink,
-        Guid runId,
-        CancellationToken cancellationToken)
-    {
-        return progressSink.OnEntryAsync(
-            CompileProgressEventNames.RefreshStarted,
-            new CompileRefreshStartedEntry(
-                RunId: runId,
-                RefreshOrigin: CompileRefreshOrigin.AssetDatabaseRefresh,
-                ObservationSource: ProgressObservationSourceHostDispatch),
-            cancellationToken);
-    }
-
-    private static ValueTask EmitDiagnosticAsync (
-        ICommandProgressSink progressSink,
-        IpcCompileSummary summary,
-        CancellationToken cancellationToken)
-    {
-        return progressSink.OnEntryAsync(
-            CompileProgressEventNames.Diagnostic,
-            new CompileDiagnosticEntry(
-                RunId: summary.RunId,
-                RefreshOrigin: CompileRefreshOrigin.DiagnosticsRead,
-                PrimaryDiagnostic: summary.ScriptCompilation.Diagnostics.PrimaryDiagnostic),
-            cancellationToken);
-    }
-
-    private static ValueTask EmitRecoveredAsync (
-        ICommandProgressSink progressSink,
-        IpcCompileSummary summary,
-        AbsolutePath summaryJsonPath,
-        ApplicationFailure? dispatchFailure,
-        int pollAttempts,
-        CancellationToken cancellationToken)
-    {
-        return progressSink.OnEntryAsync(
-            CompileProgressEventNames.Recovered,
-            new CompileRecoveredEntry(
-                RunId: summary.RunId,
-                SummaryJsonPath: summaryJsonPath.Value,
-                DispatchFailureCode: dispatchFailure?.Code.Value,
-                PollAttempts: pollAttempts),
-            cancellationToken);
-    }
-
     private static ValueTask EmitCompletedAsync (
         ICommandProgressSink progressSink,
         CompileExecutionOutput output,
-        AbsolutePath summaryJsonPath,
-        AbsolutePath diagnosticsJsonPath,
         CancellationToken cancellationToken)
     {
         return progressSink.OnEntryAsync(
             CompileProgressEventNames.Completed,
             new CompileCompletedEntry(
-                RunId: output.Compile.RunId,
+                ExecutionId: output.LifecycleExecutionRef.Id,
                 Verdict: output.Verdict,
                 ErrorCount: output.Compile.ScriptCompilation.Diagnostics.ErrorCount,
-                WarningCount: output.Compile.ScriptCompilation.Diagnostics.WarningCount,
-                SummaryJsonPath: summaryJsonPath.Value,
-                DiagnosticsJsonPath: diagnosticsJsonPath.Value),
+                WarningCount: output.Compile.ScriptCompilation.Diagnostics.WarningCount),
             cancellationToken);
     }
 
     private static CompileExecutionOutput CreateOutput (
         ProjectIdentityInfo project,
-        UnityExecutionMode requestedMode,
-        UnityExecutionTarget executionTarget,
-        TimeSpan timeout,
-        IpcCompileSummary summary,
-        AbsolutePath summaryJsonPath,
-        AbsolutePath diagnosticsJsonPath)
+        ExecutionRef lifecycleExecutionRef,
+        CompileLifecycleResult result,
+        Verdict verdict)
     {
-        var compileOutput = CreateCompileOutput(summary);
-        var claims = CreateClaims(summary, compileOutput);
+        var compileOutput = CreateCompileOutput(result);
+        var claims = CreateClaims(
+            lifecycleExecutionRef.Id,
+            result,
+            compileOutput);
+        var terminalRecordReport = CreateTerminalRecordReportReference(
+            ((TerminalExecutionRef)lifecycleExecutionRef).TerminalRecordRef);
         return new CompileExecutionOutput(
             Project: project,
+            LifecycleExecutionRef: (ITerminalExecutionRef)lifecycleExecutionRef,
+            Verdict: verdict,
             Verifiers:
             [
                 new CompileVerifierOutput(
@@ -446,61 +726,59 @@ internal sealed class CompileService : ICompileService
             Claims: claims,
             Reports: new Dictionary<string, AssuranceReportReference>(StringComparer.Ordinal)
             {
-                [AssuranceReportIds.CompileSummary.Value] = AssuranceReportReference.FromPath(summaryJsonPath.Value, digest: null),
-                [AssuranceReportIds.CompileDiagnostics.Value] = AssuranceReportReference.FromPath(diagnosticsJsonPath.Value, digest: null),
+                [AssuranceReportIds.CompileSummary.Value] = terminalRecordReport,
+                [AssuranceReportIds.CompileDiagnostics.Value] = terminalRecordReport,
             },
             ResidualRisks: EmptyResidualRisks,
-            RequestedMode: AssuranceExecutionModeCodec.ToRequestedMode(requestedMode),
-            ResolvedMode: AssuranceExecutionModeCodec.ToResolvedMode(executionTarget),
-            SessionKind: AssuranceExecutionModeCodec.ToSessionKind(executionTarget),
-            TimeoutMilliseconds: checked((int)timeout.TotalMilliseconds),
             Compile: compileOutput);
     }
 
-    private static CompileOutput CreateCompileOutput (IpcCompileSummary summary)
+    private static CompileOutput CreateCompileOutput (CompileLifecycleResult result)
     {
-        var state = summary.Lifecycle.State;
+        var state = result.Lifecycle.State;
         return new CompileOutput(
-            runId: summary.RunId,
             refresh: new CompileRefreshOutput(
-                Origin: summary.Refresh.Origin,
-                Requested: summary.Refresh.Requested,
-                StartedAtUtc: summary.Refresh.StartedAtUtc,
-                CompletedAtUtc: summary.Refresh.CompletedAtUtc,
-                Completed: summary.Refresh.Completed),
+                Origin: result.Refresh.Origin,
+                Requested: result.Refresh.Requested,
+                StartedAtUtc: result.Refresh.StartedAtUtc,
+                CompletedAtUtc: result.Refresh.CompletedAtUtc,
+                Completed: result.Refresh.Completed),
             scriptCompilation: new CompileScriptCompilationOutput(
-                Started: summary.ScriptCompilation.Started,
-                Completed: summary.ScriptCompilation.Completed,
-                CompileGenerationBefore: summary.ScriptCompilation.CompileGenerationBefore,
-                CompileGenerationAfter: summary.ScriptCompilation.CompileGenerationAfter,
+                Started: result.ScriptCompilation.Started,
+                Completed: result.ScriptCompilation.Completed,
+                CompileGenerationBefore: result.ScriptCompilation.CompileGenerationBefore,
+                CompileGenerationAfter: result.ScriptCompilation.CompileGenerationAfter,
                 Diagnostics: new CompileDiagnosticsOutput(
-                    ErrorCount: summary.ScriptCompilation.Diagnostics.ErrorCount,
-                    WarningCount: summary.ScriptCompilation.Diagnostics.WarningCount,
-                    PrimaryDiagnostic: CreatePrimaryDiagnosticOutput(summary.ScriptCompilation.Diagnostics.PrimaryDiagnostic))),
+                    ErrorCount: result.ScriptCompilation.Diagnostics.ErrorCount,
+                    WarningCount: result.ScriptCompilation.Diagnostics.WarningCount,
+                    PrimaryDiagnostic: CreatePrimaryDiagnosticOutput(
+                        result.ScriptCompilation.Diagnostics.PrimaryDiagnostic))),
             domainReload: new CompileDomainReloadOutput(
-                ReloadRequired: summary.DomainReload.ReloadRequired,
-                ReloadObserved: summary.DomainReload.ReloadObserved,
-                GenerationBefore: summary.DomainReload.GenerationBefore,
-                GenerationAfter: summary.DomainReload.GenerationAfter,
-                Settled: summary.DomainReload.Settled),
+                ReloadRequired: result.DomainReload.ReloadRequired,
+                ReloadObserved: result.DomainReload.ReloadObserved,
+                GenerationBefore: result.DomainReload.GenerationBefore,
+                GenerationAfter: result.DomainReload.GenerationAfter,
+                Settled: result.DomainReload.Settled),
             lifecycle: new CompileLifecycleOutput(
-                ServerVersion: summary.Lifecycle.ServerVersion,
-                UnityVersion: summary.Lifecycle.UnityVersion,
+                ServerVersion: result.Lifecycle.ServerVersion,
+                UnityVersion: result.Lifecycle.UnityVersion,
                 EditorMode: state?.EditorMode,
                 LifecycleState: state?.LifecycleState,
                 BlockingReason: state is not null
-                    ? IpcEditorLifecycleSemantics.ResolveBlockingReason(state.LifecycleState)
+                    ? UnityEditorLifecycleSemantics.ResolveBlockingReason(state.LifecycleState)
                     : null,
                 CompileState: state?.CompileState,
                 Generations: state?.Generations,
                 CanAcceptExecutionRequests: state is not null
-                    && IpcEditorLifecycleSemantics.CanAcceptExecutionRequests(state.LifecycleState),
-                ObservedAtUtc: summary.Lifecycle.ObservedAtUtc,
-                ActionRequired: summary.Lifecycle.ActionRequired,
-                PrimaryDiagnostic: CreatePrimaryDiagnosticOutput(summary.Lifecycle.PrimaryDiagnostic)));
+                    && UnityEditorLifecycleSemantics.CanAcceptExecutionRequests(state.LifecycleState),
+                ObservedAtUtc: result.Lifecycle.ObservedAtUtc,
+                ActionRequired: result.Lifecycle.ActionRequired,
+                PrimaryDiagnostic: CreatePrimaryDiagnosticOutput(
+                    result.Lifecycle.PrimaryDiagnostic)));
     }
 
-    private static CompilePrimaryDiagnosticOutput? CreatePrimaryDiagnosticOutput (IpcPrimaryDiagnostic? diagnostic)
+    private static CompilePrimaryDiagnosticOutput? CreatePrimaryDiagnosticOutput (
+        UnityEditorPrimaryDiagnostic? diagnostic)
     {
         if (diagnostic is null || !diagnostic.Kind.HasValue)
         {
@@ -517,19 +795,20 @@ internal sealed class CompileService : ICompileService
     }
 
     private static IReadOnlyList<CompileClaimOutput> CreateClaims (
-        IpcCompileSummary summary,
+        Guid executionId,
+        CompileLifecycleResult result,
         CompileOutput compileOutput)
     {
         return
         [
             CreateClaim(
                 CompileClaimCodes.UnityCompileNoErrors,
-                ResolveCompileNoErrorsStatus(summary),
+                ResolveCompileNoErrorsStatus(result),
                 "Unity script compilation completed without compiler errors.",
                 new Dictionary<string, object?>(StringComparer.Ordinal)
                 {
                     ["kind"] = "unityCompile",
-                    ["runId"] = summary.RunId,
+                    ["executionId"] = executionId,
                 },
                 [
                     CompileScriptEvidenceOutput.Create(
@@ -538,28 +817,31 @@ internal sealed class CompileService : ICompileService
                 ]),
             CreateClaim(
                 CompileClaimCodes.UnityDomainReloadSettled,
-                summary.DomainReload.Settled ? AssuranceClaimStatus.Passed : AssuranceClaimStatus.Failed,
+                result.DomainReload.Settled
+                    ? AssuranceClaimStatus.Passed
+                    : AssuranceClaimStatus.Failed,
                 "Unity domain reload reached a settled state after compile observation.",
                 new Dictionary<string, object?>(StringComparer.Ordinal)
                 {
                     ["kind"] = "unityDomainReload",
-                    ["runId"] = summary.RunId,
+                    ["executionId"] = executionId,
                 },
                 [
                     CompileDomainReloadEvidenceOutput.Create(compileOutput.DomainReload),
                 ]),
             CreateClaim(
                 CompileClaimCodes.UnityLifecycleReadyAfterCompile,
-                summary.Lifecycle.State is not null
-                    && IpcEditorLifecycleSemantics.CanAcceptExecutionRequests(summary.Lifecycle.State.LifecycleState)
+                result.Lifecycle.State is not null
+                    && UnityEditorLifecycleSemantics.CanAcceptExecutionRequests(
+                        result.Lifecycle.State.LifecycleState)
                     ? AssuranceClaimStatus.Passed
                     : AssuranceClaimStatus.Failed,
                 "Unity lifecycle is ready after compile observation.",
                 new Dictionary<string, object?>(StringComparer.Ordinal)
                 {
                     ["kind"] = "unityLifecycle",
-                    ["runId"] = summary.RunId,
-                    ["lifecycleState"] = summary.Lifecycle.State?.LifecycleState,
+                    ["executionId"] = executionId,
+                    ["lifecycleState"] = result.Lifecycle.State?.LifecycleState,
                 },
                 [
                     CompileLifecycleEvidenceOutput.Create(compileOutput.Lifecycle),
@@ -582,129 +864,43 @@ internal sealed class CompileService : ICompileService
             VerifierRef: VerifierId,
             Statement: status == AssuranceClaimStatus.Passed
                 ? statement
-                : statement.Replace(" completed ", " did not complete ", StringComparison.Ordinal),
+                : statement.Replace(
+                    " completed ",
+                    " did not complete ",
+                    StringComparison.Ordinal),
             Subject: subject,
             Evidence: evidence,
             ResidualRisks: EmptyResidualRisks);
     }
 
-    private static AssuranceClaimStatus ResolveCompileNoErrorsStatus (IpcCompileSummary summary)
+    private static AssuranceClaimStatus ResolveCompileNoErrorsStatus (
+        CompileLifecycleResult result)
     {
-        return summary.ScriptCompilation.Completed
-            && summary.ScriptCompilation.Diagnostics.ErrorCount == 0
+        return result.ScriptCompilation.Completed
+            && result.ScriptCompilation.Diagnostics.ErrorCount == 0
             ? AssuranceClaimStatus.Passed
             : AssuranceClaimStatus.Failed;
     }
 
-    private static bool TryCreateDiagnosticsReadSummary (
-        StartupFailureDetail? startupFailure,
-        ProjectIdentityInfo project,
-        Guid runId,
-        out IpcCompileSummary? summary)
+    private static AssuranceReportReference CreateTerminalRecordReportReference (
+        ArtifactRef terminalRecordRef)
     {
-        summary = null;
-        var diagnosis = startupFailure?.Diagnosis;
-        if (diagnosis is null)
+        return terminalRecordRef switch
         {
-            return false;
-        }
-
-        var primaryDiagnostic = diagnosis.PrimaryDiagnostic;
-        var isCompilerDiagnosis = primaryDiagnostic is not null
-            && primaryDiagnostic.Kind == DaemonDiagnosisPrimaryDiagnosticKind.Compiler;
-        if (!isCompilerDiagnosis
-            && diagnosis.Reason != DaemonDiagnosisReason.UnityScriptCompilationFailed)
-        {
-            return false;
-        }
-
-        var startup = startupFailure!.Startup;
-        var observedAtUtc = diagnosis.UpdatedAtUtc;
-        var startedAtUtc = startup?.StartedAtUtc ?? observedAtUtc;
-        var compileDiagnostic = primaryDiagnostic is null
-            ? new IpcPrimaryDiagnostic(
-                Kind: DaemonDiagnosisPrimaryDiagnosticKind.Compiler,
-                Code: null,
-                File: null,
-                Line: null,
-                Column: null,
-                Message: diagnosis.Message)
-            : new IpcPrimaryDiagnostic(
-                Kind: primaryDiagnostic.Kind,
-                Code: primaryDiagnostic.Code,
-                File: primaryDiagnostic.File,
-                Line: primaryDiagnostic.Line,
-                Column: primaryDiagnostic.Column,
-                Message: primaryDiagnostic.Message);
-
-        summary = new IpcCompileSummary(
-            RunId: runId,
-            ProjectFingerprint: project.ProjectFingerprint,
-            Completed: true,
-            StartedAtUtc: startedAtUtc,
-            CompletedAtUtc: observedAtUtc,
-            Refresh: new IpcCompileSummary.RefreshEvidence(
-                Origin: CompileRefreshOrigin.DiagnosticsRead,
-                Requested: false,
-                StartedAtUtc: startedAtUtc,
-                CompletedAtUtc: observedAtUtc,
-                Completed: true),
-            ScriptCompilation: new IpcCompileSummary.ScriptCompilationEvidence(
-                Started: false,
-                Completed: true,
-                CompileGenerationBefore: null,
-                CompileGenerationAfter: null,
-                Diagnostics: new IpcCompileSummary.DiagnosticsEvidence(
-                    ErrorCount: 1,
-                    WarningCount: 0,
-                    PrimaryDiagnostic: compileDiagnostic)),
-            DomainReload: new IpcCompileSummary.DomainReloadEvidence(
-                ReloadRequired: false,
-                ReloadObserved: false,
-                GenerationBefore: null,
-                GenerationAfter: null,
-                Settled: true),
-            Lifecycle: new IpcCompileSummary.LifecycleEvidence(
-                ServerVersion: null,
-                UnityVersion: project.UnityVersion,
-                State: null,
-                ObservedAtUtc: observedAtUtc,
-                ActionRequired: DaemonDiagnosisActionRequired.FixCompileErrors,
-                PrimaryDiagnostic: compileDiagnostic));
-        return true;
-    }
-
-    private static ApplicationFailure? ValidateSummary (
-        IpcCompileSummary summary,
-        Guid expectedRunId,
-        ProjectFingerprint expectedProjectFingerprint,
-        bool requireCompleted)
-    {
-        ArgumentNullException.ThrowIfNull(summary);
-        ArgumentNullException.ThrowIfNull(expectedProjectFingerprint);
-
-        if (summary.RunId != expectedRunId)
-        {
-            return ApplicationFailure.InternalError(
-                $"Unity compile summary runId mismatch. Requested={expectedRunId}, Actual={summary.RunId}.", UcliCoreErrorCodes.InternalError,
-                instancePath: null,
-                startupFailure: null);
-        }
-
-        if (summary.ProjectFingerprint != expectedProjectFingerprint)
-        {
-            return ApplicationFailure.InternalError(
-                $"Unity compile summary projectFingerprint mismatch. Requested={expectedProjectFingerprint}, Actual={summary.ProjectFingerprint}.", UcliCoreErrorCodes.InternalError,
-                instancePath: null,
-                startupFailure: null);
-        }
-
-        if (requireCompleted && !summary.Completed)
-        {
-            return ApplicationFailure.InternalError("Unity compile summary is incomplete.", UcliCoreErrorCodes.InternalError, instancePath: null, startupFailure: null);
-        }
-
-        return null;
+            PathArtifactRef path => AssuranceReportReference.FromPath(
+                path.Path.Value,
+                path.Digest),
+            PathAndUriArtifactRef pathAndUri => AssuranceReportReference.FromPath(
+                pathAndUri.Path.Value,
+                pathAndUri.Digest),
+            UriArtifactRef uri => AssuranceReportReference.FromUri(
+                uri.Uri.Value,
+                uri.Digest),
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(terminalRecordRef),
+                terminalRecordRef.GetType(),
+                "Compile terminal record artifact reference variant is unsupported."),
+        };
     }
 
     private static ApplicationFailure CreateTimeoutFailure (TimeSpan timeout)
@@ -716,61 +912,15 @@ internal sealed class CompileService : ICompileService
             startupFailure: null);
     }
 
-    private static TimeSpan GetRetryDelay (TimeSpan remainingTimeout)
+    private static ApplicationFailure NormalizeWaitFailure (
+        UnityRequestFailure failure)
     {
-        var retryDelayMilliseconds = Math.Min(
-            DaemonTimeouts.StartupProbeRetryDelayMilliseconds,
-            Math.Max(1, (int)Math.Ceiling(remainingTimeout.TotalMilliseconds)));
-        return TimeSpan.FromMilliseconds(retryDelayMilliseconds);
+        return failure.Code == ExecutionErrorCodes.Canceled
+            ? ApplicationFailure.Canceled(
+                failure.Message,
+                failure.Code,
+                instancePath: null)
+            : RequestFailureNormalizer.FromUnityRequestFailure(failure);
     }
 
-    private sealed record CompileDispatchResult (
-        IpcCompileSummary? Summary,
-        ApplicationFailure? FailureInfo,
-        bool ShouldReadArtifact)
-    {
-        public bool IsSuccess => Summary != null && FailureInfo == null;
-
-        public static CompileDispatchResult Success (IpcCompileSummary summary)
-        {
-            ArgumentNullException.ThrowIfNull(summary);
-            return new CompileDispatchResult(summary, null, ShouldReadArtifact: false);
-        }
-
-        public static CompileDispatchResult Failure (ApplicationFailure failure)
-        {
-            ArgumentNullException.ThrowIfNull(failure);
-            return new CompileDispatchResult(null, failure, ShouldReadArtifact: false);
-        }
-
-        public static CompileDispatchResult ArtifactRecoverableFailure (ApplicationFailure failure)
-        {
-            ArgumentNullException.ThrowIfNull(failure);
-            return new CompileDispatchResult(null, failure, ShouldReadArtifact: true);
-        }
-    }
-
-    private sealed record CompileSummaryPollResult (
-        IpcCompileSummary? Summary,
-        ApplicationFailure? FailureInfo,
-        int PollAttempts)
-    {
-        public bool IsSuccess => Summary != null && FailureInfo == null;
-
-        public static CompileSummaryPollResult Success (
-            IpcCompileSummary summary,
-            int pollAttempts)
-        {
-            ArgumentNullException.ThrowIfNull(summary);
-            return new CompileSummaryPollResult(summary, null, pollAttempts);
-        }
-
-        public static CompileSummaryPollResult Failure (
-            ApplicationFailure failure,
-            int pollAttempts)
-        {
-            ArgumentNullException.ThrowIfNull(failure);
-            return new CompileSummaryPollResult(null, failure, pollAttempts);
-        }
-    }
 }

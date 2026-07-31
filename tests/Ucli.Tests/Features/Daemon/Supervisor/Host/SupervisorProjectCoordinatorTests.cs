@@ -4,6 +4,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Tests.Helpers.Daemon;
 using MackySoft.Ucli.Tests.Helpers.Ipc;
 using static MackySoft.Ucli.Tests.Supervisor.SupervisorProjectCoordinatorTestSupport;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Tests.Supervisor;
 
@@ -124,7 +125,7 @@ public sealed class SupervisorProjectCoordinatorTests
         var userOwnedSession = DaemonSessionTestFactory.Create(
             sessionToken: "session-token",
             processId: 4242,
-            editorMode: DaemonEditorMode.Gui,
+            editorMode: UnityEditorMode.Gui,
             ownerKind: DaemonSessionOwnerKind.User,
             canShutdownProcess: false,
             editorInstanceId: DaemonSessionTestFactory.DefaultEditorInstanceId);
@@ -142,7 +143,7 @@ public sealed class SupervisorProjectCoordinatorTests
         var result = await coordinator.EnsureRunningAsync(
             unityProject,
             ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), TimeProvider.System),
-            editorMode: DaemonEditorMode.Gui,
+            editorMode: UnityEditorMode.Gui,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);
 
@@ -160,7 +161,7 @@ public sealed class SupervisorProjectCoordinatorTests
         var userOwnedSession = DaemonSessionTestFactory.Create(
             sessionToken: "session-token",
             processId: 4243,
-            editorMode: DaemonEditorMode.Gui,
+            editorMode: UnityEditorMode.Gui,
             ownerKind: DaemonSessionOwnerKind.User,
             canShutdownProcess: false,
             editorInstanceId: DaemonSessionTestFactory.DefaultEditorInstanceId);
@@ -168,8 +169,8 @@ public sealed class SupervisorProjectCoordinatorTests
         {
             StartResult = DaemonStartResult.Started(
                 userOwnedSession,
-                IpcUnityEditorObservationTestFactory.Create(
-                    editorMode: DaemonEditorMode.Gui,
+                UnityEditorObservationTestFactory.Create(
+                    editorMode: UnityEditorMode.Gui,
                     projectFingerprint: userOwnedSession.ProjectFingerprint)),
         };
         var coordinator = CreateCoordinator(
@@ -182,7 +183,7 @@ public sealed class SupervisorProjectCoordinatorTests
         var result = await coordinator.EnsureRunningAsync(
             unityProject,
             ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), TimeProvider.System),
-            editorMode: DaemonEditorMode.Gui,
+            editorMode: UnityEditorMode.Gui,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);
 
@@ -197,7 +198,7 @@ public sealed class SupervisorProjectCoordinatorTests
     {
         return DaemonStartResult.AlreadyRunning(
             session,
-            IpcUnityEditorObservationTestFactory.Create(
+            UnityEditorObservationTestFactory.Create(
                 editorMode: session.EditorMode,
                 projectFingerprint: session.ProjectFingerprint));
     }

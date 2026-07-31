@@ -2,6 +2,8 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Features.Play.UseCases.Exit;
 using MackySoft.Ucli.Contracts.Ipc;
 using static MackySoft.Ucli.Application.Tests.Play.PlayExitServiceTestSupport;
+using MackySoft.Ucli.Contracts.Execution.Lifecycle;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Tests.Play;
 
@@ -22,23 +24,21 @@ public sealed class PlayExitServiceTransitionSuccessTests
         Assert.Equal(DaemonStatusKind.Running, output.DaemonStatus);
         Assert.Equal(context.UnityProject.UnityProjectRoot.Value, output.Project.ProjectPath);
         Assert.Equal("0.5.0", output.ServerVersion);
-        Assert.Equal(DaemonEditorMode.Gui, output.EditorMode);
-        Assert.Equal(IpcEditorLifecycleState.Ready, output.LifecycleState);
+        Assert.Equal(UnityEditorMode.Gui, output.EditorMode);
+        Assert.Equal(UnityEditorLifecycleState.Ready, output.LifecycleState);
         Assert.Null(output.BlockingReason);
         Assert.True(output.CanAcceptExecutionRequests);
-        Assert.Equal(IpcPlayModeState.Stopped, output.PlayMode.State);
+        Assert.Equal(UnityEditorPlayModeState.Stopped, output.PlayMode.State);
         Assert.Equal(3, output.Generations!.PlayModeGeneration);
         Assert.Equal(1500, output.TimeoutMilliseconds);
-        Assert.Equal(IpcPlayTransitionCommand.Exit, output.Transition.Transition);
-        Assert.Equal(IpcPlayTransitionOutcome.Exited, output.Transition.Result);
+        Assert.Equal(PlayLifecycleTransitionCommand.Exit, output.Transition.Transition);
+        Assert.Equal(PlayLifecycleTransitionOutcome.Exited, output.Transition.Result);
         Assert.NotNull(output.Transition.Before);
         Assert.NotNull(output.Transition.After);
-        Assert.Null(output.Transition.Observed);
-        Assert.Null(output.Transition.ApplicationState);
 
         UnityRequestExecutorInvocationAssert.PlayExitOnce(
             requestExecutor,
-            TimeSpan.FromMilliseconds(2500));
+            TimeSpan.FromMilliseconds(4500));
     }
 
     [Fact]
@@ -46,12 +46,12 @@ public sealed class PlayExitServiceTransitionSuccessTests
     public async Task Execute_WhenAlreadyStopped_ReturnsAlreadyExitedWithoutGenerationChange ()
     {
         var before = CreateSnapshot(
-            IpcEditorLifecycleState.Compiling,
+            UnityEditorLifecycleState.Compiling,
             CreateStoppedPlayMode(),
             playModeGeneration: 9);
-        var response = new IpcPlayTransitionResponse(new IpcPlayTransitionResult(
-            IpcPlayTransitionCommand.Exit,
-            IpcPlayTransitionOutcome.AlreadyExited,
+        var response = new IpcPlayTransitionResponse(CreateTerminalReference(), new PlayLifecycleTransitionResult(
+            PlayLifecycleTransitionCommand.Exit,
+            PlayLifecycleTransitionOutcome.AlreadyExited,
             before,
             After: before,
             Observed: null,
@@ -63,8 +63,8 @@ public sealed class PlayExitServiceTransitionSuccessTests
 
         Assert.True(result.IsSuccess);
         var output = Assert.IsType<PlayExitExecutionOutput>(result.Output);
-        Assert.Equal(IpcPlayTransitionOutcome.AlreadyExited, output.Transition.Result);
-        Assert.Equal(IpcEditorLifecycleState.Compiling, output.LifecycleState);
+        Assert.Equal(PlayLifecycleTransitionOutcome.AlreadyExited, output.Transition.Result);
+        Assert.Equal(UnityEditorLifecycleState.Compiling, output.LifecycleState);
         Assert.Equal(9, output.Transition.Before.Generations!.PlayModeGeneration);
         Assert.Equal(9, output.Transition.After!.Generations!.PlayModeGeneration);
     }

@@ -1,6 +1,9 @@
 using System.Text.Json;
+using MackySoft.Ucli.Application.Features.Play.Common.Contracts;
 using MackySoft.Ucli.Application.Features.Play.UseCases.Exit;
-using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Editor;
+using MackySoft.Ucli.Contracts.Execution;
+using MackySoft.Ucli.Contracts.Execution.Lifecycle;
 using MackySoft.Ucli.Hosting.Cli.Play;
 using MackySoft.Ucli.Tests.Hosting.Cli.Common.Execution;
 
@@ -26,7 +29,7 @@ public sealed class PlayExitCommandPayloadTests
                 .HasString("unityVersion", PlayCommandOutputTestData.UnityVersion))
             .HasString("daemonStatus", "running")
             .HasString("editorMode", "gui")
-            .HasString("lifecycleState", TextVocabulary.GetText(IpcEditorLifecycleState.Ready))
+            .HasString("lifecycleState", TextVocabulary.GetText(UnityEditorLifecycleState.Ready))
             .HasValueKind("blockingReason", JsonValueKind.Null)
             .HasProperty("generations", generations => generations
                 .HasInt32("compileGeneration", 12)
@@ -40,8 +43,8 @@ public sealed class PlayExitCommandPayloadTests
                 .HasBoolean("isPlaying", false)
                 .HasBoolean("isPlayingOrWillChangePlaymode", false))
             .HasProperty("transition", transition => transition
-                .HasString("transition", TextVocabulary.GetText(IpcPlayTransitionCommand.Exit))
-                .HasString("result", TextVocabulary.GetText(IpcPlayTransitionOutcome.Exited))
+                .HasString("transition", TextVocabulary.GetText(PlayLifecycleTransitionCommand.Exit))
+                .HasString("result", TextVocabulary.GetText(PlayLifecycleTransitionOutcome.Exited))
                 .HasProperty("before", _ => { })
                 .HasProperty("after", _ => { }))
             .HasInt32("timeoutMilliseconds", 1000);
@@ -57,14 +60,18 @@ public sealed class PlayExitCommandPayloadTests
     [Trait("Size", "Small")]
     public async Task Exit_WhenTransitionTimesOut_EmitsErrorEnvelopeWithObservedTransitionPayload ()
     {
-        var output = PlayExitCommandTestData.CreateOutput(IpcPlayTransitionOutcome.Timeout, includeAfter: false);
+        var failureContext = PlayExitCommandTestData.CreateFailureContext(
+            PlayLifecycleTransitionOutcome.Timeout,
+            ExecutionApplicationState.Indeterminate);
         var failure = ApplicationFailure.Timeout(
             "Unity Play Mode exit timed out after 1000 milliseconds.",
             PlayModeErrorCodes.PlayModeTransitionTimeout,
             instancePath: null,
             startupFailure: null);
 
-        var result = await ExecuteAsync(PlayExitExecutionResult.Failure(failure, output));
+        var result = await ExecuteAsync(PlayExitExecutionResult.Failure(
+            failure,
+            failureContext));
 
         Assert.Equal((int)CliExitCode.ToolError, result.ExitCode);
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
@@ -74,13 +81,181 @@ public sealed class PlayExitCommandPayloadTests
             TextVocabulary.GetText(CommandResultStatus.Error),
             (int)CliExitCode.ToolError);
         CommandResultAssert.HasSingleError(outputJson.RootElement, PlayModeErrorCodes.PlayModeTransitionTimeout);
-        JsonAssert.For(outputJson.RootElement.GetProperty("payload").GetProperty("transition"))
-            .HasString("result", TextVocabulary.GetText(IpcPlayTransitionOutcome.Timeout))
-            .HasString("applicationState", TextVocabulary.GetText(IpcApplicationState.Indeterminate))
+        var payload = outputJson.RootElement.GetProperty("payload");
+        JsonAssert.For(payload)
+            .HasString("payloadKind", "transitionFailure")
+            .HasString("applicationState", TextVocabulary.GetText(
+                ExecutionApplicationState.Indeterminate));
+        JsonAssert.For(payload.GetProperty("transition"))
+            .HasString("result", TextVocabulary.GetText(PlayLifecycleTransitionOutcome.Timeout))
             .HasProperty("observed", _ => { });
-        Assert.False(outputJson.RootElement.GetProperty("payload").GetProperty("transition").TryGetProperty("after", out _));
-        Assert.False(outputJson.RootElement.GetProperty("payload").TryGetProperty("opResults", out _));
+        Assert.False(payload.GetProperty("transition").TryGetProperty("after", out _));
+        Assert.False(payload.GetProperty("transition").TryGetProperty(
+            "applicationState",
+            out _));
+        Assert.False(payload.TryGetProperty("opResults", out _));
         Assert.DoesNotContain("\"touched\"", result.StdOut, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Exit_WhenTerminalRecordPublicationFails_RetainsSuccessEvidenceWithRecoveryReference ()
+    {
+        var failure = ApplicationFailure.UnityIpcFailure(
+            "The Lifecycle Execution Terminal Record could not be published.",
+            LifecycleExecutionErrorCodes.TerminalPublicationFailed,
+            instancePath: null,
+            startupFailure: null);
+
+        var result = await ExecuteAsync(PlayExitExecutionResult.Failure(
+            failure,
+            PlayExitCommandTestData.CreatePublicationFailureContext()));
+
+        Assert.Equal((int)CliExitCode.ToolError, result.ExitCode);
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        var payload = outputJson.RootElement.GetProperty("payload");
+        JsonAssert.For(payload)
+            .HasString("payloadKind", "terminalPublicationFailure")
+            .HasProperty("lifecycleExecutionRef", executionRef => executionRef
+                .HasString("lifecycle", TextVocabulary.GetText(
+                    ExecutionLifecycle.Recovery))
+                .HasString("kind", TextVocabulary.GetText(
+                    LifecycleExecutionKind.PlayExit)))
+            .HasString("applicationState", TextVocabulary.GetText(
+                ExecutionApplicationState.Applied))
+            .HasProperty("transition", transition => transition
+                .HasString("transition", TextVocabulary.GetText(
+                    PlayLifecycleTransitionCommand.Exit))
+                .HasString("result", TextVocabulary.GetText(
+                    PlayLifecycleTransitionOutcome.Exited))
+                .HasProperty("before", _ => { })
+                .HasProperty("after", _ => { }));
+        AssertPropertySet(
+            payload,
+            "payloadKind",
+            "project",
+            "lifecycleExecutionRef",
+            "applicationState",
+            "daemonStatus",
+            "serverVersion",
+            "editorMode",
+            "lifecycleState",
+            "blockingReason",
+            "compileState",
+            "generations",
+            "canAcceptExecutionRequests",
+            "observedAtUtc",
+            "actionRequired",
+            "primaryDiagnostic",
+            "playMode",
+            "transition",
+            "timeoutMilliseconds");
+        AssertPropertySet(
+            payload.GetProperty("transition"),
+            "transition",
+            "result",
+            "before",
+            "after");
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Exit_WhenDeadlineWinsAfterSuccess_EmitsTerminalFailureWithSuccessEvidence ()
+    {
+        var failure = ApplicationFailure.Timeout(
+            "Play Mode exit reached its durable execution deadline.",
+            LifecycleExecutionErrorCodes.DeadlineExceeded,
+            instancePath: null,
+            startupFailure: null);
+
+        var result = await ExecuteAsync(PlayExitExecutionResult.Failure(
+            failure,
+            PlayExitCommandTestData.CreateTerminalFailureContext()));
+
+        Assert.Equal((int)CliExitCode.ToolError, result.ExitCode);
+        using var outputJson =
+            StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        var payload = outputJson.RootElement.GetProperty("payload");
+        JsonAssert.For(payload)
+            .HasString("payloadKind", "terminalFailure")
+            .HasProperty("lifecycleExecutionRef", executionRef => executionRef
+                .HasString("lifecycle", TextVocabulary.GetText(
+                    ExecutionLifecycle.Terminal))
+                .HasString("state", TextVocabulary.GetText(
+                    LifecycleExecutionState.Failed)))
+            .HasString("applicationState", TextVocabulary.GetText(
+                ExecutionApplicationState.Applied))
+            .HasProperty("transition", transition => transition
+                .HasString("transition", TextVocabulary.GetText(
+                    PlayLifecycleTransitionCommand.Exit))
+                .HasString("result", TextVocabulary.GetText(
+                    PlayLifecycleTransitionOutcome.Exited))
+                .HasProperty("before", _ => { })
+                .HasProperty("after", _ => { }));
+        AssertPropertySet(
+            payload.GetProperty("transition"),
+            "transition",
+            "result",
+            "before",
+            "after");
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Exit_WhenStartContextCarriesResultlessTerminalFailure_EmitsOnlyStartPayload ()
+    {
+        var failure = ApplicationFailure.UnityIpcFailure(
+            "The registered Unity Editor process exited.",
+            LifecycleExecutionErrorCodes.UnityExited,
+            instancePath: null,
+            startupFailure: null);
+        var failureContext = new PlayTransitionFailureContext(
+            PlayCommandOutputTestData.CreateProject(),
+            PlayCommandOutputTestData.CreateTerminalExecutionReference(
+                LifecycleExecutionKind.PlayExit,
+                LifecycleExecutionState.Failed),
+            ExecutionApplicationState.Indeterminate);
+
+        var result = await ExecuteAsync(PlayExitExecutionResult.Failure(
+            failure,
+            failureContext));
+
+        Assert.Equal((int)CliExitCode.ToolError, result.ExitCode);
+        using var outputJson =
+            StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        CommandResultAssert.HasSingleError(
+            outputJson.RootElement,
+            LifecycleExecutionErrorCodes.UnityExited);
+        var payload = outputJson.RootElement.GetProperty("payload");
+        JsonAssert.For(payload)
+            .HasString("payloadKind", "start")
+            .HasProperty("project", _ => { })
+            .HasProperty("lifecycleExecutionRef", executionRef => executionRef
+                .HasString("lifecycle", TextVocabulary.GetText(
+                    ExecutionLifecycle.Terminal))
+                .HasString("kind", TextVocabulary.GetText(
+                    LifecycleExecutionKind.PlayExit))
+                .HasString("state", TextVocabulary.GetText(
+                    LifecycleExecutionState.Failed)))
+            .HasString("applicationState", TextVocabulary.GetText(
+                ExecutionApplicationState.Indeterminate));
+        AssertPropertySet(
+            payload,
+            "payloadKind",
+            "project",
+            "lifecycleExecutionRef",
+            "applicationState");
+    }
+
+    private static void AssertPropertySet (
+        JsonElement value,
+        params string[] expectedPropertyNames)
+    {
+        Assert.Equal(
+            expectedPropertyNames.Order(StringComparer.Ordinal),
+            value.EnumerateObject()
+                .Select(static property => property.Name)
+                .Order(StringComparer.Ordinal));
     }
 
     private static async Task<CommandExecutionResult> ExecuteAsync (PlayExitExecutionResult executionResult)

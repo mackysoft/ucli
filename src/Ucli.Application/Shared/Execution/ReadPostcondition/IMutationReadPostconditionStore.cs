@@ -1,5 +1,6 @@
 using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Execution;
 
 namespace MackySoft.Ucli.Application.Shared.Execution.ReadPostcondition;
 
@@ -16,6 +17,6 @@ internal interface IMutationReadPostconditionStore
     ValueTask<MutationReadPostconditionStoreOperationResult> WriteMergedAsync (
         AbsolutePath storageRoot,
         ProjectFingerprint projectFingerprint,
-        IpcExecuteReadPostcondition readPostcondition,
+        ExecutionReadPostcondition readPostcondition,
         CancellationToken cancellationToken = default);
 }

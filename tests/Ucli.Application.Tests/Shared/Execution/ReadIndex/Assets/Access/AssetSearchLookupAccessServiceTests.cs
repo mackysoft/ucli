@@ -3,6 +3,7 @@ using MackySoft.Ucli.Application.Shared.Execution.ReadPostcondition;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Execution;
 
 namespace MackySoft.Ucli.Application.Tests.Execution.ReadIndex.Assets;
 
@@ -142,10 +143,10 @@ public sealed class AssetSearchLookupAccessServiceTests
         var readPostconditionStore = new TestMutationReadPostconditionStore
         {
             ReadResult = MutationReadPostconditionReadResult.Success(
-                new IpcExecuteReadPostcondition(
+                new ExecutionReadPostcondition(
                 [
-                    new IpcExecuteReadPostconditionRequirement(
-                        Surface: IpcExecuteReadPostconditionSurface.AssetSearch,
+                    new ExecutionReadPostconditionRequirement(
+                        Surface: ExecutionReadPostconditionSurface.AssetSearch,
                         MinSafeGeneratedAtUtc: DateTimeOffset.Parse("2026-04-24T00:00:00+00:00"),
                         ScenePath: null),
                 ])),

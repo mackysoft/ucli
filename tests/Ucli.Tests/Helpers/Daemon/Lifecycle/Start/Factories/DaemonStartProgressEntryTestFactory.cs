@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Contracts.Editor;
+
 namespace MackySoft.Ucli.Tests.Helpers.Daemon;
 
 using MackySoft.Ucli.Contracts.Storage;
@@ -14,7 +16,7 @@ internal static class DaemonStartProgressEntryTestFactory
         DaemonStartProgressPayloadKind payloadKind = DaemonStartProgressPayloadKind.StartupObservation,
         ProjectFingerprint? projectFingerprint = null,
         int timeoutMilliseconds = 1234,
-        DaemonEditorMode editorMode = DaemonEditorMode.Batchmode,
+        UnityEditorMode editorMode = UnityEditorMode.Batchmode,
         DaemonStartupBlockedProcessPolicy onStartupBlocked = DaemonStartupBlockedProcessPolicy.Auto,
         Guid? launchAttemptId = null,
         DaemonSessionOwnerKind ownerKind = DaemonSessionOwnerKind.Cli,

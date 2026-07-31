@@ -4,6 +4,7 @@ using MackySoft.FileSystem;
 using MackySoft.JsonSchema.Generation;
 using MackySoft.JsonSchema.Generation.Projection;
 using MackySoft.Ucli.Contracts.Cryptography;
+using MackySoft.Ucli.Contracts.Execution.Lifecycle;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Json;
 using MackySoft.Ucli.Contracts.Json.Generation;
@@ -42,7 +43,7 @@ internal static class UcliStaticSchemaSetGenerator
         var registrations = UcliStaticSchemaRegistrationCatalog.GetAll();
         var generatedArtifacts = PairResults(
             registrations,
-            UcliJsonContractGenerator.GenerateSet(CreateRequests(registrations)));
+            GenerateContracts(registrations));
         WriteArtifacts(outputRoot, generatedArtifacts);
         WriteManifestFile(
             outputRoot,
@@ -50,17 +51,98 @@ internal static class UcliStaticSchemaSetGenerator
     }
 
     private static IEnumerable<JsonContractGenerationRequest> CreateRequests (
-        IReadOnlyList<UcliStaticSchemaRegistration> registrations)
+        IEnumerable<UcliStaticSchemaRegistration> registrations)
     {
         return registrations.Select(
             static registration =>
                 new JsonContractGenerationRequest(
                     registration.ContractId,
                     registration.TypeInfo,
-                    new JsonSchemaDocumentOptions(
-                        JsonSchemaDocumentKind.Complete,
-                        UcliStaticSchemaSet.CreateSchemaId(registration.Path),
-                        registration.Name)));
+                    CreateDocumentOptions(registration)));
+    }
+
+    private static IReadOnlyList<JsonContractGenerationResult> GenerateContracts (
+        IReadOnlyList<UcliStaticSchemaRegistration> registrations)
+    {
+        var standardRegistrations = registrations
+            .Where(static registration =>
+                registration.LifecycleExecutionKind == null
+                && !registration.HasOperationApplicationStateConstraints
+                && !HasSerializerRoot<ExecutionRef>(registration)
+                && !HasSerializerRoot<LifecycleExecutionTerminalRecord>(
+                    registration))
+            .ToArray();
+        var results = UcliJsonContractGenerator
+            .GenerateSet(CreateRequests(standardRegistrations))
+            .ToList();
+        foreach (var registration in registrations)
+        {
+            if (registration.LifecycleExecutionKind is { } executionKind)
+            {
+                if (registration.Status is not { } status)
+                {
+                    throw new InvalidOperationException(
+                        "A Lifecycle Execution CLI output registration must have a command-result status.");
+                }
+
+                results.Add(UcliJsonContractGenerator.GenerateWithLifecycleExecutionCliOutputProfile(
+                    registration.ContractId,
+                    registration.TypeInfo,
+                    CreateDocumentOptions(registration),
+                    executionKind,
+                    status));
+                continue;
+            }
+            if (registration.HasOperationApplicationStateConstraints)
+            {
+                results.Add(
+                    UcliJsonContractGenerator
+                        .GenerateWithOperationExecutionCliOutputProfile(
+                            registration.ContractId,
+                            registration.TypeInfo,
+                            CreateDocumentOptions(registration)));
+                continue;
+            }
+            if (HasSerializerRoot<ExecutionRef>(registration))
+            {
+                results.Add(UcliJsonContractGenerator.GenerateWithExecutionReferenceProfile(
+                    registration.ContractId,
+                    registration.TypeInfo,
+                    CreateDocumentOptions(registration)));
+                continue;
+            }
+            if (HasSerializerRoot<LifecycleExecutionTerminalRecord>(
+                    registration))
+            {
+                results.Add(
+                    UcliJsonContractGenerator
+                        .GenerateWithLifecycleExecutionTerminalRecordProfile(
+                            registration.ContractId,
+                            registration.TypeInfo,
+                            CreateDocumentOptions(registration)));
+            }
+        }
+
+        results.Sort(static (left, right) => string.CompareOrdinal(
+            left.Model.ContractId,
+            right.Model.ContractId));
+        return results.AsReadOnly();
+    }
+
+    private static bool HasSerializerRoot<TContract> (
+        UcliStaticSchemaRegistration registration)
+    {
+        return registration.TypeInfo.Type
+            == UcliNonNullJsonObject.MakeValueType(typeof(TContract));
+    }
+
+    private static JsonSchemaDocumentOptions CreateDocumentOptions (
+        UcliStaticSchemaRegistration registration)
+    {
+        return new JsonSchemaDocumentOptions(
+            JsonSchemaDocumentKind.Complete,
+            UcliStaticSchemaSet.CreateSchemaId(registration.Path),
+            registration.Name);
     }
 
     private static IReadOnlyList<UcliGeneratedStaticSchemaArtifact> PairResults (

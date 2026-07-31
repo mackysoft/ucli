@@ -1,5 +1,6 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Stop;
 using MackySoft.Ucli.Application.Shared.Execution.Progress;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Gateway;
 
@@ -10,7 +11,7 @@ internal interface IDaemonProjectLifecycleGateway
     ValueTask<DaemonStartResult> EnsureRunningAsync (
         ResolvedUnityProjectContext unityProject,
         TimeSpan timeout,
-        DaemonEditorMode? editorMode,
+        UnityEditorMode? editorMode,
         DaemonStartupBlockedProcessPolicy onStartupBlocked,
         IDaemonProjectLifecycleProgressObserver? progressObserver = null,
         ICommandProgressSink? supervisorProgressSink = null,

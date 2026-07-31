@@ -1,5 +1,6 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Tests.Daemon;
 
@@ -48,7 +49,7 @@ public sealed class DaemonSessionTests
             IpcSessionTokenTestFactory.Create("null-project-fingerprint"),
             null!,
             new DateTimeOffset(2026, 7, 13, 0, 0, 0, TimeSpan.Zero),
-            DaemonEditorMode.Batchmode,
+            UnityEditorMode.Batchmode,
             DaemonSessionOwnerKind.Cli,
             canShutdownProcess: true,
             new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-endpoint"),
@@ -72,7 +73,7 @@ public sealed class DaemonSessionTests
             token,
             Fingerprint,
             new DateTimeOffset(2026, 7, 13, 0, 0, 0, TimeSpan.Zero),
-            DaemonEditorMode.Batchmode,
+            UnityEditorMode.Batchmode,
             DaemonSessionOwnerKind.Cli,
             canShutdownProcess: true,
             new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-endpoint"),
@@ -96,7 +97,7 @@ public sealed class DaemonSessionTests
             token,
             Fingerprint,
             new DateTimeOffset(2026, 7, 13, 0, 0, 0, TimeSpan.Zero),
-            DaemonEditorMode.Gui,
+            UnityEditorMode.Gui,
             DaemonSessionOwnerKind.User,
             canShutdownProcess: true,
             new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-endpoint"),
@@ -138,7 +139,7 @@ public sealed class DaemonSessionTests
             IpcSessionTokenTestFactory.Create("user-owned-without-editor-instance-id"),
             Fingerprint,
             new DateTimeOffset(2026, 7, 13, 0, 0, 0, TimeSpan.Zero),
-            DaemonEditorMode.Gui,
+            UnityEditorMode.Gui,
             DaemonSessionOwnerKind.User,
             canShutdownProcess: false,
             new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-endpoint"),
@@ -190,8 +191,8 @@ public sealed class DaemonSessionTests
             SessionDifference.IssuedAtUtc => (CreateComparableSession(), CreateComparableSession(
                 issuedAtUtc: new DateTimeOffset(2026, 7, 13, 0, 0, 2, TimeSpan.Zero))),
             SessionDifference.EditorMode => (
-                CreateComparableSession(editorMode: DaemonEditorMode.Batchmode, ownerKind: DaemonSessionOwnerKind.Cli, canShutdownProcess: true),
-                CreateComparableSession(editorMode: DaemonEditorMode.Gui, ownerKind: DaemonSessionOwnerKind.Cli, canShutdownProcess: true)),
+                CreateComparableSession(editorMode: UnityEditorMode.Batchmode, ownerKind: DaemonSessionOwnerKind.Cli, canShutdownProcess: true),
+                CreateComparableSession(editorMode: UnityEditorMode.Gui, ownerKind: DaemonSessionOwnerKind.Cli, canShutdownProcess: true)),
             SessionDifference.OwnerKind => (
                 CreateComparableSession(ownerKind: DaemonSessionOwnerKind.User),
                 CreateComparableSession(ownerKind: DaemonSessionOwnerKind.Cli)),
@@ -216,7 +217,7 @@ public sealed class DaemonSessionTests
         string sessionToken = "same-session-token",
         ProjectFingerprint? projectFingerprint = null,
         DateTimeOffset? issuedAtUtc = null,
-        DaemonEditorMode editorMode = DaemonEditorMode.Gui,
+        UnityEditorMode editorMode = UnityEditorMode.Gui,
         DaemonSessionOwnerKind ownerKind = DaemonSessionOwnerKind.User,
         bool canShutdownProcess = false,
         string endpointAddress = "/tmp/ucli.sock",
@@ -238,7 +239,7 @@ public sealed class DaemonSessionTests
             endpointAddress: endpointAddress,
             processStartedAtUtc: processStartedAtUtc ?? new DateTimeOffset(2026, 7, 12, 23, 59, 59, TimeSpan.Zero),
             ownerProcessId: ownerProcessId,
-            editorInstanceId: editorInstanceId ?? (editorMode == DaemonEditorMode.Batchmode
+            editorInstanceId: editorInstanceId ?? (editorMode == UnityEditorMode.Batchmode
                 ? null
                 : EditorInstanceId));
     }

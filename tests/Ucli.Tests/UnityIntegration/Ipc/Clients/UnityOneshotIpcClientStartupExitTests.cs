@@ -5,6 +5,7 @@ using MackySoft.Ucli.Tests.Helpers.Ipc;
 using MackySoft.Ucli.Tests.Helpers.Process;
 using MackySoft.Ucli.UnityIntegration.Ipc.Process;
 using static MackySoft.Ucli.Tests.Ipc.UnityOneshotIpcClientTestSupport;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Tests.Ipc;
 
@@ -190,7 +191,7 @@ public sealed class UnityOneshotIpcClientStartupExitTests
         Assert.Equal(DaemonStartupBlockingReason.PackageResolution, startupFailure.Startup.StartupBlockingReason);
         Assert.Equal(DaemonStartupProcessAction.Unknown, startupFailure.Startup.ProcessAction);
         Assert.Equal(DaemonDiagnosisReason.UnityPackageResolutionFailed, startupFailure.Diagnosis!.Reason);
-        Assert.Equal(DaemonDiagnosisPrimaryDiagnosticKind.PackageResolution, startupFailure.Diagnosis.PrimaryDiagnostic!.Kind);
+        Assert.Equal(UnityEditorPrimaryDiagnosticKind.PackageResolution, startupFailure.Diagnosis.PrimaryDiagnostic!.Kind);
     }
 
     [Fact]

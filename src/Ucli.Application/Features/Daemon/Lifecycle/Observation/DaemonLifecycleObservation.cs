@@ -1,6 +1,7 @@
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Observation;
 
@@ -12,8 +13,8 @@ internal sealed record DaemonLifecycleObservation
         DateTimeOffset processStartedAtUtc,
         UnityEditorStateSnapshot state,
         DateTimeOffset observedAtUtc,
-        DaemonDiagnosisActionRequired? actionRequired,
-        IpcPrimaryDiagnostic? primaryDiagnostic,
+        UnityEditorActionRequired? actionRequired,
+        UnityEditorPrimaryDiagnostic? primaryDiagnostic,
         string? serverVersion,
         Guid editorInstanceId,
         DaemonLifecycleRecoveryLease? recoveryLease)
@@ -36,7 +37,7 @@ internal sealed record DaemonLifecycleObservation
         }
 
         if (recoveryLease is not null
-            && (validatedState.LifecycleState != IpcEditorLifecycleState.Recovering
+            && (validatedState.LifecycleState != UnityEditorLifecycleState.Recovering
                 || recoveryLease.ExpiresAtUtc <= validatedObservedAtUtc))
         {
             throw new ArgumentException(
@@ -63,9 +64,9 @@ internal sealed record DaemonLifecycleObservation
 
     public DateTimeOffset ObservedAtUtc { get; }
 
-    public DaemonDiagnosisActionRequired? ActionRequired { get; }
+    public UnityEditorActionRequired? ActionRequired { get; }
 
-    public IpcPrimaryDiagnostic? PrimaryDiagnostic { get; }
+    public UnityEditorPrimaryDiagnostic? PrimaryDiagnostic { get; }
 
     /// <summary> Gets the daemon server version that wrote the observation. </summary>
     public string? ServerVersion { get; }
@@ -77,14 +78,14 @@ internal sealed record DaemonLifecycleObservation
     public DaemonLifecycleRecoveryLease? RecoveryLease { get; }
 
     /// <summary> Gets the blocking reason required by the observed lifecycle state. </summary>
-    public IpcEditorBlockingReason? BlockingReason =>
-        IpcEditorLifecycleSemantics.ResolveBlockingReason(State.LifecycleState);
+    public UnityEditorBlockingReason? BlockingReason =>
+        UnityEditorLifecycleSemantics.ResolveBlockingReason(State.LifecycleState);
 
     /// <summary> Gets whether the observed lifecycle state permits normal execution requests. </summary>
     public bool CanAcceptExecutionRequests =>
-        IpcEditorLifecycleSemantics.CanAcceptExecutionRequests(State.LifecycleState);
+        UnityEditorLifecycleSemantics.CanAcceptExecutionRequests(State.LifecycleState);
 
     /// <summary> Gets a value indicating whether this observation means the same Unity process may recover its endpoint. </summary>
-    public bool IsRecovering => State.LifecycleState is IpcEditorLifecycleState.Recovering
-        or IpcEditorLifecycleState.DomainReloading;
+    public bool IsRecovering => State.LifecycleState is UnityEditorLifecycleState.Recovering
+        or UnityEditorLifecycleState.DomainReloading;
 }

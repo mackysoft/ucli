@@ -3,6 +3,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Progress;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Tests.Daemon;
 
@@ -61,7 +62,7 @@ public sealed class DaemonGuiEditorAttachServiceAttachTests
         Assert.Equal(marker.ProcessId, progressObserver.PayloadAt<DaemonStartStartupProgressObservation>(0).ProcessId);
         Assert.Equal(session, progressObserver.PayloadAt<DaemonSession>(1));
         Assert.Equal(session, progressObserver.PayloadAt<DaemonSession>(2));
-        Assert.Equal(lifecycleObservation, progressObserver.PayloadAt<IpcUnityEditorObservation>(3));
+        Assert.Equal(lifecycleObservation, progressObserver.PayloadAt<UnityEditorObservation>(3));
         DaemonGuiAttachInvocationAssert.EndpointWaitAttemptedFor(
             awaiter,
             context,
@@ -113,7 +114,7 @@ public sealed class DaemonGuiEditorAttachServiceAttachTests
         Assert.True(result!.IsSuccess);
         Assert.Equal(DaemonStartStatus.Attached, result.Status);
         Assert.Equal(session, result.Session);
-        Assert.Equal(DaemonEditorMode.Gui, result.Session!.EditorMode);
+        Assert.Equal(UnityEditorMode.Gui, result.Session!.EditorMode);
         Assert.Equal(DaemonSessionOwnerKind.User, result.Session.OwnerKind);
         Assert.False(result.Session.CanShutdownProcess);
         Assert.Equal(marker.ProcessId, result.Session.ProcessId);
@@ -126,7 +127,7 @@ public sealed class DaemonGuiEditorAttachServiceAttachTests
         Assert.Equal(marker.ProcessId, progressObserver.PayloadAt<DaemonStartStartupProgressObservation>(0).ProcessId);
         Assert.Equal(session, progressObserver.PayloadAt<DaemonSession>(1));
         Assert.Equal(session, progressObserver.PayloadAt<DaemonSession>(2));
-        Assert.Equal(lifecycleObservation, progressObserver.PayloadAt<IpcUnityEditorObservation>(3));
+        Assert.Equal(lifecycleObservation, progressObserver.PayloadAt<UnityEditorObservation>(3));
         DaemonGuiAttachInvocationAssert.RebootstrapRequestedFor(
             rebootstrapClient,
             context,

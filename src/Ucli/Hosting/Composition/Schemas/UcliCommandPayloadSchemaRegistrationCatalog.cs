@@ -1,7 +1,7 @@
 using System.Text.Json.Serialization.Metadata;
 using MackySoft.FileSystem;
+using MackySoft.Ucli.Contracts.Execution.Lifecycle;
 using MackySoft.Ucli.Contracts.Json;
-using MackySoft.Ucli.Contracts.Schemas;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Startup;
 
@@ -34,13 +34,15 @@ internal static class UcliCommandPayloadSchemaRegistrationCatalog
                 registrations.Add(Create(
                     outputContract.SuccessPayloadTypeInfo,
                     outputContract.Command,
-                    CommandResultStatus.Ok));
+                    CommandResultStatus.Ok,
+                    outputContract.HasOperationApplicationStateConstraints));
             }
 
             registrations.Add(Create(
                 outputContract.ErrorPayloadTypeInfo,
                 outputContract.Command,
-                CommandResultStatus.Error));
+                CommandResultStatus.Error,
+                outputContract.HasOperationApplicationStateConstraints));
         }
 
         return registrations.AsReadOnly();
@@ -49,15 +51,45 @@ internal static class UcliCommandPayloadSchemaRegistrationCatalog
     private static UcliStaticSchemaRegistration Create (
         JsonTypeInfo typeInfo,
         string command,
-        CommandResultStatus status)
+        CommandResultStatus status,
+        bool hasOperationApplicationStateConstraints)
     {
         var statusText = TextVocabulary.GetText(status);
         var runtimePayloadType = UcliNonNullJsonObject.MakeValueType(typeInfo.Type);
+        var name = "cli-output.payload." + command + "." + statusText;
+        var path = RootRelativePath.Parse(
+            "cli-output/payload/" + command + "." + statusText + ".schema.json");
+        var runtimePayloadTypeInfo =
+            CliOutputJsonSerializerOptions.Default.GetTypeInfo(runtimePayloadType);
+        if (TextVocabulary.TryGetValue<LifecycleExecutionKind>(
+            command,
+            out var executionKind))
+        {
+            return UcliStaticSchemaRegistration
+                .LifecycleExecutionCliOutputPayload(
+                    name,
+                    path,
+                    runtimePayloadTypeInfo,
+                    command,
+                    executionKind,
+                status);
+        }
+
+        if (hasOperationApplicationStateConstraints)
+        {
+            return UcliStaticSchemaRegistration
+                .OperationExecutionCliOutputPayload(
+                    name,
+                    path,
+                    runtimePayloadTypeInfo,
+                    command,
+                    status);
+        }
+
         return UcliStaticSchemaRegistration.CliOutputPayload(
-            "cli-output.payload." + command + "." + statusText,
-            RootRelativePath.Parse(
-                "cli-output/payload/" + command + "." + statusText + ".schema.json"),
-            CliOutputJsonSerializerOptions.Default.GetTypeInfo(runtimePayloadType),
+            name,
+            path,
+            runtimePayloadTypeInfo,
             command,
             status);
     }

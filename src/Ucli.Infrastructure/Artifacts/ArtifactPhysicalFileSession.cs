@@ -261,7 +261,7 @@ internal sealed class ArtifactPhysicalFileSession : IDisposable
     private static FileStream OpenStableRead (AbsolutePath file)
     {
         return new FileStream(
-            file.Value,
+            FileSystemNativePathText.FromGuardedPath(file),
             FileMode.Open,
             FileAccess.Read,
             FileShare.Read | FileShare.Delete,
@@ -274,7 +274,7 @@ internal sealed class ArtifactPhysicalFileSession : IDisposable
         // Windows requires this new handle to share the write access already granted to the retained handle.
         // The retained handle itself continues to deny unrelated writers until final verification completes.
         return new FileStream(
-            file.Value,
+            FileSystemNativePathText.FromGuardedPath(file),
             FileMode.Open,
             FileAccess.Read,
             FileShare.Read | FileShare.Write | FileShare.Delete,

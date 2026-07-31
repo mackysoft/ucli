@@ -11,6 +11,8 @@ using MackySoft.Ucli.Unity.Execution.Phases;
 
 #nullable enable
 
+using MackySoft.Ucli.Contracts.Execution;
+
 namespace MackySoft.Ucli.Unity.Execution.Dispatch
 {
     /// <summary> Detects runtime result contradictions against declared operation assurance facts. </summary>
@@ -300,19 +302,19 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
                 ApplicationState: ResolveApplicationState(trace)));
         }
 
-        private static IpcApplicationState ResolveApplicationState (OperationPhaseTrace trace)
+        private static ExecutionApplicationState ResolveApplicationState (OperationPhaseTrace trace)
         {
             if (trace.Persisted || trace.Applied)
             {
-                return IpcApplicationState.Applied;
+                return ExecutionApplicationState.Applied;
             }
 
             if (trace.Changed)
             {
-                return IpcApplicationState.Indeterminate;
+                return ExecutionApplicationState.Indeterminate;
             }
 
-            return IpcApplicationState.NotApplied;
+            return ExecutionApplicationState.NotApplied;
         }
     }
 }

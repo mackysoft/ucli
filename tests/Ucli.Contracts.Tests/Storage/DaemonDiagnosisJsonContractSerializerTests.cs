@@ -1,6 +1,7 @@
 using System.Text.Json;
 using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Contracts.Tests.Storage;
 
@@ -49,9 +50,9 @@ public sealed class DaemonDiagnosisJsonContractSerializerTests
         Assert.Equal(DateTimeOffset.Parse("2026-03-09T00:00:02+00:00"), contract.ProcessStartedAtUtc);
         Assert.Equal("/repo/.ucli/unity.log", contract.UnityLogPath);
         Assert.Equal(DaemonDiagnosisStartupPhase.ScriptCompilation, contract.StartupPhase);
-        Assert.Equal(DaemonDiagnosisActionRequired.FixCompileErrors, contract.ActionRequired);
+        Assert.Equal(UnityEditorActionRequired.FixCompileErrors, contract.ActionRequired);
         Assert.NotNull(contract.PrimaryDiagnostic);
-        Assert.Equal(DaemonDiagnosisPrimaryDiagnosticKind.Compiler, contract.PrimaryDiagnostic!.Kind);
+        Assert.Equal(UnityEditorPrimaryDiagnosticKind.Compiler, contract.PrimaryDiagnostic!.Kind);
         Assert.Equal("CS1739", contract.PrimaryDiagnostic.Code);
         Assert.Equal("Assets/Foo.cs", contract.PrimaryDiagnostic.File);
         Assert.Equal(74, contract.PrimaryDiagnostic.Line);
@@ -143,9 +144,9 @@ public sealed class DaemonDiagnosisJsonContractSerializerTests
             ProcessStartedAtUtc: DateTimeOffset.Parse("2026-03-09T00:00:02+00:00"),
             UnityLogPath: "/repo/.ucli/unity.log",
             StartupPhase: DaemonDiagnosisStartupPhase.ScriptCompilation,
-            ActionRequired: DaemonDiagnosisActionRequired.FixCompileErrors,
+            ActionRequired: UnityEditorActionRequired.FixCompileErrors,
             PrimaryDiagnostic: new DaemonDiagnosisPrimaryDiagnosticJsonContract(
-                Kind: DaemonDiagnosisPrimaryDiagnosticKind.Compiler,
+                Kind: UnityEditorPrimaryDiagnosticKind.Compiler,
                 Code: "CS1739",
                 File: "Assets/Foo.cs",
                 Line: 74,

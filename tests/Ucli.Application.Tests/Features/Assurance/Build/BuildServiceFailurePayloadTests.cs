@@ -1,6 +1,7 @@
 using MackySoft.Ucli.Application.Features.Assurance.Build.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using static MackySoft.Ucli.Application.Tests.Features.Assurance.Build.BuildServiceTestSupport;
+using MackySoft.Ucli.Contracts.Projects;
 
 namespace MackySoft.Ucli.Application.Tests.Features.Assurance.Build;
 
@@ -22,7 +23,7 @@ public sealed class BuildServiceFailurePayloadTests
             ]);
         var input = CreateInputProbe();
         var errorPayload = new IpcBuildRunErrorPayload(
-            Project: new IpcProjectIdentity(ProjectContextTestFactory.UnityProjectRoot, DefaultProjectFingerprint, "6000.1.4f1"),
+            Project: new UnityProjectIdentity(ProjectContextTestFactory.UnityProjectRoot, DefaultProjectFingerprint, "6000.1.4f1"),
             LifecycleBefore: CreateLifecycleSnapshot(10),
             DirtyState: dirtyState,
             Input: input);
@@ -54,7 +55,7 @@ public sealed class BuildServiceFailurePayloadTests
             Coverage: IpcBuildDirtyStateCoverage.Partial,
             Items: []);
         var errorPayload = new IpcBuildRunErrorPayload(
-            Project: new IpcProjectIdentity(ProjectContextTestFactory.UnityProjectRoot, DefaultProjectFingerprint, "6000.1.4f1"),
+            Project: new UnityProjectIdentity(ProjectContextTestFactory.UnityProjectRoot, DefaultProjectFingerprint, "6000.1.4f1"),
             LifecycleBefore: CreateLifecycleSnapshot(10),
             DirtyState: dirtyState,
             Input: CreateInputProbe());
@@ -89,7 +90,7 @@ public sealed class BuildServiceFailurePayloadTests
                     new ProjectMutationAuditPath("Assets/Scenes/Main.unity")),
             ]);
         var errorPayload = new IpcBuildRunErrorPayload(
-            Project: new IpcProjectIdentity(ProjectContextTestFactory.UnityProjectRoot, DefaultProjectFingerprint, "6000.1.4f1"),
+            Project: new UnityProjectIdentity(ProjectContextTestFactory.UnityProjectRoot, DefaultProjectFingerprint, "6000.1.4f1"),
             LifecycleBefore: CreateLifecycleSnapshot(10),
             DirtyState: dirtyState,
             Input: CreateInputProbe());

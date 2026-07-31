@@ -26,6 +26,8 @@ using UnityEngine;
 
 #nullable enable
 
+using MackySoft.Ucli.Contracts.Editor;
+
 namespace MackySoft.Ucli.Unity.Ipc
 {
     /// <summary> Handles <c>build.run</c> IPC method requests. </summary>
@@ -303,7 +305,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 executionCancellationToken.ThrowIfCancellationRequested();
                 IpcBuildRunnerResultArtifact? runnerResult = null;
                 IpcBuildReportArtifact? normalizedReport = null;
-                IpcUnityEditorObservation lifecycleAfter;
+                UnityEditorObservation lifecycleAfter;
                 var mutationActivity = mutationLaneControl.BeginMutation();
                 try
                 {

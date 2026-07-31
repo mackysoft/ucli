@@ -20,13 +20,15 @@ using UnityEngine.TestTools;
 
 #nullable enable
 
+using MackySoft.Ucli.Contracts.Projects;
+
 namespace MackySoft.Ucli.Unity.Tests
 {
     public sealed class OperationVerdictTests
     {
         private const string OperationName = "ucli.tests.judging-query";
 
-        private static readonly IpcProjectIdentity ProjectIdentity = new IpcProjectIdentity(
+        private static readonly UnityProjectIdentity ProjectIdentity = new UnityProjectIdentity(
             ProjectPathTestValues.RepositoryUnityProject,
             ProjectFingerprintTestFactory.Create("operation-verdict"),
             "6000.1.4f1");

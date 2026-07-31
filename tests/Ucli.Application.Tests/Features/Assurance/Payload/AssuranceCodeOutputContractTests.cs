@@ -105,27 +105,32 @@ public sealed class AssuranceCodeOutputContractTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void ExecutionOutputs_WithUndefinedSessionKind_ThrowArgumentOutOfRangeException ()
+    public void ReadyExecutionOutput_WithUndefinedSessionKind_ThrowsArgumentOutOfRangeException ()
     {
-        var constructors = new Action[]
-        {
-            static () => new CompileExecutionOutput(null!, null!, null!, null!, null!, AssuranceRequestedExecutionMode.Auto, AssuranceResolvedExecutionMode.Oneshot, default, 0, null!),
-            static () => new ReadyExecutionOutput(null!, null!, null!, null!, null!, ReadyTarget.Execution, AssuranceRequestedExecutionMode.Auto, AssuranceResolvedExecutionMode.Oneshot, default, 0, null, null),
-        };
+        var exception = Assert.Throws<ArgumentOutOfRangeException>(
+            static () => new ReadyExecutionOutput(
+                null!,
+                null!,
+                null!,
+                null!,
+                null!,
+                ReadyTarget.Execution,
+                AssuranceRequestedExecutionMode.Auto,
+                AssuranceResolvedExecutionMode.Oneshot,
+                default,
+                0,
+                null,
+                null));
 
-        Assert.All(
-            constructors,
-            constructor => Assert.Equal("SessionKind", Assert.Throws<ArgumentOutOfRangeException>(constructor).ParamName));
+        Assert.Equal("SessionKind", exception.ParamName);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void ExecutionOutputs_WithUndefinedExecutionMode_ThrowArgumentOutOfRangeException ()
+    public void ReadyExecutionOutput_WithUndefinedExecutionMode_ThrowsArgumentOutOfRangeException ()
     {
         var constructors = new (Action Construct, string ParameterName)[]
         {
-            (static () => new CompileExecutionOutput(null!, null!, null!, null!, null!, default, AssuranceResolvedExecutionMode.Oneshot, AssuranceSessionKind.TransientProbe, 0, null!), "RequestedMode"),
-            (static () => new CompileExecutionOutput(null!, null!, null!, null!, null!, AssuranceRequestedExecutionMode.Auto, default, AssuranceSessionKind.TransientProbe, 0, null!), "ResolvedMode"),
             (static () => new ReadyExecutionOutput(null!, null!, null!, null!, null!, ReadyTarget.Execution, default, AssuranceResolvedExecutionMode.Oneshot, AssuranceSessionKind.TransientProbe, 0, null, null), "RequestedMode"),
             (static () => new ReadyExecutionOutput(null!, null!, null!, null!, null!, ReadyTarget.Execution, AssuranceRequestedExecutionMode.Auto, default, AssuranceSessionKind.TransientProbe, 0, null, null), "ResolvedMode"),
         };

@@ -5,6 +5,7 @@ using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Tests.Helpers.Indexing;
 using MackySoft.Ucli.Tests.Helpers.Indexing.Scenes;
 using MackySoft.Ucli.UnityIntegration.Indexing.Scenes;
+using MackySoft.Ucli.Contracts.Projects;
 
 namespace MackySoft.Ucli.Tests.Scenes;
 

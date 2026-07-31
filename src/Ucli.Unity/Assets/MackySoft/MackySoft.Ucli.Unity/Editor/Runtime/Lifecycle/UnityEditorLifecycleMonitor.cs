@@ -1,6 +1,5 @@
 using System;
-using MackySoft.Ucli.Contracts.Daemon;
-using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Editor;
 using UnityEditor.Compilation;
 
 namespace MackySoft.Ucli.Unity.Runtime
@@ -34,7 +33,7 @@ namespace MackySoft.Ucli.Unity.Runtime
         }
 
         /// <summary> Captures one Unity Editor observation for the specified daemon editor mode. </summary>
-        public UnityEditorObservation CaptureObservation (DaemonEditorMode editorMode)
+        public UnityEditorRuntimeObservation CaptureObservation (UnityEditorMode editorMode)
         {
             var isCompiling = isCompilingProvider();
             var isUpdating = isUpdatingProvider();
@@ -46,7 +45,7 @@ namespace MackySoft.Ucli.Unity.Runtime
                 isPlaying,
                 isPlayingOrWillChangePlaymode);
 
-            return new UnityEditorObservation(
+            return new UnityEditorRuntimeObservation(
                 state: new UnityEditorStateSnapshot(
                     editorMode: editorMode,
                     lifecycleState: lifecycleState,

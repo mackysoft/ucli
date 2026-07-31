@@ -1,6 +1,7 @@
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Tests.Helpers.Ipc;
 using static MackySoft.Ucli.Tests.Execution.Mode.IpcDaemonPingClientTestSupport;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Tests.Execution.Mode;
 
@@ -15,12 +16,12 @@ public sealed class IpcDaemonPingClientPayloadTests
                 request,
                 IpcResponseStatus.Ok,
                 Array.Empty<IpcError>(),
-                IpcUnityEditorObservationTestFactory.Create(
+                UnityEditorObservationTestFactory.Create(
                     serverVersion: "0.5.0",
-                    editorMode: DaemonEditorMode.Batchmode,
+                    editorMode: UnityEditorMode.Batchmode,
                     unityVersion: "2022.3.5f1",
                     projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint"),
-                    compileState: IpcCompileState.Ready)));
+                    compileState: UnityEditorCompileState.Ready)));
         var pingClient = new IpcDaemonPingClient(
             unityIpcClient,
             DaemonSessionAcquisitionCoordinatorTestFactory.Create(CreateResolvedSessionStore("resolved-token")),
@@ -33,10 +34,10 @@ public sealed class IpcDaemonPingClientPayloadTests
             cancellationToken: CancellationToken.None);
 
         Assert.Equal("0.5.0", result.ServerVersion);
-        Assert.Equal(DaemonEditorMode.Batchmode, result.State.EditorMode);
+        Assert.Equal(UnityEditorMode.Batchmode, result.State.EditorMode);
         Assert.Equal("2022.3.5f1", result.UnityVersion);
         Assert.Equal(ProjectFingerprintTestFactory.Create("fingerprint"), result.ProjectFingerprint);
-        Assert.Equal(IpcCompileState.Ready, result.State.CompileState);
+        Assert.Equal(UnityEditorCompileState.Ready, result.State.CompileState);
     }
 
     [Fact]

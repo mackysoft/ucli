@@ -4,6 +4,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.LaunchAttempts;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Features.Daemon.Lifecycle.LaunchAttempts;
 using MackySoft.Ucli.Infrastructure.Storage;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Tests.Daemon;
 
@@ -37,9 +38,9 @@ internal static class DaemonLaunchAttemptStoreTestSupport
             ProcessStartedAtUtc: updatedAtUtc,
             UnityLogPath: unityLogPath,
             StartupPhase: DaemonDiagnosisStartupPhase.EndpointRegistration,
-            ActionRequired: DaemonDiagnosisActionRequired.InspectUnityLog,
+            ActionRequired: UnityEditorActionRequired.InspectUnityLog,
             PrimaryDiagnostic: new DaemonPrimaryDiagnostic(
-                Kind: DaemonDiagnosisPrimaryDiagnosticKind.Compiler,
+                Kind: UnityEditorPrimaryDiagnosticKind.Compiler,
                 Code: "CS0103",
                 File: "Assets/Foo.cs",
                 Line: 12,
@@ -53,7 +54,7 @@ internal static class DaemonLaunchAttemptStoreTestSupport
             StartupBlockingReason: DaemonStartupBlockingReason.Unknown,
             RetryDisposition: DaemonStartupRetryDisposition.Unknown,
             ProcessAction: DaemonStartupProcessAction.None,
-            EditorMode: DaemonEditorMode.Gui,
+            EditorMode: UnityEditorMode.Gui,
             ProcessId: 1234,
             ProcessStartedAtUtc: updatedAtUtc,
             UnityLogPath: unityLogPath,

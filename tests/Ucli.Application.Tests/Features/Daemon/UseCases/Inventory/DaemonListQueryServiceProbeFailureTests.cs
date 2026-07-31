@@ -8,6 +8,7 @@ using MackySoft.Ucli.Application.Shared.Git;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 using static MackySoft.Ucli.Application.Tests.Daemon.DaemonListQueryServiceTestSupport;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Tests.Daemon;
 
@@ -382,7 +383,7 @@ public sealed class DaemonListQueryServiceProbeFailureTests
         return DaemonSessionTestFactory.Create(
             projectFingerprint: projectFingerprint,
             processId: processId,
-            editorMode: DaemonEditorMode.Gui,
+            editorMode: UnityEditorMode.Gui,
             editorInstanceId: Guid.NewGuid());
     }
 
@@ -397,12 +398,12 @@ public sealed class DaemonListQueryServiceProbeFailureTests
                 processStartedAtUtc: session.ProcessStartedAtUtc!.Value,
                 state: new UnityEditorStateSnapshot(
                     editorMode: session.EditorMode,
-                    lifecycleState: IpcEditorLifecycleState.Recovering,
-                    compileState: IpcCompileState.Ready,
-                    generations: new IpcUnityGenerationSnapshot(1, 2, 0, 0),
-                    playMode: new IpcPlayModeSnapshot(
-                        IpcPlayModeState.Stopped,
-                        IpcPlayModeTransition.None,
+                    lifecycleState: UnityEditorLifecycleState.Recovering,
+                    compileState: UnityEditorCompileState.Ready,
+                    generations: new UnityEditorGenerationSnapshot(1, 2, 0, 0),
+                    playMode: new UnityEditorPlayModeSnapshot(
+                        UnityEditorPlayModeState.Stopped,
+                        UnityEditorPlayModeTransition.None,
                         IsPlaying: false,
                         IsPlayingOrWillChangePlaymode: false)),
                 observedAtUtc: observedAtUtc,

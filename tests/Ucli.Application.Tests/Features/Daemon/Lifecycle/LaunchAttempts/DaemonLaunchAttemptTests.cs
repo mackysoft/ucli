@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.LaunchAttempts;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Tests.Daemon;
 
@@ -49,7 +50,7 @@ public sealed class DaemonLaunchAttemptTests
             },
             InvalidEnumField.EditorMode => CreateValidValues() with
             {
-                EditorMode = (DaemonEditorMode)int.MaxValue,
+                EditorMode = (UnityEditorMode)int.MaxValue,
             },
             _ => throw new ArgumentOutOfRangeException(nameof(field), field, null),
         };
@@ -180,7 +181,7 @@ public sealed class DaemonLaunchAttemptTests
             DaemonStartupBlockingReason.Unknown,
             DaemonStartupRetryDisposition.Unknown,
             DaemonStartupProcessAction.None,
-            DaemonEditorMode.Batchmode,
+            UnityEditorMode.Batchmode,
             1234,
             new DateTimeOffset(2026, 7, 14, 0, 0, 0, TimeSpan.Zero),
             null,
@@ -216,7 +217,7 @@ public sealed class DaemonLaunchAttemptTests
         DaemonStartupBlockingReason StartupBlockingReason,
         DaemonStartupRetryDisposition RetryDisposition,
         DaemonStartupProcessAction ProcessAction,
-        DaemonEditorMode? EditorMode,
+        UnityEditorMode? EditorMode,
         int? ProcessId,
         DateTimeOffset? ProcessStartedAtUtc,
         AbsolutePath? UnityLogPath,

@@ -4,6 +4,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.GuiEndpoint;
 
@@ -45,7 +46,7 @@ internal static class DaemonGuiRebootstrapUnavailableFailureFactory
             ProcessStartedAtUtc: processStartedAtUtc,
             UnityLogPath: null,
             StartupPhase: DaemonDiagnosisStartupPhase.EndpointRegistration,
-            ActionRequired: DaemonDiagnosisActionRequired.InspectUnityLog,
+            ActionRequired: UnityEditorActionRequired.InspectUnityLog,
             PrimaryDiagnostic: null);
         var persistenceDeadline = ExecutionDeadline.Start(
             DaemonTimeouts.SupplementalPersistenceTimeout,
@@ -75,7 +76,7 @@ internal static class DaemonGuiRebootstrapUnavailableFailureFactory
 
         var policyResolution = DaemonStartupBlockedProcessPolicyResolver.Resolve(
             onStartupBlocked,
-            DaemonEditorMode.Gui,
+            UnityEditorMode.Gui,
             DaemonSessionOwnerKind.User,
             canShutdownProcess: false,
             processId);
@@ -85,7 +86,7 @@ internal static class DaemonGuiRebootstrapUnavailableFailureFactory
             LaunchAttemptId: null,
             ProcessAction: policyResolution.ProcessActionWhenNotTerminated,
             RetryDisposition: DaemonStartupRetryDisposition.Unknown,
-            EditorMode: DaemonEditorMode.Gui,
+            EditorMode: UnityEditorMode.Gui,
             OwnerKind: DaemonSessionOwnerKind.User,
             CanShutdownProcess: false,
             ProcessId: processId,

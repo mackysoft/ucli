@@ -2,6 +2,7 @@ using System.Text.Json;
 using MackySoft.Ucli.Application.Features.Assurance.Verify.Vocabulary;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.Contracts.Execution;
 
 namespace MackySoft.Ucli.Application.Features.Assurance.Verify.Input;
 
@@ -293,7 +294,7 @@ internal static class VerifyFromInputReader
             return true;
         }
 
-        if (!IpcPayloadCodec.TryDeserializeStrict<IpcExecuteReadPostcondition>(
+        if (!IpcPayloadCodec.TryDeserializeStrict<ExecutionReadPostcondition>(
                 readPostcondition,
                 out var contract,
                 out _))

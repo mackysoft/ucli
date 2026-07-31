@@ -76,7 +76,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void Normalize_WhenProjectRefreshOpRequestIsValid_CompilesRefreshPostReadSourceStep ()
+        public void Normalize_WhenProjectSaveOpRequestIsValid_CompilesOperationPostReadSourceStep ()
         {
             var request = CreateExecuteRequest(
                 UcliCommandIds.Plan.Name,
@@ -88,7 +88,7 @@ namespace MackySoft.Ucli.Unity.Tests
                         new
                         {
                             kind = "op",
-                            op = UcliPrimitiveOperationNames.ProjectRefresh,
+                            op = UcliPrimitiveOperationNames.ProjectSave,
                             args = new
                             {
                             },
@@ -104,11 +104,11 @@ namespace MackySoft.Ucli.Unity.Tests
             var normalizedRequest = result.Request!;
             var (compiledStep, compiledOperations) = CompileSingleStep(normalizedRequest, 0);
             _ = new ExecuteRequestCompilerAssert(compiledStep, compiledOperations)
-                .HasOperationNames(UcliPrimitiveOperationNames.ProjectRefresh)
+                .HasOperationNames(UcliPrimitiveOperationNames.ProjectSave)
                 .HasPostReadSourceStep(
-                    IpcExecutePostReadSourceKind.Refresh,
+                    IpcExecutePostReadSourceKind.Operation,
                     null,
-                    true,
+                    false,
                     IpcExecuteExpectedPostState.Unavailable);
         }
 

@@ -22,20 +22,23 @@ using PackageManagerPackageInfo = UnityEditor.PackageManager.PackageInfo;
 
 #nullable enable
 
+using MackySoft.Ucli.Contracts.Editor;
+using MackySoft.Ucli.Contracts.Projects;
+
 namespace MackySoft.Ucli.Unity.Build
 {
     /// <summary> Performs BuildPipeline precondition checks and lifecycle capture for build execution. </summary>
     internal sealed class UnityBuildPreconditionProbe
     {
         private readonly IUnityEditorReadinessGate readinessGate;
-        private readonly IpcProjectIdentity projectIdentity;
+        private readonly UnityProjectIdentity projectIdentity;
         private readonly IServerVersionProvider serverVersionProvider;
         private readonly IUnityBuildTargetSupportProbe targetSupportProbe;
 
         /// <summary> Initializes a new instance of the <see cref="UnityBuildPreconditionProbe" /> class. </summary>
         public UnityBuildPreconditionProbe (
             IUnityEditorReadinessGate readinessGate,
-            IpcProjectIdentity projectIdentity,
+            UnityProjectIdentity projectIdentity,
             IServerVersionProvider serverVersionProvider,
             IUnityBuildTargetSupportProbe targetSupportProbe)
         {
@@ -172,7 +175,7 @@ namespace MackySoft.Ucli.Unity.Build
 
         /// <summary> Captures lifecycle state after BuildPipeline completion, failure, or cancellation. </summary>
         /// <returns> The lifecycle snapshot for <c>build.json.lifecycle.after</c>. </returns>
-        public IpcUnityEditorObservation CaptureAfterBuild ()
+        public UnityEditorObservation CaptureAfterBuild ()
         {
             return CreateObservation(readinessGate.CaptureObservation());
         }
@@ -309,8 +312,8 @@ namespace MackySoft.Ucli.Unity.Build
         }
 
         private static bool IsEditorModeAllowed (
-            DaemonEditorMode editorMode,
-            IReadOnlyList<DaemonEditorMode> allowedEditorModes)
+            UnityEditorMode editorMode,
+            IReadOnlyList<UnityEditorMode> allowedEditorModes)
         {
             for (var i = 0; i < allowedEditorModes.Count; i++)
             {
@@ -461,7 +464,7 @@ namespace MackySoft.Ucli.Unity.Build
                 BuildOptions: buildOptions.ToString());
         }
 
-        private IpcUnityEditorObservation CreateObservation (UnityEditorObservation snapshot)
+        private UnityEditorObservation CreateObservation (UnityEditorRuntimeObservation snapshot)
         {
             return UnityLifecycleResponseFactory.Create(
                 projectIdentity,

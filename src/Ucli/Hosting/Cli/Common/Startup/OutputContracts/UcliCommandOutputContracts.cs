@@ -20,7 +20,23 @@ internal static class UcliCommandOutputContracts
             command,
             successPayloadTypeInfo,
             errorPayloadTypeInfo,
-            createDefaultErrorPayload);
+            createDefaultErrorPayload,
+            hasOperationApplicationStateConstraints: false);
+    }
+
+    internal static UcliCommandOutputContract OperationExecution (
+        string command,
+        JsonTypeInfo successPayloadTypeInfo,
+        JsonTypeInfo errorPayloadTypeInfo,
+        Func<object> createDefaultErrorPayload)
+    {
+        ArgumentNullException.ThrowIfNull(successPayloadTypeInfo);
+        return Create(
+            command,
+            successPayloadTypeInfo,
+            errorPayloadTypeInfo,
+            createDefaultErrorPayload,
+            hasOperationApplicationStateConstraints: true);
     }
 
     internal static UcliCommandOutputContract ErrorOnly (string command)
@@ -29,7 +45,8 @@ internal static class UcliCommandOutputContracts
             command,
             successPayloadTypeInfo: null,
             EmptyPayloadTypeInfo,
-            EmptyPayload);
+            EmptyPayload,
+            hasOperationApplicationStateConstraints: false);
     }
 
     internal static object EmptyPayload ()
@@ -46,7 +63,8 @@ internal static class UcliCommandOutputContracts
         string command,
         JsonTypeInfo? successPayloadTypeInfo,
         JsonTypeInfo errorPayloadTypeInfo,
-        Func<object> createDefaultErrorPayload)
+        Func<object> createDefaultErrorPayload,
+        bool hasOperationApplicationStateConstraints)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(command);
         ArgumentNullException.ThrowIfNull(errorPayloadTypeInfo);
@@ -58,7 +76,8 @@ internal static class UcliCommandOutputContracts
             command,
             successPayloadTypeInfo,
             errorPayloadTypeInfo,
-            createDefaultErrorPayload);
+            createDefaultErrorPayload,
+            hasOperationApplicationStateConstraints);
     }
 
     private static void EnsureObjectContract (

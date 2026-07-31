@@ -1,6 +1,5 @@
 using System.Text.Json.Serialization;
 using MackySoft.Ucli.Contracts.Operations;
-
 using MackySoft.JsonSchema.Generation.Annotations;
 
 namespace MackySoft.Ucli.Contracts.Ipc;

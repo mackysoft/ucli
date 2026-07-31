@@ -12,6 +12,7 @@ using MackySoft.Ucli.Unity.Project;
 using MackySoft.Ucli.Unity.Runtime;
 using Microsoft.Extensions.DependencyInjection;
 using UnityEditor;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
@@ -231,6 +232,11 @@ namespace MackySoft.Ucli.Unity.Ipc
                 var projectRoot = UnityProjectPathResolver.ResolveProjectRootPath();
                 var storageRoot = UcliStoragePathResolver.ResolveStorageRoot(projectRoot);
                 var projectFingerprint = UnityProjectFingerprintCalculator.Create(storageRoot, projectRoot);
+                var lifecycleExecutionRecoveryLease =
+                    UnityLifecycleExecutionRecoveryLeaseReader.TryRead(
+                        storageRoot,
+                        projectFingerprint,
+                        DateTimeOffset.UtcNow);
                 var endpoint = UcliIpcEndpointResolver.ResolveDaemonEndpoint(storageRoot, projectFingerprint);
                 var endpointBinding = UnityIpcEndpointBinding.Create(endpoint);
                 var sessionOptions = UnityGuiBootstrapSessionOptions.Create(bootstrapArguments);
@@ -264,11 +270,12 @@ namespace MackySoft.Ucli.Unity.Ipc
                         new ExactSessionTokenValidator(preparedSession.Registration.SessionToken),
                         projectFingerprint,
                         daemonLogger,
-                        DaemonEditorMode.Gui)
+                        UnityEditorMode.Gui)
                     .AddUnityIpcDaemonHostServices(
                         daemonBootstrapContext,
                         daemonLogStream,
-                        state.EditorInstanceId);
+                        state.EditorInstanceId,
+                        lifecycleExecutionRecoveryLease);
 
                 serviceProvider = services.BuildServiceProvider();
                 server = serviceProvider.GetRequiredService<IUnityIpcServer>();
@@ -378,6 +385,9 @@ namespace MackySoft.Ucli.Unity.Ipc
                 }
 
                 state.ReleasePreparedSessionAfterSuccessfulPublication();
+                serviceProvider
+                    .GetRequiredService<UnityLifecycleExecutionRecoveryCoordinator>()
+                    .Start();
                 LogInfoBestEffort(
                     daemonLogger,
                     $"uCLI GUI daemon registered. storageRoot={storageRoot}, fingerprint={projectFingerprint}, endpoint={endpointBinding.Endpoint.Address}");
@@ -1672,7 +1682,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 var observedAtUtc = DateTimeOffset.UtcNow;
                 var snapshot = state.AvailabilityObservationSource
                     .CaptureAvailabilityObservation()
-                    .WithLifecycleState(IpcEditorLifecycleState.Recovering)
+                    .WithLifecycleState(UnityEditorLifecycleState.Recovering)
                     .WithObservedAtUtc(observedAtUtc);
                 var recoveryLease = new DaemonLifecycleRecoveryLease(
                     state.Registration.SessionGenerationId,

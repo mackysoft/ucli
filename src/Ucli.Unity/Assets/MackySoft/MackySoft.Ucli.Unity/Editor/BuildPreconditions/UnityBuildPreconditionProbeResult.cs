@@ -2,6 +2,9 @@ using MackySoft.Ucli.Contracts.Ipc;
 
 #nullable enable
 
+using MackySoft.Ucli.Contracts.Editor;
+using MackySoft.Ucli.Contracts.Projects;
+
 namespace MackySoft.Ucli.Unity.Build
 {
     /// <summary> Represents the result of a build precondition probe. </summary>
@@ -14,8 +17,8 @@ namespace MackySoft.Ucli.Unity.Build
     /// <param name="Error"> The precondition error when failed. </param>
     internal sealed record UnityBuildPreconditionProbeResult (
         bool IsSuccess,
-        IpcProjectIdentity Project,
-        IpcUnityEditorObservation LifecycleBefore,
+        UnityProjectIdentity Project,
+        UnityEditorObservation LifecycleBefore,
         IpcBuildDirtyState? DirtyState,
         IpcBuildInputProbe? InputProbe,
         UnityBuildResolvedInput? ResolvedInput,
@@ -23,8 +26,8 @@ namespace MackySoft.Ucli.Unity.Build
     {
         /// <summary> Creates a successful precondition result. </summary>
         public static UnityBuildPreconditionProbeResult Success (
-            IpcProjectIdentity project,
-            IpcUnityEditorObservation lifecycleBefore,
+            UnityProjectIdentity project,
+            UnityEditorObservation lifecycleBefore,
             IpcBuildDirtyState dirtyState,
             IpcBuildInputProbe inputProbe,
             UnityBuildResolvedInput resolvedInput)
@@ -41,8 +44,8 @@ namespace MackySoft.Ucli.Unity.Build
 
         /// <summary> Creates a failed precondition result. </summary>
         public static UnityBuildPreconditionProbeResult Failure (
-            IpcProjectIdentity project,
-            IpcUnityEditorObservation lifecycleBefore,
+            UnityProjectIdentity project,
+            UnityEditorObservation lifecycleBefore,
             IpcBuildDirtyState? dirtyState,
             IpcBuildInputProbe? inputProbe,
             IpcError error)

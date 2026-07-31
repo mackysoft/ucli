@@ -2,6 +2,8 @@ using System;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Infrastructure.Execution;
+using MackySoft.Ucli.Infrastructure.Execution.Lifecycle;
 using MackySoft.Ucli.Unity.Build;
 using MackySoft.Ucli.Unity.Execution;
 using MackySoft.Ucli.Unity.Index;
@@ -13,6 +15,8 @@ using MackySoft.Ucli.Unity.ScreenshotCapture.GameView.Resolution;
 using MackySoft.Ucli.Unity.ScreenshotCapture.SceneView;
 using MackySoft.Ucli.Unity.ScreenshotCapture.Staging;
 using Microsoft.Extensions.DependencyInjection;
+using MackySoft.Ucli.Contracts.Editor;
+using MackySoft.Ucli.Contracts.Projects;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
@@ -35,7 +39,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             ISessionTokenValidator sessionTokenValidator,
             ProjectFingerprint projectFingerprint,
             IDaemonLogger daemonLogger,
-            DaemonEditorMode editorMode)
+            UnityEditorMode editorMode)
         {
             if (services == null)
             {
@@ -78,6 +82,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             services.AddSingleton<IServerVersionProvider, AssemblyServerVersionProvider>();
             services.AddSingleton<IUnityEditorUpdateAwaiter, UnityEditorUpdateAwaiterAdapter>();
             services.AddSingleton<IUnityPlayModeController, UnityEditorPlayModeController>();
+            services.AddSingleton<IUnityAssetRefreshController, UnityAssetRefreshController>();
             services.AddSingleton<IUnityBuildTargetSupportProbe, UnityBuildTargetSupportProbe>();
             services.AddSingleton<IUnityBuildPipelineRunner, UnityBuildPipelineRunner>();
 #if UNITY_6000_0_OR_NEWER
@@ -93,35 +98,76 @@ namespace MackySoft.Ucli.Unity.Ipc
             services.AddSingleton<UnityProjectMutationAuditProbe>();
             services.AddSingleton<PlayEnterTransitionRunner>();
             services.AddSingleton<PlayExitTransitionRunner>();
+            services.AddSingleton<FileRefreshLifecycleExecutionCheckpointStore>();
+            services.AddSingleton<FileCompileLifecycleExecutionCheckpointStore>();
+            services.AddSingleton<FilePlayEnterLifecycleExecutionCheckpointStore>();
+            services.AddSingleton<FilePlayExitLifecycleExecutionCheckpointStore>();
             services.AddSingleton<IUnityIpcMethodHandler>(serviceProvider =>
             {
                 return new PingUnityIpcMethodHandler(
                     serviceProvider.GetRequiredService<IServerVersionProvider>(),
                     serviceProvider.GetRequiredService<IUnityEditorAvailabilityObservationSource>(),
-                    serviceProvider.GetRequiredService<IpcProjectIdentity>(),
+                    serviceProvider.GetRequiredService<UnityProjectIdentity>(),
                     serviceProvider.GetRequiredService<IDaemonLogger>());
             });
             services.AddSingleton<IUnityIpcMethodHandler, ExecuteUnityIpcMethodHandler>();
+            services.AddSingleton<
+                ILifecycleExecutionStartAdmissionPolicy,
+                RefreshLifecycleExecutionStartAdmissionPolicy>();
+            services.AddSingleton<IUnityIpcMethodHandler, LifecycleExecutionStartUnityIpcMethodHandler>();
+            services.AddSingleton<
+                IRefreshLifecycleExecutionProvider,
+                UnityEditorRefreshLifecycleExecutionProvider>();
+            services.AddSingleton<RefreshLifecycleExecutionHandler>();
+            services.AddSingleton<IRefreshLifecycleExecutionHandler>(serviceProvider =>
+                serviceProvider.GetRequiredService<RefreshLifecycleExecutionHandler>());
+            services.AddSingleton<RefreshUnityIpcMethodHandler>();
             services.AddSingleton<IUnityIpcMethodHandler>(serviceProvider =>
-            {
-                return new CompileUnityIpcMethodHandler(
-                    serviceProvider.GetRequiredService<IUnityEditorReadinessGate>(),
-                    serviceProvider.GetRequiredService<IpcProjectIdentity>(),
-                    serviceProvider.GetRequiredService<IServerVersionProvider>(),
-                    serviceProvider.GetRequiredService<IDaemonLogger>(),
-                    serviceProvider.GetRequiredService<IUnityMutationLaneControl>());
-            });
+                serviceProvider.GetRequiredService<RefreshUnityIpcMethodHandler>());
+            services.AddSingleton<ILifecycleExecutionRecoveryHandler>(serviceProvider =>
+                serviceProvider.GetRequiredService<RefreshLifecycleExecutionHandler>());
+            services.AddSingleton<
+                ICompileLifecycleExecutionProvider,
+                UnityEditorCompileLifecycleExecutionProvider>();
+            services.AddSingleton<CompileLifecycleExecutionHandler>();
+            services.AddSingleton<ICompileLifecycleExecutionHandler>(serviceProvider =>
+                serviceProvider.GetRequiredService<CompileLifecycleExecutionHandler>());
+            services.AddSingleton<CompileUnityIpcMethodHandler>();
+            services.AddSingleton<IUnityIpcMethodHandler>(serviceProvider =>
+                serviceProvider.GetRequiredService<CompileUnityIpcMethodHandler>());
+            services.AddSingleton<ILifecycleExecutionRecoveryHandler>(serviceProvider =>
+                serviceProvider.GetRequiredService<CompileLifecycleExecutionHandler>());
             services.AddSingleton<IUnityIpcMethodHandler, BuildRunUnityIpcMethodHandler>();
             services.AddSingleton<IUnityIpcMethodHandler>(serviceProvider =>
             {
                 return new PlayStatusUnityIpcMethodHandler(
                     serviceProvider.GetRequiredService<IServerVersionProvider>(),
                     serviceProvider.GetRequiredService<IUnityEditorAvailabilityObservationSource>(),
-                    serviceProvider.GetRequiredService<IpcProjectIdentity>(),
+                    serviceProvider.GetRequiredService<UnityProjectIdentity>(),
                     serviceProvider.GetRequiredService<IDaemonLogger>());
             });
-            services.AddSingleton<IUnityIpcMethodHandler, PlayEnterUnityIpcMethodHandler>();
-            services.AddSingleton<IUnityIpcMethodHandler, PlayExitUnityIpcMethodHandler>();
+            services.AddSingleton<
+                IPlayEnterLifecycleExecutionProvider,
+                UnityEditorPlayEnterLifecycleExecutionProvider>();
+            services.AddSingleton<PlayEnterLifecycleExecutionHandler>();
+            services.AddSingleton<IPlayEnterLifecycleExecutionHandler>(serviceProvider =>
+                serviceProvider.GetRequiredService<PlayEnterLifecycleExecutionHandler>());
+            services.AddSingleton<PlayEnterUnityIpcMethodHandler>();
+            services.AddSingleton<IUnityIpcMethodHandler>(serviceProvider =>
+                serviceProvider.GetRequiredService<PlayEnterUnityIpcMethodHandler>());
+            services.AddSingleton<ILifecycleExecutionRecoveryHandler>(serviceProvider =>
+                serviceProvider.GetRequiredService<PlayEnterLifecycleExecutionHandler>());
+            services.AddSingleton<
+                IPlayExitLifecycleExecutionProvider,
+                UnityEditorPlayExitLifecycleExecutionProvider>();
+            services.AddSingleton<PlayExitLifecycleExecutionHandler>();
+            services.AddSingleton<IPlayExitLifecycleExecutionHandler>(serviceProvider =>
+                serviceProvider.GetRequiredService<PlayExitLifecycleExecutionHandler>());
+            services.AddSingleton<PlayExitUnityIpcMethodHandler>();
+            services.AddSingleton<IUnityIpcMethodHandler>(serviceProvider =>
+                serviceProvider.GetRequiredService<PlayExitUnityIpcMethodHandler>());
+            services.AddSingleton<ILifecycleExecutionRecoveryHandler>(serviceProvider =>
+                serviceProvider.GetRequiredService<PlayExitLifecycleExecutionHandler>());
             services.AddSingleton<IUnityIpcMethodHandler, TestRunUnityIpcMethodHandler>();
             services.AddSingleton<IUnityIpcMethodHandler, OpsReadUnityIpcMethodHandler>();
             services.AddSingleton<IUnityIpcMethodHandler, IndexAssetsReadUnityIpcMethodHandler>();
@@ -139,7 +185,8 @@ namespace MackySoft.Ucli.Unity.Ipc
             this IServiceCollection services,
             UnityDaemonBootstrapContext bootstrapContext,
             IDaemonLogStream daemonLogStream,
-            Guid editorInstanceId)
+            Guid editorInstanceId,
+            DaemonLifecycleRecoveryLease recoveryLease = null)
         {
             if (services == null)
             {
@@ -163,13 +210,14 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             services.AddSingleton(bootstrapContext);
             services.AddSingleton<IDaemonLogStream>(daemonLogStream);
-            services.AddSingleton<IRecoverableIpcOperationStore>(serviceProvider =>
-                FileRecoverableIpcOperationStore.Create(
-                    serviceProvider.GetRequiredService<UnityHostProjectIdentity>(),
-                    editorInstanceId));
-            services.AddSingleton<IUnityIpcMethodDispatcher>(serviceProvider => CreateMethodDispatcher(
-                serviceProvider,
-                serviceProvider.GetRequiredService<IRecoverableIpcOperationStore>()));
+            AddLifecycleExecutionHostServices(
+                services,
+                bootstrapContext.SessionGenerationId,
+                editorInstanceId,
+                recoveryLease);
+            services.AddSingleton<ILifecycleExecutionHostLifetimeObserver>(
+                NoOpLifecycleExecutionHostLifetimeObserver.Instance);
+            services.AddSingleton<IUnityIpcMethodDispatcher>(CreateMethodDispatcher);
             services.AddSingleton<IUnityIpcRequestHandler, UnityIpcRequestHandler>();
             services.AddSingleton<UnityCompileMessageDedupeCache>();
             services.AddSingleton<UnityLogCollector>();
@@ -223,7 +271,9 @@ namespace MackySoft.Ucli.Unity.Ipc
         public static IServiceCollection AddUnityIpcOneshotHostServices (
             this IServiceCollection services,
             UnityIpcEndpointBinding endpointBinding,
-            OneshotProcessLifetimeWatchdog lifetimeWatchdog)
+            OneshotProcessLifetimeWatchdog lifetimeWatchdog,
+            Guid endpointRegistrationGenerationId,
+            Guid editorInstanceId)
         {
             if (services == null)
             {
@@ -240,14 +290,22 @@ namespace MackySoft.Ucli.Unity.Ipc
                 throw new ArgumentNullException(nameof(lifetimeWatchdog));
             }
 
+            AddLifecycleExecutionHostServices(
+                services,
+                endpointRegistrationGenerationId,
+                editorInstanceId,
+                recoveryLease: null);
             services.AddSingleton<IDaemonShutdownSignal, DaemonShutdownSignal>();
             services.AddSingleton<IUnityShutdownAdmissionCoordinator, UnityShutdownAdmissionCoordinator>();
-            services.AddSingleton<IUnityIpcMethodDispatcher>(serviceProvider => CreateMethodDispatcher(
-                serviceProvider,
-                recoverableOperationStore: null));
+            services.AddSingleton<IUnityIpcMethodDispatcher>(CreateMethodDispatcher);
             services.AddSingleton<IUnityIpcRequestHandler, UnityIpcRequestHandler>();
             services.AddSingleton(lifetimeWatchdog);
+            services.AddSingleton<ILifecycleExecutionHostLifetimeObserver>(
+                lifetimeWatchdog);
             services.AddSingleton<OneshotRequestCompletionSignal>();
+            services.AddSingleton<ILifecycleExecutionTerminalObserver>(
+                serviceProvider => serviceProvider
+                    .GetRequiredService<OneshotRequestCompletionSignal>());
             services.AddSingleton<IUnityIpcMethodHandler, ShutdownUnityIpcMethodHandler>();
             services.AddSingleton(CreateConnectionHandler);
             services.AddSingleton<IUnityIpcConnectionHandler, UnityOneshotConnectionHandler>();
@@ -307,7 +365,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 throw new ArgumentNullException(nameof(endpointBinding));
             }
 
-            services.AddUnityRuntimeServices(DaemonEditorMode.Gui);
+            services.AddUnityRuntimeServices(UnityEditorMode.Gui);
             services.AddSingleton<ISessionTokenValidator>(sessionTokenValidator);
             services.AddSingleton<IDaemonLogger>(daemonLogger);
             services.AddSingleton<IIpcRequestPhaseScopeFactory, IpcRequestPhaseScopeFactory>();
@@ -316,9 +374,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 bootstrapStarter: serviceProvider.GetRequiredService<IUnityGuiBootstrapStarter>(),
                 projectFingerprint: projectFingerprint,
                 daemonLogger: daemonLogger));
-            services.AddSingleton<IUnityIpcMethodDispatcher>(serviceProvider => CreateMethodDispatcher(
-                serviceProvider,
-                recoverableOperationStore: null));
+            services.AddSingleton<IUnityIpcMethodDispatcher>(CreateMethodDispatcher);
             services.AddSingleton<IUnityIpcRequestHandler, UnityIpcRequestHandler>();
             services.AddSingleton<IDaemonShutdownSignal, DaemonShutdownSignal>();
             services.AddSingleton<IUnityShutdownAdmissionCoordinator, UnityShutdownAdmissionCoordinator>();
@@ -346,21 +402,16 @@ namespace MackySoft.Ucli.Unity.Ipc
                 requestHandler: serviceProvider.GetRequiredService<IUnityIpcRequestHandler>(),
                 shutdownAdmissionCoordinator: serviceProvider.GetRequiredService<IUnityShutdownAdmissionCoordinator>(),
                 phaseScopeFactory: serviceProvider.GetRequiredService<IIpcRequestPhaseScopeFactory>(),
-                recoverableReplayAvailable: serviceProvider.GetService<IRecoverableIpcOperationStore>() != null,
                 initialFrameReadTimeout: UnityIpcConnectionHandler.DefaultInitialFrameReadTimeout,
                 responseFrameWriteTimeout: UnityIpcConnectionHandler.DefaultResponseFrameWriteTimeout);
         }
 
-        private static UnityIpcMethodDispatcher CreateMethodDispatcher (
-            IServiceProvider serviceProvider,
-            IRecoverableIpcOperationStore recoverableOperationStore)
+        private static UnityIpcMethodDispatcher CreateMethodDispatcher (IServiceProvider serviceProvider)
         {
             return new UnityIpcMethodDispatcher(
                 serviceProvider.GetServices<IUnityIpcMethodHandler>(),
                 serviceProvider.GetRequiredService<IUnityMainThreadRequestExecutor>(),
-                serviceProvider.GetRequiredService<IUnityControlPlaneRequestExecutor>(),
-                recoverableOperationStore,
-                serviceProvider.GetRequiredService<IDaemonLogger>());
+                serviceProvider.GetRequiredService<IUnityControlPlaneRequestExecutor>());
         }
 
         private static void AddTransportListeners (
@@ -377,6 +428,46 @@ namespace MackySoft.Ucli.Unity.Ipc
                 serviceProvider.GetRequiredService<UnityIpcEndpointBinding>(),
                 MaximumActiveTransportConnections,
                 ConnectionDrainTimeout));
+        }
+
+        private static void AddLifecycleExecutionHostServices (
+            IServiceCollection services,
+            Guid endpointRegistrationGenerationId,
+            Guid editorInstanceId,
+            DaemonLifecycleRecoveryLease recoveryLease)
+        {
+            if (endpointRegistrationGenerationId == Guid.Empty)
+            {
+                throw new ArgumentException(
+                    "Endpoint registration generation identifier must not be empty.",
+                    nameof(endpointRegistrationGenerationId));
+            }
+
+            if (editorInstanceId == Guid.Empty)
+            {
+                throw new ArgumentException(
+                    "Editor instance identifier must not be empty.",
+                    nameof(editorInstanceId));
+            }
+
+            services.AddSingleton(new UnityLifecycleExecutionHostContext(
+                ProcessLivenessProbe.CaptureCurrentProcess(),
+                editorInstanceId,
+                endpointRegistrationGenerationId,
+                recoveryLease));
+            services.AddSingleton<ILifecycleExecutionTerminalObserver>(
+                NoOpLifecycleExecutionTerminalObserver.Instance);
+            services.AddSingleton(serviceProvider =>
+            {
+                var project = serviceProvider.GetRequiredService<UnityHostProjectIdentity>();
+                return FileLifecycleExecutionStore.CreateForProject(
+                    project.ProjectPath,
+                    project.ProjectFingerprint);
+            });
+            services.AddSingleton<UnityLifecycleExecutionRecoveryCoordinator>();
+            services.AddSingleton<ILifecycleExecutionDeadlineScheduler>(
+                serviceProvider => serviceProvider
+                    .GetRequiredService<UnityLifecycleExecutionRecoveryCoordinator>());
         }
     }
 }

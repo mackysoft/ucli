@@ -6,6 +6,7 @@ using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Features.Assurance.Ready;
 
@@ -335,7 +336,7 @@ internal sealed class ReadyService : IReadyService
                 RequestFailureNormalizer.FromOperationError(firstError));
         }
 
-        if (!IpcPayloadCodec.TryDeserialize(response.Payload, out IpcUnityEditorObservation pingResponse, out var payloadError))
+        if (!IpcPayloadCodec.TryDeserialize(response.Payload, out UnityEditorObservation pingResponse, out var payloadError))
         {
             return ReadyLifecycleProbeResult.FailureResult(ApplicationFailure.InternalError(
                 $"Unity ping payload is invalid. {payloadError.Message}", UcliCoreErrorCodes.InternalError,

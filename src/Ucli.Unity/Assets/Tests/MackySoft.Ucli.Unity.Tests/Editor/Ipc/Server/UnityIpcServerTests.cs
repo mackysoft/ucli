@@ -26,6 +26,8 @@ using MackySoft.Ucli.Unity.Runtime;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
+using MackySoft.Ucli.Contracts.Editor;
+using MackySoft.Ucli.Contracts.Projects;
 
 namespace MackySoft.Ucli.Unity.Tests
 {
@@ -35,7 +37,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private const string CanonicalSessionToken = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
 
-        private static readonly IpcProjectIdentity ProjectIdentity = new IpcProjectIdentity(
+        private static readonly UnityProjectIdentity ProjectIdentity = new UnityProjectIdentity(
             ProjectPathTestValues.RepositoryUnityProject,
             ProjectFingerprintTestFactory.Create("unity-ipc-server"),
             "6000.1.4f1");
@@ -1013,23 +1015,23 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(response.Status, Is.EqualTo(IpcResponseStatus.Ok));
             Assert.That(response.Errors, Is.Empty);
-            var payload = response.Payload.Deserialize<IpcUnityEditorObservation>(SerializerOptions);
+            var payload = response.Payload.Deserialize<UnityEditorObservation>(SerializerOptions);
             Assert.That(payload, Is.Not.Null);
-            Assert.That(payload.State.EditorMode, Is.EqualTo(DaemonEditorMode.Batchmode));
+            Assert.That(payload.State.EditorMode, Is.EqualTo(UnityEditorMode.Batchmode));
             Assert.That(string.IsNullOrWhiteSpace(payload.UnityVersion), Is.False);
             Assert.That(string.IsNullOrWhiteSpace(payload.ServerVersion), Is.False);
             var expectedServerVersion = new AssemblyServerVersionProvider().GetVersion();
             Assert.That(payload.ServerVersion, Is.EqualTo(expectedServerVersion));
             Assert.That(Regex.IsMatch(payload.ServerVersion, "^[0-9]+\\.[0-9]+\\.[0-9]+(\\.[0-9]+)?$"), Is.True);
             Assert.That(
-                payload.State.CompileState is IpcCompileState.Ready or IpcCompileState.Compiling,
+                payload.State.CompileState is UnityEditorCompileState.Ready or UnityEditorCompileState.Compiling,
                 Is.True);
             Assert.That(TextVocabulary.IsDefined(payload.State.LifecycleState), Is.True);
             Assert.That(payload.State.Generations.CompileGeneration, Is.GreaterThanOrEqualTo(0));
             Assert.That(payload.State.Generations.DomainReloadGeneration, Is.GreaterThanOrEqualTo(0));
             Assert.That(
-                IpcEditorLifecycleSemantics.CanAcceptExecutionRequests(payload.State.LifecycleState),
-                Is.EqualTo(payload.State.LifecycleState == IpcEditorLifecycleState.Ready));
+                UnityEditorLifecycleSemantics.CanAcceptExecutionRequests(payload.State.LifecycleState),
+                Is.EqualTo(payload.State.LifecycleState == UnityEditorLifecycleState.Ready));
         });
 
         [UnityTest]
@@ -1432,7 +1434,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 requestHandler: requestHandler,
                 shutdownAdmissionCoordinator: shutdownAdmissionCoordinator,
                 phaseScopeFactory: new IpcRequestPhaseScopeFactory(),
-                recoverableReplayAvailable: false,
                 initialFrameReadTimeout: UnityIpcConnectionHandler.DefaultInitialFrameReadTimeout,
                 responseFrameWriteTimeout: UnityIpcConnectionHandler.DefaultResponseFrameWriteTimeout);
             return new UnityIpcServer(
@@ -1480,7 +1481,7 @@ namespace MackySoft.Ucli.Unity.Tests
                         NoOpDaemonLogger.Instance),
                     new UnityConsoleClearUnityIpcMethodHandler(
                         new StubUnityConsoleClearer(),
-                        new StubUnityEditorReadinessGate(DaemonEditorMode.Gui),
+                        new StubUnityEditorReadinessGate(UnityEditorMode.Gui),
                         NoOpDaemonLogger.Instance,
                         new ImmediateUnityMutationLaneControl()),
                     new ShutdownUnityIpcMethodHandler(
@@ -1488,9 +1489,7 @@ namespace MackySoft.Ucli.Unity.Tests
                         shutdownAdmissionCoordinator),
                 },
                 requestExecutor,
-                requestExecutor,
-                recoverableOperationStore: null,
-                daemonLogger: NoOpDaemonLogger.Instance);
+                requestExecutor);
             return new UnityIpcRequestHandler(
                 sessionTokenValidator,
                 methodDispatcher,

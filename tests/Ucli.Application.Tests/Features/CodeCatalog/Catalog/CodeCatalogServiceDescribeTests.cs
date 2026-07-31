@@ -4,6 +4,18 @@ namespace MackySoft.Ucli.Application.Tests.Features.CodeCatalog.Catalog;
 
 public sealed class CodeCatalogServiceDescribeTests
 {
+    public static TheoryData<UcliCode> LifecycleExecutionCodes =>
+        new()
+        {
+            LifecycleExecutionErrorCodes.DefinitionConflict,
+            LifecycleExecutionErrorCodes.ProjectMismatch,
+            LifecycleExecutionErrorCodes.HostMismatch,
+            LifecycleExecutionErrorCodes.GenerationMismatch,
+            LifecycleExecutionErrorCodes.DeadlineExceeded,
+            LifecycleExecutionErrorCodes.UnityExited,
+            LifecycleExecutionErrorCodes.TerminalPublicationFailed,
+        };
+
     private static readonly CodeCatalogKind[] KnownCodeKindMismatchCases =
     [
         CodeCatalogKind.Claim,
@@ -32,6 +44,25 @@ public sealed class CodeCatalogServiceDescribeTests
         Assert.Equal(IpcTransportErrorCodes.IpcTimeout, result.Descriptor!.Code);
         Assert.Equal(CodeCatalogKind.Error, result.Descriptor.Kind);
         Assert.Contains("errors[].code", result.Descriptor.AppearsIn);
+    }
+
+    [Theory]
+    [MemberData(nameof(LifecycleExecutionCodes))]
+    [Trait("Size", "Small")]
+    public void Describe_WithLifecycleExecutionCode_ReturnsKnownErrorDescriptor (
+        UcliCode code)
+    {
+        var service = CodeCatalogTestSupport.CreateService();
+
+        var result = service.Describe(
+            new CodeCatalogCodeReference(code, CodeCatalogKind.Error),
+            requireKnown: true);
+
+        Assert.True(result.IsSuccess);
+        Assert.True(result.Known);
+        Assert.Equal(code, result.Descriptor!.Code);
+        Assert.Equal(CodeCatalogKind.Error, result.Descriptor.Kind);
+        Assert.Equal("lifecycleExecution", result.Descriptor.Category);
     }
 
     [Fact]

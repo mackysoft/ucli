@@ -710,7 +710,6 @@ README examples show common operations only. The installed Unity plugin's operat
 | `ucli.scene.save` | mutation | `{ path }` | Save a loaded scene. |
 | `ucli.prefab.open` | command | `{ path }` | Open a prefab editing context. |
 | `ucli.prefab.save` | mutation | `{ path }` | Save the opened prefab context. |
-| `ucli.project.refresh` | command | `{}` | Refresh the Unity project and AssetDatabase. |
 | `ucli.project.save` | mutation | `{}` | Save project assets, project settings, and tracked open contexts. |
 
 Common operation groups include:
@@ -720,7 +719,7 @@ Common operation groups include:
 - `ucli.assets.*` / `ucli.asset.*` - find assets, inspect asset data, and update asset values.
 - `ucli.go.*` - create, describe, delete, and reparent GameObjects.
 - `ucli.comp.*` - inspect, ensure, and set components.
-- `ucli.project.*` - refresh and save project-scoped state.
+- `ucli.project.*` - save project-scoped state.
 
 ## 🧰 Command Guide
 

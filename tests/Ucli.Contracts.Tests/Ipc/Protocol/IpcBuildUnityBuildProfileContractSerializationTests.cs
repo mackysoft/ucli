@@ -7,6 +7,7 @@ using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
 using static MackySoft.Ucli.Contracts.Tests.Ipc.Common.IpcBuildContractSerializationTestSupport;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Contracts.Tests.Ipc.Common;
 
@@ -68,7 +69,7 @@ public sealed class IpcBuildUnityBuildProfileContractSerializationTests
                 OutputLayout: null,
                 BuildReportPath: "/tmp/ucli/build-report.json",
                 BuildLogPath: "/tmp/ucli/build.log",
-                AllowedEditorModes: [DaemonEditorMode.Batchmode],
+                AllowedEditorModes: [UnityEditorMode.Batchmode],
                 ProjectMutationMode: BuildProfileProjectMutationMode.Forbid,
                 RunnerKind: BuildRunnerKind.BuildPipeline,
                 ProfileDigest: Sha256Digest.Parse(new string('c', 64)),

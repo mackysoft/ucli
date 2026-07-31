@@ -5,6 +5,7 @@ using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Tests.Features.Assurance.Ready;
 
@@ -75,7 +76,7 @@ internal static class ReadyServiceTestSupport
     }
 
     public static UnityRequestExecutionResult CreateReadyPingSuccess (
-        IpcEditorLifecycleState lifecycleState = IpcEditorLifecycleState.Ready,
+        UnityEditorLifecycleState lifecycleState = UnityEditorLifecycleState.Ready,
         ProjectFingerprint? projectFingerprint = null)
     {
         return UnityRequestExecutionResult.Success(new UnityRequestResponse(
@@ -85,33 +86,33 @@ internal static class ReadyServiceTestSupport
             []));
     }
 
-    public static IpcUnityEditorObservation CreateReadyPingResponse (
-        IpcEditorLifecycleState lifecycleState = IpcEditorLifecycleState.Ready,
+    public static UnityEditorObservation CreateReadyPingResponse (
+        UnityEditorLifecycleState lifecycleState = UnityEditorLifecycleState.Ready,
         ProjectFingerprint? projectFingerprint = null)
     {
-        return new IpcUnityEditorObservation(
+        return new UnityEditorObservation(
             serverVersion: "0.5.0",
             unityVersion: "6000.1.4f1",
             projectFingerprint: projectFingerprint ?? ProjectContextTestFactory.ProjectFingerprint,
             state: new UnityEditorStateSnapshot(
-                editorMode: DaemonEditorMode.Batchmode,
+                editorMode: UnityEditorMode.Batchmode,
                 lifecycleState: lifecycleState,
-                compileState: lifecycleState == IpcEditorLifecycleState.CompileFailed
-                    ? IpcCompileState.Failed
-                    : IpcCompileState.Ready,
-                generations: new IpcUnityGenerationSnapshot(
+                compileState: lifecycleState == UnityEditorLifecycleState.CompileFailed
+                    ? UnityEditorCompileState.Failed
+                    : UnityEditorCompileState.Ready,
+                generations: new UnityEditorGenerationSnapshot(
                     CompileGeneration: 12,
                     DomainReloadGeneration: 7,
                     AssetRefreshGeneration: 4,
                     PlayModeGeneration: 2),
-                playMode: new IpcPlayModeSnapshot(
-                    State: IpcPlayModeState.Stopped,
-                    Transition: IpcPlayModeTransition.None,
+                playMode: new UnityEditorPlayModeSnapshot(
+                    State: UnityEditorPlayModeState.Stopped,
+                    Transition: UnityEditorPlayModeTransition.None,
                     IsPlaying: false,
                     IsPlayingOrWillChangePlaymode: false)),
             observedAtUtc: DateTimeOffset.Parse("2026-05-17T00:00:00Z"),
-            actionRequired: lifecycleState == IpcEditorLifecycleState.CompileFailed
-                ? DaemonDiagnosisActionRequired.FixCompileErrors
+            actionRequired: lifecycleState == UnityEditorLifecycleState.CompileFailed
+                ? UnityEditorActionRequired.FixCompileErrors
                 : null,
             primaryDiagnostic: null);
     }
@@ -123,7 +124,7 @@ internal static class ReadyServiceTestSupport
                 StartupStatus: DaemonStartupStatus.Blocked,
                 StartupBlockingReason: DaemonStartupBlockingReason.Compile,
                 LaunchAttemptId: null,
-                EditorMode: DaemonEditorMode.Batchmode,
+                EditorMode: UnityEditorMode.Batchmode,
                 OwnerKind: DaemonSessionOwnerKind.Cli,
                 CanShutdownProcess: true,
                 ProcessId: 1234,
@@ -144,9 +145,9 @@ internal static class ReadyServiceTestSupport
                 ProcessStartedAtUtc: DateTimeOffset.Parse("2026-03-12T04:05:01+00:00"),
                 UnityLogPath: "/repo/.ucli/local/logs/unity.log",
                 StartupPhase: DaemonDiagnosisStartupPhase.ScriptCompilation,
-                ActionRequired: DaemonDiagnosisActionRequired.FixCompileErrors,
+                ActionRequired: UnityEditorActionRequired.FixCompileErrors,
                 PrimaryDiagnostic: new DaemonPrimaryDiagnosticOutput(
-                    Kind: DaemonDiagnosisPrimaryDiagnosticKind.Compiler,
+                    Kind: UnityEditorPrimaryDiagnosticKind.Compiler,
                     Code: "CS0246",
                     File: "Assets/Scripts/Broken.cs",
                     Line: 10,

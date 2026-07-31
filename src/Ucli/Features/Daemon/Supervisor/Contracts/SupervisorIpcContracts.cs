@@ -4,6 +4,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Stop;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Features.Daemon.Supervisor.Contracts;
 
@@ -30,7 +31,7 @@ internal static class SupervisorIpcContracts
     internal sealed record EnsureRunningRequest (
         string UnityProjectRoot,
         ProjectFingerprint ProjectFingerprint,
-        DaemonEditorMode? EditorMode,
+        UnityEditorMode? EditorMode,
         [property: JsonRequired]
         DaemonStartupBlockedProcessPolicy OnStartupBlocked);
 
@@ -42,7 +43,7 @@ internal static class SupervisorIpcContracts
         [property: JsonRequired]
         DaemonStartStatus StartStatus,
         DaemonSessionJsonContract Session,
-        IpcUnityEditorObservation? LifecycleObservation);
+        UnityEditorObservation? LifecycleObservation);
 
     /// <summary> Represents the payload returned when ensure-running fails with optional startup metadata. </summary>
     /// <param name="DaemonStatus"> The daemon status after the failed start attempt. </param>
@@ -68,12 +69,12 @@ internal static class SupervisorIpcContracts
         DateTimeOffset? ProcessStartedAtUtc,
         string? UnityLogPath,
         DaemonDiagnosisStartupPhase? StartupPhase,
-        DaemonDiagnosisActionRequired? ActionRequired,
+        UnityEditorActionRequired? ActionRequired,
         EnsureRunningFailurePrimaryDiagnostic? PrimaryDiagnostic);
 
     /// <summary> Carries the optional structured cause embedded in a transported diagnosis. </summary>
     internal sealed record EnsureRunningFailurePrimaryDiagnostic (
-        DaemonDiagnosisPrimaryDiagnosticKind Kind,
+        UnityEditorPrimaryDiagnosticKind Kind,
         string? Code,
         string? File,
         int? Line,
@@ -89,7 +90,7 @@ internal static class SupervisorIpcContracts
         Guid? LaunchAttemptId,
         DaemonStartupProcessAction ProcessAction,
         DaemonStartupRetryDisposition RetryDisposition,
-        DaemonEditorMode? EditorMode,
+        UnityEditorMode? EditorMode,
         DaemonSessionOwnerKind? OwnerKind,
         bool? CanShutdownProcess,
         int? ProcessId,

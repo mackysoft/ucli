@@ -3,6 +3,7 @@ using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 using UnityEditor;
 using UnityEditor.Compilation;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Unity.Runtime
 {
@@ -17,9 +18,9 @@ namespace MackySoft.Ucli.Unity.Runtime
 
         private long playModeGeneration;
 
-        private IpcPlayModeTransition playModeTransition;
+        private UnityEditorPlayModeTransition playModeTransition;
 
-        private IpcPlayModeState? lastStablePlayModeState;
+        private UnityEditorPlayModeState? lastStablePlayModeState;
 
         private bool isDomainReloading;
 
@@ -31,7 +32,7 @@ namespace MackySoft.Ucli.Unity.Runtime
 
         private bool hasCompileFailure;
 
-        private IpcPrimaryDiagnostic primaryDiagnostic;
+        private UnityEditorPrimaryDiagnostic primaryDiagnostic;
 
         /// <summary> Initializes a new instance of the <see cref="UnityEditorLifecycleTelemetryState" /> class. </summary>
         public UnityEditorLifecycleTelemetryState ()
@@ -61,7 +62,7 @@ namespace MackySoft.Ucli.Unity.Runtime
             bool isStartupPending,
             bool isRecoveringPending = false,
             bool hasCompileFailure = false,
-            IpcPrimaryDiagnostic primaryDiagnostic = null,
+            UnityEditorPrimaryDiagnostic primaryDiagnostic = null,
             long? playModeGeneration = null,
             long? assetRefreshGeneration = null)
         {
@@ -69,7 +70,7 @@ namespace MackySoft.Ucli.Unity.Runtime
             this.domainReloadGeneration = domainReloadGeneration;
             this.assetRefreshGeneration = assetRefreshGeneration ?? UnityEditorSessionStateStore.RestoreAssetRefreshGeneration();
             this.playModeGeneration = playModeGeneration ?? UnityEditorSessionStateStore.RestorePlayModeGeneration();
-            playModeTransition = IpcPlayModeTransition.None;
+            playModeTransition = UnityEditorPlayModeTransition.None;
             lastStablePlayModeState = UnityEditorSessionStateStore.RestorePlayModeStableState();
             this.isDomainReloading = isDomainReloading;
             this.isShuttingDown = isShuttingDown;
@@ -95,14 +96,14 @@ namespace MackySoft.Ucli.Unity.Runtime
         public bool HasCompileFailure => hasCompileFailure;
 
         /// <summary> Gets the primary diagnostic for the latest lifecycle blocker when available. </summary>
-        public IpcPrimaryDiagnostic PrimaryDiagnostic => primaryDiagnostic;
+        public UnityEditorPrimaryDiagnostic PrimaryDiagnostic => primaryDiagnostic;
 
         /// <summary> Resolves the current lifecycle-state from the tracked editor activity flags. </summary>
         /// <param name="isPlaymodeActive"> Whether Play Mode is active or about to activate. </param>
         /// <param name="isCompiling"> Whether script compilation is in progress. </param>
         /// <param name="isUpdating"> Whether editor import/update work is in progress. </param>
         /// <returns> The lifecycle state. </returns>
-        public IpcEditorLifecycleState ResolveLifecycleState (
+        public UnityEditorLifecycleState ResolveLifecycleState (
             bool isPlaymodeActive,
             bool isCompiling,
             bool isUpdating)
@@ -122,18 +123,18 @@ namespace MackySoft.Ucli.Unity.Runtime
         /// <param name="isPlaying"> Whether Unity reports active Play Mode. </param>
         /// <param name="isPlayingOrWillChangePlaymode"> Whether Unity reports active or pending Play Mode. </param>
         /// <returns> The current Play Mode subsystem snapshot. </returns>
-        public IpcPlayModeSnapshot CapturePlayModeSnapshot (
+        public UnityEditorPlayModeSnapshot CapturePlayModeSnapshot (
             bool isPlaying,
             bool isPlayingOrWillChangePlaymode)
         {
             var transition = playModeTransition;
             var state = ResolvePlayModeState(transition, isPlaying, isPlayingOrWillChangePlaymode);
-            if (transition == IpcPlayModeTransition.None && IsStablePlayModeState(state))
+            if (transition == UnityEditorPlayModeTransition.None && IsStablePlayModeState(state))
             {
                 ObserveStablePlayModeState(state, advanceWhenUnknown: false);
             }
 
-            return new IpcPlayModeSnapshot(
+            return new UnityEditorPlayModeSnapshot(
                 State: state,
                 Transition: transition,
                 IsPlaying: isPlaying,
@@ -141,9 +142,9 @@ namespace MackySoft.Ucli.Unity.Runtime
         }
 
         /// <summary> Captures all lifecycle generations as one observation. </summary>
-        public IpcUnityGenerationSnapshot CaptureGenerationSnapshot ()
+        public UnityEditorGenerationSnapshot CaptureGenerationSnapshot ()
         {
-            return new IpcUnityGenerationSnapshot(
+            return new UnityEditorGenerationSnapshot(
                 CompileGeneration: CompileGeneration,
                 DomainReloadGeneration: DomainReloadGeneration,
                 AssetRefreshGeneration: AssetRefreshGeneration,
@@ -249,21 +250,21 @@ namespace MackySoft.Ucli.Unity.Runtime
             switch (stateChange)
             {
                 case PlayModeStateChange.ExitingEditMode:
-                    playModeTransition = IpcPlayModeTransition.Entering;
+                    playModeTransition = UnityEditorPlayModeTransition.Entering;
                     break;
                 case PlayModeStateChange.EnteredPlayMode:
-                    playModeTransition = IpcPlayModeTransition.None;
-                    ObserveStablePlayModeState(IpcPlayModeState.Playing, advanceWhenUnknown: true);
+                    playModeTransition = UnityEditorPlayModeTransition.None;
+                    ObserveStablePlayModeState(UnityEditorPlayModeState.Playing, advanceWhenUnknown: true);
                     break;
                 case PlayModeStateChange.ExitingPlayMode:
-                    playModeTransition = IpcPlayModeTransition.Exiting;
+                    playModeTransition = UnityEditorPlayModeTransition.Exiting;
                     break;
                 case PlayModeStateChange.EnteredEditMode:
-                    playModeTransition = IpcPlayModeTransition.None;
-                    ObserveStablePlayModeState(IpcPlayModeState.Stopped, advanceWhenUnknown: true);
+                    playModeTransition = UnityEditorPlayModeTransition.None;
+                    ObserveStablePlayModeState(UnityEditorPlayModeState.Stopped, advanceWhenUnknown: true);
                     break;
                 default:
-                    playModeTransition = IpcPlayModeTransition.None;
+                    playModeTransition = UnityEditorPlayModeTransition.None;
                     break;
             }
         }
@@ -282,49 +283,49 @@ namespace MackySoft.Ucli.Unity.Runtime
             isShuttingDown = value;
         }
 
-        private static IpcPlayModeState ResolvePlayModeState (
-            IpcPlayModeTransition transition,
+        private static UnityEditorPlayModeState ResolvePlayModeState (
+            UnityEditorPlayModeTransition transition,
             bool isPlaying,
             bool isPlayingOrWillChangePlaymode)
         {
             return transition switch
             {
-                IpcPlayModeTransition.Entering => IpcPlayModeState.Entering,
-                IpcPlayModeTransition.Exiting => IpcPlayModeState.Exiting,
-                IpcPlayModeTransition.None => ResolveStablePlayModeState(isPlaying, isPlayingOrWillChangePlaymode),
-                _ => IpcPlayModeState.Unknown,
+                UnityEditorPlayModeTransition.Entering => UnityEditorPlayModeState.Entering,
+                UnityEditorPlayModeTransition.Exiting => UnityEditorPlayModeState.Exiting,
+                UnityEditorPlayModeTransition.None => ResolveStablePlayModeState(isPlaying, isPlayingOrWillChangePlaymode),
+                _ => UnityEditorPlayModeState.Unknown,
             };
         }
 
-        private static IpcPlayModeState ResolveStablePlayModeState (
+        private static UnityEditorPlayModeState ResolveStablePlayModeState (
             bool isPlaying,
             bool isPlayingOrWillChangePlaymode)
         {
             if (isPlaying && isPlayingOrWillChangePlaymode)
             {
-                return IpcPlayModeState.Playing;
+                return UnityEditorPlayModeState.Playing;
             }
 
             if (!isPlaying && !isPlayingOrWillChangePlaymode)
             {
-                return IpcPlayModeState.Stopped;
+                return UnityEditorPlayModeState.Stopped;
             }
 
             if (!isPlaying && isPlayingOrWillChangePlaymode)
             {
-                return IpcPlayModeState.Entering;
+                return UnityEditorPlayModeState.Entering;
             }
 
-            return IpcPlayModeState.Unknown;
+            return UnityEditorPlayModeState.Unknown;
         }
 
-        private static bool IsStablePlayModeState (IpcPlayModeState state)
+        private static bool IsStablePlayModeState (UnityEditorPlayModeState state)
         {
-            return state is IpcPlayModeState.Playing or IpcPlayModeState.Stopped;
+            return state is UnityEditorPlayModeState.Playing or UnityEditorPlayModeState.Stopped;
         }
 
         private void ObserveStablePlayModeState (
-            IpcPlayModeState state,
+            UnityEditorPlayModeState state,
             bool advanceWhenUnknown)
         {
             if (!lastStablePlayModeState.HasValue)
@@ -345,7 +346,7 @@ namespace MackySoft.Ucli.Unity.Runtime
             }
         }
 
-        private void StoreStablePlayModeState (IpcPlayModeState state)
+        private void StoreStablePlayModeState (UnityEditorPlayModeState state)
         {
             lastStablePlayModeState = state;
             UnityEditorSessionStateStore.SetPlayModeStableState(state);
@@ -358,10 +359,10 @@ namespace MackySoft.Ucli.Unity.Runtime
                 UnityEditorSessionStateStore.AdvancePlayModeGeneration(Volatile.Read(ref playModeGeneration)));
         }
 
-        private static IpcPrimaryDiagnostic CreateCompilerDiagnostic (CompilerMessage message)
+        private static UnityEditorPrimaryDiagnostic CreateCompilerDiagnostic (CompilerMessage message)
         {
-            return new IpcPrimaryDiagnostic(
-                Kind: DaemonDiagnosisPrimaryDiagnosticKind.Compiler,
+            return new UnityEditorPrimaryDiagnostic(
+                Kind: UnityEditorPrimaryDiagnosticKind.Compiler,
                 Code: TryExtractCompilerCode(message.message),
                 File: string.IsNullOrWhiteSpace(message.file) ? null : message.file,
                 Line: message.line > 0 ? message.line : null,

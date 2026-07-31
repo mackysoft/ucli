@@ -2,6 +2,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.UseCases.Status;
 
@@ -25,16 +26,16 @@ namespace MackySoft.Ucli.Application.Features.Daemon.UseCases.Status;
 internal sealed record DaemonStatusExecutionOutput (
     DaemonStatusKind DaemonStatus,
     string? ServerVersion,
-    DaemonEditorMode? EditorMode,
-    IpcEditorLifecycleState? LifecycleState,
-    IpcEditorBlockingReason? BlockingReason,
-    IpcCompileState? CompileState,
-    IpcUnityGenerationSnapshot? Generations,
+    UnityEditorMode? EditorMode,
+    UnityEditorLifecycleState? LifecycleState,
+    UnityEditorBlockingReason? BlockingReason,
+    UnityEditorCompileState? CompileState,
+    UnityEditorGenerationSnapshot? Generations,
     bool CanAcceptExecutionRequests,
     DateTimeOffset? ObservedAtUtc,
-    DaemonDiagnosisActionRequired? ActionRequired,
+    UnityEditorActionRequired? ActionRequired,
     DaemonPrimaryDiagnosticOutput? PrimaryDiagnostic,
-    IpcPlayModeSnapshot? PlayMode,
+    UnityEditorPlayModeSnapshot? PlayMode,
     int TimeoutMilliseconds,
     DaemonSessionOutput? Session,
     DaemonDiagnosisOutput? Diagnosis,

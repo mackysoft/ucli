@@ -1,6 +1,8 @@
 using System;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Runtime;
+using MackySoft.Ucli.Contracts.Editor;
+using MackySoft.Ucli.Contracts.Projects;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
@@ -10,14 +12,14 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <summary> Creates one protocol observation from Unity Editor environment values. </summary>
         /// <param name="projectIdentity"> The project identity served by the Unity IPC host. </param>
         /// <param name="serverVersion"> The daemon server version string. </param>
-        /// <param name="observation"> The normalized Unity Editor observation. </param>
+        /// <param name="observation"> The local Unity Editor runtime snapshot. </param>
         /// <returns> The protocol observation. </returns>
         /// <exception cref="ArgumentNullException"> Thrown when <paramref name="projectIdentity" /> or <paramref name="observation" /> is <see langword="null" />. </exception>
         /// <exception cref="ArgumentException"> Thrown when a required project identity value or <paramref name="serverVersion" /> is empty or whitespace. </exception>
-        public static IpcUnityEditorObservation Create (
-            IpcProjectIdentity projectIdentity,
+        public static UnityEditorObservation Create (
+            UnityProjectIdentity projectIdentity,
             string serverVersion,
-            UnityEditorObservation observation)
+            UnityEditorRuntimeObservation observation)
         {
             if (projectIdentity == null)
             {
@@ -29,7 +31,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 throw new ArgumentNullException(nameof(observation));
             }
 
-            return new IpcUnityEditorObservation(
+            return new UnityEditorObservation(
                 serverVersion: serverVersion,
                 unityVersion: projectIdentity.UnityVersion,
                 projectFingerprint: projectIdentity.ProjectFingerprint,

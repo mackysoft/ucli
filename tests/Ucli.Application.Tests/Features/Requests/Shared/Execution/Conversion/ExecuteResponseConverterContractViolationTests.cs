@@ -1,6 +1,6 @@
 using MackySoft.Ucli.Contracts.Ipc;
-
 using static MackySoft.Ucli.Application.Tests.Requests.Shared.Execution.Conversion.ExecuteResponseConverterTestSupport;
+using MackySoft.Ucli.Contracts.Execution;
 
 namespace MackySoft.Ucli.Application.Tests.Requests.Shared.Execution.Conversion;
 
@@ -35,10 +35,10 @@ public sealed class ExecuteResponseConverterContractViolationTests
         Assert.False(result.IsSuccess);
         var violation = Assert.Single(result.ContractViolations);
         Assert.Equal(FirstResultPath, violation.InstancePath);
-        Assert.Equal(UcliPrimitiveOperationNames.ProjectRefresh, violation.Operation);
+        Assert.Equal(UcliPrimitiveOperationNames.ProjectSave, violation.Operation);
         Assert.Equal(ExpectedFact, violation.ExpectedFact);
         Assert.Equal(ObservedResult, violation.ObservedResult);
-        Assert.Equal(IpcApplicationState.Indeterminate, violation.ApplicationState);
+        Assert.Equal(ExecutionApplicationState.Indeterminate, violation.ApplicationState);
     }
 
     [Fact]
@@ -159,7 +159,7 @@ public sealed class ExecuteResponseConverterContractViolationTests
               "contractViolations": [
                 {
                   "instancePath": "/opResults/0",
-                  "operation": "ucli.project.refresh",
+                  "operation": "ucli.project.save",
                   "expectedFact": "assurance.mayDirty=false",
                   "observedResult": "opResults[].changed=true",
                   "applicationState": "maybeApplied"
@@ -173,7 +173,7 @@ public sealed class ExecuteResponseConverterContractViolationTests
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
-        Assert.Contains(nameof(IpcApplicationState), error.Message, StringComparison.Ordinal);
+        Assert.Contains(nameof(ExecutionApplicationState), error.Message, StringComparison.Ordinal);
         Assert.Contains("maybeApplied", error.Message, StringComparison.Ordinal);
     }
 
@@ -205,16 +205,16 @@ public sealed class ExecuteResponseConverterContractViolationTests
     {
         return new IpcExecuteContractViolation(
             InstancePath: FirstResultPath,
-            Operation: UcliPrimitiveOperationNames.ProjectRefresh,
+            Operation: UcliPrimitiveOperationNames.ProjectSave,
             ExpectedFact: ExpectedFact,
             ObservedResult: ObservedResult,
-            ApplicationState: IpcApplicationState.Indeterminate);
+            ApplicationState: ExecutionApplicationState.Indeterminate);
     }
 
     private static IpcExecuteOperationResult CreateOperationResult ()
     {
         return new IpcExecuteOperationResult(
-            Op: UcliPrimitiveOperationNames.ProjectRefresh,
+            Op: UcliPrimitiveOperationNames.ProjectSave,
             Phase: IpcExecuteOperationPhase.Call,
             Applied: true,
             Changed: true,

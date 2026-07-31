@@ -1,6 +1,7 @@
 using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.TestSupport;
 
@@ -18,7 +19,7 @@ internal static class DaemonDiagnosisTestFactory
         DateTimeOffset? processStartedAtUtc = null,
         AbsolutePath? unityLogPath = null,
         DaemonDiagnosisStartupPhase? startupPhase = null,
-        DaemonDiagnosisActionRequired? actionRequired = null,
+        UnityEditorActionRequired? actionRequired = null,
         DaemonPrimaryDiagnostic? primaryDiagnostic = null)
     {
         return new DaemonDiagnosis(

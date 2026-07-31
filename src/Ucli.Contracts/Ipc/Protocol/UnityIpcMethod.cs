@@ -17,6 +17,14 @@ public enum UnityIpcMethod
     [VocabularyText("test.run")]
     TestRun,
 
+    /// <summary> Persists and returns the start binding for one Lifecycle Execution. </summary>
+    [VocabularyText("lifecycle.start")]
+    LifecycleStart,
+
+    /// <summary> Refreshes the Unity project through a durable Lifecycle Execution. </summary>
+    [VocabularyText("project.refresh")]
+    Refresh,
+
     /// <summary> Assures Unity compilation. </summary>
     [VocabularyText("compile")]
     Compile,

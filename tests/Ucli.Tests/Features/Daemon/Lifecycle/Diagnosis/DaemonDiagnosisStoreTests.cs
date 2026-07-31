@@ -2,6 +2,8 @@ using System.Text.Json.Nodes;
 using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Infrastructure.Storage;
+using MackySoft.Ucli.Contracts.Editor;
+
 namespace MackySoft.Ucli.Tests.Daemon;
 
 using MackySoft.Tests;
@@ -121,9 +123,9 @@ public sealed class DaemonDiagnosisStoreTests
             ProcessStartedAtUtc: new DateTimeOffset(2026, 03, 09, 0, 0, 2, TimeSpan.Zero),
             UnityLogPath: null,
             StartupPhase: DaemonDiagnosisStartupPhase.ScriptCompilation,
-            ActionRequired: DaemonDiagnosisActionRequired.FixCompileErrors,
+            ActionRequired: UnityEditorActionRequired.FixCompileErrors,
             PrimaryDiagnostic: new DaemonDiagnosisPrimaryDiagnosticJsonContract(
-                Kind: DaemonDiagnosisPrimaryDiagnosticKind.Compiler,
+                Kind: UnityEditorPrimaryDiagnosticKind.Compiler,
                 Code: "CS1739",
                 File: "Assets/Foo.cs",
                 Line: 74,
@@ -167,9 +169,9 @@ public sealed class DaemonDiagnosisStoreTests
                 "fingerprint-roundtrip",
                 "unity.log")),
             StartupPhase: startupPhase,
-            ActionRequired: DaemonDiagnosisActionRequired.FixCompileErrors,
+            ActionRequired: UnityEditorActionRequired.FixCompileErrors,
             PrimaryDiagnostic: new DaemonPrimaryDiagnostic(
-                Kind: DaemonDiagnosisPrimaryDiagnosticKind.Compiler,
+                Kind: UnityEditorPrimaryDiagnosticKind.Compiler,
                 Code: "CS1739",
                 File: "Assets/Foo.cs",
                 Line: 74,

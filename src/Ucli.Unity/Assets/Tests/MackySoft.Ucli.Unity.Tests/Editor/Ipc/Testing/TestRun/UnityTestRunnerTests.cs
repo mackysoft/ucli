@@ -17,7 +17,6 @@ using NUnit.Framework.Interfaces;
 using UnityEditor;
 using UnityEditor.TestTools.TestRunner.Api;
 using UnityEngine;
-
 using UnityTestMode = UnityEditor.TestTools.TestRunner.Api.TestMode;
 using UnityTestStatus = UnityEditor.TestTools.TestRunner.Api.TestStatus;
 

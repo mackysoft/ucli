@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Compensation;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Tests.Daemon;
 
@@ -31,13 +32,13 @@ public sealed class DaemonGuiEditorAttachServicePreEndpointTests
         var result = await service.TryAttachExistingGuiEditorAsync(
             DaemonGuiEditorAttachServiceTestSupport.UnityProject,
             ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new ManualTimeProvider()),
-            DaemonEditorMode.Batchmode,
+            UnityEditorMode.Batchmode,
             DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);
 
         Assert.NotNull(result);
         Assert.False(result!.IsSuccess);
-        Assert.Equal(DaemonErrorCodes.DaemonEditorModeMismatch, result.Error!.Code);
+        Assert.Equal(DaemonErrorCodes.UnityEditorModeMismatch, result.Error!.Code);
     }
 
     [Fact]

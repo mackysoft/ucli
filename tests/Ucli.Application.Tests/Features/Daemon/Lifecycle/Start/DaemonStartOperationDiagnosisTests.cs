@@ -3,6 +3,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using static MackySoft.Ucli.Application.Tests.Daemon.DaemonStartOperationTestSupport;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Tests.Daemon;
 
@@ -21,7 +22,7 @@ public sealed class DaemonStartOperationDiagnosisTests
             daemonExistingSessionGateService: new RecordingDaemonExistingSessionGateService(),
             daemonLaunchService: new RecordingDaemonLaunchService
             {
-                NextResult = DaemonStartResult.Started(DaemonSessionTestFactory.Create(processId: 2024, projectFingerprint: context.ProjectFingerprint), IpcUnityEditorObservationTestFactory.Create()),
+                NextResult = DaemonStartResult.Started(DaemonSessionTestFactory.Create(processId: 2024, projectFingerprint: context.ProjectFingerprint), UnityEditorObservationTestFactory.Create()),
             },
             daemonDiagnosisStore: diagnosisStore);
 
@@ -48,7 +49,7 @@ public sealed class DaemonStartOperationDiagnosisTests
         var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResult.Missing());
         var launchService = new RecordingDaemonLaunchService
         {
-            NextResult = DaemonStartResult.Started(DaemonSessionTestFactory.Create(processId: 2025, projectFingerprint: context.ProjectFingerprint), IpcUnityEditorObservationTestFactory.Create()),
+            NextResult = DaemonStartResult.Started(DaemonSessionTestFactory.Create(processId: 2025, projectFingerprint: context.ProjectFingerprint), UnityEditorObservationTestFactory.Create()),
         };
         var operation = CreateOperation(
             daemonSessionStore: sessionStore,
@@ -130,7 +131,7 @@ public sealed class DaemonStartOperationDiagnosisTests
         var result = await operation.StartAsync(
             context,
             ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new ManualTimeProvider()),
-            editorMode: DaemonEditorMode.Gui,
+            editorMode: UnityEditorMode.Gui,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);
 
@@ -138,7 +139,7 @@ public sealed class DaemonStartOperationDiagnosisTests
         var error = Assert.IsType<ExecutionError>(result.Error);
         Assert.Equal(ExecutionErrorCodes.IpcTimeout, error.Code);
         Assert.Contains("diagnosis cleanup failed", error.Message, StringComparison.OrdinalIgnoreCase);
-        DaemonStartOperationInvocationAssert.FreshLaunchAttempted(launchService, context, expectedEditorMode: DaemonEditorMode.Gui);
+        DaemonStartOperationInvocationAssert.FreshLaunchAttempted(launchService, context, expectedEditorMode: UnityEditorMode.Gui);
     }
 
     [Fact]

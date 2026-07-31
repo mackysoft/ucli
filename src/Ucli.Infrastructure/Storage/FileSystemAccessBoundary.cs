@@ -37,7 +37,7 @@ internal static class FileSystemAccessBoundary
             return;
         }
 
-        Directory.CreateDirectory(directoryPath.Value);
+        DirectoryUtilities.Create(directoryPath);
         EnsureSecureDirectoryNode(directoryPath);
     }
 
@@ -68,7 +68,7 @@ internal static class FileSystemAccessBoundary
             throw new ArgumentNullException(nameof(socketPath));
         }
 
-        if (!File.Exists(socketPath.Value))
+        if (!FileUtilities.FileExists(socketPath))
         {
             throw new FileNotFoundException(
                 $"Secure socket target was not found: {socketPath}",
@@ -103,7 +103,7 @@ internal static class FileSystemAccessBoundary
         while (pendingDirectories.Count > 0)
         {
             var currentPath = pendingDirectories.Pop();
-            Directory.CreateDirectory(currentPath.Value);
+            DirectoryUtilities.Create(currentPath);
             EnsureSecureDirectoryNode(currentPath);
         }
     }
@@ -116,7 +116,7 @@ internal static class FileSystemAccessBoundary
 
     private static void EnsureDirectoryIsNotReparsePoint (AbsolutePath directoryPath)
     {
-        var attributes = File.GetAttributes(directoryPath.Value);
+        var attributes = DirectoryUtilities.GetAttributes(directoryPath);
         if ((attributes & FileAttributes.ReparsePoint) != 0)
         {
             throw new IOException($"Secure directory target must not be a reparse point: {directoryPath}");
@@ -175,7 +175,9 @@ internal static class FileSystemAccessBoundary
             InheritanceFlags.ContainerInherit | InheritanceFlags.ObjectInherit,
             PropagationFlags.None,
             AccessControlType.Allow));
-        new DirectoryInfo(directoryPath.Value).SetAccessControl(directorySecurity);
+        new DirectoryInfo(
+            FileSystemNativePathText.FromGuardedPath(directoryPath))
+            .SetAccessControl(directorySecurity);
     }
 
     [SupportedOSPlatform("windows")]
@@ -187,7 +189,9 @@ internal static class FileSystemAccessBoundary
             GetCurrentUserSid(),
             FileSystemRights.FullControl,
             AccessControlType.Allow));
-        new FileInfo(filePath.Value).SetAccessControl(fileSecurity);
+        new FileInfo(
+            FileSystemNativePathText.FromGuardedPath(filePath))
+            .SetAccessControl(fileSecurity);
     }
 
     [SupportedOSPlatform("windows")]

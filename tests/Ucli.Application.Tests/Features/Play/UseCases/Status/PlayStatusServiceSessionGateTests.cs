@@ -3,6 +3,7 @@ using MackySoft.Ucli.Application.Features.Play.UseCases.Status;
 using MackySoft.Ucli.Application.Shared.Context;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using static MackySoft.Ucli.Application.Tests.Play.PlayStatusServiceTestSupport;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Tests.Play;
 
@@ -47,7 +48,7 @@ public sealed class PlayStatusServiceSessionGateTests
     {
         var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResultTestFactory.Found(
             DaemonSessionTestFactory.Create(
-                editorMode: DaemonEditorMode.Batchmode,
+                editorMode: UnityEditorMode.Batchmode,
                 endpointAddress: PlaySessionEndpointAddress)));
         var requestExecutor = new UnexpectedUnityRequestExecutor();
         var service = CreateService(PlayProjectContext, sessionStore, requestExecutor);

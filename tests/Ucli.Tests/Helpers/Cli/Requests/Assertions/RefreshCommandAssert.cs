@@ -31,7 +31,8 @@ internal static class RefreshCommandAssert
 
     public static void SucceededWithPayload (
         CommandExecutionResult result,
-        string expectedRequestId)
+        string expectedRequestId,
+        string expectedExecutionId)
     {
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
@@ -39,6 +40,10 @@ internal static class RefreshCommandAssert
             outputJson.RootElement,
             UcliCommandNames.Refresh);
         CommandResultAssert.HasNoErrors(outputJson.RootElement);
+        var payloadElement = outputJson.RootElement.GetProperty("payload");
+        Assert.False(payloadElement.TryGetProperty("opResults", out _));
+        Assert.False(payloadElement.TryGetProperty("planToken", out _));
+        Assert.False(payloadElement.TryGetProperty("contractViolations", out _));
         JsonAssert.For(outputJson.RootElement)
             .HasString("message", "uCLI refresh completed.")
             .HasProperty("payload", payload => payload
@@ -47,13 +52,17 @@ internal static class RefreshCommandAssert
                     .HasString("projectPath", ProjectIdentityInfoTestFactory.DefaultProjectPath)
                     .HasString("projectFingerprint", ProjectIdentityInfoTestFactory.ProjectFingerprint.ToString())
                     .HasString("unityVersion", ProjectIdentityInfoTestFactory.UnityVersion))
-                .HasArrayLength("opResults", 1)
-                .HasProperty("opResults", 0, op => op
-                    .HasString("op", UcliPrimitiveOperationNames.ProjectRefresh)
-                    .HasString("phase", "call")
-                    .HasBoolean("applied", true)
-                    .HasBoolean("changed", true)
-                    .HasArrayLength("touched", 1)));
+                .HasProperty("lifecycleExecutionRef", reference => reference
+                    .HasString("lifecycle", "terminal")
+                    .HasString("kind", "refresh")
+                    .HasString("id", expectedExecutionId))
+                .HasProperty("refresh", refresh => refresh
+                    .HasInt32("domainReloadGenerationBefore", 1)
+                    .HasInt32("domainReloadGenerationAfter", 2))
+                .HasProperty("lifecycle", lifecycle => lifecycle
+                    .HasProperty("state", state => state
+                        .HasProperty("generations", generations =>
+                            generations.HasInt32("domainReloadGeneration", 2)))));
     }
 
     public static void InvalidArgumentReturnedWithoutRefreshExecution (
@@ -72,11 +81,7 @@ internal static class RefreshCommandAssert
 
     private static void HasRefreshFailurePayload (JsonElement rootElement)
     {
-        var payload = rootElement.GetProperty("payload");
-        var requestId = payload.GetProperty("requestId").GetString();
-
-        Assert.True(Guid.TryParseExact(requestId, "D", out _));
-        JsonAssert.For(payload)
-            .HasArrayLength("opResults", 0);
+        JsonAssert.For(rootElement.GetProperty("payload"))
+            .HasString("payloadKind", "empty");
     }
 }

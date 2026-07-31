@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
+using MackySoft.Ucli.Contracts.Execution.Lifecycle;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.UnityIntegration.Ipc.Clients;
 using MackySoft.Ucli.UnityIntegration.Ipc.Dispatch;
@@ -31,6 +32,8 @@ internal sealed class RecordingUnityIpcClient : IUnityIpcClient
 
     public UnityExecutionTarget Target { get; }
 
+    public bool OwnsReconnect { get; init; } = true;
+
     public IReadOnlyList<Invocation> Invocations => invocations;
 
     public IReadOnlyList<Invocation> StreamingInvocations => streamingInvocations;
@@ -60,6 +63,29 @@ internal sealed class RecordingUnityIpcClient : IUnityIpcClient
         invocations.Add(invocation);
         streamingInvocations.Add(invocation);
         return ValueTask.FromResult(DequeueResult());
+    }
+
+    public ValueTask<UnityIpcReconnectAttempt> TryReconnectAsync (
+        ResolvedUnityProjectContext unityProject,
+        UnityIpcDispatchRequest dispatchRequest,
+        LifecycleExecutionStartBinding requiredStart,
+        ExecutionDeadline deadline,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var invocation = new Invocation(
+            unityProject,
+            dispatchRequest,
+            deadline,
+            cancellationToken);
+        invocations.Add(invocation);
+        if (!OwnsReconnect)
+        {
+            return ValueTask.FromResult(UnityIpcReconnectAttempt.NotOwned());
+        }
+
+        return ValueTask.FromResult(
+            UnityIpcReconnectAttempt.Owned(DequeueResult()));
     }
 
     private UnityRequestExecutionResult DequeueResult ()

@@ -9,6 +9,8 @@ using MackySoft.Ucli.Contracts.Ipc;
 
 #nullable enable
 
+using MackySoft.Ucli.Contracts.Editor;
+
 namespace MackySoft.Ucli.Unity.Build
 {
     /// <summary> Represents one valid Unity-side execution shape for a validated build-run wire request. </summary>
@@ -42,7 +44,7 @@ namespace MackySoft.Ucli.Unity.Build
 
         public AbsolutePath BuildLogPath { get; }
 
-        public IReadOnlyList<DaemonEditorMode> AllowedEditorModes { get; }
+        public IReadOnlyList<UnityEditorMode> AllowedEditorModes { get; }
 
         public BuildProfileProjectMutationMode ProjectMutationMode { get; }
 

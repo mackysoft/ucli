@@ -9,6 +9,7 @@ using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc.Authorization;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Features.Daemon.Supervisor.Gateway;
 
@@ -48,7 +49,7 @@ internal sealed class SupervisorProjectGateway : IDaemonProjectLifecycleGateway
     public async ValueTask<DaemonStartResult> EnsureRunningAsync (
         ResolvedUnityProjectContext unityProject,
         TimeSpan timeout,
-        DaemonEditorMode? editorMode,
+        UnityEditorMode? editorMode,
         DaemonStartupBlockedProcessPolicy onStartupBlocked,
         IDaemonProjectLifecycleProgressObserver? progressObserver = null,
         ICommandProgressSink? supervisorProgressSink = null,

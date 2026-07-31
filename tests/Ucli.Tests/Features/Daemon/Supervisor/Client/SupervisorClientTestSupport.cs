@@ -4,6 +4,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Tests.Helpers.Daemon;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Tests.Supervisor;
 
@@ -46,7 +47,7 @@ internal static class SupervisorClientTestSupport
         return DaemonSessionTestFactory.Create(
             sessionToken: "session-token",
             issuedAtUtc: new DateTimeOffset(2026, 03, 11, 0, 0, 0, TimeSpan.Zero),
-            editorMode: DaemonEditorMode.Gui,
+            editorMode: UnityEditorMode.Gui,
             endpointTransportKind: IpcTransportKind.UnixDomainSocket,
             endpointAddress: "/tmp/ucli.sock",
             processId: 42,
@@ -54,14 +55,14 @@ internal static class SupervisorClientTestSupport
             ownerProcessId: Environment.ProcessId);
     }
 
-    public static IpcUnityEditorObservation CreateReadyLifecycleObservation ()
+    public static UnityEditorObservation CreateReadyLifecycleObservation ()
     {
-        return IpcUnityEditorObservationTestFactory.Create(IpcEditorLifecycleState.Ready);
+        return UnityEditorObservationTestFactory.Create(UnityEditorLifecycleState.Ready);
     }
 
-    public static IpcUnityEditorObservation CreateCompilingLifecycleObservation ()
+    public static UnityEditorObservation CreateCompilingLifecycleObservation ()
     {
-        return IpcUnityEditorObservationTestFactory.Create(IpcEditorLifecycleState.Compiling);
+        return UnityEditorObservationTestFactory.Create(UnityEditorLifecycleState.Compiling);
     }
 
     public static DaemonStartupObservation CreateStartupObservation ()
@@ -85,7 +86,7 @@ internal static class SupervisorClientTestSupport
         IpcRequestEnvelope request,
         DaemonStartStatus startStatus = DaemonStartStatus.Started,
         DaemonSession? session = null,
-        IpcUnityEditorObservation? lifecycleObservation = null)
+        UnityEditorObservation? lifecycleObservation = null)
     {
         return new IpcResponse(
             protocolVersion: request.ProtocolVersion,
@@ -148,7 +149,7 @@ internal static class SupervisorClientTestSupport
     {
         var progressPayload = DaemonStartProgressEntryTestFactory.CreateStartupObservation(
             timeoutMilliseconds: request.RequestDeadlineRemainingMilliseconds,
-            editorMode: DaemonEditorMode.Gui,
+            editorMode: UnityEditorMode.Gui,
             onStartupBlocked: onStartupBlocked,
             processId: 42,
             startedAtUtc: new DateTimeOffset(2026, 03, 11, 0, 0, 1, TimeSpan.Zero),
@@ -164,19 +165,19 @@ internal static class SupervisorClientTestSupport
 
     public static IpcStreamFrame CreateLifecycleSnapshotProgressFrame (
         IpcRequestEnvelope request,
-        IpcEditorLifecycleState lifecycleState = IpcEditorLifecycleState.Compiling,
-        IpcEditorBlockingReason? blockingReason = IpcEditorBlockingReason.Compile,
+        UnityEditorLifecycleState lifecycleState = UnityEditorLifecycleState.Compiling,
+        UnityEditorBlockingReason? blockingReason = UnityEditorBlockingReason.Compile,
         bool canAcceptExecutionRequests = false)
     {
         var progressPayload = new DaemonStartLifecycleSnapshotProgressEntry(
             DaemonStartProgressPayloadKind.LifecycleSnapshot,
             DefaultProjectFingerprint,
             request.RequestDeadlineRemainingMilliseconds,
-            DaemonEditorMode.Gui,
+            UnityEditorMode.Gui,
             DaemonStartupBlockedProcessPolicy.Auto,
             lifecycleState,
             blockingReason,
-            new IpcUnityGenerationSnapshot(0, 0, 0, 0),
+            new UnityEditorGenerationSnapshot(0, 0, 0, 0),
             canAcceptExecutionRequests);
 
         return CreateProgressFrame(

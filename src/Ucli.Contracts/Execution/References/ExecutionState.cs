@@ -7,7 +7,6 @@ namespace MackySoft.Ucli.Contracts;
 /// <summary> Carries the feature-owned state of one long-lived logical execution. </summary>
 [JsonConverter(typeof(UcliStringValueJsonConverterFactory))]
 [Length(1, int.MaxValue)]
-[Pattern(ReferenceTextContract.DotSeparatedLowerCamelPattern)]
 public sealed class ExecutionState : UcliStringValue
 {
     /// <summary> Initializes one feature-defined execution state. </summary>

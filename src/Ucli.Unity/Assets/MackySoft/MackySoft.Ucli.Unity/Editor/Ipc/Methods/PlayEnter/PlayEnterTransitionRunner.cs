@@ -5,11 +5,15 @@ using MackySoft.Text.Vocabularies;
 using TextVocabulary = MackySoft.Text.Vocabularies.Vocabulary;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Daemon;
-using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Unity.Runtime;
 
 #nullable enable annotations
+
+using MackySoft.Ucli.Contracts.Execution.Lifecycle;
+using MackySoft.Ucli.Contracts.Editor;
+using MackySoft.Ucli.Contracts.Projects;
+using MackySoft.Ucli.Contracts.Execution;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
@@ -20,7 +24,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private readonly IServerVersionProvider serverVersionProvider;
         private readonly IUnityEditorReadinessGate readinessGate;
-        private readonly IpcProjectIdentity projectIdentity;
+        private readonly UnityProjectIdentity projectIdentity;
         private readonly IUnityEditorUpdateAwaiter editorUpdateAwaiter;
         private readonly IUnityPlayModeController playModeController;
         private readonly IDaemonLogger daemonLogger;
@@ -36,7 +40,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         public PlayEnterTransitionRunner (
             IServerVersionProvider serverVersionProvider,
             IUnityEditorReadinessGate readinessGate,
-            IpcProjectIdentity projectIdentity,
+            UnityProjectIdentity projectIdentity,
             IUnityEditorUpdateAwaiter editorUpdateAwaiter,
             IUnityPlayModeController playModeController,
             IDaemonLogger daemonLogger,
@@ -52,32 +56,34 @@ namespace MackySoft.Ucli.Unity.Ipc
         }
 
         /// <summary> Executes Play Mode enter and waits until Unity reports an entered snapshot. </summary>
-        /// <param name="recoverableContext"> The persisted operation context used to resume after domain reload. </param>
-        /// <param name="cancellation"> The cancellation state propagated by the IPC request. </param>
+        /// <param name="executionContext"> The action-owned durable context used to resume after domain reload. </param>
+        /// <param name="executionDeadlineCancellationToken"> Cancellation controlled only by the immutable execution deadline. </param>
         /// <returns> The structured transition result. </returns>
         public async Task<PlayEnterTransitionExecutionResult> EnterAsync (
-            RecoverableIpcOperationContext? recoverableContext,
-            IpcRequestCancellation cancellation)
+            IPlayEnterLifecycleExecutionContext? executionContext,
+            CancellationToken executionDeadlineCancellationToken)
         {
-            cancellation.Token.ThrowIfCancellationRequested();
+            executionDeadlineCancellationToken.ThrowIfCancellationRequested();
             var before = CaptureObservation();
 
-            if (recoverableContext != null && recoverableContext.HasOperationRecord)
+            if (executionContext != null && executionContext.HasSideEffectAdmission)
             {
-                if (!TryReadPendingEnter(recoverableContext, out var pendingBefore, out var pendingReadErrorMessage))
+                if (!executionContext.TryReadBefore(
+                        out var pendingBefore,
+                        out var pendingReadErrorMessage))
                 {
                     return CreateFailure(
                         PlayModeErrorCodes.PlayModeStateUnknown,
                         $"Recoverable Play Mode enter state is invalid. {pendingReadErrorMessage}",
                         before,
                         before,
-                        IpcApplicationState.Unknown);
+                        ExecutionApplicationState.Unknown);
                 }
 
                 return await ResumePendingEnterAsync(
                     pendingBefore,
                     before,
-                    cancellation);
+                    executionDeadlineCancellationToken);
             }
 
             var preconditionFailure = ValidatePreconditions(before);
@@ -88,26 +94,49 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             if (IsEnteredSnapshot(before))
             {
-                return CreateSuccess(IpcPlayTransitionOutcome.AlreadyEntered, before, before);
+                return CreateSuccess(PlayLifecycleTransitionOutcome.AlreadyEntered, before, before);
             }
 
             // NOTE: This must be persisted before Unity is asked to enter Play Mode.
             // Entering Play Mode can trigger domain reload before this daemon can respond.
-            var persistFailure = await TryPersistPendingEnterAsync(
-                recoverableContext,
+            var ownsSideEffectAdmission = await TryPersistPendingEnterAsync(
+                executionContext,
                 before,
-                cancellation.Token);
-            if (persistFailure != null)
+                executionDeadlineCancellationToken);
+            if (!ownsSideEffectAdmission)
             {
-                return persistFailure;
+                if (!executionContext!.TryReadBefore(
+                        out var pendingBefore,
+                        out var pendingReadErrorMessage))
+                {
+                    return CreateFailure(
+                        PlayModeErrorCodes.PlayModeStateUnknown,
+                        $"Recoverable Play Mode enter state is invalid. {pendingReadErrorMessage}",
+                        before,
+                        before,
+                        ExecutionApplicationState.Unknown);
+                }
+
+                return await ResumePendingEnterAsync(
+                    pendingBefore,
+                    CaptureObservation(),
+                    executionDeadlineCancellationToken);
             }
 
             var mutationActivity = mutationLaneControl.BeginMutation();
             try
             {
+                executionDeadlineCancellationToken
+                    .ThrowIfCancellationRequested();
                 playModeController.EnterPlayMode();
             }
-            catch (Exception exception)
+            catch (OperationCanceledException) when (
+                executionDeadlineCancellationToken.IsCancellationRequested)
+            {
+                mutationActivity.Complete();
+                throw;
+            }
+            catch (UnityPlayModeTransitionException exception)
             {
                 CompleteOrTrackMutationSafety(mutationActivity, isKnownSafe: false);
                 return CreateFailure(
@@ -115,7 +144,12 @@ namespace MackySoft.Ucli.Unity.Ipc
                     $"Unity rejected Play Mode enter. {exception.Message}",
                     before,
                     before,
-                    IpcApplicationState.NotApplied);
+                    ExecutionApplicationState.NotApplied);
+            }
+            catch
+            {
+                CompleteOrTrackMutationSafety(mutationActivity, isKnownSafe: false);
+                throw;
             }
 
             try
@@ -124,7 +158,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     before,
                     before,
                     classifyInitialObservation: false,
-                    cancellation);
+                    executionDeadlineCancellationToken);
                 CompleteOrTrackMutationSafety(mutationActivity, IsKnownSafeTerminalResult(result));
                 return result;
             }
@@ -136,13 +170,13 @@ namespace MackySoft.Ucli.Unity.Ipc
         }
 
         private async Task<PlayEnterTransitionExecutionResult> ResumePendingEnterAsync (
-            IpcUnityEditorObservation pendingBefore,
-            IpcUnityEditorObservation current,
-            IpcRequestCancellation cancellation)
+            UnityEditorObservation pendingBefore,
+            UnityEditorObservation current,
+            CancellationToken executionDeadlineCancellationToken)
         {
             if (IsRecoverablePendingEnter(pendingBefore, current))
             {
-                return CreateSuccess(IpcPlayTransitionOutcome.Entered, pendingBefore, current);
+                return CreateSuccess(PlayLifecycleTransitionOutcome.Entered, pendingBefore, current);
             }
 
             var mutationActivity = mutationLaneControl.BeginMutation();
@@ -152,7 +186,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     pendingBefore,
                     current,
                     classifyInitialObservation: true,
-                    cancellation);
+                    executionDeadlineCancellationToken);
                 CompleteOrTrackMutationSafety(mutationActivity, IsKnownSafeTerminalResult(result));
                 return result;
             }
@@ -226,10 +260,10 @@ namespace MackySoft.Ucli.Unity.Ipc
         }
 
         private async Task<PlayEnterTransitionExecutionResult> ObserveRequestedEnterAsync (
-            IpcUnityEditorObservation before,
-            IpcUnityEditorObservation initialObserved,
+            UnityEditorObservation before,
+            UnityEditorObservation initialObserved,
             bool classifyInitialObservation,
-            IpcRequestCancellation cancellation)
+            CancellationToken executionDeadlineCancellationToken)
         {
             var observed = initialObserved;
             var stoppedObservations = 0;
@@ -246,13 +280,14 @@ namespace MackySoft.Ucli.Unity.Ipc
 
                 while (true)
                 {
-                    cancellation.Token.ThrowIfCancellationRequested();
-                    await editorUpdateAwaiter.WaitForNextUpdateAsync(cancellation.Token);
+                    executionDeadlineCancellationToken.ThrowIfCancellationRequested();
+                    await editorUpdateAwaiter.WaitForNextUpdateAsync(
+                        executionDeadlineCancellationToken);
                     observed = CaptureObservation();
 
                     if (IsEnteredSnapshot(observed) && HasGenerationChanged(before, observed))
                     {
-                        return CreateSuccess(IpcPlayTransitionOutcome.Entered, before, observed);
+                        return CreateSuccess(PlayLifecycleTransitionOutcome.Entered, before, observed);
                     }
 
                     var observedFailure = ClassifyObservedFailure(before, observed, ref stoppedObservations);
@@ -263,83 +298,37 @@ namespace MackySoft.Ucli.Unity.Ipc
                 }
             }
             catch (OperationCanceledException) when (
-                cancellation.Reason == IpcRequestCancellationReason.ExecutionDeadline)
+                executionDeadlineCancellationToken.IsCancellationRequested)
             {
                 return CreateTimeout(before, observed);
             }
         }
 
-        private bool TryReadPendingEnter (
-            RecoverableIpcOperationContext? recoverableContext,
-            out IpcUnityEditorObservation before,
-            out string errorMessage)
-        {
-            before = null;
-            if (recoverableContext == null)
-            {
-                errorMessage = null;
-                return false;
-            }
-
-            if (!recoverableContext.TryReadPendingPayload<PlayEnterRecoveryPayload>(out var recoveryPayload, out var pendingPayloadErrorMessage))
-            {
-                errorMessage = string.IsNullOrWhiteSpace(pendingPayloadErrorMessage)
-                    ? "Pending Play Mode enter payload is missing."
-                    : pendingPayloadErrorMessage;
-                if (!string.IsNullOrWhiteSpace(pendingPayloadErrorMessage))
-                {
-                    daemonLogger.Warning(
-                        DaemonLogCategories.Lifecycle,
-                        $"Play Mode enter pending transition read failed. {pendingPayloadErrorMessage}");
-                }
-
-                return false;
-            }
-
-            before = recoveryPayload.Before;
-            if (before == null)
-            {
-                errorMessage = "Pending Play Mode enter before snapshot is missing.";
-                return false;
-            }
-
-            errorMessage = null;
-            return true;
-        }
-
-        private async Task<PlayEnterTransitionExecutionResult> TryPersistPendingEnterAsync (
-            RecoverableIpcOperationContext? recoverableContext,
-            IpcUnityEditorObservation before,
+        private static async Task<bool> TryPersistPendingEnterAsync (
+            IPlayEnterLifecycleExecutionContext? executionContext,
+            UnityEditorObservation before,
             CancellationToken cancellationToken)
         {
-            if (recoverableContext == null)
+            if (executionContext == null)
             {
-                return null;
+                return true;
             }
 
-            var result = await recoverableContext.MarkPendingAsync(
-                new PlayEnterRecoveryPayload(before),
+            return await executionContext.TryAdmitSideEffectAsync(
+                before,
                 cancellationToken);
-            return result.IsSuccess
-                ? null
-                : CreateFailure(
-                    PlayModeErrorCodes.PlayModeEnterRejected,
-                    $"Unity Play Mode enter could not persist transition recovery state. {result.ErrorMessage}",
-                    before,
-                    before,
-                    IpcApplicationState.NotApplied);
         }
 
-        private PlayEnterTransitionExecutionResult ValidatePreconditions (IpcUnityEditorObservation before)
+        private PlayEnterTransitionExecutionResult ValidatePreconditions (UnityEditorObservation before)
         {
-            if (before.State.EditorMode != DaemonEditorMode.Gui)
+            if (before.State.EditorMode != UnityEditorMode.Gui)
             {
                 return CreateFailure(
                     PlayModeErrorCodes.PlayModeRequiresGuiEditor,
                     "Play Mode enter requires a GUI Editor session.",
                     before,
                     before,
-                    IpcApplicationState.NotApplied);
+                    ExecutionApplicationState.NotApplied);
             }
 
             if (before.State.PlayMode == null || IsUnknownPlayMode(before))
@@ -349,7 +338,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     "Unity Play Mode state is unknown before entering Play Mode.",
                     before,
                     before,
-                    IpcApplicationState.Unknown);
+                    ExecutionApplicationState.Unknown);
             }
 
             if (IsPlayModeChanging(before))
@@ -359,7 +348,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     "Unity Play Mode is already changing.",
                     before,
                     before,
-                    IpcApplicationState.NotApplied);
+                    ExecutionApplicationState.NotApplied);
             }
 
             if (IsEnteredSnapshot(before))
@@ -374,15 +363,15 @@ namespace MackySoft.Ucli.Unity.Ipc
                     $"Unity Play Mode enter is blocked by lifecycleState={TextVocabulary.GetText(before.State.LifecycleState)}.",
                     before,
                     before,
-                    IpcApplicationState.NotApplied);
+                    ExecutionApplicationState.NotApplied);
             }
 
             return null;
         }
 
         private PlayEnterTransitionExecutionResult ClassifyObservedFailure (
-            IpcUnityEditorObservation before,
-            IpcUnityEditorObservation observed,
+            UnityEditorObservation before,
+            UnityEditorObservation observed,
             ref int stoppedObservations)
         {
             if (IsEnterTransitionLifecycle(observed.State.LifecycleState))
@@ -398,7 +387,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     "Unity Play Mode state became unknown while entering Play Mode.",
                     before,
                     observed,
-                    IpcApplicationState.Unknown);
+                    ExecutionApplicationState.Unknown);
             }
 
             TryReadPlayModeSnapshot(
@@ -406,22 +395,22 @@ namespace MackySoft.Ucli.Unity.Ipc
                 out _,
                 out var observedPlayModeState,
                 out var observedPlayModeTransition);
-            if (observedPlayModeState == IpcPlayModeState.Entering
-                || observedPlayModeTransition == IpcPlayModeTransition.Entering)
+            if (observedPlayModeState == UnityEditorPlayModeState.Entering
+                || observedPlayModeTransition == UnityEditorPlayModeTransition.Entering)
             {
                 stoppedObservations = 0;
                 return null;
             }
 
-            if (observedPlayModeState == IpcPlayModeState.Exiting
-                || observedPlayModeTransition == IpcPlayModeTransition.Exiting)
+            if (observedPlayModeState == UnityEditorPlayModeState.Exiting
+                || observedPlayModeTransition == UnityEditorPlayModeTransition.Exiting)
             {
                 return CreateFailure(
                     PlayModeErrorCodes.PlayModeAlreadyChanging,
                     "Unity Play Mode started exiting while enter was requested.",
                     before,
                     observed,
-                    IpcApplicationState.Unknown);
+                    ExecutionApplicationState.Unknown);
             }
 
             if (!IsReadyOrPlayModeLifecycle(observed))
@@ -431,7 +420,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     $"Unity Play Mode enter was blocked by lifecycleState={TextVocabulary.GetText(observed.State.LifecycleState)}.",
                     before,
                     observed,
-                    IpcApplicationState.Unknown);
+                    ExecutionApplicationState.Unknown);
             }
 
             if (IsReadyStoppedSnapshot(observed))
@@ -444,7 +433,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                         "Unity did not accept the Play Mode enter request.",
                         before,
                         observed,
-                        IpcApplicationState.NotApplied);
+                        ExecutionApplicationState.NotApplied);
                 }
             }
             else
@@ -455,7 +444,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             return null;
         }
 
-        private IpcUnityEditorObservation CaptureObservation ()
+        internal UnityEditorObservation CaptureObservation ()
         {
             return UnityLifecycleResponseFactory.Create(
                 projectIdentity,
@@ -464,13 +453,14 @@ namespace MackySoft.Ucli.Unity.Ipc
         }
 
         private static PlayEnterTransitionExecutionResult CreateSuccess (
-            IpcPlayTransitionOutcome result,
-            IpcUnityEditorObservation before,
-            IpcUnityEditorObservation after)
+            PlayLifecycleTransitionOutcome result,
+            UnityEditorObservation before,
+            UnityEditorObservation after)
         {
-            return PlayEnterTransitionExecutionResult.Success(new IpcPlayTransitionResponse(
-                new IpcPlayTransitionResult(
-                    Transition: IpcPlayTransitionCommand.Enter,
+            return PlayEnterTransitionExecutionResult.Success(
+                new PlayEnterTransitionExecutionResponse(
+                    new PlayLifecycleTransitionResult(
+                    Transition: PlayLifecycleTransitionCommand.Enter,
                     Result: result,
                     Before: before,
                     After: after,
@@ -481,90 +471,91 @@ namespace MackySoft.Ucli.Unity.Ipc
         private static PlayEnterTransitionExecutionResult CreateFailure (
             UcliCode code,
             string message,
-            IpcUnityEditorObservation before,
-            IpcUnityEditorObservation observed,
-            IpcApplicationState applicationState)
+            UnityEditorObservation before,
+            UnityEditorObservation observed,
+            ExecutionApplicationState applicationState)
         {
-            var response = new IpcPlayTransitionResponse(
-                new IpcPlayTransitionResult(
-                    Transition: IpcPlayTransitionCommand.Enter,
-                    Result: IpcPlayTransitionOutcome.Blocked,
+            var response = new PlayEnterTransitionExecutionResponse(
+                new PlayLifecycleTransitionResult(
+                    Transition: PlayLifecycleTransitionCommand.Enter,
+                    Result: PlayLifecycleTransitionOutcome.Blocked,
                     Before: before,
                     After: null,
                     Observed: observed,
                     ApplicationState: applicationState));
-            return PlayEnterTransitionExecutionResult.Failure(response, new IpcError(code, message, null));
+            return PlayEnterTransitionExecutionResult.Failure(
+                response,
+                new PlayTransitionExecutionError(code, message));
         }
 
         private static PlayEnterTransitionExecutionResult CreateTimeout (
-            IpcUnityEditorObservation before,
-            IpcUnityEditorObservation observed)
+            UnityEditorObservation before,
+            UnityEditorObservation observed)
         {
-            var response = new IpcPlayTransitionResponse(
-                new IpcPlayTransitionResult(
-                    Transition: IpcPlayTransitionCommand.Enter,
-                    Result: IpcPlayTransitionOutcome.Timeout,
+            var response = new PlayEnterTransitionExecutionResponse(
+                new PlayLifecycleTransitionResult(
+                    Transition: PlayLifecycleTransitionCommand.Enter,
+                    Result: PlayLifecycleTransitionOutcome.Timeout,
                     Before: before,
                     After: null,
                     Observed: observed,
-                    ApplicationState: IpcApplicationState.Indeterminate));
+                    ApplicationState: ExecutionApplicationState.Indeterminate));
             return PlayEnterTransitionExecutionResult.Failure(
                 response,
-                new IpcError(
+                new PlayTransitionExecutionError(
                     PlayModeErrorCodes.PlayModeTransitionTimeout,
-                    "Unity Play Mode enter reached its request deadline.",
-                    null));
+                    "Unity Play Mode enter reached its execution deadline."));
         }
 
-        private static bool IsEnteredSnapshot (IpcUnityEditorObservation snapshot)
+        private static bool IsEnteredSnapshot (UnityEditorObservation snapshot)
         {
             return TryReadPlayModeSnapshot(
                     snapshot,
                     out var playMode,
                     out var playModeState,
                     out var playModeTransition)
-                && snapshot.State.LifecycleState == IpcEditorLifecycleState.PlayMode
-                && playModeState == IpcPlayModeState.Playing
-                && playModeTransition == IpcPlayModeTransition.None
+                && snapshot.State.LifecycleState == UnityEditorLifecycleState.PlayMode
+                && playModeState == UnityEditorPlayModeState.Playing
+                && playModeTransition == UnityEditorPlayModeTransition.None
                 && playMode.IsPlaying;
         }
 
         private static bool HasGenerationChanged (
-            IpcUnityEditorObservation before,
-            IpcUnityEditorObservation after)
+            UnityEditorObservation before,
+            UnityEditorObservation after)
         {
             return before.State.Generations.PlayModeGeneration
                 != after.State.Generations.PlayModeGeneration;
         }
 
-        private static bool IsReadyStoppedSnapshot (IpcUnityEditorObservation snapshot)
+        private static bool IsReadyStoppedSnapshot (UnityEditorObservation snapshot)
         {
             return TryReadPlayModeSnapshot(
                     snapshot,
                     out var playMode,
                     out var playModeState,
                     out var playModeTransition)
-                && snapshot.State.LifecycleState == IpcEditorLifecycleState.Ready
-                && playModeState == IpcPlayModeState.Stopped
-                && playModeTransition == IpcPlayModeTransition.None
+                && snapshot.State.LifecycleState == UnityEditorLifecycleState.Ready
+                && playModeState == UnityEditorPlayModeState.Stopped
+                && playModeTransition == UnityEditorPlayModeTransition.None
                 && !playMode.IsPlaying
                 && !playMode.IsPlayingOrWillChangePlaymode;
         }
 
-        private static bool IsPlayModeChanging (IpcUnityEditorObservation snapshot)
+        private static bool IsPlayModeChanging (UnityEditorObservation snapshot)
         {
             return TryReadPlayModeSnapshot(
                     snapshot,
                     out _,
                     out var playModeState,
                     out var playModeTransition)
-                && (playModeState == IpcPlayModeState.Entering
-                    || playModeState == IpcPlayModeState.Exiting
-                    || playModeTransition == IpcPlayModeTransition.Entering
-                    || playModeTransition == IpcPlayModeTransition.Exiting);
+                && (playModeState == UnityEditorPlayModeState.Entering
+                    || playModeState == UnityEditorPlayModeState.Exiting
+                    || playModeTransition == UnityEditorPlayModeTransition.Entering
+                    || playModeTransition == UnityEditorPlayModeTransition.Exiting);
         }
 
-        private static bool IsUnknownPlayMode (IpcUnityEditorObservation snapshot)
+        private static bool IsUnknownPlayMode (UnityEditorObservation snapshot)
         {
             if (!TryReadPlayModeSnapshot(
                     snapshot,
@@ -575,26 +566,26 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return true;
             }
 
-            return playModeState == IpcPlayModeState.Unknown;
+            return playModeState == UnityEditorPlayModeState.Unknown;
         }
 
-        private static bool IsReadyOrPlayModeLifecycle (IpcUnityEditorObservation snapshot)
+        private static bool IsReadyOrPlayModeLifecycle (UnityEditorObservation snapshot)
         {
-            return snapshot.State.LifecycleState is IpcEditorLifecycleState.Ready or IpcEditorLifecycleState.PlayMode;
+            return snapshot.State.LifecycleState is UnityEditorLifecycleState.Ready or UnityEditorLifecycleState.PlayMode;
         }
 
-        private static bool IsEnterTransitionLifecycle (IpcEditorLifecycleState lifecycleState)
+        private static bool IsEnterTransitionLifecycle (UnityEditorLifecycleState lifecycleState)
         {
-            return lifecycleState is IpcEditorLifecycleState.Starting
-                or IpcEditorLifecycleState.Recovering
-                or IpcEditorLifecycleState.Compiling
-                or IpcEditorLifecycleState.DomainReloading
-                or IpcEditorLifecycleState.Reimporting;
+            return lifecycleState is UnityEditorLifecycleState.Starting
+                or UnityEditorLifecycleState.Recovering
+                or UnityEditorLifecycleState.Compiling
+                or UnityEditorLifecycleState.DomainReloading
+                or UnityEditorLifecycleState.Reimporting;
         }
 
         private static bool IsRecoverablePendingEnter (
-            IpcUnityEditorObservation pendingBefore,
-            IpcUnityEditorObservation current)
+            UnityEditorObservation pendingBefore,
+            UnityEditorObservation current)
         {
             return pendingBefore != null
                 && current != null
@@ -605,10 +596,10 @@ namespace MackySoft.Ucli.Unity.Ipc
         }
 
         private static bool TryReadPlayModeSnapshot (
-            IpcUnityEditorObservation snapshot,
-            out IpcPlayModeSnapshot playMode,
-            out IpcPlayModeState state,
-            out IpcPlayModeTransition transition)
+            UnityEditorObservation snapshot,
+            out UnityEditorPlayModeSnapshot playMode,
+            out UnityEditorPlayModeState state,
+            out UnityEditorPlayModeTransition transition)
         {
             playMode = snapshot.State.PlayMode;
             state = default;

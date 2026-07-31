@@ -1,6 +1,8 @@
 using System.Reflection;
 using MackySoft.Ucli.Contracts.Assurance.Build;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Execution.Lifecycle;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Contracts.Tests.Ipc.Common;
 
@@ -9,11 +11,11 @@ public sealed class IpcExplicitConstructorStateContractTests
     public static TheoryData<Type> ExplicitStateContractTypes => new()
     {
         typeof(IpcExecuteResponse),
-        typeof(IpcPlayTransitionResult),
+        typeof(PlayLifecycleTransitionResult),
         typeof(IpcUnityBuildProfileInput),
         typeof(IpcIndexSceneTreeLiteReadRequest),
         typeof(IpcTestRunRequest),
-        typeof(IpcUnityEditorObservation),
+        typeof(UnityEditorObservation),
     };
 
     [Theory]

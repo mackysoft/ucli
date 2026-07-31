@@ -7,6 +7,7 @@ using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Projects;
 
 namespace MackySoft.Ucli.Application.Tests;
 
@@ -438,9 +439,9 @@ public sealed class ResolveServiceTests
             Exposure: UcliOperationExposure.Public);
     }
 
-    private static IpcProjectIdentity CreateUnityResponseProjectIdentity ()
+    private static UnityProjectIdentity CreateUnityResponseProjectIdentity ()
     {
-        return new IpcProjectIdentity(
+        return new UnityProjectIdentity(
             projectPath: ResolveProjectContext.UnityProject.UnityProjectRoot.Value,
             projectFingerprint: ResolveProjectContext.UnityProject.ProjectFingerprint,
             unityVersion: ResolveProjectContext.UnityProject.UnityVersion);

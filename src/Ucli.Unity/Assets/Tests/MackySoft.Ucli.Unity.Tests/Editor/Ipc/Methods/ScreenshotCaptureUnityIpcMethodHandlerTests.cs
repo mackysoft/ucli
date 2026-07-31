@@ -10,6 +10,7 @@ using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Unity.Ipc;
 using MackySoft.Ucli.Unity.ScreenshotCapture.Capture;
 using NUnit.Framework;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Unity.Tests
 {
@@ -164,13 +165,13 @@ namespace MackySoft.Ucli.Unity.Tests
                     Height: 1,
                     IpcScreenshotColorSpace.Linear,
                     State: new UnityEditorStateSnapshot(
-                        editorMode: DaemonEditorMode.Gui,
-                        lifecycleState: IpcEditorLifecycleState.Ready,
-                        compileState: IpcCompileState.Ready,
-                        generations: new IpcUnityGenerationSnapshot(1, 4, 2, 3),
-                        playMode: new IpcPlayModeSnapshot(
-                            State: IpcPlayModeState.Stopped,
-                            Transition: IpcPlayModeTransition.None,
+                        editorMode: UnityEditorMode.Gui,
+                        lifecycleState: UnityEditorLifecycleState.Ready,
+                        compileState: UnityEditorCompileState.Ready,
+                        generations: new UnityEditorGenerationSnapshot(1, 4, 2, 3),
+                        playMode: new UnityEditorPlayModeSnapshot(
+                            State: UnityEditorPlayModeState.Stopped,
+                            Transition: UnityEditorPlayModeTransition.None,
                             IsPlaying: false,
                             IsPlayingOrWillChangePlaymode: false))),
                 new IpcScreenshotStagingImage(

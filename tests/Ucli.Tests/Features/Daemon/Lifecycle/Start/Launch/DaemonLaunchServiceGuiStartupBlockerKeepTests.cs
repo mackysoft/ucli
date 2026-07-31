@@ -3,6 +3,7 @@ using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Tests.Helpers.Daemon;
 using static MackySoft.Ucli.Tests.Daemon.DaemonLaunchServiceTestSupport;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Tests.Daemon;
 
@@ -23,7 +24,7 @@ public sealed class DaemonLaunchServiceGuiStartupBlockerKeepTests
             NextResult = UnityDaemonLaunchResult.Success(6543, processStartedAtUtc),
         };
         var primaryDiagnostic = new DaemonPrimaryDiagnostic(
-            Kind: DaemonDiagnosisPrimaryDiagnosticKind.Compiler,
+            Kind: UnityEditorPrimaryDiagnosticKind.Compiler,
             Code: "CS1739",
             File: "Assets/Foo.cs",
             Line: 74,
@@ -57,7 +58,7 @@ public sealed class DaemonLaunchServiceGuiStartupBlockerKeepTests
         var result = await service.LaunchAsync(
             context,
             ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), timeProvider),
-            DaemonEditorMode.Gui,
+            UnityEditorMode.Gui,
             onStartupBlocked,
             progressObserver,
             cancellationToken: CancellationToken.None);
@@ -69,7 +70,7 @@ public sealed class DaemonLaunchServiceGuiStartupBlockerKeepTests
         var diagnosis = DaemonDiagnosisStoreAssert.LatestDiagnosisWrittenFor(diagnosisStore, context);
         Assert.Equal(DaemonDiagnosisReason.UnityScriptCompilationFailed, diagnosis.Reason);
         Assert.Equal(DaemonDiagnosisStartupPhase.ScriptCompilation, diagnosis.StartupPhase);
-        Assert.Equal(DaemonDiagnosisActionRequired.FixCompileErrors, diagnosis.ActionRequired);
+        Assert.Equal(UnityEditorActionRequired.FixCompileErrors, diagnosis.ActionRequired);
         Assert.Equal(processStartedAtUtc, diagnosis.ProcessStartedAtUtc);
         Assert.Equal(blocker.UnityLogPath, diagnosis.UnityLogPath);
         Assert.Equal(primaryDiagnostic, diagnosis.PrimaryDiagnostic);
@@ -104,7 +105,7 @@ public sealed class DaemonLaunchServiceGuiStartupBlockerKeepTests
         const DaemonDiagnosisReason reason = DaemonDiagnosisReason.EditorUserActionRequired;
         const DaemonStartupRetryDisposition retryDisposition = DaemonStartupRetryDisposition.ManualActionRequired;
         const DaemonDiagnosisStartupPhase startupPhase = DaemonDiagnosisStartupPhase.UserAction;
-        const DaemonDiagnosisActionRequired actionRequired = DaemonDiagnosisActionRequired.ResolveUnityDialog;
+        const UnityEditorActionRequired actionRequired = UnityEditorActionRequired.ResolveUnityDialog;
 
         var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create($"fingerprint-gui-launch-{startupBlockingReason}"));
         var processStartedAtUtc = new DateTimeOffset(2026, 03, 12, 0, 0, 1, TimeSpan.Zero);
@@ -142,7 +143,7 @@ public sealed class DaemonLaunchServiceGuiStartupBlockerKeepTests
         var result = await service.LaunchAsync(
             context,
             ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), timeProvider),
-            DaemonEditorMode.Gui,
+            UnityEditorMode.Gui,
             DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);
 

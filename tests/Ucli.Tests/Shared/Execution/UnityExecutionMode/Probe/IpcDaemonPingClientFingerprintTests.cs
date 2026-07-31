@@ -17,7 +17,7 @@ public sealed class IpcDaemonPingClientFingerprintTests
                 request,
                 IpcResponseStatus.Ok,
                 Array.Empty<IpcError>(),
-                IpcUnityEditorObservationTestFactory.Create(
+                UnityEditorObservationTestFactory.Create(
                     projectFingerprint: ProjectFingerprintTestFactory.Create("different-fingerprint"))));
         var pingClient = new IpcDaemonPingClient(
             unityIpcClient,
@@ -44,7 +44,7 @@ public sealed class IpcDaemonPingClientFingerprintTests
                 request,
                 IpcResponseStatus.Ok,
                 Array.Empty<IpcError>(),
-                IpcUnityEditorObservationTestFactory.Create(
+                UnityEditorObservationTestFactory.Create(
                     projectFingerprint: ProjectFingerprintTestFactory.Create("different-fingerprint"))));
         var pingClient = new IpcDaemonPingClient(
             unityIpcClient,

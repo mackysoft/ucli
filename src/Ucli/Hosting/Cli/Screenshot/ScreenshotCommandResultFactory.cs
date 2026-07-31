@@ -5,6 +5,7 @@ using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Hosting.Cli.Screenshot;
 
@@ -66,9 +67,9 @@ internal static class ScreenshotCommandResultFactory
         int Width,
         int Height,
         IpcScreenshotColorSpace ColorSpace,
-        IpcEditorLifecycleState LifecycleStateAtCapture,
-        IpcCompileState CompileStateAtCapture,
-        IpcUnityGenerationSnapshot Generations,
-        IpcPlayModeState PlayModeState);
+        UnityEditorLifecycleState LifecycleStateAtCapture,
+        UnityEditorCompileState CompileStateAtCapture,
+        UnityEditorGenerationSnapshot Generations,
+        UnityEditorPlayModeState PlayModeState);
 
 }

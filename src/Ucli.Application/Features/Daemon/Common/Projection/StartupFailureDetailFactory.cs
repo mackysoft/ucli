@@ -3,6 +3,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Startup;
 using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Common.Projection;
 
@@ -38,7 +39,7 @@ internal static class StartupFailureDetailFactory
             StartupStatus: DaemonStartupStatus.Blocked,
             StartupBlockingReason: classification.StartupBlockingReason,
             LaunchAttemptId: null,
-            EditorMode: DaemonEditorMode.Batchmode,
+            EditorMode: UnityEditorMode.Batchmode,
             OwnerKind: DaemonSessionOwnerKind.Cli,
             CanShutdownProcess: true,
             ProcessId: processId,
@@ -83,7 +84,7 @@ internal static class StartupFailureDetailFactory
             StartupStatus: DaemonStartupStatus.Timeout,
             StartupBlockingReason: DaemonStartupBlockingReason.EndpointNotRegistered,
             LaunchAttemptId: null,
-            EditorMode: DaemonEditorMode.Batchmode,
+            EditorMode: UnityEditorMode.Batchmode,
             OwnerKind: DaemonSessionOwnerKind.Cli,
             CanShutdownProcess: true,
             ProcessId: processId,
@@ -128,7 +129,7 @@ internal static class StartupFailureDetailFactory
             StartupStatus: DaemonStartupStatus.Failed,
             StartupBlockingReason: DaemonStartupBlockingReason.ProcessExit,
             LaunchAttemptId: null,
-            EditorMode: DaemonEditorMode.Batchmode,
+            EditorMode: UnityEditorMode.Batchmode,
             OwnerKind: DaemonSessionOwnerKind.Cli,
             CanShutdownProcess: true,
             ProcessId: processId,

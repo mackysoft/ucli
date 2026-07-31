@@ -1,6 +1,8 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.LaunchAttempts;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
+using MackySoft.Ucli.Contracts.Editor;
+
 namespace MackySoft.Ucli.Tests.Daemon;
 
 using MackySoft.Ucli.Application.Shared.Foundation;
@@ -46,7 +48,7 @@ public sealed class DaemonLaunchServiceBatchmodeStartupBlockerCleanupFailureTest
     public async Task Launch_WhenBatchmodeClassifiedBlockerCleanupFails_RecordsUnknownProcessAction ()
     {
         var primaryDiagnostic = new DaemonPrimaryDiagnostic(
-            Kind: DaemonDiagnosisPrimaryDiagnosticKind.Compiler,
+            Kind: UnityEditorPrimaryDiagnosticKind.Compiler,
             Code: "CS1002",
             File: "Assets/Foo.cs",
             Line: 42,
@@ -74,7 +76,7 @@ public sealed class DaemonLaunchServiceBatchmodeStartupBlockerCleanupFailureTest
         Assert.NotNull(result.Diagnosis);
         Assert.Equal(DaemonDiagnosisReason.UnityScriptCompilationFailed, result.Diagnosis!.Reason);
         Assert.Equal(DaemonDiagnosisStartupPhase.ScriptCompilation, result.Diagnosis.StartupPhase);
-        Assert.Equal(DaemonDiagnosisActionRequired.FixCompileErrors, result.Diagnosis.ActionRequired);
+        Assert.Equal(UnityEditorActionRequired.FixCompileErrors, result.Diagnosis.ActionRequired);
         Assert.Equal(primaryDiagnostic, result.Diagnosis.PrimaryDiagnostic);
         Assert.NotNull(result.Startup);
         Assert.Equal(DaemonStartupProcessAction.Unknown, result.Startup!.ProcessAction);

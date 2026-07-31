@@ -35,7 +35,6 @@ public static class IpcExecutePostReadSourceRules
         {
             IpcExecutePostReadSourceKind.Edit => IsCompatibleEditSource(operationName, playModeMutation, commit, persistenceExpected, expectedPostState),
             IpcExecutePostReadSourceKind.Operation => IsCompatibleOperationSource(operationName, playModeMutation, commit, expectedPostState),
-            IpcExecutePostReadSourceKind.Refresh => IsCompatibleRefreshSource(operationName, playModeMutation, commit, persistenceExpected, expectedPostState),
             _ => false,
         };
     }
@@ -73,23 +72,8 @@ public static class IpcExecutePostReadSourceRules
         IpcExecuteExpectedPostState expectedPostState)
     {
         return !string.Equals(operationName, EditOperationName, StringComparison.Ordinal)
-            && !string.Equals(operationName, UcliPrimitiveOperationNames.ProjectRefresh, StringComparison.Ordinal)
             && !playModeMutation
             && commit is null
-            && expectedPostState == IpcExecuteExpectedPostState.Unavailable;
-    }
-
-    private static bool IsCompatibleRefreshSource (
-        string operationName,
-        bool playModeMutation,
-        IpcExecutePostReadCommit? commit,
-        bool persistenceExpected,
-        IpcExecuteExpectedPostState expectedPostState)
-    {
-        return string.Equals(operationName, UcliPrimitiveOperationNames.ProjectRefresh, StringComparison.Ordinal)
-            && !playModeMutation
-            && commit is null
-            && persistenceExpected
             && expectedPostState == IpcExecuteExpectedPostState.Unavailable;
     }
 

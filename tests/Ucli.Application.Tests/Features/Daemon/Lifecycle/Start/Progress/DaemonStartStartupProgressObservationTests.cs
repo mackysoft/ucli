@@ -1,5 +1,6 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Progress;
 using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Tests.Daemon;
 
@@ -21,7 +22,7 @@ public sealed class DaemonStartStartupProgressObservationTests
         {
             InvalidEnumField.EditorMode => CreateValidValues() with
             {
-                EditorMode = (DaemonEditorMode)int.MaxValue,
+                EditorMode = (UnityEditorMode)int.MaxValue,
             },
             InvalidEnumField.OwnerKind => CreateValidValues() with
             {
@@ -102,7 +103,7 @@ public sealed class DaemonStartStartupProgressObservationTests
     {
         return new ProgressObservationValues(
             Guid.Parse("01234567-89ab-cdef-0123-456789abcdef"),
-            DaemonEditorMode.Batchmode,
+            UnityEditorMode.Batchmode,
             DaemonSessionOwnerKind.Cli,
             true,
             1234,
@@ -127,7 +128,7 @@ public sealed class DaemonStartStartupProgressObservationTests
 
     private sealed record ProgressObservationValues (
         Guid? LaunchAttemptId,
-        DaemonEditorMode? EditorMode,
+        UnityEditorMode? EditorMode,
         DaemonSessionOwnerKind? OwnerKind,
         bool? CanShutdownProcess,
         int? ProcessId,

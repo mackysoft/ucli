@@ -1,5 +1,6 @@
 using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Projects;
 
 namespace MackySoft.Ucli.Application.Tests.Shared.Context.Project;
 
@@ -34,7 +35,7 @@ public sealed class ProjectIdentityInfoTests
     public void TryFromHost_WhenIdentityMatches_ReturnsCanonicalLocalIdentity ()
     {
         var resolvedProject = CreateResolvedProject();
-        var hostProject = new IpcProjectIdentity(
+        var hostProject = new UnityProjectIdentity(
             projectPath: resolvedProject.UnityProjectRoot.Value + Path.DirectorySeparatorChar,
             projectFingerprint: resolvedProject.ProjectFingerprint,
             unityVersion: resolvedProject.UnityVersion);
@@ -54,7 +55,7 @@ public sealed class ProjectIdentityInfoTests
     public void TryFromHost_WhenExpectedUnityVersionIsUnknown_UsesHostVersion ()
     {
         var resolvedProject = CreateResolvedProject(unityVersion: ProjectIdentityDefaults.UnknownUnityVersion);
-        var hostProject = new IpcProjectIdentity(
+        var hostProject = new UnityProjectIdentity(
             projectPath: resolvedProject.UnityProjectRoot.Value,
             projectFingerprint: resolvedProject.ProjectFingerprint,
             unityVersion: "6000.1.4f1");
@@ -78,7 +79,7 @@ public sealed class ProjectIdentityInfoTests
     {
         var expectedMismatchKind = (ProjectIdentityMismatchKind)expectedMismatchValue;
         var resolvedProject = CreateResolvedProject();
-        var hostProject = new IpcProjectIdentity(
+        var hostProject = new UnityProjectIdentity(
             projectPath: expectedMismatchKind == ProjectIdentityMismatchKind.ProjectPath
                 ? Path.GetFullPath(Path.Combine(Path.GetTempPath(), "ucli-tests", "DifferentUnityProject"))
                 : resolvedProject.UnityProjectRoot.Value,
@@ -109,7 +110,7 @@ public sealed class ProjectIdentityInfoTests
         string projectPath)
     {
         var resolvedProject = CreateResolvedProject();
-        var hostProject = new IpcProjectIdentity(
+        var hostProject = new UnityProjectIdentity(
             projectPath,
             resolvedProject.ProjectFingerprint,
             resolvedProject.UnityVersion);

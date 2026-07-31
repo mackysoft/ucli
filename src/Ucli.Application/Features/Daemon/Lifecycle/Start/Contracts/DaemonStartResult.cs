@@ -5,6 +5,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Contracts;
 
@@ -18,7 +19,7 @@ internal sealed record DaemonStartResult
         DaemonDiagnosis? diagnosis,
         DaemonStartupObservation? startup,
         DaemonStatusKind daemonStatus,
-        IpcUnityEditorObservation? lifecycleObservation)
+        UnityEditorObservation? lifecycleObservation)
     {
         Status = status;
         Session = session;
@@ -48,7 +49,7 @@ internal sealed record DaemonStartResult
     public DaemonStatusKind DaemonStatus { get; }
 
     /// <summary> Gets the endpoint-registered lifecycle observation for a successful result; otherwise <see langword="null" />. </summary>
-    public IpcUnityEditorObservation? LifecycleObservation { get; }
+    public UnityEditorObservation? LifecycleObservation { get; }
 
     /// <summary> Gets a value indicating whether daemon start succeeded, detected an already-running daemon, or attached to an existing GUI daemon. </summary>
     [MemberNotNullWhen(true, nameof(Session), nameof(LifecycleObservation))]
@@ -63,7 +64,7 @@ internal sealed record DaemonStartResult
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="session" /> or <paramref name="lifecycleObservation" /> is <see langword="null" />. </exception>
     public static DaemonStartResult Started (
         DaemonSession session,
-        IpcUnityEditorObservation lifecycleObservation)
+        UnityEditorObservation lifecycleObservation)
     {
         ArgumentNullException.ThrowIfNull(session);
         ArgumentNullException.ThrowIfNull(lifecycleObservation);
@@ -84,7 +85,7 @@ internal sealed record DaemonStartResult
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="session" /> or <paramref name="lifecycleObservation" /> is <see langword="null" />. </exception>
     public static DaemonStartResult AlreadyRunning (
         DaemonSession session,
-        IpcUnityEditorObservation lifecycleObservation)
+        UnityEditorObservation lifecycleObservation)
     {
         ArgumentNullException.ThrowIfNull(session);
         ArgumentNullException.ThrowIfNull(lifecycleObservation);
@@ -105,7 +106,7 @@ internal sealed record DaemonStartResult
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="session" /> or <paramref name="lifecycleObservation" /> is <see langword="null" />. </exception>
     public static DaemonStartResult Attached (
         DaemonSession session,
-        IpcUnityEditorObservation lifecycleObservation)
+        UnityEditorObservation lifecycleObservation)
     {
         ArgumentNullException.ThrowIfNull(session);
         ArgumentNullException.ThrowIfNull(lifecycleObservation);

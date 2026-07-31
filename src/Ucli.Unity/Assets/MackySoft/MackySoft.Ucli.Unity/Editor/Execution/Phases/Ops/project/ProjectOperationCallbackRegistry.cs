@@ -8,41 +8,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
     /// <summary> Collects asset-path notifications emitted by Unity editor callbacks during project-domain operations. </summary>
     internal static class ProjectOperationCallbackRegistry
     {
-        private static readonly CallbackScopeState RefreshState = new();
-
         private static readonly CallbackScopeState SaveState = new();
-
-        /// <summary> Begins one refresh callback-capture scope. </summary>
-        /// <returns> The scope identifier used to finish capture. </returns>
-        public static int BeginRefreshCapture ()
-        {
-            return RefreshState.BeginScope();
-        }
-
-        /// <summary> Ends one refresh callback-capture scope. </summary>
-        /// <param name="scopeId"> The capture scope identifier. </param>
-        /// <returns> The stable, deduplicated callback path list. </returns>
-        public static IReadOnlyList<string> EndRefreshCapture (int scopeId)
-        {
-            return RefreshState.EndScope(scopeId);
-        }
-
-        /// <summary> Records refresh callback paths into all active refresh scopes. </summary>
-        /// <param name="importedAssets"> The imported asset paths. </param>
-        /// <param name="deletedAssets"> The deleted asset paths. </param>
-        /// <param name="movedAssets"> The moved-to asset paths. </param>
-        /// <param name="movedFromAssetPaths"> The moved-from asset paths. </param>
-        public static void RecordRefreshPaths (
-            string[] importedAssets,
-            string[] deletedAssets,
-            string[] movedAssets,
-            string[] movedFromAssetPaths)
-        {
-            RefreshState.Record(importedAssets);
-            RefreshState.Record(deletedAssets);
-            RefreshState.Record(movedAssets);
-            RefreshState.Record(movedFromAssetPaths);
-        }
 
         /// <summary> Begins one save callback-capture scope. </summary>
         /// <returns> The scope identifier used to finish capture. </returns>

@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Contracts.Storage;
 
@@ -33,7 +34,7 @@ internal sealed record DaemonDiagnosisJsonContract
         DateTimeOffset? ProcessStartedAtUtc,
         string? UnityLogPath,
         DaemonDiagnosisStartupPhase? StartupPhase,
-        DaemonDiagnosisActionRequired? ActionRequired,
+        UnityEditorActionRequired? ActionRequired,
         DaemonDiagnosisPrimaryDiagnosticJsonContract? PrimaryDiagnostic)
     {
         if (Reason.HasValue && !TextVocabulary.IsDefined(Reason.Value))
@@ -117,7 +118,7 @@ internal sealed record DaemonDiagnosisJsonContract
 
     [JsonInclude]
     [JsonRequired]
-    public DaemonDiagnosisActionRequired? ActionRequired { get; private init; }
+    public UnityEditorActionRequired? ActionRequired { get; private init; }
 
     [JsonInclude]
     [JsonRequired]

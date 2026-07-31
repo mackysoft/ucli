@@ -2,6 +2,7 @@ using System.Diagnostics.CodeAnalysis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.GuiEndpoint;
 
@@ -10,7 +11,7 @@ internal sealed record DaemonGuiSessionRegistrationWaitResult
 {
     private DaemonGuiSessionRegistrationWaitResult (
         DaemonSession? session,
-        IpcUnityEditorObservation? lifecycleObservation,
+        UnityEditorObservation? lifecycleObservation,
         ExecutionError? error)
     {
         Session = session;
@@ -22,7 +23,7 @@ internal sealed record DaemonGuiSessionRegistrationWaitResult
     public DaemonSession? Session { get; }
 
     /// <summary> Gets the endpoint-registered lifecycle observation for a successful result; otherwise <see langword="null" />. </summary>
-    public IpcUnityEditorObservation? LifecycleObservation { get; }
+    public UnityEditorObservation? LifecycleObservation { get; }
 
     /// <summary> Gets the structured wait error for a failed result; otherwise <see langword="null" />. </summary>
     public ExecutionError? Error { get; }
@@ -38,7 +39,7 @@ internal sealed record DaemonGuiSessionRegistrationWaitResult
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="session" /> or <paramref name="lifecycleObservation" /> is <see langword="null" />. </exception>
     public static DaemonGuiSessionRegistrationWaitResult Success (
         DaemonSession session,
-        IpcUnityEditorObservation lifecycleObservation)
+        UnityEditorObservation lifecycleObservation)
     {
         ArgumentNullException.ThrowIfNull(session);
         ArgumentNullException.ThrowIfNull(lifecycleObservation);

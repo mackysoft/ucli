@@ -4,6 +4,8 @@ using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 using MackySoft.Ucli.Hosting.Cli.Requests;
+using MackySoft.Ucli.Contracts.Editor;
+using MackySoft.Ucli.Contracts.Execution;
 
 namespace MackySoft.Ucli.Tests;
 
@@ -118,7 +120,7 @@ public sealed class CallCommandResultFactoryTests
             .HasProperty("readPostcondition", readPostconditionElement => readPostconditionElement
                 .HasArrayLength("requirements", 1)
                 .HasProperty("requirements", 0, requirement => requirement
-                    .HasString("surface", TextVocabulary.GetText(IpcExecuteReadPostconditionSurface.SceneTreeLite))
+                    .HasString("surface", TextVocabulary.GetText(ExecutionReadPostconditionSurface.SceneTreeLite))
                     .HasString("scenePath", "Assets/Scenes/Main.unity")));
         Assert.False(payload.GetProperty("plan").TryGetProperty("readPostcondition", out _));
     }
@@ -130,7 +132,7 @@ public sealed class CallCommandResultFactoryTests
                 StartupStatus: DaemonStartupStatus.Blocked,
                 StartupBlockingReason: DaemonStartupBlockingReason.Compile,
                 LaunchAttemptId: null,
-                EditorMode: DaemonEditorMode.Batchmode,
+                EditorMode: UnityEditorMode.Batchmode,
                 OwnerKind: DaemonSessionOwnerKind.Cli,
                 CanShutdownProcess: true,
                 ProcessId: 1234,
@@ -151,9 +153,9 @@ public sealed class CallCommandResultFactoryTests
                 ProcessStartedAtUtc: DateTimeOffset.Parse("2026-03-12T04:05:01+00:00"),
                 UnityLogPath: "/repo/.ucli/local/logs/unity.log",
                 StartupPhase: DaemonDiagnosisStartupPhase.ScriptCompilation,
-                ActionRequired: DaemonDiagnosisActionRequired.FixCompileErrors,
+                ActionRequired: UnityEditorActionRequired.FixCompileErrors,
                 PrimaryDiagnostic: new DaemonPrimaryDiagnosticOutput(
-                    Kind: DaemonDiagnosisPrimaryDiagnosticKind.Compiler,
+                    Kind: UnityEditorPrimaryDiagnosticKind.Compiler,
                     Code: "CS0246",
                     File: "Assets/Scripts/Broken.cs",
                     Line: 10,

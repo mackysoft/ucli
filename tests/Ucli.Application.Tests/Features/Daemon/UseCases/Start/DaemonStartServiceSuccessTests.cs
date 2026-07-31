@@ -2,6 +2,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Common.CommandExecution;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Features.Daemon.UseCases.Start;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Tests.Daemon;
 
@@ -29,7 +30,7 @@ public sealed class DaemonStartServiceSuccessTests
         var resolver = new RecordingDaemonCommandExecutionContextResolver(
             DaemonCommandExecutionContextResolutionResult.Success(context));
         var session = DaemonSessionTestFactory.Create();
-        var lifecycleObservation = IpcUnityEditorObservationTestFactory.Create(IpcEditorLifecycleState.Compiling);
+        var lifecycleObservation = UnityEditorObservationTestFactory.Create(UnityEditorLifecycleState.Compiling);
         var supervisorProjectGateway = new RecordingDaemonProjectLifecycleGateway
         {
             EnsureRunningResult = DaemonStartResult.Started(session, lifecycleObservation),
@@ -44,8 +45,8 @@ public sealed class DaemonStartServiceSuccessTests
         Assert.Equal(DaemonStatusKind.Running, output.DaemonStatus);
         Assert.Equal(1200, output.TimeoutMilliseconds);
         DaemonServiceOutputAssert.SessionMatches(session, output.Session);
-        Assert.Equal(IpcEditorLifecycleState.Compiling, output.LifecycleState);
-        Assert.Equal(IpcEditorBlockingReason.Compile, output.BlockingReason);
+        Assert.Equal(UnityEditorLifecycleState.Compiling, output.LifecycleState);
+        Assert.Equal(UnityEditorBlockingReason.Compile, output.BlockingReason);
         Assert.False(output.CanAcceptExecutionRequests);
         var invocation = DaemonProjectLifecycleGatewayAssert.EnsureRunningRequested(
             supervisorProjectGateway,
@@ -55,11 +56,11 @@ public sealed class DaemonStartServiceSuccessTests
     }
 
     [Theory]
-    [InlineData(DaemonEditorMode.Gui, DaemonStartupBlockedProcessPolicy.Auto)]
+    [InlineData(UnityEditorMode.Gui, DaemonStartupBlockedProcessPolicy.Auto)]
     [InlineData(null, DaemonStartupBlockedProcessPolicy.Terminate)]
     [Trait("Size", "Small")]
     public async Task Start_WithLifecycleGatewayOptions_PropagatesOptionsToLifecycleGateway (
-        DaemonEditorMode? editorMode,
+        UnityEditorMode? editorMode,
         DaemonStartupBlockedProcessPolicy onStartupBlocked)
     {
         var context = DaemonCommandExecutionContextTestFactory.CreateForRepositoryRoot(
@@ -69,7 +70,7 @@ public sealed class DaemonStartServiceSuccessTests
             DaemonCommandExecutionContextResolutionResult.Success(context));
         var supervisorProjectGateway = new RecordingDaemonProjectLifecycleGateway
         {
-            EnsureRunningResult = DaemonStartResult.Started(DaemonSessionTestFactory.Create(), IpcUnityEditorObservationTestFactory.Create()),
+            EnsureRunningResult = DaemonStartResult.Started(DaemonSessionTestFactory.Create(), UnityEditorObservationTestFactory.Create()),
         };
         var service = DaemonStartServiceTestSupport.CreateService(resolver, supervisorProjectGateway);
 
@@ -106,8 +107,8 @@ public sealed class DaemonStartServiceSuccessTests
         {
             EnsureRunningResult = caseName switch
             {
-                "already-running" => DaemonStartResult.AlreadyRunning(session, IpcUnityEditorObservationTestFactory.Create()),
-                "attached" => DaemonStartResult.Attached(session, IpcUnityEditorObservationTestFactory.Create()),
+                "already-running" => DaemonStartResult.AlreadyRunning(session, UnityEditorObservationTestFactory.Create()),
+                "attached" => DaemonStartResult.Attached(session, UnityEditorObservationTestFactory.Create()),
                 _ => throw new ArgumentOutOfRangeException(nameof(caseName), caseName, "Unsupported running status case."),
             },
         };

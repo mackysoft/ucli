@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Shared.Execution;
 
@@ -28,7 +29,7 @@ internal sealed record DaemonDiagnosisOutput
         DateTimeOffset? ProcessStartedAtUtc,
         string? UnityLogPath,
         DaemonDiagnosisStartupPhase? StartupPhase,
-        DaemonDiagnosisActionRequired? ActionRequired,
+        UnityEditorActionRequired? ActionRequired,
         DaemonPrimaryDiagnosticOutput? PrimaryDiagnostic)
     {
         if (!TextVocabulary.IsDefined(Reason))
@@ -92,7 +93,7 @@ internal sealed record DaemonDiagnosisOutput
 
     public DaemonDiagnosisStartupPhase? StartupPhase { get; }
 
-    public DaemonDiagnosisActionRequired? ActionRequired { get; }
+    public UnityEditorActionRequired? ActionRequired { get; }
 
     public DaemonPrimaryDiagnosticOutput? PrimaryDiagnostic { get; }
 }

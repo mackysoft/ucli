@@ -37,7 +37,7 @@ internal static class UnityProcessErrorCodeDescriptors
             [
                 UnityProcessErrorCodes.UnityProjectLockAmbiguous,
                 UnityProcessErrorCodes.UnityProjectLockCleanupFailed,
-                DaemonErrorCodes.DaemonEditorModeMismatch,
+                DaemonErrorCodes.UnityEditorModeMismatch,
             ]),
 
         UcliErrorDescriptorFactory.Create(

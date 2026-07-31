@@ -1,5 +1,4 @@
 using MackySoft.Ucli.Contracts.Configuration;
-
 using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Shared.Configuration;

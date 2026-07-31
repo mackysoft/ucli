@@ -1,6 +1,7 @@
 using MackySoft.Ucli.Application.Features.Assurance.Ready;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Tests;
 
@@ -122,7 +123,7 @@ internal static class ReadyCommandTestData
                 StartupStatus: DaemonStartupStatus.Blocked,
                 StartupBlockingReason: DaemonStartupBlockingReason.Compile,
                 LaunchAttemptId: null,
-                EditorMode: DaemonEditorMode.Batchmode,
+                EditorMode: UnityEditorMode.Batchmode,
                 OwnerKind: DaemonSessionOwnerKind.Cli,
                 CanShutdownProcess: true,
                 ProcessId: 1234,
@@ -143,9 +144,9 @@ internal static class ReadyCommandTestData
                 ProcessStartedAtUtc: DateTimeOffset.Parse("2026-03-12T04:05:01+00:00"),
                 UnityLogPath: "/repo/.ucli/local/logs/unity.log",
                 StartupPhase: DaemonDiagnosisStartupPhase.ScriptCompilation,
-                ActionRequired: DaemonDiagnosisActionRequired.FixCompileErrors,
+                ActionRequired: UnityEditorActionRequired.FixCompileErrors,
                 PrimaryDiagnostic: new DaemonPrimaryDiagnosticOutput(
-                    Kind: DaemonDiagnosisPrimaryDiagnosticKind.Compiler,
+                    Kind: UnityEditorPrimaryDiagnosticKind.Compiler,
                     Code: "CS0246",
                     File: "Assets/Scripts/Broken.cs",
                     Line: 10,
@@ -167,18 +168,18 @@ internal static class ReadyCommandTestData
         return new ReadyLifecycleOutput(
             ServerVersion: "0.5.0",
             UnityVersion: "6000.1.4f1",
-            EditorMode: DaemonEditorMode.Batchmode,
-            LifecycleState: IpcEditorLifecycleState.Ready,
+            EditorMode: UnityEditorMode.Batchmode,
+            LifecycleState: UnityEditorLifecycleState.Ready,
             BlockingReason: null,
-            CompileState: IpcCompileState.Ready,
-            Generations: new IpcUnityGenerationSnapshot(12, 7, 0, 2),
+            CompileState: UnityEditorCompileState.Ready,
+            Generations: new UnityEditorGenerationSnapshot(12, 7, 0, 2),
             CanAcceptExecutionRequests: true,
             ObservedAtUtc: DateTimeOffset.Parse("2026-05-17T00:00:00Z"),
             ActionRequired: null,
             PrimaryDiagnostic: null,
-            PlayMode: new IpcPlayModeSnapshot(
-                State: IpcPlayModeState.Stopped,
-                Transition: IpcPlayModeTransition.None,
+            PlayMode: new UnityEditorPlayModeSnapshot(
+                State: UnityEditorPlayModeState.Stopped,
+                Transition: UnityEditorPlayModeTransition.None,
                 IsPlaying: false,
                 IsPlayingOrWillChangePlaymode: false));
     }

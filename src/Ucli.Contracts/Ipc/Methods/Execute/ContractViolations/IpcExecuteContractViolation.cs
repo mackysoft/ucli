@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
-using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.Contracts.Execution;
+using MackySoft.Ucli.Contracts.Json.Metadata;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
@@ -12,25 +13,25 @@ namespace MackySoft.Ucli.Contracts.Ipc;
 public sealed record IpcExecuteContractViolation
 {
     /// <summary> Initializes one contract violation with a specified application state. </summary>
-    /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="ApplicationState" /> is not defined by the contract. </exception>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// Thrown when <paramref name="ApplicationState" /> is not supported by the operation contract.
+    /// </exception>
     [JsonConstructor]
     public IpcExecuteContractViolation (
         string InstancePath,
         string Operation,
         string ExpectedFact,
         string ObservedResult,
-        IpcApplicationState ApplicationState)
+        ExecutionApplicationState ApplicationState)
     {
-        if (!TextVocabulary.IsDefined(ApplicationState))
-        {
-            throw new ArgumentOutOfRangeException(nameof(ApplicationState), ApplicationState, "Application state must be specified.");
-        }
-
         this.InstancePath = IpcInstancePathContract.Require(InstancePath, nameof(InstancePath));
         this.Operation = ContractArgumentGuard.RequireValue(Operation, nameof(Operation));
         this.ExpectedFact = ContractArgumentGuard.RequireValue(ExpectedFact, nameof(ExpectedFact));
         this.ObservedResult = ContractArgumentGuard.RequireValue(ObservedResult, nameof(ObservedResult));
-        this.ApplicationState = ApplicationState;
+        this.ApplicationState =
+            ExecutionApplicationStateSemantics.RequireOperationState(
+                ApplicationState,
+                nameof(ApplicationState));
     }
 
     public string InstancePath { get; }
@@ -41,5 +42,6 @@ public sealed record IpcExecuteContractViolation
 
     public string ObservedResult { get; }
 
-    public IpcApplicationState ApplicationState { get; }
+    [UcliOperationApplicationState]
+    public ExecutionApplicationState ApplicationState { get; }
 }

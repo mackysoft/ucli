@@ -30,6 +30,8 @@ internal static class SharedServiceCollectionExtensions
         services.AddSingleton<UcliConfigCompiler>();
         services.AddSingleton<IUcliConfigStore, UcliConfigStore>();
         services.AddSingleton<IProjectLifecycleLockProvider, FileSystemProjectLifecycleLockProvider>();
+        services.AddSingleton<ILifecycleExecutionReconnectResolver, FileLifecycleExecutionReconnectResolver>();
+        services.AddSingleton<ILifecycleExecutionHostExitTerminalizer, FileLifecycleExecutionHostExitTerminalizer>();
         services.AddSingleton<IUnityProjectLockFileProbe, UnityProjectLockFileProbe>();
         services.AddSingleton<IUnityEditorInstanceProbe, UnityEditorInstanceProbe>();
         services.AddSingleton<IUnityProjectProcessScanner, UnityProjectProcessScanner>();

@@ -1,4 +1,6 @@
 
+using MackySoft.Ucli.Contracts.Editor;
+
 namespace MackySoft.Ucli.Contracts.Ipc;
 
 /// <summary> Defines protocol capabilities that are fixed by a Unity IPC method. </summary>
@@ -14,14 +16,21 @@ public static class UnityIpcMethodCapabilities
         return method is UnityIpcMethod.BuildRun or UnityIpcMethod.TestRun;
     }
 
-    /// <summary> Determines whether a method has server-side replay protection for the same request identifier. </summary>
+    /// <summary> Determines whether a method starts or resumes a durable Lifecycle Execution. </summary>
     /// <param name="method"> The defined Unity IPC method. </param>
-    /// <returns> <see langword="true" /> when response-loss recovery may resend the method with the same request identifier; otherwise <see langword="false" />. </returns>
+    /// <returns>
+    /// <see langword="true" /> when response-loss recovery may resend the same logical execution
+    /// to a successor endpoint owned by the same Unity host; otherwise <see langword="false" />.
+    /// </returns>
     /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="method" /> is undefined. </exception>
-    public static bool SupportsRecoverableReplay (UnityIpcMethod method)
+    public static bool SupportsLifecycleExecution (UnityIpcMethod method)
     {
         EnsureDefined(method);
-        return method is UnityIpcMethod.Compile or UnityIpcMethod.PlayEnter or UnityIpcMethod.PlayExit;
+        return method is UnityIpcMethod.LifecycleStart
+            or UnityIpcMethod.Refresh
+            or UnityIpcMethod.Compile
+            or UnityIpcMethod.PlayEnter
+            or UnityIpcMethod.PlayExit;
     }
 
     /// <summary> Determines whether replaying a request after an interrupted response is intrinsically side-effect free. </summary>
@@ -47,7 +56,7 @@ public static class UnityIpcMethodCapabilities
     /// <exception cref="ArgumentOutOfRangeException"> Thrown when either argument is undefined. </exception>
     public static bool AllowsStartupLifecycleState (
         UnityIpcMethod method,
-        IpcEditorLifecycleState lifecycleState)
+        UnityEditorLifecycleState lifecycleState)
     {
         EnsureDefined(method);
         if (!TextVocabulary.IsDefined(lifecycleState))
@@ -56,7 +65,7 @@ public static class UnityIpcMethodCapabilities
         }
 
         return method == UnityIpcMethod.Compile
-            && lifecycleState is IpcEditorLifecycleState.CompileFailed or IpcEditorLifecycleState.SafeMode;
+            && lifecycleState is UnityEditorLifecycleState.CompileFailed or UnityEditorLifecycleState.SafeMode;
     }
 
     private static void EnsureDefined (UnityIpcMethod method)

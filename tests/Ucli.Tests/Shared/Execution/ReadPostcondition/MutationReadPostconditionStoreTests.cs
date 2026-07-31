@@ -3,6 +3,8 @@ using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Storage;
+using MackySoft.Ucli.Contracts.Execution;
+using MackySoft.Ucli.Contracts.Projects;
 
 namespace MackySoft.Ucli.Tests;
 
@@ -33,14 +35,14 @@ public sealed class MutationReadPostconditionStoreTests
         var firstWrite = await store.WriteMergedAsync(
             AbsolutePath.Parse(scope.FullPath),
             ProjectFingerprintTestFactory.Create("fingerprint-1"),
-            new IpcExecuteReadPostcondition(
+            new ExecutionReadPostcondition(
             [
-                new IpcExecuteReadPostconditionRequirement(
-                    Surface: IpcExecuteReadPostconditionSurface.AssetSearch,
+                new ExecutionReadPostconditionRequirement(
+                    Surface: ExecutionReadPostconditionSurface.AssetSearch,
                     MinSafeGeneratedAtUtc: DateTimeOffset.Parse("2026-04-23T00:00:00+00:00"),
                     ScenePath: null),
-                new IpcExecuteReadPostconditionRequirement(
-                    Surface: IpcExecuteReadPostconditionSurface.SceneTreeLite,
+                new ExecutionReadPostconditionRequirement(
+                    Surface: ExecutionReadPostconditionSurface.SceneTreeLite,
                     MinSafeGeneratedAtUtc: DateTimeOffset.Parse("2026-04-23T00:00:00+00:00"),
                     ScenePath: new UnityScenePath(@"Assets\Scenes\Main.unity")),
             ]),
@@ -48,14 +50,14 @@ public sealed class MutationReadPostconditionStoreTests
         var secondWrite = await store.WriteMergedAsync(
             AbsolutePath.Parse(scope.FullPath),
             ProjectFingerprintTestFactory.Create("fingerprint-1"),
-            new IpcExecuteReadPostcondition(
+            new ExecutionReadPostcondition(
             [
-                new IpcExecuteReadPostconditionRequirement(
-                    Surface: IpcExecuteReadPostconditionSurface.AssetSearch,
+                new ExecutionReadPostconditionRequirement(
+                    Surface: ExecutionReadPostconditionSurface.AssetSearch,
                     MinSafeGeneratedAtUtc: DateTimeOffset.Parse("2026-04-24T00:00:00+00:00"),
                     ScenePath: null),
-                new IpcExecuteReadPostconditionRequirement(
-                    Surface: IpcExecuteReadPostconditionSurface.GuidPath,
+                new ExecutionReadPostconditionRequirement(
+                    Surface: ExecutionReadPostconditionSurface.GuidPath,
                     MinSafeGeneratedAtUtc: DateTimeOffset.Parse("2026-04-24T00:00:00+00:00"),
                     ScenePath: null),
             ]),
@@ -67,19 +69,19 @@ public sealed class MutationReadPostconditionStoreTests
         var readResult = await store.ReadOrNullAsync(AbsolutePath.Parse(scope.FullPath), ProjectFingerprintTestFactory.Create("fingerprint-1"), CancellationToken.None);
 
         Assert.True(readResult.IsSuccess);
-        var readPostcondition = Assert.IsType<IpcExecuteReadPostcondition>(readResult.ReadPostcondition);
+        var readPostcondition = Assert.IsType<ExecutionReadPostcondition>(readResult.ReadPostcondition);
         Assert.Equal(3, readPostcondition.Requirements.Count);
         Assert.Contains(
             readPostcondition.Requirements,
-            static requirement => requirement.Surface == IpcExecuteReadPostconditionSurface.AssetSearch
+            static requirement => requirement.Surface == ExecutionReadPostconditionSurface.AssetSearch
                 && requirement.MinSafeGeneratedAtUtc == DateTimeOffset.Parse("2026-04-24T00:00:00+00:00"));
         Assert.Contains(
             readPostcondition.Requirements,
-            static requirement => requirement.Surface == IpcExecuteReadPostconditionSurface.GuidPath
+            static requirement => requirement.Surface == ExecutionReadPostconditionSurface.GuidPath
                 && requirement.MinSafeGeneratedAtUtc == DateTimeOffset.Parse("2026-04-24T00:00:00+00:00"));
         Assert.Contains(
             readPostcondition.Requirements,
-            static requirement => requirement.Surface == IpcExecuteReadPostconditionSurface.SceneTreeLite
+            static requirement => requirement.Surface == ExecutionReadPostconditionSurface.SceneTreeLite
                 && requirement.ScenePath == new UnityScenePath("Assets/Scenes/Main.unity"));
 
         using var jsonDocument = JsonDocument.Parse(File.ReadAllText(documentPath.Value));
@@ -110,10 +112,10 @@ public sealed class MutationReadPostconditionStoreTests
                     return store.WriteMergedAsync(
                             AbsolutePath.Parse(scope.FullPath),
                             projectFingerprint,
-                            new IpcExecuteReadPostcondition(
+                            new ExecutionReadPostcondition(
                             [
-                                new IpcExecuteReadPostconditionRequirement(
-                                    Surface: IpcExecuteReadPostconditionSurface.SceneTreeLite,
+                                new ExecutionReadPostconditionRequirement(
+                                    Surface: ExecutionReadPostconditionSurface.SceneTreeLite,
                                     MinSafeGeneratedAtUtc: DateTimeOffset.Parse("2026-04-23T00:00:00+00:00").AddMinutes(index),
                                     ScenePath: new UnityScenePath($"Assets/Scenes/Concurrent-{index:D2}.unity")),
                             ]),
@@ -136,14 +138,14 @@ public sealed class MutationReadPostconditionStoreTests
             CancellationToken.None);
 
         Assert.True(readResult.IsSuccess, readResult.Error?.Message);
-        var readPostcondition = Assert.IsType<IpcExecuteReadPostcondition>(readResult.ReadPostcondition);
+        var readPostcondition = Assert.IsType<ExecutionReadPostcondition>(readResult.ReadPostcondition);
         Assert.Equal(writerCount, readPostcondition.Requirements.Count);
         for (var index = 0; index < writerCount; index++)
         {
             var expectedScenePath = new UnityScenePath($"Assets/Scenes/Concurrent-{index:D2}.unity");
             Assert.Contains(
                 readPostcondition.Requirements,
-                requirement => requirement.Surface == IpcExecuteReadPostconditionSurface.SceneTreeLite
+                requirement => requirement.Surface == ExecutionReadPostconditionSurface.SceneTreeLite
                     && requirement.ScenePath == expectedScenePath);
         }
     }
@@ -159,10 +161,10 @@ public sealed class MutationReadPostconditionStoreTests
         var writeResult = await store.WriteMergedAsync(
             AbsolutePath.Parse(scope.FullPath),
             ProjectFingerprintTestFactory.Create("fingerprint-1"),
-            new IpcExecuteReadPostcondition(
+            new ExecutionReadPostcondition(
             [
-                new IpcExecuteReadPostconditionRequirement(
-                    Surface: IpcExecuteReadPostconditionSurface.SceneTreeLite,
+                new ExecutionReadPostconditionRequirement(
+                    Surface: ExecutionReadPostconditionSurface.SceneTreeLite,
                     MinSafeGeneratedAtUtc: DateTimeOffset.Parse("2026-04-23T00:00:00+00:00"),
                     ScenePath: null),
             ]),
@@ -173,9 +175,9 @@ public sealed class MutationReadPostconditionStoreTests
         var readResult = await store.ReadOrNullAsync(AbsolutePath.Parse(scope.FullPath), ProjectFingerprintTestFactory.Create("fingerprint-1"), CancellationToken.None);
 
         Assert.True(readResult.IsSuccess);
-        var readPostcondition = Assert.IsType<IpcExecuteReadPostcondition>(readResult.ReadPostcondition);
+        var readPostcondition = Assert.IsType<ExecutionReadPostcondition>(readResult.ReadPostcondition);
         var requirement = Assert.Single(readPostcondition.Requirements);
-        Assert.Equal(IpcExecuteReadPostconditionSurface.SceneTreeLite, requirement.Surface);
+        Assert.Equal(ExecutionReadPostconditionSurface.SceneTreeLite, requirement.Surface);
         Assert.Null(requirement.ScenePath);
 
         using var jsonDocument = JsonDocument.Parse(File.ReadAllText(documentPath.Value));

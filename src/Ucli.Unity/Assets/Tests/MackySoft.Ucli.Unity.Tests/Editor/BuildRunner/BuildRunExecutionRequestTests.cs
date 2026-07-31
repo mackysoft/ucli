@@ -12,6 +12,8 @@ using NUnit.Framework;
 
 #nullable enable
 
+using MackySoft.Ucli.Contracts.Editor;
+
 namespace MackySoft.Ucli.Unity.Tests
 {
     public sealed class BuildRunExecutionRequestTests
@@ -117,7 +119,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 OutputLayout: outputLayout,
                 BuildReportPath: CreateTestPath("build-report.json"),
                 BuildLogPath: CreateTestPath("build.log"),
-                AllowedEditorModes: new[] { DaemonEditorMode.Batchmode },
+                AllowedEditorModes: new[] { UnityEditorMode.Batchmode },
                 ProjectMutationMode: BuildProfileProjectMutationMode.Forbid,
                 RunnerKind: runnerKind,
                 ProfileDigest: ProfileDigest,
@@ -151,7 +153,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 OutputLayout: null,
                 BuildReportPath: CreateTestPath("build-report.json"),
                 BuildLogPath: CreateTestPath("build.log"),
-                AllowedEditorModes: new[] { DaemonEditorMode.Batchmode },
+                AllowedEditorModes: new[] { UnityEditorMode.Batchmode },
                 ProjectMutationMode: BuildProfileProjectMutationMode.Forbid,
                 RunnerKind: BuildRunnerKind.BuildPipeline,
                 ProfileDigest: ProfileDigest,

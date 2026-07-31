@@ -4,7 +4,6 @@ using System.Reflection;
 using MackySoft.Ucli.Unity.Execution.Phases;
 using Microsoft.Extensions.DependencyInjection;
 using UnityEditor;
-
 using RuntimeAssembly = System.Reflection.Assembly;
 
 #nullable enable

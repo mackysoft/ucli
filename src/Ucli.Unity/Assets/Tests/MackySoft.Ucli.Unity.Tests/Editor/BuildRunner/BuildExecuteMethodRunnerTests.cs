@@ -13,6 +13,9 @@ using UnityEditor;
 
 #nullable enable
 
+using MackySoft.Ucli.Contracts.Editor;
+using MackySoft.Ucli.Contracts.Projects;
+
 namespace MackySoft.Ucli.Unity.Tests
 {
     public sealed class BuildExecuteMethodRunnerTests
@@ -461,7 +464,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 OutputLayout: null,
                 BuildReportPath: BuildReportPath,
                 BuildLogPath: BuildLogPath,
-                AllowedEditorModes: new[] { DaemonEditorMode.Batchmode },
+                AllowedEditorModes: new[] { UnityEditorMode.Batchmode },
                 ProjectMutationMode: BuildProfileProjectMutationMode.Forbid,
                 RunnerKind: BuildRunnerKind.ExecuteMethod,
                 ProfileDigest: ProfileDigest,
@@ -485,9 +488,9 @@ namespace MackySoft.Ucli.Unity.Tests
             return (BuildRunExecutionRequest.ExplicitExecuteMethod)BuildRunExecutionRequest.Create(wireRequest);
         }
 
-        private static IpcProjectIdentity CreateProjectIdentity ()
+        private static UnityProjectIdentity CreateProjectIdentity ()
         {
-            return new IpcProjectIdentity(
+            return new UnityProjectIdentity(
                 projectPath: ProjectPathTestValues.WorkspaceUnityProject,
                 projectFingerprint: ProjectFingerprint,
                 unityVersion: "6000.1.4f1");

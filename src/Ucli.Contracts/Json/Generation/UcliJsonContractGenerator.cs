@@ -7,6 +7,8 @@ using MackySoft.JsonSchema.Generation.Diagnostics;
 using MackySoft.JsonSchema.Generation.Extensibility;
 using MackySoft.JsonSchema.Generation.Projection;
 using MackySoft.Ucli.Contracts.Cryptography;
+using MackySoft.Ucli.Contracts.Execution;
+using MackySoft.Ucli.Contracts.Execution.Lifecycle;
 using MackySoft.Ucli.Contracts.Json.Metadata;
 using MackySoft.Ucli.Contracts.Operations;
 
@@ -17,7 +19,11 @@ namespace MackySoft.Ucli.Contracts.Json.Generation;
 /// </summary>
 public static class UcliJsonContractGenerator
 {
-    private static readonly JsonContractGenerator Generator = CreateGenerator();
+    private static readonly JsonContractGenerator Generator =
+        CreateGenerator(
+            JsonContractMetadataProfile.None,
+            lifecycleExecutionKind: null,
+            commandResultStatus: null);
 
     /// <summary>
     /// Generates one provider result from an authoritative serializer type resolver and product-owned document options.
@@ -59,12 +65,128 @@ public static class UcliJsonContractGenerator
         return Generator.GenerateSet(requests);
     }
 
-    private static JsonContractGenerator CreateGenerator ()
+    /// <summary>
+    /// Generates one action-specific Lifecycle Execution CLI output contract.
+    /// </summary>
+    /// <param name="contractId"> The product-assigned stable contract identifier. </param>
+    /// <param name="typeInfo"> The effective serializer contract used by the product at runtime. </param>
+    /// <param name="documentOptions"> The product-owned projection options. </param>
+    /// <param name="executionKind"> The action fixed by the output contract. </param>
+    /// <param name="status"> The command result branch represented by the output contract. </param>
+    /// <returns>
+    /// The provider result with action identity, states, and typed result vocabulary
+    /// constrained for the selected command-result branch.
+    /// </returns>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// <paramref name="executionKind" /> or <paramref name="status" /> is undefined.
+    /// </exception>
+    /// <exception cref="JsonContractGenerationException">
+    /// The serializer contract cannot be interpreted without violating the provider generation contract.
+    /// </exception>
+    internal static JsonContractGenerationResult GenerateWithLifecycleExecutionCliOutputProfile (
+        string contractId,
+        JsonTypeInfo typeInfo,
+        JsonSchemaDocumentOptions documentOptions,
+        LifecycleExecutionKind executionKind,
+        CommandResultStatus status)
     {
+        if (!TextVocabulary.IsDefined(executionKind))
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(executionKind),
+                executionKind,
+                "Lifecycle Execution kind must be defined.");
+        }
+        if (!TextVocabulary.IsDefined(status))
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(status),
+                status,
+                "Command result status must be defined.");
+        }
+
+        return CreateGenerator(
+            JsonContractMetadataProfile.LifecycleExecutionCliOutput,
+            executionKind,
+            status).Generate(
+            new JsonContractGenerationRequest(
+                contractId,
+                typeInfo,
+                documentOptions));
+    }
+
+    /// <summary>
+    /// Generates one CLI output contract that contains operation execution
+    /// application-state declarations.
+    /// </summary>
+    internal static JsonContractGenerationResult
+        GenerateWithOperationExecutionCliOutputProfile (
+            string contractId,
+            JsonTypeInfo typeInfo,
+            JsonSchemaDocumentOptions documentOptions)
+    {
+        return CreateGenerator(
+            JsonContractMetadataProfile.OperationExecutionCliOutput,
+            lifecycleExecutionKind: null,
+            commandResultStatus: null).Generate(
+            new JsonContractGenerationRequest(
+                contractId,
+                typeInfo,
+                documentOptions));
+    }
+
+    /// <summary>
+    /// Generates the common ExecutionRef contract with its unrestricted feature-state vocabulary.
+    /// </summary>
+    internal static JsonContractGenerationResult
+        GenerateWithExecutionReferenceProfile (
+            string contractId,
+            JsonTypeInfo typeInfo,
+            JsonSchemaDocumentOptions documentOptions)
+    {
+        return CreateGenerator(
+            JsonContractMetadataProfile.ExecutionReference,
+            lifecycleExecutionKind: null,
+            commandResultStatus: null).Generate(
+            new JsonContractGenerationRequest(
+                contractId,
+                typeInfo,
+                documentOptions));
+    }
+
+    /// <summary>
+    /// Generates the common Lifecycle Execution Terminal Record contract with action-owned constraints.
+    /// </summary>
+    internal static JsonContractGenerationResult
+        GenerateWithLifecycleExecutionTerminalRecordProfile (
+            string contractId,
+            JsonTypeInfo typeInfo,
+            JsonSchemaDocumentOptions documentOptions)
+    {
+        return CreateGenerator(
+            JsonContractMetadataProfile.TerminalRecord,
+            lifecycleExecutionKind: null,
+            commandResultStatus: null).Generate(
+            new JsonContractGenerationRequest(
+                contractId,
+                typeInfo,
+                documentOptions));
+    }
+
+    private static JsonContractGenerator CreateGenerator (
+        JsonContractMetadataProfile profile,
+        LifecycleExecutionKind? lifecycleExecutionKind,
+        CommandResultStatus? commandResultStatus)
+    {
+        var metadataRegistry = CreateMetadataRegistry(
+            profile,
+            lifecycleExecutionKind,
+            commandResultStatus);
+
         return new JsonContractGenerator(
             new JsonContractGeneratorOptions(
                 JsonContractGenerationSettings.ClosedObjects,
-                CreateMetadataRegistry(),
+                metadataRegistry,
                 CreateTypeMappers(),
                 modelContributors:
                 [
@@ -72,13 +194,120 @@ public static class UcliJsonContractGenerator
                 ]));
     }
 
-    private static JsonContractMetadataRegistry CreateMetadataRegistry ()
+    private static JsonContractMetadataRegistry CreateMetadataRegistry (
+        JsonContractMetadataProfile profile,
+        LifecycleExecutionKind? lifecycleExecutionKind,
+        CommandResultStatus? commandResultStatus)
     {
-        return new JsonContractMetadataRegistry()
+        var registry = new JsonContractMetadataRegistry()
             .RegisterAttributeInterpreter<UcliInt32MinimumAttribute, int?>(
                 new UcliNullableInt32MinimumAttributeInterpreter())
             .RegisterAttributeInterpreter<UcliInt32RangeAttribute, int?>(
                 new UcliNullableInt32RangeAttributeInterpreter());
+        if (profile == JsonContractMetadataProfile.None)
+        {
+            if (lifecycleExecutionKind.HasValue
+                || commandResultStatus.HasValue)
+            {
+                throw new ArgumentException(
+                    "The default JSON contract profile cannot include Lifecycle Execution selectors.",
+                    nameof(lifecycleExecutionKind));
+            }
+
+            return registry;
+        }
+
+        if (profile == JsonContractMetadataProfile.OperationExecutionCliOutput)
+        {
+            EnsureLifecycleExecutionSelectorsAreAbsent(
+                lifecycleExecutionKind,
+                commandResultStatus,
+                "The operation execution CLI output profile cannot include Lifecycle Execution selectors.");
+            RegisterOperationApplicationState(registry);
+            return registry;
+        }
+
+        if (profile
+            == JsonContractMetadataProfile.ExecutionReference)
+        {
+            if (lifecycleExecutionKind.HasValue
+                || commandResultStatus.HasValue)
+            {
+                throw new ArgumentException(
+                    "The ExecutionRef profile cannot include action selectors.",
+                    nameof(lifecycleExecutionKind));
+            }
+
+            LifecycleExecutionCliOutputMetadata.RegisterDefaultExecutionState(
+                registry);
+            return registry;
+        }
+
+        if (profile
+            == JsonContractMetadataProfile.TerminalRecord)
+        {
+            if (lifecycleExecutionKind.HasValue
+                || commandResultStatus.HasValue)
+            {
+                throw new ArgumentException(
+                    "The Terminal Record profile cannot include CLI action selectors.",
+                    nameof(lifecycleExecutionKind));
+            }
+
+            LifecycleExecutionTerminalRecordMetadata.Register(registry);
+            return registry;
+        }
+
+        if (!lifecycleExecutionKind.HasValue
+            || !commandResultStatus.HasValue)
+        {
+            throw new ArgumentException(
+                "A Lifecycle Execution CLI output profile requires an action kind and command result status.",
+                nameof(lifecycleExecutionKind));
+        }
+
+        RegisterOperationApplicationState(registry);
+        LifecycleExecutionCliOutputMetadata.Register(
+            registry,
+            lifecycleExecutionKind.Value,
+            commandResultStatus.Value);
+        return registry;
+    }
+
+    private static void RegisterOperationApplicationState (
+        JsonContractMetadataRegistry registry)
+    {
+        registry.RegisterAttributeInterpreter<
+            UcliOperationApplicationStateAttribute,
+            ExecutionApplicationState>(
+            new UcliOperationApplicationStateAttributeInterpreter());
+    }
+
+    private static void EnsureLifecycleExecutionSelectorsAreAbsent (
+        LifecycleExecutionKind? lifecycleExecutionKind,
+        CommandResultStatus? commandResultStatus,
+        string message)
+    {
+        if (lifecycleExecutionKind.HasValue
+            || commandResultStatus.HasValue)
+        {
+            throw new ArgumentException(
+                message,
+                nameof(lifecycleExecutionKind));
+        }
+    }
+
+    private enum JsonContractMetadataProfile
+    {
+        None = 0,
+
+        ExecutionReference = 1,
+
+        TerminalRecord = 2,
+
+        LifecycleExecutionCliOutput = 3,
+
+        OperationExecutionCliOutput = 4,
     }
 
     private static IReadOnlyList<IJsonContractTypeMapper> CreateTypeMappers ()

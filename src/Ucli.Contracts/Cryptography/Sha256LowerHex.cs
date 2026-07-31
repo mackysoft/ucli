@@ -12,6 +12,9 @@ internal static class Sha256LowerHex
     /// <summary> Gets the SHA-256 digest length in hexadecimal characters. </summary>
     internal const int HexCharCount = ByteCount * 2;
 
+    /// <summary> Gets the JSON Schema pattern for one canonical lowercase hexadecimal SHA-256 digest. </summary>
+    internal const string CanonicalTextPattern = "^[0-9a-f]{64}$";
+
     private const string HexChars = "0123456789abcdef";
 
     /// <summary> Computes a SHA-256 digest string from source bytes. </summary>

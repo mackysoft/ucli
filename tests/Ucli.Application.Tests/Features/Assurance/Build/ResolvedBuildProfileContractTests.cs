@@ -1,6 +1,7 @@
 using MackySoft.Ucli.Application.Features.Assurance.Build.Profiles;
 using MackySoft.Ucli.Contracts.Assurance.Build;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Tests.Features.Assurance.Build;
 
@@ -101,7 +102,7 @@ public sealed class ResolvedBuildProfileContractTests
     {
         Assert.Throws<ArgumentOutOfRangeException>(() => new ResolvedBuildRuntimePolicy(
             [(BuildProfileRuntimeExecutionMode)int.MaxValue],
-            [DaemonEditorMode.Batchmode]));
+            [UnityEditorMode.Batchmode]));
     }
 
     [Fact]
@@ -110,7 +111,7 @@ public sealed class ResolvedBuildProfileContractTests
     {
         Assert.Throws<ArgumentNullException>(() => new ResolvedBuildRuntimePolicy(
             null!,
-            [DaemonEditorMode.Batchmode]));
+            [UnityEditorMode.Batchmode]));
     }
 
     [Fact]
@@ -184,6 +185,6 @@ public sealed class ResolvedBuildProfileContractTests
     {
         return new ResolvedBuildRuntimePolicy(
             [BuildProfileRuntimeExecutionMode.Daemon],
-            [DaemonEditorMode.Batchmode]);
+            [UnityEditorMode.Batchmode]);
     }
 }

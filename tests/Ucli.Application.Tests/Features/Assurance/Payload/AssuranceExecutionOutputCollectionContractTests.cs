@@ -3,7 +3,6 @@ using MackySoft.Ucli.Application.Features.Assurance.Compile.Payload;
 using MackySoft.Ucli.Application.Features.Assurance.Ready;
 using MackySoft.Ucli.Application.Features.Assurance.Verify.Payload;
 using MackySoft.Ucli.Application.Tests.Features.Assurance.Build;
-using MackySoft.Ucli.Contracts.Assurance.Build;
 
 namespace MackySoft.Ucli.Application.Tests.Features.Assurance.Payload;
 
@@ -26,14 +25,12 @@ public sealed class AssuranceExecutionOutputCollectionContractTests
             (() => new BuildExecutionOutput(project, null!, [], [], buildReports, []), "Build"),
             (() => new CompileExecutionOutput(
                 project,
+                AssuranceExecutionOutputTestFactory.CreateCompileExecutionRef(),
+                Verdict.Pass,
                 [],
                 [],
                 reports,
                 [],
-                AssuranceRequestedExecutionMode.Auto,
-                AssuranceResolvedExecutionMode.Oneshot,
-                AssuranceSessionKind.TransientProbe,
-                1,
                 null!), "Compile"),
             (() => new VerifyExecutionOutput(project, [], [], reports, [], null!, 1), "Profile"),
         };
@@ -151,14 +148,12 @@ public sealed class AssuranceExecutionOutputCollectionContractTests
             ReadIndex: null);
         var compile = new CompileExecutionOutput(
             project,
+            AssuranceExecutionOutputTestFactory.CreateCompileExecutionRef(),
+            Verdict.Pass,
             compileVerifiers,
             compileClaims,
             reports,
             compileRisks,
-            AssuranceRequestedExecutionMode.Auto,
-            AssuranceResolvedExecutionMode.Oneshot,
-            AssuranceSessionKind.TransientProbe,
-            1,
             compileOutput);
         var build = new BuildExecutionOutput(
             project,

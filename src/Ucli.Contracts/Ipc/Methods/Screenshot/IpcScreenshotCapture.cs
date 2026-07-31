@@ -1,6 +1,7 @@
 using System.Text.Json.Serialization;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
@@ -113,28 +114,28 @@ public sealed record IpcScreenshotCapture
     /// </returns>
     internal static bool IsSuccessfulCaptureState (UnityEditorStateSnapshot state)
     {
-        if (state.EditorMode != DaemonEditorMode.Gui
-            || state.CompileState != IpcCompileState.Ready)
+        if (state.EditorMode != UnityEditorMode.Gui
+            || state.CompileState != UnityEditorCompileState.Ready)
         {
             return false;
         }
 
         var playMode = state.PlayMode;
-        if (playMode.Transition != IpcPlayModeTransition.None)
+        if (playMode.Transition != UnityEditorPlayModeTransition.None)
         {
             return false;
         }
 
-        if (state.LifecycleState == IpcEditorLifecycleState.Ready
-            && playMode.State == IpcPlayModeState.Stopped
+        if (state.LifecycleState == UnityEditorLifecycleState.Ready
+            && playMode.State == UnityEditorPlayModeState.Stopped
             && !playMode.IsPlaying
             && !playMode.IsPlayingOrWillChangePlaymode)
         {
             return true;
         }
 
-        return state.LifecycleState == IpcEditorLifecycleState.PlayMode
-            && playMode.State == IpcPlayModeState.Playing
+        return state.LifecycleState == UnityEditorLifecycleState.PlayMode
+            && playMode.State == UnityEditorPlayModeState.Playing
             && playMode.IsPlaying
             && playMode.IsPlayingOrWillChangePlaymode;
     }

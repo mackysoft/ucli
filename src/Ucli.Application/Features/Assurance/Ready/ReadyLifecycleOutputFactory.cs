@@ -1,5 +1,6 @@
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Features.Assurance.Ready;
 
@@ -7,7 +8,7 @@ namespace MackySoft.Ucli.Application.Features.Assurance.Ready;
 internal static class ReadyLifecycleOutputFactory
 {
     /// <summary> Creates lifecycle evidence from one ping response. </summary>
-    public static ReadyLifecycleOutput Create (IpcUnityEditorObservation pingResponse)
+    public static ReadyLifecycleOutput Create (UnityEditorObservation pingResponse)
     {
         ArgumentNullException.ThrowIfNull(pingResponse);
 
@@ -18,17 +19,17 @@ internal static class ReadyLifecycleOutputFactory
             UnityVersion: StringValueNormalizer.TrimToNull(pingResponse.UnityVersion),
             EditorMode: state.EditorMode,
             LifecycleState: state.LifecycleState,
-            BlockingReason: IpcEditorLifecycleSemantics.ResolveBlockingReason(state.LifecycleState),
+            BlockingReason: UnityEditorLifecycleSemantics.ResolveBlockingReason(state.LifecycleState),
             CompileState: state.CompileState,
             Generations: state.Generations,
-            CanAcceptExecutionRequests: IpcEditorLifecycleSemantics.CanAcceptExecutionRequests(state.LifecycleState),
+            CanAcceptExecutionRequests: UnityEditorLifecycleSemantics.CanAcceptExecutionRequests(state.LifecycleState),
             ObservedAtUtc: pingResponse.ObservedAtUtc,
             ActionRequired: pingResponse.ActionRequired,
             PrimaryDiagnostic: ToOutput(pingResponse.PrimaryDiagnostic),
             PlayMode: state.PlayMode);
     }
 
-    private static ReadyPrimaryDiagnosticOutput? ToOutput (IpcPrimaryDiagnostic? diagnostic)
+    private static ReadyPrimaryDiagnosticOutput? ToOutput (UnityEditorPrimaryDiagnostic? diagnostic)
     {
         if (diagnostic?.Kind is not { } kind)
         {

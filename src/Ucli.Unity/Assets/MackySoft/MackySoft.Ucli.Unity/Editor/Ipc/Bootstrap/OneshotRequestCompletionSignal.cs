@@ -1,10 +1,12 @@
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.Ucli.Contracts.Execution.Lifecycle;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
     /// <summary> Coordinates completion of the single request handled by Unity oneshot mode. </summary>
-    internal sealed class OneshotRequestCompletionSignal
+    internal sealed class OneshotRequestCompletionSignal :
+        ILifecycleExecutionTerminalObserver
     {
         private readonly OneshotProcessLifetimeWatchdog lifetimeWatchdog;
 
@@ -25,6 +27,14 @@ namespace MackySoft.Ucli.Unity.Ipc
         {
             lifetimeWatchdog.MarkRequestCompleted();
             completionSource.TrySetResult(true);
+        }
+
+        /// <inheritdoc />
+        void ILifecycleExecutionTerminalObserver.OnTerminal (
+            LifecycleExecutionKind kind,
+            System.Guid executionId)
+        {
+            Signal();
         }
 
         /// <summary> Waits until the oneshot request-response exchange completes. </summary>

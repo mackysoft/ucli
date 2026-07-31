@@ -30,6 +30,8 @@ using UnityEngine.TestTools;
 
 #nullable enable
 
+using MackySoft.Ucli.Contracts.Editor;
+
 namespace MackySoft.Ucli.Unity.Tests
 {
     public sealed class OperationPhaseExecutorTests
@@ -1872,7 +1874,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     repositoryRoot: AbsolutePath.Parse(RepositoryRoot),
                     projectFingerprint: ProjectFingerprint,
                     unityVersion: "6000.0.0f1",
-                    compileState: IpcCompileState.Ready,
+                    compileState: UnityEditorCompileState.Ready,
                     domainReloadGeneration: 0);
                 return new MutablePlanTokenEnvironment(snapshot, DateTimeOffset.UtcNow);
             }

@@ -18,6 +18,7 @@ using MackySoft.Ucli.Contracts.Assurance.Build;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Json;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Features.Assurance.Build.Execution;
 
@@ -1649,8 +1650,8 @@ internal sealed class BuildService : IBuildService
     }
 
     private static BuildGenerationsOutput CreateGenerations (
-        IpcUnityEditorObservation before,
-        IpcUnityEditorObservation after)
+        UnityEditorObservation before,
+        UnityEditorObservation after)
     {
         var beforeSnapshot = before.State.Generations;
         var afterSnapshot = after.State.Generations;
@@ -1684,7 +1685,7 @@ internal sealed class BuildService : IBuildService
                 required: true),
             CreateClaim(
                 BuildClaimCodes.UnityReadyForBuild,
-                IpcEditorLifecycleSemantics.CanAcceptExecutionRequests(response.LifecycleBefore.State.LifecycleState)
+                UnityEditorLifecycleSemantics.CanAcceptExecutionRequests(response.LifecycleBefore.State.LifecycleState)
                     ? AssuranceClaimStatus.Passed
                     : AssuranceClaimStatus.Failed,
                 "Unity lifecycle was ready before BuildPipeline execution.",
@@ -1969,7 +1970,7 @@ internal sealed class BuildService : IBuildService
         }
 
         if (executionTarget == UnityExecutionTarget.Oneshot
-            && !policy.AllowedEditorModes.Contains(DaemonEditorMode.Batchmode))
+            && !policy.AllowedEditorModes.Contains(UnityEditorMode.Batchmode))
         {
             return ApplicationFailure.EnvironmentError(
                 "Build runtime policy does not allow oneshot batchmode editor execution.",

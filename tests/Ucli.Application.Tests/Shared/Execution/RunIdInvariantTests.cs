@@ -1,9 +1,9 @@
-using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Artifacts;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Payload;
-using MackySoft.Ucli.Application.Features.Assurance.Compile.Payload;
 using MackySoft.Ucli.Application.Features.Testing.Run.Artifacts;
+using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Contracts.Testing;
+using MackySoft.Ucli.Contracts.Execution.Lifecycle;
 
 namespace MackySoft.Ucli.Application.Tests.Shared.Execution;
 
@@ -11,11 +11,16 @@ public sealed class RunIdInvariantTests
 {
     [Fact]
     [Trait("Size", "Small")]
-    public void CompileRequestPayload_WhenRunIdIsEmpty_ThrowsArgumentException ()
+    public void CompileRegistration_WhenExecutionIdIsEmpty_ThrowsArgumentException ()
     {
-        var exception = Assert.Throws<ArgumentException>(() => new UnityRequestPayload.Compile(Guid.Empty));
+        var exception = Assert.Throws<ArgumentException>(
+            () => new LifecycleExecutionRegistration(
+                new LifecycleExecutionDefinition(LifecycleExecutionKind.Compile),
+                Guid.Empty,
+                DateTimeOffset.UnixEpoch.AddSeconds(1),
+                DateTimeOffset.UnixEpoch));
 
-        Assert.Equal("runId", exception.ParamName);
+        Assert.Equal("executionId", exception.ParamName);
     }
 
     [Fact]
@@ -124,20 +129,6 @@ public sealed class RunIdInvariantTests
             null!,
             null!,
             null!,
-            null!,
-            null!,
-            null!,
-            null!));
-
-        Assert.Equal("runId", exception.ParamName);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void CompileOutput_WhenRunIdIsEmpty_ThrowsArgumentException ()
-    {
-        var exception = Assert.Throws<ArgumentException>(() => new CompileOutput(
-            Guid.Empty,
             null!,
             null!,
             null!,

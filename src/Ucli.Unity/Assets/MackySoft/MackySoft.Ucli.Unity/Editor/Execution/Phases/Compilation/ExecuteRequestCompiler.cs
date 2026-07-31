@@ -232,14 +232,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         private static IpcExecutePostReadSourceStep CreateOperationPostReadSourceStep (
             string operationName)
         {
-            var sourceKind = string.Equals(operationName, UcliPrimitiveOperationNames.ProjectRefresh, StringComparison.Ordinal)
-                ? IpcExecutePostReadSourceKind.Refresh
-                : IpcExecutePostReadSourceKind.Operation;
             return new IpcExecutePostReadSourceStep(
-                SourceKind: sourceKind,
+                SourceKind: IpcExecutePostReadSourceKind.Operation,
                 PlayModeMutation: false,
                 Commit: null,
-                PersistenceExpected: sourceKind == IpcExecutePostReadSourceKind.Refresh,
+                PersistenceExpected: false,
                 ExpectedPostState: IpcExecuteExpectedPostState.Unavailable);
         }
 

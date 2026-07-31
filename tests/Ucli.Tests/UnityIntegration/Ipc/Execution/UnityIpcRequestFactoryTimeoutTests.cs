@@ -34,11 +34,13 @@ public sealed class UnityIpcRequestFactoryDeadlineTests
     [Trait("Size", "Small")]
     public void UnityIpcRequestFactory_WithRequestDeadline_PreservesDeadlineOnEnvelope ()
     {
-        var payload = IpcPayloadCodec.SerializeToElement(new IpcCompileRequest(RunIdTestValues.Compile));
+        var payload = IpcPayloadCodec.SerializeToElement(new IpcOpsReadRequest(
+            FailFast: false,
+            RequireReadinessGate: false));
 
         var request = UnityIpcRequestFactory.Create(
             IpcSessionTokenTestFactory.CreateFromDiscriminator(1),
-            UnityIpcMethod.Compile,
+            UnityIpcMethod.OpsRead,
             payload,
             Guid.NewGuid(),
             IpcResponseMode.Single,

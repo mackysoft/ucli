@@ -9,4 +9,5 @@ internal sealed record UcliCommandOutputContract (
     string Command,
     JsonTypeInfo? SuccessPayloadTypeInfo,
     JsonTypeInfo ErrorPayloadTypeInfo,
-    Func<object> CreateDefaultErrorPayload);
+    Func<object> CreateDefaultErrorPayload,
+    bool HasOperationApplicationStateConstraints);

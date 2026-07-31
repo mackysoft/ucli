@@ -6,6 +6,7 @@ using MackySoft.Ucli.Application.Features.Play.Common.Projection;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Features.Play.UseCases.Status;
 
@@ -111,7 +112,7 @@ internal sealed class PlayStatusService : IPlayStatusService
         }
 
         var lifecycle = PlayOutputProjectionFactory.CreateSnapshotOutput(snapshot);
-        if (lifecycle.EditorMode != DaemonEditorMode.Gui)
+        if (lifecycle.EditorMode != UnityEditorMode.Gui)
         {
             return PlayStatusExecutionResult.Failure(CreateRequiresGuiEditorError());
         }
@@ -120,7 +121,7 @@ internal sealed class PlayStatusService : IPlayStatusService
             Project: playContext.Project,
             DaemonStatus: DaemonStatusKind.Running,
             ServerVersion: lifecycle.ServerVersion,
-            EditorMode: DaemonEditorMode.Gui,
+            EditorMode: UnityEditorMode.Gui,
             LifecycleState: lifecycle.LifecycleState,
             BlockingReason: lifecycle.BlockingReason,
             CompileState: lifecycle.CompileState,
@@ -145,7 +146,7 @@ internal sealed class PlayStatusService : IPlayStatusService
                     playContext,
                     cancellationToken)
                 .ConfigureAwait(false);
-            if (fallbackStatus is { LifecycleState: not IpcEditorLifecycleState.Ready })
+            if (fallbackStatus is { LifecycleState: not UnityEditorLifecycleState.Ready })
             {
                 return PlayStatusExecutionResult.Success(fallbackStatus);
             }
@@ -169,14 +170,14 @@ internal sealed class PlayStatusService : IPlayStatusService
             || observation is null
             || !DaemonLifecycleObservationAvailability.IsUsableForSession(
                 observation,
-                playContext.Session,
+                playContext.Session!,
                 processIdentityAssessor,
                 timeProvider))
         {
             return null;
         }
 
-        if (observation.State.EditorMode != DaemonEditorMode.Gui)
+        if (observation.State.EditorMode != UnityEditorMode.Gui)
         {
             return null;
         }
@@ -185,7 +186,7 @@ internal sealed class PlayStatusService : IPlayStatusService
             Project: playContext.Project,
             DaemonStatus: DaemonStatusKind.Running,
             ServerVersion: observation.ServerVersion,
-            EditorMode: DaemonEditorMode.Gui,
+            EditorMode: UnityEditorMode.Gui,
             LifecycleState: observation.State.LifecycleState,
             BlockingReason: observation.BlockingReason,
             CompileState: observation.State.CompileState,
@@ -199,7 +200,7 @@ internal sealed class PlayStatusService : IPlayStatusService
         return output;
     }
 
-    private static DaemonPrimaryDiagnosticOutput? ToOutput (IpcPrimaryDiagnostic? diagnostic)
+    private static DaemonPrimaryDiagnosticOutput? ToOutput (UnityEditorPrimaryDiagnostic? diagnostic)
     {
         if (diagnostic?.Kind is not { } kind)
         {
