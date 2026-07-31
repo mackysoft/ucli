@@ -1,5 +1,6 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Observation;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Tests.Daemon;
 
@@ -18,13 +19,13 @@ public sealed class DaemonLifecycleObservationAvailabilityTests
             processId: session.ProcessId!.Value,
             processStartedAtUtc: session.ProcessStartedAtUtc!.Value,
             state: new UnityEditorStateSnapshot(
-                editorMode: DaemonEditorMode.Gui,
-                lifecycleState: IpcEditorLifecycleState.Recovering,
-                compileState: IpcCompileState.Ready,
-                generations: new IpcUnityGenerationSnapshot(1, 2, 0, 0),
-                playMode: new IpcPlayModeSnapshot(
-                    IpcPlayModeState.Stopped,
-                    IpcPlayModeTransition.None,
+                editorMode: UnityEditorMode.Gui,
+                lifecycleState: UnityEditorLifecycleState.Recovering,
+                compileState: UnityEditorCompileState.Ready,
+                generations: new UnityEditorGenerationSnapshot(1, 2, 0, 0),
+                playMode: new UnityEditorPlayModeSnapshot(
+                    UnityEditorPlayModeState.Stopped,
+                    UnityEditorPlayModeTransition.None,
                     IsPlaying: false,
                     IsPlayingOrWillChangePlaymode: false)),
             observedAtUtc: observedAtUtc,

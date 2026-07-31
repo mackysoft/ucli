@@ -1,5 +1,6 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Context;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.TestSupport;
 
@@ -18,7 +19,7 @@ internal static class DaemonSessionStoreAssert
     public static DaemonSession InitialSessionWrittenFor (
         RecordingDaemonSessionStore sessionStore,
         ResolvedUnityProjectContext expectedUnityProject,
-        DaemonEditorMode expectedEditorMode)
+        UnityEditorMode expectedEditorMode)
     {
         var session = SingleSessionWrittenFor(sessionStore, expectedUnityProject);
         Assert.NotEqual(Guid.Empty, session.SessionGenerationId);

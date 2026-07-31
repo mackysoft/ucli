@@ -11,6 +11,8 @@ internal sealed class RecordingUnityIpcTransportClient : IUnityIpcTransportClien
 
     private readonly Func<IpcRequestEnvelope, IpcStreamFrame?>? progressFrameFactory;
 
+    private readonly bool createLifecycleStartResponses;
+
     private readonly List<UnityInvocation> unityInvocations = [];
 
     private readonly List<EndpointInvocation> endpointInvocations = [];
@@ -21,17 +23,23 @@ internal sealed class RecordingUnityIpcTransportClient : IUnityIpcTransportClien
 
     public RecordingUnityIpcTransportClient (
         Func<IpcRequestEnvelope, IpcResponse> responseFactory,
-        Func<IpcRequestEnvelope, IpcStreamFrame?>? progressFrameFactory = null)
-        : this(AdaptResponseFactory(responseFactory), progressFrameFactory)
+        Func<IpcRequestEnvelope, IpcStreamFrame?>? progressFrameFactory = null,
+        bool createLifecycleStartResponses = true)
+        : this(
+            AdaptResponseFactory(responseFactory),
+            progressFrameFactory,
+            createLifecycleStartResponses)
     {
     }
 
     public RecordingUnityIpcTransportClient (
         Func<IpcRequestEnvelope, CancellationToken, ValueTask<IpcResponse>> responseFactory,
-        Func<IpcRequestEnvelope, IpcStreamFrame?>? progressFrameFactory = null)
+        Func<IpcRequestEnvelope, IpcStreamFrame?>? progressFrameFactory = null,
+        bool createLifecycleStartResponses = true)
     {
         this.responseFactory = responseFactory ?? throw new ArgumentNullException(nameof(responseFactory));
         this.progressFrameFactory = progressFrameFactory;
+        this.createLifecycleStartResponses = createLifecycleStartResponses;
     }
 
     public IReadOnlyList<UnityInvocation> UnityInvocations => unityInvocations;
@@ -152,6 +160,12 @@ internal sealed class RecordingUnityIpcTransportClient : IUnityIpcTransportClien
         CancellationToken cancellationToken)
     {
         requests.Add(request);
+        if (createLifecycleStartResponses
+            && LifecycleExecutionIpcTestResponseFactory.TryCreateResponse(request) is { } lifecycleStartResponse)
+        {
+            return ValueTask.FromResult(lifecycleStartResponse);
+        }
+
         return responseFactory(request, cancellationToken);
     }
 

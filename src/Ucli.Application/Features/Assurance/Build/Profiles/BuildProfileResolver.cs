@@ -4,6 +4,7 @@ using MackySoft.Ucli.Contracts.Assurance.Build;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Json;
 using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Features.Assurance.Build.Profiles;
 
@@ -636,7 +637,7 @@ internal static class BuildProfileResolver
         if (!TryReadRequiredObject(policyElement, "runtime", "Build profile policy", out var runtimeElement, out error)
             || !TryValidateObjectProperties(runtimeElement, AllowedRuntimeProperties, "Build profile policy.runtime", out error)
             || !TryReadRequiredEnumArray(runtimeElement, "allowedExecutionModes", "Build profile policy.runtime", out IReadOnlyList<BuildProfileRuntimeExecutionMode>? allowedExecutionModes, out error)
-            || !TryReadRequiredEnumArray(runtimeElement, "allowedEditorModes", "Build profile policy.runtime", out IReadOnlyList<DaemonEditorMode>? allowedEditorModes, out error))
+            || !TryReadRequiredEnumArray(runtimeElement, "allowedEditorModes", "Build profile policy.runtime", out IReadOnlyList<UnityEditorMode>? allowedEditorModes, out error))
         {
             return false;
         }

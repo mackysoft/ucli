@@ -4,7 +4,9 @@ using MackySoft.Ucli.Application.Features.Assurance.Verify.Contracts;
 using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Common;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Contracts.Ipc;
 using static MackySoft.Ucli.Application.Tests.Features.Assurance.Verify.VerifyServiceTestSupport;
+using MackySoft.Ucli.Contracts.Execution;
 
 namespace MackySoft.Ucli.Application.Tests.Features.Assurance.Verify;
 
@@ -99,7 +101,9 @@ public sealed class VerifyServiceTests
         var progressSink = new CollectingCommandProgressSink();
         var compileService = new RecordingVerifyCompileService(_ => CompileExecutionResult.Failed(
             ExecutionError.InternalError("Compile command failed.", UcliCoreErrorCodes.InternalError),
-            project: null));
+            project: null,
+            lifecycleExecutionRef: null,
+            ExecutionApplicationState.NotApplied));
         var service = CreateService(scope.FullPath, compileService: compileService);
 
         var result = await service.ExecuteAsync(

@@ -4,6 +4,7 @@ using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Tests.Helpers.Daemon;
 using MackySoft.Ucli.Tests.Helpers.Ipc;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Tests.Supervisor;
 
@@ -144,7 +145,7 @@ public sealed class SupervisorProjectGatewayEnsureRunningTests
             scope.FullPath,
             timeProvider);
         var observedEnsureRunningTimeout = TimeSpan.Zero;
-        var observedEditorMode = (DaemonEditorMode?)null;
+        var observedEditorMode = (UnityEditorMode?)null;
         var observedOnStartupBlocked = DaemonStartupBlockedProcessPolicy.Auto;
         scenario.TransportClient.SendHandler = (endpoint, request, timeout, cancellationToken) =>
         {
@@ -172,13 +173,13 @@ public sealed class SupervisorProjectGatewayEnsureRunningTests
         var progressSink = new CollectingCommandProgressSink();
         var progressEmitter = SupervisorProjectGatewayTestSupport.CreateStartProgressEmitter(
             progressSink,
-            editorMode: DaemonEditorMode.Gui,
+            editorMode: UnityEditorMode.Gui,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Keep);
 
         var result = await scenario.Gateway.EnsureRunningAsync(
             scenario.CreateUnityProject(),
             TimeSpan.FromMilliseconds(SupervisorProjectGatewayTestSupport.StartTimeoutMilliseconds),
-            editorMode: DaemonEditorMode.Gui,
+            editorMode: UnityEditorMode.Gui,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Keep,
             progressObserver: progressEmitter,
             cancellationToken: CancellationToken.None);
@@ -188,7 +189,7 @@ public sealed class SupervisorProjectGatewayEnsureRunningTests
         Assert.NotNull(result.Session);
         Assert.True(observedEnsureRunningTimeout > TimeSpan.Zero);
         Assert.True(observedEnsureRunningTimeout < TimeSpan.FromMilliseconds(SupervisorProjectGatewayTestSupport.StartTimeoutMilliseconds));
-        Assert.Equal(DaemonEditorMode.Gui, observedEditorMode);
+        Assert.Equal(UnityEditorMode.Gui, observedEditorMode);
         Assert.Equal(DaemonStartupBlockedProcessPolicy.Keep, observedOnStartupBlocked);
         EventSequenceAssert.EmittedEventsInOrder(
             progressSink.Entries,

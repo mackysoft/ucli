@@ -5,6 +5,7 @@ using MackySoft.Ucli.Contracts.Ipc.ContractReading;
 using MackySoft.Ucli.Contracts.Json;
 using MackySoft.Ucli.Contracts.Schemas;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
+using MackySoft.Ucli.Contracts.Execution.Lifecycle;
 
 namespace MackySoft.Ucli.Hosting.Composition.Schemas;
 
@@ -88,6 +89,11 @@ internal static class UcliStaticSchemaRegistrationCatalog
                 RootRelativePath.Parse("common/execution-ref.schema.json"),
                 CliOutputJsonSerializerOptions.Default.GetTypeInfo(
                     UcliNonNullJsonObject.MakeValueType(typeof(ExecutionRef)))),
+            UcliStaticSchemaRegistration.CommonDefinition(
+                "common.lifecycle-execution-terminal-record",
+                RootRelativePath.Parse("common/lifecycle-execution-terminal-record.schema.json"),
+                CliOutputJsonSerializerOptions.Default.GetTypeInfo(
+                    UcliNonNullJsonObject.MakeValueType(typeof(LifecycleExecutionTerminalRecord)))),
         ];
     }
 

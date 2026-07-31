@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Progress;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Tests;
 
@@ -13,7 +14,7 @@ internal sealed class RecordingDaemonGuiEditorAttachService : IDaemonGuiEditorAt
     public ValueTask<DaemonStartResult?> TryAttachExistingGuiEditorAsync (
         ResolvedUnityProjectContext unityProject,
         ExecutionDeadline deadline,
-        DaemonEditorMode? editorMode,
+        UnityEditorMode? editorMode,
         DaemonStartupBlockedProcessPolicy onStartupBlocked,
         IDaemonStartProgressObserver? progressObserver = null,
         CancellationToken cancellationToken = default)
@@ -28,7 +29,7 @@ internal sealed class RecordingDaemonGuiEditorAttachService : IDaemonGuiEditorAt
     internal readonly record struct Invocation (
         ResolvedUnityProjectContext UnityProject,
         ExecutionDeadline Deadline,
-        DaemonEditorMode? EditorMode,
+        UnityEditorMode? EditorMode,
         DaemonStartupBlockedProcessPolicy OnStartupBlocked,
         IDaemonStartProgressObserver? ProgressObserver,
         CancellationToken CancellationToken);

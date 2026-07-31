@@ -4,6 +4,7 @@ using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Hosting.Cli.Daemon;
 using MackySoft.Ucli.Tests.Hosting.Cli.Common.Execution;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Tests;
 
@@ -24,7 +25,7 @@ public sealed class DaemonListCommandTests
             IssuedAtUtc: new DateTimeOffset(2026, 03, 09, 12, 0, 0, TimeSpan.Zero),
             ProcessId: 1234,
             ProcessStartedAtUtc: new DateTimeOffset(2026, 03, 09, 11, 59, 0, TimeSpan.Zero),
-            EditorMode: DaemonEditorMode.Batchmode,
+            EditorMode: UnityEditorMode.Batchmode,
             OwnerKind: DaemonSessionOwnerKind.Cli,
             CanShutdownProcess: true,
             EndpointTransportKind: IpcTransportKind.UnixDomainSocket,
@@ -48,9 +49,9 @@ public sealed class DaemonListCommandTests
                 ProcessStartedAtUtc: new DateTimeOffset(2026, 03, 09, 11, 59, 0, TimeSpan.Zero),
                 UnityLogPath: "/repo/wt-a/.ucli/local/projects/pnab2tvoljg22qqdccv40fepmntci2sj9dh3vbk7lcvc97qqj6l0/unity.log",
                 StartupPhase: DaemonDiagnosisStartupPhase.EndpointRegistration,
-                ActionRequired: DaemonDiagnosisActionRequired.InspectUnityLog,
+                ActionRequired: UnityEditorActionRequired.InspectUnityLog,
                 PrimaryDiagnostic: new DaemonPrimaryDiagnosticOutput(
-                    Kind: DaemonDiagnosisPrimaryDiagnosticKind.Compiler,
+                    Kind: UnityEditorPrimaryDiagnosticKind.Compiler,
                     Code: "CS0103",
                     File: "Assets/Foo.cs",
                     Line: 12,
@@ -102,9 +103,9 @@ public sealed class DaemonListCommandTests
                             "unityLogPath",
                             "/repo/wt-a/.ucli/local/projects/pnab2tvoljg22qqdccv40fepmntci2sj9dh3vbk7lcvc97qqj6l0/unity.log")
                         .HasString("startupPhase", TextVocabulary.GetText(DaemonDiagnosisStartupPhase.EndpointRegistration))
-                        .HasString("actionRequired", TextVocabulary.GetText(DaemonDiagnosisActionRequired.InspectUnityLog))
+                        .HasString("actionRequired", TextVocabulary.GetText(UnityEditorActionRequired.InspectUnityLog))
                         .HasProperty("primaryDiagnostic", primaryDiagnostic => primaryDiagnostic
-                            .HasString("kind", TextVocabulary.GetText(DaemonDiagnosisPrimaryDiagnosticKind.Compiler))
+                            .HasString("kind", TextVocabulary.GetText(UnityEditorPrimaryDiagnosticKind.Compiler))
                             .HasString("code", "CS0103")
                             .HasString("file", "Assets/Foo.cs")
                             .HasInt32("line", 12)

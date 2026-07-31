@@ -27,7 +27,7 @@ public sealed class SupervisorProjectCoordinatorExitCleanupTests
         {
             StartResult = DaemonStartResult.AlreadyRunning(
                 session,
-                IpcUnityEditorObservationTestFactory.Create(projectFingerprint: session.ProjectFingerprint)),
+                UnityEditorObservationTestFactory.Create(projectFingerprint: session.ProjectFingerprint)),
         };
         var pingClient = new RecordingDaemonPingClient();
         var stopOperation = new RecordingDaemonStopOperation
@@ -79,7 +79,7 @@ public sealed class SupervisorProjectCoordinatorExitCleanupTests
         {
             StartResult = DaemonStartResult.AlreadyRunning(
                 session,
-                IpcUnityEditorObservationTestFactory.Create(projectFingerprint: session.ProjectFingerprint)),
+                UnityEditorObservationTestFactory.Create(projectFingerprint: session.ProjectFingerprint)),
         };
         var coordinator = CreateCoordinator(
             startOperation,
@@ -135,7 +135,7 @@ public sealed class SupervisorProjectCoordinatorExitCleanupTests
         {
             StartResult = DaemonStartResult.AlreadyRunning(
                 session,
-                IpcUnityEditorObservationTestFactory.Create(projectFingerprint: session.ProjectFingerprint)),
+                UnityEditorObservationTestFactory.Create(projectFingerprint: session.ProjectFingerprint)),
         };
         var coordinator = CreateCoordinator(
             startOperation,

@@ -2,6 +2,7 @@ using System.Text.Json.Serialization;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Vocabulary;
 using MackySoft.Ucli.Contracts.Assurance.Build;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Features.Assurance.Build.Payload;
 
@@ -101,14 +102,14 @@ internal sealed record BuildInputEvidenceOutput
 }
 
 internal sealed record BuildLifecycleEvidenceOutput
-    : BuildInlineEvidenceOutput<IpcUnityEditorObservation>
+    : BuildInlineEvidenceOutput<UnityEditorObservation>
 {
-    private BuildLifecycleEvidenceOutput (IpcUnityEditorObservation data)
+    private BuildLifecycleEvidenceOutput (UnityEditorObservation data)
         : base(BuildEvidenceKind.ReadyLifecycleSnapshot, data)
     {
     }
 
-    public static BuildLifecycleEvidenceOutput Create (IpcUnityEditorObservation data)
+    public static BuildLifecycleEvidenceOutput Create (UnityEditorObservation data)
     {
         return new BuildLifecycleEvidenceOutput(data);
     }

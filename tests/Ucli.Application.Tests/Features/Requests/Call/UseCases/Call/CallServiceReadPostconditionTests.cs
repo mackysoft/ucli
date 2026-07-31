@@ -6,6 +6,8 @@ using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 using static MackySoft.Ucli.Application.Tests.CallServiceTestSupport;
 using static MackySoft.Ucli.Application.Tests.Helpers.ApplicationCommandInputTestHelper;
+using MackySoft.Ucli.Contracts.Execution;
+using MackySoft.Ucli.Contracts.Projects;
 
 namespace MackySoft.Ucli.Application.Tests;
 
@@ -73,7 +75,7 @@ public sealed class CallServiceReadPostconditionTests
             expectedProjectFingerprint: ProjectFingerprintTestFactory.Create("project-fingerprint"),
             expectedScenePath: "Assets/Scenes/Main.unity");
         var requirement = Assert.Single(result.Output.ReadPostcondition!.Requirements);
-        Assert.Equal(IpcExecuteReadPostconditionSurface.SceneTreeLite, requirement.Surface);
+        Assert.Equal(ExecutionReadPostconditionSurface.SceneTreeLite, requirement.Surface);
         Assert.Equal(new UnityScenePath("Assets/Scenes/Main.unity"), requirement.ScenePath);
     }
 

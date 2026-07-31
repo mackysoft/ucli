@@ -1,5 +1,6 @@
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Execution;
 
 namespace MackySoft.Ucli.Application.Shared.Execution.ReadPostcondition;
 
@@ -7,14 +8,14 @@ namespace MackySoft.Ucli.Application.Shared.Execution.ReadPostcondition;
 /// <param name="ReadPostcondition"> The persisted postcondition when present. </param>
 /// <param name="Error"> The read failure when unsuccessful. </param>
 internal sealed record MutationReadPostconditionReadResult (
-    IpcExecuteReadPostcondition? ReadPostcondition,
+    ExecutionReadPostcondition? ReadPostcondition,
     ExecutionError? Error)
 {
     /// <summary> Gets a value indicating whether the read succeeded. </summary>
     public bool IsSuccess => Error is null;
 
     /// <summary> Creates a successful read result. </summary>
-    public static MutationReadPostconditionReadResult Success (IpcExecuteReadPostcondition? readPostcondition)
+    public static MutationReadPostconditionReadResult Success (ExecutionReadPostcondition? readPostcondition)
     {
         return new MutationReadPostconditionReadResult(readPostcondition, (ExecutionError?)null);
     }

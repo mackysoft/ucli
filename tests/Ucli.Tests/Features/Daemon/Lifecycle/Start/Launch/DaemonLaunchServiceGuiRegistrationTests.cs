@@ -1,5 +1,7 @@
 using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
+using MackySoft.Ucli.Contracts.Editor;
+
 namespace MackySoft.Ucli.Tests.Daemon;
 
 using MackySoft.Ucli.Application.Shared.Foundation;
@@ -22,7 +24,7 @@ public sealed class DaemonLaunchServiceGuiRegistrationTests
             processId: 4321,
             sessionToken: LaunchSessionToken,
             projectFingerprint: context.ProjectFingerprint,
-            editorMode: DaemonEditorMode.Gui,
+            editorMode: UnityEditorMode.Gui,
             endpointAddress: LaunchEndpointAddress,
             processStartedAtUtc: processStartedAtUtc);
         var launchSessionService = new RecordingDaemonLaunchSessionService();
@@ -35,9 +37,9 @@ public sealed class DaemonLaunchServiceGuiRegistrationTests
         {
             NextResult = DaemonGuiStartupObservationResult.Success(
                 registeredSession,
-                IpcUnityEditorObservationTestFactory.Create(
-                    IpcEditorLifecycleState.Ready,
-                    DaemonEditorMode.Gui,
+                UnityEditorObservationTestFactory.Create(
+                    UnityEditorLifecycleState.Ready,
+                    UnityEditorMode.Gui,
                     projectFingerprint: context.ProjectFingerprint)),
         };
         var readinessProbe = new RecordingDaemonStartupReadinessProbe();
@@ -56,7 +58,7 @@ public sealed class DaemonLaunchServiceGuiRegistrationTests
         var result = await service.LaunchAsync(
             context,
             ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), timeProvider),
-            DaemonEditorMode.Gui,
+            UnityEditorMode.Gui,
             DaemonStartupBlockedProcessPolicy.Terminate,
             cancellationToken: CancellationToken.None);
 
@@ -84,7 +86,7 @@ public sealed class DaemonLaunchServiceGuiRegistrationTests
             processId: 4321,
             sessionToken: LaunchSessionToken,
             projectFingerprint: context.ProjectFingerprint,
-            editorMode: DaemonEditorMode.Gui,
+            editorMode: UnityEditorMode.Gui,
             endpointAddress: LaunchEndpointAddress,
             processStartedAtUtc: processStartedAtUtc);
         var guiLauncher = new RecordingUnityGuiEditorProcessLauncher
@@ -95,9 +97,9 @@ public sealed class DaemonLaunchServiceGuiRegistrationTests
         {
             NextResult = DaemonGuiStartupObservationResult.Success(
                 registeredSession,
-                IpcUnityEditorObservationTestFactory.Create(
-                    IpcEditorLifecycleState.Ready,
-                    DaemonEditorMode.Gui,
+                UnityEditorObservationTestFactory.Create(
+                    UnityEditorLifecycleState.Ready,
+                    UnityEditorMode.Gui,
                     projectFingerprint: context.ProjectFingerprint)),
         };
         var progressObserver = new CollectingDaemonStartProgressObserver();
@@ -114,7 +116,7 @@ public sealed class DaemonLaunchServiceGuiRegistrationTests
         var result = await service.LaunchAsync(
             context,
             ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), timeProvider),
-            DaemonEditorMode.Gui,
+            UnityEditorMode.Gui,
             DaemonStartupBlockedProcessPolicy.Terminate,
             progressObserver,
             cancellationToken: CancellationToken.None);
@@ -127,12 +129,12 @@ public sealed class DaemonLaunchServiceGuiRegistrationTests
             DaemonStartProgressEvent.EndpointRegistered,
             DaemonStartProgressEvent.LifecycleObserved);
         var launchingObservation = progressObserver.PayloadAt<DaemonStartStartupProgressObservation>(0);
-        Assert.Equal(DaemonEditorMode.Gui, launchingObservation.EditorMode);
+        Assert.Equal(UnityEditorMode.Gui, launchingObservation.EditorMode);
         Assert.Null(launchingObservation.ProcessId);
         var waitingObservation = progressObserver.PayloadAt<DaemonStartStartupProgressObservation>(1);
         Assert.Equal(4321, waitingObservation.ProcessId);
-        var lifecycleObservation = progressObserver.PayloadAt<IpcUnityEditorObservation>(^1);
-        Assert.Equal(IpcEditorLifecycleState.Ready, lifecycleObservation.State.LifecycleState);
+        var lifecycleObservation = progressObserver.PayloadAt<UnityEditorObservation>(^1);
+        Assert.Equal(UnityEditorLifecycleState.Ready, lifecycleObservation.State.LifecycleState);
     }
 
     [Fact]
@@ -170,7 +172,7 @@ public sealed class DaemonLaunchServiceGuiRegistrationTests
         var result = await service.LaunchAsync(
             context,
             ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), timeProvider),
-            DaemonEditorMode.Gui,
+            UnityEditorMode.Gui,
             DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);
 
@@ -189,7 +191,7 @@ public sealed class DaemonLaunchServiceGuiRegistrationTests
                 context.ProjectFingerprint),
             diagnosis.UnityLogPath);
         Assert.Equal(DaemonDiagnosisStartupPhase.EndpointRegistration, diagnosis.StartupPhase);
-        Assert.Equal(DaemonDiagnosisActionRequired.InspectUnityLog, diagnosis.ActionRequired);
+        Assert.Equal(UnityEditorActionRequired.InspectUnityLog, diagnosis.ActionRequired);
         Assert.Equal(
             AbsolutePath.Parse(Path.Combine(context.UnityProjectRoot.Value, "Library", "EditorInstance.json")),
             diagnosis.EditorInstancePath);
@@ -233,7 +235,7 @@ public sealed class DaemonLaunchServiceGuiRegistrationTests
         var result = await service.LaunchAsync(
             context,
             ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), timeProvider),
-            DaemonEditorMode.Gui,
+            UnityEditorMode.Gui,
             DaemonStartupBlockedProcessPolicy.Terminate,
             cancellationToken: CancellationToken.None);
 
@@ -285,7 +287,7 @@ public sealed class DaemonLaunchServiceGuiRegistrationTests
         var result = await service.LaunchAsync(
             context,
             ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), timeProvider),
-            DaemonEditorMode.Gui,
+            UnityEditorMode.Gui,
             DaemonStartupBlockedProcessPolicy.Terminate,
             cancellationToken: CancellationToken.None);
 

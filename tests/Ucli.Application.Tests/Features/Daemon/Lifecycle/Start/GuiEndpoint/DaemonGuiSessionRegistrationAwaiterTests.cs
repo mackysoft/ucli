@@ -2,6 +2,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Acquisition;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Tests.Daemon;
 
@@ -55,7 +56,7 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
         var unityProject = DaemonCommandExecutionContextTestFactory.Create(1000).Context.UnityProject;
         var session = CreateGuiSession(unityProject.ProjectFingerprint, processId: 4321);
         var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResultTestFactory.Found(session));
-        var pingClient = new RecordingDaemonPingInfoClient(CreatePingResponse(unityProject.ProjectFingerprint, DaemonEditorMode.Gui));
+        var pingClient = new RecordingDaemonPingInfoClient(CreatePingResponse(unityProject.ProjectFingerprint, UnityEditorMode.Gui));
         var awaiter = CreateAwaiter(sessionStore, pingClient);
         using var cancellationTokenSource = new CancellationTokenSource(SignalWaitTimeout);
 
@@ -91,7 +92,7 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
             DaemonSessionReadResultTestFactory.Found(successorSession));
         var pingClient = new RecordingDaemonPingInfoClient(
             new SessionTokenInvalidTestException(),
-            CreatePingResponse(unityProject.ProjectFingerprint, DaemonEditorMode.Gui));
+            CreatePingResponse(unityProject.ProjectFingerprint, UnityEditorMode.Gui));
         var awaiter = CreateAwaiter(
             sessionStore,
             pingClient,
@@ -133,7 +134,7 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
             DaemonSessionReadResultTestFactory.Found(successorSession));
         var pingClient = new RecordingDaemonPingInfoClient(
             new ResponseInterruptedTestException(),
-            CreatePingResponse(unityProject.ProjectFingerprint, DaemonEditorMode.Gui));
+            CreatePingResponse(unityProject.ProjectFingerprint, UnityEditorMode.Gui));
         var awaiter = CreateAwaiter(
             sessionStore,
             pingClient,
@@ -170,7 +171,7 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
             DaemonSessionReadResultTestFactory.Found(mismatchedSuccessor));
         var pingClient = new RecordingDaemonPingInfoClient(
             new ResponseInterruptedTestException(),
-            CreatePingResponse(unityProject.ProjectFingerprint, DaemonEditorMode.Gui));
+            CreatePingResponse(unityProject.ProjectFingerprint, UnityEditorMode.Gui));
         var awaiter = CreateAwaiter(
             sessionStore,
             pingClient,
@@ -273,7 +274,7 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
         var timeProvider = new ManualTimeProvider();
         var pingStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var pingCancellationObserved = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var pingCompletion = new TaskCompletionSource<IpcUnityEditorObservation>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var pingCompletion = new TaskCompletionSource<UnityEditorObservation>(TaskCreationOptions.RunContinuationsAsynchronously);
         var pingFinished = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var unityProject = DaemonCommandExecutionContextTestFactory.Create(1000).Context.UnityProject;
         var session = CreateGuiSession(unityProject.ProjectFingerprint, processId: 4321);
@@ -327,13 +328,13 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
             Assert.Equal(ExecutionErrorKind.Timeout, result.Error!.Kind);
             Assert.Equal(ExecutionErrorCodes.IpcTimeout, result.Error.Code);
 
-            pingCompletion.TrySetResult(CreatePingResponse(unityProject.ProjectFingerprint, DaemonEditorMode.Gui));
+            pingCompletion.TrySetResult(CreatePingResponse(unityProject.ProjectFingerprint, UnityEditorMode.Gui));
             await TestAwaiter.WaitAsync(pingFinished.Task, "Late GUI session ping completion", SignalWaitTimeout);
             Assert.False((await resultTask).IsSuccess);
         }
         finally
         {
-            pingCompletion.TrySetResult(CreatePingResponse(unityProject.ProjectFingerprint, DaemonEditorMode.Gui));
+            pingCompletion.TrySetResult(CreatePingResponse(unityProject.ProjectFingerprint, UnityEditorMode.Gui));
             await TestAwaiter.WaitAsync(pingFinished.Task, "GUI session ping cleanup", SignalWaitTimeout);
         }
     }
@@ -345,7 +346,7 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
         var unityProject = DaemonCommandExecutionContextTestFactory.Create(5000).Context.UnityProject;
         var session = CreateGuiSession(unityProject.ProjectFingerprint, processId: 4321);
         var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResultTestFactory.Found(session));
-        var pingClient = new RecordingDaemonPingInfoClient(CreatePingResponse(unityProject.ProjectFingerprint, DaemonEditorMode.Gui));
+        var pingClient = new RecordingDaemonPingInfoClient(CreatePingResponse(unityProject.ProjectFingerprint, UnityEditorMode.Gui));
         var awaiter = CreateAwaiter(sessionStore, pingClient);
         using var cancellationTokenSource = new CancellationTokenSource(SignalWaitTimeout);
 
@@ -362,13 +363,13 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
 
     [Theory]
     [Trait("Size", "Small")]
-    [InlineData(9876, "fingerprint", DaemonEditorMode.Gui)]
-    [InlineData(4321, "other-fingerprint", DaemonEditorMode.Gui)]
-    [InlineData(4321, "fingerprint", DaemonEditorMode.Batchmode)]
+    [InlineData(9876, "fingerprint", UnityEditorMode.Gui)]
+    [InlineData(4321, "other-fingerprint", UnityEditorMode.Gui)]
+    [InlineData(4321, "fingerprint", UnityEditorMode.Batchmode)]
     public async Task WaitForSession_WhenStoredSessionDoesNotMatchExpectedContract_DoesNotProbeAndTimesOut (
         int storedProcessId,
         string storedProjectFingerprint,
-        DaemonEditorMode storedEditorMode)
+        UnityEditorMode storedEditorMode)
     {
         var timeProvider = new ManualTimeProvider();
         var firstRead = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -412,7 +413,7 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
             processId: 4321,
             processStartedAtUtc: expectedProcessStartedAtUtc.AddMilliseconds(1));
         var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResultTestFactory.Found(session));
-        var pingClient = new RecordingDaemonPingInfoClient(CreatePingResponse(unityProject.ProjectFingerprint, DaemonEditorMode.Gui));
+        var pingClient = new RecordingDaemonPingInfoClient(CreatePingResponse(unityProject.ProjectFingerprint, UnityEditorMode.Gui));
         var awaiter = CreateAwaiter(sessionStore, pingClient);
         using var cancellationTokenSource = new CancellationTokenSource(SignalWaitTimeout);
 
@@ -511,7 +512,7 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
         };
         var pingClient = new RecordingDaemonPingInfoClient(
             new TimeoutException("old endpoint timed out"),
-            CreatePingResponse(unityProject.ProjectFingerprint, DaemonEditorMode.Gui))
+            CreatePingResponse(unityProject.ProjectFingerprint, UnityEditorMode.Gui))
         {
             OnPingAndRead = () => firstPingObserved.TrySetResult(),
         };
@@ -551,7 +552,7 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
         var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResultTestFactory.Found(session));
         var pingClient = new RecordingDaemonPingInfoClient(
             new RequestTimeoutTestException(),
-            CreatePingResponse(unityProject.ProjectFingerprint, DaemonEditorMode.Gui));
+            CreatePingResponse(unityProject.ProjectFingerprint, UnityEditorMode.Gui));
         var classifier = new DelegatingDaemonReachabilityClassifier(
             isNotRunning: static _ => false,
             isSessionTokenInvalid: static _ => false,
@@ -655,7 +656,7 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
                 return DaemonSessionReadResultTestFactory.Found(session);
             },
         };
-        var pingClient = new RecordingDaemonPingInfoClient(CreatePingResponse(unityProject.ProjectFingerprint, DaemonEditorMode.Gui));
+        var pingClient = new RecordingDaemonPingInfoClient(CreatePingResponse(unityProject.ProjectFingerprint, UnityEditorMode.Gui));
         var awaiter = CreateAwaiter(sessionStore, pingClient);
 
         var resultTask = awaiter.WaitForSessionAsync(
@@ -696,7 +697,7 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
     private static DaemonSession CreateGuiSession (
         ProjectFingerprint projectFingerprint,
         int processId,
-        DaemonEditorMode editorMode = DaemonEditorMode.Gui,
+        UnityEditorMode editorMode = UnityEditorMode.Gui,
         DateTimeOffset? processStartedAtUtc = null,
         string sessionToken = "secret-token",
         Guid? sessionGenerationId = null)
@@ -710,11 +711,11 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
             sessionGenerationId: sessionGenerationId);
     }
 
-    private static IpcUnityEditorObservation CreatePingResponse (
+    private static UnityEditorObservation CreatePingResponse (
         ProjectFingerprint projectFingerprint,
-        DaemonEditorMode editorMode)
+        UnityEditorMode editorMode)
     {
-        return IpcUnityEditorObservationTestFactory.Create(
+        return UnityEditorObservationTestFactory.Create(
             editorMode: editorMode,
             projectFingerprint: projectFingerprint);
     }

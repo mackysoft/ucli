@@ -1,5 +1,6 @@
 using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Tests.Helpers.Daemon;
 
@@ -28,7 +29,7 @@ internal static class DaemonStartOperationAssert
         AbsolutePath expectedUnityProjectRoot,
         ProjectFingerprint expectedProjectFingerprint,
         TimeSpan maximumTimeout,
-        DaemonEditorMode? expectedEditorMode,
+        UnityEditorMode? expectedEditorMode,
         DaemonStartupBlockedProcessPolicy expectedStartupBlockedPolicy)
     {
         var invocation = Assert.Single(startOperation.Invocations);
@@ -50,7 +51,7 @@ internal static class DaemonStartOperationAssert
         AbsolutePath expectedUnityProjectRoot,
         ProjectFingerprint expectedProjectFingerprint,
         TimeSpan maximumTimeout,
-        DaemonEditorMode? expectedEditorMode,
+        UnityEditorMode? expectedEditorMode,
         DaemonStartupBlockedProcessPolicy expectedStartupBlockedPolicy)
     {
         var invocation = EnsureRunningRequested(

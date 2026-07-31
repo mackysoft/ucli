@@ -4,6 +4,7 @@ using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.Authorization;
 using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 
@@ -70,7 +71,7 @@ internal static class DaemonSessionContractMapper
             return false;
         }
 
-        if (contract.EditorMode is not DaemonEditorMode editorMode)
+        if (contract.EditorMode is not UnityEditorMode editorMode)
         {
             error = Invalid("editorMode is missing.", sourceDescription);
             return false;

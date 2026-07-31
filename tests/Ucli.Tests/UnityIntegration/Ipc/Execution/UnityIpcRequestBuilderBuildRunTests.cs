@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Contracts.Editor;
+
 namespace MackySoft.Ucli.Tests.Ipc;
 
 using MackySoft.Ucli.Contracts.Assurance;
@@ -38,7 +40,7 @@ public sealed class UnityIpcRequestBuilderBuildRunTests
         Assert.Equal("/tmp/ucli/output/player/Player", payload.OutputLayout.LocationPathName);
         Assert.Equal("/tmp/ucli/build-report.json", payload.BuildReportPath);
         Assert.Equal("/tmp/ucli/build.log", payload.BuildLogPath);
-        Assert.Equal([DaemonEditorMode.Batchmode], payload.AllowedEditorModes);
+        Assert.Equal([UnityEditorMode.Batchmode], payload.AllowedEditorModes);
         Assert.Equal(BuildProfileProjectMutationMode.Forbid, payload.ProjectMutationMode);
         Assert.False(request.Payload.TryGetProperty("timeoutMilliseconds", out _));
         Assert.Equal(BuildRunnerKind.BuildPipeline, payload.RunnerKind);
@@ -71,7 +73,7 @@ public sealed class UnityIpcRequestBuilderBuildRunTests
             OutputLayout: null,
             BuildReportPath: "/tmp/ucli/build-report.json",
             BuildLogPath: "/tmp/ucli/build.log",
-            AllowedEditorModes: [DaemonEditorMode.Batchmode],
+            AllowedEditorModes: [UnityEditorMode.Batchmode],
             ProjectMutationMode: BuildProfileProjectMutationMode.Audit,
             RunnerKind: BuildRunnerKind.BuildPipeline,
             ProfileDigest: Sha256Digest.Parse(new string('a', 64)),
@@ -110,7 +112,7 @@ public sealed class UnityIpcRequestBuilderBuildRunTests
             OutputLayout: null,
             BuildReportPath: "/tmp/ucli/build-report.json",
             BuildLogPath: "/tmp/ucli/build.log",
-            AllowedEditorModes: [DaemonEditorMode.Batchmode],
+            AllowedEditorModes: [UnityEditorMode.Batchmode],
             ProjectMutationMode: BuildProfileProjectMutationMode.Forbid,
             RunnerKind: BuildRunnerKind.ExecuteMethod,
             ProfileDigest: Sha256Digest.Parse(new string('a', 64)),

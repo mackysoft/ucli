@@ -26,6 +26,32 @@ public sealed class CodeCatalogServiceListTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void List_WithoutFilters_IncludesEveryLifecycleExecutionError ()
+    {
+        var service = CodeCatalogTestSupport.CreateService();
+
+        var result = service.List(new CodeCatalogListInput(
+            Kind: TextVocabulary.GetText(CodeCatalogKind.Error),
+            Command: null));
+
+        Assert.True(result.IsSuccess);
+        Assert.NotNull(result.Descriptors);
+        var codes = result.Descriptors!
+            .Select(static descriptor => descriptor.Code)
+            .ToArray();
+        Assert.Contains(LifecycleExecutionErrorCodes.DefinitionConflict, codes);
+        Assert.Contains(LifecycleExecutionErrorCodes.ProjectMismatch, codes);
+        Assert.Contains(LifecycleExecutionErrorCodes.HostMismatch, codes);
+        Assert.Contains(LifecycleExecutionErrorCodes.GenerationMismatch, codes);
+        Assert.Contains(LifecycleExecutionErrorCodes.DeadlineExceeded, codes);
+        Assert.Contains(LifecycleExecutionErrorCodes.UnityExited, codes);
+        Assert.Contains(
+            LifecycleExecutionErrorCodes.TerminalPublicationFailed,
+            codes);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void List_WithKindFilter_ReturnsExactKindMatches ()
     {
         var service = CodeCatalogTestSupport.CreateService();

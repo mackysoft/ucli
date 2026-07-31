@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Tests.Execution.Mode;
 
@@ -46,7 +47,7 @@ public sealed class DaemonPingResponseCodecTests
         var response = CreateResponse(
             IpcResponseStatus.Ok,
             Array.Empty<IpcError>(),
-            IpcUnityEditorObservationTestFactory.Create(
+            UnityEditorObservationTestFactory.Create(
                 serverVersion: expectedServerVersion,
                 unityVersion: expectedUnityVersion,
                 projectFingerprint: ProjectFingerprintTestFactory.Create("project-fingerprint")));
@@ -56,9 +57,9 @@ public sealed class DaemonPingResponseCodecTests
         Assert.True(result);
         Assert.NotNull(payload);
         Assert.Equal(expectedServerVersion, payload.ServerVersion);
-        Assert.Equal(DaemonEditorMode.Batchmode, payload.State.EditorMode);
+        Assert.Equal(UnityEditorMode.Batchmode, payload.State.EditorMode);
         Assert.Equal(expectedUnityVersion, payload.UnityVersion);
-        Assert.Equal(IpcCompileState.Ready, payload.State.CompileState);
+        Assert.Equal(UnityEditorCompileState.Ready, payload.State.CompileState);
         Assert.Null(error);
     }
 
@@ -218,9 +219,9 @@ public sealed class DaemonPingResponseCodecTests
         return new IpcResponse(IpcProtocol.CurrentVersion, Guid.NewGuid(), status, payloadElement, errors);
     }
 
-    private static IpcUnityEditorObservation CreatePayload ()
+    private static UnityEditorObservation CreatePayload ()
     {
-        return IpcUnityEditorObservationTestFactory.Create(
+        return UnityEditorObservationTestFactory.Create(
             serverVersion: "0.5.0",
             unityVersion: "2022.3.5f1",
             projectFingerprint: ProjectFingerprintTestFactory.Create("project-fingerprint"));

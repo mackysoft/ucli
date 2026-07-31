@@ -5,6 +5,7 @@ using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Application.Shared.Identifiers;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Features.Screenshot.Capture;
 
@@ -74,7 +75,7 @@ internal sealed class ScreenshotCaptureService : IScreenshotCaptureService
             return ScreenshotCaptureResult.Failure(sessionResult.Error!);
         }
 
-        if (!sessionResult.Exists || sessionResult.Session!.EditorMode != DaemonEditorMode.Gui)
+        if (!sessionResult.Exists || sessionResult.Session!.EditorMode != UnityEditorMode.Gui)
         {
             return ScreenshotCaptureResult.Failure(ExecutionError.InternalError(
                 RequiresGuiSessionMessage,

@@ -1,11 +1,14 @@
+using MackySoft.Ucli.Application.Features.Play.Common.Contracts;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Contracts.Execution.Lifecycle;
 
 namespace MackySoft.Ucli.Application.Features.Play.UseCases.Enter;
 
 /// <summary> Represents the result of Play Mode enter workflow execution. </summary>
 internal sealed record PlayEnterExecutionResult (
     PlayEnterExecutionOutput? Output,
-    ApplicationFailure? Error)
+    ApplicationFailure? Error,
+    PlayTransitionFailureContext? FailureContext)
 {
     private const string SuccessMessage = "uCLI play enter completed.";
 
@@ -23,7 +26,15 @@ internal sealed record PlayEnterExecutionResult (
     public static PlayEnterExecutionResult Success (PlayEnterExecutionOutput output)
     {
         ArgumentNullException.ThrowIfNull(output);
-        return new PlayEnterExecutionResult(output, null);
+        if (output.LifecycleExecutionRef.State.Value
+            != TextVocabulary.GetText(LifecycleExecutionState.Completed))
+        {
+            throw new ArgumentException(
+                "Successful Play Mode enter result requires a completed terminal Lifecycle Execution reference.",
+                nameof(output));
+        }
+
+        return new PlayEnterExecutionResult(output, null, null);
     }
 
     /// <summary> Creates a failed result from a structured execution error. </summary>
@@ -37,13 +48,16 @@ internal sealed record PlayEnterExecutionResult (
 
     /// <summary> Creates a failed result from an application failure. </summary>
     /// <param name="failure"> The classified application failure. </param>
-    /// <param name="output"> The transition output when Unity returned one before failing. </param>
+    /// <param name="failureContext"> The durable identity and any typed transition facts established before failure. </param>
     /// <returns> The failed result. </returns>
     public static PlayEnterExecutionResult Failure (
         ApplicationFailure failure,
-        PlayEnterExecutionOutput? output = null)
+        PlayTransitionFailureContext? failureContext = null)
     {
         ArgumentNullException.ThrowIfNull(failure);
-        return new PlayEnterExecutionResult(output, failure);
+        return new PlayEnterExecutionResult(
+            Output: null,
+            failure,
+            failureContext);
     }
 }

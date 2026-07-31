@@ -8,7 +8,7 @@ internal sealed class RecordingDaemonGuiSessionRegistrationAwaiter : IDaemonGuiS
     private Action<int>? onWait;
 
     public DaemonGuiSessionRegistrationWaitResult Result { get; set; } =
-        DaemonGuiSessionRegistrationWaitResult.Success(CreateDefaultSession(), IpcUnityEditorObservationTestFactory.Create());
+        DaemonGuiSessionRegistrationWaitResult.Success(CreateDefaultSession(), UnityEditorObservationTestFactory.Create());
 
     public DaemonGuiSessionRegistrationWaitResult NextResult
     {

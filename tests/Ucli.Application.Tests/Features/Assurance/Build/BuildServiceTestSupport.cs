@@ -10,6 +10,7 @@ using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts.Assurance.Build;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Tests.Features.Assurance.Build;
 
@@ -266,8 +267,8 @@ internal static class BuildServiceTestSupport
         BuildTargetStableName? buildTarget = null,
         string? unityBuildTarget = null,
         string? buildOptions = null,
-        IpcUnityEditorObservation? lifecycleBefore = null,
-        IpcUnityEditorObservation? lifecycleAfter = null,
+        UnityEditorObservation? lifecycleBefore = null,
+        UnityEditorObservation? lifecycleAfter = null,
         string? reportOutputPath = null,
         IpcBuildProjectMutationAudit? projectMutation = null,
         IpcBuildRunnerResultArtifact? runnerResult = null,
@@ -352,8 +353,8 @@ internal static class BuildServiceTestSupport
         BuildTargetStableName? buildTarget = null,
         string? unityBuildTarget = null,
         string? buildOptions = null,
-        IpcUnityEditorObservation? lifecycleBefore = null,
-        IpcUnityEditorObservation? lifecycleAfter = null,
+        UnityEditorObservation? lifecycleBefore = null,
+        UnityEditorObservation? lifecycleAfter = null,
         string? reportOutputPath = null,
         IpcBuildOutputLayout? outputLayout = null,
         bool useDefaultOutputLayout = true,
@@ -491,24 +492,24 @@ internal static class BuildServiceTestSupport
             ]);
     }
 
-    public static IpcUnityEditorObservation CreateLifecycleSnapshot (long generation)
+    public static UnityEditorObservation CreateLifecycleSnapshot (long generation)
     {
-        return new IpcUnityEditorObservation(
+        return new UnityEditorObservation(
             serverVersion: "0.5.0",
             unityVersion: "6000.1.4f1",
             projectFingerprint: DefaultProjectFingerprint,
             state: new UnityEditorStateSnapshot(
-                editorMode: DaemonEditorMode.Batchmode,
-                lifecycleState: IpcEditorLifecycleState.Ready,
-                compileState: IpcCompileState.Ready,
-                generations: new IpcUnityGenerationSnapshot(
+                editorMode: UnityEditorMode.Batchmode,
+                lifecycleState: UnityEditorLifecycleState.Ready,
+                compileState: UnityEditorCompileState.Ready,
+                generations: new UnityEditorGenerationSnapshot(
                     generation,
                     generation,
                     generation,
                     generation),
-                playMode: new IpcPlayModeSnapshot(
-                    State: IpcPlayModeState.Stopped,
-                    Transition: IpcPlayModeTransition.None,
+                playMode: new UnityEditorPlayModeSnapshot(
+                    State: UnityEditorPlayModeState.Stopped,
+                    Transition: UnityEditorPlayModeTransition.None,
                     IsPlaying: false,
                     IsPlayingOrWillChangePlaymode: false)),
             observedAtUtc: DateTimeOffset.Parse("2026-06-12T00:00:00+00:00"),

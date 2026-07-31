@@ -1,5 +1,6 @@
 using MackySoft.Ucli.Application.Features.Daemon.UseCases.Start;
 using MackySoft.Ucli.Application.Shared.Execution.Progress;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Tests;
 
@@ -23,7 +24,7 @@ internal sealed class RecordingDaemonStartService : IDaemonStartService
     public ValueTask<DaemonStartExecutionResult> StartAsync (
         string? projectPath,
         int? timeoutMilliseconds,
-        DaemonEditorMode? editorMode,
+        UnityEditorMode? editorMode,
         DaemonStartupBlockedProcessPolicy onStartupBlocked,
         ICommandProgressSink? progressSink = null,
         CancellationToken cancellationToken = default)
@@ -54,7 +55,7 @@ internal sealed class RecordingDaemonStartService : IDaemonStartService
     public readonly record struct Invocation (
         string? ProjectPath,
         int? TimeoutMilliseconds,
-        DaemonEditorMode? EditorMode,
+        UnityEditorMode? EditorMode,
         DaemonStartupBlockedProcessPolicy OnStartupBlocked,
         ICommandProgressSink? ProgressSink,
         CancellationToken CancellationToken);

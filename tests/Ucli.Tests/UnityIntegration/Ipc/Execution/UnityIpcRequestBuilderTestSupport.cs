@@ -1,5 +1,9 @@
+using MackySoft.Ucli.Contracts.Execution.Lifecycle;
+using MackySoft.Ucli.Contracts.Editor;
+
 namespace MackySoft.Ucli.Tests.Ipc;
 
+using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Contracts.Assurance;
 using MackySoft.Ucli.Contracts.Assurance.Build;
 using MackySoft.Ucli.Contracts.Cryptography;
@@ -8,6 +12,20 @@ using MackySoft.Ucli.Contracts.Ipc;
 
 internal static class UnityIpcRequestBuilderTestSupport
 {
+    public static LifecycleExecutionRegistration CreateLifecycleRegistration (
+        LifecycleExecutionKind kind,
+        Guid? executionId = null,
+        TimeProvider? timeProvider = null,
+        TimeSpan? executionTimeout = null)
+    {
+        var startedAtUtc = (timeProvider ?? TimeProvider.System).GetUtcNow();
+        return new LifecycleExecutionRegistration(
+            new LifecycleExecutionDefinition(kind),
+            executionId ?? Guid.Parse("9d0a8d2a-df80-4e43-a038-985132485483"),
+            startedAtUtc + (executionTimeout ?? TimeSpan.FromMinutes(5)),
+            startedAtUtc);
+    }
+
     public static UnityRequestPayload.BuildRun CreateExplicitBuildRunPayload (
         IpcBuildOutputLayout? outputLayout,
         bool development = false)
@@ -23,7 +41,7 @@ internal static class UnityIpcRequestBuilderTestSupport
             OutputLayout: outputLayout,
             BuildReportPath: "/tmp/ucli/build-report.json",
             BuildLogPath: "/tmp/ucli/build.log",
-            AllowedEditorModes: [DaemonEditorMode.Batchmode],
+            AllowedEditorModes: [UnityEditorMode.Batchmode],
             ProjectMutationMode: BuildProfileProjectMutationMode.Forbid,
             RunnerKind: BuildRunnerKind.BuildPipeline,
             ProfileDigest: Sha256Digest.Parse(new string('a', 64)),

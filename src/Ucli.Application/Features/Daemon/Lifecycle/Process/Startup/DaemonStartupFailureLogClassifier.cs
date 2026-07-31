@@ -3,6 +3,7 @@ using System.Globalization;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Startup;
 
@@ -113,7 +114,7 @@ internal static class DaemonStartupFailureLogClassifier
                     Classification: CreateCompileClassification(
                         $"Marker={trimmedLine}",
                         new DaemonPrimaryDiagnostic(
-                            Kind: DaemonDiagnosisPrimaryDiagnosticKind.Compiler,
+                            Kind: UnityEditorPrimaryDiagnosticKind.Compiler,
                             Code: null,
                             File: null,
                             Line: null,
@@ -132,9 +133,9 @@ internal static class DaemonStartupFailureLogClassifier
                     retryDisposition: DaemonStartupRetryDisposition.ManualActionRequired,
                     message: $"Unity Editor startup is blocked because Unity requires user action. Marker={trimmedLine}",
                     startupPhase: DaemonDiagnosisStartupPhase.UserAction,
-                    actionRequired: DaemonDiagnosisActionRequired.ResolveUnityDialog,
+                    actionRequired: UnityEditorActionRequired.ResolveUnityDialog,
                     primaryDiagnostic: new DaemonPrimaryDiagnostic(
-                        Kind: DaemonDiagnosisPrimaryDiagnosticKind.UnityDialog,
+                        Kind: UnityEditorPrimaryDiagnosticKind.UnityDialog,
                         Code: null,
                         File: null,
                         Line: null,
@@ -162,9 +163,9 @@ internal static class DaemonStartupFailureLogClassifier
                     retryDisposition: DaemonStartupRetryDisposition.RetryAfterFix,
                     message: $"Unity Editor startup is blocked by a precompiled assembly conflict. Marker={trimmedLine}",
                     startupPhase: DaemonDiagnosisStartupPhase.ScriptCompilation,
-                    actionRequired: DaemonDiagnosisActionRequired.FixCompileErrors,
+                    actionRequired: UnityEditorActionRequired.FixCompileErrors,
                     primaryDiagnostic: new DaemonPrimaryDiagnostic(
-                        Kind: DaemonDiagnosisPrimaryDiagnosticKind.Compiler,
+                        Kind: UnityEditorPrimaryDiagnosticKind.Compiler,
                         Code: null,
                         File: null,
                         Line: null,
@@ -201,9 +202,9 @@ internal static class DaemonStartupFailureLogClassifier
                     retryDisposition: DaemonStartupRetryDisposition.RetryAfterFix,
                     message: $"Unity Editor startup is blocked because uCLI plugin dependencies are missing. FirstError={trimmedLine}",
                     startupPhase: DaemonDiagnosisStartupPhase.ScriptCompilation,
-                    actionRequired: DaemonDiagnosisActionRequired.ResolvePackages,
+                    actionRequired: UnityEditorActionRequired.ResolvePackages,
                     primaryDiagnostic: new DaemonPrimaryDiagnostic(
-                        Kind: DaemonDiagnosisPrimaryDiagnosticKind.PluginDependency,
+                        Kind: UnityEditorPrimaryDiagnosticKind.PluginDependency,
                         Code: null,
                         File: null,
                         Line: null,
@@ -255,7 +256,7 @@ internal static class DaemonStartupFailureLogClassifier
             retryDisposition: DaemonStartupRetryDisposition.RetryAfterFix,
             message: $"Unity Editor startup is blocked because scripts have compiler errors. {summary}",
             startupPhase: DaemonDiagnosisStartupPhase.ScriptCompilation,
-            actionRequired: DaemonDiagnosisActionRequired.FixCompileErrors,
+            actionRequired: UnityEditorActionRequired.FixCompileErrors,
             primaryDiagnostic: primaryDiagnostic);
     }
 
@@ -269,7 +270,7 @@ internal static class DaemonStartupFailureLogClassifier
             retryDisposition: DaemonStartupRetryDisposition.RetryAfterFix,
             message: $"Unity Editor startup is blocked because package resolution failed. {summary}",
             startupPhase: DaemonDiagnosisStartupPhase.PackageResolution,
-            actionRequired: DaemonDiagnosisActionRequired.ResolvePackages,
+            actionRequired: UnityEditorActionRequired.ResolvePackages,
             primaryDiagnostic: primaryDiagnostic);
     }
 
@@ -290,7 +291,7 @@ internal static class DaemonStartupFailureLogClassifier
                 primaryDiagnostic = TryParseCompilerDiagnostic(trimmedLine, out var diagnostic)
                     ? diagnostic
                     : new DaemonPrimaryDiagnostic(
-                        Kind: DaemonDiagnosisPrimaryDiagnosticKind.Compiler,
+                        Kind: UnityEditorPrimaryDiagnosticKind.Compiler,
                         Code: TryExtractCompilerErrorCode(trimmedLine),
                         File: null,
                         Line: null,
@@ -303,7 +304,7 @@ internal static class DaemonStartupFailureLogClassifier
             {
                 summary = $"Marker={trimmedLine}";
                 primaryDiagnostic = new DaemonPrimaryDiagnostic(
-                    Kind: DaemonDiagnosisPrimaryDiagnosticKind.Compiler,
+                    Kind: UnityEditorPrimaryDiagnosticKind.Compiler,
                     Code: null,
                     File: null,
                     Line: null,
@@ -336,7 +337,7 @@ internal static class DaemonStartupFailureLogClassifier
                     markerFound = true;
                     summary = $"Marker={trimmedLine}";
                     primaryDiagnostic = new DaemonPrimaryDiagnostic(
-                        Kind: DaemonDiagnosisPrimaryDiagnosticKind.PackageResolution,
+                        Kind: UnityEditorPrimaryDiagnosticKind.PackageResolution,
                         Code: null,
                         File: null,
                         Line: null,
@@ -351,7 +352,7 @@ internal static class DaemonStartupFailureLogClassifier
             {
                 summary = $"Marker={trimmedLine}";
                 primaryDiagnostic = new DaemonPrimaryDiagnostic(
-                    Kind: DaemonDiagnosisPrimaryDiagnosticKind.PackageResolution,
+                    Kind: UnityEditorPrimaryDiagnosticKind.PackageResolution,
                     Code: null,
                     File: null,
                     Line: null,
@@ -362,7 +363,7 @@ internal static class DaemonStartupFailureLogClassifier
 
             summary = $"FirstError={trimmedLine}";
             primaryDiagnostic = new DaemonPrimaryDiagnostic(
-                Kind: DaemonDiagnosisPrimaryDiagnosticKind.PackageResolution,
+                Kind: UnityEditorPrimaryDiagnosticKind.PackageResolution,
                 Code: null,
                 File: null,
                 Line: null,
@@ -403,7 +404,7 @@ internal static class DaemonStartupFailureLogClassifier
         var diagnosticMessage = restoreFailureLine;
         summary = $"FirstError={restoreFailureLine}";
         primaryDiagnostic = new DaemonPrimaryDiagnostic(
-            Kind: DaemonDiagnosisPrimaryDiagnosticKind.PackageResolution,
+            Kind: UnityEditorPrimaryDiagnosticKind.PackageResolution,
             Code: NuGetForUnityRestoreFailedCode,
             File: null,
             Line: null,
@@ -481,7 +482,7 @@ internal static class DaemonStartupFailureLogClassifier
         }
 
         diagnostic = new DaemonPrimaryDiagnostic(
-            Kind: DaemonDiagnosisPrimaryDiagnosticKind.Compiler,
+            Kind: UnityEditorPrimaryDiagnosticKind.Compiler,
             Code: code,
             File: line[..openLocationIndex],
             Line: lineNumber,

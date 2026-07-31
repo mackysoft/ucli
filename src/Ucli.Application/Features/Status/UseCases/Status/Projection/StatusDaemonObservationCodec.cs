@@ -2,6 +2,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Features.Status.UseCases.Status.Projection;
 
@@ -35,7 +36,7 @@ internal static class StatusDaemonObservationCodec
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="pingResponse" /> is <see langword="null" />. </exception>
     public static StatusDaemonObservation CreateFromPing (
         DaemonStatusKind daemonStatus,
-        IpcUnityEditorObservation pingResponse)
+        UnityEditorObservation pingResponse)
     {
         ArgumentNullException.ThrowIfNull(pingResponse);
 
@@ -45,10 +46,10 @@ internal static class StatusDaemonObservationCodec
             DaemonStatus: daemonStatus,
             ServerVersion: StringValueNormalizer.TrimToNull(pingResponse.ServerVersion),
             LifecycleState: state.LifecycleState,
-            BlockingReason: IpcEditorLifecycleSemantics.ResolveBlockingReason(state.LifecycleState),
+            BlockingReason: UnityEditorLifecycleSemantics.ResolveBlockingReason(state.LifecycleState),
             CompileState: state.CompileState,
             Generations: state.Generations,
-            CanAcceptExecutionRequests: IpcEditorLifecycleSemantics.CanAcceptExecutionRequests(state.LifecycleState),
+            CanAcceptExecutionRequests: UnityEditorLifecycleSemantics.CanAcceptExecutionRequests(state.LifecycleState),
             EditorMode: state.EditorMode,
             ObservedAtUtc: pingResponse.ObservedAtUtc,
             ActionRequired: pingResponse.ActionRequired,
@@ -56,7 +57,7 @@ internal static class StatusDaemonObservationCodec
             PlayMode: state.PlayMode);
     }
 
-    private static DaemonPrimaryDiagnosticOutput? ToOutput (IpcPrimaryDiagnostic? diagnostic)
+    private static DaemonPrimaryDiagnosticOutput? ToOutput (UnityEditorPrimaryDiagnostic? diagnostic)
     {
         if (diagnostic?.Kind is not { } kind)
         {

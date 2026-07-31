@@ -5,6 +5,8 @@ using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Infrastructure.Storage;
+using MackySoft.Ucli.Contracts.Execution;
+using MackySoft.Ucli.Contracts.Projects;
 
 namespace MackySoft.Ucli.Shared.Execution.ReadPostcondition;
 
@@ -54,7 +56,7 @@ internal sealed class MutationReadPostconditionStore : IMutationReadPostconditio
             return MutationReadPostconditionReadResult.Success(null);
         }
 
-        IReadOnlyList<IpcExecuteReadPostconditionRequirement> mergedRequirements;
+        IReadOnlyList<ExecutionReadPostconditionRequirement> mergedRequirements;
         try
         {
             var document = JsonSerializer.Deserialize<MutationReadPostconditionDocument>(json, SerializerOptions)
@@ -79,14 +81,14 @@ internal sealed class MutationReadPostconditionStore : IMutationReadPostconditio
         }
 
         return MutationReadPostconditionReadResult.Success(
-            mergedRequirements.Count == 0 ? null : new IpcExecuteReadPostcondition(mergedRequirements));
+            mergedRequirements.Count == 0 ? null : new ExecutionReadPostcondition(mergedRequirements));
     }
 
     /// <inheritdoc />
     public async ValueTask<MutationReadPostconditionStoreOperationResult> WriteMergedAsync (
         AbsolutePath storageRoot,
         ProjectFingerprint projectFingerprint,
-        IpcExecuteReadPostcondition readPostcondition,
+        ExecutionReadPostcondition readPostcondition,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -107,7 +109,7 @@ internal sealed class MutationReadPostconditionStore : IMutationReadPostconditio
                     WriteLockAcquireTimeout,
                     cancellationToken)
                 .ConfigureAwait(false);
-            IReadOnlyList<IpcExecuteReadPostconditionRequirement> existingRequirements = [];
+            IReadOnlyList<ExecutionReadPostconditionRequirement> existingRequirements = [];
             var existingReadResult = await ReadOrNullAsync(storageRoot, projectFingerprint, cancellationToken).ConfigureAwait(false);
             if (!existingReadResult.IsSuccess)
             {
@@ -139,12 +141,12 @@ internal sealed class MutationReadPostconditionStore : IMutationReadPostconditio
         }
     }
 
-    private static IReadOnlyList<IpcExecuteReadPostconditionRequirement> MergeRequirements (
-        IReadOnlyList<IpcExecuteReadPostconditionRequirement> requirements)
+    private static IReadOnlyList<ExecutionReadPostconditionRequirement> MergeRequirements (
+        IReadOnlyList<ExecutionReadPostconditionRequirement> requirements)
     {
         ArgumentNullException.ThrowIfNull(requirements);
 
-        var merged = new Dictionary<(IpcExecuteReadPostconditionSurface Surface, UnityScenePath? ScenePath), IpcExecuteReadPostconditionRequirement>();
+        var merged = new Dictionary<(ExecutionReadPostconditionSurface Surface, UnityScenePath? ScenePath), ExecutionReadPostconditionRequirement>();
         for (var i = 0; i < requirements.Count; i++)
         {
             var requirement = requirements[i];
@@ -179,8 +181,8 @@ internal sealed class MutationReadPostconditionStore : IMutationReadPostconditio
         ArgumentNullException.ThrowIfNull(document.Requirements);
     }
 
-    private static (IpcExecuteReadPostconditionSurface Surface, UnityScenePath? ScenePath) GetRequirementKey (
-        IpcExecuteReadPostconditionRequirement requirement)
+    private static (ExecutionReadPostconditionSurface Surface, UnityScenePath? ScenePath) GetRequirementKey (
+        ExecutionReadPostconditionRequirement requirement)
     {
         return (requirement.Surface, requirement.ScenePath);
     }

@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Contracts.Editor;
+
 namespace MackySoft.Ucli.Application.Shared.Execution;
 
 /// <summary> Represents normalized payload values for one daemon startup observation. </summary>
@@ -8,7 +10,7 @@ internal sealed record DaemonStartupObservationOutput
         DaemonStartupStatus StartupStatus,
         DaemonStartupBlockingReason? StartupBlockingReason,
         Guid? LaunchAttemptId,
-        DaemonEditorMode? EditorMode,
+        UnityEditorMode? EditorMode,
         DaemonSessionOwnerKind? OwnerKind,
         bool? CanShutdownProcess,
         int? ProcessId,
@@ -45,7 +47,7 @@ internal sealed record DaemonStartupObservationOutput
 
     public Guid? LaunchAttemptId { get; }
 
-    public DaemonEditorMode? EditorMode { get; }
+    public UnityEditorMode? EditorMode { get; }
 
     public DaemonSessionOwnerKind? OwnerKind { get; }
 

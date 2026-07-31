@@ -5,21 +5,24 @@ using MackySoft.Ucli.Application.Features.Daemon.Common.Projection;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Logs;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Startup;
 using MackySoft.Ucli.Application.Shared.Context.Project;
-using MackySoft.Ucli.Application.Shared.Execution.ErrorCodes;
 using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Execution.UnityRequest;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Contracts.Editor;
+using MackySoft.Ucli.Contracts.Execution.Lifecycle;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.Authorization;
 using MackySoft.Ucli.Infrastructure.Execution;
+using MackySoft.Ucli.Infrastructure.Execution.Lifecycle;
 using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Shared.Unity.ProjectLock;
 using MackySoft.Ucli.UnityIntegration.Ipc.Dispatch;
 using MackySoft.Ucli.UnityIntegration.Ipc.Failures;
 using MackySoft.Ucli.UnityIntegration.Ipc.Process;
+using MackySoft.Ucli.UnityIntegration.Ipc.Recovery;
 using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 
 namespace MackySoft.Ucli.UnityIntegration.Ipc.Clients;
@@ -84,24 +87,104 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
     public UnityExecutionTarget Target => UnityExecutionTarget.Oneshot;
 
     /// <inheritdoc />
-    public ValueTask<UnityRequestExecutionResult> SendAsync (
+    public async ValueTask<UnityRequestExecutionResult> SendAsync (
         ResolvedUnityProjectContext unityProject,
         UnityIpcDispatchRequest dispatchRequest,
         ExecutionDeadline deadline,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(deadline);
-        return SendCoreAsync(
-            unityProject,
-            dispatchRequest,
-            deadline,
-            IpcResponseMode.Single,
-            SendPreparedSingleRequestAsync,
-            cancellationToken);
+        return await LifecycleExecutionCallerWaitCoordinator.WaitAsync(
+                unityProject,
+                dispatchRequest,
+                deadline,
+                dispatchObservation => SendCoreAsync(
+                    unityProject,
+                    dispatchRequest,
+                    deadline,
+                    IpcResponseMode.Single,
+                    SendPreparedSingleRequestAsync,
+                    dispatchObservation,
+                    cancellationToken),
+                cancellationToken)
+            .ConfigureAwait(false);
     }
 
     /// <inheritdoc />
-    public ValueTask<UnityRequestExecutionResult> SendStreamingAsync (
+    public async ValueTask<UnityIpcReconnectAttempt> TryReconnectAsync (
+        ResolvedUnityProjectContext unityProject,
+        UnityIpcDispatchRequest dispatchRequest,
+        LifecycleExecutionStartBinding requiredStart,
+        ExecutionDeadline deadline,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(unityProject);
+        ArgumentNullException.ThrowIfNull(dispatchRequest);
+        ArgumentNullException.ThrowIfNull(requiredStart);
+        ArgumentNullException.ThrowIfNull(deadline);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (dispatchRequest.RequiredStart != requiredStart)
+        {
+            throw new ArgumentException(
+                "Oneshot reconnect requires the dispatch's authoritative start binding.",
+                nameof(requiredStart));
+        }
+        if (ProcessLivenessProbe.ObserveIdentity(
+                requiredStart.Host.Process)
+            == ProcessIdentityObservation.ConfirmedExitedOrReplaced)
+        {
+            return UnityIpcReconnectAttempt.Owned(
+                CreateConfirmedHostExitResult(
+                    requiredStart,
+                    lifecycleActionDispatched: false));
+        }
+
+        var candidates =
+            OneshotBootstrapEnvelopeStore
+                .ReadLifecycleReconnectCandidates(
+                    unityProject.RepositoryRoot,
+                    unityProject.ProjectFingerprint,
+                    timeProvider.GetUtcNow());
+        if (candidates.Count == 0)
+        {
+            return UnityIpcReconnectAttempt.NotOwned();
+        }
+
+        var probe = await ProbeReconnectCandidatesAsync(
+                unityProject,
+                dispatchRequest,
+                requiredStart,
+                candidates,
+                deadline,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (probe.Result is not null)
+        {
+            return UnityIpcReconnectAttempt.Owned(probe.Result);
+        }
+        if (probe.Envelope is null)
+        {
+            return UnityIpcReconnectAttempt.NotOwned();
+        }
+
+        var result = await LifecycleExecutionCallerWaitCoordinator.WaitAsync(
+                unityProject,
+                dispatchRequest,
+                deadline,
+                dispatchObservation =>
+                    SendExistingLifecycleExecutionAsync(
+                        unityProject,
+                        probe.Envelope.SessionToken,
+                        dispatchRequest,
+                        deadline,
+                        dispatchObservation),
+                cancellationToken)
+            .ConfigureAwait(false);
+        return UnityIpcReconnectAttempt.Owned(result);
+    }
+
+    /// <inheritdoc />
+    public async ValueTask<UnityRequestExecutionResult> SendStreamingAsync (
         ResolvedUnityProjectContext unityProject,
         UnityIpcDispatchRequest dispatchRequest,
         ExecutionDeadline deadline,
@@ -113,23 +196,32 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
         ArgumentNullException.ThrowIfNull(deadline);
         if (!UnityIpcMethodCapabilities.SupportsStreaming(dispatchRequest.Method))
         {
-            return ValueTask.FromResult(UnityRequestExecutionResult.Failure(UnityIpcFailureClassifier.InternalError(
-                $"IPC method does not support streaming: {TextVocabulary.GetText(dispatchRequest.Method)}.")));
+            return UnityRequestExecutionResult.Failure(UnityIpcFailureClassifier.InternalError(
+                $"IPC method does not support streaming: {TextVocabulary.GetText(dispatchRequest.Method)}."));
         }
 
-        return SendCoreAsync(
-            unityProject,
-            dispatchRequest,
-            deadline,
-            IpcResponseMode.Stream,
-            (preparedUnityProject, request, requestTimeout, requestCancellationToken) =>
-                SendPreparedStreamingRequestAsync(
-                    preparedUnityProject,
-                    request,
-                    requestTimeout,
-                    onProgressFrame,
-                    requestCancellationToken),
-            cancellationToken);
+        return await LifecycleExecutionCallerWaitCoordinator.WaitAsync(
+                unityProject,
+                dispatchRequest,
+                deadline,
+                dispatchObservation => SendCoreAsync(
+                    unityProject,
+                    dispatchRequest,
+                    deadline,
+                    IpcResponseMode.Stream,
+                    (preparedUnityProject, request, requestTimeout, requestCancellationToken) =>
+                        SendPreparedStreamingRequestAsync(
+                            preparedUnityProject,
+                            request,
+                            requestTimeout,
+                            cancellationToken.IsCancellationRequested
+                                ? static (_, _) => ValueTask.CompletedTask
+                                : onProgressFrame,
+                            requestCancellationToken),
+                    dispatchObservation,
+                    cancellationToken),
+                cancellationToken)
+            .ConfigureAwait(false);
     }
 
     private async ValueTask<UnityRequestExecutionResult> SendCoreAsync (
@@ -143,12 +235,14 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
             TimeSpan,
             CancellationToken,
             ValueTask<IpcResponse>> sendPreparedRequestAsync,
+        LifecycleExecutionDispatchObservation? dispatchObservation,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(unityProject);
         ArgumentNullException.ThrowIfNull(dispatchRequest);
         ArgumentNullException.ThrowIfNull(sendPreparedRequestAsync);
         cancellationToken.ThrowIfCancellationRequested();
+        var dispatchCancellationToken = cancellationToken;
 
         var unityLogPath = UcliStoragePathResolver.ResolveUnityLogPath(
             unityProject.RepositoryRoot,
@@ -168,7 +262,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
                 await lifecycleLockProvider.AcquireAsync(
                         new ProjectLifecycleLockRequest(unityProject.UnityProjectRoot),
                         lockTimeout,
-                        cancellationToken)
+                        dispatchCancellationToken)
                     .ConfigureAwait(false));
 
             if (unityLogPath.TryGetParent(out var unityLogDirectoryPath))
@@ -176,27 +270,37 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
                 FileSystemAccessBoundary.EnsureSecureDirectory(unityLogDirectoryPath);
             }
 
-            if (!deadline.TryGetRemainingTimeout(out _))
+            if (!TryGetDispatchBudget(
+                    deadline,
+                    out _,
+                    out _,
+                    out _))
             {
                 return UnityRequestExecutionResult.Failure(UnityIpcFailureClassifier.OneshotTimeout(deadline.Timeout));
             }
 
             var sessionToken = IpcSessionToken.CreateRandom();
             var bootstrapCreatedAtUtc = timeProvider.GetUtcNow();
+            var hardExitDeadlineUtc =
+                dispatchRequest.BeginsLifecycleExecution
+                    ? deadline.CreateCompletionDeadline(
+                            LifecycleExecutionTiming.ResponseDeliveryGrace)
+                        .UtcDeadline
+                    : deadline.UtcDeadline;
             var bootstrapEnvelope = new IpcOneshotBootstrapEnvelope(
                 BootstrapId: Guid.NewGuid(),
                 ParentProcess: ProcessLivenessProbe.CaptureCurrentProcess(),
                 ProjectFingerprint: unityProject.ProjectFingerprint,
                 SessionToken: sessionToken,
                 CreatedAtUtc: bootstrapCreatedAtUtc,
-                ExitDeadlineUtc: deadline.UtcDeadline,
+                ExitDeadlineUtc: hardExitDeadlineUtc,
                 Endpoint: endpoint.Contract);
             var launchResult = await batchmodeProcessLauncher.LaunchOneshotAsync(
                     unityProject,
                     bootstrapEnvelope,
                     unityLogPath,
                     dispatchRequest.LaunchOptions,
-                    cancellationToken)
+                    dispatchCancellationToken)
                 .ConfigureAwait(false);
             if (!launchResult.IsSuccess)
             {
@@ -209,102 +313,211 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
             var shouldTerminateProcess = true;
             var terminationResult = ProcessTerminationResult.None;
             Exception? processCleanupException = null;
-            UnityRequestExecutionResult result;
+            LifecycleExecutionStartBinding? lifecycleExecutionStart = null;
+            var lifecycleActionDispatched = false;
+            UnityRequestExecutionResult? result = null;
+
+            void PreserveRunningLifecycleProcess ()
+            {
+                if (lifecycleExecutionStart == null
+                    || processHandle.HasExited
+                    || !shouldTerminateProcess)
+                {
+                    return;
+                }
+
+                processLifetimeOwner.Transfer(processHandle);
+                processHandleDisposal.RelinquishOwnership();
+                shouldTerminateProcess = false;
+            }
+
             try
             {
-                var startupProbeFailure = await WaitUntilReachableAsync(
-                    unityProject,
-                    sessionToken,
-                    dispatchRequest,
-                    ResolveStartupProbeFailFast(dispatchRequest),
-                    deadline,
-                    processHandle,
-                    cancellationToken)
-                .ConfigureAwait(false);
-                if (startupProbeFailure != null)
+                while (result == null)
                 {
-                    result = UnityRequestExecutionResult.Failure(startupProbeFailure);
-                }
-                else if (!deadline.TryGetRemainingTimeout(out var requestTimeout))
-                {
-                    result = UnityRequestExecutionResult.Failure(UnityIpcFailureClassifier.OneshotTimeout(deadline.Timeout));
-                }
-                else if (!deadline.TryGetRemainingMilliseconds(out var requestDeadlineRemainingMilliseconds))
-                {
-                    result = UnityRequestExecutionResult.Failure(UnityIpcFailureClassifier.OneshotTimeout(deadline.Timeout));
-                }
-                else
-                {
-                    var request = UnityIpcRequestFactory.Create(
+                    var startupProbeFailure = await WaitUntilReachableAsync(
+                        unityProject,
                         sessionToken,
-                        dispatchRequest.Method,
-                        dispatchRequest.Payload,
-                        Guid.NewGuid(),
-                        responseMode,
-                        deadline.UtcDeadline,
-                        requestDeadlineRemainingMilliseconds);
-                    var response = await sendPreparedRequestAsync(
-                            unityProject,
-                            request,
-                            requestTimeout,
-                            cancellationToken)
-                        .ConfigureAwait(false);
-                    var responseResult = UnityRequestExecutionResult.Success(UnityRequestResponseFactory.Create(response));
-                    var terminalPingShutdownError = await RequestTerminalPingShutdownAsync(
-                            unityProject,
-                            sessionToken,
-                            dispatchRequest,
-                            processHandle)
-                        .ConfigureAwait(false);
-                    if (terminalPingShutdownError != null)
+                        dispatchRequest,
+                        ResolveStartupProbeFailFast(dispatchRequest),
+                        deadline,
+                        processHandle,
+                        dispatchCancellationToken)
+                    .ConfigureAwait(false);
+                    if (startupProbeFailure != null)
                     {
-                        result = UnityRequestExecutionResult.Failure(
-                            UnityIpcFailureClassifier.FromExecutionError(terminalPingShutdownError));
+                        result = UnityRequestExecutionResult.Failure(startupProbeFailure);
+                    }
+                    else if (!TryGetDispatchBudget(
+                            deadline,
+                            out _,
+                            out _,
+                            out _))
+                    {
+                        result = UnityRequestExecutionResult.Failure(UnityIpcFailureClassifier.OneshotTimeout(deadline.Timeout));
                     }
                     else
                     {
-                        try
+                        var preparedDispatchCancellationToken =
+                            dispatchRequest.Registration != null
+                                ? CancellationToken.None
+                                : dispatchCancellationToken;
+
+                        var dispatchOutcome = await SendPreparedDispatchAsync(
+                                unityProject,
+                                sessionToken,
+                                dispatchRequest,
+                                deadline,
+                                responseMode,
+                                processHandle,
+                                sendPreparedRequestAsync,
+                                confirmedStart =>
+                                {
+                                    lifecycleExecutionStart = confirmedStart;
+                                    dispatchObservation?.ReportStarted(confirmedStart);
+                                },
+                                () =>
+                                {
+                                    lifecycleActionDispatched = true;
+                                    dispatchObservation?.ReportActionDispatched();
+                                },
+                                preparedDispatchCancellationToken)
+                            .ConfigureAwait(false);
+                        lifecycleExecutionStart = dispatchOutcome.LifecycleExecutionStart;
+                        if (lifecycleExecutionStart is null
+                            && dispatchRequest.Registration is not null)
                         {
-                            var exitWaitError = await WaitForExitAsync(
-                                    processHandle,
-                                    cleanupPolicy.Timeout,
-                                    timeProvider,
-                                    cancellationToken)
-                                .ConfigureAwait(false);
-                            if (exitWaitError == null)
+                            lifecycleExecutionStart =
+                                await LifecycleExecutionStartRecordRecovery
+                                    .TryReadAsync(
+                                        unityProject,
+                                        dispatchRequest)
+                                    .ConfigureAwait(false);
+                            if (lifecycleExecutionStart is not null)
                             {
-                                shouldTerminateProcess = false;
-                                result = responseResult;
+                                dispatchObservation?.ReportStarted(
+                                    lifecycleExecutionStart);
                             }
-                            else if (IsCommandResponseBoundary(dispatchRequest))
+                        }
+
+                        lifecycleActionDispatched =
+                            lifecycleExecutionStart != null
+                            && dispatchOutcome.ActionDispatched;
+                        if (ShouldRetryRejectedStart(
+                                dispatchRequest,
+                                dispatchOutcome))
+                        {
+                            cancellationToken.ThrowIfCancellationRequested();
+                            continue;
+                        }
+
+                        if (dispatchOutcome.Failure != null)
+                        {
+                            PreserveRunningLifecycleProcess();
+                            result = UnityRequestExecutionResult.Failure(
+                                dispatchOutcome.Failure,
+                                lifecycleExecutionStart,
+                                lifecycleActionDispatched);
+                        }
+                        else if (dispatchOutcome.Response == null)
+                        {
+                            throw new InvalidOperationException(
+                                "Lifecycle Execution dispatch finished without a response or classified failure.");
+                        }
+                        else
+                        {
+                            var responseResult = UnityRequestExecutionResult.Success(
+                                UnityRequestResponseFactory.Create(dispatchOutcome.Response),
+                                lifecycleExecutionStart,
+                                lifecycleActionDispatched);
+                            var retainsNonTerminalLifecycleExecution =
+                                lifecycleExecutionStart is not null
+                                && dispatchOutcome.ActionDispatched
+                                && !await IsDurablyTerminalAsync(
+                                        unityProject,
+                                        lifecycleExecutionStart)
+                                    .ConfigureAwait(false);
+                            if (retainsNonTerminalLifecycleExecution)
+                            {
+                                PreserveRunningLifecycleProcess();
+                                result = responseResult;
+                                continue;
+                            }
+
+                            var terminalPingShutdownError = dispatchOutcome.ActionDispatched
+                                ? await RequestTerminalPingShutdownAsync(
+                                        unityProject,
+                                        sessionToken,
+                                        dispatchRequest,
+                                        processHandle)
+                                    .ConfigureAwait(false)
+                                : null;
+                            if (terminalPingShutdownError != null)
+                            {
+                                result = UnityRequestExecutionResult.Failure(
+                                    UnityIpcFailureClassifier.FromExecutionError(
+                                        terminalPingShutdownError),
+                                    lifecycleExecutionStart,
+                                    lifecycleActionDispatched);
+                            }
+                            else if (!dispatchOutcome.ActionDispatched)
                             {
                                 result = responseResult;
                             }
                             else
                             {
-                                result = UnityRequestExecutionResult.Failure(
-                                    UnityIpcFailureClassifier.FromExecutionError(exitWaitError));
+                                try
+                                {
+                                    var exitWaitError = await WaitForExitAsync(
+                                            processHandle,
+                                            cleanupPolicy.Timeout,
+                                            timeProvider,
+                                            dispatchCancellationToken)
+                                        .ConfigureAwait(false);
+                                    if (exitWaitError == null)
+                                    {
+                                        shouldTerminateProcess = false;
+                                        result = responseResult;
+                                    }
+                                    else if (IsCommandResponseBoundary(dispatchRequest))
+                                    {
+                                        result = responseResult;
+                                    }
+                                    else
+                                    {
+                                        result = UnityRequestExecutionResult.Failure(
+                                            UnityIpcFailureClassifier.FromExecutionError(
+                                                exitWaitError),
+                                            lifecycleExecutionStart,
+                                            lifecycleActionDispatched);
+                                    }
+                                }
+                                catch (Exception) when (IsCommandResponseBoundary(dispatchRequest))
+                                {
+                                    result = responseResult;
+                                }
                             }
-                        }
-                        catch (Exception) when (IsCommandResponseBoundary(dispatchRequest))
-                        {
-                            result = responseResult;
                         }
                     }
                 }
             }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            catch (OperationCanceledException) when (dispatchCancellationToken.IsCancellationRequested)
             {
+                PreserveRunningLifecycleProcess();
                 throw;
             }
             catch (IpcProgressFrameHandlerException)
             {
+                PreserveRunningLifecycleProcess();
                 throw;
             }
             catch (Exception exception)
             {
+                PreserveRunningLifecycleProcess();
                 result = UnityRequestExecutionResult.Failure(
-                    UnityIpcFailureClassifier.FromOneshotDispatchException(exception, deadline.Timeout));
+                    UnityIpcFailureClassifier.FromOneshotDispatchException(exception, deadline.Timeout),
+                    lifecycleExecutionStart,
+                    lifecycleActionDispatched);
             }
             finally
             {
@@ -342,6 +555,12 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
                 }
             }
 
+            result ??= UnityRequestExecutionResult.Failure(
+                UnityIpcFailureClassifier.InternalError(
+                    "Unity oneshot dispatch finished without a classified result."));
+            result = result.WithLifecycleExecutionStart(
+                lifecycleExecutionStart,
+                lifecycleActionDispatched);
             if (processCleanupException is not null && !result.IsSuccess)
             {
                 result = AppendNonRecoverableProcessCleanupDiagnostic(
@@ -351,7 +570,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
 
             return await AppendPostTerminationDiagnosticAsync(result, terminationResult, unityProject).ConfigureAwait(false);
         }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        catch (OperationCanceledException) when (dispatchCancellationToken.IsCancellationRequested)
         {
             throw;
         }
@@ -364,6 +583,466 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
         {
             return UnityRequestExecutionResult.Failure(
                 UnityIpcFailureClassifier.FromOneshotDispatchException(exception, deadline.Timeout));
+        }
+    }
+
+    private async ValueTask<OneshotReconnectProbeOutcome>
+        ProbeReconnectCandidatesAsync (
+            ResolvedUnityProjectContext unityProject,
+            UnityIpcDispatchRequest dispatchRequest,
+            LifecycleExecutionStartBinding requiredStart,
+            IReadOnlyList<IpcOneshotBootstrapEnvelope> candidates,
+            ExecutionDeadline deadline,
+            CancellationToken cancellationToken)
+    {
+        while (true)
+        {
+            if (ProcessLivenessProbe.ObserveIdentity(
+                    requiredStart.Host.Process)
+                == ProcessIdentityObservation.ConfirmedExitedOrReplaced)
+            {
+                return OneshotReconnectProbeOutcome.Completed(
+                    CreateConfirmedHostExitResult(
+                        requiredStart,
+                        lifecycleActionDispatched: false));
+            }
+
+            var retryAfterEndpointInterruption = false;
+            foreach (var candidate in candidates)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (!TryGetDispatchBudget(
+                        deadline,
+                        out var requestTimeout,
+                        out var requestDeadlineRemainingMilliseconds,
+                        out var requestDeadlineUtc))
+                {
+                    return OneshotReconnectProbeOutcome.Completed(
+                        UnityRequestExecutionResult.Failure(
+                            UnityIpcFailureClassifier.OneshotTimeout(
+                                deadline.Timeout),
+                            requiredStart));
+                }
+
+                IpcResponse response;
+                try
+                {
+                    response = await transportClient.SendAsync(
+                            unityProject.RepositoryRoot,
+                            unityProject.ProjectFingerprint,
+                            LifecycleExecutionStartExchange.CreateRequest(
+                                dispatchRequest,
+                                candidate.SessionToken,
+                                Guid.NewGuid(),
+                                requestDeadlineUtc,
+                                requestDeadlineRemainingMilliseconds),
+                            requestTimeout,
+                            cancellationToken)
+                        .ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) when (
+                    cancellationToken.IsCancellationRequested)
+                {
+                    throw;
+                }
+                catch (Exception exception) when (
+                    IsStartupRetryable(exception))
+                {
+                    retryAfterEndpointInterruption = true;
+                    continue;
+                }
+
+                if (IsSessionTokenInvalid(response))
+                {
+                    continue;
+                }
+                switch (LifecycleExecutionStartExchange.InterpretResponse(
+                    dispatchRequest,
+                    response))
+                {
+                    case LifecycleExecutionStartExchange
+                        .ProviderRejected rejected:
+                        return OneshotReconnectProbeOutcome.Completed(
+                            UnityRequestExecutionResult.Success(
+                                UnityRequestResponseFactory.Create(
+                                    rejected.Response),
+                                requiredStart));
+                    case LifecycleExecutionStartExchange.Invalid invalid:
+                        return OneshotReconnectProbeOutcome.Completed(
+                            UnityRequestExecutionResult.Failure(
+                                invalid.Failure,
+                                requiredStart));
+                    case LifecycleExecutionStartExchange.Mismatched mismatched
+                        when mismatched.Code
+                            == LifecycleExecutionErrorCodes.HostMismatch
+                            || mismatched.Code
+                            == LifecycleExecutionErrorCodes.ProjectMismatch:
+                        continue;
+                    case LifecycleExecutionStartExchange.Mismatched mismatched:
+                        return OneshotReconnectProbeOutcome.Completed(
+                            UnityRequestExecutionResult.Failure(
+                                UnityIpcFailureClassifier.FromCodeAndMessage(
+                                    mismatched.Code,
+                                    "The oneshot provider returned a Lifecycle Execution start with a mismatched generation."),
+                                requiredStart));
+                    case LifecycleExecutionStartExchange.Confirmed:
+                        return OneshotReconnectProbeOutcome.Owned(candidate);
+                    default:
+                        throw new InvalidOperationException(
+                            "Unsupported Lifecycle Execution start interpretation.");
+                }
+            }
+
+            if (!retryAfterEndpointInterruption)
+            {
+                return OneshotReconnectProbeOutcome.NotOwned();
+            }
+            if (ProcessLivenessProbe.ObserveIdentity(
+                    requiredStart.Host.Process)
+                == ProcessIdentityObservation.ConfirmedExitedOrReplaced)
+            {
+                return OneshotReconnectProbeOutcome.Completed(
+                    CreateConfirmedHostExitResult(
+                        requiredStart,
+                        lifecycleActionDispatched: false));
+            }
+            if (!deadline.TryGetRemainingTimeout(
+                    out var remainingTimeout))
+            {
+                return OneshotReconnectProbeOutcome.Completed(
+                    UnityRequestExecutionResult.Failure(
+                        UnityIpcFailureClassifier.OneshotTimeout(
+                            deadline.Timeout),
+                        requiredStart));
+            }
+
+            await TimeProviderDelay.DelayAsync(
+                    GetRetryDelay(remainingTimeout),
+                    timeProvider,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+    }
+
+    private async ValueTask<UnityRequestExecutionResult>
+        SendExistingLifecycleExecutionAsync (
+            ResolvedUnityProjectContext unityProject,
+            IpcSessionToken sessionToken,
+            UnityIpcDispatchRequest dispatchRequest,
+            ExecutionDeadline deadline,
+            LifecycleExecutionDispatchObservation? dispatchObservation)
+    {
+        var dispatchOutcome = await SendPreparedDispatchAsync(
+                unityProject,
+                sessionToken,
+                dispatchRequest,
+                deadline,
+                IpcResponseMode.Single,
+                processHandle: null,
+                SendPreparedSingleRequestAsync,
+                dispatchObservation is null
+                    ? null
+                    : dispatchObservation.ReportStarted,
+                dispatchObservation is null
+                    ? null
+                    : dispatchObservation.ReportActionDispatched,
+                CancellationToken.None)
+            .ConfigureAwait(false);
+        var retainedStart = dispatchOutcome.LifecycleExecutionStart
+            ?? dispatchRequest.RequiredStart;
+        if (dispatchOutcome.Failure is not null)
+        {
+            return UnityRequestExecutionResult.Failure(
+                dispatchOutcome.Failure,
+                retainedStart,
+                dispatchOutcome.ActionDispatched,
+                dispatchOutcome.ConfirmedHostExit);
+        }
+        if (dispatchOutcome.Response is null)
+        {
+            return UnityRequestExecutionResult.Failure(
+                UnityIpcFailureClassifier.InternalError(
+                    "Oneshot Lifecycle Execution reconnect finished without a response or classified failure."),
+                retainedStart,
+                dispatchOutcome.ActionDispatched);
+        }
+
+        return UnityRequestExecutionResult.Success(
+            UnityRequestResponseFactory.Create(
+                dispatchOutcome.Response),
+            retainedStart,
+            dispatchOutcome.ActionDispatched);
+    }
+
+    private async ValueTask<OneshotPreparedDispatchOutcome> SendPreparedDispatchAsync (
+        ResolvedUnityProjectContext unityProject,
+        IpcSessionToken sessionToken,
+        UnityIpcDispatchRequest dispatchRequest,
+        ExecutionDeadline deadline,
+        IpcResponseMode responseMode,
+        IUnityBatchmodeProcessHandle? processHandle,
+        Func<
+            ResolvedUnityProjectContext,
+            IpcRequestEnvelope,
+            TimeSpan,
+            CancellationToken,
+            ValueTask<IpcResponse>> sendPreparedRequestAsync,
+        Action<LifecycleExecutionStartBinding>? lifecycleStarted,
+        Action? lifecycleActionDispatched,
+        CancellationToken cancellationToken)
+    {
+        var lifecycleStartRequestId = Guid.NewGuid();
+        var actionRequestId = Guid.NewGuid();
+        var actionWasDispatched = false;
+        var lifecycleStartReported = false;
+        LifecycleExecutionStartBinding? lifecycleExecutionStart =
+            dispatchRequest.RequiredStart;
+        var dispatchDeadline = deadline;
+        var lifecycleCompletionDeadlineStarted = false;
+        if (lifecycleExecutionStart is not null)
+        {
+            lifecycleStarted?.Invoke(lifecycleExecutionStart);
+            lifecycleStartReported = true;
+        }
+
+        while (true)
+        {
+            if (dispatchRequest.RequiredStart is not null
+                && ProcessLivenessProbe.ObserveIdentity(
+                    dispatchRequest.RequiredStart.Host.Process)
+                == ProcessIdentityObservation.ConfirmedExitedOrReplaced)
+            {
+                return OneshotPreparedDispatchOutcome.Failed(
+                    UnityIpcFailureClassifier.FromCodeAndMessage(
+                        EditorLifecycleErrorCodes.EditorUnavailable,
+                        "The Unity Editor process that owns the Lifecycle Execution exited during reconnect."),
+                    lifecycleExecutionStart,
+                    actionWasDispatched,
+                    new LifecycleExecutionHostExitObservation(
+                        dispatchRequest.RequiredStart.Host.Process));
+            }
+
+            if (!TryGetDispatchBudget(
+                    dispatchDeadline,
+                    out var requestTimeout,
+                    out var requestDeadlineRemainingMilliseconds,
+                    out var requestDeadlineUtc))
+            {
+                return OneshotPreparedDispatchOutcome.Failed(
+                    UnityIpcFailureClassifier.OneshotTimeout(
+                        dispatchDeadline.Timeout),
+                    lifecycleExecutionStart,
+                    actionWasDispatched);
+            }
+
+            try
+            {
+                var actionPayload = dispatchRequest.Registration == null
+                    ? dispatchRequest.Payload
+                    : default;
+                if (dispatchRequest.Registration != null)
+                {
+                    if (dispatchRequest.BeginsLifecycleExecution
+                        && !lifecycleCompletionDeadlineStarted)
+                    {
+                        // The first Start write is the ambiguity boundary after which a durable
+                        // Start may exist even if its response is lost. Preserve only the
+                        // terminal-publication and response-delivery grace from this point.
+                        dispatchDeadline = deadline.CreateCompletionDeadline(
+                            LifecycleExecutionTiming.ResponseDeliveryGrace);
+                        lifecycleCompletionDeadlineStarted = true;
+                        if (!TryGetDispatchBudget(
+                                dispatchDeadline,
+                                out requestTimeout,
+                                out requestDeadlineRemainingMilliseconds,
+                                out requestDeadlineUtc))
+                        {
+                            return OneshotPreparedDispatchOutcome.Failed(
+                                UnityIpcFailureClassifier.OneshotTimeout(
+                                    dispatchDeadline.Timeout),
+                                lifecycleExecutionStart,
+                                actionWasDispatched);
+                        }
+                    }
+
+                    var lifecycleStartResponse = await transportClient.SendAsync(
+                            unityProject.RepositoryRoot,
+                            unityProject.ProjectFingerprint,
+                            LifecycleExecutionStartExchange.CreateRequest(
+                                dispatchRequest,
+                                sessionToken,
+                                lifecycleStartRequestId,
+                                requestDeadlineUtc,
+                                requestDeadlineRemainingMilliseconds),
+                            requestTimeout,
+                            cancellationToken)
+                        .ConfigureAwait(false);
+                    switch (LifecycleExecutionStartExchange
+                        .InterpretResponse(
+                            dispatchRequest,
+                            lifecycleStartResponse))
+                    {
+                        case LifecycleExecutionStartExchange
+                            .ProviderRejected rejected:
+                            return OneshotPreparedDispatchOutcome.Responded(
+                                rejected.Response,
+                                lifecycleExecutionStart,
+                                actionWasDispatched);
+                        case LifecycleExecutionStartExchange.Invalid invalid:
+                            return OneshotPreparedDispatchOutcome.Failed(
+                                invalid.Failure,
+                                lifecycleExecutionStart,
+                                actionWasDispatched);
+                        case LifecycleExecutionStartExchange
+                            .Mismatched mismatched:
+                            return OneshotPreparedDispatchOutcome.Failed(
+                                UnityIpcFailureClassifier.FromCodeAndMessage(
+                                    mismatched.Code,
+                                    "The oneshot provider returned a Lifecycle Execution start that does not match the authoritative persisted start."),
+                                lifecycleExecutionStart,
+                                actionWasDispatched);
+                        case LifecycleExecutionStartExchange.Confirmed confirmed:
+                            actionPayload = confirmed.ActionPayload;
+                            lifecycleExecutionStart = confirmed.Start;
+                            if (!lifecycleStartReported)
+                            {
+                                lifecycleStarted?.Invoke(confirmed.Start);
+                                lifecycleStartReported = true;
+                            }
+                            break;
+                        default:
+                            throw new InvalidOperationException(
+                                "Unsupported Lifecycle Execution start interpretation.");
+                    }
+
+                    if (!TryGetDispatchBudget(
+                            dispatchDeadline,
+                            out requestTimeout,
+                            out requestDeadlineRemainingMilliseconds,
+                            out requestDeadlineUtc))
+                    {
+                        return OneshotPreparedDispatchOutcome.Failed(
+                            UnityIpcFailureClassifier.OneshotTimeout(
+                                dispatchDeadline.Timeout),
+                            lifecycleExecutionStart,
+                            actionWasDispatched);
+                    }
+                }
+
+                var request = UnityIpcRequestFactory.Create(
+                    sessionToken,
+                    dispatchRequest.Method,
+                    actionPayload,
+                    actionRequestId,
+                    responseMode,
+                    requestDeadlineUtc,
+                    requestDeadlineRemainingMilliseconds);
+                if (lifecycleExecutionStart != null)
+                {
+                    lifecycleActionDispatched?.Invoke();
+                }
+
+                actionWasDispatched = true;
+                var responseAttempt = sendPreparedRequestAsync(
+                        unityProject,
+                        request,
+                        requestTimeout,
+                        cancellationToken);
+                var response = await responseAttempt.ConfigureAwait(false);
+                return OneshotPreparedDispatchOutcome.Responded(
+                    response,
+                    lifecycleExecutionStart,
+                    actionWasDispatched);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (IpcProgressFrameHandlerException)
+            {
+                throw;
+            }
+            catch (Exception exception) when (
+                dispatchRequest.Registration != null
+                && IsStartupRetryable(exception))
+            {
+                if (lifecycleExecutionStart is null)
+                {
+                    lifecycleExecutionStart =
+                        await LifecycleExecutionStartRecordRecovery.TryReadAsync(
+                                unityProject,
+                                dispatchRequest)
+                            .ConfigureAwait(false);
+                    if (lifecycleExecutionStart is not null
+                        && !lifecycleStartReported)
+                    {
+                        lifecycleStarted?.Invoke(lifecycleExecutionStart);
+                        lifecycleStartReported = true;
+                    }
+                }
+
+                if (dispatchDeadline.IsExpired)
+                {
+                    return OneshotPreparedDispatchOutcome.Failed(
+                        UnityIpcFailureClassifier.OneshotTimeout(
+                            dispatchDeadline.Timeout),
+                        lifecycleExecutionStart,
+                        actionWasDispatched);
+                }
+
+                if (processHandle is null)
+                {
+                    if (dispatchRequest.RequiredStart is not null
+                        && ProcessLivenessProbe.ObserveIdentity(
+                            dispatchRequest.RequiredStart.Host.Process)
+                        == ProcessIdentityObservation
+                            .ConfirmedExitedOrReplaced)
+                    {
+                        return OneshotPreparedDispatchOutcome.Failed(
+                            UnityIpcFailureClassifier.FromCodeAndMessage(
+                                EditorLifecycleErrorCodes.EditorUnavailable,
+                                "The Unity Editor process that owns the Lifecycle Execution exited during reconnect."),
+                            lifecycleExecutionStart,
+                            actionWasDispatched,
+                            new LifecycleExecutionHostExitObservation(
+                                dispatchRequest.RequiredStart.Host.Process));
+                    }
+
+                    if (!dispatchDeadline.TryGetRemainingTimeout(
+                            out var reconnectRemainingTimeout))
+                    {
+                        return OneshotPreparedDispatchOutcome.Failed(
+                            UnityIpcFailureClassifier.OneshotTimeout(
+                                dispatchDeadline.Timeout),
+                            lifecycleExecutionStart,
+                            actionWasDispatched);
+                    }
+
+                    await TimeProviderDelay.DelayAsync(
+                            GetRetryDelay(reconnectRemainingTimeout),
+                            timeProvider,
+                            CancellationToken.None)
+                        .ConfigureAwait(false);
+                    continue;
+                }
+
+                var reachabilityFailure = await WaitUntilReachableAsync(
+                        unityProject,
+                        sessionToken,
+                        dispatchRequest,
+                        failFast: false,
+                        dispatchDeadline,
+                        processHandle,
+                        CancellationToken.None)
+                    .ConfigureAwait(false);
+                if (reachabilityFailure != null)
+                {
+                    return OneshotPreparedDispatchOutcome.Failed(
+                        reachabilityFailure,
+                        lifecycleExecutionStart,
+                        actionWasDispatched);
+                }
+            }
         }
     }
 
@@ -401,6 +1080,47 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
     {
         // NOTE: A non-ping response is the command contract boundary; delayed Unity process exit is cleanup work.
         return dispatchRequest.Method != UnityIpcMethod.Ping;
+    }
+
+    private static async ValueTask<bool> IsDurablyTerminalAsync (
+        ResolvedUnityProjectContext unityProject,
+        LifecycleExecutionStartBinding start)
+    {
+        try
+        {
+            var expectedReference = start.LifecycleExecutionRef;
+            var executionKind = LifecycleExecutionContractGuard.RequireReference(
+                expectedReference,
+                nameof(start),
+                allowTerminal: false);
+            var store = FileLifecycleExecutionStore.CreateForProject(
+                unityProject.UnityProjectRoot,
+                unityProject.ProjectFingerprint);
+            var stored = await store.ReadAsync(
+                    executionKind,
+                    expectedReference.Id,
+                    CancellationToken.None)
+                .ConfigureAwait(false);
+            if (stored?.IsTerminal != true)
+            {
+                return false;
+            }
+
+            var currentReference = stored.CurrentReference;
+            return currentReference.Kind == expectedReference.Kind
+                && currentReference.Id == expectedReference.Id
+                && currentReference.DefinitionDigest
+                    == expectedReference.DefinitionDigest
+                && currentReference.StatusLocator
+                    == expectedReference.StatusLocator;
+        }
+        catch (Exception exception) when (
+            exception is IOException or UnauthorizedAccessException)
+        {
+            // The process remains the only host allowed to recover this execution.
+            // An unreadable status record is not proof that its terminal record was published.
+            return false;
+        }
     }
 
     private async ValueTask<ExecutionError?> RequestTerminalPingShutdownAsync (
@@ -636,7 +1356,16 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
                         $"Unity oneshot startup probe returned an invalid response. {error!.Message}");
                 }
 
-                var readinessDecision = UnityEditorReadinessPolicy.Evaluate(payload!, failFast);
+                if (dispatchRequest.RequiredStart is not null)
+                {
+                    return null;
+                }
+
+                var readinessDecision = dispatchRequest.StartAdmissionPolicy
+                    ?.Evaluate(payload!)
+                    ?? UnityEditorReadinessPolicy.Evaluate(
+                        payload!,
+                        failFast);
                 if (readinessDecision.IsReady)
                 {
                     return null;
@@ -844,9 +1573,11 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
     {
         var failure = result.FailureInfo!;
         return UnityRequestExecutionResult.Failure(UnityIpcFailureClassifier.FromCodeAndMessage(
-            failure.Code,
-            $"{failure.Message}{Environment.NewLine}{diagnostic}",
-            failure.StartupFailure));
+                failure.Code,
+                $"{failure.Message}{Environment.NewLine}{diagnostic}",
+                failure.StartupFailure),
+            result.LifecycleExecutionStart,
+            result.LifecycleActionDispatched);
     }
 
     private async ValueTask<UnityRequestExecutionResult> AppendPostUnityProcessExitLockFileDiagnosticAsync (
@@ -865,11 +1596,14 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
             return result;
         }
 
-        return UnityRequestExecutionResult.Failure(new UnityRequestFailure(
-            failure.FailureKind,
-            failure.Code,
-            message,
-            failure.StartupFailure));
+        return UnityRequestExecutionResult.Failure(
+            new UnityRequestFailure(
+                failure.FailureKind,
+                failure.Code,
+                message,
+                failure.StartupFailure),
+            result.LifecycleExecutionStart,
+            result.LifecycleActionDispatched);
     }
 
     private async ValueTask<string> AppendPostUnityProcessExitLockFileDiagnosticAsync (
@@ -900,6 +1634,14 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
         return exception is TimeoutException
             or IpcConnectException
             or IpcResponseReadInterruptedException;
+    }
+
+    private static bool IsSessionTokenInvalid (IpcResponse response)
+    {
+        ArgumentNullException.ThrowIfNull(response);
+        return response.Errors.Any(
+            static error =>
+                error.Code == IpcSessionErrorCodes.SessionTokenInvalid);
     }
 
     /// <summary> Calculates one startup retry delay bounded by the remaining timeout. </summary>
@@ -942,6 +1684,172 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
         return error.Code == EditorLifecycleErrorCodes.EditorBusy;
     }
 
+    private static bool ShouldRetryRejectedStart (
+        UnityIpcDispatchRequest dispatchRequest,
+        OneshotPreparedDispatchOutcome dispatchOutcome)
+    {
+        ArgumentNullException.ThrowIfNull(dispatchRequest);
+        ArgumentNullException.ThrowIfNull(dispatchOutcome);
+        if (dispatchRequest.StartAdmissionPolicy is null
+            || dispatchOutcome.LifecycleExecutionStart is not null
+            || dispatchOutcome.Failure is not null
+            || dispatchOutcome.Response is null)
+        {
+            return false;
+        }
+
+        var firstError = dispatchOutcome.Response.Errors.FirstOrDefault();
+        return firstError is not null
+            && dispatchRequest.StartAdmissionPolicy
+                .ShouldRetryAfterRejectedStart(firstError.Code);
+    }
+
+    private sealed record OneshotReconnectProbeOutcome
+    {
+        private OneshotReconnectProbeOutcome (
+            IpcOneshotBootstrapEnvelope? envelope,
+            UnityRequestExecutionResult? result)
+        {
+            if (envelope is not null && result is not null)
+            {
+                throw new ArgumentException(
+                    "A reconnect probe cannot contain both an owned envelope and a completed result.");
+            }
+
+            Envelope = envelope;
+            Result = result;
+        }
+
+        public IpcOneshotBootstrapEnvelope? Envelope { get; }
+
+        public UnityRequestExecutionResult? Result { get; }
+
+        public static OneshotReconnectProbeOutcome NotOwned ()
+        {
+            return new OneshotReconnectProbeOutcome(
+                envelope: null,
+                result: null);
+        }
+
+        public static OneshotReconnectProbeOutcome Owned (
+            IpcOneshotBootstrapEnvelope envelope)
+        {
+            return new OneshotReconnectProbeOutcome(
+                envelope ?? throw new ArgumentNullException(nameof(envelope)),
+                result: null);
+        }
+
+        public static OneshotReconnectProbeOutcome Completed (
+            UnityRequestExecutionResult result)
+        {
+            return new OneshotReconnectProbeOutcome(
+                envelope: null,
+                result ?? throw new ArgumentNullException(nameof(result)));
+        }
+    }
+
+    private sealed record OneshotPreparedDispatchOutcome
+    {
+        private OneshotPreparedDispatchOutcome (
+            IpcResponse? response,
+            UnityRequestFailure? failure,
+            LifecycleExecutionStartBinding? lifecycleExecutionStart,
+            bool actionDispatched,
+            LifecycleExecutionHostExitObservation? confirmedHostExit)
+        {
+            Response = response;
+            Failure = failure;
+            LifecycleExecutionStart = lifecycleExecutionStart;
+            ActionDispatched = actionDispatched;
+            ConfirmedHostExit = confirmedHostExit;
+        }
+
+        public IpcResponse? Response { get; }
+
+        public UnityRequestFailure? Failure { get; }
+
+        public LifecycleExecutionStartBinding? LifecycleExecutionStart { get; }
+
+        public bool ActionDispatched { get; }
+
+        public LifecycleExecutionHostExitObservation? ConfirmedHostExit { get; }
+
+        public static OneshotPreparedDispatchOutcome Responded (
+            IpcResponse response,
+            LifecycleExecutionStartBinding? lifecycleExecutionStart,
+            bool actionDispatched)
+        {
+            return new OneshotPreparedDispatchOutcome(
+                response ?? throw new ArgumentNullException(nameof(response)),
+                failure: null,
+                lifecycleExecutionStart,
+                actionDispatched,
+                confirmedHostExit: null);
+        }
+
+        public static OneshotPreparedDispatchOutcome Failed (
+            UnityRequestFailure failure,
+            LifecycleExecutionStartBinding? lifecycleExecutionStart,
+            bool actionDispatched = false,
+            LifecycleExecutionHostExitObservation? confirmedHostExit = null)
+        {
+            return new OneshotPreparedDispatchOutcome(
+                response: null,
+                failure ?? throw new ArgumentNullException(nameof(failure)),
+                lifecycleExecutionStart,
+                actionDispatched,
+                confirmedHostExit);
+        }
+    }
+
+    private static UnityRequestExecutionResult CreateConfirmedHostExitResult (
+        LifecycleExecutionStartBinding requiredStart,
+        bool lifecycleActionDispatched)
+    {
+        return UnityRequestExecutionResult.Failure(
+            UnityIpcFailureClassifier.FromCodeAndMessage(
+                EditorLifecycleErrorCodes.EditorUnavailable,
+                "The Unity Editor process that owns the Lifecycle Execution exited during reconnect."),
+            requiredStart,
+            lifecycleActionDispatched,
+            new LifecycleExecutionHostExitObservation(
+                requiredStart.Host.Process));
+    }
+
+    private bool TryGetDispatchBudget (
+        ExecutionDeadline deadline,
+        out TimeSpan remainingTimeout,
+        out int remainingMilliseconds,
+        out DateTimeOffset requestDeadlineUtc)
+    {
+        ArgumentNullException.ThrowIfNull(deadline);
+        requestDeadlineUtc = deadline.UtcDeadline;
+        if (!deadline.TryGetRemainingTimeout(out remainingTimeout))
+        {
+            remainingMilliseconds = 0;
+            return false;
+        }
+
+        var utcRemaining = requestDeadlineUtc - timeProvider.GetUtcNow();
+        if (utcRemaining <= TimeSpan.Zero)
+        {
+            remainingTimeout = TimeSpan.Zero;
+            remainingMilliseconds = 0;
+            return false;
+        }
+
+        if (utcRemaining < remainingTimeout)
+        {
+            remainingTimeout = utcRemaining;
+        }
+
+        var roundedMilliseconds = Math.Ceiling(remainingTimeout.TotalMilliseconds);
+        remainingMilliseconds = roundedMilliseconds >= int.MaxValue
+            ? int.MaxValue
+            : (int)roundedMilliseconds;
+        return remainingMilliseconds > 0;
+    }
+
     /// <summary> Resolves whether the dispatch payload requests fail-fast readiness behavior. </summary>
     /// <param name="dispatchRequest"> The dispatch request to inspect. Must not be <see langword="null" />. </param>
     /// <returns> <see langword="true" /> when a known request payload requests fail-fast readiness; otherwise <see langword="false" />. </returns>
@@ -949,6 +1857,10 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
     private static bool ResolveStartupProbeFailFast (UnityIpcDispatchRequest dispatchRequest)
     {
         ArgumentNullException.ThrowIfNull(dispatchRequest);
+        if (dispatchRequest.StartAdmissionPolicy is not null)
+        {
+            return dispatchRequest.StartAdmissionPolicy.FailFast;
+        }
 
         return dispatchRequest.Method switch
         {
@@ -966,7 +1878,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
 
     private static bool IsStartupLifecycleDispatchAllowed (
         UnityIpcDispatchRequest dispatchRequest,
-        IpcUnityEditorObservation pingResponse)
+        UnityEditorObservation pingResponse)
     {
         ArgumentNullException.ThrowIfNull(dispatchRequest);
         ArgumentNullException.ThrowIfNull(pingResponse);

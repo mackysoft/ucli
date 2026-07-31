@@ -38,22 +38,20 @@ internal static class CompileCommandAssert
 
     public static void InvalidArgumentReturnedWithoutCompileExecution (
         CommandExecutionResult result,
-        RecordingCompileService service,
-        bool expectEmptyStandardError)
+        RecordingCompileService service)
     {
-        if (expectEmptyStandardError)
-        {
-            CommandResultAssert.HasPreDispatchInvalidArgumentFailureWithEmptyStandardError(
-                result,
-                service.Invocations,
-                UcliCommandNames.Compile);
-        }
-        else
-        {
-            CommandResultAssert.HasPreDispatchInvalidArgumentFailure(
-                result,
-                service.Invocations,
-                UcliCommandNames.Compile);
-        }
+        CommandResultAssert.HasPreDispatchInvalidArgumentFailureWithEmptyStandardError(
+            result,
+            service.Invocations,
+            UcliCommandNames.Compile);
+        using var outputJson =
+            StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        var payload = outputJson.RootElement.GetProperty("payload");
+        JsonAssert.For(payload)
+            .HasString("payloadKind", "empty");
+        Assert.Equal(
+            new[] { "payloadKind" },
+            payload.EnumerateObject()
+                .Select(static property => property.Name));
     }
 }

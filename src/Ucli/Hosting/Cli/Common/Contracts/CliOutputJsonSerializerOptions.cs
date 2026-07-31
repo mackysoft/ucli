@@ -6,7 +6,9 @@ using MackySoft.Ucli.Application.Features.Assurance.Build.Vocabulary;
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Payload;
 using MackySoft.Ucli.Application.Features.Assurance.Ready;
 using MackySoft.Ucli.Application.Features.Assurance.Verify.Payload;
+using MackySoft.Ucli.Contracts.Execution.Lifecycle;
 using MackySoft.Ucli.Contracts.Json;
+using MackySoft.Ucli.Hosting.Cli.Play.Contracts;
 
 namespace MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 
@@ -46,8 +48,10 @@ internal static class CliOutputJsonSerializerOptions
         {
             ArtifactRefJsonPolymorphismConfigurator.TryConfigure(typeInfo);
             ExecutionRefJsonPolymorphismConfigurator.TryConfigure(typeInfo);
+            LifecycleExecutionTerminalRecordJsonPolymorphismConfigurator.TryConfigure(typeInfo);
         });
         resolver.Modifiers.Add(ConfigureCommandErrorPayload);
+        resolver.Modifiers.Add(ConfigurePlayTransitionErrorPayload);
         resolver.Modifiers.Add(ConfigureAssuranceUnions);
         resolver.Modifiers.Add(ConfigureAssuranceEvidence);
         resolver.Modifiers.Add(MarkAlwaysWrittenPropertiesRequired);
@@ -186,6 +190,39 @@ internal static class CliOutputJsonSerializerOptions
             detailsType,
             TextVocabulary.GetText(CommandErrorPayloadKind.Detailed)));
         typeInfo.PolymorphismOptions = options;
+    }
+
+    private static void ConfigurePlayTransitionErrorPayload (
+        JsonTypeInfo typeInfo)
+    {
+        if (typeInfo.Type != typeof(PlayTransitionErrorCommandPayload))
+        {
+            return;
+        }
+
+        typeInfo.PolymorphismOptions = CreateClosedPolymorphism(
+            "payloadKind",
+            new JsonDerivedType(
+                typeof(EmptyPlayTransitionErrorCommandPayload),
+                TextVocabulary.GetText(
+                    PlayTransitionErrorPayloadKind.Empty)),
+            new JsonDerivedType(
+                typeof(PlayTransitionStartErrorCommandPayload),
+                TextVocabulary.GetText(
+                    PlayTransitionErrorPayloadKind.Start)),
+            new JsonDerivedType(
+                typeof(PlayTransitionFailureErrorCommandPayload),
+                TextVocabulary.GetText(
+                    PlayTransitionErrorPayloadKind.TransitionFailure)),
+            new JsonDerivedType(
+                typeof(PlayTerminalFailureErrorCommandPayload),
+                TextVocabulary.GetText(
+                    PlayTransitionErrorPayloadKind.TerminalFailure)),
+            new JsonDerivedType(
+                typeof(PlayTerminalPublicationFailureErrorCommandPayload),
+                TextVocabulary.GetText(
+                    PlayTransitionErrorPayloadKind
+                        .TerminalPublicationFailure)));
     }
 
     /// <summary>

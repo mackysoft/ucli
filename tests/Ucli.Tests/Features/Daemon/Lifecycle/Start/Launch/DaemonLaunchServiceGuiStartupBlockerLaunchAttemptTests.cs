@@ -1,6 +1,7 @@
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Tests.Helpers.Daemon;
 using static MackySoft.Ucli.Tests.Daemon.DaemonLaunchServiceTestSupport;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Tests.Daemon;
 
@@ -29,7 +30,7 @@ public sealed class DaemonLaunchServiceGuiStartupBlockerLaunchAttemptTests
             retryDisposition: DaemonStartupRetryDisposition.Unknown,
             message: "Unity Editor exited before bootstrap completed.",
             startupPhase: DaemonDiagnosisStartupPhase.ProcessExit,
-            actionRequired: DaemonDiagnosisActionRequired.InspectUnityLog);
+            actionRequired: UnityEditorActionRequired.InspectUnityLog);
         var guiStartupObserver = new RecordingDaemonGuiStartupObserver
         {
             NextResult = DaemonGuiStartupObservationResult.Blocked(blocker),
@@ -49,7 +50,7 @@ public sealed class DaemonLaunchServiceGuiStartupBlockerLaunchAttemptTests
         var result = await service.LaunchAsync(
             context,
             ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), timeProvider),
-            DaemonEditorMode.Gui,
+            UnityEditorMode.Gui,
             DaemonStartupBlockedProcessPolicy.Keep,
             cancellationToken: CancellationToken.None);
 

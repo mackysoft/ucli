@@ -42,10 +42,17 @@ internal sealed class UnityIpcRequestBuilder
                 UnityIpcMethod.Ping,
                 IpcPayloadCodec.SerializeToElement(new IpcPingRequest(ping.ClientVersion, ping.FailFast)),
                 UnityBatchmodeLaunchOptions.Default),
-            UnityRequestPayload.Compile compile => new UnityIpcDispatchRequest(
+            UnityRequestPayload.Refresh refresh => UnityIpcDispatchRequest.LifecycleExecution(
+                UnityIpcMethod.Refresh,
+                refresh.Registration,
+                refresh.RequiredStart,
+                static start => IpcPayloadCodec.SerializeToElement(new IpcRefreshRequest(start)),
+                refresh.StartAdmissionPolicy),
+            UnityRequestPayload.Compile compile => UnityIpcDispatchRequest.LifecycleExecution(
                 UnityIpcMethod.Compile,
-                IpcPayloadCodec.SerializeToElement(new IpcCompileRequest(compile.RunId)),
-                UnityBatchmodeLaunchOptions.Default),
+                compile.Registration,
+                compile.RequiredStart,
+                static start => IpcPayloadCodec.SerializeToElement(new IpcCompileRequest(start))),
             UnityRequestPayload.BuildRun buildRun => new UnityIpcDispatchRequest(
                 UnityIpcMethod.BuildRun,
                 IpcPayloadCodec.SerializeToElement(buildRun.Request),
@@ -71,14 +78,16 @@ internal sealed class UnityIpcRequestBuilder
                 UnityIpcMethod.ScreenshotCapture,
                 IpcPayloadCodec.SerializeToElement(screenshotCapture.Request),
                 UnityBatchmodeLaunchOptions.Default),
-            UnityRequestPayload.PlayEnter => new UnityIpcDispatchRequest(
+            UnityRequestPayload.PlayEnter playEnter => UnityIpcDispatchRequest.LifecycleExecution(
                 UnityIpcMethod.PlayEnter,
-                IpcPayloadCodec.SerializeToElement(new IpcPlayEnterRequest()),
-                UnityBatchmodeLaunchOptions.Default),
-            UnityRequestPayload.PlayExit => new UnityIpcDispatchRequest(
+                playEnter.Registration,
+                playEnter.RequiredStart,
+                static start => IpcPayloadCodec.SerializeToElement(new IpcPlayEnterRequest(start))),
+            UnityRequestPayload.PlayExit playExit => UnityIpcDispatchRequest.LifecycleExecution(
                 UnityIpcMethod.PlayExit,
-                IpcPayloadCodec.SerializeToElement(new IpcPlayExitRequest()),
-                UnityBatchmodeLaunchOptions.Default),
+                playExit.Registration,
+                playExit.RequiredStart,
+                static start => IpcPayloadCodec.SerializeToElement(new IpcPlayExitRequest(start))),
             UnityRequestPayload.ExecuteJson executeJson => new UnityIpcDispatchRequest(
                 UnityIpcMethod.Execute,
                 CreateExecutePayload(

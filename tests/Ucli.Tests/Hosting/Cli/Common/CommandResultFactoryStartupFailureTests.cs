@@ -1,15 +1,13 @@
 using System.Text.Json;
-using MackySoft.Ucli.Application.Features.Assurance.Compile.Contracts;
 using MackySoft.Ucli.Application.Features.OperationCatalog.Common.Contracts;
 using MackySoft.Ucli.Application.Features.Requests.Plan.Common.Contracts;
 using MackySoft.Ucli.Application.Features.Requests.Query.UseCases.Query;
 using MackySoft.Ucli.Application.Features.Requests.Resolve.UseCases.Resolve;
-using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.OperationExecute;
 using MackySoft.Ucli.Contracts.Storage;
-using MackySoft.Ucli.Hosting.Cli.Assurance;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 using MackySoft.Ucli.Hosting.Cli.Ops;
 using MackySoft.Ucli.Hosting.Cli.Requests;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Tests;
 
@@ -27,16 +25,6 @@ public sealed class CommandResultFactoryStartupFailureTests
                     "Unity startup is blocked.",
                     [CreateStartupFailure()],
                     output: null))),
-            new(
-                UcliCommandNames.Refresh,
-                RefreshCommandResultFactory.Create(OperationExecuteResultFactory.Failure(
-                    Guid.Parse("9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62"),
-                    [],
-                    [CreateStartupFailure()],
-                    contractViolations: [],
-                    readPostcondition: null,
-                    project: null,
-                    postReadSource: null))),
             new(
                 UcliCommandNames.Resolve,
                 ResolveCommandResultFactory.Create(ResolveServiceResult.Failure(
@@ -58,9 +46,6 @@ public sealed class CommandResultFactoryStartupFailureTests
                     CreateReadIndexInfo(),
                     project: null,
                     contractViolations: []))),
-            new(
-                UcliCommandNames.Compile,
-                CompileCommandResultFactory.Create(CompileExecutionResult.Failed(CreateStartupFailure(), project: null))),
             new(
                 UcliCommandNames.OpsList,
                 OpsCommandResultFactory.CreateList(OpsListServiceResult.Failure(CreateStartupFailure()))),
@@ -115,7 +100,7 @@ public sealed class CommandResultFactoryStartupFailureTests
                 StartupStatus: DaemonStartupStatus.Blocked,
                 StartupBlockingReason: DaemonStartupBlockingReason.Compile,
                 LaunchAttemptId: null,
-                EditorMode: DaemonEditorMode.Batchmode,
+                EditorMode: UnityEditorMode.Batchmode,
                 OwnerKind: DaemonSessionOwnerKind.Cli,
                 CanShutdownProcess: true,
                 ProcessId: 1234,
@@ -136,9 +121,9 @@ public sealed class CommandResultFactoryStartupFailureTests
                 ProcessStartedAtUtc: DateTimeOffset.Parse("2026-03-12T04:05:01+00:00"),
                 UnityLogPath: "/repo/.ucli/local/logs/unity.log",
                 StartupPhase: DaemonDiagnosisStartupPhase.ScriptCompilation,
-                ActionRequired: DaemonDiagnosisActionRequired.FixCompileErrors,
+                ActionRequired: UnityEditorActionRequired.FixCompileErrors,
                 PrimaryDiagnostic: new DaemonPrimaryDiagnosticOutput(
-                    Kind: DaemonDiagnosisPrimaryDiagnosticKind.Compiler,
+                    Kind: UnityEditorPrimaryDiagnosticKind.Compiler,
                     Code: "CS0246",
                     File: "Assets/Scripts/Broken.cs",
                     Line: 10,

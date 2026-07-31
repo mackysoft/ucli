@@ -3,6 +3,7 @@ using System.Text;
 using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.TestSupport;
 
@@ -17,7 +18,7 @@ internal static class DaemonSessionTestFactory
         string sessionToken = "secret-token",
         ProjectFingerprint? projectFingerprint = null,
         DateTimeOffset? issuedAtUtc = null,
-        DaemonEditorMode editorMode = DaemonEditorMode.Batchmode,
+        UnityEditorMode editorMode = UnityEditorMode.Batchmode,
         DaemonSessionOwnerKind ownerKind = DaemonSessionOwnerKind.Cli,
         bool canShutdownProcess = true,
         IpcTransportKind endpointTransportKind = IpcTransportKind.NamedPipe,
@@ -56,7 +57,7 @@ internal static class DaemonSessionTestFactory
     }
 
     public static DaemonSession CreateUserOwned (
-        DaemonEditorMode editorMode,
+        UnityEditorMode editorMode,
         string endpointAddress,
         Guid editorInstanceId)
     {
@@ -75,7 +76,7 @@ internal static class DaemonSessionTestFactory
         return Create(
             sessionToken: "session-token",
             projectFingerprint: ProjectIdentityInfoTestFactory.ProjectFingerprint,
-            editorMode: DaemonEditorMode.Gui,
+            editorMode: UnityEditorMode.Gui,
             ownerKind: DaemonSessionOwnerKind.User,
             canShutdownProcess: false,
             endpointTransportKind: IpcTransportKind.UnixDomainSocket,

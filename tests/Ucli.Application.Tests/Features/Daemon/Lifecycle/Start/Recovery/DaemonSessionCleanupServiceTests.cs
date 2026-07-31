@@ -1,6 +1,8 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Cleanup;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Compensation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
+using MackySoft.Ucli.Contracts.Editor;
+
 namespace MackySoft.Ucli.Application.Tests.Daemon;
 
 using MackySoft.Ucli.Application.Shared.Foundation;
@@ -177,7 +179,7 @@ public sealed class DaemonSessionCleanupServiceTests
         var session = DaemonSessionTestFactory.Create(
             processId: 4343,
             projectFingerprint: context.ProjectFingerprint,
-            editorMode: DaemonEditorMode.Gui,
+            editorMode: UnityEditorMode.Gui,
             ownerKind: DaemonSessionOwnerKind.User,
             canShutdownProcess: false);
         var processTerminationService = new RecordingDaemonProcessTerminationService

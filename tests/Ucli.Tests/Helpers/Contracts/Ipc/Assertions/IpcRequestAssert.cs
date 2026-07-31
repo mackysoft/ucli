@@ -8,14 +8,14 @@ internal static class IpcRequestAssert
         RecordingIpcTransportClient transportClient,
         params UnityIpcMethod[] expectedMethods)
     {
-        return Methods(transportClient.Requests, expectedMethods);
+        return Methods(ActionRequests(transportClient.Requests), expectedMethods);
     }
 
     public static IReadOnlyList<IpcRequestEnvelope> Methods (
         RecordingUnityIpcTransportClient transportClient,
         params UnityIpcMethod[] expectedMethods)
     {
-        return Methods(transportClient.Requests, expectedMethods);
+        return Methods(ActionRequests(transportClient.Requests), expectedMethods);
     }
 
     public static IReadOnlyList<IpcRequestEnvelope> Methods (
@@ -35,14 +35,14 @@ internal static class IpcRequestAssert
         RecordingIpcTransportClient transportClient,
         int maximumAttempts = int.MaxValue)
     {
-        return RetriedAtLeastOnce(transportClient.Requests, maximumAttempts);
+        return RetriedAtLeastOnce(ActionRequests(transportClient.Requests), maximumAttempts);
     }
 
     public static IReadOnlyList<IpcRequestEnvelope> RetriedAtLeastOnce (
         RecordingUnityIpcTransportClient transportClient,
         int maximumAttempts = int.MaxValue)
     {
-        return RetriedAtLeastOnce(transportClient.Requests, maximumAttempts);
+        return RetriedAtLeastOnce(ActionRequests(transportClient.Requests), maximumAttempts);
     }
 
     public static IReadOnlyList<IpcRequestEnvelope> WithMethod (
@@ -125,6 +125,19 @@ internal static class IpcRequestAssert
             TextVocabulary.TryGetValue(request.Method, out UnityIpcMethod method),
             $"Expected a canonical Unity IPC method, but was '{request.Method ?? "<null>"}'.");
         return method;
+    }
+
+    public static IReadOnlyList<IpcRequestEnvelope> ActionRequests (
+        IReadOnlyList<IpcRequestEnvelope> requests)
+    {
+        ArgumentNullException.ThrowIfNull(requests);
+        var lifecycleStartMethod = TextVocabulary.GetText(UnityIpcMethod.LifecycleStart);
+        return requests
+            .Where(request => !string.Equals(
+                request.Method,
+                lifecycleStartMethod,
+                StringComparison.Ordinal))
+            .ToArray();
     }
 
     public static IReadOnlyList<IpcRequestEnvelope> RetriedAtLeastOnce (

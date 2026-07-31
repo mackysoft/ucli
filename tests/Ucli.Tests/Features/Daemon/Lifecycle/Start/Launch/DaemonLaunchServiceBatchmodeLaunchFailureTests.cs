@@ -1,5 +1,7 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
+using MackySoft.Ucli.Contracts.Editor;
+
 namespace MackySoft.Ucli.Tests.Daemon;
 
 using MackySoft.Tests;
@@ -49,7 +51,7 @@ public sealed class DaemonLaunchServiceBatchmodeLaunchFailureTests
         var result = await service.LaunchAsync(
             context,
             ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), timeProvider),
-            DaemonEditorMode.Batchmode,
+            UnityEditorMode.Batchmode,
             DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);
 
@@ -112,7 +114,7 @@ public sealed class DaemonLaunchServiceBatchmodeLaunchFailureTests
         var result = await service.LaunchAsync(
             context,
             ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), timeProvider),
-            DaemonEditorMode.Batchmode,
+            UnityEditorMode.Batchmode,
             DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);
 
@@ -167,7 +169,7 @@ public sealed class DaemonLaunchServiceBatchmodeLaunchFailureTests
         var result = await service.LaunchAsync(
             context,
             ExecutionDeadline.Start(TimeSpan.FromMilliseconds(1), timeProvider),
-            DaemonEditorMode.Batchmode,
+            UnityEditorMode.Batchmode,
             DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);
         await cleanupStarted.Task.WaitAsync(AsyncWaitTimeout);
@@ -224,7 +226,7 @@ public sealed class DaemonLaunchServiceBatchmodeLaunchFailureTests
             () => service.LaunchAsync(
                     context,
                     ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), timeProvider),
-                    DaemonEditorMode.Batchmode,
+                    UnityEditorMode.Batchmode,
                     DaemonStartupBlockedProcessPolicy.Auto,
                     cancellationToken: cancellationSource.Token)
                 .AsTask());
@@ -279,7 +281,7 @@ public sealed class DaemonLaunchServiceBatchmodeLaunchFailureTests
         var result = await service.LaunchAsync(
             context,
             ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), timeProvider),
-            DaemonEditorMode.Batchmode,
+            UnityEditorMode.Batchmode,
             DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);
 

@@ -3,6 +3,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Status;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Tests;
 
@@ -17,19 +18,19 @@ public sealed class StatusCommandResultFactoryTests
                 DaemonStatus: DaemonStatusKind.Running,
                 UnityVersion: "6000.1.4f1",
                 ServerVersion: "0.5.0",
-                LifecycleState: IpcEditorLifecycleState.Busy,
-                BlockingReason: IpcEditorBlockingReason.Busy,
-                CompileState: IpcCompileState.Ready,
-                Generations: new IpcUnityGenerationSnapshot(12, 7, 0, 2),
+                LifecycleState: UnityEditorLifecycleState.Busy,
+                BlockingReason: UnityEditorBlockingReason.Busy,
+                CompileState: UnityEditorCompileState.Ready,
+                Generations: new UnityEditorGenerationSnapshot(12, 7, 0, 2),
                 CanAcceptExecutionRequests: false,
-                EditorMode: DaemonEditorMode.Batchmode,
+                EditorMode: UnityEditorMode.Batchmode,
                 TimeoutMilliseconds: 1234,
                 ObservedAtUtc: null,
                 ActionRequired: null,
                 PrimaryDiagnostic: null,
-                PlayMode: new IpcPlayModeSnapshot(
-                    State: IpcPlayModeState.Stopped,
-                    Transition: IpcPlayModeTransition.None,
+                PlayMode: new UnityEditorPlayModeSnapshot(
+                    State: UnityEditorPlayModeState.Stopped,
+                    Transition: UnityEditorPlayModeTransition.None,
                     IsPlaying: false,
                     IsPlayingOrWillChangePlaymode: false)));
 

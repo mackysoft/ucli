@@ -2,8 +2,12 @@ using System.Text.Json;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Acquisition;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Observation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
+using MackySoft.Ucli.Application.Features.Requests.Refresh.UseCases.Refresh;
+using MackySoft.Ucli.Contracts.Editor;
+using MackySoft.Ucli.Contracts.Execution.Lifecycle;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.UnityIntegration.Ipc.Dispatch;
+using MackySoft.Ucli.UnityIntegration.Ipc.Execution;
 using MackySoft.Ucli.UnityIntegration.Ipc.Process;
 
 namespace MackySoft.Ucli.Tests.Ipc;
@@ -21,6 +25,43 @@ internal static class UnityDaemonIpcClientTestSupport
             UnityIpcMethod.OpsRead,
             CreateDispatchPayload(),
             UnityBatchmodeLaunchOptions.Default);
+    }
+
+    public static UnityIpcDispatchRequest CreateLifecycleDispatchRequest (
+        LifecycleExecutionKind kind,
+        TimeProvider? timeProvider = null,
+        TimeSpan? executionTimeout = null)
+    {
+        var registration = UnityIpcRequestBuilderTestSupport.CreateLifecycleRegistration(
+            kind,
+            timeProvider: timeProvider,
+            executionTimeout: executionTimeout);
+        var payload = kind switch
+        {
+            LifecycleExecutionKind.Refresh =>
+                (UnityRequestPayload)new UnityRequestPayload.Refresh(
+                    registration,
+                    requiredStart: null,
+                    new RefreshLifecycleExecutionStartAdmissionPolicy(
+                        failFast: false)),
+            LifecycleExecutionKind.Compile =>
+                new UnityRequestPayload.Compile(
+                    registration,
+                    requiredStart: null),
+            LifecycleExecutionKind.PlayEnter =>
+                new UnityRequestPayload.PlayEnter(
+                    registration,
+                    requiredStart: null),
+            LifecycleExecutionKind.PlayExit =>
+                new UnityRequestPayload.PlayExit(
+                    registration,
+                    requiredStart: null),
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(kind),
+                kind,
+                "Unsupported Lifecycle Execution kind."),
+        };
+        return new UnityIpcRequestBuilder().Build(payload);
     }
 
     public static IpcResponse CreateResponse (Guid requestId)
@@ -56,7 +97,8 @@ internal static class UnityDaemonIpcClientTestSupport
 
     public static DaemonSessionRecoveryWaiter CreateRecoveryWaiter (
         DaemonSession session,
-        TimeProvider timeProvider)
+        TimeProvider timeProvider,
+        TimeSpan? recoveryLeaseDuration = null)
     {
         ArgumentNullException.ThrowIfNull(timeProvider);
 
@@ -64,7 +106,10 @@ internal static class UnityDaemonIpcClientTestSupport
             new RecordingDaemonLifecycleStore
             {
                 ReadResult = DaemonLifecycleObservationReadResult.Success(
-                    CreateRecoveringObservation(session, timeProvider.GetUtcNow())),
+                    CreateRecoveringObservation(
+                        session,
+                        timeProvider.GetUtcNow(),
+                        recoveryLeaseDuration)),
             },
             new RecordingDaemonProcessIdentityAssessor(DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess));
     }
@@ -92,19 +137,22 @@ internal static class UnityDaemonIpcClientTestSupport
 
     private static DaemonLifecycleObservation CreateRecoveringObservation (
         DaemonSession session,
-        DateTimeOffset observedAtUtc)
+        DateTimeOffset observedAtUtc,
+        TimeSpan? recoveryLeaseDuration)
     {
         return new DaemonLifecycleObservation(
             processId: session.ProcessId!.Value,
             processStartedAtUtc: session.ProcessStartedAtUtc!.Value,
             state: new UnityEditorStateSnapshot(
                 editorMode: session.EditorMode,
-                lifecycleState: IpcEditorLifecycleState.DomainReloading,
-                compileState: IpcCompileState.Ready,
-                generations: new IpcUnityGenerationSnapshot(1, 2, 0, 0),
-                playMode: new IpcPlayModeSnapshot(
-                    IpcPlayModeState.Stopped,
-                    IpcPlayModeTransition.None,
+                lifecycleState: recoveryLeaseDuration.HasValue
+                    ? UnityEditorLifecycleState.Recovering
+                    : UnityEditorLifecycleState.DomainReloading,
+                compileState: UnityEditorCompileState.Ready,
+                generations: new UnityEditorGenerationSnapshot(1, 2, 0, 0),
+                playMode: new UnityEditorPlayModeSnapshot(
+                    UnityEditorPlayModeState.Stopped,
+                    UnityEditorPlayModeTransition.None,
                     IsPlaying: false,
                     IsPlayingOrWillChangePlaymode: false)),
             observedAtUtc: observedAtUtc,
@@ -113,6 +161,10 @@ internal static class UnityDaemonIpcClientTestSupport
             serverVersion: null,
             editorInstanceId: session.EditorInstanceId
                 ?? throw new ArgumentException("Session must have an Editor instance identifier.", nameof(session)),
-            recoveryLease: null);
+            recoveryLease: recoveryLeaseDuration is TimeSpan duration
+                ? new DaemonLifecycleRecoveryLease(
+                    session.SessionGenerationId,
+                    observedAtUtc + duration)
+                : null);
     }
 }

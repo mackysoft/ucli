@@ -9,6 +9,8 @@ using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.ContractReading;
+using MackySoft.Ucli.Contracts.Projects;
+using MackySoft.Ucli.Contracts.Execution;
 
 namespace MackySoft.Ucli.Application.Tests;
 
@@ -103,8 +105,8 @@ internal static class CallServiceTestSupport
         IReadOnlyList<IpcExecuteOperationResult> opResults,
         IReadOnlyList<IpcError> errors,
         string? planToken = null,
-        IpcExecuteReadPostcondition? readPostcondition = null,
-        IpcProjectIdentity? project = null)
+        ExecutionReadPostcondition? readPostcondition = null,
+        UnityProjectIdentity? project = null)
     {
         ArgumentNullException.ThrowIfNull(opResults);
 

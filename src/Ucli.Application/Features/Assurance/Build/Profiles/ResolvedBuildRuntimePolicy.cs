@@ -1,4 +1,6 @@
 
+using MackySoft.Ucli.Contracts.Editor;
+
 namespace MackySoft.Ucli.Application.Features.Assurance.Build.Profiles;
 
 /// <summary> Represents runtime policy resolved from a build profile. </summary>
@@ -7,7 +9,7 @@ internal sealed class ResolvedBuildRuntimePolicy
     /// <summary> Initializes a resolved runtime policy. </summary>
     public ResolvedBuildRuntimePolicy (
         IReadOnlyList<BuildProfileRuntimeExecutionMode> allowedExecutionModes,
-        IReadOnlyList<DaemonEditorMode> allowedEditorModes)
+        IReadOnlyList<UnityEditorMode> allowedEditorModes)
     {
         AllowedExecutionModes = CopyDefinedValues(allowedExecutionModes, nameof(allowedExecutionModes));
         AllowedEditorModes = CopyDefinedValues(allowedEditorModes, nameof(allowedEditorModes));
@@ -17,7 +19,7 @@ internal sealed class ResolvedBuildRuntimePolicy
     public IReadOnlyList<BuildProfileRuntimeExecutionMode> AllowedExecutionModes { get; }
 
     /// <summary> Gets the allowed Unity Editor modes. </summary>
-    public IReadOnlyList<DaemonEditorMode> AllowedEditorModes { get; }
+    public IReadOnlyList<UnityEditorMode> AllowedEditorModes { get; }
 
     private static IReadOnlyList<TEnum> CopyDefinedValues<TEnum> (
         IReadOnlyList<TEnum> values,

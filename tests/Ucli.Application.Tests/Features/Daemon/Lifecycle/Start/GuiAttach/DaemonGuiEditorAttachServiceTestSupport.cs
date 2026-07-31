@@ -1,6 +1,7 @@
 using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Tests.Daemon;
 
@@ -35,7 +36,7 @@ internal static class DaemonGuiEditorAttachServiceTestSupport
             sessionToken: "session-token",
             projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint"),
             issuedAtUtc: new DateTimeOffset(2026, 03, 12, 0, 2, 0, TimeSpan.Zero),
-            editorMode: DaemonEditorMode.Gui,
+            editorMode: UnityEditorMode.Gui,
             ownerKind: DaemonSessionOwnerKind.User,
             canShutdownProcess: false,
             endpointTransportKind: IpcTransportKind.UnixDomainSocket,
@@ -45,10 +46,10 @@ internal static class DaemonGuiEditorAttachServiceTestSupport
             editorInstanceId: DaemonSessionTestFactory.DefaultEditorInstanceId);
     }
 
-    public static IpcUnityEditorObservation CreateReadyLifecycleObservation ()
+    public static UnityEditorObservation CreateReadyLifecycleObservation ()
     {
-        return IpcUnityEditorObservationTestFactory.Create(
-            IpcEditorLifecycleState.Ready,
-            DaemonEditorMode.Gui);
+        return UnityEditorObservationTestFactory.Create(
+            UnityEditorLifecycleState.Ready,
+            UnityEditorMode.Gui);
     }
 }

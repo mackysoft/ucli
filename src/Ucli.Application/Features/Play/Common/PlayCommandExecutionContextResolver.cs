@@ -1,6 +1,7 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Context;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Features.Play.Common;
 
@@ -34,6 +35,47 @@ internal sealed class PlayCommandExecutionContextResolver : IPlayCommandExecutio
         ArgumentNullException.ThrowIfNull(command);
         ArgumentException.ThrowIfNullOrWhiteSpace(sessionNotAvailableMessage);
         ArgumentException.ThrowIfNullOrWhiteSpace(requiresGuiEditorMessage);
+        return await ResolveCoreAsync(
+                projectPath,
+                timeoutMilliseconds,
+                command,
+                sessionNotAvailableMessage,
+                requiresGuiEditorMessage,
+                requireCurrentGuiSession: true,
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public async ValueTask<PlayCommandExecutionContextResolutionResult>
+        ResolveReconnectAsync (
+            string? projectPath,
+            int? timeoutMilliseconds,
+            UcliCommand command,
+            CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        return await ResolveCoreAsync(
+                projectPath,
+                timeoutMilliseconds,
+                command,
+                sessionNotAvailableMessage: null,
+                requiresGuiEditorMessage: null,
+                requireCurrentGuiSession: false,
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private async ValueTask<PlayCommandExecutionContextResolutionResult>
+        ResolveCoreAsync (
+            string? projectPath,
+            int? timeoutMilliseconds,
+            UcliCommand command,
+            string? sessionNotAvailableMessage,
+            string? requiresGuiEditorMessage,
+            bool requireCurrentGuiSession,
+            CancellationToken cancellationToken)
+    {
         cancellationToken.ThrowIfCancellationRequested();
 
         var contextResult = await projectContextResolver.ResolveAsync(projectPath, cancellationToken).ConfigureAwait(false);
@@ -53,29 +95,36 @@ internal sealed class PlayCommandExecutionContextResolver : IPlayCommandExecutio
             return PlayCommandExecutionContextResolutionResult.Failure(timeoutResult.Error!);
         }
 
-        var sessionResult = await daemonSessionStore.ReadAsync(
-                context.UnityProject.RepositoryRoot,
-                context.UnityProject.ProjectFingerprint,
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (!sessionResult.IsSuccess)
+        DaemonSession? session = null;
+        if (requireCurrentGuiSession)
         {
-            return PlayCommandExecutionContextResolutionResult.Failure(sessionResult.Error!);
-        }
+            var sessionResult = await daemonSessionStore.ReadAsync(
+                    context.UnityProject.RepositoryRoot,
+                    context.UnityProject.ProjectFingerprint,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (!sessionResult.IsSuccess)
+            {
+                return PlayCommandExecutionContextResolutionResult.Failure(
+                    sessionResult.Error!);
+            }
 
-        if (!sessionResult.Exists)
-        {
-            return PlayCommandExecutionContextResolutionResult.Failure(ExecutionError.InternalError(
-                sessionNotAvailableMessage,
-                PlayModeErrorCodes.PlayModeSessionNotAvailable));
-        }
+            if (!sessionResult.Exists)
+            {
+                return PlayCommandExecutionContextResolutionResult.Failure(
+                    ExecutionError.InternalError(
+                        sessionNotAvailableMessage!,
+                        PlayModeErrorCodes.PlayModeSessionNotAvailable));
+            }
 
-        var session = sessionResult.Session!;
-        if (session.EditorMode != DaemonEditorMode.Gui)
-        {
-            return PlayCommandExecutionContextResolutionResult.Failure(ExecutionError.InternalError(
-                requiresGuiEditorMessage,
-                PlayModeErrorCodes.PlayModeRequiresGuiEditor));
+            session = sessionResult.Session!;
+            if (session.EditorMode != UnityEditorMode.Gui)
+            {
+                return PlayCommandExecutionContextResolutionResult.Failure(
+                    ExecutionError.InternalError(
+                        requiresGuiEditorMessage!,
+                        PlayModeErrorCodes.PlayModeRequiresGuiEditor));
+            }
         }
 
         var timeout = timeoutResult.Timeout!.Value;

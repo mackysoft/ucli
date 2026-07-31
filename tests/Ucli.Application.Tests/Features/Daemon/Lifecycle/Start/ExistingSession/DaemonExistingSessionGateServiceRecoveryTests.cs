@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Contracts.Editor;
+
 namespace MackySoft.Ucli.Application.Tests.Daemon;
 
 using MackySoft.Tests;
@@ -72,7 +74,7 @@ public sealed class DaemonExistingSessionGateServiceRecoveryTests
             processStartedAtUtc: session.ProcessStartedAtUtc,
             sessionToken: "replacement-token",
             projectFingerprint: context.ProjectFingerprint,
-            editorMode: DaemonEditorMode.Gui,
+            editorMode: UnityEditorMode.Gui,
             ownerKind: DaemonSessionOwnerKind.User,
             canShutdownProcess: false,
             endpointTransportKind: session.EndpointContract.TransportKind,
@@ -126,7 +128,7 @@ public sealed class DaemonExistingSessionGateServiceRecoveryTests
             processStartedAtUtc: session.ProcessStartedAtUtc,
             sessionToken: "successor-token",
             projectFingerprint: context.ProjectFingerprint,
-            editorMode: DaemonEditorMode.Gui,
+            editorMode: UnityEditorMode.Gui,
             ownerKind: DaemonSessionOwnerKind.User,
             canShutdownProcess: false,
             endpointTransportKind: session.EndpointContract.TransportKind,
@@ -170,7 +172,7 @@ public sealed class DaemonExistingSessionGateServiceRecoveryTests
             processId: 9999,
             sessionToken: "mismatched-successor-token",
             projectFingerprint: context.ProjectFingerprint,
-            editorMode: DaemonEditorMode.Gui,
+            editorMode: UnityEditorMode.Gui,
             ownerKind: DaemonSessionOwnerKind.User,
             canShutdownProcess: false,
             editorInstanceId: session.EditorInstanceId,
@@ -212,7 +214,7 @@ public sealed class DaemonExistingSessionGateServiceRecoveryTests
             ReadResult = DaemonLifecycleObservationReadResult.Success(
                 DaemonExistingSessionGateServiceTestSupport.CreateLifecycleObservation(
                     session,
-                    IpcEditorLifecycleState.Ready)),
+                    UnityEditorLifecycleState.Ready)),
         };
         var pingClient = new RecordingDaemonPingInfoClient(new TimeoutException("endpoint occupied"));
         var cleanupService = new RecordingDaemonSessionCleanupService();
@@ -251,7 +253,7 @@ public sealed class DaemonExistingSessionGateServiceRecoveryTests
             ReadResult = DaemonLifecycleObservationReadResult.Success(
                 DaemonExistingSessionGateServiceTestSupport.CreateLifecycleObservation(
                     session,
-                    IpcEditorLifecycleState.Recovering,
+                    UnityEditorLifecycleState.Recovering,
                     observedAtUtc: now - DaemonLifecycleObservationTimings.FreshnessWindow - TimeSpan.FromMilliseconds(1))),
         };
         var pingClient = new RecordingDaemonPingInfoClient(new TimeoutException("endpoint unavailable"));
@@ -420,14 +422,14 @@ public sealed class DaemonExistingSessionGateServiceRecoveryTests
             context,
             session,
             ExecutionDeadline.Start(TimeSpan.FromSeconds(5), new ManualTimeProvider()),
-            editorMode: DaemonEditorMode.Batchmode,
+            editorMode: UnityEditorMode.Batchmode,
             cancellationToken: CancellationToken.None);
 
         Assert.NotNull(result);
         Assert.Equal(DaemonStartStatus.Failed, result!.Status);
         var error = Assert.IsType<ExecutionError>(result.Error);
         Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
-        Assert.Equal(DaemonErrorCodes.DaemonEditorModeMismatch, error.Code);
+        Assert.Equal(DaemonErrorCodes.UnityEditorModeMismatch, error.Code);
         Assert.Empty(cleanupService.StaleSessionInvocations);
     }
 
@@ -445,7 +447,7 @@ public sealed class DaemonExistingSessionGateServiceRecoveryTests
             ReadResult = DaemonLifecycleObservationReadResult.Success(
                 DaemonExistingSessionGateServiceTestSupport.CreateLifecycleObservation(
                     session,
-                    IpcEditorLifecycleState.Recovering,
+                    UnityEditorLifecycleState.Recovering,
                     editorInstanceId: Guid.NewGuid())),
         };
         var service = DaemonExistingSessionGateServiceTestSupport.CreateService(
@@ -521,7 +523,7 @@ public sealed class DaemonExistingSessionGateServiceRecoveryTests
         var session = DaemonSessionTestFactory.Create(
             processId: 4011,
             projectFingerprint: context.ProjectFingerprint,
-            editorMode: DaemonEditorMode.Gui,
+            editorMode: UnityEditorMode.Gui,
             ownerKind: DaemonSessionOwnerKind.User,
             canShutdownProcess: false,
             editorInstanceId: Guid.Parse("11111111-1111-1111-1111-111111111111"));
@@ -530,7 +532,7 @@ public sealed class DaemonExistingSessionGateServiceRecoveryTests
             ReadResult = DaemonLifecycleObservationReadResult.Success(
                 DaemonExistingSessionGateServiceTestSupport.CreateLifecycleObservation(
                     session,
-                    IpcEditorLifecycleState.Recovering,
+                    UnityEditorLifecycleState.Recovering,
                     editorInstanceId: Guid.Parse("22222222-2222-2222-2222-222222222222"))),
         };
         var service = DaemonExistingSessionGateServiceTestSupport.CreateService(

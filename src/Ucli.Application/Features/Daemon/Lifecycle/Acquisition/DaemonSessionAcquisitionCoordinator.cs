@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Acquisition;
 
@@ -155,6 +156,26 @@ internal sealed class DaemonSessionAcquisitionScope
         this.requestDeadline = requestDeadline ?? throw new ArgumentNullException(nameof(requestDeadline));
     }
 
+    /// <summary>
+    /// Fixes the daemon host that every later generation replacement in this request must preserve.
+    /// </summary>
+    /// <returns>
+    /// <see langword="true" /> when the host was fixed or already matches; otherwise
+    /// <see langword="false" />.
+    /// </returns>
+    public bool TryBindDurableHost (DaemonSession hostSession)
+    {
+        ArgumentNullException.ThrowIfNull(hostSession);
+        if (durableReplayHostSession is null)
+        {
+            durableReplayHostSession = hostSession;
+            ResetEndpointAvailabilityWindow();
+            return true;
+        }
+
+        return MatchesHostIdentity(durableReplayHostSession, hostSession);
+    }
+
     /// <summary> Resolves the currently published session while preserving the request deadline. </summary>
     public async ValueTask<DaemonSessionAcquisitionResult> ResolveCurrentAsync (
         ResolvedUnityProjectContext unityProject,
@@ -200,8 +221,7 @@ internal sealed class DaemonSessionAcquisitionScope
         if (requiredHostSession is null)
         {
             requiredHostSession = interruptedSession;
-            durableReplayHostSession = requiredHostSession;
-            ResetEndpointAvailabilityWindow();
+            _ = TryBindDurableHost(requiredHostSession);
         }
         else if (!MatchesHostIdentity(requiredHostSession, interruptedSession))
         {
@@ -239,7 +259,7 @@ internal sealed class DaemonSessionAcquisitionScope
             .ConfigureAwait(false);
     }
 
-    /// <summary> Resolves a non-rejected generation from the Unity host whose first durable mutation response was interrupted. </summary>
+    /// <summary> Resolves a non-rejected generation from the Unity host fixed by a durable Lifecycle Execution start. </summary>
     public async ValueTask<DaemonSessionAcquisitionResult> ResolveDurableReplacementAsync (
         ResolvedUnityProjectContext unityProject,
         DaemonSession rejectedSession,
@@ -250,7 +270,7 @@ internal sealed class DaemonSessionAcquisitionScope
         cancellationToken.ThrowIfCancellationRequested();
         var requiredHostSession = durableReplayHostSession
             ?? throw new InvalidOperationException(
-                "A durable session replacement requires a prior durable response interruption.");
+                "A durable session replacement requires a previously bound Lifecycle Execution host.");
         RecordRejectedGeneration(rejectedSession);
         return await ResolveReplacementCoreAsync(
                 unityProject,
@@ -374,7 +394,7 @@ internal sealed class DaemonSessionAcquisitionScope
             .ConfigureAwait(false);
     }
 
-    /// <summary> Reacquires only the durable replay host after a connection failure before replay request transmission. </summary>
+    /// <summary> Reacquires only the durable Lifecycle Execution host after a connection failure before request transmission. </summary>
     public async ValueTask<DaemonSessionAcquisitionResult> ResolveAfterDurablePreWriteFailureAsync (
         ResolvedUnityProjectContext unityProject,
         DaemonSession failedSession,
@@ -385,7 +405,7 @@ internal sealed class DaemonSessionAcquisitionScope
         cancellationToken.ThrowIfCancellationRequested();
         var requiredHostSession = durableReplayHostSession
             ?? throw new InvalidOperationException(
-                "A durable replay pre-write failure requires a prior durable response interruption.");
+                "A durable pre-write recovery requires a previously bound Lifecycle Execution host.");
         if (!MatchesHostIdentity(requiredHostSession, failedSession))
         {
             return DaemonSessionAcquisitionResult.Terminal(
@@ -592,8 +612,8 @@ internal sealed class DaemonSessionAcquisitionScope
 
         return interruptedSession.EditorMode switch
         {
-            DaemonEditorMode.Batchmode => true,
-            DaemonEditorMode.Gui => interruptedSession.EditorInstanceId is Guid interruptedEditorInstanceId
+            UnityEditorMode.Batchmode => true,
+            UnityEditorMode.Gui => interruptedSession.EditorInstanceId is Guid interruptedEditorInstanceId
                 && candidate.EditorInstanceId == interruptedEditorInstanceId,
             _ => false,
         };

@@ -1,6 +1,11 @@
 using System.Globalization;
 using MackySoft.Ucli.Application.Features.Play.Common.Contracts;
+using MackySoft.Ucli.Contracts;
+using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Contracts.Execution.Lifecycle;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Tests;
 
@@ -14,7 +19,7 @@ internal static class PlayCommandOutputTestData
 
     public static readonly ProjectFingerprint ProjectFingerprint = ProjectFingerprintTestFactory.Create("project-fingerprint");
 
-    public static IpcCompileState CompileState { get; } = IpcCompileState.Ready;
+    public static UnityEditorCompileState CompileState { get; } = UnityEditorCompileState.Ready;
 
     public const long CompileGeneration = 12;
 
@@ -28,22 +33,79 @@ internal static class PlayCommandOutputTestData
         return ProjectIdentityInfoTestFactory.CreateWithProjectPath(projectPath: ProjectPath);
     }
 
-    public static IpcUnityEditorObservation CreateLifecycleSnapshot (
-        IpcEditorLifecycleState lifecycleState,
-        IpcPlayModeSnapshot playMode,
+    public static TerminalExecutionRef CreateTerminalExecutionReference (
+        LifecycleExecutionKind kind,
+        LifecycleExecutionState state = LifecycleExecutionState.Completed)
+    {
+        var definition = new LifecycleExecutionDefinition(kind);
+        var executionId = kind == LifecycleExecutionKind.PlayEnter
+            ? Guid.Parse("8d816e63-b50a-4135-8f63-c89b48dc0d8a")
+            : Guid.Parse("99fb4266-a116-4944-84f9-3412b3783035");
+        return new TerminalExecutionRef(
+            definition.ExecutionKind,
+            executionId,
+            LifecycleExecutionDefinitionDigest.Calculate(definition),
+            new ExecutionState(TextVocabulary.GetText(state)),
+            statusLocator: null,
+            new PathArtifactRef(
+                LifecycleExecutionArtifactContract.TerminalRecordKind,
+                LifecycleExecutionArtifactContract.TerminalRecordMediaType,
+                new ArtifactPath(
+                    $".ucli/local/artifacts/lifecycle-execution/{kind}/{executionId:N}/terminal.json"),
+                Sha256Digest.Parse(new string('a', 64)),
+                sizeBytes: 256,
+            ObservedAtUtc));
+    }
+
+    public static ExecutionRef CreateReconnectableExecutionReference (
+        LifecycleExecutionKind kind,
+        ExecutionLifecycle lifecycle)
+    {
+        var definition = new LifecycleExecutionDefinition(kind);
+        var executionId = kind == LifecycleExecutionKind.PlayEnter
+            ? Guid.Parse("8d816e63-b50a-4135-8f63-c89b48dc0d8a")
+            : Guid.Parse("99fb4266-a116-4944-84f9-3412b3783035");
+        var statusLocator = new ExecutionStatusLocator(
+            $".ucli/local/state/lifecycle-execution/{kind}/{executionId:N}/start.json");
+        return lifecycle switch
+        {
+            ExecutionLifecycle.Active => new ActiveExecutionRef(
+                definition.ExecutionKind,
+                executionId,
+                LifecycleExecutionDefinitionDigest.Calculate(definition),
+                new ExecutionState(TextVocabulary.GetText(
+                    LifecycleExecutionState.Registered)),
+                statusLocator),
+            ExecutionLifecycle.Recovery => new RecoveryExecutionRef(
+                definition.ExecutionKind,
+                executionId,
+                LifecycleExecutionDefinitionDigest.Calculate(definition),
+                new ExecutionState(TextVocabulary.GetText(
+                    LifecycleExecutionState.Publishing)),
+                statusLocator),
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(lifecycle),
+                lifecycle,
+                "A reconnectable reference must be active or recovery."),
+        };
+    }
+
+    public static UnityEditorObservation CreateLifecycleSnapshot (
+        UnityEditorLifecycleState lifecycleState,
+        UnityEditorPlayModeSnapshot playMode,
         long playModeGeneration)
     {
         var state = new UnityEditorStateSnapshot(
-            DaemonEditorMode.Gui,
+            UnityEditorMode.Gui,
             lifecycleState,
             CompileState,
-            new IpcUnityGenerationSnapshot(
+            new UnityEditorGenerationSnapshot(
                 CompileGeneration,
                 DomainReloadGeneration,
                 AssetRefreshGeneration: 0,
                 PlayModeGeneration: playModeGeneration),
             playMode);
-        return new IpcUnityEditorObservation(
+        return new UnityEditorObservation(
             ServerVersion,
             UnityVersion,
             ProjectFingerprint,
@@ -53,7 +115,7 @@ internal static class PlayCommandOutputTestData
             primaryDiagnostic: null);
     }
 
-    public static PlayLifecycleSnapshotOutput CreateLifecycleSnapshotOutput (IpcUnityEditorObservation snapshot)
+    public static PlayLifecycleSnapshotOutput CreateLifecycleSnapshotOutput (UnityEditorObservation snapshot)
     {
         var state = snapshot.State;
         return new PlayLifecycleSnapshotOutput(
@@ -62,23 +124,23 @@ internal static class PlayCommandOutputTestData
             UnityVersion: snapshot.UnityVersion,
             ProjectFingerprint: snapshot.ProjectFingerprint,
             LifecycleState: state.LifecycleState,
-            BlockingReason: IpcEditorLifecycleSemantics.ResolveBlockingReason(state.LifecycleState),
+            BlockingReason: UnityEditorLifecycleSemantics.ResolveBlockingReason(state.LifecycleState),
             CompileState: state.CompileState,
             Generations: state.Generations,
-            CanAcceptExecutionRequests: IpcEditorLifecycleSemantics.CanAcceptExecutionRequests(state.LifecycleState),
+            CanAcceptExecutionRequests: UnityEditorLifecycleSemantics.CanAcceptExecutionRequests(state.LifecycleState),
             ObservedAtUtc: snapshot.ObservedAtUtc,
             ActionRequired: snapshot.ActionRequired,
             PrimaryDiagnostic: null,
             PlayMode: state.PlayMode);
     }
 
-    public static IpcPlayModeSnapshot CreatePlayMode (
-        IpcPlayModeState state,
-        IpcPlayModeTransition transition,
+    public static UnityEditorPlayModeSnapshot CreatePlayMode (
+        UnityEditorPlayModeState state,
+        UnityEditorPlayModeTransition transition,
         bool isPlaying,
         bool isPlayingOrWillChangePlaymode)
     {
-        return new IpcPlayModeSnapshot(
+        return new UnityEditorPlayModeSnapshot(
             state,
             transition,
             isPlaying,

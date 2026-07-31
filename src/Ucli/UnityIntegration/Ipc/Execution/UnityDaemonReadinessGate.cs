@@ -4,6 +4,7 @@ using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Application.Shared.Execution.UnityRequest;
+using MackySoft.Ucli.Contracts.Editor;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.UnityIntegration.Ipc.Clients;
 using MackySoft.Ucli.UnityIntegration.Ipc.Dispatch;
@@ -86,7 +87,9 @@ internal sealed class UnityDaemonReadinessGate
         {
             var readinessFailure = await WaitUntilReadyAsync(
                     unityProject,
-                    opsReadRequest.FailFast,
+                    observation => UnityEditorReadinessPolicy.Evaluate(
+                        observation,
+                        opsReadRequest.FailFast),
                     deadline,
                     cancellationToken)
                 .ConfigureAwait(false);
@@ -118,12 +121,81 @@ internal sealed class UnityDaemonReadinessGate
         }
     }
 
+    /// <summary> Applies an action-owned policy before dispatching one new Lifecycle Execution. </summary>
+    /// <param name="unityProject"> The resolved Unity project context. </param>
+    /// <param name="dispatchRequest"> The new Lifecycle Execution dispatch. </param>
+    /// <param name="startAdmissionPolicy"> The action-owned observation and rejected-Start retry policy. </param>
+    /// <param name="deadline"> The immutable execution deadline used for start admission. </param>
+    /// <param name="daemonIpcClient"> The daemon IPC client. </param>
+    /// <param name="cancellationToken"> The cancellation token propagated while no Start Record exists. </param>
+    /// <returns> The Unity request execution result. </returns>
+    public async ValueTask<UnityRequestExecutionResult>
+        ExecuteLifecycleStartAdmissionAsync (
+        ResolvedUnityProjectContext unityProject,
+        UnityIpcDispatchRequest dispatchRequest,
+        ILifecycleExecutionStartAdmissionPolicy startAdmissionPolicy,
+        ExecutionDeadline deadline,
+        IUnityIpcClient daemonIpcClient,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(unityProject);
+        ArgumentNullException.ThrowIfNull(dispatchRequest);
+        ArgumentNullException.ThrowIfNull(startAdmissionPolicy);
+        ArgumentNullException.ThrowIfNull(deadline);
+        ArgumentNullException.ThrowIfNull(daemonIpcClient);
+        if (!dispatchRequest.BeginsLifecycleExecution
+            || !ReferenceEquals(
+                dispatchRequest.StartAdmissionPolicy,
+                startAdmissionPolicy))
+        {
+            throw new ArgumentException(
+                "Start admission requires the policy carried by a new Lifecycle Execution dispatch.",
+                nameof(dispatchRequest));
+        }
+
+        while (true)
+        {
+            var readinessFailure = await WaitUntilReadyAsync(
+                    unityProject,
+                    startAdmissionPolicy.Evaluate,
+                    deadline,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (readinessFailure != null)
+            {
+                return UnityRequestExecutionResult.Failure(readinessFailure);
+            }
+
+            if (!deadline.TryGetRemainingTimeout(out _))
+            {
+                return UnityRequestExecutionResult.Failure(
+                    CreateDaemonTimeoutFailure(deadline.Timeout));
+            }
+
+            var dispatchResult = await daemonIpcClient.SendAsync(
+                    unityProject,
+                    dispatchRequest,
+                    deadline,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (!ShouldRetryRejectedStart(
+                    dispatchResult,
+                    startAdmissionPolicy))
+            {
+                return dispatchResult;
+            }
+        }
+    }
+
     private async ValueTask<UnityRequestFailure?> WaitUntilReadyAsync (
         ResolvedUnityProjectContext unityProject,
-        bool failFast,
+        Func<UnityEditorObservation, UnityReadinessDecision>
+            readinessEvaluator,
         ExecutionDeadline deadline,
         CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(readinessEvaluator);
+
         while (true)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -141,7 +213,8 @@ internal sealed class UnityDaemonReadinessGate
                         validateProjectFingerprint: true,
                         cancellationToken: cancellationToken)
                     .ConfigureAwait(false);
-                var readinessDecision = UnityEditorReadinessPolicy.Evaluate(pingResponse, failFast);
+                var readinessDecision = readinessEvaluator(
+                    pingResponse);
                 if (readinessDecision.IsReady)
                 {
                     return null;
@@ -182,6 +255,24 @@ internal sealed class UnityDaemonReadinessGate
                     cancellationToken)
                 .ConfigureAwait(false);
         }
+    }
+
+    private static bool ShouldRetryRejectedStart (
+        UnityRequestExecutionResult dispatchResult,
+        ILifecycleExecutionStartAdmissionPolicy startAdmissionPolicy)
+    {
+        ArgumentNullException.ThrowIfNull(dispatchResult);
+        ArgumentNullException.ThrowIfNull(startAdmissionPolicy);
+        if (dispatchResult.LifecycleExecutionStart is not null
+            || !dispatchResult.IsSuccess)
+        {
+            return false;
+        }
+
+        var firstError = dispatchResult.Response!.Errors.FirstOrDefault();
+        return firstError is not null
+            && startAdmissionPolicy.ShouldRetryAfterRejectedStart(
+                firstError.Code);
     }
 
     private static UnityIpcDispatchRequest CreateFailFastDispatchRequest (

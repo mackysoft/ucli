@@ -3,6 +3,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Acquisition;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Tests.Features.Daemon.Lifecycle.Acquisition;
 
@@ -534,7 +535,7 @@ public sealed class DaemonSessionAcquisitionScopeTests
         return DaemonSessionTestFactory.Create(
             projectFingerprint: projectFingerprint,
             sessionToken: sessionToken,
-            editorMode: DaemonEditorMode.Gui,
+            editorMode: UnityEditorMode.Gui,
             ownerKind: DaemonSessionOwnerKind.User,
             canShutdownProcess: false,
             editorInstanceId: DaemonSessionTestFactory.DefaultEditorInstanceId,
@@ -550,15 +551,15 @@ public sealed class DaemonSessionAcquisitionScopeTests
             processId: session.ProcessId!.Value,
             processStartedAtUtc: session.ProcessStartedAtUtc!.Value,
             state: new UnityEditorStateSnapshot(
-                editorMode: DaemonEditorMode.Gui,
+                editorMode: UnityEditorMode.Gui,
                 lifecycleState: recoveryLeaseExpiresAtUtc.HasValue
-                    ? IpcEditorLifecycleState.Recovering
-                    : IpcEditorLifecycleState.DomainReloading,
-                compileState: IpcCompileState.Ready,
-                generations: new IpcUnityGenerationSnapshot(1, 2, 0, 0),
-                playMode: new IpcPlayModeSnapshot(
-                    IpcPlayModeState.Stopped,
-                    IpcPlayModeTransition.None,
+                    ? UnityEditorLifecycleState.Recovering
+                    : UnityEditorLifecycleState.DomainReloading,
+                compileState: UnityEditorCompileState.Ready,
+                generations: new UnityEditorGenerationSnapshot(1, 2, 0, 0),
+                playMode: new UnityEditorPlayModeSnapshot(
+                    UnityEditorPlayModeState.Stopped,
+                    UnityEditorPlayModeTransition.None,
                     IsPlaying: false,
                     IsPlayingOrWillChangePlaymode: false)),
             observedAtUtc: observedAtUtc,

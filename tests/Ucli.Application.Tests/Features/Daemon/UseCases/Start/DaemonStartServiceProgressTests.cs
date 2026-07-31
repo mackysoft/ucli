@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandExecution;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Tests.Daemon;
 
@@ -23,7 +24,7 @@ public sealed class DaemonStartServiceProgressTests
                 await progressObserver!.EmitSupervisorBootstrapStartedAsync(cancellationToken).ConfigureAwait(false);
                 await progressObserver.EmitSupervisorBootstrapCompletedAsync(error: null, cancellationToken).ConfigureAwait(false);
                 await progressObserver.EmitEnsureRunningStartedAsync(cancellationToken).ConfigureAwait(false);
-                var startResult = DaemonStartResult.Started(session, IpcUnityEditorObservationTestFactory.Create());
+                var startResult = DaemonStartResult.Started(session, UnityEditorObservationTestFactory.Create());
                 await progressObserver.EmitEnsureRunningCompletedAsync(startResult, cancellationToken).ConfigureAwait(false);
                 return startResult;
             },
@@ -34,7 +35,7 @@ public sealed class DaemonStartServiceProgressTests
         var result = await service.StartAsync(
             projectPath: null,
             timeoutMilliseconds: null,
-            editorMode: DaemonEditorMode.Batchmode,
+            editorMode: UnityEditorMode.Batchmode,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
             progressSink: progressSink,
             cancellationToken: CancellationToken.None);

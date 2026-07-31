@@ -7,6 +7,7 @@ using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Tests.Helpers.Daemon;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Tests.Daemon;
 
@@ -30,7 +31,7 @@ public sealed class DaemonSessionCleanupServiceConcurrencyTests
             SessionToken: "tampered-invalid-token",
             ProjectFingerprint: projectFingerprint,
             IssuedAtUtc: processStartedAtUtc,
-            EditorMode: DaemonEditorMode.Batchmode,
+            EditorMode: UnityEditorMode.Batchmode,
             OwnerKind: DaemonSessionOwnerKind.Cli,
             CanShutdownProcess: true,
             EndpointTransportKind: IpcTransportKind.NamedPipe,

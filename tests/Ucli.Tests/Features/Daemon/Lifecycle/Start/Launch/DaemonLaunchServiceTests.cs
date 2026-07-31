@@ -1,5 +1,7 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
+using MackySoft.Ucli.Contracts.Editor;
+
 namespace MackySoft.Ucli.Tests.Daemon;
 
 using MackySoft.Ucli.Application.Shared.Foundation;
@@ -39,7 +41,7 @@ public sealed class DaemonLaunchServiceTests
         var readinessProbe = new RecordingDaemonStartupReadinessProbe
         {
             NextResult = DaemonStartupReadinessProbeResult.Ready(
-                IpcUnityEditorObservationTestFactory.Create(IpcEditorLifecycleState.Ready)),
+                UnityEditorObservationTestFactory.Create(UnityEditorLifecycleState.Ready)),
         };
         var compensationService = new RecordingDaemonLaunchCompensationService();
         var diagnosisStore = new RecordingDaemonDiagnosisStore();
@@ -54,7 +56,7 @@ public sealed class DaemonLaunchServiceTests
         var result = await service.LaunchAsync(
             context,
             ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), timeProvider),
-            DaemonEditorMode.Batchmode,
+            UnityEditorMode.Batchmode,
             DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);
 
@@ -102,7 +104,7 @@ public sealed class DaemonLaunchServiceTests
         var readinessProbe = new RecordingDaemonStartupReadinessProbe
         {
             NextResult = DaemonStartupReadinessProbeResult.Ready(
-                IpcUnityEditorObservationTestFactory.Create(IpcEditorLifecycleState.Ready)),
+                UnityEditorObservationTestFactory.Create(UnityEditorLifecycleState.Ready)),
         };
         var progressObserver = new CollectingDaemonStartProgressObserver();
         var service = CreateService(
@@ -116,7 +118,7 @@ public sealed class DaemonLaunchServiceTests
         var result = await service.LaunchAsync(
             context,
             ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), timeProvider),
-            DaemonEditorMode.Batchmode,
+            UnityEditorMode.Batchmode,
             DaemonStartupBlockedProcessPolicy.Auto,
             progressObserver,
             cancellationToken: CancellationToken.None);
@@ -129,11 +131,11 @@ public sealed class DaemonLaunchServiceTests
             DaemonStartProgressEvent.EndpointRegistered,
             DaemonStartProgressEvent.LifecycleObserved);
         var waitingObservation = progressObserver.PayloadAt<DaemonStartStartupProgressObservation>(2);
-        Assert.Equal(DaemonEditorMode.Batchmode, waitingObservation.EditorMode);
+        Assert.Equal(UnityEditorMode.Batchmode, waitingObservation.EditorMode);
         Assert.Equal(999, waitingObservation.ProcessId);
-        var lifecycleObservation = progressObserver.PayloadAt<IpcUnityEditorObservation>(^1);
-        Assert.Equal(IpcEditorLifecycleState.Ready, lifecycleObservation.State.LifecycleState);
-        Assert.True(IpcEditorLifecycleSemantics.CanAcceptExecutionRequests(lifecycleObservation.State.LifecycleState));
+        var lifecycleObservation = progressObserver.PayloadAt<UnityEditorObservation>(^1);
+        Assert.Equal(UnityEditorLifecycleState.Ready, lifecycleObservation.State.LifecycleState);
+        Assert.True(UnityEditorLifecycleSemantics.CanAcceptExecutionRequests(lifecycleObservation.State.LifecycleState));
     }
 
     [Fact]
@@ -168,7 +170,7 @@ public sealed class DaemonLaunchServiceTests
         var readinessProbe = new RecordingDaemonStartupReadinessProbe
         {
             NextResult = DaemonStartupReadinessProbeResult.Ready(
-                IpcUnityEditorObservationTestFactory.Create(projectFingerprint: context.ProjectFingerprint)),
+                UnityEditorObservationTestFactory.Create(projectFingerprint: context.ProjectFingerprint)),
         };
         var progressFailure = new InvalidOperationException("batchmode endpoint-ready progress failed");
         var progressObserver = new ConfigurableDaemonStartProgressObserver
@@ -190,7 +192,7 @@ public sealed class DaemonLaunchServiceTests
             () => service.LaunchAsync(
                     context,
                     ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), timeProvider),
-                    DaemonEditorMode.Batchmode,
+                    UnityEditorMode.Batchmode,
                     DaemonStartupBlockedProcessPolicy.Auto,
                     progressObserver,
                     cancellationToken: CancellationToken.None)
@@ -242,7 +244,7 @@ public sealed class DaemonLaunchServiceTests
             () => service.LaunchAsync(
                     context,
                     ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), timeProvider),
-                    DaemonEditorMode.Batchmode,
+                    UnityEditorMode.Batchmode,
                     DaemonStartupBlockedProcessPolicy.Auto,
                     progressObserver,
                     cancellationToken: CancellationToken.None)
@@ -284,7 +286,7 @@ public sealed class DaemonLaunchServiceTests
         var result = await service.LaunchAsync(
             context,
             ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), timeProvider),
-            DaemonEditorMode.Batchmode,
+            UnityEditorMode.Batchmode,
             DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);
 
@@ -346,7 +348,7 @@ public sealed class DaemonLaunchServiceTests
         var result = await service.LaunchAsync(
             context,
             ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), timeProvider),
-            DaemonEditorMode.Batchmode,
+            UnityEditorMode.Batchmode,
             DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);
 
@@ -430,7 +432,7 @@ public sealed class DaemonLaunchServiceTests
         var launchTask = service.LaunchAsync(
                 context,
                 ExecutionDeadline.Start(TimeSpan.FromSeconds(30), timeProvider),
-                DaemonEditorMode.Batchmode,
+                UnityEditorMode.Batchmode,
                 DaemonStartupBlockedProcessPolicy.Auto,
                 cancellationToken: CancellationToken.None)
             .AsTask();

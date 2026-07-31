@@ -11,6 +11,7 @@ using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Features.Daemon.Common.Ipc;
 using MackySoft.Ucli.Infrastructure.Execution;
 using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Features.Daemon.Supervisor.Client;
 
@@ -148,7 +149,7 @@ internal sealed class SupervisorClient
         Guid requestId,
         ResolvedUnityProjectContext unityProject,
         ExecutionDeadline deadline,
-        DaemonEditorMode? editorMode,
+        UnityEditorMode? editorMode,
         DaemonStartupBlockedProcessPolicy onStartupBlocked,
         ICommandProgressSink? progressSink = null,
         CancellationToken cancellationToken = default)
@@ -414,7 +415,7 @@ internal sealed class SupervisorClient
             return ExecutionError.Timeout(firstError.Message, firstError.Code);
         }
 
-        if (firstError.Code == DaemonErrorCodes.DaemonEditorModeMismatch)
+        if (firstError.Code == DaemonErrorCodes.UnityEditorModeMismatch)
         {
             return ExecutionError.InvalidArgument(firstError.Message, firstError.Code);
         }

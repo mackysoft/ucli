@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Contracts.Editor;
+
 namespace MackySoft.Ucli.Tests.Daemon;
 
 using MackySoft.Tests;
@@ -43,10 +45,10 @@ internal static class DaemonStartupReadinessProbeTestSupport
         return await TestAwaiter.WaitAsync(resultTask, description, TimeSpan.FromSeconds(5));
     }
 
-    public static IpcUnityEditorObservation CreatePingPayload (
-        IpcEditorLifecycleState lifecycleState = IpcEditorLifecycleState.Ready)
+    public static UnityEditorObservation CreatePingPayload (
+        UnityEditorLifecycleState lifecycleState = UnityEditorLifecycleState.Ready)
     {
-        return IpcUnityEditorObservationTestFactory.Create(lifecycleState);
+        return UnityEditorObservationTestFactory.Create(lifecycleState);
     }
 
     private static RecordingUnityProjectLockPreflightService CreateProjectLockPreflightService (

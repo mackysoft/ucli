@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Shared.Execution.Progress;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.UseCases.Start;
 
@@ -16,7 +17,7 @@ internal interface IDaemonStartService
     ValueTask<DaemonStartExecutionResult> StartAsync (
         string? projectPath,
         int? timeoutMilliseconds,
-        DaemonEditorMode? editorMode,
+        UnityEditorMode? editorMode,
         DaemonStartupBlockedProcessPolicy onStartupBlocked,
         ICommandProgressSink? progressSink = null,
         CancellationToken cancellationToken = default);

@@ -4,6 +4,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Stop;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using static MackySoft.Ucli.Application.Tests.Daemon.DaemonStopOperationTestSupport;
 using static MackySoft.Ucli.Application.Tests.DaemonCleanupInvocationAssert;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Tests.Daemon;
 
@@ -137,7 +138,7 @@ public sealed class DaemonStopOperationProcessShutdownTests
             processId: 654,
             ownerKind: DaemonSessionOwnerKind.Cli,
             canShutdownProcess: true,
-            editorMode: DaemonEditorMode.Gui,
+            editorMode: UnityEditorMode.Gui,
             issuedAtUtc: issuedAtUtc,
             processStartedAtUtc: processStartedAtUtc);
         var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-stop-cli-gui"));

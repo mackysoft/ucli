@@ -1,6 +1,4 @@
-using System.Text.Json;
-using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.OperationExecute;
-using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Execution;
 using MackySoft.Ucli.Hosting.Cli.Requests;
 using MackySoft.Ucli.Tests.Hosting.Cli.Common.Execution;
 using static MackySoft.Ucli.Tests.RefreshCommandTestData;
@@ -11,7 +9,7 @@ public sealed class RefreshCommandPayloadTests
 {
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Refresh_WithSuccessResult_WritesOperationPayload ()
+    public async Task Refresh_WithSuccessResult_WritesDedicatedLifecyclePayload ()
     {
         var service = new RecordingRefreshService((_, _) => ValueTask.FromResult(CreateSuccessResult()));
         var command = new RefreshCommand(service, CommandResultTestWriter.Create());
@@ -21,52 +19,15 @@ public sealed class RefreshCommandPayloadTests
 
         RefreshCommandAssert.SucceededWithPayload(
             result,
-            expectedRequestId: RequestId);
+            expectedRequestId: RequestId,
+            expectedExecutionId: ExecutionId);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Refresh_WhenPostReadSourceExists_WritesTopLevelPayload ()
+    public async Task Refresh_WhenServiceReturnsTypedFailure_WritesApplicationStateAndExecutionReference ()
     {
-        var service = new RecordingRefreshService((_, _) => ValueTask.FromResult(CreateSuccessResult(postReadSource: CreateRefreshPostReadSource())));
-        var command = new RefreshCommand(service, CommandResultTestWriter.Create());
-
-        var result = await CommandResultCapture.ExecuteAsync(() => command.RefreshAsync(
-            cancellationToken: CancellationToken.None));
-
-        Assert.Equal((int)CliExitCode.Success, result.ExitCode);
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
-        JsonAssert.For(outputJson.RootElement.GetProperty("payload"))
-            .HasProperty("postReadSource", postReadSource => postReadSource
-                .HasInt32("schemaVersion", 1)
-                .HasArrayLength("steps", 1)
-                .HasProperty("steps", 0, step => step
-                    .HasString("sourceKind", TextVocabulary.GetText(IpcExecutePostReadSourceKind.Refresh))
-                    .HasBoolean("playModeMutation", false)
-                    .HasValueKind("commit", JsonValueKind.Null)
-                    .HasBoolean("persistenceExpected", true)
-                    .HasString("expectedPostState", TextVocabulary.GetText(IpcExecuteExpectedPostState.Unavailable))));
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public async Task Refresh_WhenServiceFails_PreservesFailurePayloadAndErrors ()
-    {
-        var failureResult = OperationExecuteResultFactory.Failure(
-            RequestGuid,
-            [],
-            [
-                ApplicationFailure.InternalError(
-                    "Unity execution failed.",
-                    UcliCoreErrorCodes.InternalError,
-                    instancePath: "/steps/0",
-                    startupFailure: null),
-            ],
-            contractViolations: [],
-            readPostcondition: null,
-            project: null,
-            postReadSource: null);
-        var service = new RecordingRefreshService((_, _) => ValueTask.FromResult(failureResult));
+        var service = new RecordingRefreshService((_, _) => ValueTask.FromResult(CreateFailureResult()));
         var command = new RefreshCommand(service, CommandResultTestWriter.Create());
 
         var result = await CommandResultCapture.ExecuteAsync(() => command.RefreshAsync(
@@ -74,7 +35,6 @@ public sealed class RefreshCommandPayloadTests
             cancellationToken: CancellationToken.None));
 
         Assert.Equal((int)CliExitCode.ToolError, result.ExitCode);
-
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         CommandResultAssert.HasStandardEnvelope(
             outputJson.RootElement,
@@ -82,15 +42,59 @@ public sealed class RefreshCommandPayloadTests
             TextVocabulary.GetText(CommandResultStatus.Error),
             (int)CliExitCode.ToolError);
         JsonAssert.For(outputJson.RootElement)
-            .HasString("message", "Unity execution failed.")
+            .HasString("message", "Refresh deadline exceeded.")
             .HasProperty("payload", payload => payload
+                .HasString("payloadKind", "detailed")
                 .HasString("requestId", RequestId)
-                .HasArrayLength("opResults", 0))
+                .HasString("applicationState", "applied")
+                .HasProperty("lifecycleExecutionRef", reference => reference
+                    .HasString("lifecycle", "terminal")
+                    .HasString("id", ExecutionId))
+                .HasProperty("refresh", refresh => refresh
+                    .HasString("startedAtUtc", "2026-07-31T01:02:03+00:00")
+                    .HasInt32("domainReloadGenerationBefore", 1))
+                .HasProperty("observedLifecycle", lifecycle => lifecycle
+                    .HasProperty("state", state => state
+                        .HasProperty("generations", generations =>
+                            generations.HasInt32("domainReloadGeneration", 1)))))
             .HasArrayLength("errors", 1)
             .HasProperty("errors", 0, error => error
-                .HasString("code", UcliCoreErrorCodes.InternalError.Value)
-                .HasString("message", "Unity execution failed.")
-                .HasString("instancePath", "/steps/0"));
+                .HasString("code", LifecycleExecutionErrorCodes.DeadlineExceeded.Value));
+        Assert.False(
+            outputJson.RootElement
+                .GetProperty("payload")
+                .TryGetProperty("readPostcondition", out _));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Refresh_WhenTerminalPublicationFails_ProjectsOnlyDocumentedFailureEvidence ()
+    {
+        var service = new RecordingRefreshService((_, _) =>
+            ValueTask.FromResult(CreatePublicationFailureResult()));
+        var command = new RefreshCommand(service, CommandResultTestWriter.Create());
+
+        var result = await CommandResultCapture.ExecuteAsync(() =>
+            command.RefreshAsync(cancellationToken: CancellationToken.None));
+
+        Assert.Equal((int)CliExitCode.ToolError, result.ExitCode);
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(
+            result.StdOut);
+        var payload = outputJson.RootElement.GetProperty("payload");
+        Assert.False(payload.TryGetProperty("result", out _));
+        JsonAssert.For(payload)
+            .HasProperty("refresh", refresh => refresh
+                .HasString("startedAtUtc", "2026-07-31T01:02:03+00:00"))
+            .HasProperty("observedLifecycle", lifecycle => lifecycle
+                .HasProperty("state", state => state
+                    .HasProperty("generations", generations =>
+                        generations.HasInt32("domainReloadGeneration", 2))));
+        Assert.Equal(
+            "publishing",
+            payload
+                .GetProperty("lifecycleExecutionRef")
+                .GetProperty("state")
+                .GetString());
     }
 
     [Fact]
@@ -98,7 +102,8 @@ public sealed class RefreshCommandPayloadTests
     public async Task Refresh_WhenReadPostconditionExists_WritesTopLevelPayload ()
     {
         var readPostcondition = ReadPostconditionTestFactory.CreateAssetSearch();
-        var service = new RecordingRefreshService((_, _) => ValueTask.FromResult(CreateSuccessResult(readPostcondition: readPostcondition)));
+        var service = new RecordingRefreshService((_, _) => ValueTask.FromResult(
+            CreateSuccessResult(readPostcondition)));
         var command = new RefreshCommand(service, CommandResultTestWriter.Create());
 
         var result = await CommandResultCapture.ExecuteAsync(() => command.RefreshAsync(
@@ -106,12 +111,12 @@ public sealed class RefreshCommandPayloadTests
             cancellationToken: CancellationToken.None));
 
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
-
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         JsonAssert.For(outputJson.RootElement.GetProperty("payload"))
             .HasProperty("readPostcondition", readPostconditionElement => readPostconditionElement
                 .HasArrayLength("requirements", 1)
                 .HasProperty("requirements", 0, requirement => requirement
-                    .HasString("surface", TextVocabulary.GetText(IpcExecuteReadPostconditionSurface.AssetSearch))));
+                    .HasString("surface", TextVocabulary.GetText(
+                        ExecutionReadPostconditionSurface.AssetSearch))));
     }
 }

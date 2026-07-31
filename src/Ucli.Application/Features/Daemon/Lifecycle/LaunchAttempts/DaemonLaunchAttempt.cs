@@ -1,6 +1,7 @@
 using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.LaunchAttempts;
 
@@ -16,7 +17,7 @@ internal sealed record DaemonLaunchAttempt
         DaemonStartupBlockingReason StartupBlockingReason,
         DaemonStartupRetryDisposition RetryDisposition,
         DaemonStartupProcessAction ProcessAction,
-        DaemonEditorMode? EditorMode,
+        UnityEditorMode? EditorMode,
         int? ProcessId,
         DateTimeOffset? ProcessStartedAtUtc,
         AbsolutePath? UnityLogPath,
@@ -138,7 +139,7 @@ internal sealed record DaemonLaunchAttempt
 
     public DaemonStartupProcessAction ProcessAction { get; }
 
-    public DaemonEditorMode? EditorMode { get; }
+    public UnityEditorMode? EditorMode { get; }
 
     public int? ProcessId { get; }
 

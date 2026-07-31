@@ -1,6 +1,7 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Startup;
 
@@ -13,7 +14,7 @@ internal sealed record DaemonStartupFailureClassification
         DaemonStartupRetryDisposition retryDisposition,
         string message,
         DaemonDiagnosisStartupPhase startupPhase,
-        DaemonDiagnosisActionRequired actionRequired,
+        UnityEditorActionRequired actionRequired,
         DaemonPrimaryDiagnostic? primaryDiagnostic)
     {
         if (!TextVocabulary.IsDefined(startupBlockingReason))
@@ -71,7 +72,7 @@ internal sealed record DaemonStartupFailureClassification
 
     public DaemonDiagnosisStartupPhase StartupPhase { get; }
 
-    public DaemonDiagnosisActionRequired ActionRequired { get; }
+    public UnityEditorActionRequired ActionRequired { get; }
 
     public DaemonPrimaryDiagnostic? PrimaryDiagnostic { get; }
 }

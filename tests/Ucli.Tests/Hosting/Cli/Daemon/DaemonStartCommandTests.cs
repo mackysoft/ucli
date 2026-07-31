@@ -3,6 +3,7 @@ using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Daemon;
 using MackySoft.Ucli.Tests.Hosting.Cli.Common.Execution;
 using static MackySoft.Ucli.Tests.DaemonStartCommandTestSupport;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Tests;
 
@@ -10,11 +11,11 @@ public sealed class DaemonStartCommandTests
 {
     [Theory]
     [Trait("Size", "Small")]
-    [InlineData("batchmode", DaemonEditorMode.Batchmode)]
-    [InlineData("gui", DaemonEditorMode.Gui)]
+    [InlineData("batchmode", UnityEditorMode.Batchmode)]
+    [InlineData("gui", UnityEditorMode.Gui)]
     public async Task Start_WhenEditorModeIsSpecified_PassesTypedEditorModeToService (
         string editorModeOption,
-        DaemonEditorMode expectedEditorMode)
+        UnityEditorMode expectedEditorMode)
     {
         var service = new RecordingDaemonStartService(DaemonStartExecutionResult.Success(CreateSuccessOutput()));
         var command = new DaemonStartCommand(service, CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
@@ -67,8 +68,8 @@ public sealed class DaemonStartCommandTests
     public async Task Start_WhenServiceSucceedsWithCompilingLifecycle_EmitsLifecycleSnapshotPayload ()
     {
         var service = new RecordingDaemonStartService(DaemonStartExecutionResult.Success(CreateSuccessOutput(
-            lifecycleState: IpcEditorLifecycleState.Compiling,
-            blockingReason: IpcEditorBlockingReason.Compile,
+            lifecycleState: UnityEditorLifecycleState.Compiling,
+            blockingReason: UnityEditorBlockingReason.Compile,
             canAcceptExecutionRequests: false)));
         var command = new DaemonStartCommand(service, CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
 
@@ -83,8 +84,8 @@ public sealed class DaemonStartCommandTests
         JsonAssert.For(outputJson.RootElement.GetProperty("payload"))
             .HasString("startStatus", "started")
             .HasString("daemonStatus", "running")
-            .HasString("lifecycleState", TextVocabulary.GetText(IpcEditorLifecycleState.Compiling))
-            .HasString("blockingReason", TextVocabulary.GetText(IpcEditorBlockingReason.Compile))
+            .HasString("lifecycleState", TextVocabulary.GetText(UnityEditorLifecycleState.Compiling))
+            .HasString("blockingReason", TextVocabulary.GetText(UnityEditorBlockingReason.Compile))
             .HasBoolean("canAcceptExecutionRequests", false);
 
         var payload = outputJson.RootElement.GetProperty("payload");

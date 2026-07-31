@@ -1,41 +1,37 @@
 using System.Collections.ObjectModel;
-using MackySoft.Ucli.Application.Features.Assurance.Semantics;
+using System.Text.Json.Serialization;
+using MackySoft.Ucli.Contracts.Execution.Lifecycle;
 
 namespace MackySoft.Ucli.Application.Features.Assurance.Compile.Payload;
 
 /// <summary> Represents the compile assurance payload emitted by the <c>compile</c> command. </summary>
 internal sealed record CompileExecutionOutput : IVerdictResult
 {
-    /// <summary> Initializes a compile assurance payload and derives its verdict from the supplied evidence. </summary>
+    /// <summary>
+    /// Initializes a compile assurance payload from the verdict fixed by the compile action.
+    /// </summary>
     /// <param name="Reports"> The report map to copy with ordinal key semantics. </param>
-    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="Reports" /> is <see langword="null" />. </exception>
-    /// <exception cref="ArgumentOutOfRangeException"> Thrown when a finite-vocabulary argument is not defined by the assurance contract. </exception>
+    /// <exception cref="ArgumentNullException"> Thrown when a required reference or collection is <see langword="null" />. </exception>
+    /// <exception cref="ArgumentException"> Thrown when the Lifecycle Execution reference or report map violates the compile output contract. </exception>
+    /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="Verdict" /> is not defined. </exception>
     public CompileExecutionOutput (
         ProjectIdentityInfo Project,
+        ITerminalExecutionRef LifecycleExecutionRef,
+        Verdict Verdict,
         IReadOnlyList<CompileVerifierOutput> Verifiers,
         IReadOnlyList<CompileClaimOutput> Claims,
         IReadOnlyDictionary<string, AssuranceReportReference> Reports,
         IReadOnlyList<CompileResidualRiskOutput> ResidualRisks,
-        AssuranceRequestedExecutionMode RequestedMode,
-        AssuranceResolvedExecutionMode ResolvedMode,
-        AssuranceSessionKind SessionKind,
-        int TimeoutMilliseconds,
         CompileOutput Compile)
     {
-        if (!TextVocabulary.IsDefined(SessionKind))
-        {
-            throw new ArgumentOutOfRangeException(nameof(SessionKind), SessionKind, "Session kind must be defined by the assurance contract.");
-        }
-        if (!TextVocabulary.IsDefined(RequestedMode))
-        {
-            throw new ArgumentOutOfRangeException(nameof(RequestedMode), RequestedMode, "Requested execution mode must be defined by the assurance contract.");
-        }
-        if (!TextVocabulary.IsDefined(ResolvedMode))
-        {
-            throw new ArgumentOutOfRangeException(nameof(ResolvedMode), ResolvedMode, "Resolved execution mode must be defined by the assurance contract.");
-        }
         ArgumentNullException.ThrowIfNull(Reports);
         ArgumentNullException.ThrowIfNull(Project);
+        var completedLifecycleExecutionRef =
+            LifecycleExecutionContractGuard.RequireCompletedTerminalReference(
+                LifecycleExecutionRef,
+                nameof(LifecycleExecutionRef),
+                LifecycleExecutionKind.Compile);
+
         ArgumentNullException.ThrowIfNull(Verifiers);
         ArgumentNullException.ThrowIfNull(Claims);
         ArgumentNullException.ThrowIfNull(ResidualRisks);
@@ -45,17 +41,21 @@ internal sealed record CompileExecutionOutput : IVerdictResult
         }
 
         this.Project = Project;
+        this.LifecycleExecutionRef = completedLifecycleExecutionRef;
+        if (!TextVocabulary.IsDefined(Verdict))
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(Verdict),
+                Verdict,
+                "Compile verdict must be defined.");
+        }
+        this.Verdict = Verdict;
         this.Verifiers = Array.AsReadOnly(Verifiers.ToArray());
         this.Claims = Array.AsReadOnly(Claims.ToArray());
         this.Reports = new ReadOnlyDictionary<string, AssuranceReportReference>(
             new Dictionary<string, AssuranceReportReference>(Reports, StringComparer.Ordinal));
         this.ResidualRisks = Array.AsReadOnly(ResidualRisks.ToArray());
-        Verdict = AssuranceVerdictCalculator.Calculate(this.Verifiers, this.Claims, this.ResidualRisks);
         EnsureReportReferencesResolve(this.Verifiers, this.Claims, this.Reports);
-        this.RequestedMode = RequestedMode;
-        this.ResolvedMode = ResolvedMode;
-        this.SessionKind = SessionKind;
-        this.TimeoutMilliseconds = TimeoutMilliseconds;
         this.Compile = Compile ?? throw new ArgumentNullException(nameof(Compile));
     }
 
@@ -63,22 +63,23 @@ internal sealed record CompileExecutionOutput : IVerdictResult
 
     public ProjectIdentityInfo Project { get; }
 
+    /// <summary> Gets the completed terminal reference for the compile Lifecycle Execution. </summary>
+    public ITerminalExecutionRef LifecycleExecutionRef { get; }
+
+    // These assurance packet members are retained for Verify composition. The public compile
+    // command owns a smaller closed payload and therefore does not serialize this internal packet.
+    [JsonIgnore]
     public IReadOnlyList<CompileVerifierOutput> Verifiers { get; }
 
+    [JsonIgnore]
     public IReadOnlyList<CompileClaimOutput> Claims { get; }
 
     /// <summary> Gets the immutable ordinal-keyed report snapshot. </summary>
+    [JsonIgnore]
     public IReadOnlyDictionary<string, AssuranceReportReference> Reports { get; }
 
+    [JsonIgnore]
     public IReadOnlyList<CompileResidualRiskOutput> ResidualRisks { get; }
-
-    public AssuranceRequestedExecutionMode RequestedMode { get; }
-
-    public AssuranceResolvedExecutionMode ResolvedMode { get; }
-
-    public AssuranceSessionKind SessionKind { get; }
-
-    public int TimeoutMilliseconds { get; }
 
     public CompileOutput Compile { get; }
 

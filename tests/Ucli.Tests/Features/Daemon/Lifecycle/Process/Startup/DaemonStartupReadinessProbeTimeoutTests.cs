@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Contracts.Editor;
+
 namespace MackySoft.Ucli.Tests.Daemon;
 
 using System.Net.Sockets;
@@ -22,7 +24,7 @@ public sealed class DaemonStartupReadinessProbeTimeoutTests
         var timeProvider = new ManualTimeProvider();
         var pingStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var pingCancellationObserved = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var pingCompletion = new TaskCompletionSource<IpcUnityEditorObservation>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var pingCompletion = new TaskCompletionSource<UnityEditorObservation>(TaskCreationOptions.RunContinuationsAsynchronously);
         var pingFinished = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var pingClient = new RecordingDaemonPingInfoClient
         {
@@ -184,7 +186,7 @@ public sealed class DaemonStartupReadinessProbeTimeoutTests
         var pingClient = new RecordingDaemonPingInfoClient
         {
             PingAndReadHandler = static (_, _, _, _) =>
-                ValueTask.FromException<IpcUnityEditorObservation>(
+                ValueTask.FromException<UnityEditorObservation>(
                     IpcConnectExceptionTestFactory.FromSocketError(SocketError.ConnectionRefused)),
         };
         var logReader = new RecordingUnityLogReader
@@ -232,7 +234,7 @@ public sealed class DaemonStartupReadinessProbeTimeoutTests
         var pingClient = new RecordingDaemonPingInfoClient
         {
             PingAndReadHandler = static (_, _, _, _) =>
-                ValueTask.FromException<IpcUnityEditorObservation>(new TimeoutException("probe timeout")),
+                ValueTask.FromException<UnityEditorObservation>(new TimeoutException("probe timeout")),
         };
         var logReader = new UnexpectedUnityLogReader("Probe timeout should not inspect the Unity log.");
         var timeProvider = new ManualTimeProvider();

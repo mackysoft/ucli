@@ -10,6 +10,7 @@ using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Features.Daemon.Supervisor.Host;
 
@@ -92,7 +93,7 @@ internal sealed class SupervisorProjectCoordinator
     public async ValueTask<DaemonStartResult> EnsureRunningAsync (
         ResolvedUnityProjectContext unityProject,
         ExecutionDeadline deadline,
-        DaemonEditorMode? editorMode,
+        UnityEditorMode? editorMode,
         DaemonStartupBlockedProcessPolicy onStartupBlocked,
         IDaemonStartProgressObserver? progressObserver = null,
         CancellationToken cancellationToken = default)

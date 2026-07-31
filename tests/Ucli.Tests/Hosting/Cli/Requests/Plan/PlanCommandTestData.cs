@@ -1,5 +1,6 @@
 using MackySoft.Ucli.Application.Features.Requests.Plan.Common.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Execution;
 
 namespace MackySoft.Ucli.Tests;
 
@@ -144,7 +145,7 @@ internal static class PlanCommandTestData
     private static OperationExecutionOperationResult CreateViolationOperationResult ()
     {
         return OperationExecutionOperationResult.CreateWithoutVerdict(
-            op: UcliPrimitiveOperationNames.ProjectRefresh,
+            op: UcliPrimitiveOperationNames.ProjectSave,
             phase: IpcExecuteOperationPhase.Plan,
             applied: false,
             changed: true,
@@ -164,9 +165,9 @@ internal static class PlanCommandTestData
     {
         return new OperationExecutionContractViolation(
             InstancePath: "/opResults/0",
-            Operation: UcliPrimitiveOperationNames.ProjectRefresh,
+            Operation: UcliPrimitiveOperationNames.ProjectSave,
             ExpectedFact: "assurance.mayDirty=false",
             ObservedResult: "opResults[].changed=true",
-            ApplicationState: IpcApplicationState.Indeterminate);
+            ApplicationState: ExecutionApplicationState.Indeterminate);
     }
 }

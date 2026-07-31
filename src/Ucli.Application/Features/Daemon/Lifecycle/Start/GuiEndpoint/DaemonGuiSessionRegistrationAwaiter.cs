@@ -1,6 +1,7 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Acquisition;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.GuiEndpoint;
 
@@ -135,7 +136,7 @@ internal sealed class DaemonGuiSessionRegistrationAwaiter : IDaemonGuiSessionReg
                    unityProject,
                    expectedProcessId,
                    expectedProcessStartedAtUtc)
-                   && pingResponse.State.EditorMode == DaemonEditorMode.Gui
+                   && pingResponse.State.EditorMode == UnityEditorMode.Gui
                 ? DaemonGuiSessionRegistrationWaitResult.Success(respondingSession, pingResponse)
                 : null;
         }
@@ -210,7 +211,7 @@ internal sealed class DaemonGuiSessionRegistrationAwaiter : IDaemonGuiSessionReg
             return false;
         }
 
-        if (candidate.EditorMode != DaemonEditorMode.Gui)
+        if (candidate.EditorMode != UnityEditorMode.Gui)
         {
             return false;
         }

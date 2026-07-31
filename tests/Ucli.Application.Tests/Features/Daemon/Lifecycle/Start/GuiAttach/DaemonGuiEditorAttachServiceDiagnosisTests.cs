@@ -3,6 +3,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Progress;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Tests.Daemon;
 
@@ -63,7 +64,7 @@ public sealed class DaemonGuiEditorAttachServiceDiagnosisTests
         Assert.Equal(marker.ProcessId, diagnosis.ProcessId);
         Assert.Equal(marker.MarkerPath, diagnosis.EditorInstancePath);
         Assert.NotNull(result.Startup);
-        Assert.Equal(DaemonEditorMode.Gui, result.Startup!.EditorMode);
+        Assert.Equal(UnityEditorMode.Gui, result.Startup!.EditorMode);
         Assert.Equal(DaemonSessionOwnerKind.User, result.Startup.OwnerKind);
         Assert.False(result.Startup.CanShutdownProcess);
         Assert.Equal(marker.ProcessId, result.Startup.ProcessId);

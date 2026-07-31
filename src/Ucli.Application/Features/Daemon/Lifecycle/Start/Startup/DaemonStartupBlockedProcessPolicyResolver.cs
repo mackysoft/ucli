@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Contracts.Editor;
+
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Startup;
 
 /// <summary> Resolves process handling for endpoint-registration startup blockers. </summary>
@@ -12,7 +14,7 @@ internal static class DaemonStartupBlockedProcessPolicyResolver
     /// <returns> The resolved process policy. </returns>
     public static DaemonStartupBlockedProcessPolicyResolution Resolve (
         DaemonStartupBlockedProcessPolicy policy,
-        DaemonEditorMode editorMode,
+        UnityEditorMode editorMode,
         DaemonSessionOwnerKind ownerKind,
         bool canShutdownProcess,
         int? processId)
@@ -34,12 +36,12 @@ internal static class DaemonStartupBlockedProcessPolicyResolver
             return Keep();
         }
 
-        if (editorMode == DaemonEditorMode.Batchmode)
+        if (editorMode == UnityEditorMode.Batchmode)
         {
             return ResolveCliOwnedBatchmode(policy);
         }
 
-        if (editorMode == DaemonEditorMode.Gui)
+        if (editorMode == UnityEditorMode.Gui)
         {
             return ResolveCliOwnedGui(policy);
         }

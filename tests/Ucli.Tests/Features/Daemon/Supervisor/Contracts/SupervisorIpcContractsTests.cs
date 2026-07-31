@@ -4,6 +4,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Stop;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Tests.Supervisor;
 
@@ -16,7 +17,7 @@ public sealed class SupervisorIpcContractsTests
         var request = new SupervisorIpcContracts.EnsureRunningRequest(
             UnityProjectRoot: "/repository/UnityProject",
             ProjectFingerprint: SupervisorClientTestSupport.CreateUnityProject().ProjectFingerprint,
-            EditorMode: DaemonEditorMode.Gui,
+            EditorMode: UnityEditorMode.Gui,
             OnStartupBlocked: DaemonStartupBlockedProcessPolicy.Terminate);
         var ensureResponse = new SupervisorIpcContracts.EnsureRunningResponse(
             StartStatus: DaemonStartStatus.Attached,

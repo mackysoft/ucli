@@ -33,7 +33,7 @@ internal static class UnityExecutionModeDecisionErrorCodeDescriptors
                     When: null,
                     Action: "Start a daemon or rerun the command with a mode that can launch Unity."),
             ],
-            relatedCodes: [DaemonErrorCodes.DaemonEditorModeMismatch]),
+            relatedCodes: [DaemonErrorCodes.UnityEditorModeMismatch]),
 
         UcliErrorDescriptorFactory.Create(
             code: UnityExecutionModeDecisionErrorCodes.DaemonRunningOneshotForbidden,
@@ -62,6 +62,6 @@ internal static class UnityExecutionModeDecisionErrorCodeDescriptors
                     When: null,
                     Action: "Use daemon mode, stop the daemon intentionally, or change the command mode policy."),
             ],
-            relatedCodes: [DaemonErrorCodes.DaemonEditorModeMismatch]),
+            relatedCodes: [DaemonErrorCodes.UnityEditorModeMismatch]),
     ];
 }

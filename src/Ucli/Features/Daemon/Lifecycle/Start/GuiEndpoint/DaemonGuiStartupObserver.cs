@@ -10,6 +10,7 @@ using MackySoft.Ucli.Application.Shared.Execution.ErrorCodes;
 using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Features.Daemon.Lifecycle.Start.GuiEndpoint;
 
@@ -196,9 +197,9 @@ internal sealed class DaemonGuiStartupObserver : IDaemonGuiStartupObserver
                 retryDisposition: DaemonStartupRetryDisposition.Unknown,
                 message: message,
                 startupPhase: DaemonDiagnosisStartupPhase.ProcessExit,
-                actionRequired: DaemonDiagnosisActionRequired.InspectUnityLog,
+                actionRequired: UnityEditorActionRequired.InspectUnityLog,
                 primaryDiagnostic: new DaemonPrimaryDiagnostic(
-                    Kind: DaemonDiagnosisPrimaryDiagnosticKind.ProcessExit,
+                    Kind: UnityEditorPrimaryDiagnosticKind.ProcessExit,
                     Code: null,
                     File: null,
                     Line: null,

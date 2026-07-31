@@ -5,6 +5,7 @@ using MackySoft.Ucli.Contracts.Assurance.Build;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Assurance;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Tests;
 
@@ -161,9 +162,9 @@ internal static class BuildRunCliOutputFixtureFactory
     private static BuildGenerationsOutput CreateGenerations ()
     {
         return new BuildGenerationsOutput(
-            Before: new IpcUnityGenerationSnapshot(1, 1, 1, 1),
-            After: new IpcUnityGenerationSnapshot(2, 1, 1, 1),
-            ValidFor: new IpcUnityGenerationSnapshot(2, 1, 1, 1));
+            Before: new UnityEditorGenerationSnapshot(1, 1, 1, 1),
+            After: new UnityEditorGenerationSnapshot(2, 1, 1, 1),
+            ValidFor: new UnityEditorGenerationSnapshot(2, 1, 1, 1));
     }
 
     private static IpcBuildDirtyState CreateDirtyState ()

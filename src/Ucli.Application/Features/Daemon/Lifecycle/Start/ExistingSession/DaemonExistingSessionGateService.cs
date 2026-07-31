@@ -6,6 +6,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Recovery;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.ExistingSession;
 
@@ -62,7 +63,7 @@ internal sealed class DaemonExistingSessionGateService : IDaemonExistingSessionG
         ResolvedUnityProjectContext unityProject,
         DaemonSession session,
         ExecutionDeadline deadline,
-        DaemonEditorMode? editorMode,
+        UnityEditorMode? editorMode,
         IDaemonStartProgressObserver? progressObserver = null,
         CancellationToken cancellationToken = default)
     {
@@ -86,7 +87,7 @@ internal sealed class DaemonExistingSessionGateService : IDaemonExistingSessionG
 
         // A blocked endpoint must leave time for identity-validated GUI rebootstrap.
         // Lifecycle state cannot decide this cap because a stale endpoint may still publish ready.
-        var initialProbeDeadline = session.EditorMode == DaemonEditorMode.Gui
+        var initialProbeDeadline = session.EditorMode == UnityEditorMode.Gui
             && pingTimeout > DaemonTimeouts.ProbeAttemptTimeoutCap
                 ? deadline.CreateCappedDeadline(DaemonTimeouts.ProbeAttemptTimeoutCap)
                 : deadline;
@@ -184,7 +185,7 @@ internal sealed class DaemonExistingSessionGateService : IDaemonExistingSessionG
         ResolvedUnityProjectContext unityProject,
         DaemonSession session,
         ExecutionDeadline deadline,
-        DaemonEditorMode? editorMode,
+        UnityEditorMode? editorMode,
         IDaemonStartProgressObserver? progressObserver,
         CancellationToken cancellationToken)
     {
@@ -299,7 +300,7 @@ internal sealed class DaemonExistingSessionGateService : IDaemonExistingSessionG
         ExecutionDeadline deadline,
         CancellationToken cancellationToken)
     {
-        if (session.EditorMode != DaemonEditorMode.Gui)
+        if (session.EditorMode != UnityEditorMode.Gui)
         {
             return ExecutionDeadlineOperationResult<DaemonLifecycleObservation?>.Success(null);
         }
@@ -339,7 +340,7 @@ internal sealed class DaemonExistingSessionGateService : IDaemonExistingSessionG
 
     private static DaemonStartResult? CreateEditorModeMismatchResult (
         DaemonSession session,
-        DaemonEditorMode? editorMode)
+        UnityEditorMode? editorMode)
     {
         if (!editorMode.HasValue)
         {
@@ -355,7 +356,7 @@ internal sealed class DaemonExistingSessionGateService : IDaemonExistingSessionG
         var runningEditorMode = TextVocabulary.GetText(session.EditorMode);
         return DaemonStartResult.Failure(ExecutionError.InvalidArgument(
             $"Requested daemon editorMode '{requestedEditorMode}' does not match running daemon editorMode '{runningEditorMode}'.",
-            DaemonErrorCodes.DaemonEditorModeMismatch));
+            DaemonErrorCodes.UnityEditorModeMismatch));
     }
 
     private static bool MatchesExpectedSessionIdentity (
@@ -415,7 +416,7 @@ internal sealed class DaemonExistingSessionGateService : IDaemonExistingSessionG
     private static async ValueTask EmitEndpointReadyAsync (
         IDaemonStartProgressObserver? progressObserver,
         DaemonSession session,
-        IpcUnityEditorObservation lifecycleObservation,
+        UnityEditorObservation lifecycleObservation,
         CancellationToken cancellationToken)
     {
         if (progressObserver is null)

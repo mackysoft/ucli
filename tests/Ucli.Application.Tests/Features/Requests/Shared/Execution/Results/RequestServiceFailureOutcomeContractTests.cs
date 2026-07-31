@@ -1,7 +1,7 @@
 using MackySoft.Ucli.Application.Features.Requests.Call.Common.Contracts;
 using MackySoft.Ucli.Application.Features.Requests.Plan.Common.Contracts;
 using MackySoft.Ucli.Application.Features.Requests.Plan.UseCases.Plan.Projection;
-using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.OperationExecute;
+using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
 using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 using MackySoft.Ucli.Application.Features.Requests.Validate.Common.Contracts;
 using MackySoft.Ucli.Application.Shared.Foundation;
@@ -72,17 +72,9 @@ public sealed class RequestServiceFailureOutcomeContractTests
                 startupFailure: null),
         ];
 
-        var result = OperationExecuteResultFactory.Failure(
-            RequestServiceResultInvariantTestSupport.RequestId,
-            [],
-            errors,
-            contractViolations: [],
-            readPostcondition: null,
-            project: null,
-            postReadSource: null);
-
-        Assert.Equal(ApplicationOutcome.InfrastructureError, result.Outcome);
-        Assert.Equal("Unity test infrastructure failed.", result.Message);
+        Assert.Equal(
+            ApplicationOutcome.InfrastructureError,
+            ApplicationFailureOutcomeResolver.Resolve(errors));
     }
 
     [Fact]
@@ -110,16 +102,16 @@ public sealed class RequestServiceFailureOutcomeContractTests
             "Validation failed.",
             "/steps/0");
 
-        var operationResult = OperationExecuteResultFactory.FromValidationErrors(
-            RequestServiceResultInvariantTestSupport.RequestId,
-            [
-                validationError,
-            ],
-            project: null);
-        Assert.Equal(ApplicationOutcome.InvalidArgument, operationResult.Outcome);
+        var normalizedFailures = RequestFailureNormalizer.FromValidationErrors(
+        [
+            validationError,
+        ]);
+        Assert.Equal(
+            ApplicationOutcome.InvalidArgument,
+            ApplicationFailureOutcomeResolver.Resolve(normalizedFailures));
         Assert.Equal(
             ValidationErrorCodes.OperationArgsInvalid,
-            Assert.Single(operationResult.Errors).Code);
+            Assert.Single(normalizedFailures).Code);
 
         var validateResult = ValidateServiceResult.ValidationFailure(
             new ValidateExecutionOutput(ProjectIdentityInfoTestFactory.Create(), RequestServiceResultInvariantTestSupport.CreateReadIndexInfo()),

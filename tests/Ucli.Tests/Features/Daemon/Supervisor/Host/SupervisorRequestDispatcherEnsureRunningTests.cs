@@ -4,6 +4,7 @@ using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Project;
 using MackySoft.Ucli.Tests.Helpers.Daemon;
 using static MackySoft.Ucli.Tests.Supervisor.SupervisorRequestDispatcherTestSupport;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Tests.Supervisor;
 
@@ -162,7 +163,7 @@ public sealed class SupervisorRequestDispatcherEnsureRunningTests
     [Trait("Size", "Small")]
     public async Task HandleConnection_WhenEditorModeIsSpecified_PassesTypedValuesToStartOperation ()
     {
-        var lifecycleObservation = IpcUnityEditorObservationTestFactory.Create(IpcEditorLifecycleState.Compiling);
+        var lifecycleObservation = UnityEditorObservationTestFactory.Create(UnityEditorLifecycleState.Compiling);
         var startOperation = new RecordingDaemonStartOperation
         {
             StartResult = DaemonStartResult.AlreadyRunning(
@@ -192,7 +193,7 @@ public sealed class SupervisorRequestDispatcherEnsureRunningTests
                     new SupervisorIpcContracts.EnsureRunningRequest(
                         UnityProjectRoot: unityProjectRoot.Value,
                         ProjectFingerprint: projectFingerprint,
-                        EditorMode: DaemonEditorMode.Gui,
+                        EditorMode: UnityEditorMode.Gui,
                         OnStartupBlocked: DaemonStartupBlockedProcessPolicy.Terminate)),
                 responseMode: TextVocabulary.GetText(IpcResponseMode.Single),
                 requestDeadlineUtc: CreateEnsureRunningDeadline(1000),
@@ -207,7 +208,7 @@ public sealed class SupervisorRequestDispatcherEnsureRunningTests
             unityProjectRoot,
             projectFingerprint,
             TimeSpan.FromMilliseconds(1000),
-            DaemonEditorMode.Gui,
+            UnityEditorMode.Gui,
             DaemonStartupBlockedProcessPolicy.Terminate);
         Assert.True(IpcPayloadCodec.TryDeserialize(
             response.Payload,
@@ -223,7 +224,7 @@ public sealed class SupervisorRequestDispatcherEnsureRunningTests
         var session = DaemonSessionTestFactory.Create(
             sessionToken: "session-token",
             issuedAtUtc: new DateTimeOffset(2026, 03, 11, 0, 0, 0, TimeSpan.Zero),
-            editorMode: DaemonEditorMode.Gui,
+            editorMode: UnityEditorMode.Gui,
             ownerKind: DaemonSessionOwnerKind.User,
             canShutdownProcess: false,
             endpointTransportKind: IpcTransportKind.UnixDomainSocket,
@@ -231,7 +232,7 @@ public sealed class SupervisorRequestDispatcherEnsureRunningTests
             processId: 42,
             ownerProcessId: 24,
             editorInstanceId: DaemonSessionTestFactory.DefaultEditorInstanceId);
-        var lifecycleObservation = IpcUnityEditorObservationTestFactory.Create(IpcEditorLifecycleState.Ready);
+        var lifecycleObservation = UnityEditorObservationTestFactory.Create(UnityEditorLifecycleState.Ready);
         var startOperation = new RecordingDaemonStartOperation
         {
             StartResult = DaemonStartResult.Attached(session, lifecycleObservation),
@@ -253,7 +254,7 @@ public sealed class SupervisorRequestDispatcherEnsureRunningTests
                     new SupervisorIpcContracts.EnsureRunningRequest(
                         UnityProjectRoot: unityProjectRoot.Value,
                         ProjectFingerprint: projectFingerprint,
-                        EditorMode: DaemonEditorMode.Gui,
+                        EditorMode: UnityEditorMode.Gui,
                         OnStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto)),
                 responseMode: TextVocabulary.GetText(IpcResponseMode.Single),
                 requestDeadlineUtc: CreateEnsureRunningDeadline(1000),

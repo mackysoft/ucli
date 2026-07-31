@@ -1,4 +1,6 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
+using MackySoft.Ucli.Contracts.Editor;
+
 namespace MackySoft.Ucli.Tests.Daemon;
 
 using MackySoft.Ucli.Application.Shared.Foundation;
@@ -81,7 +83,7 @@ internal static class DaemonLaunchServiceBatchmodeStartupBlockerTestSupport
             retryDisposition: DaemonStartupRetryDisposition.RetryAfterFix,
             message: CompileBlockerMessage,
             startupPhase: DaemonDiagnosisStartupPhase.ScriptCompilation,
-            actionRequired: DaemonDiagnosisActionRequired.FixCompileErrors,
+            actionRequired: UnityEditorActionRequired.FixCompileErrors,
             primaryDiagnostic: primaryDiagnostic);
     }
 
@@ -145,7 +147,7 @@ internal static class DaemonLaunchServiceBatchmodeStartupBlockerTestSupport
             return Service.LaunchAsync(
                 Context,
                 ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), TimeProvider),
-                DaemonEditorMode.Batchmode,
+                UnityEditorMode.Batchmode,
                 onStartupBlocked,
                 cancellationToken: CancellationToken.None);
         }

@@ -15,6 +15,7 @@ using MackySoft.Ucli.Contracts.Ipc.Authorization;
 using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.Infrastructure.Project;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Features.Daemon.Supervisor.Host;
 
@@ -570,7 +571,7 @@ internal sealed class SupervisorRequestDispatcher
         IpcStreamFrameWriter streamWriter,
         SupervisorIpcContracts.EnsureRunningRequest payload,
         int timeoutMilliseconds,
-        DaemonEditorMode? editorMode,
+        UnityEditorMode? editorMode,
         DaemonStartupBlockedProcessPolicy onStartupBlocked)
     {
         return new DaemonStartProgressEmitter(

@@ -14,7 +14,7 @@
     },
     "opResults": [
       {
-        "op": "ucli.project.refresh",
+        "op": "ucli.project.save",
         "phase": "call",
         "applied": true,
         "changed": true,
@@ -33,7 +33,7 @@
     "contractViolations": [
       {
         "instancePath": "/opResults/0",
-        "operation": "ucli.project.refresh",
+        "operation": "ucli.project.save",
         "expectedFact": "assurance.mayDirty=false",
         "observedResult": "opResults[].changed=true",
         "applicationState": "applied"
@@ -48,7 +48,7 @@
       },
       "opResults": [
         {
-          "op": "ucli.project.refresh",
+          "op": "ucli.project.save",
           "phase": "plan",
           "applied": false,
           "changed": true,
@@ -67,7 +67,7 @@
       "contractViolations": [
         {
           "instancePath": "/opResults/0",
-          "operation": "ucli.project.refresh",
+          "operation": "ucli.project.save",
           "expectedFact": "assurance.mayDirty=false",
           "observedResult": "opResults[].changed=true",
           "applicationState": "indeterminate"

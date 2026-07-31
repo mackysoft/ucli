@@ -1,11 +1,10 @@
-using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Contracts;
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Payload;
-using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Foundation;
-using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Execution;
+using MackySoft.Ucli.Contracts.Execution.Lifecycle;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 
@@ -47,7 +46,10 @@ internal static class CompileCommandResultFactory
     public static CommandResult CreateExecutionError (ExecutionError error)
     {
         ArgumentNullException.ThrowIfNull(error);
-        return Create(CompileExecutionResult.Failed(error, project: null));
+        return CommandFailureProjector.Create(
+            UcliCommandNames.Compile,
+            ApplicationFailure.FromExecutionError(error),
+            CreateEmptyErrorPayload());
     }
 
     private static CommandResult CreateSuccess (CompileExecutionResult.CompletedResult executionResult)
@@ -60,29 +62,37 @@ internal static class CompileCommandResultFactory
 
     private static CommandResult CreateFailure (CompileExecutionResult.FailedResult executionResult)
     {
-        var startupFailure = StartupFailureFinder.FindInFailures([executionResult.Failure]);
+        var payload = executionResult.Project is null
+            ? CreateEmptyErrorPayload()
+            : CommandErrorPayload.Detailed(new CompileFailureCommandPayload(
+                executionResult.Project,
+                executionResult.LifecycleExecutionRef is null
+                    ? null
+                    : RequireFailureReference(
+                        executionResult.LifecycleExecutionRef,
+                        LifecycleExecutionKind.Compile),
+                executionResult.ApplicationState));
         return CommandFailureProjector.Create(
             UcliCommandNames.Compile,
             executionResult.Message,
-            CommandErrorPayload.Detailed(new CompileFailureCommandPayload(
-                executionResult.Project,
-                startupFailure?.Startup,
-                startupFailure?.Diagnosis,
-                startupFailure?.RetryDisposition,
-                startupFailure?.SafeToRetryImmediately)),
+            payload,
             [executionResult.Failure]);
     }
 
+    private static ExecutionRef RequireFailureReference (
+        ExecutionRef executionRef,
+        LifecycleExecutionKind expectedKind)
+    {
+        LifecycleExecutionContractGuard.RequireFailureReference(
+            executionRef,
+            nameof(executionRef),
+            expectedKind);
+        return executionRef;
+    }
+
     private sealed record CompileFailureCommandPayload (
-        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        ProjectIdentityInfo? Project,
-        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        DaemonStartupObservationOutput? Startup,
-        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        DaemonDiagnosisOutput? Diagnosis,
-        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        DaemonStartupRetryDisposition? RetryDisposition,
-        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        bool? SafeToRetryImmediately)
+        ProjectIdentityInfo Project,
+        ExecutionRef? LifecycleExecutionRef,
+        ExecutionApplicationState ApplicationState)
         : CommandErrorPayload<CompileFailureCommandPayload>;
 }

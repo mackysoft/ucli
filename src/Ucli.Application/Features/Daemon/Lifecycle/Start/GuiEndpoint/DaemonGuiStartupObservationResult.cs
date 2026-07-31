@@ -2,6 +2,7 @@ using System.Diagnostics.CodeAnalysis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.GuiEndpoint;
 
@@ -10,7 +11,7 @@ internal sealed record DaemonGuiStartupObservationResult
 {
     private DaemonGuiStartupObservationResult (
         DaemonSession? session,
-        IpcUnityEditorObservation? lifecycleObservation,
+        UnityEditorObservation? lifecycleObservation,
         DaemonGuiStartupBlockerObservation? blockerObservation,
         ExecutionError? error)
     {
@@ -24,7 +25,7 @@ internal sealed record DaemonGuiStartupObservationResult
     public DaemonSession? Session { get; }
 
     /// <summary> Gets the endpoint-registered lifecycle observation when startup succeeds. </summary>
-    public IpcUnityEditorObservation? LifecycleObservation { get; }
+    public UnityEditorObservation? LifecycleObservation { get; }
 
     /// <summary> Gets the terminal startup blocker observation when one is available. </summary>
     public DaemonGuiStartupBlockerObservation? BlockerObservation { get; }
@@ -43,7 +44,7 @@ internal sealed record DaemonGuiStartupObservationResult
     /// <summary> Creates a successful observation result. </summary>
     public static DaemonGuiStartupObservationResult Success (
         DaemonSession session,
-        IpcUnityEditorObservation lifecycleObservation)
+        UnityEditorObservation lifecycleObservation)
     {
         ArgumentNullException.ThrowIfNull(session);
         ArgumentNullException.ThrowIfNull(lifecycleObservation);

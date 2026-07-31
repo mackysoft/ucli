@@ -1,4 +1,3 @@
-using MackySoft.Ucli.Application.Features.Assurance.Compile.Artifacts;
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Contracts;
 using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Source;
 using MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Assets;
@@ -85,8 +84,6 @@ public sealed class UcliServiceCollectionExtensionsTests
 
         Assert.NotNull(serviceProvider.GetRequiredService<IReadIndexArtifactReader>());
         Assert.NotNull(serviceProvider.GetRequiredService<ICompileService>());
-        Assert.NotNull(serviceProvider.GetRequiredService<ICompileRunArtifactReader>());
-        Assert.NotNull(serviceProvider.GetRequiredService<ICompileRunArtifactStore>());
         Assert.NotNull(serviceProvider.GetRequiredService<IReadIndexArtifactWriter>());
         Assert.NotNull(serviceProvider.GetRequiredService<IReadIndexFreshnessEvaluator>());
         Assert.NotNull(serviceProvider.GetRequiredService<IOpsCatalogSourceRefreshService>());

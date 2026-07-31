@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Launch;
 
@@ -12,7 +13,7 @@ internal interface IDaemonLaunchSessionService
     /// <returns> The launch-session persistence result. </returns>
     ValueTask<DaemonLaunchSessionWriteResult> InitializeAsync (
         ResolvedUnityProjectContext unityProject,
-        DaemonEditorMode editorMode,
+        UnityEditorMode editorMode,
         CancellationToken cancellationToken = default);
 
     /// <summary> Persists launched daemon process identity to an existing session snapshot. </summary>

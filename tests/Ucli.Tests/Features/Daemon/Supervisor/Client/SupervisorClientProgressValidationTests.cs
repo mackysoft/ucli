@@ -1,6 +1,7 @@
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Tests.Helpers.Daemon;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Tests.Supervisor;
 
@@ -46,7 +47,7 @@ public sealed class SupervisorClientProgressValidationTests
                 DaemonStartProgressEntryTestFactory.CreateStartupObservation(
                     projectFingerprint: ProjectFingerprintTestFactory.Create("other-fingerprint"),
                     timeoutMilliseconds: 5000,
-                    editorMode: DaemonEditorMode.Gui,
+                    editorMode: UnityEditorMode.Gui,
                     launchAttemptId: null,
                     ownerKind: DaemonSessionOwnerKind.User,
                     canShutdownProcess: false,
@@ -68,7 +69,7 @@ public sealed class SupervisorClientProgressValidationTests
                     onStartupBlocked = "auto",
                     lifecycleState = "compiling",
                     blockingReason = "busy",
-                    generations = new IpcUnityGenerationSnapshot(0, 0, 0, 0),
+                    generations = new UnityEditorGenerationSnapshot(0, 0, 0, 0),
                     canAcceptExecutionRequests = false,
                 })
         },
@@ -99,7 +100,7 @@ public sealed class SupervisorClientProgressValidationTests
             Guid.NewGuid(),
             SupervisorClientTestSupport.CreateUnityProject(),
             ExecutionDeadline.Start(TimeSpan.FromSeconds(5), TimeProvider.System),
-            editorMode: DaemonEditorMode.Gui,
+            editorMode: UnityEditorMode.Gui,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
             progressSink,
             cancellationToken: CancellationToken.None);
@@ -127,7 +128,7 @@ public sealed class SupervisorClientProgressValidationTests
             Guid.NewGuid(),
             SupervisorClientTestSupport.CreateUnityProject(),
             ExecutionDeadline.Start(TimeSpan.FromSeconds(5), TimeProvider.System),
-            editorMode: DaemonEditorMode.Gui,
+            editorMode: UnityEditorMode.Gui,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
             new ThrowingCommandProgressSink(new IOException("Simulated progress sink failure.")),
             cancellationToken: CancellationToken.None);

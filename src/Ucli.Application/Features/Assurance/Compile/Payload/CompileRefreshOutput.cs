@@ -1,11 +1,13 @@
 
+using MackySoft.Ucli.Contracts.Execution.Lifecycle;
+
 namespace MackySoft.Ucli.Application.Features.Assurance.Compile.Payload;
 
 /// <summary> Represents AssetDatabase refresh evidence grouped under <c>payload.compile.refresh</c>. </summary>
 internal sealed record CompileRefreshOutput
 {
     public CompileRefreshOutput (
-        CompileRefreshOrigin Origin,
+        CompileLifecycleRefreshOrigin Origin,
         bool Requested,
         DateTimeOffset StartedAtUtc,
         DateTimeOffset? CompletedAtUtc,
@@ -23,7 +25,7 @@ internal sealed record CompileRefreshOutput
         this.Completed = Completed;
     }
 
-    public CompileRefreshOrigin Origin { get; }
+    public CompileLifecycleRefreshOrigin Origin { get; }
 
     public bool Requested { get; }
 

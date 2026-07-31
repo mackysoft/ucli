@@ -5,14 +5,15 @@ using MackySoft.Ucli.Application.Shared.Execution.Progress;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Tests.Helpers.Daemon;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Tests;
 
 internal static class DaemonStartCommandTestSupport
 {
     public static DaemonStartExecutionOutput CreateSuccessOutput (
-        IpcEditorLifecycleState lifecycleState = IpcEditorLifecycleState.Ready,
-        IpcEditorBlockingReason? blockingReason = null,
+        UnityEditorLifecycleState lifecycleState = UnityEditorLifecycleState.Ready,
+        UnityEditorBlockingReason? blockingReason = null,
         bool canAcceptExecutionRequests = true)
     {
         return new DaemonStartExecutionOutput(
@@ -22,7 +23,7 @@ internal static class DaemonStartCommandTestSupport
             Session: new DaemonSessionOutput(
                 ProjectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint"),
                 IssuedAtUtc: new DateTimeOffset(2026, 03, 12, 1, 2, 3, TimeSpan.Zero),
-                EditorMode: DaemonEditorMode.Batchmode,
+                EditorMode: UnityEditorMode.Batchmode,
                 OwnerKind: DaemonSessionOwnerKind.Cli,
                 CanShutdownProcess: true,
                 EndpointTransportKind: IpcTransportKind.NamedPipe,
@@ -32,10 +33,10 @@ internal static class DaemonStartCommandTestSupport
                 OwnerProcessId: 5678),
             LifecycleState: lifecycleState,
             BlockingReason: blockingReason,
-            Generations: new IpcUnityGenerationSnapshot(0, 0, 0, 0),
-            PlayMode: new IpcPlayModeSnapshot(
-                IpcPlayModeState.Stopped,
-                IpcPlayModeTransition.None,
+            Generations: new UnityEditorGenerationSnapshot(0, 0, 0, 0),
+            PlayMode: new UnityEditorPlayModeSnapshot(
+                UnityEditorPlayModeState.Stopped,
+                UnityEditorPlayModeTransition.None,
                 IsPlaying: false,
                 IsPlayingOrWillChangePlaymode: false),
             CanAcceptExecutionRequests: canAcceptExecutionRequests);
@@ -110,11 +111,11 @@ internal static class DaemonStartCommandTestSupport
                     DaemonStartProgressPayloadKind.LifecycleSnapshot,
                     ProjectFingerprintTestFactory.Create("fingerprint"),
                     1234,
-                    DaemonEditorMode.Batchmode,
+                    UnityEditorMode.Batchmode,
                     DaemonStartupBlockedProcessPolicy.Auto,
-                    IpcEditorLifecycleState.Compiling,
-                    IpcEditorBlockingReason.Compile,
-                    new IpcUnityGenerationSnapshot(0, 0, 0, 0),
+                    UnityEditorLifecycleState.Compiling,
+                    UnityEditorBlockingReason.Compile,
+                    new UnityEditorGenerationSnapshot(0, 0, 0, 0),
                     CanAcceptExecutionRequests: false),
                 cancellationToken)
             .ConfigureAwait(false);
@@ -146,7 +147,7 @@ internal static class DaemonStartCommandTestSupport
         return new DaemonStartProgressEntry(
             ProjectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint"),
             TimeoutMilliseconds: 1234,
-            EditorMode: DaemonEditorMode.Batchmode,
+            EditorMode: UnityEditorMode.Batchmode,
             OnStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
             Result: result,
             StartStatus: startStatus,

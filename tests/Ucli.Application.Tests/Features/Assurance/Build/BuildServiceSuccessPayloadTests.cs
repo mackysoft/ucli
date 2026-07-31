@@ -6,6 +6,7 @@ using MackySoft.Ucli.Application.Features.Assurance.Build.Vocabulary;
 using MackySoft.Ucli.Contracts.Assurance.Build;
 using MackySoft.Ucli.Contracts.Ipc;
 using static MackySoft.Ucli.Application.Tests.Features.Assurance.Build.BuildServiceTestSupport;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Tests.Features.Assurance.Build;
 
@@ -38,9 +39,9 @@ public sealed class BuildServiceSuccessPayloadTests
         Assert.Equal(BuildArtifactKind.BuildReport, output.Build.Summary.ReportRef);
         Assert.Equal(BuildArtifactKind.BuildLog, output.Build.Logs.ReportRef);
         Assert.Equal(IpcBuildLogCompletionReason.Completed, output.Build.Logs.CompletionReason);
-        var generationsBefore = Assert.IsType<IpcUnityGenerationSnapshot>(output.Build.Generations.Before);
-        var generationsAfter = Assert.IsType<IpcUnityGenerationSnapshot>(output.Build.Generations.After);
-        var generationsValidFor = Assert.IsType<IpcUnityGenerationSnapshot>(output.Build.Generations.ValidFor);
+        var generationsBefore = Assert.IsType<UnityEditorGenerationSnapshot>(output.Build.Generations.Before);
+        var generationsAfter = Assert.IsType<UnityEditorGenerationSnapshot>(output.Build.Generations.After);
+        var generationsValidFor = Assert.IsType<UnityEditorGenerationSnapshot>(output.Build.Generations.ValidFor);
         Assert.Equal(10, generationsBefore.AssetRefreshGeneration);
         Assert.Equal(11, generationsAfter.AssetRefreshGeneration);
         Assert.Equal(11, generationsValidFor.AssetRefreshGeneration);

@@ -3,6 +3,7 @@ using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Screenshot;
 using MackySoft.Ucli.Tests.Hosting.Cli.Common.Execution;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Tests;
 
@@ -176,13 +177,13 @@ public sealed class ScreenshotCommandTests
                 requestedHeight ?? 720,
                 IpcScreenshotColorSpace.Linear,
                 new UnityEditorStateSnapshot(
-                    DaemonEditorMode.Gui,
-                    IpcEditorLifecycleState.Ready,
-                    IpcCompileState.Ready,
-                    new IpcUnityGenerationSnapshot(5, 7, 11, 13),
-                    new IpcPlayModeSnapshot(
-                        IpcPlayModeState.Stopped,
-                        IpcPlayModeTransition.None,
+                    UnityEditorMode.Gui,
+                    UnityEditorLifecycleState.Ready,
+                    UnityEditorCompileState.Ready,
+                    new UnityEditorGenerationSnapshot(5, 7, 11, 13),
+                    new UnityEditorPlayModeSnapshot(
+                        UnityEditorPlayModeState.Stopped,
+                        UnityEditorPlayModeTransition.None,
                         IsPlaying: false,
                         IsPlayingOrWillChangePlaymode: false))),
             new PathArtifactRef(

@@ -3,6 +3,7 @@ using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.Authorization;
 using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Tests.Daemon;
 
@@ -42,7 +43,7 @@ public sealed class DaemonSessionContractMapperTests
     {
         var contract = CreateContract() with
         {
-            EditorMode = DaemonEditorMode.Gui,
+            EditorMode = UnityEditorMode.Gui,
             OwnerKind = DaemonSessionOwnerKind.User,
             CanShutdownProcess = false,
             EditorInstanceId = EditorInstanceId,
@@ -59,7 +60,7 @@ public sealed class DaemonSessionContractMapperTests
         Assert.True(isValid);
         Assert.Null(error);
         Assert.NotNull(session);
-        Assert.Equal(DaemonEditorMode.Gui, session.EditorMode);
+        Assert.Equal(UnityEditorMode.Gui, session.EditorMode);
         Assert.Equal(DaemonSessionOwnerKind.User, session.OwnerKind);
         Assert.Equal(IpcTransportKind.NamedPipe, session.EndpointContract.TransportKind);
         Assert.Equal("ucli-daemon-endpoint", session.EndpointContract.Address);
@@ -80,7 +81,7 @@ public sealed class DaemonSessionContractMapperTests
             token,
             Fingerprint,
             new DateTimeOffset(2026, 7, 13, 0, 0, 0, TimeSpan.Zero),
-            DaemonEditorMode.Gui,
+            UnityEditorMode.Gui,
             DaemonSessionOwnerKind.User,
             canShutdownProcess: false,
             new IpcEndpoint(IpcTransportKind.UnixDomainSocket, socketPath.Value),
@@ -95,7 +96,7 @@ public sealed class DaemonSessionContractMapperTests
         Assert.Equal(DaemonSessionStorageContract.CurrentSchemaVersion, contract.SchemaVersion);
         Assert.Equal(SessionGenerationId, contract.SessionGenerationId);
         Assert.Equal(SessionToken, contract.SessionToken);
-        Assert.Equal(DaemonEditorMode.Gui, contract.EditorMode);
+        Assert.Equal(UnityEditorMode.Gui, contract.EditorMode);
         Assert.Equal(DaemonSessionOwnerKind.User, contract.OwnerKind);
         Assert.Equal(IpcTransportKind.UnixDomainSocket, contract.EndpointTransportKind);
         Assert.Equal(socketPath.Value, contract.EndpointAddress);
@@ -248,7 +249,7 @@ public sealed class DaemonSessionContractMapperTests
     {
         var contract = CreateContract() with
         {
-            EditorMode = DaemonEditorMode.Gui,
+            EditorMode = UnityEditorMode.Gui,
             OwnerKind = DaemonSessionOwnerKind.User,
             CanShutdownProcess = false,
             EditorInstanceId = null,
@@ -275,7 +276,7 @@ public sealed class DaemonSessionContractMapperTests
             SessionToken: SessionToken,
             ProjectFingerprint: Fingerprint,
             IssuedAtUtc: new DateTimeOffset(2026, 7, 13, 0, 0, 0, TimeSpan.Zero),
-            EditorMode: DaemonEditorMode.Batchmode,
+            EditorMode: UnityEditorMode.Batchmode,
             OwnerKind: DaemonSessionOwnerKind.Cli,
             CanShutdownProcess: true,
             EndpointTransportKind: IpcTransportKind.NamedPipe,

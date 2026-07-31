@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Launch;
 
@@ -11,20 +12,20 @@ internal static class DaemonLaunchEditorModePolicy
     /// <param name="error"> The resolution error when resolution fails; otherwise <see langword="null" />. </param>
     /// <returns> <see langword="true" /> when the launch mode is supported; otherwise <see langword="false" />. </returns>
     public static bool TryResolve (
-        DaemonEditorMode? editorMode,
-        out DaemonEditorMode launchEditorMode,
+        UnityEditorMode? editorMode,
+        out UnityEditorMode launchEditorMode,
         out ExecutionError? error)
     {
-        if (editorMode is null or DaemonEditorMode.Batchmode)
+        if (editorMode is null or UnityEditorMode.Batchmode)
         {
-            launchEditorMode = DaemonEditorMode.Batchmode;
+            launchEditorMode = UnityEditorMode.Batchmode;
             error = null;
             return true;
         }
 
-        if (editorMode == DaemonEditorMode.Gui)
+        if (editorMode == UnityEditorMode.Gui)
         {
-            launchEditorMode = DaemonEditorMode.Gui;
+            launchEditorMode = UnityEditorMode.Gui;
             error = null;
             return true;
         }

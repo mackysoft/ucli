@@ -7,6 +7,7 @@ using MackySoft.Ucli.Application.Features.Daemon.UseCases.Inventory;
 using MackySoft.Ucli.Application.Shared.Git;
 using MackySoft.Ucli.Contracts.Ipc;
 using static MackySoft.Ucli.Application.Tests.Daemon.DaemonListQueryServiceTestSupport;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Tests.Daemon;
 
@@ -285,7 +286,7 @@ public sealed class DaemonListQueryServiceTimeoutTests
                 if (unityProject.ProjectFingerprint == worktreeB.ProjectFingerprint)
                 {
                     timeProvider.Advance(TimeSpan.FromMilliseconds(50));
-                    return ValueTask.FromException<IpcUnityEditorObservation>(new TimeoutException("probe timed out"));
+                    return ValueTask.FromException<UnityEditorObservation>(new TimeoutException("probe timed out"));
                 }
 
                 cancellationToken.ThrowIfCancellationRequested();

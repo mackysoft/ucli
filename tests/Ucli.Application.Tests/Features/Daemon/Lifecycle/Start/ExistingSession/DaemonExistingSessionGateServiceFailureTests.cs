@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Contracts.Editor;
+
 namespace MackySoft.Ucli.Application.Tests.Daemon;
 
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Observation;
@@ -15,7 +17,7 @@ public sealed class DaemonExistingSessionGateServiceFailureTests
         var timeProvider = new ManualTimeProvider();
         var pingStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var pingCancellationObserved = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var pingCompletion = new TaskCompletionSource<IpcUnityEditorObservation>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var pingCompletion = new TaskCompletionSource<UnityEditorObservation>(TaskCreationOptions.RunContinuationsAsynchronously);
         var pingFinished = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var pingClient = new RecordingDaemonPingInfoClient
         {

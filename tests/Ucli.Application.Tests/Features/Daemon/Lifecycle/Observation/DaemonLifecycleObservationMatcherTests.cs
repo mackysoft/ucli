@@ -1,5 +1,6 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Observation;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Tests.Daemon;
 
@@ -14,7 +15,7 @@ public sealed class DaemonLifecycleObservationMatcherTests
     public void MatchesSession_WhenUserOwnedEditorInstanceIdsMatch_UsesEditorInstanceId ()
     {
         var session = DaemonSessionTestFactory.Create(
-            editorMode: DaemonEditorMode.Gui,
+            editorMode: UnityEditorMode.Gui,
             ownerKind: DaemonSessionOwnerKind.User,
             canShutdownProcess: false,
             processStartedAtUtc: DateTimeOffset.UnixEpoch.AddSeconds(10),
@@ -34,7 +35,7 @@ public sealed class DaemonLifecycleObservationMatcherTests
     {
         var startedAtUtc = DateTimeOffset.UnixEpoch.AddSeconds(10);
         var session = DaemonSessionTestFactory.Create(
-            editorMode: DaemonEditorMode.Gui,
+            editorMode: UnityEditorMode.Gui,
             ownerKind: DaemonSessionOwnerKind.User,
             canShutdownProcess: false,
             processStartedAtUtc: startedAtUtc,
@@ -54,7 +55,7 @@ public sealed class DaemonLifecycleObservationMatcherTests
     {
         var startedAtUtc = DateTimeOffset.UnixEpoch.AddSeconds(10);
         var session = DaemonSessionTestFactory.Create(
-            editorMode: DaemonEditorMode.Gui,
+            editorMode: UnityEditorMode.Gui,
             processStartedAtUtc: startedAtUtc);
         var observation = CreateObservation(
             processStartedAtUtc: startedAtUtc.AddSeconds(1),
@@ -70,7 +71,7 @@ public sealed class DaemonLifecycleObservationMatcherTests
     public void MatchesSession_WhenCliOwnedProcessStartDiffersBeyondTolerance_ReturnsFalse ()
     {
         var session = DaemonSessionTestFactory.Create(
-            editorMode: DaemonEditorMode.Gui,
+            editorMode: UnityEditorMode.Gui,
             processStartedAtUtc: DateTimeOffset.UnixEpoch.AddSeconds(10));
         var observation = CreateObservation(
             processStartedAtUtc: DateTimeOffset.UnixEpoch.AddSeconds(13),
@@ -87,7 +88,7 @@ public sealed class DaemonLifecycleObservationMatcherTests
     {
         var startedAtUtc = DateTimeOffset.UnixEpoch.AddSeconds(10);
         var session = DaemonSessionTestFactory.Create(
-            editorMode: DaemonEditorMode.Gui,
+            editorMode: UnityEditorMode.Gui,
             processStartedAtUtc: startedAtUtc,
             editorInstanceId: EditorInstanceId);
         var observation = CreateObservation(
@@ -105,7 +106,7 @@ public sealed class DaemonLifecycleObservationMatcherTests
     {
         var startedAtUtc = DateTimeOffset.UnixEpoch.AddSeconds(10);
         var session = DaemonSessionTestFactory.Create(
-            editorMode: DaemonEditorMode.Gui,
+            editorMode: UnityEditorMode.Gui,
             processStartedAtUtc: startedAtUtc);
         var observation = CreateObservation(
             processStartedAtUtc: startedAtUtc,
@@ -122,7 +123,7 @@ public sealed class DaemonLifecycleObservationMatcherTests
     {
         var startedAtUtc = DateTimeOffset.UnixEpoch.AddSeconds(10);
         var session = DaemonSessionTestFactory.Create(
-            editorMode: DaemonEditorMode.Gui,
+            editorMode: UnityEditorMode.Gui,
             processStartedAtUtc: startedAtUtc,
             editorInstanceId: EditorInstanceId);
         var observation = CreateObservation(
@@ -142,13 +143,13 @@ public sealed class DaemonLifecycleObservationMatcherTests
             processId: 1234,
             processStartedAtUtc: processStartedAtUtc,
             state: new UnityEditorStateSnapshot(
-                editorMode: DaemonEditorMode.Gui,
-                lifecycleState: IpcEditorLifecycleState.Recovering,
-                compileState: IpcCompileState.Ready,
-                generations: new IpcUnityGenerationSnapshot(1, 1, 0, 0),
-                playMode: new IpcPlayModeSnapshot(
-                    IpcPlayModeState.Stopped,
-                    IpcPlayModeTransition.None,
+                editorMode: UnityEditorMode.Gui,
+                lifecycleState: UnityEditorLifecycleState.Recovering,
+                compileState: UnityEditorCompileState.Ready,
+                generations: new UnityEditorGenerationSnapshot(1, 1, 0, 0),
+                playMode: new UnityEditorPlayModeSnapshot(
+                    UnityEditorPlayModeState.Stopped,
+                    UnityEditorPlayModeTransition.None,
                     IsPlaying: false,
                     IsPlayingOrWillChangePlaymode: false)),
             observedAtUtc: DateTimeOffset.UnixEpoch.AddSeconds(1),

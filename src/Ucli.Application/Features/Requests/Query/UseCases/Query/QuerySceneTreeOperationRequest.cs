@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Projects;
 
 namespace MackySoft.Ucli.Application.Features.Requests.Query.UseCases.Query;
 

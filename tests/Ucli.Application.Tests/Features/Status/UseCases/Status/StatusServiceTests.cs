@@ -6,6 +6,7 @@ using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Context;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Tests.Status;
 
@@ -25,8 +26,8 @@ public sealed class StatusServiceTests
             projectFingerprint: StatusProjectContext.UnityProject.ProjectFingerprint,
             endpointAddress: "ucli-daemon-status");
         var pingResponse = CreatePingResponse(
-            lifecycleState: IpcEditorLifecycleState.Busy,
-            generations: new IpcUnityGenerationSnapshot(
+            lifecycleState: UnityEditorLifecycleState.Busy,
+            generations: new UnityEditorGenerationSnapshot(
                 CompileGeneration: 12,
                 DomainReloadGeneration: 7,
                 AssetRefreshGeneration: 3,
@@ -42,19 +43,19 @@ public sealed class StatusServiceTests
         Assert.Equal(DaemonStatusKind.Running, output.DaemonStatus);
         Assert.Equal("6000.1.4f1", output.UnityVersion);
         Assert.Equal("0.5.0", output.ServerVersion);
-        Assert.Equal(IpcEditorLifecycleState.Busy, output.LifecycleState);
-        Assert.Equal(IpcEditorBlockingReason.Busy, output.BlockingReason);
-        Assert.Equal(IpcCompileState.Ready, output.CompileState);
+        Assert.Equal(UnityEditorLifecycleState.Busy, output.LifecycleState);
+        Assert.Equal(UnityEditorBlockingReason.Busy, output.BlockingReason);
+        Assert.Equal(UnityEditorCompileState.Ready, output.CompileState);
         Assert.NotNull(output.Generations);
         Assert.Equal(12, output.Generations.CompileGeneration);
         Assert.Equal(7, output.Generations.DomainReloadGeneration);
         Assert.Equal(3, output.Generations.AssetRefreshGeneration);
         Assert.Equal(2, output.Generations.PlayModeGeneration);
         Assert.False(output.CanAcceptExecutionRequests);
-        Assert.Equal(DaemonEditorMode.Batchmode, output.EditorMode);
+        Assert.Equal(UnityEditorMode.Batchmode, output.EditorMode);
         Assert.NotNull(output.PlayMode);
-        Assert.Equal(IpcPlayModeState.Stopped, output.PlayMode.State);
-        Assert.Equal(IpcPlayModeTransition.None, output.PlayMode.Transition);
+        Assert.Equal(UnityEditorPlayModeState.Stopped, output.PlayMode.State);
+        Assert.Equal(UnityEditorPlayModeTransition.None, output.PlayMode.Transition);
         Assert.False(output.PlayMode.IsPlaying);
         Assert.False(output.PlayMode.IsPlayingOrWillChangePlaymode);
         var expectedTimeoutMilliseconds = UcliConfig.CreateDefault().IpcTimeoutMillisecondsByCommand[UcliCommandIds.Status.Name];
@@ -168,22 +169,22 @@ public sealed class StatusServiceTests
             new StatusDaemonObservationService(daemonStatusOperation));
     }
 
-    private static IpcUnityEditorObservation CreatePingResponse (
-        IpcEditorLifecycleState lifecycleState = IpcEditorLifecycleState.Ready,
-        IpcUnityGenerationSnapshot? generations = null)
+    private static UnityEditorObservation CreatePingResponse (
+        UnityEditorLifecycleState lifecycleState = UnityEditorLifecycleState.Ready,
+        UnityEditorGenerationSnapshot? generations = null)
     {
-        return new IpcUnityEditorObservation(
+        return new UnityEditorObservation(
             serverVersion: "0.5.0",
             unityVersion: "2022.3.5f1",
             projectFingerprint: StatusProjectContext.UnityProject.ProjectFingerprint,
             state: new UnityEditorStateSnapshot(
-                editorMode: DaemonEditorMode.Batchmode,
+                editorMode: UnityEditorMode.Batchmode,
                 lifecycleState: lifecycleState,
-                compileState: IpcCompileState.Ready,
-                generations: generations ?? new IpcUnityGenerationSnapshot(0, 0, 0, 0),
-                playMode: new IpcPlayModeSnapshot(
-                    State: IpcPlayModeState.Stopped,
-                    Transition: IpcPlayModeTransition.None,
+                compileState: UnityEditorCompileState.Ready,
+                generations: generations ?? new UnityEditorGenerationSnapshot(0, 0, 0, 0),
+                playMode: new UnityEditorPlayModeSnapshot(
+                    State: UnityEditorPlayModeState.Stopped,
+                    Transition: UnityEditorPlayModeTransition.None,
                     IsPlaying: false,
                     IsPlayingOrWillChangePlaymode: false)),
             observedAtUtc: new DateTimeOffset(2026, 7, 13, 0, 0, 0, TimeSpan.Zero),

@@ -11,6 +11,7 @@ using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.UnityIntegration.Ipc.Dispatch;
 using MackySoft.Ucli.UnityIntegration.Ipc.Recovery;
 using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Probe;
 
@@ -138,7 +139,7 @@ internal sealed class IpcDaemonPingClient : IDaemonPingClient, IDaemonPingInfoCl
     }
 
     /// <inheritdoc />
-    public async ValueTask<IpcUnityEditorObservation> PingAndReadAsync (
+    public async ValueTask<UnityEditorObservation> PingAndReadAsync (
         ResolvedUnityProjectContext unityProject,
         TimeSpan timeout,
         bool validateProjectFingerprint,
@@ -154,7 +155,7 @@ internal sealed class IpcDaemonPingClient : IDaemonPingClient, IDaemonPingInfoCl
     }
 
     /// <inheritdoc />
-    public async ValueTask<IpcUnityEditorObservation> PingSessionAndReadAsync (
+    public async ValueTask<UnityEditorObservation> PingSessionAndReadAsync (
         ResolvedUnityProjectContext unityProject,
         DaemonSession session,
         Guid requestId,
@@ -181,7 +182,7 @@ internal sealed class IpcDaemonPingClient : IDaemonPingClient, IDaemonPingInfoCl
         return DecodeResponse(unityProject, response, validateProjectFingerprint);
     }
 
-    private async ValueTask<IpcUnityEditorObservation> PingCurrentSessionAndReadAsync (
+    private async ValueTask<UnityEditorObservation> PingCurrentSessionAndReadAsync (
         ResolvedUnityProjectContext unityProject,
         TimeSpan timeout,
         bool validateProjectFingerprint,
@@ -280,7 +281,7 @@ internal sealed class IpcDaemonPingClient : IDaemonPingClient, IDaemonPingInfoCl
         }
     }
 
-    private async ValueTask<IpcUnityEditorObservation> SendPingAndDecodeWithinDeadlineAsync (
+    private async ValueTask<UnityEditorObservation> SendPingAndDecodeWithinDeadlineAsync (
         ResolvedUnityProjectContext unityProject,
         DaemonSession session,
         Guid requestId,
@@ -349,12 +350,12 @@ internal sealed class IpcDaemonPingClient : IDaemonPingClient, IDaemonPingInfoCl
             .ConfigureAwait(false);
     }
 
-    private static IpcUnityEditorObservation DecodeResponse (
+    private static UnityEditorObservation DecodeResponse (
         ResolvedUnityProjectContext unityProject,
         IpcResponse response,
         bool validateProjectFingerprint)
     {
-        IpcUnityEditorObservation? payload;
+        UnityEditorObservation? payload;
         DaemonPingResponseException? error;
         var isDecoded = validateProjectFingerprint
             ? DaemonPingResponseCodec.TryDecodePayloadForProject(

@@ -3,6 +3,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Tests.Helpers.Daemon;
 using static MackySoft.Ucli.Tests.Daemon.DaemonLaunchServiceTestSupport;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Tests.Daemon;
 
@@ -52,7 +53,7 @@ public sealed class DaemonLaunchServiceDeadlineTests
         var launchTask = service.LaunchAsync(
                 context,
                 ExecutionDeadline.Start(timeout, timeProvider),
-                DaemonEditorMode.Batchmode,
+                UnityEditorMode.Batchmode,
                 DaemonStartupBlockedProcessPolicy.Auto,
                 cancellationToken: CancellationToken.None)
             .AsTask();
@@ -125,7 +126,7 @@ public sealed class DaemonLaunchServiceDeadlineTests
         var launchTask = service.LaunchAsync(
                 context,
                 ExecutionDeadline.Start(timeout, timeProvider),
-                DaemonEditorMode.Batchmode,
+                UnityEditorMode.Batchmode,
                 DaemonStartupBlockedProcessPolicy.Auto,
                 cancellationToken: CancellationToken.None)
             .AsTask();
@@ -206,7 +207,7 @@ public sealed class DaemonLaunchServiceDeadlineTests
         var launchTask = service.LaunchAsync(
                 context,
                 ExecutionDeadline.Start(timeout, timeProvider),
-                DaemonEditorMode.Batchmode,
+                UnityEditorMode.Batchmode,
                 DaemonStartupBlockedProcessPolicy.Auto,
                 cancellationToken: CancellationToken.None)
             .AsTask();
@@ -274,7 +275,7 @@ public sealed class DaemonLaunchServiceDeadlineTests
         var launchTask = service.LaunchAsync(
                 context,
                 ExecutionDeadline.Start(timeout, timeProvider),
-                DaemonEditorMode.Gui,
+                UnityEditorMode.Gui,
                 DaemonStartupBlockedProcessPolicy.Auto,
                 cancellationToken: CancellationToken.None)
             .AsTask();
@@ -339,7 +340,7 @@ public sealed class DaemonLaunchServiceDeadlineTests
             () => service.LaunchAsync(
                     context,
                     ExecutionDeadline.Start(TimeSpan.FromSeconds(1), timeProvider),
-                    DaemonEditorMode.Batchmode,
+                    UnityEditorMode.Batchmode,
                     DaemonStartupBlockedProcessPolicy.Auto,
                     progressObserver,
                     cancellationSource.Token)
@@ -405,7 +406,7 @@ public sealed class DaemonLaunchServiceDeadlineTests
         var launchTask = service.LaunchAsync(
                 context,
                 ExecutionDeadline.Start(timeout, timeProvider),
-                DaemonEditorMode.Batchmode,
+                UnityEditorMode.Batchmode,
                 DaemonStartupBlockedProcessPolicy.Auto,
                 progressObserver,
                 cancellationToken: CancellationToken.None)
@@ -490,7 +491,7 @@ public sealed class DaemonLaunchServiceDeadlineTests
         var launchTask = service.LaunchAsync(
                 context,
                 ExecutionDeadline.Start(timeout, timeProvider),
-                DaemonEditorMode.Batchmode,
+                UnityEditorMode.Batchmode,
                 DaemonStartupBlockedProcessPolicy.Auto,
                 cancellationToken: CancellationToken.None)
             .AsTask();

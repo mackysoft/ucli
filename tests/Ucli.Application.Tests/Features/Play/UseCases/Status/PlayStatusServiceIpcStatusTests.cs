@@ -5,6 +5,7 @@ using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using static MackySoft.Ucli.Application.Tests.Play.PlayStatusServiceTestSupport;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Tests.Play;
 
@@ -28,10 +29,10 @@ public sealed class PlayStatusServiceIpcStatusTests
         Assert.Equal(context.UnityProject.ProjectFingerprint, output.Project.ProjectFingerprint);
         Assert.Equal("6000.1.4f1", output.Project.UnityVersion);
         Assert.Equal("0.5.0", output.ServerVersion);
-        Assert.Equal(DaemonEditorMode.Gui, output.EditorMode);
-        Assert.Equal(IpcEditorLifecycleState.Ready, output.LifecycleState);
+        Assert.Equal(UnityEditorMode.Gui, output.EditorMode);
+        Assert.Equal(UnityEditorLifecycleState.Ready, output.LifecycleState);
         Assert.Null(output.BlockingReason);
-        Assert.Equal(IpcCompileState.Ready, output.CompileState);
+        Assert.Equal(UnityEditorCompileState.Ready, output.CompileState);
         Assert.Equal(12, output.Generations!.CompileGeneration);
         Assert.Equal(7, output.Generations.DomainReloadGeneration);
         Assert.Equal(4, output.Generations.AssetRefreshGeneration);
@@ -40,8 +41,8 @@ public sealed class PlayStatusServiceIpcStatusTests
         Assert.Equal("2026-05-21T00:00:00.0000000+00:00", output.ObservedAtUtc?.ToString("O", CultureInfo.InvariantCulture));
         Assert.Null(output.ActionRequired);
         Assert.Null(output.PrimaryDiagnostic);
-        Assert.Equal(IpcPlayModeState.Stopped, output.PlayMode.State);
-        Assert.Equal(IpcPlayModeTransition.None, output.PlayMode.Transition);
+        Assert.Equal(UnityEditorPlayModeState.Stopped, output.PlayMode.State);
+        Assert.Equal(UnityEditorPlayModeTransition.None, output.PlayMode.Transition);
         Assert.False(output.PlayMode.IsPlaying);
         Assert.False(output.PlayMode.IsPlayingOrWillChangePlaymode);
         Assert.Equal(1500, output.TimeoutMilliseconds);
@@ -55,9 +56,9 @@ public sealed class PlayStatusServiceIpcStatusTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenPlayModeIsPlaying_ReturnsPlayingSnapshot ()
     {
-        var playMode = new IpcPlayModeSnapshot(
-            State: IpcPlayModeState.Playing,
-            Transition: IpcPlayModeTransition.None,
+        var playMode = new UnityEditorPlayModeSnapshot(
+            State: UnityEditorPlayModeState.Playing,
+            Transition: UnityEditorPlayModeTransition.None,
             IsPlaying: true,
             IsPlayingOrWillChangePlaymode: true);
         var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResultTestFactory.Found(CreatePlaySession()));
@@ -70,8 +71,8 @@ public sealed class PlayStatusServiceIpcStatusTests
 
         Assert.True(result.IsSuccess);
         var output = Assert.IsType<PlayStatusExecutionOutput>(result.Output);
-        Assert.Equal(IpcPlayModeState.Playing, output.PlayMode.State);
-        Assert.Equal(IpcPlayModeTransition.None, output.PlayMode.Transition);
+        Assert.Equal(UnityEditorPlayModeState.Playing, output.PlayMode.State);
+        Assert.Equal(UnityEditorPlayModeTransition.None, output.PlayMode.Transition);
         Assert.True(output.PlayMode.IsPlaying);
         Assert.True(output.PlayMode.IsPlayingOrWillChangePlaymode);
         Assert.Equal(9, output.Generations!.PlayModeGeneration);

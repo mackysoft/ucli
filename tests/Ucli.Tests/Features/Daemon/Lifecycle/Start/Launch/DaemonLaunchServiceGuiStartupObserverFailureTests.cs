@@ -3,6 +3,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Tests.Helpers.Daemon;
 using static MackySoft.Ucli.Tests.Daemon.DaemonLaunchServiceTestSupport;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Tests.Daemon;
 
@@ -51,7 +52,7 @@ public sealed class DaemonLaunchServiceGuiStartupObserverFailureTests
             () => service.LaunchAsync(
                     context,
                     ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), timeProvider),
-                    DaemonEditorMode.Gui,
+                    UnityEditorMode.Gui,
                     DaemonStartupBlockedProcessPolicy.Auto,
                     progressObserver,
                     cancellationTokenSource.Token)
@@ -78,7 +79,7 @@ public sealed class DaemonLaunchServiceGuiStartupObserverFailureTests
             processId,
             sessionToken: LaunchSessionToken,
             projectFingerprint: context.ProjectFingerprint,
-            editorMode: DaemonEditorMode.Gui,
+            editorMode: UnityEditorMode.Gui,
             endpointAddress: LaunchEndpointAddress,
             processStartedAtUtc: processStartedAtUtc);
         var guiLauncher = new RecordingUnityGuiEditorProcessLauncher
@@ -89,8 +90,8 @@ public sealed class DaemonLaunchServiceGuiStartupObserverFailureTests
         {
             NextResult = DaemonGuiStartupObservationResult.Success(
                 registeredSession,
-                IpcUnityEditorObservationTestFactory.Create(
-                    editorMode: DaemonEditorMode.Gui,
+                UnityEditorObservationTestFactory.Create(
+                    editorMode: UnityEditorMode.Gui,
                     projectFingerprint: context.ProjectFingerprint)),
         };
         var progressFailure = new InvalidOperationException("endpoint-ready progress failed");
@@ -115,7 +116,7 @@ public sealed class DaemonLaunchServiceGuiStartupObserverFailureTests
             () => service.LaunchAsync(
                     context,
                     ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), timeProvider),
-                    DaemonEditorMode.Gui,
+                    UnityEditorMode.Gui,
                     DaemonStartupBlockedProcessPolicy.Auto,
                     progressObserver,
                     cancellationToken: CancellationToken.None)
@@ -167,7 +168,7 @@ public sealed class DaemonLaunchServiceGuiStartupObserverFailureTests
             () => service.LaunchAsync(
                     context,
                     ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), timeProvider),
-                    DaemonEditorMode.Gui,
+                    UnityEditorMode.Gui,
                     DaemonStartupBlockedProcessPolicy.Auto,
                     progressObserver,
                     cancellationToken: CancellationToken.None)
@@ -218,7 +219,7 @@ public sealed class DaemonLaunchServiceGuiStartupObserverFailureTests
             () => service.LaunchAsync(
                     context,
                     ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), timeProvider),
-                    DaemonEditorMode.Gui,
+                    UnityEditorMode.Gui,
                     DaemonStartupBlockedProcessPolicy.Auto,
                     cancellationToken: cancellationTokenSource.Token)
                 .AsTask());
@@ -278,7 +279,7 @@ public sealed class DaemonLaunchServiceGuiStartupObserverFailureTests
         var canceledLaunchTask = service.LaunchAsync(
                 context,
                 ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), timeProvider),
-                DaemonEditorMode.Gui,
+                UnityEditorMode.Gui,
                 DaemonStartupBlockedProcessPolicy.Auto,
                 cancellationToken: cancellationTokenSource.Token)
             .AsTask();
@@ -296,7 +297,7 @@ public sealed class DaemonLaunchServiceGuiStartupObserverFailureTests
         var successorLaunchTask = service.LaunchAsync(
                 context,
                 ExecutionDeadline.Start(TimeSpan.FromMilliseconds(100), timeProvider),
-                DaemonEditorMode.Gui,
+                UnityEditorMode.Gui,
                 DaemonStartupBlockedProcessPolicy.Auto,
                 cancellationToken: CancellationToken.None)
             .AsTask();
@@ -354,7 +355,7 @@ public sealed class DaemonLaunchServiceGuiStartupObserverFailureTests
         var result = await service.LaunchAsync(
             context,
             ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), timeProvider),
-            DaemonEditorMode.Gui,
+            UnityEditorMode.Gui,
             DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);
 

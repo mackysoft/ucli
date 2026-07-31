@@ -4,6 +4,7 @@ using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Tests.Helpers.Daemon;
 using MackySoft.Ucli.Tests.Helpers.Ipc;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Tests.Supervisor;
 
@@ -45,16 +46,16 @@ public sealed class SupervisorClientEnsureRunningTests
             Guid.NewGuid(),
             SupervisorClientTestSupport.CreateUnityProject(),
             deadline,
-            editorMode: DaemonEditorMode.Gui,
+            editorMode: UnityEditorMode.Gui,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Terminate,
             cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(IpcEditorLifecycleState.Compiling, result.LifecycleObservation!.State.LifecycleState);
+        Assert.Equal(UnityEditorLifecycleState.Compiling, result.LifecycleObservation!.State.LifecycleState);
         Assert.Equal(
-            IpcEditorBlockingReason.Compile,
-            IpcEditorLifecycleSemantics.ResolveBlockingReason(result.LifecycleObservation.State.LifecycleState));
-        Assert.False(IpcEditorLifecycleSemantics.CanAcceptExecutionRequests(result.LifecycleObservation.State.LifecycleState));
+            UnityEditorBlockingReason.Compile,
+            UnityEditorLifecycleSemantics.ResolveBlockingReason(result.LifecycleObservation.State.LifecycleState));
+        Assert.False(UnityEditorLifecycleSemantics.CanAcceptExecutionRequests(result.LifecycleObservation.State.LifecycleState));
         SupervisorTransportAssert.EnsureRunningRequestedWithUnboundedResponseWait(
             transportClient,
             requestedTimeout);
@@ -85,7 +86,7 @@ public sealed class SupervisorClientEnsureRunningTests
             Guid.NewGuid(),
             SupervisorClientTestSupport.CreateUnityProject(),
             ExecutionDeadline.Start(TimeSpan.FromMilliseconds(100), TimeProvider.System),
-            editorMode: DaemonEditorMode.Gui,
+            editorMode: UnityEditorMode.Gui,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);
 
@@ -111,7 +112,7 @@ public sealed class SupervisorClientEnsureRunningTests
             Guid.NewGuid(),
             SupervisorClientTestSupport.CreateUnityProject(ProjectFingerprintTestFactory.Create("different-project-fingerprint")),
             ExecutionDeadline.Start(TimeSpan.FromMilliseconds(100), TimeProvider.System),
-            editorMode: DaemonEditorMode.Gui,
+            editorMode: UnityEditorMode.Gui,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);
 
@@ -155,7 +156,7 @@ public sealed class SupervisorClientEnsureRunningTests
             Guid.NewGuid(),
             SupervisorClientTestSupport.CreateUnityProject(),
             ExecutionDeadline.Start(TimeSpan.FromMilliseconds(100), TimeProvider.System),
-            editorMode: DaemonEditorMode.Gui,
+            editorMode: UnityEditorMode.Gui,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);
 
@@ -183,7 +184,7 @@ public sealed class SupervisorClientEnsureRunningTests
             Guid.NewGuid(),
             SupervisorClientTestSupport.CreateUnityProject(),
             ExecutionDeadline.Start(TimeSpan.FromMilliseconds(100), TimeProvider.System),
-            editorMode: DaemonEditorMode.Gui,
+            editorMode: UnityEditorMode.Gui,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);
 
@@ -223,7 +224,7 @@ public sealed class SupervisorClientEnsureRunningTests
                 Guid.NewGuid(),
                 SupervisorClientTestSupport.CreateUnityProject(),
                 deadline,
-                editorMode: DaemonEditorMode.Gui,
+                editorMode: UnityEditorMode.Gui,
                 onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
                 cancellationToken: CancellationToken.None)
             .AsTask();
@@ -279,7 +280,7 @@ public sealed class SupervisorClientEnsureRunningTests
                 Guid.NewGuid(),
                 SupervisorClientTestSupport.CreateUnityProject(),
                 deadline,
-                editorMode: DaemonEditorMode.Gui,
+                editorMode: UnityEditorMode.Gui,
                 onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
                 cancellationToken: CancellationToken.None)
             .AsTask();
@@ -331,7 +332,7 @@ public sealed class SupervisorClientEnsureRunningTests
             Guid.NewGuid(),
             SupervisorClientTestSupport.CreateUnityProject(),
             ExecutionDeadline.Start(timeout, TimeProvider.System),
-            editorMode: DaemonEditorMode.Gui,
+            editorMode: UnityEditorMode.Gui,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);
 
@@ -352,7 +353,7 @@ public sealed class SupervisorClientEnsureRunningTests
                 Guid.Empty,
                 SupervisorClientTestSupport.CreateUnityProject(),
                 ExecutionDeadline.Start(TimeSpan.FromSeconds(1), TimeProvider.System),
-                editorMode: DaemonEditorMode.Gui,
+                editorMode: UnityEditorMode.Gui,
                 onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
                 cancellationToken: CancellationToken.None)
             .AsTask());

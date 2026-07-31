@@ -2,6 +2,7 @@ using MackySoft.Ucli.Application.Features.Requests.Query.UseCases.Query;
 using MackySoft.Ucli.Application.Shared.Context;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Projects;
 
 namespace MackySoft.Ucli.Application.Tests;
 

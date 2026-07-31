@@ -4,6 +4,7 @@ using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Tests.Helpers.Daemon;
 using static MackySoft.Ucli.Tests.Daemon.DaemonLaunchServiceTestSupport;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Tests.Daemon;
 
@@ -43,7 +44,7 @@ public sealed class DaemonLaunchServiceGuiStartupBlockerTerminationTests
         var result = await service.LaunchAsync(
             context,
             ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), timeProvider),
-            DaemonEditorMode.Gui,
+            UnityEditorMode.Gui,
             DaemonStartupBlockedProcessPolicy.Terminate,
             cancellationToken: CancellationToken.None);
 
@@ -66,7 +67,7 @@ public sealed class DaemonLaunchServiceGuiStartupBlockerTerminationTests
         var processStartedAtUtc = new DateTimeOffset(2026, 03, 12, 0, 0, 1, TimeSpan.Zero);
         var timeProvider = new ManualTimeProvider(processStartedAtUtc);
         var primaryDiagnostic = new DaemonPrimaryDiagnostic(
-            Kind: DaemonDiagnosisPrimaryDiagnosticKind.Compiler,
+            Kind: UnityEditorPrimaryDiagnosticKind.Compiler,
             Code: "CS0103",
             File: "Assets/Foo.cs",
             Line: 12,
@@ -105,7 +106,7 @@ public sealed class DaemonLaunchServiceGuiStartupBlockerTerminationTests
         var result = await service.LaunchAsync(
             context,
             ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), timeProvider),
-            DaemonEditorMode.Gui,
+            UnityEditorMode.Gui,
             DaemonStartupBlockedProcessPolicy.Terminate,
             cancellationToken: CancellationToken.None);
 
@@ -117,7 +118,7 @@ public sealed class DaemonLaunchServiceGuiStartupBlockerTerminationTests
         Assert.NotNull(result.Diagnosis);
         Assert.Equal(DaemonDiagnosisReason.UnityScriptCompilationFailed, result.Diagnosis!.Reason);
         Assert.Equal(DaemonDiagnosisStartupPhase.ScriptCompilation, result.Diagnosis.StartupPhase);
-        Assert.Equal(DaemonDiagnosisActionRequired.FixCompileErrors, result.Diagnosis.ActionRequired);
+        Assert.Equal(UnityEditorActionRequired.FixCompileErrors, result.Diagnosis.ActionRequired);
         Assert.Equal(primaryDiagnostic, result.Diagnosis.PrimaryDiagnostic);
         DaemonLaunchInvocationAssert.LaunchCompensationAttempted(
             compensationService,
@@ -152,9 +153,9 @@ public sealed class DaemonLaunchServiceGuiStartupBlockerTerminationTests
             retryDisposition: DaemonStartupRetryDisposition.Unknown,
             message: "Unity Editor process exited before GUI daemon session registration. ProcessId=6543.",
             startupPhase: DaemonDiagnosisStartupPhase.ProcessExit,
-            actionRequired: DaemonDiagnosisActionRequired.InspectUnityLog,
+            actionRequired: UnityEditorActionRequired.InspectUnityLog,
             primaryDiagnostic: new DaemonPrimaryDiagnostic(
-                Kind: DaemonDiagnosisPrimaryDiagnosticKind.ProcessExit,
+                Kind: UnityEditorPrimaryDiagnosticKind.ProcessExit,
                 Code: null,
                 File: null,
                 Line: null,
@@ -179,7 +180,7 @@ public sealed class DaemonLaunchServiceGuiStartupBlockerTerminationTests
         var result = await service.LaunchAsync(
             context,
             ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), timeProvider),
-            DaemonEditorMode.Gui,
+            UnityEditorMode.Gui,
             DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);
 

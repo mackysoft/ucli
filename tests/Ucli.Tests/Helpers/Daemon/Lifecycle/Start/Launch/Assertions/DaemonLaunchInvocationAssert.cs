@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Tests.Helpers.Daemon;
 
@@ -7,7 +8,7 @@ internal static class DaemonLaunchInvocationAssert
     public static RecordingDaemonLaunchSessionService.InitializeInvocation SessionInitializedFor (
         RecordingDaemonLaunchSessionService launchSessionService,
         ResolvedUnityProjectContext expectedUnityProject,
-        DaemonEditorMode expectedEditorMode)
+        UnityEditorMode expectedEditorMode)
     {
         var invocation = Assert.Single(launchSessionService.InitializeInvocations);
         Assert.Equal(expectedUnityProject, invocation.UnityProject);
@@ -79,7 +80,7 @@ internal static class DaemonLaunchInvocationAssert
         int processId,
         DateTimeOffset processStartedAtUtc)
     {
-        SessionInitializedFor(launchSessionService, expectedUnityProject, DaemonEditorMode.Batchmode);
+        SessionInitializedFor(launchSessionService, expectedUnityProject, UnityEditorMode.Batchmode);
         BatchmodeLaunchStartedFor(launcher, expectedUnityProject, expectedInitialSession);
         ProcessIdUpdatedFor(
             launchSessionService,
@@ -117,7 +118,7 @@ internal static class DaemonLaunchInvocationAssert
         RecordingDaemonDiagnosisStore diagnosisStore,
         ResolvedUnityProjectContext expectedUnityProject)
     {
-        SessionInitializedFor(launchSessionService, expectedUnityProject, DaemonEditorMode.Batchmode);
+        SessionInitializedFor(launchSessionService, expectedUnityProject, UnityEditorMode.Batchmode);
         Assert.Empty(launchSessionService.UpdateProcessIdInvocations);
         Assert.Empty(launcher.Invocations);
         Assert.Empty(compensationService.Invocations);

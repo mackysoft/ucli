@@ -1,5 +1,6 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Progress;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.ExistingSession;
 
@@ -24,7 +25,7 @@ internal interface IDaemonExistingSessionGateService
         ResolvedUnityProjectContext unityProject,
         DaemonSession session,
         ExecutionDeadline deadline,
-        DaemonEditorMode? editorMode,
+        UnityEditorMode? editorMode,
         IDaemonStartProgressObserver? progressObserver = null,
         CancellationToken cancellationToken = default);
 }

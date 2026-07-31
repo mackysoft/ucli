@@ -4,6 +4,7 @@ using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Daemon;
 using MackySoft.Ucli.Tests.Hosting.Cli.Common.Execution;
 using static MackySoft.Ucli.Tests.DaemonStartCommandTestSupport;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Tests;
 
@@ -16,8 +17,8 @@ public sealed class DaemonStartCommandProgressTests
         var expectedProjectFingerprint = ProjectFingerprintTestFactory.Create("fingerprint").ToString();
         var service = new RecordingDaemonStartService(
             DaemonStartExecutionResult.Success(CreateSuccessOutput(
-                lifecycleState: IpcEditorLifecycleState.Compiling,
-                blockingReason: IpcEditorBlockingReason.Compile,
+                lifecycleState: UnityEditorLifecycleState.Compiling,
+                blockingReason: UnityEditorBlockingReason.Compile,
                 canAcceptExecutionRequests: false)),
             EmitSampleDaemonStartProgressAsync);
         var command = new DaemonStartCommand(service, CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
@@ -64,8 +65,8 @@ public sealed class DaemonStartCommandProgressTests
         var expectedProjectFingerprint = ProjectFingerprintTestFactory.Create("fingerprint").ToString();
         var service = new RecordingDaemonStartService(
             DaemonStartExecutionResult.Success(CreateSuccessOutput(
-                lifecycleState: IpcEditorLifecycleState.Compiling,
-                blockingReason: IpcEditorBlockingReason.Compile,
+                lifecycleState: UnityEditorLifecycleState.Compiling,
+                blockingReason: UnityEditorBlockingReason.Compile,
                 canAcceptExecutionRequests: false)),
             EmitSampleSupervisorProgressAsync);
         var command = new DaemonStartCommand(service, CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
@@ -113,8 +114,8 @@ public sealed class DaemonStartCommandProgressTests
             .HasInt32("sequence", 4);
         JsonAssert.For(lifecycleEntry.RootElement.GetProperty("payload"))
             .HasString("payloadKind", "lifecycleSnapshot")
-            .HasString("lifecycleState", TextVocabulary.GetText(IpcEditorLifecycleState.Compiling))
-            .HasString("blockingReason", TextVocabulary.GetText(IpcEditorBlockingReason.Compile))
+            .HasString("lifecycleState", TextVocabulary.GetText(UnityEditorLifecycleState.Compiling))
+            .HasString("blockingReason", TextVocabulary.GetText(UnityEditorBlockingReason.Compile))
             .HasBoolean("canAcceptExecutionRequests", false);
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
@@ -133,8 +134,8 @@ public sealed class DaemonStartCommandProgressTests
         {
             var service = new RecordingDaemonStartService(
                 DaemonStartExecutionResult.Success(CreateSuccessOutput(
-                    lifecycleState: IpcEditorLifecycleState.Compiling,
-                    blockingReason: IpcEditorBlockingReason.Compile,
+                    lifecycleState: UnityEditorLifecycleState.Compiling,
+                    blockingReason: UnityEditorBlockingReason.Compile,
                     canAcceptExecutionRequests: false)),
                 EmitSampleDaemonStartProgressAsync);
             var command = new DaemonStartCommand(service, CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
@@ -180,8 +181,8 @@ public sealed class DaemonStartCommandProgressTests
         var expectedProjectFingerprint = ProjectFingerprintTestFactory.Create("fingerprint").ToString();
         var service = new RecordingDaemonStartService(
             DaemonStartExecutionResult.Success(CreateSuccessOutput(
-                lifecycleState: IpcEditorLifecycleState.Compiling,
-                blockingReason: IpcEditorBlockingReason.Compile,
+                lifecycleState: UnityEditorLifecycleState.Compiling,
+                blockingReason: UnityEditorBlockingReason.Compile,
                 canAcceptExecutionRequests: false)),
             EmitSampleSupervisorProgressAsync);
         var command = new DaemonStartCommand(service, CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);

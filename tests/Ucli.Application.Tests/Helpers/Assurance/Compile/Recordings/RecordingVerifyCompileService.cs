@@ -25,6 +25,16 @@ internal sealed class RecordingVerifyCompileService : ICompileService
         return ValueTask.FromResult(resultFactory(input));
     }
 
+    public ValueTask<CompileExecutionResult> ReconnectAsync (
+        CompileCommandInput input,
+        ExecutionRef lifecycleExecutionRef,
+        ICommandProgressSink? progressSink = null,
+        CancellationToken cancellationToken = default)
+    {
+        throw new InvalidOperationException(
+            "Compile reconnect was not expected.");
+    }
+
     internal readonly record struct Invocation (
         CompileCommandInput Input,
         ICommandProgressSink? ProgressSink,

@@ -3,6 +3,7 @@ using System.Text.Json.Nodes;
 using Json.Schema;
 using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts.Cryptography;
+using MackySoft.Ucli.Contracts.Execution;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Schemas;
 using MackySoft.Ucli.Hosting.Cli.Schemas;
@@ -78,6 +79,12 @@ public sealed class UcliStaticSchemaPayloadContractTests
             active.DefinitionDigest,
             new ExecutionState("recovering"),
             active.StatusLocator);
+        var activeWithNullStatusLocator = new ActiveExecutionRef(
+            active.Kind,
+            Guid.Parse("b9bdd995-e5a8-4523-bd9e-866404109cca"),
+            active.DefinitionDigest,
+            active.State,
+            statusLocator: null);
         var terminal = new TerminalExecutionRef(
             active.Kind,
             active.Id,
@@ -101,6 +108,10 @@ public sealed class UcliStaticSchemaPayloadContractTests
         var recoveryJson = JsonSerializer.SerializeToElement<ExecutionRef>(
             recovery,
             IpcJsonSerializerOptions.StrictPropertyNames);
+        var activeWithoutStatusLocatorJson =
+            JsonSerializer.SerializeToElement<ExecutionRef>(
+                activeWithNullStatusLocator,
+                IpcJsonSerializerOptions.StrictPropertyNames);
         var terminalJson = JsonSerializer.SerializeToElement<ExecutionRef>(
             terminal,
             IpcJsonSerializerOptions.StrictPropertyNames);
@@ -110,6 +121,9 @@ public sealed class UcliStaticSchemaPayloadContractTests
         Assert.True(artifactSchema.Evaluate(multiplyLocatedEditorLogJson).IsValid);
         Assert.True(executionSchema.Evaluate(activeJson).IsValid);
         Assert.True(executionSchema.Evaluate(recoveryJson).IsValid);
+        Assert.True(executionSchema
+            .Evaluate(activeWithoutStatusLocatorJson)
+            .IsValid);
         Assert.True(executionSchema.Evaluate(terminalJson).IsValid);
 
         var artifactWithoutLocator = JsonNode.Parse(artifactJson.GetRawText())!.AsObject();
@@ -300,6 +314,32 @@ public sealed class UcliStaticSchemaPayloadContractTests
         }
 
         Assert.True(failures.Count == 0, string.Join(Environment.NewLine, failures));
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public void OperationContractViolationSchema_RejectsLifecycleOnlyPartialApplicationState ()
+    {
+        var golden = CliOutputGoldenFiles.ReadAllDocuments().Single(
+            static document => document.RepositoryRelativePath.EndsWith(
+                "call/contract-violation.json",
+                StringComparison.Ordinal));
+        var payload = JsonNode
+            .Parse(golden.Root.GetProperty("payload").GetRawText())!
+            .AsObject();
+        payload["contractViolations"]![0]!["applicationState"] =
+            TextVocabulary.GetText(
+                ExecutionApplicationState.PartiallyApplied);
+        var schemaSet = UcliStaticSchemaSetLoader.Load(
+            AbsolutePath.Parse(TestRepositoryPaths.GetFullPath("schemas")));
+        var schema = BuildSchema(
+            schemaSet,
+            "cli-output.payload.call.error");
+
+        var result = schema.Evaluate(
+            JsonSerializer.SerializeToElement(payload));
+
+        Assert.False(result.IsValid);
     }
 
     [Theory]

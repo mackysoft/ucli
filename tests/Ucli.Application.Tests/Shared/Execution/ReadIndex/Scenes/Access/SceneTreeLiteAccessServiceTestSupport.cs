@@ -2,6 +2,7 @@ using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Shared.Execution.ReadPostcondition;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Projects;
 
 namespace MackySoft.Ucli.Application.Tests.Execution.ReadIndex.Scenes;
 

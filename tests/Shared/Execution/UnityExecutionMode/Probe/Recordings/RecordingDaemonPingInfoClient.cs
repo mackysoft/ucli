@@ -1,6 +1,7 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.TestSupport;
 
@@ -23,9 +24,9 @@ internal sealed class RecordingDaemonPingInfoClient : IDaemonPingInfoClient
 
     public Action? OnPingAndRead { get; set; }
 
-    public Func<ResolvedUnityProjectContext, TimeSpan, bool, CancellationToken, ValueTask<IpcUnityEditorObservation>>? PingAndReadHandler { get; set; }
+    public Func<ResolvedUnityProjectContext, TimeSpan, bool, CancellationToken, ValueTask<UnityEditorObservation>>? PingAndReadHandler { get; set; }
 
-    public Func<ResolvedUnityProjectContext, DaemonSession, ExecutionDeadline, bool, CancellationToken, ValueTask<IpcUnityEditorObservation>>? PingSessionAndReadHandler { get; set; }
+    public Func<ResolvedUnityProjectContext, DaemonSession, ExecutionDeadline, bool, CancellationToken, ValueTask<UnityEditorObservation>>? PingSessionAndReadHandler { get; set; }
 
     public Task WaitForFirstInvocationAsync (
         string description,
@@ -34,7 +35,7 @@ internal sealed class RecordingDaemonPingInfoClient : IDaemonPingInfoClient
         return TestAwaiter.WaitAsync(firstInvocationObserved.Task, description, timeout);
     }
 
-    public ValueTask<IpcUnityEditorObservation> PingAndReadAsync (
+    public ValueTask<UnityEditorObservation> PingAndReadAsync (
         ResolvedUnityProjectContext unityProject,
         TimeSpan timeout,
         bool validateProjectFingerprint,
@@ -50,7 +51,7 @@ internal sealed class RecordingDaemonPingInfoClient : IDaemonPingInfoClient
             cancellationToken);
     }
 
-    public ValueTask<IpcUnityEditorObservation> PingSessionAndReadAsync (
+    public ValueTask<UnityEditorObservation> PingSessionAndReadAsync (
         ResolvedUnityProjectContext unityProject,
         DaemonSession session,
         Guid requestId,
@@ -80,7 +81,7 @@ internal sealed class RecordingDaemonPingInfoClient : IDaemonPingInfoClient
             cancellationToken);
     }
 
-    private ValueTask<IpcUnityEditorObservation> RecordPingAndRead (
+    private ValueTask<UnityEditorObservation> RecordPingAndRead (
         ResolvedUnityProjectContext unityProject,
         TimeSpan timeout,
         ExecutionDeadline? deadline,
@@ -133,7 +134,7 @@ internal sealed class RecordingDaemonPingInfoClient : IDaemonPingInfoClient
             throw exception;
         }
 
-        return ValueTask.FromResult((IpcUnityEditorObservation)response);
+        return ValueTask.FromResult((UnityEditorObservation)response);
     }
 
     internal readonly record struct Invocation (

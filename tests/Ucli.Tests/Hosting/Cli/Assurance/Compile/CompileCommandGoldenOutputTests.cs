@@ -1,4 +1,6 @@
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Contracts;
+using MackySoft.Ucli.Contracts.Editor;
+using MackySoft.Ucli.Contracts.Execution;
 using MackySoft.Ucli.Hosting.Cli.Assurance;
 using MackySoft.Ucli.Tests.Hosting.Cli.Common.Execution;
 using static MackySoft.Ucli.Tests.CompileCommandTestData;
@@ -55,5 +57,102 @@ public sealed class CompileCommandGoldenOutputTests
             CliOutputGoldenFiles.GetPath("compile", "compile-error.json"),
             result.StdOut,
             CreateGoldenNormalization());
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Compile_WithFailureAfterRegistration_ReturnsClosedReconnectableErrorPayload ()
+    {
+        var project = ProjectIdentityInfoTestFactory.Create(
+            projectFingerprint: ProjectFingerprintTestFactory.Create("<projectFingerprint>"));
+        var service = new RecordingCompileService(
+            (_, _, _) => ValueTask.FromResult<CompileExecutionResult>(
+                CompileExecutionResult.Failed(
+                    ApplicationFailure.Timeout(
+                        "Waiting for Unity compile timed out.",
+                        ExecutionErrorCodes.IpcTimeout),
+                    project,
+                    CreateActiveReference(),
+                    ExecutionApplicationState.Indeterminate)));
+        var command = new CompileCommand(
+            service,
+            CommandResultTestWriter.Create(),
+            CliStreamEntryWriterFactoryTestFixture.System);
+
+        var result = await CommandResultCapture.ExecuteAsync(
+            () => command.CompileAsync(cancellationToken: CancellationToken.None));
+
+        using var document = StdoutJsonParser.ParseSinglePrettyPrintedObject(
+            result.StdOut);
+        var payload = document.RootElement.GetProperty("payload");
+        Assert.Equal(
+            [
+                "payloadKind",
+                "project",
+                "lifecycleExecutionRef",
+                "applicationState",
+            ],
+            payload.EnumerateObject().Select(static property => property.Name));
+        Assert.Equal(
+            RunIdTestValues.CompileText,
+            payload.GetProperty("lifecycleExecutionRef").GetProperty("id").GetString());
+        Assert.Equal(
+            TextVocabulary.GetText(ExecutionApplicationState.Indeterminate),
+            payload.GetProperty("applicationState").GetString());
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Compile_WhenTerminalPublicationFails_KeepsTypedEvidenceInternal ()
+    {
+        var project = ProjectIdentityInfoTestFactory.Create(
+            projectFingerprint: ProjectFingerprintTestFactory.Create(
+                "<projectFingerprint>"));
+        var typedResult = CreateLifecycleResult();
+        var observedLifecycle = UnityEditorObservationTestFactory.Create(
+            projectFingerprint: project.ProjectFingerprint,
+            generations: new UnityEditorGenerationSnapshot(
+                CompileGeneration: 14,
+                DomainReloadGeneration: 7,
+                AssetRefreshGeneration: 3,
+                PlayModeGeneration: 2),
+            observedAtUtc: DateTimeOffset.Parse("2026-05-17T00:00:03Z"));
+        var service = new RecordingCompileService(
+            (_, _, _) => ValueTask.FromResult<CompileExecutionResult>(
+                CompileExecutionResult.Failed(
+                    ApplicationFailure.InternalError(
+                        "Compile terminal record could not be published.",
+                        LifecycleExecutionErrorCodes.TerminalPublicationFailed),
+                    project,
+                    CreatePublishingReference(),
+                    ExecutionApplicationState.Applied,
+                    typedResult,
+                    observedLifecycle)));
+        var command = new CompileCommand(
+            service,
+            CommandResultTestWriter.Create(),
+            CliStreamEntryWriterFactoryTestFixture.System);
+
+        var result = await CommandResultCapture.ExecuteAsync(
+            () => command.CompileAsync(
+                cancellationToken: CancellationToken.None));
+
+        using var document = StdoutJsonParser.ParseSinglePrettyPrintedObject(
+            result.StdOut);
+        var payload = document.RootElement.GetProperty("payload");
+        Assert.Equal(
+            "publishing",
+            payload
+                .GetProperty("lifecycleExecutionRef")
+                .GetProperty("state")
+                .GetString());
+        Assert.Equal(
+            "recovery",
+            payload
+                .GetProperty("lifecycleExecutionRef")
+                .GetProperty("lifecycle")
+                .GetString());
+        Assert.False(payload.TryGetProperty("result", out _));
+        Assert.False(payload.TryGetProperty("observedLifecycle", out _));
     }
 }

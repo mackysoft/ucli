@@ -1,5 +1,6 @@
 using MackySoft.Ucli.Application.Features.Requests.Call.Common.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Execution;
 
 namespace MackySoft.Ucli.Tests;
 
@@ -85,7 +86,7 @@ internal static class CallCommandTestData
                 {
                     ContractViolations =
                     [
-                        CreateContractViolation(IpcApplicationState.Indeterminate),
+                        CreateContractViolation(ExecutionApplicationState.Indeterminate),
                     ],
                 },
                 readPostcondition: null,
@@ -93,7 +94,7 @@ internal static class CallCommandTestData
             {
                 ContractViolations =
                 [
-                    CreateContractViolation(IpcApplicationState.Applied),
+                    CreateContractViolation(ExecutionApplicationState.Applied),
                 ],
             });
     }
@@ -129,7 +130,7 @@ internal static class CallCommandTestData
         bool applied)
     {
         return OperationExecutionOperationResult.CreateWithoutVerdict(
-            op: UcliPrimitiveOperationNames.ProjectRefresh,
+            op: UcliPrimitiveOperationNames.ProjectSave,
             phase,
             applied,
             changed: true,
@@ -145,11 +146,11 @@ internal static class CallCommandTestData
             diagnostics: []);
     }
 
-    private static OperationExecutionContractViolation CreateContractViolation (IpcApplicationState applicationState)
+    private static OperationExecutionContractViolation CreateContractViolation (ExecutionApplicationState applicationState)
     {
         return new OperationExecutionContractViolation(
             InstancePath: "/opResults/0",
-            Operation: UcliPrimitiveOperationNames.ProjectRefresh,
+            Operation: UcliPrimitiveOperationNames.ProjectSave,
             ExpectedFact: "assurance.mayDirty=false",
             ObservedResult: "opResults[].changed=true",
             ApplicationState: applicationState);

@@ -1,5 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 
@@ -8,7 +9,7 @@ internal sealed record DaemonSessionProbeResult
 {
     private DaemonSessionProbeResult (
         DaemonSession session,
-        IpcUnityEditorObservation? pingResponse,
+        UnityEditorObservation? pingResponse,
         DaemonSessionReadResult? sessionReadFailure,
         Exception? probeFailure)
     {
@@ -38,7 +39,7 @@ internal sealed record DaemonSessionProbeResult
     public DaemonSession Session { get; }
 
     /// <summary> Gets the decoded ping response whose project fingerprint was validated on success. </summary>
-    public IpcUnityEditorObservation? PingResponse { get; }
+    public UnityEditorObservation? PingResponse { get; }
 
     /// <summary> Gets the refreshed-session read failure after token rotation. </summary>
     public DaemonSessionReadResult? SessionReadFailure { get; }
@@ -53,7 +54,7 @@ internal sealed record DaemonSessionProbeResult
     /// <summary> Creates a successful exact-session probe result. </summary>
     public static DaemonSessionProbeResult Success (
         DaemonSession session,
-        IpcUnityEditorObservation pingResponse)
+        UnityEditorObservation pingResponse)
     {
         ArgumentNullException.ThrowIfNull(session);
         ArgumentNullException.ThrowIfNull(pingResponse);

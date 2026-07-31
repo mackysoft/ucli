@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Execution;
 
 namespace MackySoft.Ucli.Application.Features.Requests.Call.Common.Contracts;
 
@@ -13,7 +14,7 @@ internal sealed record CallExecutionOutput
         ProjectIdentityInfo project,
         IReadOnlyList<OperationExecutionOperationResult> opResults,
         CallPlanOutput? plan,
-        IpcExecuteReadPostcondition? readPostcondition,
+        ExecutionReadPostcondition? readPostcondition,
         OperationExecutionPostReadSource? postReadSource)
     {
         if (requestId == Guid.Empty)
@@ -40,7 +41,7 @@ internal sealed record CallExecutionOutput
 
     public CallPlanOutput? Plan { get; init; }
 
-    public IpcExecuteReadPostcondition? ReadPostcondition { get; init; }
+    public ExecutionReadPostcondition? ReadPostcondition { get; init; }
 
     public OperationExecutionPostReadSource? PostReadSource { get; init; }
 

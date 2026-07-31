@@ -3,6 +3,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Common.Projection;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Features.Daemon.UseCases.Status;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Tests.Daemon;
 
@@ -19,8 +20,8 @@ internal static class DaemonStatusServiceTestSupport
             new DaemonDiagnosisOutputMapper());
     }
 
-    public static IpcUnityEditorObservation CreatePingResponse ()
+    public static UnityEditorObservation CreatePingResponse ()
     {
-        return IpcUnityEditorObservationTestFactory.Create();
+        return UnityEditorObservationTestFactory.Create();
     }
 }

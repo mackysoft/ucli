@@ -7,6 +7,7 @@ using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Hosting.Cli.Daemon;
 using MackySoft.Ucli.Tests.Hosting.Cli.Common.Execution;
 using static MackySoft.Ucli.Tests.DaemonStartCommandTestSupport;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Tests;
 
@@ -27,9 +28,9 @@ public sealed class DaemonStartCommandFailurePayloadTests
             ProcessStartedAtUtc: new DateTimeOffset(2026, 03, 12, 4, 5, 0, TimeSpan.Zero),
             UnityLogPath: "/repo/.ucli/local/projects/04hkaps9lf6uu0938ljojaudts0i6hb7h6lsrro14d2mf2dbpnng/unity.log",
             StartupPhase: DaemonDiagnosisStartupPhase.EndpointRegistration,
-            ActionRequired: DaemonDiagnosisActionRequired.InspectUnityLog,
+            ActionRequired: UnityEditorActionRequired.InspectUnityLog,
             PrimaryDiagnostic: new DaemonPrimaryDiagnosticOutput(
-                Kind: DaemonDiagnosisPrimaryDiagnosticKind.Compiler,
+                Kind: UnityEditorPrimaryDiagnosticKind.Compiler,
                 Code: "CS0103",
                 File: "Assets/Foo.cs",
                 Line: 12,
@@ -69,12 +70,12 @@ public sealed class DaemonStartCommandFailurePayloadTests
             diagnosisJson.GetProperty("unityLogPath").GetString());
         Assert.Equal(TextVocabulary.GetText(DaemonDiagnosisStartupPhase.EndpointRegistration), diagnosisJson.GetProperty("startupPhase").GetString());
         Assert.Equal(
-            TextVocabulary.GetText(DaemonDiagnosisActionRequired.InspectUnityLog),
+            TextVocabulary.GetText(UnityEditorActionRequired.InspectUnityLog),
             diagnosisJson.GetProperty("actionRequired").GetString());
         Assert.True(diagnosisJson.GetProperty("isInferred").GetBoolean());
         var primaryDiagnosticJson = diagnosisJson.GetProperty("primaryDiagnostic");
         Assert.Equal(
-            TextVocabulary.GetText(DaemonDiagnosisPrimaryDiagnosticKind.Compiler),
+            TextVocabulary.GetText(UnityEditorPrimaryDiagnosticKind.Compiler),
             primaryDiagnosticJson.GetProperty("kind").GetString());
         Assert.Equal("CS0103", primaryDiagnosticJson.GetProperty("code").GetString());
         Assert.Equal("Assets/Foo.cs", primaryDiagnosticJson.GetProperty("file").GetString());
@@ -103,7 +104,7 @@ public sealed class DaemonStartCommandFailurePayloadTests
             LaunchAttemptId: Guid.Parse("01234567-89ab-cdef-0123-456789abcdef"),
             ProcessAction: DaemonStartupProcessAction.Kept,
             RetryDisposition: DaemonStartupRetryDisposition.RetryAfterFix,
-            EditorMode: DaemonEditorMode.Batchmode,
+            EditorMode: UnityEditorMode.Batchmode,
             OwnerKind: DaemonSessionOwnerKind.Cli,
             CanShutdownProcess: true,
             ProcessId: 4321,

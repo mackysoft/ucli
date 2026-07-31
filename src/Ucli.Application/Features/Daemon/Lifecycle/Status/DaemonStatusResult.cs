@@ -4,6 +4,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.LaunchAttempts;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 
@@ -15,7 +16,7 @@ internal sealed record DaemonStatusResult
         DaemonSession? session,
         DaemonDiagnosis? diagnosis,
         ExecutionError? error,
-        IpcUnityEditorObservation? pingResponse,
+        UnityEditorObservation? pingResponse,
         DaemonLaunchAttempt? lastLaunchAttempt)
     {
         Status = status;
@@ -39,7 +40,7 @@ internal sealed record DaemonStatusResult
     public ExecutionError? Error { get; }
 
     /// <summary> Gets the ping payload for a running daemon; otherwise <see langword="null" />. </summary>
-    public IpcUnityEditorObservation? PingResponse { get; }
+    public UnityEditorObservation? PingResponse { get; }
 
     /// <summary> Gets the most recent session-less launch attempt when available. </summary>
     public DaemonLaunchAttempt? LastLaunchAttempt { get; }
@@ -57,7 +58,7 @@ internal sealed record DaemonStatusResult
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="session" /> or <paramref name="pingResponse" /> is <see langword="null" />. </exception>
     public static DaemonStatusResult Running (
         DaemonSession session,
-        IpcUnityEditorObservation pingResponse,
+        UnityEditorObservation pingResponse,
         DaemonDiagnosis? diagnosis)
     {
         ArgumentNullException.ThrowIfNull(session);

@@ -9,6 +9,9 @@ public sealed class CompileCliOutputContractTests
         using var document = CliOutputGoldenFiles.ReadJsonDocument("compile", "pass-no-reload.json");
         var payload = document.RootElement.GetProperty("payload");
 
+        Assert.Equal(
+            ["verdict", "project", "lifecycleExecutionRef", "compile"],
+            payload.EnumerateObject().Select(static property => property.Name));
         var domainReload = payload.GetProperty("compile").GetProperty("domainReload");
         Assert.False(domainReload.GetProperty("reloadRequired").GetBoolean());
         Assert.False(domainReload.GetProperty("reloadObserved").GetBoolean());
@@ -32,6 +35,12 @@ public sealed class CompileCliOutputContractTests
         Assert.Equal(
             TextVocabulary.GetText(Verdict.Fail),
             payload.GetProperty("verdict").GetString());
+        Assert.Equal(
+            TextVocabulary.GetText(ExecutionLifecycle.Terminal),
+            payload
+                .GetProperty("lifecycleExecutionRef")
+                .GetProperty("lifecycle")
+                .GetString());
         Assert.Equal(1, payload
             .GetProperty("compile")
             .GetProperty("scriptCompilation")

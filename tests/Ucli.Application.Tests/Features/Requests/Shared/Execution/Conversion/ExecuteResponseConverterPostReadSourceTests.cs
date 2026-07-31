@@ -1,5 +1,4 @@
 using MackySoft.Ucli.Contracts.Ipc;
-
 using static MackySoft.Ucli.Application.Tests.Requests.Shared.Execution.Conversion.ExecuteResponseConverterTestSupport;
 
 namespace MackySoft.Ucli.Application.Tests.Requests.Shared.Execution.Conversion;

@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Tests.Helpers.Daemon;
 
@@ -15,7 +16,7 @@ internal sealed class RecordingDaemonLaunchSessionService : IDaemonLaunchSession
 
     public DaemonLaunchSessionWriteResult? UpdateProcessIdResult { get; set; }
 
-    public Func<ResolvedUnityProjectContext, DaemonEditorMode, CancellationToken, ValueTask<DaemonLaunchSessionWriteResult>>? InitializeHandler { get; set; }
+    public Func<ResolvedUnityProjectContext, UnityEditorMode, CancellationToken, ValueTask<DaemonLaunchSessionWriteResult>>? InitializeHandler { get; set; }
 
     public Func<ResolvedUnityProjectContext, DaemonSession, int?, DateTimeOffset?, CancellationToken, ValueTask<DaemonLaunchSessionWriteResult>>? UpdateProcessIdHandler { get; set; }
 
@@ -25,7 +26,7 @@ internal sealed class RecordingDaemonLaunchSessionService : IDaemonLaunchSession
 
     public ValueTask<DaemonLaunchSessionWriteResult> InitializeAsync (
         ResolvedUnityProjectContext unityProject,
-        DaemonEditorMode editorMode,
+        UnityEditorMode editorMode,
         CancellationToken cancellationToken = default)
     {
         initializeInvocations.Add(new InitializeInvocation(unityProject, editorMode, cancellationToken));
@@ -81,7 +82,7 @@ internal sealed class RecordingDaemonLaunchSessionService : IDaemonLaunchSession
 
     internal readonly record struct InitializeInvocation (
         ResolvedUnityProjectContext UnityProject,
-        DaemonEditorMode EditorMode,
+        UnityEditorMode EditorMode,
         CancellationToken CancellationToken);
 
     internal readonly record struct UpdateProcessIdInvocation (

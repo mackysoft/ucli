@@ -99,15 +99,7 @@ internal static class VerifyCommandTestData
                     ],
                     ResidualRisks: []),
             ],
-            Reports: new Dictionary<string, AssuranceReportReference>(StringComparer.Ordinal)
-            {
-                [AssuranceReportIds.CompileSummary.Value] = AssuranceReportReference.FromPath(
-                    $".ucli/local/compile/{RunIdTestValues.CompileText}/summary.json",
-                    digest: null),
-                [AssuranceReportIds.CompileDiagnostics.Value] = AssuranceReportReference.FromPath(
-                    $".ucli/local/compile/{RunIdTestValues.CompileText}/diagnostics.json",
-                    digest: null),
-            },
+            Reports: compileOutput.Reports,
             ResidualRisks: [],
             Profile: VerifyProfileOutput.BuiltIn(
                 "built-in:default",

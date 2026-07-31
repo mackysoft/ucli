@@ -99,14 +99,12 @@ public sealed class AssuranceReportReferenceTests
                 ResidualRisks: []),
             static () => new CompileExecutionOutput(
                 Project: null!,
+                LifecycleExecutionRef: null!,
+                Verdict: Verdict.Pass,
                 Verifiers: [],
                 Claims: [],
                 Reports: null!,
                 ResidualRisks: [],
-                RequestedMode: AssuranceRequestedExecutionMode.Auto,
-                ResolvedMode: AssuranceResolvedExecutionMode.Oneshot,
-                SessionKind: AssuranceSessionKind.TransientProbe,
-                TimeoutMilliseconds: 1,
                 Compile: null!),
             static () => new ReadyExecutionOutput(
                 Project: null!,
@@ -173,14 +171,13 @@ public sealed class AssuranceReportReferenceTests
         [
             new CompileExecutionOutput(
                 Project: project,
+                LifecycleExecutionRef:
+                    AssuranceExecutionOutputTestFactory.CreateCompileExecutionRef(),
+                Verdict: Verdict.Pass,
                 Verifiers: [],
                 Claims: [],
                 Reports: reports,
                 ResidualRisks: [],
-                RequestedMode: AssuranceRequestedExecutionMode.Auto,
-                ResolvedMode: AssuranceResolvedExecutionMode.Oneshot,
-                SessionKind: AssuranceSessionKind.TransientProbe,
-                TimeoutMilliseconds: 1,
                 Compile: AssuranceExecutionOutputTestFactory.CreateCompileOutput()).Reports,
             new ReadyExecutionOutput(
                 Project: project,
@@ -214,6 +211,9 @@ public sealed class AssuranceReportReferenceTests
         var claimId = new UcliCode("COMPILE_CLAIM");
         return new CompileExecutionOutput(
             Project: ProjectIdentityInfoTestFactory.Create(),
+            LifecycleExecutionRef:
+                AssuranceExecutionOutputTestFactory.CreateCompileExecutionRef(),
+            Verdict: Verdict.Pass,
             Verifiers:
             [
                 new CompileVerifierOutput(
@@ -243,10 +243,6 @@ public sealed class AssuranceReportReferenceTests
             ],
             Reports: CreateSingleReportMap(),
             ResidualRisks: [],
-            RequestedMode: AssuranceRequestedExecutionMode.Auto,
-            ResolvedMode: AssuranceResolvedExecutionMode.Oneshot,
-            SessionKind: AssuranceSessionKind.TransientProbe,
-            TimeoutMilliseconds: 1,
             Compile: AssuranceExecutionOutputTestFactory.CreateCompileOutput());
     }
 

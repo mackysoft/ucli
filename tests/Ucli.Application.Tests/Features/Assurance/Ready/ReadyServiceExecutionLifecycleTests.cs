@@ -1,6 +1,7 @@
 using MackySoft.Ucli.Application.Features.Assurance.Ready;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Tests.Features.Assurance.Ready;
 
@@ -46,8 +47,8 @@ public sealed class ReadyServiceExecutionLifecycleTests
         Assert.Equal(AssuranceSessionKind.TransientProbe, output.SessionKind);
         Assert.NotNull(output.Lifecycle);
         Assert.NotNull(output.Lifecycle.PlayMode);
-        Assert.Equal(IpcPlayModeState.Stopped, output.Lifecycle.PlayMode.State);
-        Assert.Equal(IpcPlayModeTransition.None, output.Lifecycle.PlayMode.Transition);
+        Assert.Equal(UnityEditorPlayModeState.Stopped, output.Lifecycle.PlayMode.State);
+        Assert.Equal(UnityEditorPlayModeTransition.None, output.Lifecycle.PlayMode.Transition);
         var claim = Assert.Single(output.Claims);
         Assert.IsType<ProbeOnlyReadyClaimValidityOutput>(claim.Validity);
         UnityRequestExecutorInvocationAssert.ReadyPingOnce(
@@ -65,7 +66,7 @@ public sealed class ReadyServiceExecutionLifecycleTests
                 daemonRunning: true,
                 UnityExecutionTarget.Daemon),
             daemonPingInfoClient: new RecordingDaemonPingInfoClient(CreateReadyPingResponse(
-                lifecycleState: IpcEditorLifecycleState.CompileFailed)));
+                lifecycleState: UnityEditorLifecycleState.CompileFailed)));
 
         var result = await service.ExecuteAsync(CreateExecutionInput(UnityExecutionMode.Daemon, failFast: true));
 
@@ -115,7 +116,7 @@ public sealed class ReadyServiceExecutionLifecycleTests
                 daemonRunning: false,
                 UnityExecutionTarget.Oneshot),
             unityRequestExecutor: new RecordingUnityRequestExecutor(CreateReadyPingSuccess(
-                lifecycleState: IpcEditorLifecycleState.DomainReloading)));
+                lifecycleState: UnityEditorLifecycleState.DomainReloading)));
 
         var result = await service.ExecuteAsync(CreateExecutionInput());
 

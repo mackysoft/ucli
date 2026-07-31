@@ -1,6 +1,7 @@
 using MackySoft.Ucli.Contracts.Ipc;
-
 using static MackySoft.Ucli.Application.Tests.Requests.Shared.Execution.Conversion.ExecuteResponseConverterTestSupport;
+using MackySoft.Ucli.Contracts.Projects;
+using MackySoft.Ucli.Contracts.Execution;
 
 namespace MackySoft.Ucli.Application.Tests.Requests.Shared.Execution.Conversion;
 
@@ -37,7 +38,7 @@ public sealed class ExecuteResponseConverterTests
         var responseProjectFingerprint = ProjectFingerprintTestFactory.Create("another-project");
         var response = CreateResponse(new IpcExecuteResponse(
             [],
-            new IpcProjectIdentity(
+            new UnityProjectIdentity(
                 projectPath: Path.Combine(ExpectedProject.RepositoryRoot.Value, "AnotherUnityProject"),
                 projectFingerprint: responseProjectFingerprint,
                 unityVersion: "6000.1.4f1"),
@@ -63,7 +64,7 @@ public sealed class ExecuteResponseConverterTests
     {
         var response = CreateResponse(new IpcExecuteResponse(
             [],
-            new IpcProjectIdentity(
+            new UnityProjectIdentity(
                 projectPath: Path.Combine(ExpectedProject.RepositoryRoot.Value, "AnotherUnityProject"),
                 projectFingerprint: ExpectedProject.ProjectFingerprint,
                 unityVersion: ExpectedProject.UnityVersion),
@@ -86,7 +87,7 @@ public sealed class ExecuteResponseConverterTests
     {
         var response = CreateResponse(new IpcExecuteResponse(
             [],
-            new IpcProjectIdentity(
+            new UnityProjectIdentity(
                 projectPath: ExpectedProject.UnityProjectRoot.Value,
                 projectFingerprint: ExpectedProject.ProjectFingerprint,
                 unityVersion: "different-version"),
@@ -161,7 +162,7 @@ public sealed class ExecuteResponseConverterTests
         var response = CreateResponse(CreatePayloadWithOperationResult(
             """
             {
-              "op": "ucli.project.refresh",
+              "op": "ucli.project.save",
               "phase": "call",
               "applied": true,
               "changed": true,
@@ -185,7 +186,7 @@ public sealed class ExecuteResponseConverterTests
         var response = CreateResponse(CreatePayloadWithOperationResult(
             """
             {
-              "op": "ucli.project.refresh",
+              "op": "ucli.project.save",
               "phase": "call",
               "applied": true,
               "changed": true,
@@ -231,7 +232,7 @@ public sealed class ExecuteResponseConverterTests
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
-        Assert.Contains(nameof(IpcExecuteReadPostcondition.Requirements), error.Message, StringComparison.Ordinal);
+        Assert.Contains(nameof(ExecutionReadPostcondition.Requirements), error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -267,7 +268,7 @@ public sealed class ExecuteResponseConverterTests
               },
               "opResults": [
                 {
-                  "op": "ucli.project.refresh",
+                  "op": "ucli.project.save",
                   "phase": "unknownPhase",
                   "applied": true,
                   "changed": true,
@@ -294,7 +295,7 @@ public sealed class ExecuteResponseConverterTests
         var response = CreateResponse(CreatePayloadWithOperationResult(
             """
             {
-              "op": "ucli.project.refresh",
+              "op": "ucli.project.save",
               "phase": "call",
               "applied": true,
               "changed": true,
@@ -335,7 +336,7 @@ public sealed class ExecuteResponseConverterTests
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
-        Assert.Contains(nameof(IpcExecuteReadPostconditionSurface), error.Message, StringComparison.Ordinal);
+        Assert.Contains(nameof(ExecutionReadPostconditionSurface), error.Message, StringComparison.Ordinal);
         Assert.Contains("unknownSurface", error.Message, StringComparison.Ordinal);
     }
 

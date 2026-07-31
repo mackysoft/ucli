@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Features.Assurance.Ready;
 
@@ -10,7 +11,7 @@ namespace MackySoft.Ucli.Application.Features.Assurance.Ready;
 /// <param name="Column"> The one-based diagnostic column number when available. </param>
 /// <param name="Message"> The diagnostic message when available. </param>
 internal sealed record ReadyPrimaryDiagnosticOutput (
-    DaemonDiagnosisPrimaryDiagnosticKind Kind,
+    UnityEditorPrimaryDiagnosticKind Kind,
     string? Code,
     string? File,
     int? Line,

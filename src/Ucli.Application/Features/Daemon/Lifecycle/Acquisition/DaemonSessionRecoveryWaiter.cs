@@ -1,5 +1,6 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Observation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Acquisition;
 
@@ -65,7 +66,7 @@ internal sealed class DaemonSessionRecoveryWaiter
         TimeProvider timeProvider,
         CancellationToken cancellationToken)
     {
-        if (knownSession.EditorMode != DaemonEditorMode.Gui)
+        if (knownSession.EditorMode != UnityEditorMode.Gui)
         {
             return false;
         }

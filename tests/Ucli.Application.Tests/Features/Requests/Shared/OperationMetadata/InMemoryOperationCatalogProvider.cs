@@ -31,7 +31,6 @@ internal sealed class InMemoryOperationCatalogProvider : IOperationCatalogProvid
         CreateDescriptor<PrefabCreateArgs>(UcliPrimitiveOperationNames.PrefabCreate, UcliOperationKind.Mutation, OperationPolicy.Advanced, UcliOperationExposure.EditLoweringOnly),
         CreateDescriptor<PrefabPathArgs>(UcliPrimitiveOperationNames.PrefabOpen, UcliOperationKind.Command, OperationPolicy.Safe),
         CreateDescriptor<PrefabPathArgs>(UcliPrimitiveOperationNames.PrefabSave, UcliOperationKind.Mutation, OperationPolicy.Advanced),
-        CreateDescriptor<UcliEmptyArgs>(UcliPrimitiveOperationNames.ProjectRefresh, UcliOperationKind.Command, OperationPolicy.Advanced),
         CreateDescriptor<UcliEmptyArgs>(UcliPrimitiveOperationNames.ProjectSave, UcliOperationKind.Mutation, OperationPolicy.Advanced),
     ];
 

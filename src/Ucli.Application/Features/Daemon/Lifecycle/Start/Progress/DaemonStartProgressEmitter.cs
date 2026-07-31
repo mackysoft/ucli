@@ -4,6 +4,7 @@ using MackySoft.Ucli.Application.Shared.Execution.Progress;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Progress;
 
@@ -15,7 +16,7 @@ internal sealed class DaemonStartProgressEmitter :
     private readonly ICommandProgressSink progressSink;
     private readonly ProjectFingerprint projectFingerprint;
     private readonly int timeoutMilliseconds;
-    private readonly DaemonEditorMode? editorMode;
+    private readonly UnityEditorMode? editorMode;
     private readonly DaemonStartupBlockedProcessPolicy onStartupBlocked;
 
     /// <summary> Initializes a new instance of the <see cref="DaemonStartProgressEmitter" /> class. </summary>
@@ -23,7 +24,7 @@ internal sealed class DaemonStartProgressEmitter :
         ICommandProgressSink? progressSink,
         ProjectFingerprint projectFingerprint,
         int timeoutMilliseconds,
-        DaemonEditorMode? editorMode,
+        UnityEditorMode? editorMode,
         DaemonStartupBlockedProcessPolicy onStartupBlocked)
     {
         ArgumentNullException.ThrowIfNull(projectFingerprint);
@@ -159,7 +160,7 @@ internal sealed class DaemonStartProgressEmitter :
 
     /// <inheritdoc />
     public ValueTask EmitLifecycleObservedAsync (
-        IpcUnityEditorObservation lifecycleObservation,
+        UnityEditorObservation lifecycleObservation,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(lifecycleObservation);
@@ -172,9 +173,9 @@ internal sealed class DaemonStartProgressEmitter :
             EditorMode: editorMode,
             OnStartupBlocked: onStartupBlocked,
             LifecycleState: lifecycleObservation.State.LifecycleState,
-            BlockingReason: IpcEditorLifecycleSemantics.ResolveBlockingReason(lifecycleObservation.State.LifecycleState),
+            BlockingReason: UnityEditorLifecycleSemantics.ResolveBlockingReason(lifecycleObservation.State.LifecycleState),
             Generations: lifecycleObservation.State.Generations,
-            CanAcceptExecutionRequests: IpcEditorLifecycleSemantics.CanAcceptExecutionRequests(lifecycleObservation.State.LifecycleState));
+            CanAcceptExecutionRequests: UnityEditorLifecycleSemantics.CanAcceptExecutionRequests(lifecycleObservation.State.LifecycleState));
         return progressSink.OnEntryAsync(TextVocabulary.GetText(DaemonStartProgressEvent.LifecycleObserved), entry, cancellationToken);
     }
 

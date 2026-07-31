@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Contracts.Editor;
+
 namespace MackySoft.Ucli.Tests.Daemon;
 
 using MackySoft.Ucli.Contracts.Storage;
@@ -21,7 +23,7 @@ public sealed class DaemonLaunchServiceBatchmodeStartupBlockerProjectionTests
         Assert.Equal(DaemonStartupStatus.Blocked, result.Startup!.StartupStatus);
         Assert.Equal(DaemonStartupBlockingReason.Compile, result.Startup.StartupBlockingReason);
         Assert.Equal(DaemonStartupRetryDisposition.RetryAfterFix, result.Startup.RetryDisposition);
-        Assert.Equal(DaemonEditorMode.Batchmode, result.Startup.EditorMode);
+        Assert.Equal(UnityEditorMode.Batchmode, result.Startup.EditorMode);
         Assert.Equal(DaemonSessionOwnerKind.Cli, result.Startup.OwnerKind);
         Assert.Equal(scenario.ProcessId, result.Startup.ProcessId);
         Assert.Equal(scenario.ProcessStartedAtUtc, result.Startup.StartedAtUtc);

@@ -3,7 +3,7 @@ using MackySoft.Ucli.Application.Features.Requests.Call.Common.Contracts;
 using MackySoft.Ucli.Application.Features.Requests.Plan.Common.Contracts;
 using MackySoft.Ucli.Application.Features.Requests.Query.UseCases.Query;
 using MackySoft.Ucli.Application.Features.Requests.Resolve.UseCases.Resolve;
-using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.OperationExecute;
+using MackySoft.Ucli.Contracts.Execution;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 using MackySoft.Ucli.Hosting.Cli.Requests;
@@ -12,6 +12,22 @@ namespace MackySoft.Ucli.Tests;
 
 public sealed class RequestCommandResultFactoryContractViolationTests
 {
+    [Fact]
+    [Trait("Size", "Small")]
+    public void ContractViolation_WhenApplicationStateIsPartial_RejectsValue ()
+    {
+        var exception = Assert.Throws<ArgumentOutOfRangeException>(() =>
+            new OperationExecutionContractViolation(
+                InstancePath: "/opResults/0",
+                Operation: UcliPrimitiveOperationNames.AssetsFind,
+                ExpectedFact: "operation.kind=query",
+                ObservedResult: "opResults[].applied=true",
+                ApplicationState:
+                    ExecutionApplicationState.PartiallyApplied));
+
+        Assert.Equal("ApplicationState", exception.ParamName);
+    }
+
     [Fact]
     [Trait("Size", "Small")]
     public void Plan_Create_WhenContractViolationExists_EmitsErrorCodeAndPayloadDetails ()
@@ -85,22 +101,6 @@ public sealed class RequestCommandResultFactoryContractViolationTests
         AssertContractViolationPayload(result, UcliCommandNames.Resolve);
     }
 
-    [Fact]
-    [Trait("Size", "Small")]
-    public void Refresh_Create_WhenContractViolationExists_EmitsErrorCodeAndPayloadDetails ()
-    {
-        var result = RefreshCommandResultFactory.Create(OperationExecuteResultFactory.Failure(
-            Guid.Parse("9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62"),
-            [CreateOpResult()],
-            [CreateContractViolationFailure()],
-            contractViolations: [CreateContractViolation()],
-            readPostcondition: null,
-            project: ProjectIdentityInfoTestFactory.Create(),
-            postReadSource: null));
-
-        AssertContractViolationPayload(result, UcliCommandNames.Refresh);
-    }
-
     private static void AssertContractViolationPayload (
         CommandResult result,
         string expectedCommand)
@@ -125,7 +125,7 @@ public sealed class RequestCommandResultFactoryContractViolationTests
                     .HasString("operation", UcliPrimitiveOperationNames.AssetsFind)
                     .HasString("expectedFact", "operation.kind=query")
                     .HasString("observedResult", "opResults[].applied=true")
-                    .HasString("applicationState", TextVocabulary.GetText(IpcApplicationState.Applied))));
+                    .HasString("applicationState", TextVocabulary.GetText(ExecutionApplicationState.Applied))));
     }
 
     private static ApplicationFailure CreateContractViolationFailure ()
@@ -144,7 +144,7 @@ public sealed class RequestCommandResultFactoryContractViolationTests
             Operation: UcliPrimitiveOperationNames.AssetsFind,
             ExpectedFact: "operation.kind=query",
             ObservedResult: "opResults[].applied=true",
-            ApplicationState: IpcApplicationState.Applied);
+            ApplicationState: ExecutionApplicationState.Applied);
     }
 
     private static OperationExecutionOperationResult CreateOpResult ()

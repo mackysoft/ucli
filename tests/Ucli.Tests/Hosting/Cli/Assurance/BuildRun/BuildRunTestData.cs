@@ -3,6 +3,7 @@ using MackySoft.Ucli.Application.Features.Assurance.Build.Vocabulary;
 using MackySoft.Ucli.Contracts.Assurance.Build;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Tests;
 
@@ -135,9 +136,9 @@ internal static class BuildRunTestData
                 FileCount: 1,
                 TotalBytes: 4096),
             generations: new BuildGenerationsOutput(
-                Before: new IpcUnityGenerationSnapshot(1, 1, 1, 1),
-                After: new IpcUnityGenerationSnapshot(2, 1, 1, 1),
-                ValidFor: new IpcUnityGenerationSnapshot(2, 1, 1, 1)),
+                Before: new UnityEditorGenerationSnapshot(1, 1, 1, 1),
+                After: new UnityEditorGenerationSnapshot(2, 1, 1, 1),
+                ValidFor: new UnityEditorGenerationSnapshot(2, 1, 1, 1)),
             summary: new BuildSummaryOutput(
                 Result: reportResult,
                 DurationMilliseconds: 2500,
@@ -154,13 +155,13 @@ internal static class BuildRunTestData
                     DateTimeOffset.Parse("2026-06-12T00:00:03+00:00"))));
     }
 
-    public static IpcUnityEditorObservation CreateLifecycleObservation ()
+    public static UnityEditorObservation CreateLifecycleObservation ()
     {
         return PlayCommandOutputTestData.CreateLifecycleSnapshot(
-            IpcEditorLifecycleState.Ready,
+            UnityEditorLifecycleState.Ready,
             PlayCommandOutputTestData.CreatePlayMode(
-                IpcPlayModeState.Stopped,
-                IpcPlayModeTransition.None,
+                UnityEditorPlayModeState.Stopped,
+                UnityEditorPlayModeTransition.None,
                 isPlaying: false,
                 isPlayingOrWillChangePlaymode: false),
             playModeGeneration: 1);

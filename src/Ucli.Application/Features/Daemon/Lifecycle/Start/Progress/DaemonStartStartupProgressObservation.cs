@@ -1,4 +1,6 @@
 
+using MackySoft.Ucli.Contracts.Editor;
+
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Progress;
 
 /// <summary> Represents one daemon-start startup observation before public progress payload projection. </summary>
@@ -7,7 +9,7 @@ internal sealed record DaemonStartStartupProgressObservation
     /// <summary> Initializes one daemon-start startup observation. </summary>
     public DaemonStartStartupProgressObservation (
         Guid? LaunchAttemptId,
-        DaemonEditorMode? EditorMode,
+        UnityEditorMode? EditorMode,
         DaemonSessionOwnerKind? OwnerKind,
         bool? CanShutdownProcess,
         int? ProcessId,
@@ -89,7 +91,7 @@ internal sealed record DaemonStartStartupProgressObservation
 
     public Guid? LaunchAttemptId { get; }
 
-    public DaemonEditorMode? EditorMode { get; }
+    public UnityEditorMode? EditorMode { get; }
 
     public DaemonSessionOwnerKind? OwnerKind { get; }
 

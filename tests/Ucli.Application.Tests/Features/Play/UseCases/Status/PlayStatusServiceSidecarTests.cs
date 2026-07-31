@@ -3,6 +3,7 @@ using MackySoft.Ucli.Application.Features.Play.UseCases.Status;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using static MackySoft.Ucli.Application.Tests.Play.PlayStatusServiceTestSupport;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Tests.Play;
 
@@ -20,7 +21,7 @@ public sealed class PlayStatusServiceSidecarTests
         {
             ReadResult = DaemonLifecycleObservationReadResult.Success(CreateLifecycleObservation(
                 session,
-                IpcEditorLifecycleState.PlayMode,
+                UnityEditorLifecycleState.PlayMode,
                 playModeGeneration: 1)),
         };
         var processIdentityAssessor = CreateProcessIdentityAssessor(DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess);
@@ -37,8 +38,8 @@ public sealed class PlayStatusServiceSidecarTests
 
         Assert.True(result.IsSuccess);
         var output = Assert.IsType<PlayStatusExecutionOutput>(result.Output);
-        Assert.Equal(IpcEditorLifecycleState.Ready, output.LifecycleState);
-        Assert.Equal(IpcPlayModeState.Stopped, output.PlayMode.State);
+        Assert.Equal(UnityEditorLifecycleState.Ready, output.LifecycleState);
+        Assert.Equal(UnityEditorPlayModeState.Stopped, output.PlayMode.State);
         Assert.Equal(2, output.Generations!.PlayModeGeneration);
         Assert.Empty(lifecycleStore.ReadInvocations);
         UnityRequestExecutorInvocationAssert.PlayStatusOnce(requestExecutor);
@@ -54,8 +55,8 @@ public sealed class PlayStatusServiceSidecarTests
         {
             ReadResult = DaemonLifecycleObservationReadResult.Success(CreateLifecycleObservation(
                 session,
-                IpcEditorLifecycleState.Ready,
-                playModeState: IpcPlayModeState.Stopped,
+                UnityEditorLifecycleState.Ready,
+                playModeState: UnityEditorPlayModeState.Stopped,
                 isPlaying: false,
                 isPlayingOrWillChangePlaymode: false)),
         };
@@ -144,8 +145,8 @@ public sealed class PlayStatusServiceSidecarTests
         Assert.True(result.IsSuccess);
         var output = Assert.IsType<PlayStatusExecutionOutput>(result.Output);
         Assert.Equal("0.5.0", output.ServerVersion);
-        Assert.Equal(IpcEditorLifecycleState.PlayMode, output.LifecycleState);
-        Assert.Equal(IpcPlayModeState.Playing, output.PlayMode.State);
+        Assert.Equal(UnityEditorLifecycleState.PlayMode, output.LifecycleState);
+        Assert.Equal(UnityEditorPlayModeState.Playing, output.PlayMode.State);
         DaemonLifecycleObservationAssert.LifecycleObservationReadOnceFor(
             lifecycleStore,
             PlayProjectContext,
@@ -178,8 +179,8 @@ public sealed class PlayStatusServiceSidecarTests
 
         Assert.True(result.IsSuccess);
         var output = Assert.IsType<PlayStatusExecutionOutput>(result.Output);
-        Assert.Equal(IpcEditorLifecycleState.PlayMode, output.LifecycleState);
-        Assert.Equal(IpcPlayModeState.Playing, output.PlayMode.State);
+        Assert.Equal(UnityEditorLifecycleState.PlayMode, output.LifecycleState);
+        Assert.Equal(UnityEditorPlayModeState.Playing, output.PlayMode.State);
         DaemonLifecycleObservationAssert.LifecycleObservationReadOnceFor(
             lifecycleStore,
             PlayProjectContext,

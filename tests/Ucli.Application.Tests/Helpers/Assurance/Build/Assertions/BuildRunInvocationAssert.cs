@@ -1,6 +1,7 @@
 using MackySoft.Ucli.Contracts.Assurance.Build;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Tests;
 
@@ -28,7 +29,7 @@ internal static class BuildRunInvocationAssert
         Assert.Equal(expectedLocationPathName, contract.OutputLayout.LocationPathName);
         Assert.Equal(expectedBuildReportPath, contract.BuildReportPath);
         Assert.Equal(expectedBuildLogPath, contract.BuildLogPath);
-        Assert.Equal([DaemonEditorMode.Batchmode, DaemonEditorMode.Gui], contract.AllowedEditorModes);
+        Assert.Equal([UnityEditorMode.Batchmode, UnityEditorMode.Gui], contract.AllowedEditorModes);
         Assert.Equal(BuildProfileProjectMutationMode.Forbid, contract.ProjectMutationMode);
         Assert.Equal(BuildRunnerKind.BuildPipeline, contract.RunnerKind);
         Assert.Null(contract.ProfilePath);

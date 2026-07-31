@@ -1,5 +1,4 @@
 using MackySoft.Ucli.Contracts.Ipc;
-
 using static MackySoft.Ucli.Application.Tests.Requests.Shared.Execution.Conversion.ExecuteResponseConverterTestSupport;
 
 namespace MackySoft.Ucli.Application.Tests.Requests.Shared.Execution.Conversion;
@@ -20,7 +19,7 @@ public sealed class ExecuteResponseConverterDiagnosticTests
               },
               "opResults": [
                 {
-                  "op": "ucli.project.refresh",
+                  "op": "ucli.project.save",
                   "phase": "call",
                   "applied": true,
                   "changed": true,
@@ -53,7 +52,7 @@ public sealed class ExecuteResponseConverterDiagnosticTests
               },
               "opResults": [
                 {
-                  "op": "ucli.project.refresh",
+                  "op": "ucli.project.save",
                   "phase": "call",
                   "applied": true,
                   "changed": true,
@@ -193,7 +192,7 @@ public sealed class ExecuteResponseConverterDiagnosticTests
               },
               "opResults": [
                 {
-                  "op": "ucli.project.refresh",
+                  "op": "ucli.project.save",
                   "phase": "call",
                   "applied": true,
                   "changed": true,

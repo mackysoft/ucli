@@ -18,8 +18,7 @@ public sealed class CompileCommandPreDispatchTests
 
         CompileCommandAssert.InvalidArgumentReturnedWithoutCompileExecution(
             result,
-            service,
-            expectEmptyStandardError: false);
+            service);
     }
 
     [Fact]
@@ -35,7 +34,6 @@ public sealed class CompileCommandPreDispatchTests
 
         CompileCommandAssert.InvalidArgumentReturnedWithoutCompileExecution(
             result,
-            service,
-            expectEmptyStandardError: true);
+            service);
     }
 }

@@ -2,6 +2,7 @@ using System.Text.Json;
 using MackySoft.Ucli.Application.Shared.Execution.Progress;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Features.Daemon.Supervisor.Client;
 
@@ -11,7 +12,7 @@ internal sealed class SupervisorDaemonStartProgressFrameForwarder
     private readonly ICommandProgressSink progressSink;
     private readonly ProjectFingerprint projectFingerprint;
     private readonly int timeoutMilliseconds;
-    private readonly DaemonEditorMode? editorMode;
+    private readonly UnityEditorMode? editorMode;
     private readonly DaemonStartupBlockedProcessPolicy onStartupBlocked;
 
     /// <summary> Initializes a new instance of the <see cref="SupervisorDaemonStartProgressFrameForwarder" /> class. </summary>
@@ -19,7 +20,7 @@ internal sealed class SupervisorDaemonStartProgressFrameForwarder
         ICommandProgressSink progressSink,
         ProjectFingerprint projectFingerprint,
         int timeoutMilliseconds,
-        DaemonEditorMode? editorMode,
+        UnityEditorMode? editorMode,
         DaemonStartupBlockedProcessPolicy onStartupBlocked)
     {
         this.progressSink = progressSink ?? throw new ArgumentNullException(nameof(progressSink));
@@ -127,7 +128,7 @@ internal sealed class SupervisorDaemonStartProgressFrameForwarder
     private bool HasExpectedEnvelope (
         ProjectFingerprint entryProjectFingerprint,
         int entryTimeoutMilliseconds,
-        DaemonEditorMode? entryEditorMode,
+        UnityEditorMode? entryEditorMode,
         DaemonStartupBlockedProcessPolicy entryOnStartupBlocked)
     {
         return entryProjectFingerprint == projectFingerprint

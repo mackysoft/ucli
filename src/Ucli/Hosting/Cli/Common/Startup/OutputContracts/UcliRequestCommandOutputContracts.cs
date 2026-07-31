@@ -8,7 +8,11 @@ namespace MackySoft.Ucli.Hosting.Cli.Common.Startup.OutputContracts;
 internal static class UcliRequestCommandOutputContracts
 {
     internal static UcliCommandOutputContract Refresh { get; } =
-        CreateOperationExecution(UcliCommandNames.Refresh);
+        UcliCommandOutputContracts.Complete(
+            UcliCommandNames.Refresh,
+            RefreshCommandResultFactory.SuccessPayloadTypeInfo,
+            RefreshCommandResultFactory.ErrorPayloadTypeInfo,
+            RefreshCommandResultFactory.CreateEmptyErrorPayload);
 
     internal static UcliCommandOutputContract Resolve { get; } =
         CreateReadIndexRequest(UcliCommandNames.Resolve);
@@ -21,7 +25,7 @@ internal static class UcliRequestCommandOutputContracts
             ValidateCommandResultFactory.CreateEmptyErrorPayload);
 
     internal static UcliCommandOutputContract Plan { get; } =
-        UcliCommandOutputContracts.Complete(
+        UcliCommandOutputContracts.OperationExecution(
             UcliCommandNames.Plan,
             PlanCommandResultFactory.SuccessPayloadTypeInfo,
             PlanCommandResultFactory.ErrorPayloadTypeInfo,
@@ -48,18 +52,9 @@ internal static class UcliRequestCommandOutputContracts
     internal static UcliCommandOutputContract QueryAssetSchema { get; } =
         CreateReadIndexRequest(UcliCommandNames.QueryAssetSchema);
 
-    private static UcliCommandOutputContract CreateOperationExecution (string command)
-    {
-        return UcliCommandOutputContracts.Complete(
-            command,
-            UcliCommandOutputContracts.ResolveTypeInfo<OperationExecutionCommandPayload>(),
-            CommandErrorPayload.TypeInfo<OperationExecutionCommandPayload>(),
-            CommandErrorPayload.Empty<OperationExecutionCommandPayload>);
-    }
-
     private static UcliCommandOutputContract CreateReadIndexRequest (string command)
     {
-        return UcliCommandOutputContracts.Complete(
+        return UcliCommandOutputContracts.OperationExecution(
             command,
             UcliCommandOutputContracts.ResolveTypeInfo<ReadIndexRequestCommandPayload>(),
             CommandErrorPayload.TypeInfo<ReadIndexRequestCommandPayload>(),
@@ -68,7 +63,7 @@ internal static class UcliRequestCommandOutputContracts
 
     private static UcliCommandOutputContract CreateCall (string command)
     {
-        return UcliCommandOutputContracts.Complete(
+        return UcliCommandOutputContracts.OperationExecution(
             command,
             CallExecutionPayloadProjector.SuccessPayloadTypeInfo,
             CallExecutionPayloadProjector.ErrorPayloadTypeInfo,

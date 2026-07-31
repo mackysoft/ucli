@@ -1,6 +1,7 @@
 using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.Authorization;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 
@@ -31,7 +32,7 @@ internal sealed record DaemonSession
         IpcSessionToken sessionToken,
         ProjectFingerprint projectFingerprint,
         DateTimeOffset issuedAtUtc,
-        DaemonEditorMode editorMode,
+        UnityEditorMode editorMode,
         DaemonSessionOwnerKind ownerKind,
         bool canShutdownProcess,
         IpcEndpoint endpointContract,
@@ -91,21 +92,21 @@ internal sealed record DaemonSession
             throw new ArgumentException("Daemon session Editor instance identifier must not be empty.", nameof(editorInstanceId));
         }
 
-        if (editorMode == DaemonEditorMode.Batchmode && editorInstanceId.HasValue)
+        if (editorMode == UnityEditorMode.Batchmode && editorInstanceId.HasValue)
         {
             throw new ArgumentException(
                 "Batchmode daemon sessions must not specify an Editor instance identifier.",
                 nameof(editorInstanceId));
         }
 
-        if (editorMode == DaemonEditorMode.Batchmode
+        if (editorMode == UnityEditorMode.Batchmode
             && (ownerKind != DaemonSessionOwnerKind.Cli || !canShutdownProcess))
         {
             throw new ArgumentException("Batchmode daemon sessions must be CLI-owned and allow process shutdown.", nameof(editorMode));
         }
 
         if (ownerKind == DaemonSessionOwnerKind.User
-            && (editorMode != DaemonEditorMode.Gui || canShutdownProcess))
+            && (editorMode != UnityEditorMode.Gui || canShutdownProcess))
         {
             throw new ArgumentException("User-owned daemon sessions must run in GUI mode and disallow process shutdown.", nameof(ownerKind));
         }
@@ -164,7 +165,7 @@ internal sealed record DaemonSession
     public DateTimeOffset IssuedAtUtc { get; }
 
     /// <summary> Gets the Unity Editor mode. </summary>
-    public DaemonEditorMode EditorMode { get; }
+    public UnityEditorMode EditorMode { get; }
 
     /// <summary> Gets the session owner kind. </summary>
     public DaemonSessionOwnerKind OwnerKind { get; }

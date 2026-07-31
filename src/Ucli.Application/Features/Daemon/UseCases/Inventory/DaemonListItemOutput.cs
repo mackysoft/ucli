@@ -1,6 +1,7 @@
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.UseCases.Inventory;
 
@@ -40,17 +41,17 @@ internal sealed record DaemonListItemOutput (
     DateTimeOffset? IssuedAtUtc,
     int? ProcessId,
     DateTimeOffset? ProcessStartedAtUtc,
-    DaemonEditorMode? EditorMode,
+    UnityEditorMode? EditorMode,
     DaemonSessionOwnerKind? OwnerKind,
     bool? CanShutdownProcess,
     IpcTransportKind? EndpointTransportKind,
     string? EndpointAddress,
-    IpcEditorLifecycleState? LifecycleState,
-    IpcEditorBlockingReason? BlockingReason,
-    IpcCompileState? CompileState,
-    IpcUnityGenerationSnapshot? Generations,
+    UnityEditorLifecycleState? LifecycleState,
+    UnityEditorBlockingReason? BlockingReason,
+    UnityEditorCompileState? CompileState,
+    UnityEditorGenerationSnapshot? Generations,
     bool? CanAcceptExecutionRequests,
     DateTimeOffset? ObservedAtUtc,
-    DaemonDiagnosisActionRequired? ActionRequired,
+    UnityEditorActionRequired? ActionRequired,
     DaemonPrimaryDiagnosticOutput? PrimaryDiagnostic,
     DaemonDiagnosisOutput? Diagnosis);

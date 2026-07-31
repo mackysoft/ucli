@@ -358,7 +358,7 @@ public sealed class SupervisorProjectCoordinatorStabilityCompensationTests
         var session = daemonProcess.CreateSession();
         return DaemonStartResult.Started(
             session,
-            IpcUnityEditorObservationTestFactory.Create(projectFingerprint: session.ProjectFingerprint));
+            UnityEditorObservationTestFactory.Create(projectFingerprint: session.ProjectFingerprint));
     }
 
     private static SemaphoreSlim GetRuntimeLogWriteGate (SupervisorRuntimeLogger runtimeLogger)

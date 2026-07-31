@@ -1,6 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Projects;
 
 namespace MackySoft.Ucli.Application.Shared.Context.Project;
 
@@ -47,7 +48,7 @@ internal sealed record ProjectIdentityInfo
     /// <returns> <see langword="true" /> when the host identity belongs to the requested project; otherwise <see langword="false" />. </returns>
     public static bool TryFromHost (
         ResolvedUnityProjectContext expectedProject,
-        IpcProjectIdentity hostProject,
+        UnityProjectIdentity hostProject,
         [NotNullWhen(true)] out ProjectIdentityInfo? project,
         out ProjectIdentityMismatchKind mismatchKind)
     {

@@ -1,5 +1,6 @@
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 
@@ -13,7 +14,7 @@ namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 internal sealed record DaemonPrimaryDiagnostic
 {
     public DaemonPrimaryDiagnostic (
-        DaemonDiagnosisPrimaryDiagnosticKind Kind,
+        UnityEditorPrimaryDiagnosticKind Kind,
         string? Code,
         string? File,
         int? Line,
@@ -33,7 +34,7 @@ internal sealed record DaemonPrimaryDiagnostic
         this.Message = Message;
     }
 
-    public DaemonDiagnosisPrimaryDiagnosticKind Kind { get; }
+    public UnityEditorPrimaryDiagnosticKind Kind { get; }
 
     public string? Code { get; }
 

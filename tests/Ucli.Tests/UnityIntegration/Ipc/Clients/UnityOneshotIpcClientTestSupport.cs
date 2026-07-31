@@ -1,5 +1,8 @@
 using System.Text.Json;
+using MackySoft.Ucli.Application.Features.Requests.Refresh.UseCases.Refresh;
 using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
+using MackySoft.Ucli.Contracts.Editor;
+using MackySoft.Ucli.Contracts.Execution.Lifecycle;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Shared.Unity.ProjectLock;
 using MackySoft.Ucli.Tests.Helpers.Ipc;
@@ -7,6 +10,7 @@ using MackySoft.Ucli.Tests.Helpers.Process;
 using MackySoft.Ucli.Tests.Helpers.Unity;
 using MackySoft.Ucli.UnityIntegration.Ipc.Clients;
 using MackySoft.Ucli.UnityIntegration.Ipc.Dispatch;
+using MackySoft.Ucli.UnityIntegration.Ipc.Execution;
 using MackySoft.Ucli.UnityIntegration.Ipc.Process;
 using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 
@@ -86,12 +90,37 @@ internal static class UnityOneshotIpcClientTestSupport
             UnityBatchmodeLaunchOptions.Default);
     }
 
-    public static UnityIpcDispatchRequest CreateCompileDispatchRequest ()
+    public static UnityIpcDispatchRequest CreateCompileDispatchRequest (
+        TimeProvider? timeProvider = null,
+        TimeSpan? executionTimeout = null)
     {
-        return new UnityIpcDispatchRequest(
-            UnityIpcMethod.Compile,
-            IpcPayloadCodec.SerializeToElement(new IpcCompileRequest(RunIdTestValues.Compile)),
-            UnityBatchmodeLaunchOptions.Default);
+        var registration = UnityIpcRequestBuilderTestSupport.CreateLifecycleRegistration(
+            LifecycleExecutionKind.Compile,
+            RunIdTestValues.Compile,
+            timeProvider,
+            executionTimeout);
+        return new UnityIpcRequestBuilder().Build(
+            new UnityRequestPayload.Compile(
+                registration,
+                requiredStart: null));
+    }
+
+    public static UnityIpcDispatchRequest CreateRefreshDispatchRequest (
+        bool failFast,
+        TimeProvider? timeProvider = null,
+        TimeSpan? executionTimeout = null)
+    {
+        var registration =
+            UnityIpcRequestBuilderTestSupport.CreateLifecycleRegistration(
+                LifecycleExecutionKind.Refresh,
+                timeProvider: timeProvider,
+                executionTimeout: executionTimeout);
+        return new UnityIpcRequestBuilder().Build(
+            new UnityRequestPayload.Refresh(
+                registration,
+                requiredStart: null,
+                new RefreshLifecycleExecutionStartAdmissionPolicy(
+                    failFast)));
     }
 
     public static IpcResponse CreateSuccessResponse (Guid requestId)
@@ -102,6 +131,22 @@ internal static class UnityOneshotIpcClientTestSupport
             status: IpcResponseStatus.Ok,
             payload: EmptyPayload(),
             errors: Array.Empty<IpcError>());
+    }
+
+    public static IpcResponse CreateErrorResponse (
+        Guid requestId,
+        UcliCode errorCode,
+        string message)
+    {
+        return new IpcResponse(
+            protocolVersion: IpcProtocol.CurrentVersion,
+            requestId: requestId,
+            status: IpcResponseStatus.Error,
+            payload: EmptyPayload(),
+            errors:
+            [
+                new IpcError(errorCode, message, null),
+            ]);
     }
 
     public static IpcResponse CreateShutdownResponse (Guid requestId)
@@ -156,10 +201,10 @@ internal static class UnityOneshotIpcClientTestSupport
 
     public static IpcResponse CreatePingResponse (
         Guid requestId,
-        IpcEditorLifecycleState lifecycleState = IpcEditorLifecycleState.Ready,
+        UnityEditorLifecycleState lifecycleState = UnityEditorLifecycleState.Ready,
         ProjectFingerprint? projectFingerprint = null)
     {
-        var payload = IpcPayloadCodec.SerializeToElement(IpcUnityEditorObservationTestFactory.Create(
+        var payload = IpcPayloadCodec.SerializeToElement(UnityEditorObservationTestFactory.Create(
             lifecycleState: lifecycleState,
             projectFingerprint: projectFingerprint ?? ProjectFingerprintTestFactory.Create("project-fingerprint")));
         return new IpcResponse(

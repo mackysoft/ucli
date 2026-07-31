@@ -1,6 +1,7 @@
 using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 
@@ -32,7 +33,7 @@ internal sealed record DaemonDiagnosis
         DateTimeOffset? ProcessStartedAtUtc,
         AbsolutePath? UnityLogPath,
         DaemonDiagnosisStartupPhase? StartupPhase,
-        DaemonDiagnosisActionRequired? ActionRequired,
+        UnityEditorActionRequired? ActionRequired,
         DaemonPrimaryDiagnostic? PrimaryDiagnostic)
     {
         if (!TextVocabulary.IsDefined(Reason))
@@ -104,7 +105,7 @@ internal sealed record DaemonDiagnosis
 
     public DaemonDiagnosisStartupPhase? StartupPhase { get; }
 
-    public DaemonDiagnosisActionRequired? ActionRequired { get; }
+    public UnityEditorActionRequired? ActionRequired { get; }
 
     public DaemonPrimaryDiagnostic? PrimaryDiagnostic { get; }
 }

@@ -17,7 +17,7 @@ public sealed class DaemonSessionProbeTests
         var session = DaemonSessionTestFactory.Create(
             projectFingerprint: unityProject.ProjectFingerprint,
             sessionToken: "current-token");
-        var pingResponse = IpcUnityEditorObservationTestFactory.Create(
+        var pingResponse = UnityEditorObservationTestFactory.Create(
             projectFingerprint: unityProject.ProjectFingerprint);
         var pingInfoClient = new RecordingDaemonPingInfoClient(pingResponse);
         var probe = new DaemonSessionProbe(
@@ -62,7 +62,7 @@ public sealed class DaemonSessionProbeTests
                 _ => DaemonSessionReadResultTestFactory.Found(replacementSession),
             },
         };
-        var replacementPing = IpcUnityEditorObservationTestFactory.Create(
+        var replacementPing = UnityEditorObservationTestFactory.Create(
             projectFingerprint: unityProject.ProjectFingerprint);
         var pingInfoClient = new RecordingDaemonPingInfoClient(
             new DaemonPingResponseException(
@@ -327,7 +327,7 @@ public sealed class DaemonSessionProbeTests
         var transportClient = new RecordingIpcTransportClient(request =>
             IpcResponseTestFactory.CreateSuccess(
                 request,
-                IpcUnityEditorObservationTestFactory.Create(
+                UnityEditorObservationTestFactory.Create(
                     projectFingerprint: unityProject.ProjectFingerprint)));
         transportClient.EnqueueResponse(_ =>
         {

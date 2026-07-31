@@ -1,5 +1,8 @@
 using System.Text.Json;
+using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
+using MackySoft.Ucli.Contracts.Execution.Lifecycle;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Projects;
 using MackySoft.Ucli.Contracts.Testing;
 
 namespace MackySoft.Ucli.Application.Shared.Execution.UnityRequest;
@@ -7,6 +10,27 @@ namespace MackySoft.Ucli.Application.Shared.Execution.UnityRequest;
 /// <summary> Represents a host-executed Unity request without owning the IPC wire envelope. </summary>
 internal abstract record UnityRequestPayload
 {
+    private protected static void ValidateRequiredStart (
+        LifecycleExecutionRegistration registration,
+        LifecycleExecutionStartBinding? requiredStart)
+    {
+        ArgumentNullException.ThrowIfNull(registration);
+        if (requiredStart is null)
+        {
+            return;
+        }
+
+        if (!registration.HasSameIdentity(
+                requiredStart.LifecycleExecutionRef)
+            || requiredStart.DeadlineUtc != registration.DeadlineUtc
+            || requiredStart.StartedAtUtc != registration.StartedAtUtc)
+        {
+            throw new ArgumentException(
+                "The required Lifecycle Execution start does not match the immutable registration.",
+                nameof(requiredStart));
+        }
+    }
+
     /// <summary> Represents an operation catalog read request prepared by application orchestration. </summary>
     internal sealed record OpsRead (
         bool FailFast = false,
@@ -46,24 +70,53 @@ internal abstract record UnityRequestPayload
         string ClientVersion,
         bool FailFast = false) : UnityRequestPayload;
 
-    /// <summary> Represents a compile assurance request prepared by application orchestration. </summary>
-    internal sealed record Compile : UnityRequestPayload
+    /// <summary> Represents a durable project-refresh request prepared by application orchestration. </summary>
+    internal sealed record Refresh : UnityRequestPayload
     {
-        /// <summary> Initializes a compile request for one identified assurance run. </summary>
-        /// <param name="runId"> The non-empty run identifier used for progress and result correlation. </param>
-        /// <exception cref="ArgumentException"> Thrown when <paramref name="runId" /> is empty. </exception>
-        public Compile (Guid runId)
+        public Refresh (
+            LifecycleExecutionRegistration registration,
+            LifecycleExecutionStartBinding? requiredStart,
+            ILifecycleExecutionStartAdmissionPolicy? startAdmissionPolicy)
         {
-            if (runId == Guid.Empty)
+            Registration = registration ?? throw new ArgumentNullException(nameof(registration));
+            ValidateRequiredStart(registration, requiredStart);
+            if (requiredStart is not null && startAdmissionPolicy is not null)
             {
-                throw new ArgumentException("Run id must not be empty.", nameof(runId));
+                throw new ArgumentException(
+                    "A reconnected refresh must not repeat new-execution start admission.",
+                    nameof(startAdmissionPolicy));
             }
 
-            RunId = runId;
+            RequiredStart = requiredStart;
+            StartAdmissionPolicy = startAdmissionPolicy;
         }
 
-        /// <summary> Gets the non-empty assurance run identifier. </summary>
-        public Guid RunId { get; }
+        public LifecycleExecutionRegistration Registration { get; }
+
+        public LifecycleExecutionStartBinding? RequiredStart { get; }
+
+        /// <summary>
+        /// Gets the refresh-owned admission policy for a new Start Record, or
+        /// <see langword="null" /> when reconnecting an existing execution.
+        /// </summary>
+        public ILifecycleExecutionStartAdmissionPolicy? StartAdmissionPolicy { get; }
+    }
+
+    /// <summary> Represents a durable compile assurance request prepared by application orchestration. </summary>
+    internal sealed record Compile : UnityRequestPayload
+    {
+        public Compile (
+            LifecycleExecutionRegistration registration,
+            LifecycleExecutionStartBinding? requiredStart)
+        {
+            Registration = registration ?? throw new ArgumentNullException(nameof(registration));
+            ValidateRequiredStart(registration, requiredStart);
+            RequiredStart = requiredStart;
+        }
+
+        public LifecycleExecutionRegistration Registration { get; }
+
+        public LifecycleExecutionStartBinding? RequiredStart { get; }
     }
 
     /// <summary> Represents a build assurance request prepared by application orchestration. </summary>
@@ -177,10 +230,38 @@ internal abstract record UnityRequestPayload
     }
 
     /// <summary> Represents a Play Mode enter request prepared by application orchestration. </summary>
-    internal sealed record PlayEnter : UnityRequestPayload;
+    internal sealed record PlayEnter : UnityRequestPayload
+    {
+        public PlayEnter (
+            LifecycleExecutionRegistration registration,
+            LifecycleExecutionStartBinding? requiredStart)
+        {
+            Registration = registration ?? throw new ArgumentNullException(nameof(registration));
+            ValidateRequiredStart(registration, requiredStart);
+            RequiredStart = requiredStart;
+        }
+
+        public LifecycleExecutionRegistration Registration { get; }
+
+        public LifecycleExecutionStartBinding? RequiredStart { get; }
+    }
 
     /// <summary> Represents a Play Mode exit request prepared by application orchestration. </summary>
-    internal sealed record PlayExit : UnityRequestPayload;
+    internal sealed record PlayExit : UnityRequestPayload
+    {
+        public PlayExit (
+            LifecycleExecutionRegistration registration,
+            LifecycleExecutionStartBinding? requiredStart)
+        {
+            Registration = registration ?? throw new ArgumentNullException(nameof(registration));
+            ValidateRequiredStart(registration, requiredStart);
+            RequiredStart = requiredStart;
+        }
+
+        public LifecycleExecutionRegistration Registration { get; }
+
+        public LifecycleExecutionStartBinding? RequiredStart { get; }
+    }
 
     /// <summary> Represents an execute request whose execute-arguments JSON was already prepared. </summary>
     internal sealed record ExecuteJson (

@@ -1,5 +1,6 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Acquisition;
 
@@ -135,7 +136,7 @@ internal sealed class DaemonSessionProbe
         }
     }
 
-    private async ValueTask<IpcUnityEditorObservation> PingWithinDeadlineAsync (
+    private async ValueTask<UnityEditorObservation> PingWithinDeadlineAsync (
         ResolvedUnityProjectContext unityProject,
         DaemonSession session,
         Guid requestId,

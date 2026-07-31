@@ -4,6 +4,8 @@ using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 using static MackySoft.Ucli.Application.Tests.Execution.ReadIndex.Scenes.SceneTreeLiteAccessServiceTestSupport;
+using MackySoft.Ucli.Contracts.Execution;
+using MackySoft.Ucli.Contracts.Projects;
 
 namespace MackySoft.Ucli.Application.Tests.Execution.ReadIndex.Scenes;
 
@@ -27,10 +29,10 @@ public sealed class SceneTreeLiteAccessServicePostconditionTests
         var readPostconditionStore = new TestMutationReadPostconditionStore
         {
             ReadResult = MutationReadPostconditionReadResult.Success(
-                new IpcExecuteReadPostcondition(
+                new ExecutionReadPostcondition(
                 [
-                    new IpcExecuteReadPostconditionRequirement(
-                        Surface: IpcExecuteReadPostconditionSurface.SceneTreeLite,
+                    new ExecutionReadPostconditionRequirement(
+                        Surface: ExecutionReadPostconditionSurface.SceneTreeLite,
                         MinSafeGeneratedAtUtc: DateTimeOffset.Parse("2026-04-15T00:00:00+00:00"),
                         ScenePath: new UnityScenePath("Assets/Scenes/Main.unity")),
                 ])),
@@ -84,10 +86,10 @@ public sealed class SceneTreeLiteAccessServicePostconditionTests
         var readPostconditionStore = new TestMutationReadPostconditionStore
         {
             ReadResult = MutationReadPostconditionReadResult.Success(
-                new IpcExecuteReadPostcondition(
+                new ExecutionReadPostcondition(
                 [
-                    new IpcExecuteReadPostconditionRequirement(
-                        Surface: IpcExecuteReadPostconditionSurface.SceneTreeLite,
+                    new ExecutionReadPostconditionRequirement(
+                        Surface: ExecutionReadPostconditionSurface.SceneTreeLite,
                         MinSafeGeneratedAtUtc: DateTimeOffset.Parse("2026-04-15T00:00:00+00:00"),
                         ScenePath: null),
                 ])),
@@ -141,10 +143,10 @@ public sealed class SceneTreeLiteAccessServicePostconditionTests
         var readPostconditionStore = new TestMutationReadPostconditionStore
         {
             ReadResult = MutationReadPostconditionReadResult.Success(
-                new IpcExecuteReadPostcondition(
+                new ExecutionReadPostcondition(
                 [
-                    new IpcExecuteReadPostconditionRequirement(
-                        Surface: IpcExecuteReadPostconditionSurface.SceneTreeLite,
+                    new ExecutionReadPostconditionRequirement(
+                        Surface: ExecutionReadPostconditionSurface.SceneTreeLite,
                         MinSafeGeneratedAtUtc: DateTimeOffset.Parse("2026-04-15T00:00:00+00:00"),
                         ScenePath: new UnityScenePath("Assets/Scenes/Other.unity")),
                 ])),
