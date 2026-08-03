@@ -64,6 +64,8 @@ dotnet tool update --global MackySoft.Ucli --version <version>
 
 Install `MackySoft.Ucli.Unity` from NuGetForUnity's **Manage NuGet Packages** window. The Unity project must be able to restore packages from nuget.org. NuGetForUnity resolves the package's declared dependencies during installation.
 
+`MackySoft.Ucli.Contracts` and `MackySoft.Ucli.Infrastructure` are imported as Unity Editor-only managed plug-ins and are excluded from Player compilation and Player builds.
+
 > **IMPORTANT:** Use the same pinned `<version>` for both the CLI and Unity plugin in released automation, and update them together.
 
 ### 🤖 Agent Skills
