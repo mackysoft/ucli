@@ -73,6 +73,15 @@ read_plugin_importer_platform_settings() {
       if (platform_name == "") {
         fail("platform name is missing")
       }
+      if (platform_name == "Any" && platform_target != "") {
+        fail("Any must not define a platform target")
+      }
+      if (platform_name != "Any" && platform_target == "") {
+        fail(platform_name " must define a platform target")
+      }
+      if (platform_target != "" && seen_platform_targets[platform_target]) {
+        fail(platform_target " is used as a platform target more than once")
+      }
       if (!has_second) {
         fail("second mapping is missing for " platform_name)
       }
@@ -84,11 +93,16 @@ read_plugin_importer_platform_settings() {
       }
 
       seen_platforms[platform_name] = 1
+      if (platform_target != "") {
+        seen_platform_targets[platform_target] = 1
+      }
       platform_entry_count += 1
       platform_names[platform_entry_count] = platform_name
+      platform_targets[platform_entry_count] = platform_target
       platform_enabled_values[platform_entry_count] = enabled
       in_platform_entry = 0
       platform_name = ""
+      platform_target = ""
       has_second = 0
       enabled_count = 0
       enabled = ""
@@ -131,6 +145,7 @@ read_plugin_importer_platform_settings() {
       finish_platform_entry()
       in_platform_entry = 1
       platform_name = ""
+      platform_target = ""
       has_second = 0
       enabled_count = 0
       enabled = ""
@@ -140,11 +155,19 @@ read_plugin_importer_platform_settings() {
     }
 
     in_platform_data && in_platform_entry && platform_name == "" {
-      if ($0 !~ /^      [^:]+:/) {
+      if ($0 !~ /^      [[:alnum:]_]+( [[:alnum:]_]+)*:[[:space:]]*([[:alnum:]_]+)?[[:space:]]*$/) {
         fail("platform name must immediately follow first mapping")
       }
       platform_name = substr($0, 7)
       sub(/:.*/, "", platform_name)
+      sub(/^[[:space:]]+/, "", platform_name)
+      sub(/[[:space:]]+$/, "", platform_name)
+      if (platform_name == "") {
+        fail("platform name is missing")
+      }
+      platform_target = substr($0, 7)
+      sub(/^[^:]*:[[:space:]]*/, "", platform_target)
+      sub(/[[:space:]]+$/, "", platform_target)
       next
     }
 
@@ -229,7 +252,7 @@ read_plugin_importer_platform_settings() {
       }
 
       for (entry_index = 1; entry_index <= platform_entry_count; entry_index += 1) {
-        print platform_names[entry_index] "\t" platform_enabled_values[entry_index]
+        print platform_names[entry_index] "\t" platform_enabled_values[entry_index] "\t" platform_targets[entry_index]
       }
     }
   ' "${importer_meta_path}"
@@ -240,7 +263,9 @@ verify_editor_only_plugin_importer() {
   local assembly_name="$2"
   local platform_settings
   local any_platform_enabled
+  local any_platform_target
   local editor_enabled
+  local editor_platform_target
   local enabled_platform_count
 
   if [[ ! -f "${importer_meta_path}" ]]; then
@@ -259,10 +284,12 @@ verify_editor_only_plugin_importer() {
     exit 1
   fi
   any_platform_enabled="$(awk -F '\t' '$1 == "Any" { print $2 }' <<<"${platform_settings}")"
+  any_platform_target="$(awk -F '\t' '$1 == "Any" { print $3 }' <<<"${platform_settings}")"
   editor_enabled="$(awk -F '\t' '$1 == "Editor" { print $2 }' <<<"${platform_settings}")"
+  editor_platform_target="$(awk -F '\t' '$1 == "Editor" { print $3 }' <<<"${platform_settings}")"
   enabled_platform_count="$(awk -F '\t' '$2 == "1" { count += 1 } END { print count + 0 }' <<<"${platform_settings}")"
 
-  if [[ "${any_platform_enabled}" != "0" || "${editor_enabled}" != "1" || "${enabled_platform_count}" != "1" ]]; then
+  if [[ "${any_platform_enabled}" != "0" || -n "${any_platform_target}" || "${editor_enabled}" != "1" || "${editor_platform_target}" != "Editor" || "${enabled_platform_count}" != "1" ]]; then
     echo "${assembly_name} must be compatible only with the Unity Editor." >&2
     cat "${importer_meta_path}" >&2
     exit 1
