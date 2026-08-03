@@ -31,6 +31,9 @@
   <ItemGroup>
     <None Include="../../LICENSE" Pack="true" PackagePath="" Link="LICENSE" />
     <None Update="README.md" Pack="true" PackagePath="" />
+    <!-- NuGetForUnity preserves adjacent Unity metadata, so the shared assembly remains Editor-only when restored into Unity. -->
+    <None Remove="Unity/MackySoft.Ucli.Contracts.dll.meta" />
+    <None Include="Unity/MackySoft.Ucli.Contracts.dll.meta" Pack="true" PackagePath="lib/netstandard2.1/MackySoft.Ucli.Contracts.dll.meta" />
   </ItemGroup>
 
 </Project>

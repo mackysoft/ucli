@@ -12,7 +12,7 @@ Description:
   3. Restore external dependencies from nuget.org in an empty temporary global package cache.
   4. Pack only the two uCLI-owned shared packages, optionally copying them to a verification output.
   5. Restore src/Ucli.Unity/Assets/packages.config from separate uCLI-owned and nuget.org sources.
-  6. Remove NuGet placeholder .meta files so Unity can regenerate valid importer settings.
+  6. Remove NuGet placeholder .meta files while preserving package-owned importer settings.
   7. Optionally prune multi-target assets to avoid Unity duplicate-assembly issues.
 EOF
 }
@@ -317,9 +317,37 @@ echo "[7/9] Remove NuGet placeholder .meta files from restored Unity packages"
 # NOTE:
 # `nuget restore` creates minimal `.meta` files for package assets. Fresh worktrees can then fail
 # to resolve shared package DLLs until Unity regenerates proper PluginImporter metadata.
-# Removing these generated `.meta` files here lets the next Unity launch recreate them officially.
-find "${unity_packages_dir}" -type f -name '*.meta' -delete
+# Remove only those placeholders so package-owned PluginImporter settings survive the restore.
+while IFS= read -r -d '' meta_file; do
+  if awk '
+    {
+      sub(/\r$/, "")
+      if ($0 !~ /^(fileFormatVersion|guid):/ && $0 !~ /^[[:space:]]*$/) {
+        has_asset_settings = 1
+      }
+    }
+
+    END {
+      exit has_asset_settings ? 0 : 1
+    }
+  ' "${meta_file}"; then
+    continue
+  fi
+
+  rm -f "${meta_file}"
+done < <(find "${unity_packages_dir}" -type f -name '*.meta' -print0)
 find "${unity_packages_dir}" -depth -type d -empty -delete
+
+editor_only_importer_meta_paths=(
+  "${unity_packages_dir}/${contracts_package_id}.${contracts_package_version}/lib/netstandard2.1/${contracts_package_id}.dll.meta"
+  "${unity_packages_dir}/${infrastructure_package_id}.${infrastructure_package_version}/lib/netstandard2.1/${infrastructure_package_id}.dll.meta"
+)
+for importer_meta_path in "${editor_only_importer_meta_paths[@]}"; do
+  if [[ ! -f "${importer_meta_path}" ]] || ! grep -Fx "PluginImporter:" "${importer_meta_path}" >/dev/null; then
+    echo "ERROR: Package-owned Unity PluginImporter metadata was not preserved: ${importer_meta_path}" >&2
+    exit 1
+  fi
+done
 
 if [[ "${prune_assets}" == "true" ]]; then
   echo "[8/9] Prune multi-target assets to prevent duplicate assembly imports"

@@ -55,6 +55,247 @@ schema_validation_assembly_names=(
   "Humanizer.dll"
 )
 
+read_plugin_importer_platform_settings() {
+  local importer_meta_path="$1"
+
+  awk '
+    function fail(message) {
+      print "Invalid PluginImporter platformData: " message > "/dev/stderr"
+      parse_failed = 1
+      exit 1
+    }
+
+    function finish_platform_entry() {
+      if (!in_platform_entry) {
+        return
+      }
+
+      if (platform_name == "") {
+        fail("platform name is missing")
+      }
+      if (platform_name == "Any" && platform_target != "") {
+        fail("Any must not define a platform target")
+      }
+      if (platform_name != "Any" && platform_target == "") {
+        fail(platform_name " must define a platform target")
+      }
+      if (platform_target != "" && seen_platform_targets[platform_target]) {
+        fail(platform_target " is used as a platform target more than once")
+      }
+      if (!has_second) {
+        fail("second mapping is missing for " platform_name)
+      }
+      if (enabled_count != 1) {
+        fail(platform_name " must define enabled exactly once")
+      }
+      if (seen_platforms[platform_name]) {
+        fail(platform_name " is defined more than once")
+      }
+
+      seen_platforms[platform_name] = 1
+      if (platform_target != "") {
+        seen_platform_targets[platform_target] = 1
+      }
+      platform_entry_count += 1
+      platform_names[platform_entry_count] = platform_name
+      platform_targets[platform_entry_count] = platform_target
+      platform_enabled_values[platform_entry_count] = enabled
+      in_platform_entry = 0
+      platform_name = ""
+      platform_target = ""
+      has_second = 0
+      enabled_count = 0
+      enabled = ""
+    }
+
+    {
+      sub(/\r$/, "")
+    }
+
+    $0 == "PluginImporter:" {
+      in_plugin_importer = 1
+      next
+    }
+
+    in_plugin_importer && /^[^[:space:]]/ {
+      if (in_platform_data) {
+        finish_platform_entry()
+        in_platform_data = 0
+      }
+      in_plugin_importer = 0
+      next
+    }
+
+    in_plugin_importer && /^  platformData:[[:space:]]*$/ {
+      platform_data_count += 1
+      if (platform_data_count != 1) {
+        fail("platformData is defined more than once")
+      }
+      in_platform_data = 1
+      next
+    }
+
+    in_platform_data && /^  [^[:space:]-]/ {
+      finish_platform_entry()
+      in_platform_data = 0
+      next
+    }
+
+    in_platform_data && /^  - first:[[:space:]]*$/ {
+      finish_platform_entry()
+      in_platform_entry = 1
+      platform_name = ""
+      platform_target = ""
+      has_second = 0
+      enabled_count = 0
+      enabled = ""
+      settings_seen = 0
+      settings_block = 0
+      next
+    }
+
+    in_platform_data && in_platform_entry && platform_name == "" {
+      if ($0 !~ /^      [[:alnum:]_]+( [[:alnum:]_]+)*:[[:space:]]*([[:alnum:]_]+)?[[:space:]]*$/) {
+        fail("platform name must immediately follow first mapping")
+      }
+      platform_name = substr($0, 7)
+      sub(/:.*/, "", platform_name)
+      sub(/^[[:space:]]+/, "", platform_name)
+      sub(/[[:space:]]+$/, "", platform_name)
+      if (platform_name == "") {
+        fail("platform name is missing")
+      }
+      platform_target = substr($0, 7)
+      sub(/^[^:]*:[[:space:]]*/, "", platform_target)
+      sub(/[[:space:]]+$/, "", platform_target)
+      next
+    }
+
+    in_platform_data && in_platform_entry && /^    second:[[:space:]]*$/ {
+      if (has_second) {
+        fail("second mapping is defined more than once for " platform_name)
+      }
+      has_second = 1
+      next
+    }
+
+    in_platform_data && in_platform_entry && /^      enabled:[[:space:]]*/ {
+      if (!has_second) {
+        fail("enabled must belong to the second mapping for " platform_name)
+      }
+      enabled_count += 1
+      if (enabled_count != 1) {
+        fail("enabled is defined more than once for " platform_name)
+      }
+      enabled = $0
+      sub(/^      enabled:[[:space:]]*/, "", enabled)
+      sub(/[[:space:]]*$/, "", enabled)
+      if (enabled != "0" && enabled != "1") {
+        fail("enabled must be 0 or 1 for " platform_name)
+      }
+      next
+    }
+
+    in_platform_data && in_platform_entry && /^      settings:[[:space:]]*\{\}[[:space:]]*$/ {
+      if (enabled_count != 1 || settings_seen) {
+        fail("settings must follow enabled at most once for " platform_name)
+      }
+      settings_seen = 1
+      settings_block = 0
+      next
+    }
+
+    in_platform_data && in_platform_entry && /^      settings:[[:space:]]*$/ {
+      if (enabled_count != 1 || settings_seen) {
+        fail("settings must follow enabled at most once for " platform_name)
+      }
+      settings_seen = 1
+      settings_block = 1
+      next
+    }
+
+    in_platform_data && in_platform_entry && /^        / {
+      if (!settings_block) {
+        fail("nested platform settings must belong to a settings mapping for " platform_name)
+      }
+      next
+    }
+
+    in_platform_data && in_platform_entry && !has_second {
+      fail("second mapping must immediately follow " platform_name)
+    }
+
+    in_platform_data && in_platform_entry && enabled_count == 0 {
+      fail("enabled must immediately follow the second mapping for " platform_name)
+    }
+
+    in_platform_data && !in_platform_entry && $0 !~ /^[[:space:]]*$/ {
+      fail("platformData contains content outside a platform entry")
+    }
+
+    in_platform_data {
+      fail("platformData contains unexpected content for " platform_name)
+    }
+
+    END {
+      if (parse_failed) {
+        exit 1
+      }
+      if (in_platform_data) {
+        finish_platform_entry()
+      }
+      if (platform_data_count != 1) {
+        fail("platformData must be defined exactly once")
+      }
+      if (platform_entry_count == 0) {
+        fail("platformData must contain at least one platform entry")
+      }
+
+      for (entry_index = 1; entry_index <= platform_entry_count; entry_index += 1) {
+        print platform_names[entry_index] "\t" platform_enabled_values[entry_index] "\t" platform_targets[entry_index]
+      }
+    }
+  ' "${importer_meta_path}"
+}
+
+verify_editor_only_plugin_importer() {
+  local importer_meta_path="$1"
+  local assembly_name="$2"
+  local platform_settings
+  local any_platform_enabled
+  local any_platform_target
+  local editor_enabled
+  local editor_platform_target
+  local enabled_platform_count
+
+  if [[ ! -f "${importer_meta_path}" ]]; then
+    echo "Restored Unity dependency is missing PluginImporter metadata: ${importer_meta_path}" >&2
+    exit 1
+  fi
+
+  if [[ "$(grep -Fxc "PluginImporter:" "${importer_meta_path}")" != "1" ]]; then
+    echo "Restored Unity dependency metadata does not define PluginImporter settings: ${importer_meta_path}" >&2
+    exit 1
+  fi
+
+  if ! platform_settings="$(read_plugin_importer_platform_settings "${importer_meta_path}")"; then
+    echo "${assembly_name} has invalid Unity PluginImporter metadata." >&2
+    cat "${importer_meta_path}" >&2
+    exit 1
+  fi
+  any_platform_enabled="$(awk -F '\t' '$1 == "Any" { print $2 }' <<<"${platform_settings}")"
+  any_platform_target="$(awk -F '\t' '$1 == "Any" { print $3 }' <<<"${platform_settings}")"
+  editor_enabled="$(awk -F '\t' '$1 == "Editor" { print $2 }' <<<"${platform_settings}")"
+  editor_platform_target="$(awk -F '\t' '$1 == "Editor" { print $3 }' <<<"${platform_settings}")"
+  enabled_platform_count="$(awk -F '\t' '$2 == "1" { count += 1 } END { print count + 0 }' <<<"${platform_settings}")"
+
+  if [[ "${any_platform_enabled}" != "0" || -n "${any_platform_target}" || "${editor_enabled}" != "1" || "${editor_platform_target}" != "Editor" || "${enabled_platform_count}" != "1" ]]; then
+    echo "${assembly_name} must be compatible only with the Unity Editor." >&2
+    cat "${importer_meta_path}" >&2
+    exit 1
+  fi
+}
+
 if [[ ! -f "${package_path}" ]]; then
   echo "Unity package was not created: ${package_path}" >&2
   exit 1
@@ -398,6 +639,8 @@ for dependency_index in "${!ucli_dependency_package_ids[@]}"; do
     echo "Restored Unity dependency layout is missing: ${dependency_dll}" >&2
     exit 1
   fi
+
+  verify_editor_only_plugin_importer "${dependency_dll}.meta" "${dependency_package_id}"
 done
 
 while IFS=$'\t' read -r restored_package_id restored_package_version; do
