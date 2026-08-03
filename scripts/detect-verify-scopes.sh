@@ -95,7 +95,7 @@ is_unity_input() {
   local file="$1"
 
   case "${file}" in
-    .editorconfig|.gitattributes|.github/workflows/verify.yaml|.ucli/build/*|scripts/detect-verify-scopes.sh|scripts/run-ucli-unity-build.sh|scripts/setup-nuget-cli.sh|scripts/test-unity.sh|scripts/update-local-shared-packages.sh|scripts/verify.sh|src/Ucli.Unity/Ucli.Unity.slnx|src/Ucli.Unity/*.csproj|src/Ucli.Unity/Assets/*|src/Ucli.Unity/Packages/*|src/Ucli.Unity/ProjectSettings/*)
+    .editorconfig|.gitattributes|.github/workflows/verify.yaml|.ucli/build/*|scripts/detect-verify-scopes.sh|scripts/run-ucli-unity-build.sh|scripts/setup-nuget-cli.sh|scripts/test-unity.sh|scripts/update-local-shared-packages.sh|scripts/verify.sh|src/Ucli.Contracts/Unity/*|src/Ucli.Infrastructure/Unity/*|src/Ucli.Unity/Ucli.Unity.slnx|src/Ucli.Unity/*.csproj|src/Ucli.Unity/Assets/*|src/Ucli.Unity/Packages/*|src/Ucli.Unity/ProjectSettings/*)
       return 0
       ;;
   esac
@@ -152,7 +152,7 @@ is_shared_pack_input() {
   fi
 
   case "${file}" in
-    .gitattributes|Directory.Build.props|.github/workflows/verify.yaml|scripts/detect-verify-scopes.sh|scripts/verify-shared-packages.sh|src/Ucli.Contracts/README.md|src/Ucli.Infrastructure/README.md)
+    .gitattributes|Directory.Build.props|.github/workflows/verify.yaml|scripts/detect-verify-scopes.sh|scripts/verify-shared-packages.sh|src/Ucli.Contracts/README.md|src/Ucli.Contracts/Unity/*|src/Ucli.Infrastructure/README.md|src/Ucli.Infrastructure/Unity/*)
       return 0
       ;;
   esac
@@ -196,7 +196,7 @@ is_unity_pack_input() {
   fi
 
   case "${file}" in
-    README.md|LICENSE|.gitattributes|.github/workflows/verify.yaml|scripts/detect-verify-scopes.sh|scripts/pack-unity-plugin.sh|scripts/setup-nuget-cli.sh|scripts/update-local-shared-packages.sh|scripts/verify-unity-plugin-package.sh|src/Ucli.Unity/MackySoft.Ucli.Unity.nuspec|src/Ucli.Unity/Assets/packages.config|src/Ucli.Unity/Assets/MackySoft/MackySoft.Ucli.Unity/*)
+    README.md|LICENSE|.gitattributes|.github/workflows/verify.yaml|scripts/detect-verify-scopes.sh|scripts/pack-unity-plugin.sh|scripts/setup-nuget-cli.sh|scripts/update-local-shared-packages.sh|scripts/verify-unity-plugin-package.sh|src/Ucli.Contracts/Ucli.Contracts.csproj|src/Ucli.Contracts/Unity/*|src/Ucli.Infrastructure/Ucli.Infrastructure.csproj|src/Ucli.Infrastructure/Unity/*|src/Ucli.Unity/MackySoft.Ucli.Unity.nuspec|src/Ucli.Unity/Assets/packages.config|src/Ucli.Unity/Assets/MackySoft/MackySoft.Ucli.Unity/*)
       return 0
       ;;
     *)

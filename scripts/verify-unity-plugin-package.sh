@@ -55,6 +55,87 @@ schema_validation_assembly_names=(
   "Humanizer.dll"
 )
 
+read_plugin_importer_platform_settings() {
+  local importer_meta_path="$1"
+
+  awk '
+    {
+      sub(/\r$/, "")
+    }
+
+    $0 == "PluginImporter:" {
+      in_plugin_importer = 1
+      next
+    }
+
+    in_plugin_importer && /^[^[:space:]]/ {
+      exit
+    }
+
+    in_plugin_importer && /^  platformData:[[:space:]]*$/ {
+      in_platform_data = 1
+      next
+    }
+
+    in_platform_data && /^  [^[:space:]-]/ {
+      exit
+    }
+
+    in_platform_data && /^  - first:[[:space:]]*$/ {
+      in_platform_entry = 1
+      expect_platform_name = 1
+      platform_name = ""
+      next
+    }
+
+    in_platform_entry && expect_platform_name && /^      [^:]+:/ {
+      platform_name = substr($0, 7)
+      sub(/:.*/, "", platform_name)
+      expect_platform_name = 0
+      next
+    }
+
+    in_platform_entry && platform_name != "" && /^      enabled:[[:space:]]*/ {
+      enabled = $0
+      sub(/^      enabled:[[:space:]]*/, "", enabled)
+      sub(/[[:space:]]*$/, "", enabled)
+      print platform_name "\t" enabled
+      in_platform_entry = 0
+      platform_name = ""
+    }
+  ' "${importer_meta_path}"
+}
+
+verify_editor_only_plugin_importer() {
+  local importer_meta_path="$1"
+  local assembly_name="$2"
+  local platform_settings
+  local any_platform_enabled
+  local editor_enabled
+  local enabled_platform_count
+
+  if [[ ! -f "${importer_meta_path}" ]]; then
+    echo "Restored Unity dependency is missing PluginImporter metadata: ${importer_meta_path}" >&2
+    exit 1
+  fi
+
+  if [[ "$(grep -Fxc "PluginImporter:" "${importer_meta_path}")" != "1" ]]; then
+    echo "Restored Unity dependency metadata does not define PluginImporter settings: ${importer_meta_path}" >&2
+    exit 1
+  fi
+
+  platform_settings="$(read_plugin_importer_platform_settings "${importer_meta_path}")"
+  any_platform_enabled="$(awk -F '\t' '$1 == "Any" { print $2 }' <<<"${platform_settings}")"
+  editor_enabled="$(awk -F '\t' '$1 == "Editor" { print $2 }' <<<"${platform_settings}")"
+  enabled_platform_count="$(awk -F '\t' '$2 == "1" { count += 1 } END { print count + 0 }' <<<"${platform_settings}")"
+
+  if [[ "${any_platform_enabled}" != "0" || "${editor_enabled}" != "1" || "${enabled_platform_count}" != "1" ]]; then
+    echo "${assembly_name} must be compatible only with the Unity Editor." >&2
+    cat "${importer_meta_path}" >&2
+    exit 1
+  fi
+}
+
 if [[ ! -f "${package_path}" ]]; then
   echo "Unity package was not created: ${package_path}" >&2
   exit 1
@@ -398,6 +479,8 @@ for dependency_index in "${!ucli_dependency_package_ids[@]}"; do
     echo "Restored Unity dependency layout is missing: ${dependency_dll}" >&2
     exit 1
   fi
+
+  verify_editor_only_plugin_importer "${dependency_dll}.meta" "${dependency_package_id}"
 done
 
 while IFS=$'\t' read -r restored_package_id restored_package_version; do

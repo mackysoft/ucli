@@ -29,6 +29,9 @@
   <ItemGroup>
     <None Include="../../LICENSE" Pack="true" PackagePath="" Link="LICENSE" />
     <None Include="README.md" Pack="true" PackagePath="" />
+    <!-- NuGetForUnity preserves adjacent Unity metadata, so the shared assembly remains Editor-only when restored into Unity. -->
+    <None Remove="Unity/MackySoft.Ucli.Infrastructure.dll.meta" />
+    <None Include="Unity/MackySoft.Ucli.Infrastructure.dll.meta" Pack="true" PackagePath="lib/netstandard2.1/MackySoft.Ucli.Infrastructure.dll.meta" />
   </ItemGroup>
 
 </Project>
