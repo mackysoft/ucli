@@ -252,34 +252,6 @@ public sealed class PlayEnterCommandPayloadTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void Enter_WhenStartContextHasNoDurableStatusLocator_RejectsProjection ()
-    {
-        var failure = ApplicationFailure.Canceled(
-            "Waiting for Unity Play Mode enter was canceled.");
-        var definition = new LifecycleExecutionDefinition(
-            LifecycleExecutionKind.PlayEnter);
-        var failureContext = new PlayTransitionFailureContext(
-            PlayCommandOutputTestData.CreateProject(),
-            new ActiveExecutionRef(
-                definition.ExecutionKind,
-                Guid.Parse("8d816e63-b50a-4135-8f63-c89b48dc0d8a"),
-                LifecycleExecutionDefinitionDigest.Calculate(definition),
-                new ExecutionState(TextVocabulary.GetText(
-                    LifecycleExecutionState.Registered)),
-                statusLocator: null),
-            ExecutionApplicationState.Unknown);
-
-        Assert.Throws<ArgumentException>(() =>
-        {
-            _ = PlayEnterCommandResultFactory.Create(
-                PlayEnterExecutionResult.Failure(
-                    failure,
-                    failureContext));
-        });
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
     public async Task Enter_WhenCallerWaitEndsAfterRegistration_EmitsOnlyReconnectableExecutionContext ()
     {
         var failure = ApplicationFailure.Canceled(

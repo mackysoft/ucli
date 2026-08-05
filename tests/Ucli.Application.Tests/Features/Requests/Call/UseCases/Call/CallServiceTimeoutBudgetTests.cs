@@ -72,7 +72,7 @@ public sealed class CallServiceTimeoutBudgetTests
         var result = await service.ExecuteAsync(
             RequestId,
             new CallCommandInput(
-                ProjectPath: "/repo/UnityProject",
+                ProjectPath: AbsolutePath.Parse(ProjectPathTestValues.RepositoryUnityProject),
                 Mode: NormalizeMode("oneshot"),
                 TimeoutMilliseconds: NormalizeTimeout("1200"),
                 PlanToken: null,
@@ -133,7 +133,7 @@ public sealed class CallServiceTimeoutBudgetTests
         var result = await service.ExecuteAsync(
             RequestId,
             new CallCommandInput(
-                ProjectPath: "/repo/UnityProject",
+                ProjectPath: AbsolutePath.Parse(ProjectPathTestValues.RepositoryUnityProject),
                 Mode: NormalizeMode("oneshot"),
                 TimeoutMilliseconds: NormalizeTimeout("1200"),
                 PlanToken: null,

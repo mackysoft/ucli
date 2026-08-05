@@ -151,15 +151,13 @@ public sealed class UnityIpcRequestBuilderBasicPayloadTests
             new IpcScreenshotCaptureRequest(
                 CaptureId: captureId,
                 Target: IpcScreenshotTarget.Game,
-                RequestedWidth: 1920,
-                RequestedHeight: 1080)));
+                RequestedDimensions: new PixelDimensions(1920, 1080))));
 
         Assert.Equal(UnityIpcMethod.ScreenshotCapture, request.Method);
         Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcScreenshotCaptureRequest payload, out _));
         Assert.Equal(captureId, payload.CaptureId);
         Assert.Equal(IpcScreenshotTarget.Game, payload.Target);
-        Assert.Equal(1920, payload.RequestedWidth);
-        Assert.Equal(1080, payload.RequestedHeight);
+        Assert.Equal(new PixelDimensions(1920, 1080), payload.RequestedDimensions);
         Assert.False(request.Payload.TryGetProperty("stagingPath", out _));
         Assert.False(request.Payload.TryGetProperty("timeoutMilliseconds", out _));
         Assert.Equal(UnityIpcResponseReplayPolicy.None, request.ResponseReplayPolicy);

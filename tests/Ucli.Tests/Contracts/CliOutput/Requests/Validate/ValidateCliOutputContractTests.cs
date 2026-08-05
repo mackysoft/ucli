@@ -175,7 +175,7 @@ public sealed class ValidateCliOutputContractTests
                     RequestInputReaderStub.Success(requestJson),
                     CommandResultTestWriter.Create())
                 .ValidateAsync(
-                    projectPath: projectPath,
+                    projectPath: projectPath is null ? null : AbsolutePath.Parse(projectPath),
                     timeout: timeout,
                     readIndexMode: readIndexMode,
                     cancellationToken: CancellationToken.None));

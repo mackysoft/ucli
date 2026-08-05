@@ -16,7 +16,7 @@ internal sealed class StubDaemonCleanupService : IDaemonCleanupService
     public IReadOnlyList<Invocation> Invocations => invocations;
 
     public ValueTask<DaemonCleanupExecutionResult> CleanupAsync (
-        string? projectPath,
+        AbsolutePath? projectPath,
         int? timeoutMilliseconds,
         CancellationToken cancellationToken = default)
     {
@@ -26,7 +26,7 @@ internal sealed class StubDaemonCleanupService : IDaemonCleanupService
     }
 
     internal readonly record struct Invocation (
-        string? ProjectPath,
+        AbsolutePath? ProjectPath,
         int? TimeoutMilliseconds,
         CancellationToken CancellationToken);
 }

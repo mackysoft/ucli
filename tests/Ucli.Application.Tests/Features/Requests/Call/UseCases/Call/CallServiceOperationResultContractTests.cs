@@ -116,7 +116,7 @@ public sealed class CallServiceOperationResultContractTests
     private static CallCommandInput CreateInput (bool withPlan)
     {
         return new CallCommandInput(
-            ProjectPath: ProjectPathTestValues.RepositoryUnityProject,
+            ProjectPath: AbsolutePath.Parse(ProjectPathTestValues.RepositoryUnityProject),
             Mode: NormalizeMode("oneshot"),
             TimeoutMilliseconds: NormalizeTimeout("1200"),
             PlanToken: null,

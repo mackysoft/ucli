@@ -46,10 +46,10 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.GameView
                 throw new ArgumentNullException(nameof(request));
             }
 
-            if (request.RequestedWidth.HasValue)
+            if (request.RequestedDimensions != null)
             {
-                var requestedWidth = request.RequestedWidth.Value;
-                var requestedHeight = request.RequestedHeight.Value;
+                var requestedWidth = request.RequestedDimensions.Width;
+                var requestedHeight = request.RequestedDimensions.Height;
                 if (!UnityScreenshotPixelNormalizer.AreDimensionsSupported(
                     requestedWidth,
                     requestedHeight))
@@ -78,13 +78,13 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.GameView
             try
             {
                 var source = initialSource;
-                var isRequestedSize = request.RequestedWidth.HasValue;
+                var isRequestedSize = request.RequestedDimensions != null;
                 var expectedWidth = initialSource.Width;
                 var expectedHeight = initialSource.Height;
                 if (isRequestedSize)
                 {
-                    var requestedWidth = request.RequestedWidth.Value;
-                    var requestedHeight = request.RequestedHeight.Value;
+                    var requestedWidth = request.RequestedDimensions.Width;
+                    var requestedHeight = request.RequestedDimensions.Height;
                     expectedWidth = requestedWidth;
                     expectedHeight = requestedHeight;
                     resolutionPresentationRecovery = new GameViewResolutionPresentationRecovery(

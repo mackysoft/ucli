@@ -22,7 +22,7 @@ public sealed class DaemonStopCommandTests
 
         CommandExecutionState.Reset();
         var result = await CommandResultCapture.ExecuteAsync(() => command.StopAsync(
-            projectPath: "/repo/UnityProject",
+            projectPath: AbsolutePath.Parse(ProjectPathTestValues.RepositoryUnityProject),
             timeout: null,
             cancellationToken: CancellationToken.None));
 

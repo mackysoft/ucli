@@ -24,7 +24,7 @@ public sealed class RequestPreparationServiceTests
         var service = CreateService(parser, projectContextResolver);
 
         var result = await service.PrepareAsync(
-            projectPath: "/tmp/project",
+            projectPath: AbsolutePath.Parse(ProjectPathTestValues.TemporaryUnityProject),
             requestJson: requestJson,
             cancellationToken: CancellationToken.None);
 
@@ -51,7 +51,7 @@ public sealed class RequestPreparationServiceTests
             new StaticProjectContextResolver(ProjectContextResolutionResult.Success(ProjectContextTestFactory.CreateTemporaryFixtureProject())));
 
         var result = await service.PrepareAsync(
-            projectPath: "/tmp/project",
+            projectPath: AbsolutePath.Parse(ProjectPathTestValues.TemporaryUnityProject),
             requestJson: requestJson,
             cancellationToken: CancellationToken.None);
 
@@ -79,7 +79,7 @@ public sealed class RequestPreparationServiceTests
             new StaticProjectContextResolver(ProjectContextResolutionResult.Success(ProjectContextTestFactory.CreateTemporaryFixtureProject())));
 
         var result = await service.PrepareAsync(
-            projectPath: "/tmp/project",
+            projectPath: AbsolutePath.Parse(ProjectPathTestValues.TemporaryUnityProject),
             requestJson: requestJson,
             cancellationToken: CancellationToken.None);
 
@@ -109,7 +109,7 @@ public sealed class RequestPreparationServiceTests
             projectContextResolver);
 
         var result = await service.PrepareAsync(
-            projectPath: "/tmp/project",
+            projectPath: AbsolutePath.Parse(ProjectPathTestValues.TemporaryUnityProject),
             requestJson: requestJson,
             cancellationToken: CancellationToken.None);
 
@@ -133,7 +133,7 @@ public sealed class RequestPreparationServiceTests
             new StaticProjectContextResolver(ProjectContextResolutionResult.Failure(error)));
 
         var result = await service.PrepareAsync(
-            projectPath: "/tmp/project",
+            projectPath: AbsolutePath.Parse(ProjectPathTestValues.TemporaryUnityProject),
             requestJson: requestJson,
             cancellationToken: CancellationToken.None);
 
@@ -157,14 +157,14 @@ public sealed class RequestPreparationServiceTests
         var service = CreateService(parser, projectContextResolver);
 
         var result = await service.PrepareAsync(
-            projectPath: "/tmp/project",
+            projectPath: AbsolutePath.Parse(ProjectPathTestValues.TemporaryUnityProject),
             requestJson: requestJson,
             cancellationToken: token);
 
         Assert.True(result.IsSuccess);
         ProjectContextResolverAssert.ProjectContextResolvedOnce(
             projectContextResolver,
-            "/tmp/project",
+            ProjectPathTestValues.TemporaryUnityProject,
             token);
     }
 

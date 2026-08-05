@@ -11,21 +11,18 @@ public abstract record ExecutionRef
     /// <param name="id"> The identifier unique within <paramref name="kind" />. </param>
     /// <param name="definitionDigest"> The immutable definition digest fixed when the execution was registered. </param>
     /// <param name="state"> The current state defined by the feature that owns the execution. </param>
-    /// <param name="statusLocator"> The opaque feature-owned locator for subsequent operations, or <see langword="null" /> when none remains. </param>
     /// <exception cref="ArgumentNullException"> Thrown when a required reference value is <see langword="null" />. </exception>
     /// <exception cref="ArgumentException"> Thrown when <paramref name="id" /> is empty. </exception>
     protected ExecutionRef (
         ExecutionKind kind,
         Guid id,
         Sha256Digest definitionDigest,
-        ExecutionState state,
-        ExecutionStatusLocator? statusLocator)
+        ExecutionState state)
     {
         Kind = kind ?? throw new ArgumentNullException(nameof(kind));
         Id = ContractArgumentGuard.RequireNonEmptyGuid(id, nameof(id));
         DefinitionDigest = definitionDigest ?? throw new ArgumentNullException(nameof(definitionDigest));
         State = state ?? throw new ArgumentNullException(nameof(state));
-        StatusLocator = statusLocator;
     }
 
     /// <summary> Gets the feature-defined execution kind. </summary>
@@ -55,9 +52,7 @@ public abstract record ExecutionRef
     public ExecutionState State { get; private init; }
 
     /// <summary> Gets the opaque feature-owned status locator, or <see langword="null" /> when none remains. </summary>
-    [JsonInclude]
-    [JsonRequired]
-    public ExecutionStatusLocator? StatusLocator { get; private init; }
+    public abstract ExecutionStatusLocator? StatusLocator { get; protected init; }
 
     /// <summary>
     /// Rejects a candidate that reuses this reference's execution identity with a different definition digest.

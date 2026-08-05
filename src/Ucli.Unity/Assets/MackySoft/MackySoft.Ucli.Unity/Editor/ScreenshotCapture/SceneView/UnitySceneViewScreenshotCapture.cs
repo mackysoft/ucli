@@ -30,7 +30,7 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.SceneView
                 throw new ArgumentNullException(nameof(request));
             }
 
-            if (request.RequestedWidth.HasValue || request.RequestedHeight.HasValue)
+            if (request.RequestedDimensions != null)
             {
                 return UnityScreenshotBackendResult.Failure(
                     UcliCoreErrorCodes.InvalidArgument,

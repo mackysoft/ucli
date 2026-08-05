@@ -17,7 +17,7 @@ public sealed class CompileCommandDispatchTests
         using var cancellationTokenSource = new CancellationTokenSource();
 
         var result = await CommandResultCapture.ExecuteAsync(() => command.CompileAsync(
-            projectPath: "/repo/UnityProject",
+            projectPath: AbsolutePath.Parse(ProjectPathTestValues.RepositoryUnityProject),
             mode: "daemon",
             timeout: "1234",
             cancellationToken: cancellationTokenSource.Token));
@@ -26,7 +26,7 @@ public sealed class CompileCommandDispatchTests
             result,
             service,
             cancellationTokenSource.Token,
-            "/repo/UnityProject",
+            ProjectPathTestValues.RepositoryUnityProject,
             UnityExecutionMode.Daemon,
             expectedTimeoutMilliseconds: 1234);
     }

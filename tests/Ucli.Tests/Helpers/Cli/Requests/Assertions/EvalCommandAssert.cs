@@ -86,7 +86,7 @@ internal static class EvalCommandAssert
         CommandExecutionResult result,
         RecordingCallService service,
         RecordingEvalSourceInputReader sourceReader,
-        string expectedFilePath,
+        AbsolutePath expectedFilePath,
         string expectedSource)
     {
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);

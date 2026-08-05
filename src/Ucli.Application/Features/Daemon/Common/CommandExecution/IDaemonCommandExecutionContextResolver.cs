@@ -11,7 +11,7 @@ internal interface IDaemonCommandExecutionContextResolver
     /// <returns> The daemon-command execution-context resolution result. </returns>
     ValueTask<DaemonCommandExecutionContextResolutionResult> ResolveAsync (
         UcliCommand timeoutCommand,
-        string? projectPath,
+        AbsolutePath? projectPath,
         int? timeoutMilliseconds,
         CancellationToken cancellationToken = default);
 }

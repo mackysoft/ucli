@@ -25,7 +25,7 @@ internal static class OpsCliOutputContractTestSupport
                     SharedOpsServiceProvider.Value,
                     CommandResultTestWriter.Create())
                 .ListAsync(
-                    projectPath: projectPath,
+                    projectPath: projectPath is null ? null : AbsolutePath.Parse(projectPath),
                     mode: mode,
                     timeout: timeout,
                     readIndexMode: readIndexMode,
@@ -49,7 +49,7 @@ internal static class OpsCliOutputContractTestSupport
                     CommandResultTestWriter.Create())
                 .DescribeAsync(
                     operationName,
-                    projectPath: projectPath,
+                    projectPath: projectPath is null ? null : AbsolutePath.Parse(projectPath),
                     mode: mode,
                     timeout: timeout,
                     readIndexMode: readIndexMode,

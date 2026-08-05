@@ -92,7 +92,7 @@ public sealed class SchemaCommandTests
         var command = CreateExportCommand(schemaRoot);
 
         var result = await CommandResultCapture.ExecuteSynchronousCommandAsync(
-            () => command.Export(destination, CancellationToken.None));
+            () => command.Export(AbsolutePath.Parse(destination), CancellationToken.None));
 
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
@@ -127,7 +127,7 @@ public sealed class SchemaCommandTests
         var command = CreateExportCommand(schemaRoot);
 
         var result = await CommandResultCapture.ExecuteSynchronousCommandAsync(
-            () => command.Export(destination, CancellationToken.None));
+            () => command.Export(AbsolutePath.Parse(destination), CancellationToken.None));
 
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
         CommandResultAssert.HasInvalidArgumentOutput(result.StdOut, UcliCommandNames.SchemaExport);

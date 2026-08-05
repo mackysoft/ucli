@@ -167,6 +167,26 @@ internal sealed partial class FileLifecycleExecutionStore
         cancellationToken.ThrowIfCancellationRequested();
         var record = await ReadRecordWithoutLockAsync(kind, executionId, cancellationToken)
             .ConfigureAwait(false);
+        if (record is not null)
+        {
+            return record.ToStoredExecution();
+        }
+
+        // A retained lock file distinguishes an atomic-replacement window from an execution
+        // that has never existed, without creating store state for a missing read.
+        var lockPath = paths.ResolveLockPath(kind, executionId);
+        if (!FileUtilities.FileExists(lockPath))
+        {
+            return null;
+        }
+
+        using var executionLock = await FileExclusiveLock.AcquireAsync(
+                lockPath,
+                LockAcquireTimeout,
+                cancellationToken)
+            .ConfigureAwait(false);
+        record = await ReadRecordWithoutLockAsync(kind, executionId, cancellationToken)
+            .ConfigureAwait(false);
         return record?.ToStoredExecution();
     }
 

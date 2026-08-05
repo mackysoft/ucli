@@ -6,7 +6,7 @@ namespace MackySoft.Ucli.Application.Features.Requests.Refresh.UseCases.Refresh;
 /// <param name="TimeoutMilliseconds"> The normalized <c>--timeout</c> value in milliseconds. </param>
 /// <param name="FailFast"> Whether Unity-side execution should fail immediately instead of waiting for lifecycle readiness. </param>
 internal sealed record RefreshCommandInput (
-    string? ProjectPath,
+    AbsolutePath? ProjectPath,
     UnityExecutionMode? Mode,
     int? TimeoutMilliseconds,
     bool FailFast);

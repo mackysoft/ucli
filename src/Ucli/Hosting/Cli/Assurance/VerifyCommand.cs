@@ -1,5 +1,6 @@
 using ConsoleAppFramework;
 using MackySoft.Ucli.Application.Features.Assurance.Verify.Contracts;
+using MackySoft.Ucli.Application.Shared.Paths;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 using MackySoft.Ucli.Hosting.Cli.Common.Streaming;
@@ -40,9 +41,9 @@ internal sealed class VerifyCommand
     [Command(UcliCommandNames.Verify)]
     public async Task<int> VerifyAsync (
         string? profile = null,
-        string? profilePath = null,
-        string? from = null,
-        string? projectPath = null,
+        [FilePathReferenceArgumentParser] FilePathReference? profilePath = null,
+        [FilePathReferenceArgumentParser] FilePathReference? from = null,
+        [AbsolutePathArgumentParser] AbsolutePath? projectPath = null,
         string? mode = null,
         string? timeout = null,
         string? format = null,

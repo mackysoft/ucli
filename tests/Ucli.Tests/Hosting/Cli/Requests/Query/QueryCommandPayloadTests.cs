@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Hosting.Cli.Requests;
+using MackySoft.Ucli.Contracts.Projects;
 using MackySoft.Ucli.Tests.Hosting.Cli.Common.Execution;
 using static MackySoft.Ucli.Tests.QueryCommandTestData;
 
@@ -30,7 +31,7 @@ public sealed class QueryCommandPayloadTests
         var command = new QuerySceneTreeCommand(service, CommandResultTestWriter.Create());
 
         var result = await CommandResultCapture.ExecuteAsync(() => command.TreeAsync(
-            path: "Assets/Scenes/Main.unity",
+            path: new UnityScenePath("Assets/Scenes/Main.unity"),
             cancellationToken: CancellationToken.None));
 
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);

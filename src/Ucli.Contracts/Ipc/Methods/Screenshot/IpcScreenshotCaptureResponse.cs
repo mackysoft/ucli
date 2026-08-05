@@ -29,7 +29,7 @@ public sealed record IpcScreenshotCaptureResponse
             throw new ArgumentNullException(nameof(Staging));
         }
 
-        if (Capture.Width != Staging.Width || Capture.Height != Staging.Height)
+        if (Capture.Dimensions != Staging.Dimensions)
         {
             throw new ArgumentException(
                 "Capture and staging dimensions must match.",

@@ -7,6 +7,8 @@ public sealed class EvalSourceInputReaderTests
 {
     private const string DirectSource = "return 1;";
 
+    private static readonly AbsolutePath EvalFilePath = AbsolutePath.Parse(Path.GetFullPath("eval.cs"));
+
     [Fact]
     [Trait("Size", "Small")]
     public async Task ReadAsync_WhenSourceProvided_ReturnsSource ()
@@ -25,7 +27,7 @@ public sealed class EvalSourceInputReaderTests
     {
         var reader = CreateReader();
 
-        var result = await reader.ReadAsync(DirectSource, "eval.cs", CancellationToken.None);
+        var result = await reader.ReadAsync(DirectSource, EvalFilePath, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(ExecutionErrorKind.InvalidArgument, result.Error!.Kind);
@@ -38,17 +40,17 @@ public sealed class EvalSourceInputReaderTests
     {
         var capturedPath = string.Empty;
         var reader = CreateReader(
-            fileExists: path => string.Equals(path, "eval.cs", StringComparison.Ordinal),
+            fileExists: path => string.Equals(path, EvalFilePath.Value, StringComparison.Ordinal),
             openFileReader: path =>
             {
                 capturedPath = path;
                 return new StringReader(DirectSource);
             });
 
-        var result = await reader.ReadAsync(source: null, "eval.cs", CancellationToken.None);
+        var result = await reader.ReadAsync(source: null, EvalFilePath, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal("eval.cs", capturedPath);
+        Assert.Equal(EvalFilePath.Value, capturedPath);
         Assert.Equal(DirectSource, result.Source);
     }
 
@@ -62,7 +64,7 @@ public sealed class EvalSourceInputReaderTests
             fileExists: static _ => true,
             openFileReader: static _ => new StringReader(DirectSource));
 
-        var result = await reader.ReadAsync(source: null, "eval.cs", CancellationToken.None);
+        var result = await reader.ReadAsync(source: null, EvalFilePath, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(DirectSource, result.Source);
@@ -128,28 +130,13 @@ public sealed class EvalSourceInputReaderTests
     [Trait("Size", "Small")]
     [InlineData("")]
     [InlineData("   ")]
-    public async Task ReadAsync_WhenFilePathIsEmpty_ReturnsInvalidArgument (string file)
-    {
-        var reader = CreateReader();
-
-        var result = await reader.ReadAsync(source: null, file, CancellationToken.None);
-
-        Assert.False(result.IsSuccess);
-        Assert.Equal(ExecutionErrorKind.InvalidArgument, result.Error!.Kind);
-        Assert.Contains("--file must not be empty", result.Error.Message, StringComparison.Ordinal);
-    }
-
-    [Theory]
-    [Trait("Size", "Small")]
-    [InlineData("")]
-    [InlineData("   ")]
     public async Task ReadAsync_WhenFileSourceIsEmpty_ReturnsInvalidArgument (string source)
     {
         var reader = CreateReader(
             fileExists: static _ => true,
             openFileReader: _ => new StringReader(source));
 
-        var result = await reader.ReadAsync(source: null, "eval.cs", CancellationToken.None);
+        var result = await reader.ReadAsync(source: null, EvalFilePath, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(ExecutionErrorKind.InvalidArgument, result.Error!.Kind);
@@ -193,7 +180,10 @@ public sealed class EvalSourceInputReaderTests
     {
         var reader = CreateReader(fileExists: static _ => false);
 
-        var result = await reader.ReadAsync(source: null, "missing.cs", CancellationToken.None);
+        var result = await reader.ReadAsync(
+            source: null,
+            AbsolutePath.Parse(Path.GetFullPath("missing.cs")),
+            CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(ExecutionErrorKind.InvalidArgument, result.Error!.Kind);
@@ -209,7 +199,10 @@ public sealed class EvalSourceInputReaderTests
             getFileByteLength: static _ => EvalSourceInputReader.MaxSourceUtf8ByteCount + 1,
             openFileReader: static _ => throw new InvalidOperationException("File should not be read."));
 
-        var result = await reader.ReadAsync(source: null, "large.cs", CancellationToken.None);
+        var result = await reader.ReadAsync(
+            source: null,
+            AbsolutePath.Parse(Path.GetFullPath("large.cs")),
+            CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(ExecutionErrorKind.InvalidArgument, result.Error!.Kind);
@@ -256,7 +249,7 @@ public sealed class EvalSourceInputReaderTests
             getFileByteLength: static _ => EvalSourceInputReader.MaxSourceUtf8ByteCount,
             openFileReader: _ => new StringReader(source));
 
-        var result = await reader.ReadAsync(source: null, "eval.cs", CancellationToken.None);
+        var result = await reader.ReadAsync(source: null, EvalFilePath, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(source, result.Source);

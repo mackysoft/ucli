@@ -7,12 +7,13 @@ internal static class QueryCommonOptionsNormalizer
 {
     /// <summary> Normalizes common typed-query command options. </summary>
     public static QueryCommonOptionsNormalizationResult Normalize (
-        string? projectPath,
+        AbsolutePath? projectPath,
         string? mode,
         string? timeout,
         string? readIndexMode,
         bool failFast)
     {
+
         var normalizedReadIndexModeResult = ReadIndexModeOptionNormalizer.Normalize(readIndexMode);
         if (!normalizedReadIndexModeResult.IsSuccess)
         {

@@ -1,11 +1,14 @@
 using System.Text.Json.Serialization.Metadata;
 using MackySoft.FileSystem;
+using MackySoft.Ucli.Application.Features.Recording.Requests;
+using MackySoft.Ucli.Contracts.Execution.Lifecycle;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.ContractReading;
 using MackySoft.Ucli.Contracts.Json;
+using MackySoft.Ucli.Contracts.Presentation;
+using MackySoft.Ucli.Contracts.Projects;
 using MackySoft.Ucli.Contracts.Schemas;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
-using MackySoft.Ucli.Contracts.Execution.Lifecycle;
 
 namespace MackySoft.Ucli.Hosting.Composition.Schemas;
 
@@ -60,6 +63,20 @@ internal static class UcliStaticSchemaRegistrationCatalog
         return
         [
             UcliStaticSchemaRegistration.UserInputDocument(
+                "recording.game-view.request",
+                RootRelativePath.Parse("recording/game-view-request.schema.json"),
+                IpcJsonSerializerOptions.StrictPropertyNames.GetTypeInfo(
+                    UcliNonNullJsonObject.MakeValueType(typeof(GameViewRecordingRequestDocument))),
+                usages:
+                [
+                    OptionFileUsage(
+                        UcliCommandNames.RecordingStart,
+                        "--requestPath"),
+                    StandardInputUsage(UcliCommandNames.RecordingStart),
+                ],
+                staticDependencies: Array.Empty<string>(),
+                dynamicValidationSources: [UcliCommandNames.RecordingStatus]),
+            UcliStaticSchemaRegistration.UserInputDocument(
                 "request.envelope",
                 RootRelativePath.Parse("request/request-envelope.schema.json"),
                 IpcJsonSerializerOptions.StrictPropertyNames.GetTypeInfo(
@@ -73,6 +90,18 @@ internal static class UcliStaticSchemaRegistrationCatalog
                 staticDependencies: Array.Empty<string>(),
                 dynamicValidationSources: [UcliCommandNames.OpsDescribe]),
         ];
+    }
+
+    private static UcliStaticSchemaUsage OptionFileUsage (
+        string command,
+        string optionName)
+    {
+        return new UcliStaticSchemaUsage
+        {
+            Command = command,
+            Delivery = UcliStaticSchemaDelivery.OptionFile,
+            Locator = optionName,
+        };
     }
 
     private static IReadOnlyList<UcliStaticSchemaRegistration> CreateCommonReferenceRegistrations ()
@@ -94,6 +123,16 @@ internal static class UcliStaticSchemaRegistrationCatalog
                 RootRelativePath.Parse("common/lifecycle-execution-terminal-record.schema.json"),
                 CliOutputJsonSerializerOptions.Default.GetTypeInfo(
                     UcliNonNullJsonObject.MakeValueType(typeof(LifecycleExecutionTerminalRecord)))),
+            UcliStaticSchemaRegistration.CommonDefinition(
+                "common.pixel-dimensions",
+                RootRelativePath.Parse("common/pixel-dimensions.schema.json"),
+                CliOutputJsonSerializerOptions.Default.GetTypeInfo(
+                    UcliNonNullJsonObject.MakeValueType(typeof(PixelDimensions)))),
+            UcliStaticSchemaRegistration.CommonDefinition(
+                "common.unity-project-color-space",
+                RootRelativePath.Parse("common/unity-project-color-space.schema.json"),
+                CliOutputJsonSerializerOptions.Default.GetTypeInfo(
+                    typeof(UnityProjectColorSpace))),
         ];
     }
 

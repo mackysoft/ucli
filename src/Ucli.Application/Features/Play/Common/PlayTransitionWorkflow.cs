@@ -50,7 +50,7 @@ internal sealed class PlayTransitionWorkflow
     }
 
     public async ValueTask<PlayTransitionWorkflowResult<TOutput>> ExecuteAsync<TOutput> (
-        string? projectPath,
+        AbsolutePath? projectPath,
         int? timeoutMilliseconds,
         IPlayTransitionDirectionPolicy<TOutput> direction,
         CancellationToken cancellationToken)
@@ -89,7 +89,7 @@ internal sealed class PlayTransitionWorkflow
     }
 
     public async ValueTask<PlayTransitionWorkflowResult<TOutput>> ReconnectAsync<TOutput> (
-        string? projectPath,
+        AbsolutePath? projectPath,
         int? timeoutMilliseconds,
         ExecutionRef lifecycleExecutionRef,
         IPlayTransitionDirectionPolicy<TOutput> direction,

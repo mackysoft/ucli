@@ -8,7 +8,7 @@ internal static class DaemonListServiceAssert
         int? expectedTimeoutMilliseconds)
     {
         var invocation = Assert.Single(service.Invocations);
-        Assert.Equal(expectedProjectPath, invocation.ProjectPath);
+        ProjectPathDispatchAssert.EqualNormalized(expectedProjectPath, invocation.ProjectPath);
         Assert.Equal(expectedTimeoutMilliseconds, invocation.TimeoutMilliseconds);
     }
 }

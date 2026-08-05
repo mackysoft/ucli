@@ -15,7 +15,7 @@ public sealed class DaemonListServiceTests
         var queryService = new RecordingDaemonListQueryService(CreateSuccessfulListResult());
         var service = new DaemonListService(resolver, queryService);
 
-        var result = await service.GetListAsync(projectPath: "/tmp/project", timeoutMilliseconds: 1000, cancellationToken: CancellationToken.None);
+        var result = await service.GetListAsync(projectPath: AbsolutePath.Parse(ProjectPathTestValues.TemporaryUnityProject), timeoutMilliseconds: 1000, cancellationToken: CancellationToken.None);
 
         DaemonListQueryServiceAssert.ContextResolutionFailureStoppedBeforeListQuery(
             result,
@@ -42,7 +42,7 @@ public sealed class DaemonListServiceTests
         var cancellationToken = cancellationSource.Token;
 
         var result = await service.GetListAsync(
-            projectPath: "/tmp/unity-project",
+            projectPath: AbsolutePath.Parse(ProjectPathTestValues.IndependentUnityProject),
             timeoutMilliseconds: 4321,
             cancellationToken: cancellationToken);
 
@@ -50,7 +50,7 @@ public sealed class DaemonListServiceTests
         DaemonCommandExecutionContextResolverAssert.ResolvedFor(
             resolver,
             UcliCommandIds.DaemonList,
-            expectedProjectPath: "/tmp/unity-project",
+            expectedProjectPath: ProjectPathTestValues.IndependentUnityProject,
             expectedTimeoutMilliseconds: 4321,
             expectedCancellationToken: cancellationToken);
         DaemonListQueryServiceAssert.ListRequestedOnce(

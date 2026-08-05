@@ -12,13 +12,14 @@ public sealed class TestRunConfigurationResolverProjectPathTests
     public async Task Resolve_WhenProjectPathInputResolverReturnsExternalPath_UsesResolvedPathBeforeProfile ()
     {
         using var scope = TestDirectories.CreateTempScope("test-run-config-resolver", "environment-before-profile");
-        var environmentProjectPath = scope.GetPath("EnvironmentProject");
+        var environmentProjectPath = AbsolutePath.Parse(scope.GetPath("EnvironmentProject"));
+        var profileUnityEditorPath = AbsolutePath.Parse(scope.GetPath("profile-editor/Unity"));
         var profile = new TestRunProfile
         {
             SchemaVersion = 1,
             ProjectPath = "./profile-project",
             UnityVersion = "6000.1.3f1",
-            UnityEditorPath = "./profile-editor/Unity",
+            UnityEditorPath = profileUnityEditorPath,
             TestPlatform = "editmode",
             TestFilter = null,
             TestCategories = [],
@@ -28,7 +29,10 @@ public sealed class TestRunConfigurationResolverProjectPathTests
 
         var unityProject = CreateUnityProjectContext(scope, "EnvironmentProject");
         var unityProjectResolver = new RecordingUnityProjectResolver(UnityProjectResolutionResult.Success(unityProject));
-        var projectPathInputResolver = new RecordingProjectPathInputResolver((_, _) => environmentProjectPath);
+        var projectPathInputResolver = new RecordingProjectPathInputResolver(_ =>
+            RecordingProjectPathInputResolver.Success(
+                environmentProjectPath,
+                UnityProjectPathSource.EnvironmentVariable));
         var resolver = new TestRunConfigurationResolver(
             new StubTestRunProfileLoader(TestRunProfileLoadResult.Success(profile)),
             projectPathInputResolver,
@@ -39,7 +43,7 @@ public sealed class TestRunConfigurationResolverProjectPathTests
 
         var input = new TestRunConfigurationRequest(
             ProjectPath: null,
-            ProfilePath: scope.GetPath("test.profile.json"),
+            ProfilePath: AbsolutePath.Parse(scope.GetPath("test.profile.json")),
             Mode: UnityExecutionMode.Auto,
             UnityVersion: null,
             UnityEditorPath: null,
@@ -55,7 +59,7 @@ public sealed class TestRunConfigurationResolverProjectPathTests
         ProjectPathInputResolverAssert.ResolvedOnceFor(
             projectPathInputResolver,
             expectedCommandOptionProjectPath: null,
-            expectedFallbackProjectPath: "./profile-project",
+            expectedFallbackProjectPath: AbsolutePath.Parse(Path.GetFullPath("./profile-project")),
             expectedFallbackSourceLabel: ProfileProjectPathSourceLabel,
             expectedResolvedPath: environmentProjectPath,
             expectedSource: UnityProjectPathSource.EnvironmentVariable);
@@ -70,18 +74,24 @@ public sealed class TestRunConfigurationResolverProjectPathTests
     public async Task Resolve_WhenCommandOptionProjectPathIsSpecified_PrefersCommandOptionOverEnvironmentVariable ()
     {
         using var scope = TestDirectories.CreateTempScope("test-run-config-resolver", "command-option-before-environment");
-        var commandProjectPath = scope.GetPath("CommandProject");
-        var environmentProjectPath = scope.GetPath("EnvironmentProject");
+        var commandProjectPath = AbsolutePath.Parse(scope.GetPath("CommandProject"));
+        var environmentProjectPath = AbsolutePath.Parse(scope.GetPath("EnvironmentProject"));
+        var profileUnityEditorPath = AbsolutePath.Parse(scope.GetPath("profile-editor/Unity"));
         var unityProject = CreateUnityProjectContext(scope, "CommandProject");
         var unityProjectResolver = new RecordingUnityProjectResolver(UnityProjectResolutionResult.Success(unityProject));
-        var projectPathInputResolver = new RecordingProjectPathInputResolver((commandOptionProjectPath, _) => commandOptionProjectPath ?? environmentProjectPath);
+        var projectPathInputResolver = new RecordingProjectPathInputResolver(input =>
+            RecordingProjectPathInputResolver.Success(
+                input.CommandOptionProjectPath ?? environmentProjectPath,
+                input.CommandOptionProjectPath is not null
+                    ? UnityProjectPathSource.CommandOption
+                    : UnityProjectPathSource.EnvironmentVariable));
         var resolver = new TestRunConfigurationResolver(
             new StubTestRunProfileLoader(TestRunProfileLoadResult.Success(new TestRunProfile
             {
                 SchemaVersion = 1,
                 ProjectPath = "./profile-project",
                 UnityVersion = "6000.1.3f1",
-                UnityEditorPath = "./profile-editor/Unity",
+                UnityEditorPath = profileUnityEditorPath,
                 TestPlatform = "editmode",
                 TestFilter = null,
                 TestCategories = [],
@@ -96,7 +106,7 @@ public sealed class TestRunConfigurationResolverProjectPathTests
 
         var input = new TestRunConfigurationRequest(
             ProjectPath: commandProjectPath,
-            ProfilePath: scope.GetPath("test.profile.json"),
+            ProfilePath: AbsolutePath.Parse(scope.GetPath("test.profile.json")),
             Mode: UnityExecutionMode.Auto,
             UnityVersion: null,
             UnityEditorPath: null,
@@ -112,7 +122,7 @@ public sealed class TestRunConfigurationResolverProjectPathTests
         ProjectPathInputResolverAssert.ResolvedOnceFor(
             projectPathInputResolver,
             expectedCommandOptionProjectPath: commandProjectPath,
-            expectedFallbackProjectPath: "./profile-project",
+            expectedFallbackProjectPath: AbsolutePath.Parse(Path.GetFullPath("./profile-project")),
             expectedFallbackSourceLabel: ProfileProjectPathSourceLabel,
             expectedResolvedPath: commandProjectPath,
             expectedSource: UnityProjectPathSource.CommandOption);

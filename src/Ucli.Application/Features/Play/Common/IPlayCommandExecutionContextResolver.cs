@@ -12,7 +12,7 @@ internal interface IPlayCommandExecutionContextResolver
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The context-resolution result. </returns>
     ValueTask<PlayCommandExecutionContextResolutionResult> ResolveAsync (
-        string? projectPath,
+        AbsolutePath? projectPath,
         int? timeoutMilliseconds,
         UcliCommand command,
         string sessionNotAvailableMessage,
@@ -24,7 +24,7 @@ internal interface IPlayCommandExecutionContextResolver
     /// a current daemon session.
     /// </summary>
     ValueTask<PlayCommandExecutionContextResolutionResult> ResolveReconnectAsync (
-        string? projectPath,
+        AbsolutePath? projectPath,
         int? timeoutMilliseconds,
         UcliCommand command,
         CancellationToken cancellationToken = default);

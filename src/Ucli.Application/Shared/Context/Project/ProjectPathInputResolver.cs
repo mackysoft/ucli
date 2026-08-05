@@ -1,13 +1,11 @@
 using MackySoft.Ucli.Application.Shared.EnvironmentVariables;
-using MackySoft.Ucli.Contracts.Text;
+using MackySoft.FileSystem;
 
 namespace MackySoft.Ucli.Application.Shared.Context.Project;
 
 /// <summary> Resolves project-path inputs using command, environment, fallback, and current-directory precedence. </summary>
 internal sealed class ProjectPathInputResolver : IProjectPathInputResolver
 {
-    private const string CurrentDirectoryProjectPath = ".";
-
     private readonly IEnvironmentVariableReader environmentVariableReader;
 
     /// <summary> Initializes a new instance of the <see cref="ProjectPathInputResolver" /> class. </summary>
@@ -19,37 +17,48 @@ internal sealed class ProjectPathInputResolver : IProjectPathInputResolver
     }
 
     /// <inheritdoc />
-    public ProjectPathCandidate Resolve (ProjectContextResolutionInput input)
+    public ProjectPathInputResolutionResult Resolve (ProjectContextResolutionInput input)
     {
         ArgumentNullException.ThrowIfNull(input);
 
-        if (StringValueNormalizer.TryTrimToNonEmpty(input.CommandOptionProjectPath, out var resolvedProjectPath))
+        if (input.CommandOptionProjectPath is not null)
         {
-            return new ProjectPathCandidate(
-                resolvedProjectPath,
-                UnityProjectPathSource.CommandOption,
-                "--projectPath");
+            return Success(input.CommandOptionProjectPath, UnityProjectPathSource.CommandOption, "--projectPath");
         }
 
         var environmentProjectPath = environmentVariableReader.Get(UcliEnvironmentVariableNames.ProjectPath);
-        if (StringValueNormalizer.TryTrimToNonEmpty(environmentProjectPath, out resolvedProjectPath))
+        if (environmentProjectPath is not null)
         {
-            return new ProjectPathCandidate(
-                resolvedProjectPath,
+            var normalizationResult = ProjectPathNormalizer.Normalize(
+                environmentProjectPath,
+                UcliEnvironmentVariableNames.ProjectPath);
+            if (!normalizationResult.IsSuccess)
+            {
+                return ProjectPathInputResolutionResult.Failure(normalizationResult.Error);
+            }
+
+            return Success(
+                normalizationResult.ProjectPath,
                 UnityProjectPathSource.EnvironmentVariable,
                 UcliEnvironmentVariableNames.ProjectPath);
         }
 
-        if (StringValueNormalizer.TryTrimToNonEmpty(input.FallbackProjectPath, out resolvedProjectPath))
+        if (input.FallbackProjectPath is not null)
         {
-            return new ProjectPathCandidate(
-                resolvedProjectPath,
+            return Success(
+                input.FallbackProjectPath,
                 UnityProjectPathSource.Fallback,
                 input.FallbackSourceLabel);
         }
 
-        return new ProjectPathCandidate(
-            CurrentDirectoryProjectPath,
+        return Success(
+            AbsolutePath.Parse(Environment.CurrentDirectory),
             UnityProjectPathSource.CurrentDirectory);
     }
+
+    private static ProjectPathInputResolutionResult Success (
+        AbsolutePath projectPath,
+        UnityProjectPathSource source,
+        string? sourceLabel = null) =>
+        ProjectPathInputResolutionResult.Success(new ProjectPathCandidate(projectPath, source, sourceLabel));
 }

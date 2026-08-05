@@ -31,6 +31,17 @@ internal sealed record ExecutionError (
         return new ExecutionError(ExecutionErrorKind.Timeout, message, code);
     }
 
+    /// <summary> Creates a caller-cancellation execution error. </summary>
+    /// <param name="message"> The user-facing error message. </param>
+    /// <param name="code"> The optional machine-readable error code. </param>
+    /// <returns> The caller-cancellation execution error. </returns>
+    public static ExecutionError Canceled (
+        string message,
+        UcliCode? code = null)
+    {
+        return new ExecutionError(ExecutionErrorKind.Canceled, message, code);
+    }
+
     /// <summary> Creates an internal execution error. </summary>
     /// <param name="message"> The user-facing error message. </param>
     /// <param name="code"> The optional machine-readable error code. </param>

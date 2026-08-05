@@ -741,11 +741,14 @@ Common operation groups include:
 | `ucli verify` | Return a JSON verification result for Unity-side checks. |
 | `ucli build` | Run Unity BuildPipeline from a build profile and return build evidence. |
 | `ucli screenshot` | Capture GameView or SceneView presentation surfaces from an existing GUI Editor daemon. |
+| `ucli recording` | Start, inspect, and stop a durable GameView MP4 recording in Play Mode. |
 | `ucli logs` | Read Unity or daemon logs. |
 | `ucli daemon` | Manage daemon sessions. |
 | `ucli test` | Run Unity Test Framework tests. |
 
 `ucli screenshot game` and `ucli screenshot scene` capture their presentation surfaces in stable Edit Mode or Play Mode. Screenshot capture waits for waitable lifecycle work within the command timeout and does not commit an artifact if the Editor state changes during capture.
+
+`ucli recording start`, `ucli recording status`, and `ucli recording stop` use the optional Unity Recorder integration to record the primary GameView in stable Play Mode. The recording identifier correlates the long-running execution across commands, and successful completion publishes a validated MP4 with its request, manifest, cleanup, and terminal records.
 
 `ucli logs unity clear` clears only the visible Unity Editor Console. It does not remove entries retained by `ucli logs unity read`.
 

@@ -4,7 +4,6 @@ using MackySoft.Ucli.Application.Features.Testing.Profiles;
 using MackySoft.Ucli.Application.Features.Testing.Profiles.Common.Contracts;
 using MackySoft.Ucli.Application.Features.Testing.Profiles.Ports;
 using MackySoft.Ucli.Application.Shared.Foundation;
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Features.Testing.Profiles.Adapters;
 
@@ -12,7 +11,6 @@ namespace MackySoft.Ucli.Features.Testing.Profiles.Adapters;
 internal sealed class FileTestProfileTemplateStore : ITestProfileTemplateStore
 {
     private const string DefaultOutputPath = "test.profile.json";
-    private const string JsonExtension = ".json";
 
     private static readonly JsonSerializerOptions SerializerOptions = new()
     {
@@ -23,20 +21,16 @@ internal sealed class FileTestProfileTemplateStore : ITestProfileTemplateStore
     /// <inheritdoc />
     public async ValueTask<TestProfileInitExecutionResult> WriteAsync (
         TestProfile profile,
-        string? outputPath,
+        AbsolutePath? outputPath,
         bool force,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(profile);
         cancellationToken.ThrowIfCancellationRequested();
 
-        var outputPathResolution = ResolveOutputPath(outputPath);
-        if (!outputPathResolution.IsSuccess)
-        {
-            return TestProfileInitExecutionResult.Failure(ExecutionError.InvalidArgument(outputPathResolution.ErrorMessage!));
-        }
-
-        var resolvedOutputPath = outputPathResolution.OutputPath!;
+        var resolvedOutputPath = outputPath ?? AbsolutePath.Resolve(
+            AbsolutePath.Parse(Environment.CurrentDirectory),
+            DefaultOutputPath);
         if (Directory.Exists(resolvedOutputPath.Value))
         {
             return TestProfileInitExecutionResult.Failure(ExecutionError.InvalidArgument(
@@ -72,14 +66,10 @@ internal sealed class FileTestProfileTemplateStore : ITestProfileTemplateStore
         }
 
         cancellationToken.ThrowIfCancellationRequested();
-
         var templateJson = JsonSerializer.Serialize(profile, SerializerOptions);
         try
         {
-            await File.WriteAllTextAsync(
-                    resolvedOutputPath.Value,
-                    templateJson + Environment.NewLine,
-                    cancellationToken)
+            await File.WriteAllTextAsync(resolvedOutputPath.Value, templateJson + Environment.NewLine, cancellationToken)
                 .ConfigureAwait(false);
         }
         catch (Exception ex) when (IsIoFailure(ex))
@@ -88,138 +78,11 @@ internal sealed class FileTestProfileTemplateStore : ITestProfileTemplateStore
                 $"Failed to write profile template file: {resolvedOutputPath}. {ex.Message}"));
         }
 
-        var output = new TestProfileInitExecutionOutput(resolvedOutputPath.Value);
-        return TestProfileInitExecutionResult.Success(output);
+        return TestProfileInitExecutionResult.Success(new TestProfileInitExecutionOutput(resolvedOutputPath.Value));
     }
 
-    /// <summary> Resolves CLI input into an absolute output path. </summary>
-    /// <param name="outputPath"> The optional output path value from CLI input. </param>
-    /// <returns> A successful absolute output path, or an invalid-input error message. </returns>
-    private static OutputPathResolution ResolveOutputPath (string? outputPath)
-    {
-        var pathValueResolution = ResolveOutputPathValue(outputPath);
-        if (!pathValueResolution.IsSuccess)
-        {
-            return OutputPathResolution.Failure(pathValueResolution.ErrorMessage!);
-        }
-
-        var currentDirectory = AbsolutePath.Parse(Environment.CurrentDirectory);
-        if (!AbsolutePath.TryResolve(
-                currentDirectory,
-                pathValueResolution.PathValue,
-                out var resolvedPath,
-                out var failure))
-        {
-            return OutputPathResolution.Failure($"Output path is invalid: {failure.Message}");
-        }
-
-        return OutputPathResolution.Success(resolvedPath);
-    }
-
-    /// <summary> Resolves and normalizes the raw output path value from CLI input. </summary>
-    /// <param name="outputPath"> The optional output path value from CLI input. </param>
-    /// <returns> A normalized path value, or an invalid-input error message. </returns>
-    private static PathValueResolution ResolveOutputPathValue (string? outputPath)
-    {
-        var normalizedPath = StringValueNormalizer.TrimToNull(outputPath);
-        if (normalizedPath is not null && IsDirectoryPathDefinition(normalizedPath))
-        {
-            return PathValueResolution.Failure(
-                $"Output path must be a file path. Directory-style path is not allowed: {normalizedPath}");
-        }
-
-        var pathWithExtension = EnsureJsonExtension(normalizedPath ?? DefaultOutputPath);
-        return PathValueResolution.Success(pathWithExtension);
-    }
-
-    /// <summary> Ensures a path ends with <c>.json</c>. </summary>
-    /// <param name="pathValue"> The path value to normalize. </param>
-    /// <returns> The original path when it already ends with <c>.json</c>; otherwise the path with <c>.json</c> appended. </returns>
-    private static string EnsureJsonExtension (string pathValue)
-    {
-        ArgumentNullException.ThrowIfNull(pathValue);
-        return pathValue.EndsWith(JsonExtension, StringComparison.OrdinalIgnoreCase)
-            ? pathValue
-            : pathValue + JsonExtension;
-    }
-
-    /// <summary> Determines whether the path uses a directory-style suffix. </summary>
-    /// <param name="pathValue"> The raw path value from CLI input. </param>
-    /// <returns> <see langword="true" /> when the path ends with <c>/</c> or <c>\</c>; otherwise <see langword="false" />. </returns>
-    private static bool IsDirectoryPathDefinition (string pathValue)
-    {
-        ArgumentNullException.ThrowIfNull(pathValue);
-
-        if (Path.EndsInDirectorySeparator(pathValue))
-        {
-            return true;
-        }
-
-        // NOTE: Keep rejecting Windows-style trailing separator on non-Windows runtimes.
-        return pathValue.EndsWith("\\", StringComparison.Ordinal);
-    }
-
-    /// <summary> Determines whether an exception indicates a filesystem I/O failure. </summary>
-    /// <param name="exception"> The exception to classify. </param>
-    /// <returns> <see langword="true" /> when it is an I/O failure; otherwise <see langword="false" />. </returns>
     private static bool IsIoFailure (Exception exception)
     {
-        return exception is IOException
-            or UnauthorizedAccessException;
-    }
-
-    /// <summary> Represents output-path resolution result. </summary>
-    /// <param name="OutputPath"> The resolved absolute output path when successful. </param>
-    /// <param name="ErrorMessage"> The error message when resolution failed. </param>
-    private sealed record OutputPathResolution (
-        AbsolutePath? OutputPath,
-        string? ErrorMessage)
-    {
-        /// <summary> Gets a value indicating whether output-path resolution succeeded. </summary>
-        public bool IsSuccess => OutputPath is not null;
-
-        /// <summary> Creates a successful output-path resolution. </summary>
-        /// <param name="outputPath"> The resolved absolute output path. </param>
-        /// <returns> The successful output-path resolution result. </returns>
-        public static OutputPathResolution Success (AbsolutePath outputPath)
-        {
-            ArgumentNullException.ThrowIfNull(outputPath);
-            return new OutputPathResolution(outputPath, null);
-        }
-
-        /// <summary> Creates a failed output-path resolution. </summary>
-        /// <param name="errorMessage"> The invalid-input error message. </param>
-        /// <returns> The failed output-path resolution result. </returns>
-        public static OutputPathResolution Failure (string errorMessage)
-        {
-            return new OutputPathResolution(null, errorMessage);
-        }
-    }
-
-    /// <summary> Represents raw path-value resolution result. </summary>
-    /// <param name="PathValue"> The normalized path value when successful. </param>
-    /// <param name="ErrorMessage"> The error message when resolution failed. </param>
-    private sealed record PathValueResolution (
-        string? PathValue,
-        string? ErrorMessage)
-    {
-        /// <summary> Gets a value indicating whether path-value resolution succeeded. </summary>
-        public bool IsSuccess => string.IsNullOrWhiteSpace(ErrorMessage);
-
-        /// <summary> Creates a successful path-value resolution. </summary>
-        /// <param name="pathValue"> The normalized path value. </param>
-        /// <returns> The successful path-value resolution result. </returns>
-        public static PathValueResolution Success (string pathValue)
-        {
-            return new PathValueResolution(pathValue, null);
-        }
-
-        /// <summary> Creates a failed path-value resolution. </summary>
-        /// <param name="errorMessage"> The invalid-input error message. </param>
-        /// <returns> The failed path-value resolution result. </returns>
-        public static PathValueResolution Failure (string errorMessage)
-        {
-            return new PathValueResolution(null, errorMessage);
-        }
+        return exception is IOException or UnauthorizedAccessException;
     }
 }

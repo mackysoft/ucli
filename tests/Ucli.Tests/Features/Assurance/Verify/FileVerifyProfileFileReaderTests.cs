@@ -15,7 +15,7 @@ public sealed class FileVerifyProfileFileReaderTests
         repository.WriteFile("profiles/verify.json", """{"schemaVersion":1,"steps":[]}""");
         var reader = new FileVerifyProfileFileReader();
 
-        var result = await reader.ReadAsync("profiles/verify.json", AbsolutePath.Parse(repository.FullPath));
+        var result = await reader.ReadAsync(FilePathReference.Parse("profiles/verify.json"), AbsolutePath.Parse(repository.FullPath));
 
         Assert.True(result.IsSuccess);
         Assert.Equal("""{"schemaVersion":1,"steps":[]}""", result.Json);
@@ -31,7 +31,7 @@ public sealed class FileVerifyProfileFileReaderTests
         var path = outside.WriteFile("verify.json", """{"schemaVersion":1,"steps":[]}""");
         var reader = new FileVerifyProfileFileReader();
 
-        var result = await reader.ReadAsync(path, AbsolutePath.Parse(repository.FullPath));
+        var result = await reader.ReadAsync(FilePathReference.Parse(path), AbsolutePath.Parse(repository.FullPath));
 
         Assert.False(result.IsSuccess);
         Assert.Equal(ExecutionErrorKind.InvalidArgument, result.Error!.Kind);
@@ -52,7 +52,7 @@ public sealed class FileVerifyProfileFileReaderTests
 
         var reader = new FileVerifyProfileFileReader();
 
-        var result = await reader.ReadAsync("verify.json", AbsolutePath.Parse(repository.FullPath));
+        var result = await reader.ReadAsync(FilePathReference.Parse("verify.json"), AbsolutePath.Parse(repository.FullPath));
 
         Assert.False(result.IsSuccess);
         Assert.Equal(ExecutionErrorKind.InvalidArgument, result.Error!.Kind);
@@ -73,7 +73,7 @@ public sealed class FileVerifyProfileFileReaderTests
 
         var reader = new FileVerifyProfileFileReader();
 
-        var result = await reader.ReadAsync("linked/verify.json", AbsolutePath.Parse(repository.FullPath));
+        var result = await reader.ReadAsync(FilePathReference.Parse("linked/verify.json"), AbsolutePath.Parse(repository.FullPath));
 
         Assert.False(result.IsSuccess);
         Assert.Equal(ExecutionErrorKind.InvalidArgument, result.Error!.Kind);
@@ -95,7 +95,7 @@ public sealed class FileVerifyProfileFileReaderTests
         var reader = new FileVerifyProfileFileReader();
 
         var result = await reader.ReadAsync(
-            @"profiles/verify\local.json",
+            FilePathReference.Parse(@"profiles/verify\local.json"),
             AbsolutePath.Parse(repository.FullPath));
 
         Assert.False(result.IsSuccess);

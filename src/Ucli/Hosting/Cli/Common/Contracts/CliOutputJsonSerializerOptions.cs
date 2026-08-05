@@ -8,7 +8,9 @@ using MackySoft.Ucli.Application.Features.Assurance.Ready;
 using MackySoft.Ucli.Application.Features.Assurance.Verify.Payload;
 using MackySoft.Ucli.Contracts.Execution.Lifecycle;
 using MackySoft.Ucli.Contracts.Json;
+using MackySoft.Ucli.Contracts.Recording;
 using MackySoft.Ucli.Hosting.Cli.Play.Contracts;
+using MackySoft.Ucli.Hosting.Cli.Recording;
 
 namespace MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 
@@ -48,6 +50,8 @@ internal static class CliOutputJsonSerializerOptions
         {
             ArtifactRefJsonPolymorphismConfigurator.TryConfigure(typeInfo);
             ExecutionRefJsonPolymorphismConfigurator.TryConfigure(typeInfo);
+            GameViewRecordingJsonPolymorphismConfigurator.TryConfigure(typeInfo);
+            GameViewRecordingStatusCommandPayload.TryConfigure(typeInfo);
             LifecycleExecutionTerminalRecordJsonPolymorphismConfigurator.TryConfigure(typeInfo);
         });
         resolver.Modifiers.Add(ConfigureCommandErrorPayload);

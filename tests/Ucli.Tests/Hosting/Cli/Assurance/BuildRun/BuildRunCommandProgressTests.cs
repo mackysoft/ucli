@@ -24,7 +24,7 @@ public sealed class BuildRunCommandProgressTests
         var command = new BuildRunCommand(service, CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
 
         var result = await CommandResultCapture.ExecuteWithErrorAsync(() => command.RunAsync(
-            profilePath: "/repo/.ucli/build/player.json",
+            profilePath: FilePathReference.Parse(".ucli/build/player.json"),
             format: "json",
             cancellationToken: CancellationToken.None));
 
@@ -63,7 +63,7 @@ public sealed class BuildRunCommandProgressTests
         var command = new BuildRunCommand(service, CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
 
         var result = await CommandResultCapture.ExecuteWithErrorAsync(() => command.RunAsync(
-            profilePath: "/repo/.ucli/build/player.json",
+            profilePath: FilePathReference.Parse(".ucli/build/player.json"),
             cancellationToken: CancellationToken.None));
 
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);

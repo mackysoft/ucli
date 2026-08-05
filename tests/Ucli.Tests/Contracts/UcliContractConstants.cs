@@ -119,6 +119,12 @@ internal static class UcliContractConstants
 
         public const int IpcTimeoutDefaultScreenshotMilliseconds = 3000;
 
+        public const int IpcTimeoutDefaultRecordingStartMilliseconds = 180000;
+
+        public const int IpcTimeoutDefaultRecordingStatusMilliseconds = 5000;
+
+        public const int IpcTimeoutDefaultRecordingStopMilliseconds = 60000;
+
         public const int IpcTimeoutDefaultPlayStatusMilliseconds = 3000;
 
         public const int IpcTimeoutDefaultPlayEnterMilliseconds = 30000;
@@ -170,6 +176,12 @@ internal static class UcliContractConstants
         public const string IpcTimeoutCommandLogsUnityClear = "logs.unity.clear";
 
         public const string IpcTimeoutCommandScreenshot = "screenshot";
+
+        public const string IpcTimeoutCommandRecordingStart = "recording.start";
+
+        public const string IpcTimeoutCommandRecordingStatus = "recording.status";
+
+        public const string IpcTimeoutCommandRecordingStop = "recording.stop";
 
         public const string IpcTimeoutCommandPlayStatus = "play.status";
 

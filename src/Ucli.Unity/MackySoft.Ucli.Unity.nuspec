@@ -40,7 +40,7 @@
     </dependencies>
   </metadata>
   <files>
-    <file src="Assets/MackySoft/MackySoft.Ucli.Unity/**" target="" />
+    <file src="Assets\MackySoft\MackySoft.Ucli.Unity\**\*" target="" />
     <file src="../../README.md" target="README.md" />
     <file src="../../LICENSE" target="LICENSE" />
   </files>

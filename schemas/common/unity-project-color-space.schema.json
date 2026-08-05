@@ -1,0 +1,1 @@
+{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"https://schemas.mackysoft.dev/ucli/common/unity-project-color-space.schema.json","x-contract-id":"ucli.schema/common.unity-project-color-space","x-contract-digest":"ff353fab7ae084cddede956904e896f9974a0d2d2f61060567ae5ad4d330adac","type":"string","enum":["gamma","linear"]}

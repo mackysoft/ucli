@@ -52,7 +52,7 @@ public sealed class DaemonStatusCommandTests
 
         CommandExecutionState.Reset();
         var result = await CommandResultCapture.ExecuteAsync(() => command.StatusAsync(
-            projectPath: "/repo/wt-a/UnityProject",
+            projectPath: AbsolutePath.Parse(ProjectPathTestValues.RepositoryUnityProject),
             timeout: "3000",
             cancellationToken: CancellationToken.None));
 
@@ -140,7 +140,7 @@ public sealed class DaemonStatusCommandTests
 
         CommandExecutionState.Reset();
         var result = await CommandResultCapture.ExecuteAsync(() => command.StatusAsync(
-            projectPath: "/repo/wt-a/UnityProject",
+            projectPath: AbsolutePath.Parse(ProjectPathTestValues.RepositoryUnityProject),
             timeout: "3000",
             cancellationToken: CancellationToken.None));
 

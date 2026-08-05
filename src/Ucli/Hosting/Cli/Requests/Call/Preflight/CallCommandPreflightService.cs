@@ -17,7 +17,7 @@ internal sealed class CallCommandPreflightService : ICallCommandPreflightService
     /// <inheritdoc />
     public async ValueTask<CallCommandPreflightResult> PrepareAsync (
         Guid requestId,
-        string? projectPath,
+        AbsolutePath? projectPath,
         string requestJson,
         CancellationToken cancellationToken = default)
     {

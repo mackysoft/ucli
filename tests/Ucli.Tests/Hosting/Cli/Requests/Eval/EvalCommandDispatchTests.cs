@@ -18,7 +18,7 @@ public sealed class EvalCommandDispatchTests
         using var cancellationTokenSource = new CancellationTokenSource();
 
         var result = await CommandResultCapture.ExecuteAsync(() => command.EvalAsync(
-            projectPath: "/repo/UnityProject",
+            projectPath: AbsolutePath.Parse(ProjectPathTestValues.RepositoryUnityProject),
             mode: "oneshot",
             timeout: "1234",
             allowDangerous: true,
@@ -33,7 +33,7 @@ public sealed class EvalCommandDispatchTests
             service,
             sourceReader,
             cancellationTokenSource.Token,
-            "/repo/UnityProject",
+            ProjectPathTestValues.RepositoryUnityProject,
             UnityExecutionMode.Oneshot,
             expectedTimeoutMilliseconds: 1234,
             expectedSource: EvalSource);
@@ -43,7 +43,7 @@ public sealed class EvalCommandDispatchTests
     [Trait("Size", "Small")]
     public async Task Eval_WhenFileProvided_ReadsFileAndBuildsRequestFromFileSource ()
     {
-        const string filePath = "eval-source.cs";
+        var filePath = AbsolutePath.Parse(Path.GetFullPath("eval-source.cs"));
         const string fileSource = "return 2;";
         var service = new RecordingCallService((_, _) => ValueTask.FromResult(CreateSuccessfulServiceResult()));
         var sourceReader = new RecordingEvalSourceInputReader((_, _, _) => ValueTask.FromResult(EvalSourceInputReadResult.Success(fileSource)));

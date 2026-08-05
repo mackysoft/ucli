@@ -1,5 +1,7 @@
 namespace MackySoft.Ucli.Application.Tests.Execution;
 
+using MackySoft.Ucli.Application.Shared.Foundation;
+
 public sealed class ApplicationFailureTests
 {
     private static readonly DefaultApplicationFailureCase[] DefaultApplicationFailureCases =
@@ -46,6 +48,18 @@ public sealed class ApplicationFailureTests
         Assert.Equal(futureCode, failure.Code);
         Assert.Equal("Future transport failed.", failure.Message);
         Assert.Equal("/steps/1", failure.InstancePath);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void FromExecutionError_WithCallerCancellation_PreservesCanceledClassification ()
+    {
+        var failure = ApplicationFailure.FromExecutionError(
+            ExecutionError.Canceled("Caller stopped waiting."));
+
+        Assert.Equal(ApplicationFailureKind.Canceled, failure.Kind);
+        Assert.Equal(ApplicationOutcome.ToolError, failure.Outcome);
+        Assert.Equal(ExecutionErrorCodes.Canceled, failure.Code);
     }
 
     [Fact]

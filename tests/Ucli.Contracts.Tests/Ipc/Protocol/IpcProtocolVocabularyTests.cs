@@ -1,7 +1,7 @@
-using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Contracts.Execution.Lifecycle;
 using MackySoft.Ucli.Contracts.Editor;
 using MackySoft.Ucli.Contracts.Execution;
+using MackySoft.Ucli.Contracts.Execution.Lifecycle;
+using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Contracts.Tests.Ipc.Common;
 
@@ -147,9 +147,15 @@ public sealed class IpcProtocolVocabularyTests
         Assert.Equal(
             ["currentSurface", "requestedResolution"],
             TextVocabulary.GetTexts<IpcScreenshotSizeMode>());
-        Assert.Equal(["gamma", "linear"], TextVocabulary.GetTexts<IpcScreenshotColorSpace>());
         Assert.Equal(["rgba8Srgb"], TextVocabulary.GetTexts<IpcScreenshotPixelFormat>());
         Assert.Equal(["topDown"], TextVocabulary.GetTexts<IpcScreenshotRowOrder>());
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void UnityProjectColorSpace_ExposesSharedLiterals ()
+    {
+        Assert.Equal(["gamma", "linear"], TextVocabulary.GetTexts<UnityProjectColorSpace>());
     }
 
     [Fact]

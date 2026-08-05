@@ -6,7 +6,7 @@ internal static class TestProfileTemplateStoreAssert
 {
     public static void DefaultProfileWritten (
         RecordingTestProfileTemplateStore templateStore,
-        string? expectedOutputPath,
+        AbsolutePath? expectedOutputPath,
         bool expectedForce)
     {
         var invocation = Assert.Single(templateStore.Invocations);

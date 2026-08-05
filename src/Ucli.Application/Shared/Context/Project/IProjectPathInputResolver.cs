@@ -5,6 +5,6 @@ internal interface IProjectPathInputResolver
 {
     /// <summary> Resolves one effective project path candidate with source metadata. </summary>
     /// <param name="input"> The unresolved project-path inputs. </param>
-    /// <returns> The selected project path candidate. </returns>
-    ProjectPathCandidate Resolve (ProjectContextResolutionInput input);
+    /// <returns> The selected project path candidate, or a structured error when an external path input is invalid. </returns>
+    ProjectPathInputResolutionResult Resolve (ProjectContextResolutionInput input);
 }

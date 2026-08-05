@@ -20,13 +20,10 @@ internal static class RefreshCommandAssert
         Assert.NotEqual(Guid.Empty, Assert.Single(service.RequestIds));
         var invocation = Assert.Single(service.Invocations);
         Assert.Equal(expectedCancellationToken, invocation.CancellationToken);
-        Assert.Equal(
-            new RefreshCommandInput(
-                expectedProjectPath,
-                expectedMode,
-                expectedTimeoutMilliseconds,
-                expectedFailFast),
-            invocation.Input);
+        ProjectPathDispatchAssert.EqualNormalized(expectedProjectPath, invocation.Input.ProjectPath);
+        Assert.Equal(expectedMode, invocation.Input.Mode);
+        Assert.Equal(expectedTimeoutMilliseconds, invocation.Input.TimeoutMilliseconds);
+        Assert.Equal(expectedFailFast, invocation.Input.FailFast);
     }
 
     public static void SucceededWithPayload (

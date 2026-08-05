@@ -1,9 +1,8 @@
 using MackySoft.Ucli.Application.Features.Daemon.UseCases.Start;
-using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Editor;
 using MackySoft.Ucli.Hosting.Cli.Daemon;
 using MackySoft.Ucli.Tests.Hosting.Cli.Common.Execution;
 using static MackySoft.Ucli.Tests.DaemonStartCommandTestSupport;
-using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Tests;
 
@@ -22,7 +21,7 @@ public sealed class DaemonStartCommandTests
 
         CommandExecutionState.Reset();
         var result = await CommandResultCapture.ExecuteAsync(() => command.StartAsync(
-            projectPath: "/repo/UnityProject",
+            projectPath: AbsolutePath.Parse(ProjectPathTestValues.RepositoryUnityProject),
             timeout: "1234",
             editorMode: editorModeOption,
             cancellationToken: CancellationToken.None));
@@ -30,7 +29,7 @@ public sealed class DaemonStartCommandTests
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
         DaemonStartServiceAssert.StartRequestedWithOptions(
             service,
-            "/repo/UnityProject",
+            ProjectPathTestValues.RepositoryUnityProject,
             1234,
             expectedEditorMode,
             DaemonStartupBlockedProcessPolicy.Auto);

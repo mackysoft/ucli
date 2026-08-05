@@ -8,7 +8,7 @@ internal static class ProjectContextResolverAssert
         CancellationToken expectedCancellationToken)
     {
         var invocation = Assert.Single(projectContextResolver.Invocations);
-        Assert.Equal(expectedProjectPath, invocation.ProjectPath);
+        Assert.Equal(expectedProjectPath, invocation.ProjectPath?.Value);
         Assert.Equal(expectedCancellationToken, invocation.CancellationToken);
         return invocation;
     }

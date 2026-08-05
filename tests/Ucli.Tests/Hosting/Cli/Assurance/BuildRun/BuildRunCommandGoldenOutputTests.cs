@@ -14,7 +14,7 @@ public sealed class BuildRunCommandGoldenOutputTests
         var command = new BuildRunCommand(service, CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
 
         var result = await CommandResultCapture.ExecuteWithErrorAsync(() => command.RunAsync(
-            profilePath: Path.Combine(ProjectPathTestValues.RepositoryRoot, ".ucli", "build", "player.json"),
+            profilePath: FilePathReference.Parse(Path.Combine(ProjectPathTestValues.RepositoryRoot, ".ucli", "build", "player.json")),
             cancellationToken: CancellationToken.None));
 
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);

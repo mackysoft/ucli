@@ -5,6 +5,8 @@ using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Presentation;
+using MackySoft.Ucli.Contracts.Projects;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Unity.Runtime;
 using MackySoft.Ucli.Unity.ScreenshotCapture;
@@ -66,8 +68,9 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(
                 result.Response.Capture.SizeMode,
                 Is.EqualTo(IpcScreenshotSizeMode.CurrentSurface));
-            Assert.That(result.Response.Capture.Width, Is.EqualTo(2));
-            Assert.That(result.Response.Capture.Height, Is.EqualTo(1));
+            Assert.That(
+                result.Response.Capture.Dimensions,
+                Is.EqualTo(new PixelDimensions(2, 1)));
             Assert.That(result.Response.CaptureId, Is.EqualTo(CaptureId));
             Assert.That(
                 result.Response.Capture.State.LifecycleState,
@@ -76,8 +79,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 result.Response.Capture.State.CompileState,
                 Is.EqualTo(UnityEditorCompileState.Ready));
             Assert.That(
-                result.Response.Capture.ColorSpace,
-                Is.EqualTo(IpcScreenshotColorSpace.Linear));
+                result.Response.Capture.ProjectColorSpace,
+                Is.EqualTo(UnityProjectColorSpace.Linear));
             Assert.That(
                 result.Response.Capture.State.Generations,
                 Is.EqualTo(new UnityEditorGenerationSnapshot(3, 7, 5, 2)));
@@ -87,8 +90,9 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(
                 result.Response.Staging.RowOrder,
                 Is.EqualTo(IpcScreenshotRowOrder.TopDown));
-            Assert.That(result.Response.Staging.Width, Is.EqualTo(2));
-            Assert.That(result.Response.Staging.Height, Is.EqualTo(1));
+            Assert.That(
+                result.Response.Staging.Dimensions,
+                Is.EqualTo(new PixelDimensions(2, 1)));
             Assert.That(result.Response.Staging.RowStrideBytes, Is.EqualTo(8));
             Assert.That(result.Response.Staging.SizeBytes, Is.EqualTo(8));
         }
@@ -361,17 +365,15 @@ namespace MackySoft.Ucli.Unity.Tests
             return new IpcScreenshotCaptureRequest(
                 CaptureId,
                 target,
-                RequestedWidth: null,
-                RequestedHeight: null);
+                RequestedDimensions: null);
         }
 
         private static UnityScreenshotBackendResult CreateBackendSuccess ()
         {
             return UnityScreenshotBackendResult.Success(
                 new UnityScreenshotFrame(
-                    width: 2,
-                    height: 1,
-                    IpcScreenshotColorSpace.Linear,
+                    new PixelDimensions(2, 1),
+                    UnityProjectColorSpace.Linear,
                     CreateFrameBytes()));
         }
 

@@ -23,7 +23,7 @@ internal sealed class LogsStreamPollingExecutor
     /// <summary> Executes one polling workflow. </summary>
     public async ValueTask<LogsReadServiceResult> ExecuteAsync<TQuery, TReadResult, TResponse, TEvent> (
         UcliCommand commandId,
-        string? projectPath,
+        AbsolutePath? projectPath,
         int? timeoutMilliseconds,
         TQuery initialQuery,
         bool stream,

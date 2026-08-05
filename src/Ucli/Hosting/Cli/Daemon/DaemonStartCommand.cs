@@ -59,7 +59,7 @@ internal sealed class DaemonStartCommand
     /// <returns> The exit code contained in the emitted command result. </returns>
     [Command(UcliCommandNames.StartSubcommand)]
     public async Task<int> StartAsync (
-        string? projectPath = null,
+        [AbsolutePathArgumentParser] AbsolutePath? projectPath = null,
         string? timeout = null,
         string? editorMode = null,
         string? onStartupBlocked = null,

@@ -150,7 +150,7 @@ internal static class BuildServiceTestSupport
         int? timeoutMilliseconds = 10000)
     {
         return new BuildCommandInput(
-            ProfilePath: "/workspace/build.ucli.json",
+            ProfilePath: FilePathReference.Parse(DefaultBuildProfilePath.Value),
             ProjectPath: null,
             Mode: UnityExecutionMode.Auto,
             TimeoutMilliseconds: timeoutMilliseconds);

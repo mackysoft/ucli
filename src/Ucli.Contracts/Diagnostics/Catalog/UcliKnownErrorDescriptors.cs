@@ -10,6 +10,7 @@ public static class UcliKnownErrorDescriptors
         DaemonErrorCodeDescriptors.All,
         EditorLifecycleErrorCodeDescriptors.All,
         ExecuteRequestErrorCodeDescriptors.All,
+        GameViewRecordingErrorCodeDescriptors.All,
         IpcProtocolErrorCodeDescriptors.All,
         IpcSessionErrorCodeDescriptors.All,
         IpcTransportErrorCodeDescriptors.All,

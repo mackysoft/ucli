@@ -26,6 +26,14 @@ internal static class ExecutionRefJsonPolymorphismConfigurator
             return true;
         }
 
+        if (typeInfo.Type == typeof(IActiveExecutionRef))
+        {
+            typeInfo.PolymorphismOptions = CreatePolymorphismOptions(
+                typeInfo,
+                typeof(ActiveExecutionRef));
+            return true;
+        }
+
         if (typeInfo.Type == typeof(IReconnectableExecutionRef))
         {
             typeInfo.PolymorphismOptions = CreatePolymorphismOptions(

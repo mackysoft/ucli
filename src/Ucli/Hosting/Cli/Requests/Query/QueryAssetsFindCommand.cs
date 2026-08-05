@@ -42,13 +42,13 @@ internal sealed class QueryAssetsFindCommand
     /// <returns> The exit code contained in the emitted command result. </returns>
     [Command(UcliCommandNames.FindSubcommand)]
     public async Task<int> FindAsync (
-        string? projectPath = null,
+        [AbsolutePathArgumentParser] AbsolutePath? projectPath = null,
         string? mode = null,
         string? timeout = null,
         string? readIndexMode = null,
         bool failFast = false,
         string? type = null,
-        string? pathPrefix = null,
+        [UnityAssetPathPrefixArgumentParser] UnityAssetPathPrefix? pathPrefix = null,
         string? nameContains = null,
         int? limit = null,
         string? after = null,

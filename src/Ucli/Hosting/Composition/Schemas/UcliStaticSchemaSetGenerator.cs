@@ -3,11 +3,13 @@ using System.Xml.Linq;
 using MackySoft.FileSystem;
 using MackySoft.JsonSchema.Generation;
 using MackySoft.JsonSchema.Generation.Projection;
+using MackySoft.Ucli.Application.Features.Recording.Requests;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Execution.Lifecycle;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Json;
 using MackySoft.Ucli.Contracts.Json.Generation;
+using MackySoft.Ucli.Contracts.Presentation;
 using MackySoft.Ucli.Contracts.Schemas;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Schemas;
@@ -68,6 +70,9 @@ internal static class UcliStaticSchemaSetGenerator
             .Where(static registration =>
                 registration.LifecycleExecutionKind == null
                 && !registration.HasOperationApplicationStateConstraints
+                && !RequiresPixelDimensionsProfile(registration)
+                && !HasSerializerRoot<GameViewRecordingRequestDocument>(registration)
+                && !IsGameViewRecordingOutputRegistration(registration)
                 && !HasSerializerRoot<ExecutionRef>(registration)
                 && !HasSerializerRoot<LifecycleExecutionTerminalRecord>(
                     registration))
@@ -77,6 +82,35 @@ internal static class UcliStaticSchemaSetGenerator
             .ToList();
         foreach (var registration in registrations)
         {
+            if (RequiresPixelDimensionsProfile(registration))
+            {
+                results.Add(
+                    UcliJsonContractGenerator.GenerateWithPixelDimensionsProfile(
+                        registration.ContractId,
+                        registration.TypeInfo,
+                        CreateDocumentOptions(registration)));
+                continue;
+            }
+            if (HasSerializerRoot<GameViewRecordingRequestDocument>(registration))
+            {
+                results.Add(
+                    UcliJsonContractGenerator
+                        .GenerateWithGameViewRecordingRequestProfile(
+                            registration.ContractId,
+                            registration.TypeInfo,
+                            CreateDocumentOptions(registration)));
+                continue;
+            }
+            if (IsGameViewRecordingOutputRegistration(registration))
+            {
+                results.Add(
+                    UcliJsonContractGenerator
+                        .GenerateWithGameViewRecordingOutputProfile(
+                            registration.ContractId,
+                            registration.TypeInfo,
+                            CreateDocumentOptions(registration)));
+                continue;
+            }
             if (registration.LifecycleExecutionKind is { } executionKind)
             {
                 if (registration.Status is not { } status)
@@ -134,6 +168,44 @@ internal static class UcliStaticSchemaSetGenerator
     {
         return registration.TypeInfo.Type
             == UcliNonNullJsonObject.MakeValueType(typeof(TContract));
+    }
+
+    private static bool IsGameViewRecordingOutputRegistration (
+        UcliStaticSchemaRegistration registration)
+    {
+        return string.Equals(
+                registration.Command,
+                UcliCommandNames.RecordingStart,
+                StringComparison.Ordinal)
+            || string.Equals(
+                registration.Command,
+                UcliCommandNames.RecordingStatus,
+                StringComparison.Ordinal)
+            || string.Equals(
+                registration.Command,
+                UcliCommandNames.RecordingStop,
+                StringComparison.Ordinal);
+    }
+
+    private static bool RequiresPixelDimensionsProfile (
+        UcliStaticSchemaRegistration registration)
+    {
+        return HasSerializerRoot<PixelDimensions>(registration)
+            || IsScreenshotSuccessOutputRegistration(registration);
+    }
+
+    private static bool IsScreenshotSuccessOutputRegistration (
+        UcliStaticSchemaRegistration registration)
+    {
+        return registration.Status == CommandResultStatus.Ok
+            && (string.Equals(
+                    registration.Command,
+                    UcliCommandNames.ScreenshotGame,
+                    StringComparison.Ordinal)
+                || string.Equals(
+                    registration.Command,
+                    UcliCommandNames.ScreenshotScene,
+                    StringComparison.Ordinal));
     }
 
     private static JsonSchemaDocumentOptions CreateDocumentOptions (
