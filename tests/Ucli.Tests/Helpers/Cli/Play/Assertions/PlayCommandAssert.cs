@@ -13,13 +13,11 @@ internal static class PlayCommandAssert
         string expectedProjectPath,
         int expectedTimeoutMilliseconds)
     {
-        SucceededWithDispatchedInput(
-            result,
-            service.Invocations,
-            expectedCancellationToken,
-            new PlayEnterCommandInput(
-                expectedProjectPath,
-                expectedTimeoutMilliseconds));
+        Assert.Equal((int)CliExitCode.Success, result.ExitCode);
+        var invocation = Assert.Single(service.Invocations);
+        Assert.Equal(expectedCancellationToken, invocation.CancellationToken);
+        ProjectPathDispatchAssert.EqualNormalized(expectedProjectPath, invocation.Input.ProjectPath);
+        Assert.Equal(expectedTimeoutMilliseconds, invocation.Input.TimeoutMilliseconds);
     }
 
     public static void ExitSucceededWithDispatchedInput (
@@ -29,13 +27,11 @@ internal static class PlayCommandAssert
         string expectedProjectPath,
         int expectedTimeoutMilliseconds)
     {
-        SucceededWithDispatchedInput(
-            result,
-            service.Invocations,
-            expectedCancellationToken,
-            new PlayExitCommandInput(
-                expectedProjectPath,
-                expectedTimeoutMilliseconds));
+        Assert.Equal((int)CliExitCode.Success, result.ExitCode);
+        var invocation = Assert.Single(service.Invocations);
+        Assert.Equal(expectedCancellationToken, invocation.CancellationToken);
+        ProjectPathDispatchAssert.EqualNormalized(expectedProjectPath, invocation.Input.ProjectPath);
+        Assert.Equal(expectedTimeoutMilliseconds, invocation.Input.TimeoutMilliseconds);
     }
 
     public static void StatusSucceededWithDispatchedInput (
@@ -45,13 +41,11 @@ internal static class PlayCommandAssert
         string expectedProjectPath,
         int expectedTimeoutMilliseconds)
     {
-        SucceededWithDispatchedInput(
-            result,
-            service.Invocations,
-            expectedCancellationToken,
-            new PlayStatusCommandInput(
-                expectedProjectPath,
-                expectedTimeoutMilliseconds));
+        Assert.Equal((int)CliExitCode.Success, result.ExitCode);
+        var invocation = Assert.Single(service.Invocations);
+        Assert.Equal(expectedCancellationToken, invocation.CancellationToken);
+        ProjectPathDispatchAssert.EqualNormalized(expectedProjectPath, invocation.Input.ProjectPath);
+        Assert.Equal(expectedTimeoutMilliseconds, invocation.Input.TimeoutMilliseconds);
     }
 
     public static void InvalidTimeoutRejectedBeforeEnterExecution (
@@ -84,18 +78,6 @@ internal static class PlayCommandAssert
             result,
             service.Invocations,
             UcliCommandNames.PlayStatus);
-    }
-
-    private static void SucceededWithDispatchedInput<TInput> (
-        CommandExecutionResult result,
-        IReadOnlyList<CommandServiceInvocation<TInput>> invocations,
-        CancellationToken expectedCancellationToken,
-        TInput expectedInput)
-    {
-        Assert.Equal((int)CliExitCode.Success, result.ExitCode);
-        var invocation = Assert.Single(invocations);
-        Assert.Equal(expectedCancellationToken, invocation.CancellationToken);
-        Assert.Equal(expectedInput, invocation.Input);
     }
 
     private static void HasEmptyTransitionErrorPayload (

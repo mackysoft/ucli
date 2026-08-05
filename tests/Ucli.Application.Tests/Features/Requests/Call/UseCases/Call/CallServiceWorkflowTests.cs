@@ -51,7 +51,7 @@ public sealed class CallServiceWorkflowTests
         var result = await service.ExecuteAsync(
             RequestId,
             new CallCommandInput(
-                ProjectPath: "/repo/UnityProject",
+                ProjectPath: AbsolutePath.Parse(ProjectPathTestValues.RepositoryUnityProject),
                 Mode: NormalizeMode("oneshot"),
                 TimeoutMilliseconds: NormalizeTimeout("1234"),
                 PlanToken: "plan-token-1",
@@ -132,7 +132,7 @@ public sealed class CallServiceWorkflowTests
         var result = await service.ExecuteAsync(
             RequestId,
             new CallCommandInput(
-                ProjectPath: "/repo/UnityProject",
+                ProjectPath: AbsolutePath.Parse(ProjectPathTestValues.RepositoryUnityProject),
                 Mode: NormalizeMode("daemon"),
                 TimeoutMilliseconds: NormalizeTimeout("1200"),
                 PlanToken: null,
@@ -220,7 +220,7 @@ public sealed class CallServiceWorkflowTests
         var result = await service.ExecuteAsync(
             RequestId,
             new CallCommandInput(
-                ProjectPath: "/repo/UnityProject",
+                ProjectPath: AbsolutePath.Parse(ProjectPathTestValues.RepositoryUnityProject),
                 Mode: NormalizeMode("daemon"),
                 TimeoutMilliseconds: null,
                 PlanToken: null,
@@ -293,7 +293,7 @@ public sealed class CallServiceWorkflowTests
         var result = await service.ExecuteAsync(
             RequestId,
             new CallCommandInput(
-                ProjectPath: "/repo/UnityProject",
+                ProjectPath: AbsolutePath.Parse(ProjectPathTestValues.RepositoryUnityProject),
                 Mode: NormalizeMode(null),
                 TimeoutMilliseconds: NormalizeTimeout("1200"),
                 PlanToken: "user-plan-token",

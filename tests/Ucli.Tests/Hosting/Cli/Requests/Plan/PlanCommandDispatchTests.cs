@@ -18,7 +18,7 @@ public sealed class PlanCommandDispatchTests
         using var cancellationTokenSource = new CancellationTokenSource();
 
         var result = await CommandResultCapture.ExecuteAsync(() => command.PlanAsync(
-            projectPath: "/repo/UnityProject",
+            projectPath: AbsolutePath.Parse(ProjectPathTestValues.RepositoryUnityProject),
             mode: "oneshot",
             timeout: "1234",
             readIndexMode: "disabled",
@@ -29,7 +29,7 @@ public sealed class PlanCommandDispatchTests
             result,
             service,
             cancellationTokenSource.Token,
-            "/repo/UnityProject",
+            ProjectPathTestValues.RepositoryUnityProject,
             UnityExecutionMode.Oneshot,
             expectedTimeoutMilliseconds: 1234,
             ReadIndexMode.Disabled,

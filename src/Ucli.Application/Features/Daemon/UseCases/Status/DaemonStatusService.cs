@@ -42,7 +42,7 @@ internal sealed class DaemonStatusService : IDaemonStatusService
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The daemon-status execution result. </returns>
     public async ValueTask<DaemonStatusExecutionResult> GetStatusAsync (
-        string? projectPath,
+        AbsolutePath? projectPath,
         int? timeoutMilliseconds,
         CancellationToken cancellationToken = default)
     {

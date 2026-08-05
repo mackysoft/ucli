@@ -178,6 +178,7 @@ internal sealed record ApplicationFailure
             ExecutionErrorKind.InvalidArgument => InvalidInput(error.Message, resolvedCode, instancePath, startupFailure),
             ExecutionErrorKind.Timeout when InvalidArgumentErrorCodeSet.Contains(resolvedCode) => InvalidInput(error.Message, resolvedCode, instancePath, startupFailure),
             ExecutionErrorKind.Timeout => Timeout(error.Message, resolvedCode, instancePath, startupFailure),
+            ExecutionErrorKind.Canceled => Canceled(error.Message, resolvedCode, instancePath),
             ExecutionErrorKind.InternalError when InvalidArgumentErrorCodeSet.Contains(resolvedCode) => InvalidInput(error.Message, resolvedCode, instancePath, startupFailure),
             ExecutionErrorKind.InternalError => InternalError(error.Message, resolvedCode, instancePath, startupFailure),
             _ => throw new ArgumentOutOfRangeException(nameof(error), error.Kind, "Execution error kind is not defined."),

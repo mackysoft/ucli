@@ -374,6 +374,7 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
         {
             ExecutionErrorKind.InvalidArgument => ExecutionError.InvalidArgument(message, primaryError.Code),
             ExecutionErrorKind.Timeout => ExecutionError.Timeout(message, primaryError.Code),
+            ExecutionErrorKind.Canceled => ExecutionError.Canceled(message, primaryError.Code),
             ExecutionErrorKind.InternalError => ExecutionError.InternalError(message, primaryError.Code),
             _ => throw new ArgumentOutOfRangeException(nameof(primaryError), primaryError.Kind, "Unsupported execution error kind."),
         };

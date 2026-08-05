@@ -1,6 +1,6 @@
 namespace MackySoft.Ucli.Contracts.Operations;
 
-/// <summary> Declares an inclusive minimum for one nullable 32-bit integer input. </summary>
+/// <summary> Declares an inclusive minimum for one 32-bit integer contract. </summary>
 [AttributeUsage(AttributeTargets.Property)]
 public sealed class UcliInt32MinimumAttribute : Attribute
 {

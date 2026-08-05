@@ -2,6 +2,7 @@ using MackySoft.Ucli.Application.Features.Requests.Query.UseCases.Query;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Projects;
 using MackySoft.Ucli.Hosting.Cli.Requests;
 using MackySoft.Ucli.Tests.Hosting.Cli.Common.Execution;
 using static MackySoft.Ucli.Tests.QueryCommandTestData;
@@ -57,7 +58,7 @@ public sealed class QueryCommandDispatchTests
         using var cancellationTokenSource = new CancellationTokenSource();
 
         var result = await CommandResultCapture.ExecuteAsync(() => command.FindAsync(
-            projectPath: "/repo/UnityProject",
+            projectPath: AbsolutePath.Parse(ProjectPathTestValues.RepositoryUnityProject),
             mode: "oneshot",
             timeout: "1234",
             readIndexMode: "allowStale",
@@ -70,7 +71,7 @@ public sealed class QueryCommandDispatchTests
             result,
             service,
             cancellationTokenSource.Token,
-            "/repo/UnityProject",
+            ProjectPathTestValues.RepositoryUnityProject,
             UnityExecutionMode.Oneshot,
             expectedTimeoutMilliseconds: 1234,
             ReadIndexMode.AllowStale,
@@ -89,12 +90,12 @@ public sealed class QueryCommandDispatchTests
         using var cancellationTokenSource = new CancellationTokenSource();
 
         var result = await CommandResultCapture.ExecuteAsync(() => command.TreeAsync(
-            projectPath: "/repo/UnityProject",
+            projectPath: AbsolutePath.Parse(ProjectPathTestValues.RepositoryUnityProject),
             mode: "oneshot",
             timeout: "1234",
             readIndexMode: "allowStale",
             failFast: true,
-            path: "Assets/Scenes/Main.unity",
+            path: new UnityScenePath("Assets/Scenes/Main.unity"),
             depth: 2,
             limit: 25,
             after: cursor,
@@ -104,7 +105,7 @@ public sealed class QueryCommandDispatchTests
             result,
             service,
             cancellationTokenSource.Token,
-            "/repo/UnityProject",
+            ProjectPathTestValues.RepositoryUnityProject,
             UnityExecutionMode.Oneshot,
             expectedTimeoutMilliseconds: 1234,
             ReadIndexMode.AllowStale,
@@ -124,7 +125,7 @@ public sealed class QueryCommandDispatchTests
         var command = new QuerySceneTreeCommand(service, CommandResultTestWriter.Create());
 
         var result = await CommandResultCapture.ExecuteAsync(() => command.TreeAsync(
-            path: @"Packages\com.example\Scenes\Main.unity",
+            path: new UnityScenePath(@"Packages\com.example\Scenes\Main.unity"),
             cancellationToken: CancellationToken.None));
 
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);

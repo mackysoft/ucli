@@ -52,7 +52,7 @@ internal sealed class EvalSourceInputReader : IEvalSourceInputReader
     /// <inheritdoc />
     public async ValueTask<EvalSourceInputReadResult> ReadAsync (
         string? source,
-        string? file,
+        AbsolutePath? file,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -70,9 +70,9 @@ internal sealed class EvalSourceInputReader : IEvalSourceInputReader
             return CreateSourceResult(source!, "--source");
         }
 
-        if (hasFile)
+        if (file is not null)
         {
-            return await ReadFileSourceAsync(file!, cancellationToken).ConfigureAwait(false);
+            return await ReadFileSourceAsync(file, cancellationToken).ConfigureAwait(false);
         }
 
         if (!isStandardInputRedirected())
@@ -85,51 +85,45 @@ internal sealed class EvalSourceInputReader : IEvalSourceInputReader
     }
 
     private async ValueTask<EvalSourceInputReadResult> ReadFileSourceAsync (
-        string file,
+        AbsolutePath file,
         CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(file))
-        {
-            return EvalSourceInputReadResult.Failure(ExecutionError.InvalidArgument(
-                "--file must not be empty."));
-        }
-
         try
         {
-            if (!fileExists(file))
+            if (!fileExists(file.Value))
             {
                 return EvalSourceInputReadResult.Failure(ExecutionError.InvalidArgument(
-                    $"--file does not exist: {file}."));
+                    $"--file does not exist: {file.Value}."));
             }
 
-            var fileByteLength = getFileByteLength(file);
+            var fileByteLength = getFileByteLength(file.Value);
             if (fileByteLength > MaxSourceUtf8ByteCount)
             {
                 return CreateSourceTooLargeResult("--file");
             }
 
-            using var reader = openFileReader(file);
+            using var reader = openFileReader(file.Value);
             return await ReadBoundedSourceAsync(reader, "--file", cancellationToken).ConfigureAwait(false);
         }
         catch (FileNotFoundException)
         {
             return EvalSourceInputReadResult.Failure(ExecutionError.InvalidArgument(
-                $"--file does not exist: {file}."));
+                $"--file does not exist: {file.Value}."));
         }
         catch (DirectoryNotFoundException)
         {
             return EvalSourceInputReadResult.Failure(ExecutionError.InvalidArgument(
-                $"--file does not exist: {file}."));
+                $"--file does not exist: {file.Value}."));
         }
         catch (IOException exception)
         {
             return EvalSourceInputReadResult.Failure(ExecutionError.InternalError(
-                $"Failed to read eval source file: {file}. {exception.Message}"));
+                $"Failed to read eval source file: {file.Value}. {exception.Message}"));
         }
         catch (UnauthorizedAccessException exception)
         {
             return EvalSourceInputReadResult.Failure(ExecutionError.InternalError(
-                $"Failed to read eval source file: {file}. {exception.Message}"));
+                $"Failed to read eval source file: {file.Value}. {exception.Message}"));
         }
     }
 

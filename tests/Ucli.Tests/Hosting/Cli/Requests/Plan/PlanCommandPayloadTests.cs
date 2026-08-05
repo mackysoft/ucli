@@ -15,7 +15,7 @@ public sealed class PlanCommandPayloadTests
         var command = new PlanCommand(service, preflightService, RequestInputReaderStub.Success(DefaultRequestJson), CommandResultTestWriter.Create());
 
         var result = await CommandResultCapture.ExecuteAsync(() => command.PlanAsync(
-            projectPath: "/repo/UnityProject",
+            projectPath: AbsolutePath.Parse(ProjectPathTestValues.RepositoryUnityProject),
             cancellationToken: CancellationToken.None));
 
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);

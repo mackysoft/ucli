@@ -12,7 +12,7 @@ internal static class DaemonStartServiceAssert
         DaemonStartupBlockedProcessPolicy expectedOnStartupBlocked)
     {
         var invocation = Assert.Single(service.Invocations);
-        Assert.Equal(expectedProjectPath, invocation.ProjectPath);
+        ProjectPathDispatchAssert.EqualNormalized(expectedProjectPath, invocation.ProjectPath);
         Assert.Equal(expectedTimeoutMilliseconds, invocation.TimeoutMilliseconds);
         Assert.Equal(expectedEditorMode, invocation.EditorMode);
         Assert.Equal(expectedOnStartupBlocked, invocation.OnStartupBlocked);

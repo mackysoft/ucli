@@ -4,11 +4,11 @@ internal static class UnityProjectResolverAssert
 {
     public static RecordingUnityProjectResolver.Invocation ResolvedOnceFor (
         RecordingUnityProjectResolver resolver,
-        string expectedProjectPath,
+        AbsolutePath expectedProjectPath,
         UnityProjectPathSource expectedSource)
     {
         var invocation = Assert.Single(resolver.Invocations);
-        Assert.Equal(Path.GetFullPath(expectedProjectPath), Path.GetFullPath(invocation.ProjectPathCandidate.Path));
+        Assert.True(invocation.ProjectPathCandidate.Path.IsSameAs(expectedProjectPath));
         Assert.Equal(expectedSource, invocation.ProjectPathCandidate.Source);
         return invocation;
     }

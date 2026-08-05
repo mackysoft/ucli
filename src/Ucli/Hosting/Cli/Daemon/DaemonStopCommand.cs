@@ -41,7 +41,7 @@ internal sealed class DaemonStopCommand
     /// <returns> The exit code contained in the emitted command result. </returns>
     [Command(UcliCommandNames.StopSubcommand)]
     public async Task<int> StopAsync (
-        string? projectPath = null,
+        [AbsolutePathArgumentParser] AbsolutePath? projectPath = null,
         string? timeout = null,
         CancellationToken cancellationToken = default)
     {

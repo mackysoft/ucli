@@ -1,7 +1,8 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using MackySoft.Ucli.Contracts.Cryptography;
-using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Execution.Lifecycle;
+using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Contracts.Tests.Execution.References;
 
@@ -150,6 +151,40 @@ public sealed class ExecutionRefTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void ReconnectableReferences_WithoutANonNullStatusLocator_RejectJson ()
+    {
+        ExecutionRef[] references =
+        [
+            new ActiveExecutionRef(Kind, Id, DefinitionDigest, State, StatusLocator),
+            new RecoveryExecutionRef(
+                Kind,
+                Id,
+                DefinitionDigest,
+                new ExecutionState("recovering"),
+                StatusLocator),
+        ];
+
+        foreach (var reference in references)
+        {
+            var serialized = JsonSerializer.Serialize(
+                reference,
+                IpcJsonSerializerOptions.StrictPropertyNames);
+            var missing = JsonNode.Parse(serialized)!.AsObject();
+            Assert.True(missing.Remove("statusLocator"));
+            var explicitNull = JsonNode.Parse(serialized)!.AsObject();
+            explicitNull["statusLocator"] = null;
+
+            Assert.Throws<ArgumentNullException>(() => JsonSerializer.Deserialize<ExecutionRef>(
+                missing,
+                IpcJsonSerializerOptions.StrictPropertyNames));
+            Assert.Throws<ArgumentNullException>(() => JsonSerializer.Deserialize<ExecutionRef>(
+                explicitNull,
+                IpcJsonSerializerOptions.StrictPropertyNames));
+        }
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void RecoveryReference_RoundTripsThroughTheRecoveryOnlyTaggedUnion ()
     {
         IRecoveryExecutionRef reference = new RecoveryExecutionRef(
@@ -211,6 +246,13 @@ public sealed class ExecutionRefTests
             TextVocabulary.GetText(LifecycleExecutionState.Completed),
             document.RootElement.GetProperty("state").GetString());
         Assert.IsType<TerminalExecutionRef>(roundTripped);
+
+        var missingStatusLocator = JsonNode.Parse(json)!.AsObject();
+        Assert.True(missingStatusLocator.Remove("statusLocator"));
+        Assert.Throws<JsonException>(() =>
+            JsonSerializer.Deserialize<ITerminalExecutionRef>(
+                missingStatusLocator,
+                IpcJsonSerializerOptions.StrictPropertyNames));
     }
 
     [Fact]

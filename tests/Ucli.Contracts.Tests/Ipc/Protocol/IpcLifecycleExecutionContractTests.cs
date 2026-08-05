@@ -333,44 +333,6 @@ public sealed class IpcLifecycleExecutionContractTests
     }
 
     [Theory]
-    [InlineData(ExecutionLifecycle.Active)]
-    [InlineData(ExecutionLifecycle.Recovery)]
-    [Trait("Size", "Small")]
-    public void ErrorResponse_WhenRecoverableReferenceHasNoStatusLocator_RejectsReference (
-        ExecutionLifecycle lifecycle)
-    {
-        var definition = new LifecycleExecutionDefinition(
-            LifecycleExecutionKind.Refresh);
-        var state = lifecycle == ExecutionLifecycle.Active
-            ? LifecycleExecutionState.Refreshing
-            : LifecycleExecutionState.Recovering;
-        var reference = lifecycle == ExecutionLifecycle.Active
-            ? (ExecutionRef)new ActiveExecutionRef(
-                definition.ExecutionKind,
-                LifecycleExecutionContractTestFactory.ExecutionId,
-                LifecycleExecutionDefinitionDigest.Calculate(definition),
-                new ExecutionState(TextVocabulary.GetText(state)),
-                statusLocator: null)
-            : new RecoveryExecutionRef(
-                definition.ExecutionKind,
-                LifecycleExecutionContractTestFactory.ExecutionId,
-                LifecycleExecutionDefinitionDigest.Calculate(definition),
-                new ExecutionState(TextVocabulary.GetText(state)),
-                statusLocator: null);
-
-        var exception = Assert.Throws<ArgumentException>(() =>
-            new IpcRefreshErrorResponse(
-                LifecycleExecutionContractTestFactory.Project,
-                reference,
-                ExecutionApplicationState.Indeterminate,
-                refresh: null,
-                observedLifecycle: null,
-                readPostcondition: null));
-
-        Assert.Equal("lifecycleExecutionRef", exception.ParamName);
-    }
-
-    [Theory]
     [InlineData("otherArtifact", "application/json")]
     [InlineData("lifecycleExecutionTerminalRecord", "text/plain")]
     [Trait("Size", "Small")]

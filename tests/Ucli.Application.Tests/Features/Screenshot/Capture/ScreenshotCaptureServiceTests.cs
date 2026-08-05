@@ -67,14 +67,14 @@ public sealed class ScreenshotCaptureServiceTests
         var payload = Assert.IsType<UnityRequestPayload.ScreenshotCapture>(invocation.Payload);
         Assert.Equal(CaptureId, payload.Request.CaptureId);
         Assert.Equal(target, payload.Request.Target);
-        Assert.Equal(requestedWidth, payload.Request.RequestedWidth);
-        Assert.Equal(requestedHeight, payload.Request.RequestedHeight);
+        Assert.Equal(
+            requestedWidth.HasValue ? new PixelDimensions(requestedWidth.Value, requestedHeight!.Value) : null,
+            payload.Request.RequestedDimensions);
         Assert.Equal(TimeSpan.FromMilliseconds(5000), invocation.Timeout);
         Assert.Equal(CaptureId, Assert.Single(artifactStore.CaptureIds));
 
         var commit = Assert.Single(artifactStore.CommitRequests);
-        Assert.Equal(width, commit.Width);
-        Assert.Equal(height, commit.Height);
+        Assert.Equal(new PixelDimensions(width, height), commit.Dimensions);
         Assert.Equal(IpcScreenshotPixelFormat.Rgba8Srgb, commit.PixelFormat);
         Assert.Equal(IpcScreenshotRowOrder.TopDown, commit.RowOrder);
         Assert.Equal(width * 4, commit.RowStrideBytes);
@@ -220,7 +220,7 @@ public sealed class ScreenshotCaptureServiceTests
             requestedWidth: 1920,
             requestedHeight: 1080,
             target: IpcScreenshotTarget.Game,
-            colorSpace: null,
+            projectColorSpace: null,
             lifecycleState: null,
             compileState: null,
             playModeState: null,
@@ -237,8 +237,8 @@ public sealed class ScreenshotCaptureServiceTests
     }
 
     [Theory]
-    [InlineData("color-space", "linear ")]
-    [InlineData("color-space", "unsupported")]
+    [InlineData("project-color-space", "linear ")]
+    [InlineData("project-color-space", "unsupported")]
     [InlineData("lifecycle-state", "ready ")]
     [InlineData("lifecycle-state", "unsupported")]
     [InlineData("compile-state", "ready ")]
@@ -252,7 +252,10 @@ public sealed class ScreenshotCaptureServiceTests
     {
         var response = caseName switch
         {
-            "color-space" => CreateResponse(width: 1920, height: 1080, colorSpace: invalidValue),
+            "project-color-space" => CreateResponse(
+                width: 1920,
+                height: 1080,
+                projectColorSpace: invalidValue),
             "lifecycle-state" => CreateResponse(width: 1920, height: 1080, lifecycleState: invalidValue),
             "compile-state" => CreateResponse(width: 1920, height: 1080, compileState: invalidValue),
             "play-mode-state" => CreateResponse(width: 1920, height: 1080, playModeState: invalidValue),
@@ -394,8 +397,9 @@ public sealed class ScreenshotCaptureServiceTests
         return new ScreenshotCaptureInput(
             target,
             ProjectPath: null,
-            RequestedWidth: width,
-            RequestedHeight: height,
+            RequestedDimensions: width.HasValue
+                ? new PixelDimensions(width.Value, height!.Value)
+                : null,
             TimeoutMilliseconds: timeoutMilliseconds);
     }
 
@@ -412,7 +416,7 @@ public sealed class ScreenshotCaptureServiceTests
         int height,
         int? requestedWidth = 1920,
         int? requestedHeight = 1080,
-        string? colorSpace = null,
+        string? projectColorSpace = null,
         string? lifecycleState = null,
         string? compileState = null,
         string? playModeState = null,
@@ -420,7 +424,7 @@ public sealed class ScreenshotCaptureServiceTests
         Guid? captureId = null,
         UnityEditorStateSnapshot? state = null)
     {
-        if (colorSpace is not null
+        if (projectColorSpace is not null
             || lifecycleState is not null
             || compileState is not null
             || playModeState is not null)
@@ -431,7 +435,7 @@ public sealed class ScreenshotCaptureServiceTests
                 requestedWidth,
                 requestedHeight,
                 target,
-                colorSpace,
+                projectColorSpace,
                 lifecycleState,
                 compileState,
                 playModeState,
@@ -445,15 +449,14 @@ public sealed class ScreenshotCaptureServiceTests
                 requestedWidth.HasValue
                     ? IpcScreenshotSizeMode.RequestedResolution
                     : IpcScreenshotSizeMode.CurrentSurface,
-                RequestedWidth: requestedWidth,
-                RequestedHeight: requestedHeight,
-                Width: width,
-                Height: height,
-                IpcScreenshotColorSpace.Linear,
+                RequestedDimensions: requestedWidth.HasValue
+                    ? new PixelDimensions(requestedWidth.Value, requestedHeight!.Value)
+                    : null,
+                Dimensions: new PixelDimensions(width, height),
+                UnityProjectColorSpace.Linear,
                 State: state ?? CreateState()),
             new IpcScreenshotStagingImage(
-                width,
-                height,
+                new PixelDimensions(width, height),
                 IpcScreenshotPixelFormat.Rgba8Srgb,
                 IpcScreenshotRowOrder.TopDown,
                 RowStrideBytes: width * 4,
@@ -472,7 +475,7 @@ public sealed class ScreenshotCaptureServiceTests
         int? requestedWidth,
         int? requestedHeight,
         IpcScreenshotTarget target,
-        string? colorSpace,
+        string? projectColorSpace,
         string? lifecycleState,
         string? compileState,
         string? playModeState,
@@ -487,11 +490,11 @@ public sealed class ScreenshotCaptureServiceTests
                 sizeMode = TextVocabulary.GetText(requestedWidth.HasValue
                     ? IpcScreenshotSizeMode.RequestedResolution
                     : IpcScreenshotSizeMode.CurrentSurface),
-                requestedWidth,
-                requestedHeight,
-                width,
-                height,
-                colorSpace = colorSpace ?? TextVocabulary.GetText(IpcScreenshotColorSpace.Linear),
+                requestedDimensions = requestedWidth.HasValue
+                    ? new { width = requestedWidth, height = requestedHeight }
+                    : null,
+                dimensions = new { width, height },
+                projectColorSpace = projectColorSpace ?? TextVocabulary.GetText(UnityProjectColorSpace.Linear),
                 state = new
                 {
                     editorMode = TextVocabulary.GetText(UnityEditorMode.Gui),
@@ -515,8 +518,7 @@ public sealed class ScreenshotCaptureServiceTests
             },
             staging = new
             {
-                width,
-                height,
+                dimensions = new { width, height },
                 pixelFormat = TextVocabulary.GetText(IpcScreenshotPixelFormat.Rgba8Srgb),
                 rowOrder = TextVocabulary.GetText(IpcScreenshotRowOrder.TopDown),
                 rowStrideBytes = width * 4,

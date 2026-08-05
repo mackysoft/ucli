@@ -31,7 +31,7 @@ internal sealed class PlayEnterCommand
     /// <returns> The exit code contained in the emitted command result. </returns>
     [Command(UcliCommandNames.EnterSubcommand)]
     public async Task<int> EnterAsync (
-        string? projectPath = null,
+        [AbsolutePathArgumentParser] AbsolutePath? projectPath = null,
         string? timeout = null,
         CancellationToken cancellationToken = default)
     {

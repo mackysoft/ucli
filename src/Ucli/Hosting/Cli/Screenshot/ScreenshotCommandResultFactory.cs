@@ -3,6 +3,8 @@ using MackySoft.Ucli.Application.Features.Screenshot.Capture;
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Presentation;
+using MackySoft.Ucli.Contracts.Projects;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 using MackySoft.Ucli.Contracts.Editor;
@@ -42,11 +44,9 @@ internal static class ScreenshotCommandResultFactory
                 new ScreenshotCaptureCommandPayload(
                     capture.Target,
                     capture.SizeMode,
-                    capture.RequestedWidth,
-                    capture.RequestedHeight,
-                    capture.Width,
-                    capture.Height,
-                    capture.ColorSpace,
+                    capture.RequestedDimensions,
+                    capture.Dimensions,
+                    capture.ProjectColorSpace,
                     capture.State.LifecycleState,
                     capture.State.CompileState,
                     capture.State.Generations,
@@ -62,11 +62,9 @@ internal static class ScreenshotCommandResultFactory
     private sealed record ScreenshotCaptureCommandPayload (
         IpcScreenshotTarget Target,
         IpcScreenshotSizeMode SizeMode,
-        int? RequestedWidth,
-        int? RequestedHeight,
-        int Width,
-        int Height,
-        IpcScreenshotColorSpace ColorSpace,
+        PixelDimensions? RequestedDimensions,
+        PixelDimensions Dimensions,
+        UnityProjectColorSpace ProjectColorSpace,
         UnityEditorLifecycleState LifecycleStateAtCapture,
         UnityEditorCompileState CompileStateAtCapture,
         UnityEditorGenerationSnapshot Generations,

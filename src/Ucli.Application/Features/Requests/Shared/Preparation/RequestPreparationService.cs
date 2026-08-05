@@ -28,7 +28,7 @@ internal sealed class RequestPreparationService : IRequestPreparationService
 
     /// <inheritdoc />
     public async ValueTask<RequestPreparationResult> PrepareAsync (
-        string? projectPath,
+        AbsolutePath? projectPath,
         string requestJson,
         CancellationToken cancellationToken = default)
     {

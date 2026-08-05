@@ -15,7 +15,7 @@ internal static class EvalSourceInputReaderAssert
 
     public static void FileRead (
         RecordingEvalSourceInputReader sourceReader,
-        string expectedFile)
+        AbsolutePath expectedFile)
     {
         var invocation = Assert.Single(sourceReader.Invocations);
         Assert.Null(invocation.Source);

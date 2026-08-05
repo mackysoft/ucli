@@ -1,6 +1,7 @@
 using ConsoleAppFramework;
 using MackySoft.Ucli.Application.Features.Requests.Call.UseCases.Call;
 using MackySoft.Ucli.Application.Features.Requests.Call.UseCases.Call.Projection;
+using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 using MackySoft.Ucli.Hosting.Cli.Options;
@@ -50,7 +51,7 @@ internal sealed class CallCommand
     /// <returns> The exit code contained in the emitted command result. </returns>
     [Command(UcliCommandNames.Call)]
     public async Task<int> CallAsync (
-        string? projectPath = null,
+        [AbsolutePathArgumentParser] AbsolutePath? projectPath = null,
         string? mode = null,
         string? timeout = null,
         string? planToken = null,
@@ -136,6 +137,14 @@ internal sealed class CallCommand
     private int WriteRequestReadFailure (RequestInputReadResult requestInputReadResult)
     {
         var failureResult = CallFailureResultFactory.FromExecutionError(requestInputReadResult.Error!, output: null);
+        var commandResult = CallCommandResultFactory.Create(failureResult);
+        commandResultWriter.WriteToStandardOutput(commandResult);
+        return commandResult.ExitCode;
+    }
+
+    private int WriteExecutionError (ExecutionError error)
+    {
+        var failureResult = CallFailureResultFactory.FromExecutionError(error, output: null);
         var commandResult = CallCommandResultFactory.Create(failureResult);
         commandResultWriter.WriteToStandardOutput(commandResult);
         return commandResult.ExitCode;

@@ -13,11 +13,12 @@
     "capture": {
       "target": "scene",
       "sizeMode": "currentSurface",
-      "requestedWidth": null,
-      "requestedHeight": null,
-      "width": 1280,
-      "height": 720,
-      "colorSpace": "gamma",
+      "requestedDimensions": null,
+      "dimensions": {
+        "width": 1280,
+        "height": 720
+      },
+      "projectColorSpace": "gamma",
       "lifecycleStateAtCapture": "ready",
       "compileStateAtCapture": "ready",
       "generations": {

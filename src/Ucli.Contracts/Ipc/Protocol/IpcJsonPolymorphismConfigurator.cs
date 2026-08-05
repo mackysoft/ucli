@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization.Metadata;
 using MackySoft.Ucli.Contracts.Execution.Lifecycle;
+using MackySoft.Ucli.Contracts.Recording;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
@@ -10,6 +11,8 @@ internal static class IpcJsonPolymorphismConfigurator
     {
         if (ArtifactRefJsonPolymorphismConfigurator.TryConfigure(typeInfo)
             || ExecutionRefJsonPolymorphismConfigurator.TryConfigure(typeInfo)
+            || GameViewRecordingJsonPolymorphismConfigurator.TryConfigure(typeInfo)
+            || IpcGameViewRecordingJsonPolymorphismConfigurator.TryConfigure(typeInfo)
             || LifecycleExecutionTerminalRecordJsonPolymorphismConfigurator.TryConfigure(typeInfo)
             || UcliRequestJsonPolymorphismConfigurator.TryConfigure(typeInfo)
             || UcliReferenceJsonPolymorphismConfigurator.TryConfigure(typeInfo))

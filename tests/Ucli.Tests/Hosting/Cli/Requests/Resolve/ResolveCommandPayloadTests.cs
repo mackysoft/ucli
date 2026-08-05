@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Hosting.Cli.Requests;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Tests.Hosting.Cli.Common.Execution;
 using static MackySoft.Ucli.Tests.ResolveCommandTestData;
 
@@ -14,8 +15,8 @@ public sealed class ResolveCommandPayloadTests
         var command = new ResolveCommand(service, CommandResultTestWriter.Create());
 
         var result = await CommandResultCapture.ExecuteAsync(() => command.ResolveAsync(
-            scene: "Assets/Scenes/Main.unity",
-            hierarchyPath: "Root/Child",
+            scene: new SceneAssetPath("Assets/Scenes/Main.unity"),
+            hierarchyPath: new UnityHierarchyPath("Root/Child"),
             cancellationToken: CancellationToken.None));
 
         ResolveCommandAssert.SucceededWithPayload(

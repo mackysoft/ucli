@@ -10,8 +10,8 @@ internal static class VerifyCommandAssert
         RecordingVerifyService service,
         CancellationToken expectedCancellationToken,
         string? expectedProfile,
-        string expectedProfilePath,
-        string expectedFromPath,
+        FilePathReference expectedProfilePath,
+        FilePathReference expectedFromPath,
         string expectedProjectPath,
         UnityExecutionMode expectedMode,
         int expectedTimeoutMilliseconds)
@@ -24,7 +24,7 @@ internal static class VerifyCommandAssert
         Assert.Equal(expectedProfile, input.Profile);
         Assert.Equal(expectedProfilePath, input.ProfilePath);
         Assert.Equal(expectedFromPath, input.FromPath);
-        Assert.Equal(expectedProjectPath, input.ProjectPath);
+        ProjectPathDispatchAssert.EqualNormalized(expectedProjectPath, input.ProjectPath);
         Assert.Equal(expectedMode, input.Mode);
         Assert.Equal(expectedTimeoutMilliseconds, input.TimeoutMilliseconds);
     }

@@ -17,7 +17,7 @@ public sealed class PlayExitServiceTransitionSuccessTests
         var requestExecutor = new RecordingUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateResponse(CreateExitedResponse())));
         var service = CreateService(context, CreateGuiSessionStore(), requestExecutor);
 
-        var result = await service.ExecuteAsync(new PlayExitCommandInput("/repo/UnityProject", 1500), CancellationToken.None);
+        var result = await service.ExecuteAsync(new PlayExitCommandInput(AbsolutePath.Parse(ProjectPathTestValues.RepositoryUnityProject), 1500), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         var output = Assert.IsType<PlayExitExecutionOutput>(result.Output);

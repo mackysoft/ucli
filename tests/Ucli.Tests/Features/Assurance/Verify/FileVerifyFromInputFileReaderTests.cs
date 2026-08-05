@@ -15,7 +15,7 @@ public sealed class FileVerifyFromInputFileReaderTests
         repository.WriteFile("artifacts/from.json", """{"protocolVersion":1}""");
         var reader = new FileVerifyFromInputFileReader();
 
-        var result = await reader.ReadAsync("artifacts/from.json", AbsolutePath.Parse(repository.FullPath));
+        var result = await reader.ReadAsync(FilePathReference.Parse("artifacts/from.json"), AbsolutePath.Parse(repository.FullPath));
 
         Assert.True(result.IsSuccess);
         Assert.Equal("""{"protocolVersion":1}""", result.Json);
@@ -30,7 +30,7 @@ public sealed class FileVerifyFromInputFileReaderTests
         var path = outside.WriteFile("from.json", """{"protocolVersion":1}""");
         var reader = new FileVerifyFromInputFileReader();
 
-        var result = await reader.ReadAsync(path, AbsolutePath.Parse(repository.FullPath));
+        var result = await reader.ReadAsync(FilePathReference.Parse(path), AbsolutePath.Parse(repository.FullPath));
 
         Assert.False(result.IsSuccess);
         Assert.Equal(ApplicationFailureKind.InvalidInput, result.Error!.Kind);
@@ -52,7 +52,7 @@ public sealed class FileVerifyFromInputFileReaderTests
 
         var reader = new FileVerifyFromInputFileReader();
 
-        var result = await reader.ReadAsync("from.json", AbsolutePath.Parse(repository.FullPath));
+        var result = await reader.ReadAsync(FilePathReference.Parse("from.json"), AbsolutePath.Parse(repository.FullPath));
 
         Assert.False(result.IsSuccess);
         Assert.Equal(ApplicationFailureKind.InvalidInput, result.Error!.Kind);
@@ -74,7 +74,7 @@ public sealed class FileVerifyFromInputFileReaderTests
 
         var reader = new FileVerifyFromInputFileReader();
 
-        var result = await reader.ReadAsync("linked/from.json", AbsolutePath.Parse(repository.FullPath));
+        var result = await reader.ReadAsync(FilePathReference.Parse("linked/from.json"), AbsolutePath.Parse(repository.FullPath));
 
         Assert.False(result.IsSuccess);
         Assert.Equal(ApplicationFailureKind.InvalidInput, result.Error!.Kind);

@@ -65,7 +65,7 @@ public sealed class PlayEnterServiceTests
         var requestExecutor = new UnexpectedUnityRequestExecutor();
         var service = CreateService(ProjectContextResolutionResult.Failure(expectedError), sessionStore, requestExecutor);
 
-        var result = await service.ExecuteAsync(new PlayEnterCommandInput("/missing/project", null), CancellationToken.None);
+        var result = await service.ExecuteAsync(new PlayEnterCommandInput(AbsolutePath.Parse(ProjectPathTestValues.TemporaryUnityProject), null), CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(UcliCoreErrorCodes.InvalidArgument, result.Error!.Code);
@@ -120,7 +120,7 @@ public sealed class PlayEnterServiceTests
         var requestExecutor = new RecordingUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateResponse(CreateEnteredResponse())));
         var service = CreateService(context, sessionStore, requestExecutor);
 
-        var result = await service.ExecuteAsync(new PlayEnterCommandInput("/repo/UnityProject", 1500), CancellationToken.None);
+        var result = await service.ExecuteAsync(new PlayEnterCommandInput(AbsolutePath.Parse(ProjectPathTestValues.RepositoryUnityProject), 1500), CancellationToken.None);
 
         Assert.True(result.IsSuccess, result.Error?.Message);
         var output = Assert.IsType<PlayEnterExecutionOutput>(result.Output);

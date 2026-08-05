@@ -25,7 +25,7 @@ internal sealed class PlayCommandExecutionContextResolver : IPlayCommandExecutio
 
     /// <inheritdoc />
     public async ValueTask<PlayCommandExecutionContextResolutionResult> ResolveAsync (
-        string? projectPath,
+        AbsolutePath? projectPath,
         int? timeoutMilliseconds,
         UcliCommand command,
         string sessionNotAvailableMessage,
@@ -49,7 +49,7 @@ internal sealed class PlayCommandExecutionContextResolver : IPlayCommandExecutio
     /// <inheritdoc />
     public async ValueTask<PlayCommandExecutionContextResolutionResult>
         ResolveReconnectAsync (
-            string? projectPath,
+            AbsolutePath? projectPath,
             int? timeoutMilliseconds,
             UcliCommand command,
             CancellationToken cancellationToken = default)
@@ -68,7 +68,7 @@ internal sealed class PlayCommandExecutionContextResolver : IPlayCommandExecutio
 
     private async ValueTask<PlayCommandExecutionContextResolutionResult>
         ResolveCoreAsync (
-            string? projectPath,
+            AbsolutePath? projectPath,
             int? timeoutMilliseconds,
             UcliCommand command,
             string? sessionNotAvailableMessage,

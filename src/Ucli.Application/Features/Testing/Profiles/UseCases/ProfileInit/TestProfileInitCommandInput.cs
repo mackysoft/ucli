@@ -4,5 +4,5 @@ namespace MackySoft.Ucli.Application.Features.Testing.Profiles.UseCases.ProfileI
 /// <param name="OutputPath"> The optional output path for the generated profile file. </param>
 /// <param name="Force"> Whether existing profile files can be overwritten. </param>
 internal sealed record TestProfileInitCommandInput (
-    string? OutputPath,
+    AbsolutePath? OutputPath,
     bool Force);

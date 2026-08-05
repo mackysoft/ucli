@@ -13,11 +13,12 @@ public sealed class BuildRunCommandDispatchTests
     {
         var service = new RecordingBuildService((_, _, _) => ValueTask.FromResult<BuildExecutionResult>(BuildExecutionResult.Completed(BuildRunTestData.CreatePassedOutput())));
         var command = new BuildRunCommand(service, CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
+        var profilePath = FilePathReference.Parse(".ucli/build/player.json");
         using var cancellationTokenSource = new CancellationTokenSource();
 
         var result = await CommandResultCapture.ExecuteAsync(() => command.RunAsync(
-            profilePath: "/repo/.ucli/build/player.json",
-            projectPath: "/repo/UnityProject",
+            profilePath: profilePath,
+            projectPath: AbsolutePath.Parse(ProjectPathTestValues.RepositoryUnityProject),
             mode: "daemon",
             timeout: "120000",
             format: "json",
@@ -27,8 +28,8 @@ public sealed class BuildRunCommandDispatchTests
             result,
             service,
             cancellationTokenSource.Token,
-            "/repo/.ucli/build/player.json",
-            "/repo/UnityProject",
+            profilePath,
+            ProjectPathTestValues.RepositoryUnityProject,
             UnityExecutionMode.Daemon,
             expectedTimeoutMilliseconds: 120000);
     }

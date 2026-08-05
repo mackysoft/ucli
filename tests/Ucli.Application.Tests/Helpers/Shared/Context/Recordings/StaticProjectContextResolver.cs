@@ -6,7 +6,7 @@ internal sealed class StaticProjectContextResolver : IProjectContextResolver
 {
     private readonly ProjectContextResolutionResult result;
 
-    private readonly List<string?> projectPaths = [];
+    private readonly List<AbsolutePath?> projectPaths = [];
     private readonly List<Invocation> invocations = [];
 
     public StaticProjectContextResolver (ProjectContextResolutionResult result)
@@ -14,12 +14,12 @@ internal sealed class StaticProjectContextResolver : IProjectContextResolver
         this.result = result;
     }
 
-    public IReadOnlyList<string?> ProjectPaths => projectPaths;
+    public IReadOnlyList<AbsolutePath?> ProjectPaths => projectPaths;
 
     public IReadOnlyList<Invocation> Invocations => invocations;
 
     public ValueTask<ProjectContextResolutionResult> ResolveAsync (
-        string? projectPath,
+        AbsolutePath? projectPath,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -29,6 +29,6 @@ internal sealed class StaticProjectContextResolver : IProjectContextResolver
     }
 
     internal readonly record struct Invocation (
-        string? ProjectPath,
+        AbsolutePath? ProjectPath,
         CancellationToken CancellationToken);
 }

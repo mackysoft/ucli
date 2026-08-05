@@ -18,7 +18,7 @@ internal sealed class RecordingTestProfileTemplateStore : ITestProfileTemplateSt
 
     public ValueTask<TestProfileInitExecutionResult> WriteAsync (
         TestProfile profile,
-        string? outputPath,
+        AbsolutePath? outputPath,
         bool force,
         CancellationToken cancellationToken = default)
     {
@@ -34,7 +34,7 @@ internal sealed class RecordingTestProfileTemplateStore : ITestProfileTemplateSt
 
     internal readonly record struct Invocation (
         TestProfile Profile,
-        string? OutputPath,
+        AbsolutePath? OutputPath,
         bool Force,
         CancellationToken CancellationToken);
 }

@@ -52,16 +52,6 @@ internal sealed class TestRunConfigurationResolver : ITestRunConfigurationResolv
         TestRunProfile? profile = null;
         if (input.ProfilePath is not null)
         {
-            if (string.IsNullOrWhiteSpace(input.ProfilePath))
-            {
-                return TestRunConfigurationResolutionResult.Failure(
-                [
-                    ExecutionError.InvalidArgument(
-                        "--profilePath must not be empty.",
-                        UcliCoreErrorCodes.InvalidArgument),
-                ]);
-            }
-
             cancellationToken.ThrowIfCancellationRequested();
             var profileLoadResult = await profileLoader.LoadAsync(input.ProfilePath, cancellationToken).ConfigureAwait(false);
             if (!profileLoadResult.IsSuccess)
@@ -72,7 +62,12 @@ internal sealed class TestRunConfigurationResolver : ITestRunConfigurationResolv
             profile = profileLoadResult.Profile;
         }
 
-        var projectPathCandidate = ResolveProjectPath(input, profile);
+        var projectPathResult = ResolveProjectPath(input, profile);
+        if (!projectPathResult.IsSuccess)
+        {
+            return TestRunConfigurationResolutionResult.Failure([projectPathResult.Error]);
+        }
+
         var mergedConfiguration = TestRunConfigurationMerger.Merge(input, profile);
         var validationErrors = ValidateMergedConfigurationValues(mergedConfiguration);
         if (validationErrors.Count > 0)
@@ -81,7 +76,7 @@ internal sealed class TestRunConfigurationResolver : ITestRunConfigurationResolv
         }
 
         cancellationToken.ThrowIfCancellationRequested();
-        var unityProjectResolutionResult = unityProjectResolver.Resolve(projectPathCandidate);
+        var unityProjectResolutionResult = unityProjectResolver.Resolve(projectPathResult.Candidate);
         if (!unityProjectResolutionResult.IsSuccess)
         {
             return TestRunConfigurationResolutionResult.Failure([unityProjectResolutionResult.Error!]);
@@ -122,16 +117,30 @@ internal sealed class TestRunConfigurationResolver : ITestRunConfigurationResolv
     /// <summary> Resolves the effective project-path input using command, environment, profile, and default precedence. </summary>
     /// <param name="input"> The interpreted command input values. </param>
     /// <param name="profile"> The optional loaded profile values. </param>
-    /// <returns> The resolved project-path candidate. </returns>
-    private ProjectPathCandidate ResolveProjectPath (
+    /// <returns> The resolved project-path candidate or a structured input error. </returns>
+    private ProjectPathInputResolutionResult ResolveProjectPath (
         TestRunConfigurationRequest input,
         TestRunProfile? profile)
     {
         ArgumentNullException.ThrowIfNull(input);
 
+        AbsolutePath? profileProjectPath = null;
+        if (profile?.ProjectPath is { } profilePathValue)
+        {
+            var profilePathResult = ProjectPathNormalizer.Normalize(
+                profilePathValue,
+                ProfileProjectPathSourceLabel);
+            if (!profilePathResult.IsSuccess)
+            {
+                return ProjectPathInputResolutionResult.Failure(profilePathResult.Error);
+            }
+
+            profileProjectPath = profilePathResult.ProjectPath;
+        }
+
         return projectPathInputResolver.Resolve(new ProjectContextResolutionInput(
             CommandOptionProjectPath: input.ProjectPath,
-            FallbackProjectPath: profile?.ProjectPath,
+            FallbackProjectPath: profileProjectPath,
             FallbackSourceLabel: ProfileProjectPathSourceLabel));
     }
 

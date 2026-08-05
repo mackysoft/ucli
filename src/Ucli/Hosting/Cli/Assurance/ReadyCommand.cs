@@ -34,7 +34,7 @@ internal sealed class ReadyCommand
     [Command(UcliCommandNames.Ready)]
     public async Task<int> ReadyAsync (
         string? @for = null,
-        string? projectPath = null,
+        [AbsolutePathArgumentParser] AbsolutePath? projectPath = null,
         string? mode = null,
         string? readIndexMode = null,
         string? timeout = null,

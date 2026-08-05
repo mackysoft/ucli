@@ -33,7 +33,7 @@ public sealed class ValidateServicePreparationTests
             TimeProvider.System);
 
         var result = await service.ExecuteAsync(
-            new ValidateCommandInput("/tmp/project", null, """{"steps":[]}"""),
+            new ValidateCommandInput(AbsolutePath.Parse(ProjectPathTestValues.TemporaryUnityProject), null, """{"steps":[]}"""),
             CancellationToken.None);
 
         ValidateServiceAssert.PreparationFailureStoppedBeforeSharedPreflight(
@@ -74,7 +74,7 @@ public sealed class ValidateServicePreparationTests
             TimeProvider.System);
 
         var result = await service.ExecuteAsync(
-            new ValidateCommandInput("/tmp/project", null, """{"steps":[]}"""),
+            new ValidateCommandInput(AbsolutePath.Parse(ProjectPathTestValues.TemporaryUnityProject), null, """{"steps":[]}"""),
             CancellationToken.None);
 
         ValidateServiceAssert.InvalidTimeoutStoppedBeforeSharedPreflight(

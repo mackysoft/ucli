@@ -1,6 +1,7 @@
 using System;
 using System.Threading;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Projects;
 using MackySoft.Ucli.Unity.ScreenshotCapture.Pixels;
 using NUnit.Framework;
 using UnityEngine;
@@ -29,7 +30,7 @@ namespace MackySoft.Ucli.Unity.Tests
                         width: 2,
                         height: 2,
                         new Vector4(1f, 1f, 0f, 0f),
-                        IpcScreenshotColorSpace.Linear,
+                        UnityProjectColorSpace.Linear,
                         cancellationTokenSource.Token));
 
                 Assert.That(RenderTexture.active, Is.SameAs(source));

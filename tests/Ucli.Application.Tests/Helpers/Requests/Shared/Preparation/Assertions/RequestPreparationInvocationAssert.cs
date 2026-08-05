@@ -31,7 +31,7 @@ internal static class RequestPreparationInvocationAssert
         string expectedRequestJson)
     {
         var invocation = Assert.Single(requestPreparationService.PrepareInvocations);
-        Assert.Equal(expectedProjectPath, invocation.ProjectPath);
+        Assert.Equal(expectedProjectPath, invocation.ProjectPath?.Value);
         Assert.Equal(expectedRequestJson, invocation.RequestJson);
         return invocation;
     }

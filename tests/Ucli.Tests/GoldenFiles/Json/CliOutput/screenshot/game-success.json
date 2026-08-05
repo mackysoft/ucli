@@ -13,11 +13,15 @@
     "capture": {
       "target": "game",
       "sizeMode": "requestedResolution",
-      "requestedWidth": 1920,
-      "requestedHeight": 1080,
-      "width": 1920,
-      "height": 1080,
-      "colorSpace": "linear",
+      "requestedDimensions": {
+        "width": 1920,
+        "height": 1080
+      },
+      "dimensions": {
+        "width": 1920,
+        "height": 1080
+      },
+      "projectColorSpace": "linear",
       "lifecycleStateAtCapture": "ready",
       "compileStateAtCapture": "ready",
       "generations": {

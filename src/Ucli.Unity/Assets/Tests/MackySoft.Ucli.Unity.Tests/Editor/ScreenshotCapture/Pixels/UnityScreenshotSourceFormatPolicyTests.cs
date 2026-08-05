@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Projects;
 using MackySoft.Ucli.Unity.ScreenshotCapture.Pixels;
 using NUnit.Framework;
 using UnityEngine.Experimental.Rendering;
@@ -17,7 +18,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 graphicsFormat,
                 TextureDimension.Tex2D,
                 antiAliasing: 1,
-                IpcScreenshotColorSpace.Linear,
+                UnityProjectColorSpace.Linear,
                 out var errorMessage);
 
             Assert.That(result, Is.True, errorMessage);
@@ -32,7 +33,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 graphicsFormat,
                 TextureDimension.Tex2D,
                 antiAliasing: 1,
-                IpcScreenshotColorSpace.Gamma,
+                UnityProjectColorSpace.Gamma,
                 out var errorMessage);
 
             Assert.That(result, Is.True, errorMessage);
@@ -50,18 +51,18 @@ namespace MackySoft.Ucli.Unity.Tests
                 graphicsFormat,
                 dimension,
                 antiAliasing,
-                IpcScreenshotColorSpace.Linear,
+                UnityProjectColorSpace.Linear,
                 out var errorMessage);
 
             Assert.That(result, Is.False);
             Assert.That(errorMessage, Is.Not.Empty);
         }
 
-        [TestCase(GraphicsFormat.R8G8B8A8_SRGB, IpcScreenshotColorSpace.Gamma, Category = "Size.Small")]
-        [TestCase(GraphicsFormat.R8G8B8A8_UNorm, IpcScreenshotColorSpace.Linear, Category = "Size.Small")]
+        [TestCase(GraphicsFormat.R8G8B8A8_SRGB, UnityProjectColorSpace.Gamma, Category = "Size.Small")]
+        [TestCase(GraphicsFormat.R8G8B8A8_UNorm, UnityProjectColorSpace.Linear, Category = "Size.Small")]
         public void TryValidateGameViewSource_WithMismatchedColorSpaceAndFormat_ReturnsFalse (
             GraphicsFormat graphicsFormat,
-            IpcScreenshotColorSpace colorSpace)
+            UnityProjectColorSpace colorSpace)
         {
             var result = UnityScreenshotSourceFormatPolicy.TryValidateGameViewSource(
                 graphicsFormat,

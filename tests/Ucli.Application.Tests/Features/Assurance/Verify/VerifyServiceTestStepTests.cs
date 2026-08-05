@@ -42,7 +42,7 @@ public sealed class VerifyServiceTestStepTests
         var result = await service.ExecuteAsync(new VerifyCommandInput(
             ProjectPath: null,
             Profile: null,
-            ProfilePath: "verify.json",
+            ProfilePath: FilePathReference.Parse("verify.json"),
             FromPath: null,
             Mode: UnityExecutionMode.Auto,
             TimeoutMilliseconds: 10000));
@@ -89,7 +89,7 @@ public sealed class VerifyServiceTestStepTests
         var result = await service.ExecuteAsync(new VerifyCommandInput(
             ProjectPath: null,
             Profile: null,
-            ProfilePath: "verify.json",
+            ProfilePath: FilePathReference.Parse("verify.json"),
             FromPath: null,
             Mode: UnityExecutionMode.Auto,
             TimeoutMilliseconds: 10000));
@@ -134,7 +134,7 @@ public sealed class VerifyServiceTestStepTests
         var result = await service.ExecuteAsync(new VerifyCommandInput(
             ProjectPath: null,
             Profile: null,
-            ProfilePath: "verify.json",
+            ProfilePath: FilePathReference.Parse("verify.json"),
             FromPath: null,
             Mode: UnityExecutionMode.Auto,
             TimeoutMilliseconds: 10000));

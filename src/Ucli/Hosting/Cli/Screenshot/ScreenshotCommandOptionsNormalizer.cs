@@ -1,5 +1,6 @@
 using System.Globalization;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Contracts.Presentation;
 using MackySoft.Ucli.Hosting.Cli.Options;
 
 namespace MackySoft.Ucli.Hosting.Cli.Screenshot;
@@ -22,8 +23,7 @@ internal static class ScreenshotCommandOptionsNormalizer
         if (width is null && height is null)
         {
             return ScreenshotCommandOptionsNormalizationResult.Success(
-                requestedWidth: null,
-                requestedHeight: null,
+                requestedDimensions: null,
                 timeoutResult.TimeoutMilliseconds);
         }
 
@@ -35,8 +35,7 @@ internal static class ScreenshotCommandOptionsNormalizer
         }
 
         return ScreenshotCommandOptionsNormalizationResult.Success(
-            requestedWidth,
-            requestedHeight,
+            new PixelDimensions(requestedWidth, requestedHeight),
             timeoutResult.TimeoutMilliseconds);
     }
 

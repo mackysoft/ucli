@@ -18,7 +18,7 @@ public sealed class PlayStatusServiceSessionGateTests
         var requestExecutor = new UnexpectedUnityRequestExecutor();
         var service = CreateService(ProjectContextResolutionResult.Failure(expectedError), sessionStore, requestExecutor);
 
-        var result = await service.ExecuteAsync(new PlayStatusCommandInput("/missing/project", null), CancellationToken.None);
+        var result = await service.ExecuteAsync(new PlayStatusCommandInput(AbsolutePath.Parse(ProjectPathTestValues.TemporaryUnityProject), null), CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Same(expectedError, result.Error);

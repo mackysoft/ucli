@@ -173,6 +173,62 @@ public static class UcliJsonContractGenerator
                 documentOptions));
     }
 
+    /// <summary>
+    /// Generates the versioned GameView recording request contract with its numeric input constraints.
+    /// </summary>
+    internal static JsonContractGenerationResult
+        GenerateWithGameViewRecordingRequestProfile (
+            string contractId,
+            JsonTypeInfo typeInfo,
+            JsonSchemaDocumentOptions documentOptions)
+    {
+        return CreateGenerator(
+            JsonContractMetadataProfile.GameViewRecordingRequest,
+            lifecycleExecutionKind: null,
+            commandResultStatus: null).Generate(
+            new JsonContractGenerationRequest(
+                contractId,
+                typeInfo,
+                documentOptions));
+    }
+
+    /// <summary>
+    /// Generates a GameView recording output contract with its constructor-enforced scalar constraints.
+    /// </summary>
+    internal static JsonContractGenerationResult
+        GenerateWithGameViewRecordingOutputProfile (
+            string contractId,
+            JsonTypeInfo typeInfo,
+            JsonSchemaDocumentOptions documentOptions)
+    {
+        return CreateGenerator(
+            JsonContractMetadataProfile.GameViewRecordingOutput,
+            lifecycleExecutionKind: null,
+            commandResultStatus: null).Generate(
+            new JsonContractGenerationRequest(
+                contractId,
+                typeInfo,
+                documentOptions));
+    }
+
+    /// <summary>
+    /// Generates a contract containing <c>PixelDimensions</c> with its positive integer constraints.
+    /// </summary>
+    internal static JsonContractGenerationResult GenerateWithPixelDimensionsProfile (
+        string contractId,
+        JsonTypeInfo typeInfo,
+        JsonSchemaDocumentOptions documentOptions)
+    {
+        return CreateGenerator(
+            JsonContractMetadataProfile.PixelDimensions,
+            lifecycleExecutionKind: null,
+            commandResultStatus: null).Generate(
+            new JsonContractGenerationRequest(
+                contractId,
+                typeInfo,
+                documentOptions));
+    }
+
     private static JsonContractGenerator CreateGenerator (
         JsonContractMetadataProfile profile,
         LifecycleExecutionKind? lifecycleExecutionKind,
@@ -187,7 +243,7 @@ public static class UcliJsonContractGenerator
             new JsonContractGeneratorOptions(
                 JsonContractGenerationSettings.ClosedObjects,
                 metadataRegistry,
-                CreateTypeMappers(),
+                CreateTypeMappers(profile),
                 modelContributors:
                 [
                     new UcliSemanticAnnotationContractModelContributor(),
@@ -214,6 +270,48 @@ public static class UcliJsonContractGenerator
                     nameof(lifecycleExecutionKind));
             }
 
+            return registry;
+        }
+
+        if (profile == JsonContractMetadataProfile.GameViewRecordingRequest)
+        {
+            EnsureLifecycleExecutionSelectorsAreAbsent(
+                lifecycleExecutionKind,
+                commandResultStatus,
+                "The GameView recording request profile cannot include Lifecycle Execution selectors.");
+            registry
+                .RegisterAttributeInterpreter<UcliInt32ConstantAttribute, int>(
+                    new UcliInt32ConstantAttributeInterpreter())
+                .RegisterAttributeInterpreter<UcliInt32MinimumAttribute, int>(
+                    new UcliInt32MinimumAttributeInterpreter())
+                .RegisterAttributeInterpreter<UcliInt32MinimumAttribute, UcliOptionalInt32>(
+                    new UcliOptionalInt32MinimumAttributeInterpreter());
+            return registry;
+        }
+
+        if (profile == JsonContractMetadataProfile.GameViewRecordingOutput)
+        {
+            EnsureLifecycleExecutionSelectorsAreAbsent(
+                lifecycleExecutionKind,
+                commandResultStatus,
+                "The GameView recording output profile cannot include Lifecycle Execution selectors.");
+            registry
+                .RegisterAttributeInterpreter<UcliInt32MinimumAttribute, int>(
+                    new UcliInt32MinimumAttributeInterpreter())
+                .RegisterAttributeInterpreter<UcliBooleanConstantAttribute, bool>(
+                    new UcliBooleanConstantAttributeInterpreter());
+            GameViewRecordingOutputMetadata.Register(registry);
+            return registry;
+        }
+
+        if (profile == JsonContractMetadataProfile.PixelDimensions)
+        {
+            EnsureLifecycleExecutionSelectorsAreAbsent(
+                lifecycleExecutionKind,
+                commandResultStatus,
+                "The PixelDimensions profile cannot include Lifecycle Execution selectors.");
+            registry.RegisterAttributeInterpreter<UcliInt32MinimumAttribute, int>(
+                new UcliInt32MinimumAttributeInterpreter());
             return registry;
         }
 
@@ -308,12 +406,25 @@ public static class UcliJsonContractGenerator
         LifecycleExecutionCliOutput = 3,
 
         OperationExecutionCliOutput = 4,
+
+        GameViewRecordingRequest = 5,
+
+        GameViewRecordingOutput = 6,
+
+        PixelDimensions = 7,
     }
 
-    private static IReadOnlyList<IJsonContractTypeMapper> CreateTypeMappers ()
+    private static IReadOnlyList<IJsonContractTypeMapper> CreateTypeMappers (
+        JsonContractMetadataProfile profile)
     {
-        return
+        var typeMappers = new List<IJsonContractTypeMapper>();
+        if (profile == JsonContractMetadataProfile.GameViewRecordingRequest)
+        {
+            typeMappers.Add(new UcliOptionalInt32JsonContractTypeMapper());
+        }
+        typeMappers.AddRange(
         [
+            new UcliExecutionRefBranchJsonContractTypeMapper(),
             new UcliNonNullJsonObjectJsonContractTypeMapper(),
             new UcliJsonObjectJsonContractTypeMapper(),
             new UcliVocabularyJsonContractTypeMapper(),
@@ -323,7 +434,8 @@ public static class UcliJsonContractGenerator
             CreateProjectFingerprintMapper(),
             CreateDateTimeOffsetMapper(),
             CreateArtifactPublicationTimeMapper(),
-        ];
+        ]);
+        return typeMappers.AsReadOnly();
     }
 
     private static IJsonContractTypeMapper CreateSha256DigestMapper ()

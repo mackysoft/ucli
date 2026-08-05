@@ -30,7 +30,7 @@ internal sealed class ScreenshotGameCommand
     /// <returns>The exit code contained in the emitted command result.</returns>
     [Command(UcliCommandNames.GameSubcommand)]
     public async Task<int> GameAsync (
-        string? projectPath = null,
+        [AbsolutePathArgumentParser] AbsolutePath? projectPath = null,
         string? width = null,
         string? height = null,
         string? timeout = null,
@@ -53,8 +53,7 @@ internal sealed class ScreenshotGameCommand
                 new ScreenshotCaptureInput(
                     IpcScreenshotTarget.Game,
                     projectPath,
-                    options.RequestedWidth,
-                    options.RequestedHeight,
+                    options.RequestedDimensions,
                     options.TimeoutMilliseconds),
                 cancellationToken)
             .ConfigureAwait(false);

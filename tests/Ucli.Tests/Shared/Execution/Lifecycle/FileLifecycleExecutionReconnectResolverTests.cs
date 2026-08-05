@@ -6,7 +6,6 @@ using MackySoft.Ucli.Contracts.Editor;
 using MackySoft.Ucli.Contracts.Execution;
 using MackySoft.Ucli.Contracts.Execution.Lifecycle;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Contracts.Projects;
 using MackySoft.Ucli.Infrastructure.Execution.Lifecycle;
 
 namespace MackySoft.Ucli.Tests.Shared.Execution.Lifecycle;
@@ -400,19 +399,21 @@ public sealed class FileLifecycleExecutionReconnectResolverTests
                 context,
                 definition,
                 executionId);
+            var statusLocator = Assert.IsType<ExecutionStatusLocator>(
+                start.LifecycleExecutionRef.StatusLocator);
             executionRef = rejectionCase switch
             {
                 ReconnectRejectionCase.Kind => CreateReference(
                     new LifecycleExecutionDefinition(
                         LifecycleExecutionKind.Compile),
                     executionId,
-                    start.LifecycleExecutionRef.StatusLocator!),
+                    statusLocator),
                 ReconnectRejectionCase.Digest => new ActiveExecutionRef(
                     definition.ExecutionKind,
                     executionId,
                     Sha256Digest.Parse(new string('f', 64)),
                     start.LifecycleExecutionRef.State,
-                    start.LifecycleExecutionRef.StatusLocator),
+                    statusLocator),
                 ReconnectRejectionCase.State => new ActiveExecutionRef(
                     definition.ExecutionKind,
                     executionId,
@@ -420,7 +421,7 @@ public sealed class FileLifecycleExecutionReconnectResolverTests
                     new ExecutionState(
                         TextVocabulary.GetText(
                             LifecycleExecutionState.Completed)),
-                    start.LifecycleExecutionRef.StatusLocator),
+                    statusLocator),
                 _ => start.LifecycleExecutionRef,
             };
             requestedProject = rejectionCase == ReconnectRejectionCase.Project

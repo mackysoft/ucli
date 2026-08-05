@@ -1,8 +1,7 @@
 using System.Text.Json;
 using MackySoft.Tests;
-using MackySoft.Ucli.Contracts.Daemon;
-using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Editor;
+using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Contracts.Tests.Ipc.Common;
 
@@ -17,18 +16,15 @@ public sealed class IpcScreenshotContractSerializationTests
         var request = IpcPayloadCodec.SerializeToElement(new IpcScreenshotCaptureRequest(
             CaptureId: CaptureId,
             Target: IpcScreenshotTarget.Game,
-            RequestedWidth: 1920,
-            RequestedHeight: 1080));
+            RequestedDimensions: new PixelDimensions(1920, 1080)));
         var response = IpcPayloadCodec.SerializeToElement(new IpcScreenshotCaptureResponse(
             CaptureId: CaptureId,
             Capture: new IpcScreenshotCapture(
                 Target: IpcScreenshotTarget.Game,
                 SizeMode: IpcScreenshotSizeMode.RequestedResolution,
-                RequestedWidth: 1920,
-                RequestedHeight: 1080,
-                Width: 1920,
-                Height: 1080,
-                ColorSpace: IpcScreenshotColorSpace.Linear,
+                RequestedDimensions: new PixelDimensions(1920, 1080),
+                Dimensions: new PixelDimensions(1920, 1080),
+                ProjectColorSpace: UnityProjectColorSpace.Linear,
                 State: new UnityEditorStateSnapshot(
                     editorMode: UnityEditorMode.Gui,
                     lifecycleState: UnityEditorLifecycleState.PlayMode,
@@ -44,8 +40,7 @@ public sealed class IpcScreenshotContractSerializationTests
                         IsPlaying: true,
                         IsPlayingOrWillChangePlaymode: true))),
             Staging: new IpcScreenshotStagingImage(
-                Width: 1920,
-                Height: 1080,
+                Dimensions: new PixelDimensions(1920, 1080),
                 PixelFormat: IpcScreenshotPixelFormat.Rgba8Srgb,
                 RowOrder: IpcScreenshotRowOrder.TopDown,
                 RowStrideBytes: 7680,
@@ -54,8 +49,9 @@ public sealed class IpcScreenshotContractSerializationTests
         JsonAssert.For(request)
             .HasString("captureId", CaptureId.ToString())
             .HasString("target", "game")
-            .HasInt32("requestedWidth", 1920)
-            .HasInt32("requestedHeight", 1080);
+            .HasProperty("requestedDimensions", dimensions => dimensions
+                .HasInt32("width", 1920)
+                .HasInt32("height", 1080));
         Assert.False(request.TryGetProperty("stagingPath", out _));
         Assert.False(request.TryGetProperty("timeoutMilliseconds", out _));
         JsonAssert.For(response)
@@ -63,9 +59,13 @@ public sealed class IpcScreenshotContractSerializationTests
             .HasProperty("capture", capture => capture
                 .HasString("target", "game")
                 .HasString("sizeMode", "requestedResolution")
-                .HasInt32("width", 1920)
-                .HasInt32("height", 1080)
-                .HasString("colorSpace", "linear")
+                .HasProperty("requestedDimensions", dimensions => dimensions
+                    .HasInt32("width", 1920)
+                    .HasInt32("height", 1080))
+                .HasProperty("dimensions", dimensions => dimensions
+                    .HasInt32("width", 1920)
+                    .HasInt32("height", 1080))
+                .HasString("projectColorSpace", "linear")
                 .HasProperty("state", state => state
                     .HasString("editorMode", "gui")
                     .HasString("lifecycleState", "playmode")
@@ -78,8 +78,9 @@ public sealed class IpcScreenshotContractSerializationTests
                     .HasProperty("playMode", playMode => playMode
                         .HasString("state", "playing"))))
             .HasProperty("staging", staging => staging
-                .HasInt32("width", 1920)
-                .HasInt32("height", 1080)
+                .HasProperty("dimensions", dimensions => dimensions
+                    .HasInt32("width", 1920)
+                    .HasInt32("height", 1080))
                 .HasString("pixelFormat", "rgba8Srgb")
                 .HasString("rowOrder", "topDown")
                 .HasInt32("rowStrideBytes", 7680)
@@ -92,7 +93,7 @@ public sealed class IpcScreenshotContractSerializationTests
     [InlineData("request", "target")]
     [InlineData("capture", "target")]
     [InlineData("capture", "sizeMode")]
-    [InlineData("capture", "colorSpace")]
+    [InlineData("capture", "projectColorSpace")]
     [InlineData("staging", "pixelFormat")]
     [InlineData("staging", "rowOrder")]
     public void ScreenshotContracts_WhenRequiredEnumIsMissing_RejectJson (
@@ -117,7 +118,7 @@ public sealed class IpcScreenshotContractSerializationTests
     [InlineData("request-target")]
     [InlineData("capture-target")]
     [InlineData("capture-size-mode")]
-    [InlineData("capture-color-space")]
+    [InlineData("capture-project-color-space")]
     [InlineData("staging-pixel-format")]
     [InlineData("staging-row-order")]
     public void ScreenshotContracts_WhenFiniteLiteralIsUndefined_ThrowArgumentOutOfRangeException (string caseName)
@@ -127,45 +128,36 @@ public sealed class IpcScreenshotContractSerializationTests
             "request-target" => () => _ = new IpcScreenshotCaptureRequest(
                 CaptureId,
                 (IpcScreenshotTarget)0,
-                null,
                 null),
             "capture-target" => () => _ = new IpcScreenshotCapture(
                 (IpcScreenshotTarget)0,
                 IpcScreenshotSizeMode.CurrentSurface,
                 null,
-                null,
-                1,
-                1,
-                IpcScreenshotColorSpace.Linear,
+                new PixelDimensions(1, 1),
+                UnityProjectColorSpace.Linear,
                 CreateStableEditState()),
             "capture-size-mode" => () => _ = new IpcScreenshotCapture(
                 IpcScreenshotTarget.Game,
                 (IpcScreenshotSizeMode)0,
                 null,
-                null,
-                1,
-                1,
-                IpcScreenshotColorSpace.Linear,
+                new PixelDimensions(1, 1),
+                UnityProjectColorSpace.Linear,
                 CreateStableEditState()),
-            "capture-color-space" => () => _ = new IpcScreenshotCapture(
+            "capture-project-color-space" => () => _ = new IpcScreenshotCapture(
                 IpcScreenshotTarget.Game,
                 IpcScreenshotSizeMode.CurrentSurface,
                 null,
-                null,
-                1,
-                1,
-                (IpcScreenshotColorSpace)0,
+                new PixelDimensions(1, 1),
+                (UnityProjectColorSpace)0,
                 CreateStableEditState()),
             "staging-pixel-format" => () => _ = new IpcScreenshotStagingImage(
-                1,
-                1,
+                new PixelDimensions(1, 1),
                 (IpcScreenshotPixelFormat)0,
                 IpcScreenshotRowOrder.TopDown,
                 4,
                 4),
             "staging-row-order" => () => _ = new IpcScreenshotStagingImage(
-                1,
-                1,
+                new PixelDimensions(1, 1),
                 IpcScreenshotPixelFormat.Rgba8Srgb,
                 (IpcScreenshotRowOrder)0,
                 4,
@@ -179,7 +171,7 @@ public sealed class IpcScreenshotContractSerializationTests
     [Theory]
     [Trait("Size", "Small")]
     [InlineData("request-empty-id")]
-    [InlineData("request-unpaired-size")]
+    [InlineData("request-layout")]
     [InlineData("request-scene-size")]
     [InlineData("capture-size-mode")]
     [InlineData("capture-dimensions")]
@@ -196,46 +188,37 @@ public sealed class IpcScreenshotContractSerializationTests
             "request-empty-id" => () => _ = new IpcScreenshotCaptureRequest(
                 Guid.Empty,
                 IpcScreenshotTarget.Game,
-                null,
                 null),
-            "request-unpaired-size" => () => _ = new IpcScreenshotCaptureRequest(
+            "request-layout" => () => _ = new IpcScreenshotCaptureRequest(
                 CaptureId,
                 IpcScreenshotTarget.Game,
-                1,
-                null),
+                new PixelDimensions(int.MaxValue, int.MaxValue)),
             "request-scene-size" => () => _ = new IpcScreenshotCaptureRequest(
                 CaptureId,
                 IpcScreenshotTarget.Scene,
-                1,
-                1),
+                new PixelDimensions(1, 1)),
             "capture-size-mode" => () => _ = new IpcScreenshotCapture(
                 IpcScreenshotTarget.Game,
                 IpcScreenshotSizeMode.CurrentSurface,
-                1,
-                1,
-                1,
-                1,
-                IpcScreenshotColorSpace.Linear,
+                new PixelDimensions(1, 1),
+                new PixelDimensions(1, 1),
+                UnityProjectColorSpace.Linear,
                 CreateStableEditState()),
             "capture-dimensions" => () => _ = new IpcScreenshotCapture(
                 IpcScreenshotTarget.Game,
                 IpcScreenshotSizeMode.RequestedResolution,
-                1,
-                1,
-                2,
-                1,
-                IpcScreenshotColorSpace.Linear,
+                new PixelDimensions(1, 1),
+                new PixelDimensions(2, 1),
+                UnityProjectColorSpace.Linear,
                 CreateStableEditState()),
             "staging-row-stride" => () => _ = new IpcScreenshotStagingImage(
-                1,
-                1,
+                new PixelDimensions(1, 1),
                 IpcScreenshotPixelFormat.Rgba8Srgb,
                 IpcScreenshotRowOrder.TopDown,
                 3,
                 4),
             "staging-size" => () => _ = new IpcScreenshotStagingImage(
-                1,
-                1,
+                new PixelDimensions(1, 1),
                 IpcScreenshotPixelFormat.Rgba8Srgb,
                 IpcScreenshotRowOrder.TopDown,
                 4,
@@ -245,8 +228,7 @@ public sealed class IpcScreenshotContractSerializationTests
                 CaptureId,
                 capture,
                 new IpcScreenshotStagingImage(
-                    2,
-                    1,
+                    new PixelDimensions(2, 1),
                     IpcScreenshotPixelFormat.Rgba8Srgb,
                     IpcScreenshotRowOrder.TopDown,
                     8,
@@ -270,11 +252,9 @@ public sealed class IpcScreenshotContractSerializationTests
         var capture = new IpcScreenshotCapture(
             IpcScreenshotTarget.Game,
             IpcScreenshotSizeMode.CurrentSurface,
-            RequestedWidth: null,
-            RequestedHeight: null,
-            Width: 1,
-            Height: 1,
-            IpcScreenshotColorSpace.Linear,
+            RequestedDimensions: null,
+            Dimensions: new PixelDimensions(1, 1),
+            UnityProjectColorSpace.Linear,
             CreateState(
                 lifecycleState,
                 UnityEditorCompileState.Ready,
@@ -307,11 +287,9 @@ public sealed class IpcScreenshotContractSerializationTests
         Assert.Throws<ArgumentException>(() => new IpcScreenshotCapture(
             target,
             IpcScreenshotSizeMode.CurrentSurface,
-            RequestedWidth: null,
-            RequestedHeight: null,
-            Width: 1,
-            Height: 1,
-            IpcScreenshotColorSpace.Linear,
+            RequestedDimensions: null,
+            Dimensions: new PixelDimensions(1, 1),
+            UnityProjectColorSpace.Linear,
             CreateState(
                 lifecycleState,
                 compileState,
@@ -328,7 +306,6 @@ public sealed class IpcScreenshotContractSerializationTests
             "request" => new IpcScreenshotCaptureRequest(
                 CaptureId,
                 IpcScreenshotTarget.Game,
-                null,
                 null),
             "capture" => CreateCapture(),
             "staging" => CreateStaging(),
@@ -343,18 +320,15 @@ public sealed class IpcScreenshotContractSerializationTests
             IpcScreenshotTarget.Game,
             IpcScreenshotSizeMode.CurrentSurface,
             null,
-            null,
-            1,
-            1,
-            IpcScreenshotColorSpace.Linear,
+            new PixelDimensions(1, 1),
+            UnityProjectColorSpace.Linear,
             CreateStableEditState());
     }
 
     private static IpcScreenshotStagingImage CreateStaging ()
     {
         return new IpcScreenshotStagingImage(
-            1,
-            1,
+            new PixelDimensions(1, 1),
             IpcScreenshotPixelFormat.Rgba8Srgb,
             IpcScreenshotRowOrder.TopDown,
             4,

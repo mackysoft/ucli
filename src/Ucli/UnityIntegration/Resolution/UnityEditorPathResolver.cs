@@ -12,7 +12,7 @@ internal sealed class UnityEditorPathResolver : IUnityEditorPathResolver
     /// <returns> The editor-path resolution result. </returns>
     public UnityEditorPathResolutionResult Resolve (
         string unityVersion,
-        string? preferredUnityEditorPath)
+        AbsolutePath? preferredUnityEditorPath)
     {
         if (string.IsNullOrWhiteSpace(unityVersion))
         {

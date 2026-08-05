@@ -48,6 +48,7 @@ public sealed class CliCommandRegistrationContractTests
     [InlineData(UcliCommandNames.Plan)]
     [InlineData(UcliCommandNames.Validate)]
     [InlineData(UcliCommandNames.Eval)]
+    [InlineData("recording start")]
     [Trait("Size", "Medium")]
     public async Task HelpOutput_WhenCommandReadsRedirectedStandardInput_DescribesInput (string commandPath)
     {

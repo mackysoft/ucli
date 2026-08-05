@@ -15,7 +15,7 @@ public sealed class CallCommandGoldenOutputTests
         var command = new CallCommand(service, preflightService, RequestInputReaderStub.Success(DefaultRequestJson), CommandResultTestWriter.Create());
 
         var result = await CommandResultCapture.ExecuteAsync(() => command.CallAsync(
-            projectPath: "/repo/UnityProject",
+            projectPath: AbsolutePath.Parse(ProjectPathTestValues.RepositoryUnityProject),
             mode: "oneshot",
             timeout: "1234",
             planToken: "user-token",
@@ -47,7 +47,7 @@ public sealed class CallCommandGoldenOutputTests
         var command = new CallCommand(service, preflightService, RequestInputReaderStub.Success(DefaultRequestJson), CommandResultTestWriter.Create());
 
         var result = await CommandResultCapture.ExecuteAsync(() => command.CallAsync(
-            projectPath: "/repo/UnityProject",
+            projectPath: AbsolutePath.Parse(ProjectPathTestValues.RepositoryUnityProject),
             withPlan: true,
             cancellationToken: CancellationToken.None));
 

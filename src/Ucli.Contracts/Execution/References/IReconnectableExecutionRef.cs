@@ -30,5 +30,5 @@ public interface IReconnectableExecutionRef
 
     /// <summary> Gets the locator used to reconnect to durable execution status. </summary>
     [JsonIgnore]
-    ExecutionStatusLocator? StatusLocator { get; }
+    ExecutionStatusLocator StatusLocator { get; }
 }
