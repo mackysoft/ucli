@@ -31,7 +31,7 @@ public sealed class CodesCliOutputParserContractTests
         {
             var result = await CliInProcessRunner.RunCommandAsync(args);
 
-            using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+            using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
             Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
             CommandResultAssert.HasInvalidArgumentError(outputJson.RootElement, UcliCommandNames.Root);
             Assert.Contains("Command 'errors' is not recognized.", outputJson.RootElement.GetProperty("message").GetString(), StringComparison.Ordinal);

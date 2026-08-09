@@ -45,7 +45,7 @@ internal static class CompileCommandAssert
             service.Invocations,
             UcliCommandNames.Compile);
         using var outputJson =
-            StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+            JsonAssert.ParseMultilineObject(result.StdOut);
         var payload = outputJson.RootElement.GetProperty("payload");
         JsonAssert.For(payload)
             .HasString("payloadKind", "empty");

@@ -40,7 +40,7 @@ internal static class LogsCommandAssert
         Assert.Equal((int)CliExitCode.InvalidArgument, exitCode);
         Assert.Empty(service.Invocations);
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(standardOutput);
+        using var outputJson = JsonAssert.ParseMultilineObject(standardOutput);
         CommandResultAssert.HasInvalidArgumentEnvelope(
             outputJson.RootElement,
             UcliCommandNames.LogsUnityClear);

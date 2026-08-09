@@ -33,7 +33,7 @@ public sealed class UnityOneshotIpcClientLaunchTests
         });
         var lockProvider = new StubProjectLifecycleLockProvider();
         var startedAtUtc = new DateTimeOffset(2030, 1, 2, 3, 4, 5, TimeSpan.Zero);
-        var timeProvider = new ManualTimeProvider(startedAtUtc);
+        var timeProvider = new FakeTimeProvider(startedAtUtc);
         var client = CreateClient(
             launcher,
             transportClient,
@@ -52,7 +52,9 @@ public sealed class UnityOneshotIpcClientLaunchTests
         var bootstrapArguments = UnityOneshotLaunchAssert.LaunchedOnceWithDefaultOptions(launcher, unityProject);
         var requests = IpcRequestAssert.Methods(transportClient, UnityIpcMethod.Ping, UnityIpcMethod.OpsRead);
         var dispatchRequest = IpcRequestAssert.SingleWithMethod(requests, UnityIpcMethod.OpsRead);
-        Assert.Equal(CreateDispatchPayload().GetRawText(), dispatchRequest.Payload.GetRawText());
+        Assert.True(JsonNode.DeepEquals(
+            JsonNode.Parse(CreateDispatchPayload().GetRawText()),
+            JsonNode.Parse(dispatchRequest.Payload.GetRawText())));
         Assert.All(transportClient.UnityInvocations, invocation =>
         {
             Assert.Equal(startedAtUtc + TimeSpan.FromSeconds(30), invocation.Request.RequestDeadlineUtc);
@@ -83,7 +85,7 @@ public sealed class UnityOneshotIpcClientLaunchTests
             };
         });
         var startedAtUtc = new DateTimeOffset(2030, 1, 2, 3, 4, 5, TimeSpan.Zero);
-        var timeProvider = new ManualTimeProvider(startedAtUtc);
+        var timeProvider = new FakeTimeProvider(startedAtUtc);
         var client = CreateClient(
             launcher,
             transportClient,
@@ -345,7 +347,7 @@ public sealed class UnityOneshotIpcClientLaunchTests
         using var scope = TestDirectories.CreateTempScope(
             "unity-oneshot-ipc-client",
             "lifecycle-deadline-before-action");
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var unityProject =
             ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(scope.FullPath);
         var launcher = new RecordingUnityBatchmodeProcessLauncher(

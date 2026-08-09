@@ -14,7 +14,7 @@ public sealed class IpcDaemonPingClientRequestTests
     public async Task Ping_SendsPingRequestWithProbeContract ()
     {
         var startedAtUtc = new DateTimeOffset(2030, 1, 2, 3, 4, 5, TimeSpan.Zero);
-        var timeProvider = new ManualTimeProvider(startedAtUtc);
+        var timeProvider = new FakeTimeProvider(startedAtUtc);
         var unityIpcClient = CreateSuccessfulPingTransportClient();
         var pingClient = new IpcDaemonPingClient(
             unityIpcClient,
@@ -51,13 +51,10 @@ public sealed class IpcDaemonPingClientRequestTests
 
         await Assert.ThrowsAsync<OperationCanceledException>(async () =>
         {
-            await TestAwaiter.WaitAsync(
-                pingClient.PingAsync(
+            await pingClient.PingAsync(
                     CreateFingerprintMatchedProject(),
                     DefaultTimeout,
-                    cancellationToken: cancellationTokenSource.Token).AsTask(),
-                "Canceled daemon ping",
-                AsyncWaitTimeout);
+                    cancellationToken: cancellationTokenSource.Token).AsTask().WaitAsync(AsyncWaitTimeout);
         });
     }
 
@@ -165,7 +162,7 @@ public sealed class IpcDaemonPingClientRequestTests
     public async Task PingAndRead_WhenSuccessorSessionTokenIsRejected_FollowsNextPublishedGeneration ()
     {
         var unityProject = CreateFingerprintMatchedProject();
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var unityIpcClient = CreateSuccessfulPingTransportClient();
         unityIpcClient.EnqueueResponse(request => CreateResponse(
             request,
@@ -316,16 +313,10 @@ public sealed class IpcDaemonPingClientRequestTests
                 CancellationToken.None)
             .AsTask();
         var retryDelay = TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds);
-        await TestAwaiter.WaitAsync(
-            timeProvider.WaitForTimerDueWithinAsync(retryDelay),
-            "daemon ping replacement publication retry timer",
-            AsyncWaitTimeout);
+        await timeProvider.WaitForTimerDueWithinAsync(retryDelay).WaitAsync(AsyncWaitTimeout);
         timeProvider.Advance(timeout);
 
-        _ = await TestAwaiter.WaitAsync(
-            Assert.ThrowsAsync<TimeoutException>(() => pingTask),
-            "daemon ping request deadline",
-            AsyncWaitTimeout);
+        _ = await Assert.ThrowsAsync<TimeoutException>(() => pingTask).WaitAsync(AsyncWaitTimeout);
         Assert.Single(unityIpcClient.Requests);
         Assert.Equal(DateTimeOffset.UnixEpoch + timeout, timeProvider.GetUtcNow());
     }
@@ -523,13 +514,10 @@ public sealed class IpcDaemonPingClientRequestTests
 
         await Assert.ThrowsAsync<ArgumentOutOfRangeException>(async () =>
         {
-            await TestAwaiter.WaitAsync(
-                pingClient.PingAsync(
+            await pingClient.PingAsync(
                     CreateFingerprintMatchedProject(),
                     timeout,
-                    cancellationToken: CancellationToken.None).AsTask(),
-                "Invalid timeout ping result",
-                AsyncWaitTimeout);
+                    cancellationToken: CancellationToken.None).AsTask().WaitAsync(AsyncWaitTimeout);
         });
     }
 

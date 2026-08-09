@@ -20,7 +20,7 @@ public sealed class PlanCommandPayloadTests
 
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         CommandResultAssert.HasInvalidArgumentEnvelope(
             outputJson.RootElement,
             UcliCommandNames.Plan);

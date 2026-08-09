@@ -112,7 +112,7 @@ public sealed class SupervisorBootstrapperManifestFailureTests
     public async Task EnsureReady_WhenManifestReadFailsWithUnauthorizedAccess_ReturnsInternalError ()
     {
         using var scope = TestDirectories.CreateTempScope("supervisor-bootstrapper", "manifest-read-unauthorized");
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var transportClient = new StubIpcTransportClient
         {
             SendHandler = static (_, _, _, _) => throw new InvalidOperationException("Supervisor transport should not be called when manifest read fails."),
@@ -147,7 +147,7 @@ public sealed class SupervisorBootstrapperManifestFailureTests
     {
         using var scope = TestDirectories.CreateTempScope("supervisor-bootstrapper", "stale-manifest-cleanup");
         using var testTimeoutSource = new CancellationTokenSource(SupervisorBootstrapperTestSupport.SignalWaitTimeout);
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var endpointResolver = new SupervisorEndpointResolver();
         var cleanupTarget = endpointResolver.ResolveUnixSocketCleanupTargetOrNull(AbsolutePath.Parse(scope.FullPath));
         if (cleanupTarget is not null)

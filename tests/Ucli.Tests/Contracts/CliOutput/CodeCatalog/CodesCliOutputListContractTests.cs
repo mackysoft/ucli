@@ -11,7 +11,7 @@ public sealed class CodesCliOutputListContractTests
     {
         var result = await RunCodesListCommandAsync();
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
         CommandResultAssert.HasSuccessEnvelope(
             outputJson.RootElement,
@@ -42,7 +42,7 @@ public sealed class CodesCliOutputListContractTests
     {
         var result = await RunCodesListCommandAsync(kind: TextVocabulary.GetText(CodeCatalogKind.Error));
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
         CommandResultAssert.HasSuccessEnvelope(
             outputJson.RootElement,
@@ -89,7 +89,7 @@ public sealed class CodesCliOutputListContractTests
     {
         var result = await RunCodesListCommandAsync(kind, command);
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
         CommandResultAssert.HasSuccessEnvelope(
             outputJson.RootElement,

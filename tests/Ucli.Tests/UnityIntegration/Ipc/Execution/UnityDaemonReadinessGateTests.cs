@@ -20,7 +20,7 @@ public sealed class UnityDaemonReadinessGateTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenWaitableStateBecomesReady_DispatchesFailFastRequest ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var pingClient = new RecordingDaemonPingInfoClient(
             CreatePingPayload(UnityEditorLifecycleState.Busy),
             CreatePingPayload(UnityEditorLifecycleState.Ready));
@@ -122,7 +122,7 @@ public sealed class UnityDaemonReadinessGateTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenReadinessProbeTimesOutThenReady_RetriesAndDispatches ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var pingClient = new RecordingDaemonPingInfoClient(
             new TimeoutException("probe timed out"),
             CreatePingPayload(UnityEditorLifecycleState.Ready));
@@ -228,7 +228,7 @@ public sealed class UnityDaemonReadinessGateTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenBudgetIsExhausted_ReturnsTimeoutWithoutDispatch ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var deadline = ExecutionDeadline.Start(TimeSpan.FromMilliseconds(100), timeProvider);
         timeProvider.Advance(TimeSpan.FromMilliseconds(120));
         var pingClient = new RecordingDaemonPingInfoClient(CreatePingPayload(
@@ -273,7 +273,7 @@ public sealed class UnityDaemonReadinessGateTests
     [Trait("Size", "Small")]
     public async Task ExecuteLifecycleStartAdmission_WhenPolicyWaitsAndRetriesRejectedStart_ReusesDispatch ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var pingClient = new RecordingDaemonPingInfoClient(
             CreatePingPayload(UnityEditorLifecycleState.Ready),
             CreatePingPayload(UnityEditorLifecycleState.Ready),

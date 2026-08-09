@@ -18,10 +18,7 @@ public sealed class FileSystemAccessBoundaryTests
         using var scope = TestDirectories.CreateTempScope("infrastructure-storage", "secure-chain-symlink-root");
         var targetDirectoryPath = scope.CreateDirectory("target");
         var boundaryRootPath = Path.Combine(scope.FullPath, "locks");
-        if (!TestSymbolicLinks.TryCreateDirectory(boundaryRootPath, targetDirectoryPath))
-        {
-            return;
-        }
+        Directory.CreateSymbolicLink(boundaryRootPath, targetDirectoryPath);
 
         var exception = Assert.Throws<IOException>(() =>
         {
@@ -42,10 +39,7 @@ public sealed class FileSystemAccessBoundaryTests
         var boundaryRootPath = scope.CreateDirectory("locks");
         var targetDirectoryPath = scope.CreateDirectory("target");
         var symbolicLinkPath = Path.Combine(boundaryRootPath, "linked");
-        if (!TestSymbolicLinks.TryCreateDirectory(symbolicLinkPath, targetDirectoryPath))
-        {
-            return;
-        }
+        Directory.CreateSymbolicLink(symbolicLinkPath, targetDirectoryPath);
 
         var exception = Assert.Throws<IOException>(() =>
         {
@@ -65,10 +59,7 @@ public sealed class FileSystemAccessBoundaryTests
         using var scope = TestDirectories.CreateTempScope("infrastructure-storage", "secure-directory-symlink");
         var targetDirectoryPath = scope.CreateDirectory("target");
         var symbolicLinkPath = Path.Combine(scope.FullPath, "linked");
-        if (!TestSymbolicLinks.TryCreateDirectory(symbolicLinkPath, targetDirectoryPath))
-        {
-            return;
-        }
+        Directory.CreateSymbolicLink(symbolicLinkPath, targetDirectoryPath);
 
         var exception = Assert.Throws<IOException>(() =>
         {
@@ -85,10 +76,7 @@ public sealed class FileSystemAccessBoundaryTests
         using var scope = TestDirectories.CreateTempScope("infrastructure-storage", "secure-ucli-symlink");
         var targetDirectoryPath = scope.CreateDirectory("target");
         var ucliDirectoryPath = Path.Combine(scope.FullPath, ".ucli");
-        if (!TestSymbolicLinks.TryCreateDirectory(ucliDirectoryPath, targetDirectoryPath))
-        {
-            return;
-        }
+        Directory.CreateSymbolicLink(ucliDirectoryPath, targetDirectoryPath);
 
         var exception = Assert.Throws<IOException>(() =>
         {
@@ -114,10 +102,7 @@ public sealed class FileSystemAccessBoundaryTests
         using var scope = TestDirectories.CreateTempScope("infrastructure-storage", "secure-file-symlink");
         var targetPath = scope.WriteFile("target.txt", "target-contents");
         var symbolicLinkPath = scope.GetPath("linked.txt");
-        if (!TestSymbolicLinks.TryCreateFile(symbolicLinkPath, targetPath))
-        {
-            return;
-        }
+        File.CreateSymbolicLink(symbolicLinkPath, targetPath);
 
         var exception = Assert.Throws<IOException>(() =>
             FileSystemAccessBoundary.EnsureSecureFile(AbsolutePath.Parse(symbolicLinkPath)));

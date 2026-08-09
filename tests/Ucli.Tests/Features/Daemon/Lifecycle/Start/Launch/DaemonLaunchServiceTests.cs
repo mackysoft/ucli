@@ -22,7 +22,7 @@ public sealed class DaemonLaunchServiceTests
             projectFingerprint: context.ProjectFingerprint,
             endpointAddress: LaunchEndpointAddress);
         var processStartedAtUtc = new DateTimeOffset(2026, 03, 11, 0, 0, 1, TimeSpan.Zero);
-        var timeProvider = new ManualTimeProvider(processStartedAtUtc);
+        var timeProvider = new FakeTimeProvider(processStartedAtUtc);
         var startedSession = DaemonSessionTestFactory.Create(
             processId: 999,
             sessionToken: LaunchSessionToken,
@@ -85,7 +85,7 @@ public sealed class DaemonLaunchServiceTests
             projectFingerprint: context.ProjectFingerprint,
             endpointAddress: LaunchEndpointAddress);
         var processStartedAtUtc = new DateTimeOffset(2026, 03, 11, 0, 0, 1, TimeSpan.Zero);
-        var timeProvider = new ManualTimeProvider(processStartedAtUtc);
+        var timeProvider = new FakeTimeProvider(processStartedAtUtc);
         var startedSession = DaemonSessionTestFactory.Create(
             processId: 999,
             sessionToken: LaunchSessionToken,
@@ -150,7 +150,7 @@ public sealed class DaemonLaunchServiceTests
             projectFingerprint: context.ProjectFingerprint,
             endpointAddress: LaunchEndpointAddress);
         var processStartedAtUtc = new DateTimeOffset(2026, 07, 11, 0, 0, 4, TimeSpan.Zero);
-        var timeProvider = new ManualTimeProvider(processStartedAtUtc);
+        var timeProvider = new FakeTimeProvider(processStartedAtUtc);
         const int processId = 7644;
         var startedSession = DaemonSessionTestFactory.Create(
             processId: processId,
@@ -213,7 +213,7 @@ public sealed class DaemonLaunchServiceTests
     {
         var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(
             ProjectFingerprintTestFactory.Create("fingerprint-batchmode-session-progress-fail"));
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var initialSession = DaemonSessionTestFactory.Create(
             processId: null,
             sessionToken: LaunchSessionToken,
@@ -263,7 +263,7 @@ public sealed class DaemonLaunchServiceTests
     public async Task Launch_WhenSessionInitializationFails_ReturnsFailureWithoutLaunch ()
     {
         var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-launch-init-fail"));
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var expectedError = ExecutionError.InternalError("session init failed");
         var launchSessionService = new RecordingDaemonLaunchSessionService
         {
@@ -319,7 +319,7 @@ public sealed class DaemonLaunchServiceTests
             endpointAddress: LaunchEndpointAddress);
         var writeError = ExecutionError.InternalError("write failed");
         var processStartedAtUtc = new DateTimeOffset(2026, 03, 09, 0, 0, 1, TimeSpan.Zero);
-        var timeProvider = new ManualTimeProvider(processStartedAtUtc);
+        var timeProvider = new FakeTimeProvider(processStartedAtUtc);
         var launchSessionService = new RecordingDaemonLaunchSessionService
         {
             InitializeResult = DaemonLaunchSessionWriteResult.Success(initialSession),

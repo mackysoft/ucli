@@ -12,7 +12,7 @@ public sealed class DaemonCleanupOperationFailureTests
     {
         var artifactCleaner = new RecordingDaemonArtifactCleaner();
         var operation = DaemonCleanupOperationTestSupport.CreateOperation(
-            new ManualTimeProvider(),
+            new FakeTimeProvider(DateTimeOffset.UnixEpoch),
             daemonSessionStore: new RecordingDaemonSessionStore
             {
                 ReadResult = DaemonSessionReadResultTestFactory.Found(DaemonSessionTestFactory.Create(processId: 2011)),
@@ -37,7 +37,7 @@ public sealed class DaemonCleanupOperationFailureTests
         var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-cleanup-lock-context"));
         var lockProvider = new StubProjectLifecycleLockProvider();
         var operation = DaemonCleanupOperationTestSupport.CreateOperation(
-            new ManualTimeProvider(),
+            new FakeTimeProvider(DateTimeOffset.UnixEpoch),
             lifecycleLockProvider: lockProvider,
             daemonSessionStore: new RecordingDaemonSessionStore
             {

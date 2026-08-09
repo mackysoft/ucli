@@ -23,7 +23,7 @@ public sealed class FileSystemProjectLifecycleLockProviderTests
     public async Task Acquire_WhenLockAlreadyHeld_WaitsUntilReleased ()
     {
         using var scope = TestDirectories.CreateTempScope("daemon-lock", "wait-until-release");
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var provider = CreateProvider(scope, timeProvider);
         var lockRequest = new ProjectLifecycleLockRequest(AbsolutePath.Parse(scope.CreateDirectory("UnityProject")));
         await AssertSecondAcquireWaitsForReleaseAsync(
@@ -40,7 +40,7 @@ public sealed class FileSystemProjectLifecycleLockProviderTests
     public async Task Acquire_WhenCanceledWhileWaiting_ThrowsOperationCanceledException ()
     {
         using var scope = TestDirectories.CreateTempScope("daemon-lock", "cancel-while-waiting");
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var provider = CreateProvider(scope, timeProvider);
         var lockRequest = new ProjectLifecycleLockRequest(AbsolutePath.Parse(scope.CreateDirectory("UnityProject")));
         var firstHandle = await provider.AcquireAsync(
@@ -58,7 +58,7 @@ public sealed class FileSystemProjectLifecycleLockProviderTests
         waitingCts.Cancel();
         var exception = await Record.ExceptionAsync(async () =>
         {
-            await TestAwaiter.WaitAsync(waitingTask, "Canceled file system lifecycle lock acquire", AcquireWaitTimeout);
+            await waitingTask.WaitAsync(AcquireWaitTimeout);
         });
 
         await firstHandle.DisposeAsync();
@@ -71,7 +71,7 @@ public sealed class FileSystemProjectLifecycleLockProviderTests
     public async Task Acquire_WhenTimeoutWhileWaiting_ThrowsTimeoutException ()
     {
         using var scope = TestDirectories.CreateTempScope("daemon-lock", "timeout-while-waiting");
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var provider = CreateProvider(scope, timeProvider);
         var lockRequest = new ProjectLifecycleLockRequest(AbsolutePath.Parse(scope.CreateDirectory("UnityProject")));
         var firstHandle = await provider.AcquireAsync(
@@ -87,7 +87,7 @@ public sealed class FileSystemProjectLifecycleLockProviderTests
         timeProvider.Advance(TimeSpan.FromMilliseconds(150));
         var exception = await Record.ExceptionAsync(async () =>
         {
-            await TestAwaiter.WaitAsync(waitingTask, "Timed out file system lifecycle lock acquire", AcquireWaitTimeout);
+            await waitingTask.WaitAsync(AcquireWaitTimeout);
         });
 
         await firstHandle.DisposeAsync();
@@ -100,7 +100,7 @@ public sealed class FileSystemProjectLifecycleLockProviderTests
     public async Task Acquire_WithSamePhysicalProjectRootAcrossProviders_WaitsUntilReleased ()
     {
         using var scope = TestDirectories.CreateTempScope("daemon-lock", "same-physical-project");
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var lockStorageRoot = AbsolutePath.Parse(scope.CreateDirectory("locks"));
         var firstProvider = new FileSystemProjectLifecycleLockProvider(timeProvider, lockStorageRoot);
         var secondProvider = new FileSystemProjectLifecycleLockProvider(timeProvider, lockStorageRoot);
@@ -148,16 +148,9 @@ public sealed class FileSystemProjectLifecycleLockProviderTests
     [Trait("Size", "Medium")]
     public async Task Acquire_WithNestedOrdinaryProjectRoot_PreservesPathWhileResolvingParents ()
     {
-        var scopePath = TestRepositoryPaths.GetFullPath(
-            "TestResults",
-            "daemon-lock",
-            "nested-ordinary-project",
-            Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(scopePath);
-        using var scope = new TestDirectoryScope(scopePath, DirectoryCleanupMode.Strict);
+        using var scope = TestDirectories.CreateTempScope("daemon-lock", "nested-ordinary-project");
         var lockStorageRoot = AbsolutePath.Parse(scope.CreateDirectory("locks"));
-        var projectRoot = AbsolutePath.Parse(
-            scope.CreateDirectory(Path.Combine("workspace", "UnityProject")));
+        var projectRoot = AbsolutePath.Parse(TestRepositoryPaths.GetFullPath("src", "Ucli"));
         var expectedIdentityText = OperatingSystem.IsWindows()
             ? projectRoot.Value.ToUpperInvariant()
             : projectRoot.Value;
@@ -167,7 +160,7 @@ public sealed class FileSystemProjectLifecycleLockProviderTests
             expectedLockKey,
             "lifecycle.lock");
         var provider = new FileSystemProjectLifecycleLockProvider(
-            new ManualTimeProvider(),
+            new FakeTimeProvider(DateTimeOffset.UnixEpoch),
             lockStorageRoot);
 
         var handle = await provider.AcquireAsync(
@@ -185,7 +178,7 @@ public sealed class FileSystemProjectLifecycleLockProviderTests
     public async Task Acquire_WithDifferentPhysicalProjectRoots_DoesNotWaitForHeldLock ()
     {
         using var scope = TestDirectories.CreateTempScope("daemon-lock", "different-physical-project");
-        var provider = CreateProvider(scope, new ManualTimeProvider());
+        var provider = CreateProvider(scope, new FakeTimeProvider(DateTimeOffset.UnixEpoch));
         var firstRequest = new ProjectLifecycleLockRequest(AbsolutePath.Parse(scope.CreateDirectory("UnityProjectA")));
         var secondRequest = new ProjectLifecycleLockRequest(AbsolutePath.Parse(scope.CreateDirectory("UnityProjectB")));
         var firstHandle = await provider.AcquireAsync(
@@ -207,16 +200,13 @@ public sealed class FileSystemProjectLifecycleLockProviderTests
     public async Task Acquire_WithSymlinkProjectRoot_UsesTargetPhysicalProjectLock ()
     {
         using var scope = TestDirectories.CreateTempScope("daemon-lock", "symlink-project");
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var lockStorageRoot = AbsolutePath.Parse(scope.CreateDirectory("locks"));
         var firstProvider = new FileSystemProjectLifecycleLockProvider(timeProvider, lockStorageRoot);
         var secondProvider = new FileSystemProjectLifecycleLockProvider(timeProvider, lockStorageRoot);
         var targetProjectRoot = scope.CreateDirectory(Path.Combine("target", "UnityProject"));
         var symlinkProjectRoot = Path.Combine(scope.FullPath, "linked-project");
-        if (!TestSymbolicLinks.TryCreateDirectory(symlinkProjectRoot, targetProjectRoot))
-        {
-            return;
-        }
+        Directory.CreateSymbolicLink(symlinkProjectRoot, targetProjectRoot);
 
         await AssertSecondAcquireWaitsForReleaseAsync(
             firstProvider,
@@ -232,7 +222,7 @@ public sealed class FileSystemProjectLifecycleLockProviderTests
     public async Task Acquire_WithCaseVariantProjectRootOnCaseInsensitiveFileSystem_UsesSamePhysicalProjectLock ()
     {
         using var scope = TestDirectories.CreateTempScope("daemon-lock", "case-variant-project");
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var lockStorageRoot = AbsolutePath.Parse(scope.CreateDirectory("locks"));
         var firstProvider = new FileSystemProjectLifecycleLockProvider(timeProvider, lockStorageRoot);
         var secondProvider = new FileSystemProjectLifecycleLockProvider(timeProvider, lockStorageRoot);
@@ -264,7 +254,7 @@ public sealed class FileSystemProjectLifecycleLockProviderTests
         }
 
         using var scope = TestDirectories.CreateTempScope("daemon-lock", "root-case-variant-project");
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var lockStorageRoot = AbsolutePath.Parse(scope.CreateDirectory("locks"));
         var firstProvider = new FileSystemProjectLifecycleLockProvider(timeProvider, lockStorageRoot);
         var secondProvider = new FileSystemProjectLifecycleLockProvider(timeProvider, lockStorageRoot);
@@ -295,7 +285,7 @@ public sealed class FileSystemProjectLifecycleLockProviderTests
         }
 
         using var scope = TestDirectories.CreateTempScope("daemon-lock", "owner-only");
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var lockStorageRoot = AbsolutePath.Parse(Path.Combine(scope.FullPath, "locks", "unity-projects"));
         var provider = new FileSystemProjectLifecycleLockProvider(timeProvider, lockStorageRoot);
         var handle = await provider.AcquireAsync(
@@ -322,7 +312,7 @@ public sealed class FileSystemProjectLifecycleLockProviderTests
     private static async Task AssertSecondAcquireWaitsForReleaseAsync (
         FileSystemProjectLifecycleLockProvider firstProvider,
         FileSystemProjectLifecycleLockProvider secondProvider,
-        ManualTimeProvider timeProvider,
+        FakeTimeProvider timeProvider,
         ProjectLifecycleLockRequest firstRequest,
         ProjectLifecycleLockRequest secondRequest,
         string waitDescription)
@@ -343,7 +333,7 @@ public sealed class FileSystemProjectLifecycleLockProviderTests
             await firstHandle.DisposeAsync();
             firstHandle = null;
             timeProvider.Advance(LockRetryDelay);
-            var secondHandle = await TestAwaiter.WaitAsync(secondAcquireTask, waitDescription, AcquireWaitTimeout);
+            var secondHandle = await secondAcquireTask.WaitAsync(AcquireWaitTimeout);
             await secondHandle.DisposeAsync();
         }
         finally

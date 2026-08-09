@@ -15,7 +15,7 @@ public sealed class SkillsLifecycleCliOutputContractTests
         var created = await SkillsCliOutputContractTestSupport.RunOpenAiUpdateAsync(repoRoot);
         var updateNoOp = await SkillsCliOutputContractTestSupport.RunOpenAiUpdateAsync(repoRoot);
 
-        using var createdJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(created.StdOut);
+        using var createdJson = JsonAssert.ParseMultilineObject(created.StdOut);
         Assert.Equal((int)CliExitCode.Success, created.ExitCode);
         CommandResultAssert.HasSuccessEnvelope(
             createdJson.RootElement,
@@ -35,7 +35,7 @@ public sealed class SkillsLifecycleCliOutputContractTests
                     .HasString("skillName", SkillsCliOutputContractTestSupport.ExpectedSkillNames[0])
                     .HasString("action", "created")));
 
-        using var updateNoOpJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(updateNoOp.StdOut);
+        using var updateNoOpJson = JsonAssert.ParseMultilineObject(updateNoOp.StdOut);
         Assert.Equal((int)CliExitCode.Success, updateNoOp.ExitCode);
         JsonAssert.For(updateNoOpJson.RootElement)
             .HasProperty("payload", payload => payload
@@ -49,7 +49,7 @@ public sealed class SkillsLifecycleCliOutputContractTests
         var deleted = await SkillsCliOutputContractTestSupport.RunOpenAiUninstallAsync(repoRoot);
         var uninstallNoOp = await SkillsCliOutputContractTestSupport.RunOpenAiUninstallAsync(repoRoot);
 
-        using var deletedJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(deleted.StdOut);
+        using var deletedJson = JsonAssert.ParseMultilineObject(deleted.StdOut);
         Assert.Equal((int)CliExitCode.Success, deleted.ExitCode);
         CommandResultAssert.HasSuccessEnvelope(
             deletedJson.RootElement,
@@ -67,7 +67,7 @@ public sealed class SkillsLifecycleCliOutputContractTests
                     .HasString("skillName", SkillsCliOutputContractTestSupport.ExpectedSkillNames[0])
                     .HasString("action", "deleted")));
 
-        using var uninstallNoOpJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(uninstallNoOp.StdOut);
+        using var uninstallNoOpJson = JsonAssert.ParseMultilineObject(uninstallNoOp.StdOut);
         Assert.Equal((int)CliExitCode.Success, uninstallNoOp.ExitCode);
         JsonAssert.For(uninstallNoOpJson.RootElement)
             .HasProperty("payload", payload => payload

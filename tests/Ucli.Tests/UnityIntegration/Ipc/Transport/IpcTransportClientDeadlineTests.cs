@@ -51,28 +51,16 @@ public sealed class IpcTransportClientDeadlineTests
 
         try
         {
-            await TestAwaiter.WaitAsync(
-                connector.WaitForStageAsync(BlockingStage.Connect),
-                $"{requestKind} connection attempt start",
-                IpcTransportClientTestSupport.WaitTimeout);
-            await TestAwaiter.WaitAsync(
-                timeProvider.WaitForTimerDueWithinAsync(IpcTransportClient.ConnectionAttemptTimeoutCap),
-                $"{requestKind} connection-attempt deadline registration",
-                IpcTransportClientTestSupport.WaitTimeout);
+            await connector.WaitForStageAsync(BlockingStage.Connect).WaitAsync(IpcTransportClientTestSupport.WaitTimeout);
+            await timeProvider.WaitForTimerDueWithinAsync(IpcTransportClient.ConnectionAttemptTimeoutCap).WaitAsync(IpcTransportClientTestSupport.WaitTimeout);
 
             timeProvider.Advance(IpcTransportClient.ConnectionAttemptTimeoutCap);
 
-            var exception = await TestAwaiter.WaitAsync(
-                Assert.ThrowsAsync<IpcConnectTimeoutException>(async () => await sendTask),
-                $"{requestKind} connection-attempt timeout",
-                IpcTransportClientTestSupport.WaitTimeout);
+            var exception = await Assert.ThrowsAsync<IpcConnectTimeoutException>(async () => await sendTask).WaitAsync(IpcTransportClientTestSupport.WaitTimeout);
 
             Assert.Contains("before the request was sent", exception.Message, StringComparison.Ordinal);
             connector.CompleteLateConnection();
-            await TestAwaiter.WaitAsync(
-                stream.Disposed,
-                $"{requestKind} late connection cleanup",
-                IpcTransportClientTestSupport.WaitTimeout);
+            await stream.Disposed.WaitAsync(IpcTransportClientTestSupport.WaitTimeout);
         }
         finally
         {
@@ -97,22 +85,13 @@ public sealed class IpcTransportClientDeadlineTests
         try
         {
             var deadlineRegisteredTask = timeProvider.WaitForTimerDueWithinAsync(TransportTimeout);
-            await TestAwaiter.WaitAsync(
-                connector.WaitForStageAsync(blockingStage),
-                $"non-cooperative {blockingStage} start",
-                IpcTransportClientTestSupport.WaitTimeout);
-            await TestAwaiter.WaitAsync(
-                deadlineRegisteredTask,
-                "IPC transport deadline registration",
-                IpcTransportClientTestSupport.WaitTimeout);
+            await connector.WaitForStageAsync(blockingStage).WaitAsync(IpcTransportClientTestSupport.WaitTimeout);
+            await deadlineRegisteredTask.WaitAsync(IpcTransportClientTestSupport.WaitTimeout);
 
             timeProvider.Advance(TransportTimeout);
 
             var exceptionTask = Assert.ThrowsAnyAsync<TimeoutException>(async () => await sendTask);
-            var exception = await TestAwaiter.WaitAsync(
-                exceptionTask,
-                $"{requestKind} {blockingStage} outward deadline",
-                IpcTransportClientTestSupport.WaitTimeout);
+            var exception = await exceptionTask.WaitAsync(IpcTransportClientTestSupport.WaitTimeout);
 
             if (blockingStage == BlockingStage.Connect)
             {
@@ -124,10 +103,7 @@ public sealed class IpcTransportClientDeadlineTests
                 Assert.IsType<TimeoutException>(exception);
             }
 
-            await TestAwaiter.WaitAsync(
-                stream.Disposed,
-                $"{requestKind} {blockingStage} stream abort",
-                IpcTransportClientTestSupport.WaitTimeout);
+            await stream.Disposed.WaitAsync(IpcTransportClientTestSupport.WaitTimeout);
         }
         finally
         {
@@ -142,7 +118,7 @@ public sealed class IpcTransportClientDeadlineTests
     public async Task Send_WhenCallerCancelsNonCooperativeRead_ReturnsCallerCancellationAndAbortsOwnedStream (
         RequestKind requestKind)
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var stream = new NonCooperativeStream(BlockingStage.Read);
         var connector = new NonCooperativeConnector(BlockingStage.Read, stream);
         var client = new IpcTransportClient(connector, timeProvider);
@@ -155,24 +131,15 @@ public sealed class IpcTransportClientDeadlineTests
 
         try
         {
-            await TestAwaiter.WaitAsync(
-                stream.ReadStarted,
-                $"{requestKind} non-cooperative read start",
-                IpcTransportClientTestSupport.WaitTimeout);
+            await stream.ReadStarted.WaitAsync(IpcTransportClientTestSupport.WaitTimeout);
 
             cancellationTokenSource.Cancel();
 
             var exceptionTask = Assert.ThrowsAnyAsync<OperationCanceledException>(async () => await sendTask);
-            var exception = await TestAwaiter.WaitAsync(
-                exceptionTask,
-                $"{requestKind} caller cancellation",
-                IpcTransportClientTestSupport.WaitTimeout);
+            var exception = await exceptionTask.WaitAsync(IpcTransportClientTestSupport.WaitTimeout);
 
             Assert.Equal(cancellationTokenSource.Token, exception.CancellationToken);
-            await TestAwaiter.WaitAsync(
-                stream.Disposed,
-                $"{requestKind} caller-canceled stream abort",
-                IpcTransportClientTestSupport.WaitTimeout);
+            await stream.Disposed.WaitAsync(IpcTransportClientTestSupport.WaitTimeout);
         }
         finally
         {
@@ -200,18 +167,9 @@ public sealed class IpcTransportClientDeadlineTests
 
         try
         {
-            await TestAwaiter.WaitAsync(
-                deadlineRegisteredTask,
-                "unbounded response send-deadline registration",
-                IpcTransportClientTestSupport.WaitTimeout);
-            await TestAwaiter.WaitAsync(
-                stream.ReadStarted,
-                $"{requestKind} unbounded response read start",
-                IpcTransportClientTestSupport.WaitTimeout);
-            await TestAwaiter.WaitAsync(
-                WaitForNoActiveTimerAsync(timeProvider),
-                $"{requestKind} send deadline release",
-                IpcTransportClientTestSupport.WaitTimeout);
+            await deadlineRegisteredTask.WaitAsync(IpcTransportClientTestSupport.WaitTimeout);
+            await stream.ReadStarted.WaitAsync(IpcTransportClientTestSupport.WaitTimeout);
+            await WaitForNoActiveTimerAsync(timeProvider).WaitAsync(IpcTransportClientTestSupport.WaitTimeout);
 
             timeProvider.Advance(TransportTimeout);
             await Task.Yield();
@@ -220,10 +178,7 @@ public sealed class IpcTransportClientDeadlineTests
 
             cancellationTokenSource.Cancel();
             var cancellationTask = Assert.ThrowsAnyAsync<OperationCanceledException>(async () => await sendTask);
-            await TestAwaiter.WaitAsync(
-                cancellationTask,
-                $"{requestKind} unbounded response caller cancellation",
-                IpcTransportClientTestSupport.WaitTimeout);
+            await cancellationTask.WaitAsync(IpcTransportClientTestSupport.WaitTimeout);
         }
         finally
         {

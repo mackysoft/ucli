@@ -27,6 +27,6 @@ internal static class DaemonStartOperationTestSupport
             daemonGuiEditorAttachService: daemonGuiEditorAttachService ?? new RecordingDaemonGuiEditorAttachService(),
             daemonLaunchService: daemonLaunchService,
             compensationOperationOwner: compensationOperationOwner ?? new DaemonCompensationOperationOwner(),
-            timeProvider: timeProvider ?? new ManualTimeProvider());
+            timeProvider: timeProvider ?? new FakeTimeProvider(DateTimeOffset.UnixEpoch));
     }
 }

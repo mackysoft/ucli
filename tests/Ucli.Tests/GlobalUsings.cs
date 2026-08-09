@@ -1,4 +1,9 @@
+global using System.Text.Json.Nodes;
 global using MackySoft.Tests;
+global using MackySoft.Testing.IO;
+global using MackySoft.Testing.Xunit.IO;
+global using MackySoft.Testing.Xunit.Json;
+global using Microsoft.Extensions.Time.Testing;
 global using MackySoft.Ucli.Application.Features.Assurance;
 global using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Contracts;
 global using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.EditorInstance;

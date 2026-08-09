@@ -21,7 +21,7 @@ public sealed class DaemonCliOutputContractTests
 
         var result = await RunDaemonStatusCommandAsync(projectPath: unityProjectPath);
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
         CommandResultAssert.HasSuccessEnvelope(
             outputJson.RootElement,
@@ -53,7 +53,7 @@ public sealed class DaemonCliOutputContractTests
         {
             var result = await CliInProcessRunner.RunCommandAsync(testCase.Arguments);
 
-            using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+            using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
             Assert.True(
                 result.ExitCode == (int)CliExitCode.InvalidArgument,
                 $"{testCase.Name} must return invalid argument.");
@@ -87,7 +87,7 @@ public sealed class DaemonCliOutputContractTests
             UcliContractConstants.CliOption.EditorMode,
             "batchmode");
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
         CommandResultAssert.HasInvalidArgumentError(outputJson.RootElement, UcliCommandNames.DaemonStart);
         Assert.Contains("Unity project does not contain the uCLI Unity plugin", result.StdOut, StringComparison.Ordinal);
@@ -120,7 +120,7 @@ public sealed class DaemonCliOutputContractTests
 
         DaemonListServiceAssert.ListRequested(service, unityProjectPath, DaemonListContractTestTimeoutMilliseconds);
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
         CommandResultAssert.HasSuccessEnvelope(
             outputJson.RootElement,

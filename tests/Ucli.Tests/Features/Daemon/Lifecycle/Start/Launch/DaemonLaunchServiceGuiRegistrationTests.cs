@@ -18,7 +18,7 @@ public sealed class DaemonLaunchServiceGuiRegistrationTests
     public async Task Launch_WhenEditorModeGui_LaunchesGuiAndWaitsForRegisteredSessionWithoutPrewritingSession ()
     {
         var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-gui-launch-success"));
-        var timeProvider = new ManualTimeProvider(new DateTimeOffset(2026, 03, 11, 0, 0, 1, TimeSpan.Zero));
+        var timeProvider = new FakeTimeProvider(new DateTimeOffset(2026, 03, 11, 0, 0, 1, TimeSpan.Zero));
         var processStartedAtUtc = timeProvider.GetUtcNow();
         var registeredSession = DaemonSessionTestFactory.Create(
             processId: 4321,
@@ -81,7 +81,7 @@ public sealed class DaemonLaunchServiceGuiRegistrationTests
     {
         var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-gui-progress"));
         var processStartedAtUtc = new DateTimeOffset(2026, 03, 11, 0, 0, 1, TimeSpan.Zero);
-        var timeProvider = new ManualTimeProvider(processStartedAtUtc);
+        var timeProvider = new FakeTimeProvider(processStartedAtUtc);
         var registeredSession = DaemonSessionTestFactory.Create(
             processId: 4321,
             sessionToken: LaunchSessionToken,
@@ -143,7 +143,7 @@ public sealed class DaemonLaunchServiceGuiRegistrationTests
     {
         var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-gui-launch-timeout"));
         var processStartedAtUtc = new DateTimeOffset(2026, 03, 12, 0, 0, 1, TimeSpan.Zero);
-        var timeProvider = new ManualTimeProvider(processStartedAtUtc);
+        var timeProvider = new FakeTimeProvider(processStartedAtUtc);
         var launchSessionService = new RecordingDaemonLaunchSessionService();
         var batchmodeLauncher = new RecordingUnityDaemonProcessLauncher();
         var guiLauncher = new RecordingUnityGuiEditorProcessLauncher
@@ -209,7 +209,7 @@ public sealed class DaemonLaunchServiceGuiRegistrationTests
     {
         var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-gui-launch-timeout-cleanup-success"));
         var processStartedAtUtc = new DateTimeOffset(2026, 03, 12, 0, 0, 1, TimeSpan.Zero);
-        var timeProvider = new ManualTimeProvider(processStartedAtUtc);
+        var timeProvider = new FakeTimeProvider(processStartedAtUtc);
         var guiLauncher = new RecordingUnityGuiEditorProcessLauncher
         {
             NextResult = UnityDaemonLaunchResult.Success(5434, processStartedAtUtc),
@@ -258,7 +258,7 @@ public sealed class DaemonLaunchServiceGuiRegistrationTests
     {
         var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-gui-launch-timeout-cleanup-fail"));
         var processStartedAtUtc = new DateTimeOffset(2026, 03, 12, 0, 0, 1, TimeSpan.Zero);
-        var timeProvider = new ManualTimeProvider(processStartedAtUtc);
+        var timeProvider = new FakeTimeProvider(processStartedAtUtc);
         var guiLauncher = new RecordingUnityGuiEditorProcessLauncher
         {
             NextResult = UnityDaemonLaunchResult.Success(5433, processStartedAtUtc),

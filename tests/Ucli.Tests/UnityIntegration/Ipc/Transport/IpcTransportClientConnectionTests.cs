@@ -99,10 +99,7 @@ public sealed class IpcTransportClientConnectionTests
 
         var exception = await Assert.ThrowsAsync<IpcConnectException>(async () =>
         {
-            await TestAwaiter.WaitAsync(
-                client.SendAsync(endpoint, IpcTransportTestHarness.CreateSingleRequest(), IpcTransportClientTestSupport.DefaultTimeout).AsTask(),
-                "Missing Unix socket send result",
-                IpcTransportClientTestSupport.WaitTimeout);
+            await client.SendAsync(endpoint, IpcTransportTestHarness.CreateSingleRequest(), IpcTransportClientTestSupport.DefaultTimeout).AsTask().WaitAsync(IpcTransportClientTestSupport.WaitTimeout);
         });
 
         Assert.IsType<SocketException>(exception.InnerException);
@@ -132,10 +129,7 @@ public sealed class IpcTransportClientConnectionTests
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
         {
-            await TestAwaiter.WaitAsync(
-                sendTask,
-                "Canceled IPC send",
-                IpcTransportClientTestSupport.WaitTimeout);
+            await sendTask.WaitAsync(IpcTransportClientTestSupport.WaitTimeout);
         });
     }
 

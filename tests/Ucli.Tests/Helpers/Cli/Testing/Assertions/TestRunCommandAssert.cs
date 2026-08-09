@@ -11,7 +11,7 @@ internal static class TestRunCommandAssert
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
         Assert.Empty(service.Invocations);
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         CommandResultAssert.HasInvalidArgumentEnvelope(
             outputJson.RootElement,
             UcliCommandNames.TestRun);
@@ -36,7 +36,7 @@ internal static class TestRunCommandAssert
         Assert.Equal(string.Empty, result.StdErr);
         Assert.Empty(service.Invocations);
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         CommandResultAssert.HasStandardEnvelope(
             outputJson.RootElement,
             UcliCommandNames.TestRun,

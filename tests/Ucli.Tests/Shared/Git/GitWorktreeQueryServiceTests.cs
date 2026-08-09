@@ -116,7 +116,7 @@ public sealed class GitWorktreeQueryServiceTests
         using var scope = TestDirectories.CreateTempScope("git-worktree-query", "first-call-consumes-budget");
         var currentProjectPath = CreateGitAnchoredProject(scope, "wt-current", "UnityProject");
         var guardedCurrentProjectPath = AbsolutePath.Parse(currentProjectPath);
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var commandClient = new RecordingGitCommandClient
         {
             CurrentWorktreeRootHandler = (_, _, cancellationToken) =>

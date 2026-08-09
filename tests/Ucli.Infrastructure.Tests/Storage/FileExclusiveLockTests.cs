@@ -68,10 +68,7 @@ public sealed class FileExclusiveLockTests
         using var scope = TestDirectories.CreateTempScope("infrastructure-storage", "exclusive-lock-symlink");
         var targetPath = scope.WriteFile("target.txt", "target-contents");
         var lockPath = AbsolutePath.Parse(scope.GetPath("session.lock"));
-        if (!TestSymbolicLinks.TryCreateFile(lockPath.Value, targetPath))
-        {
-            return;
-        }
+        File.CreateSymbolicLink(lockPath.Value, targetPath);
 
         var exception = Assert.Throws<IOException>(() => FileExclusiveLock.Acquire(
             lockPath,

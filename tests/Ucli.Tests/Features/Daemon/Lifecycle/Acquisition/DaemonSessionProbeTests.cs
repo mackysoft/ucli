@@ -126,16 +126,10 @@ public sealed class DaemonSessionProbeTests
                 ExecutionDeadline.Start(timeout, timeProvider),
                 CancellationToken.None)
             .AsTask();
-        await TestAwaiter.WaitAsync(
-            timeProvider.WaitForTimerDueWithinAsync(
-                TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds)),
-            "daemon session probe publication retry timer",
-            TimeSpan.FromSeconds(5));
+        await timeProvider.WaitForTimerDueWithinAsync(
+                TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds)).WaitAsync(TimeSpan.FromSeconds(5));
         timeProvider.Advance(timeout);
-        var result = await TestAwaiter.WaitAsync(
-            probeTask,
-            "daemon session probe request deadline result",
-            TimeSpan.FromSeconds(5));
+        var result = await probeTask.WaitAsync(TimeSpan.FromSeconds(5));
 
         Assert.False(result.IsSuccess);
         Assert.IsType<TimeoutException>(result.ProbeFailure);
@@ -287,16 +281,10 @@ public sealed class DaemonSessionProbeTests
                 CancellationToken.None)
             .AsTask();
         var retryDelay = TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds);
-        await TestAwaiter.WaitAsync(
-            timeProvider.WaitForTimerDueWithinAsync(retryDelay),
-            "daemon session probe endpoint retry timer",
-            TimeSpan.FromSeconds(5));
+        await timeProvider.WaitForTimerDueWithinAsync(retryDelay).WaitAsync(TimeSpan.FromSeconds(5));
         timeProvider.Advance(DaemonTimeouts.ProbeAttemptTimeoutCap);
 
-        var result = await TestAwaiter.WaitAsync(
-            probeTask,
-            "daemon session probe endpoint window result",
-            TimeSpan.FromSeconds(5));
+        var result = await probeTask.WaitAsync(TimeSpan.FromSeconds(5));
 
         Assert.False(result.IsSuccess);
         Assert.Same(interruption, result.ProbeFailure);
@@ -313,7 +301,7 @@ public sealed class DaemonSessionProbeTests
     public async Task Probe_WhenTimeAdvancesBeforeSuccessorDelivery_PreservesRequestIdentityAndDeadline ()
     {
         var startedAtUtc = new DateTimeOffset(2030, 1, 2, 3, 4, 5, TimeSpan.Zero);
-        var timeProvider = new ManualTimeProvider(startedAtUtc);
+        var timeProvider = new FakeTimeProvider(startedAtUtc);
         var unityProject = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(
             ProjectFingerprintTestFactory.Create("fingerprint"));
         var observedSession = DaemonSessionTestFactory.CreateForToken(

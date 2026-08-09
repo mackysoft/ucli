@@ -49,7 +49,7 @@ internal static class PlayStatusServiceTestSupport
             requestExecutor,
             daemonLifecycleStore ?? new RecordingDaemonLifecycleStore(),
             processIdentityAssessor ?? CreateProcessIdentityAssessor(DaemonProcessIdentityAssessmentStatus.NotRunning),
-            new ManualTimeProvider(ObservedAtUtc));
+            new FakeTimeProvider(ObservedAtUtc));
     }
 
     public static DaemonSession CreatePlaySession ()

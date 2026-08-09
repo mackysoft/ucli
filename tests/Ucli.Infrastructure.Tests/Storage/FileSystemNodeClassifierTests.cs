@@ -38,10 +38,7 @@ public sealed class FileSystemNodeClassifierTests
         using var scope = TestDirectories.CreateTempScope("infrastructure-storage", "node-symlink");
         var targetPath = AbsolutePath.Parse(scope.WriteFile("target.txt", "content"));
         var symbolicLinkPath = AbsolutePath.Parse(Path.Combine(scope.FullPath, "linked.txt"));
-        if (!TestSymbolicLinks.TryCreateFile(symbolicLinkPath.Value, targetPath.Value))
-        {
-            return;
-        }
+        File.CreateSymbolicLink(symbolicLinkPath.Value, targetPath.Value);
 
         var result = FileSystemNodeClassifier.IsRegularFile(symbolicLinkPath, File.GetAttributes(symbolicLinkPath.Value));
 

@@ -138,10 +138,7 @@ public sealed class ImmutableArtifactFileVerifierTests
         var contents = new byte[] { 1, 2, 3 };
         await File.WriteAllBytesAsync(outsideFilePath, contents, CancellationToken.None);
         var linkPath = Path.Combine(boundaryPath, "linked");
-        if (!TestSymbolicLinks.TryCreateDirectory(linkPath, outsidePath))
-        {
-            return;
-        }
+        Directory.CreateSymbolicLink(linkPath, outsidePath);
 
         var artifact = CreatePathArtifact("linked/capture.bin", contents);
 

@@ -16,7 +16,7 @@ public sealed class SupervisorClientEnsureRunningTests
     [Trait("Size", "Small")]
     public async Task EnsureRunning_UsesSharedOperationDeadlineAndTerminalResponseGrace ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var observedDeadlineUtc = default(DateTimeOffset);
         var observedRequestDeadlineRemainingMilliseconds = 0;
         var observedOnStartupBlocked = DaemonStartupBlockedProcessPolicy.Auto;
@@ -228,22 +228,13 @@ public sealed class SupervisorClientEnsureRunningTests
                 onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
                 cancellationToken: CancellationToken.None)
             .AsTask();
-        var request = await TestAwaiter.WaitAsync(
-            requestObserved.Task,
-            "supervisor ensure-running request",
-            SignalWaitTimeout);
-        await TestAwaiter.WaitAsync(
-            timeProvider.WaitForTimerDueWithinAsync(terminalTimeout),
-            "supervisor ensure-running terminal deadline timer",
-            SignalWaitTimeout);
+        var request = await requestObserved.Task.WaitAsync(SignalWaitTimeout);
+        await timeProvider.WaitForTimerDueWithinAsync(terminalTimeout).WaitAsync(SignalWaitTimeout);
         timeProvider.Advance(commandTimeout.Add(TimeSpan.FromMilliseconds(500)));
         terminalResponseSource.TrySetResult(
             SupervisorClientTestSupport.CreateEnsureRunningFailureResponse(request, diagnosis, startup));
 
-        var result = await TestAwaiter.WaitAsync(
-            resultTask,
-            "supervisor ensure-running failure result",
-            SignalWaitTimeout);
+        var result = await resultTask.WaitAsync(SignalWaitTimeout);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(ExecutionErrorCodes.IpcTimeout, result.Error!.Code);
@@ -284,30 +275,18 @@ public sealed class SupervisorClientEnsureRunningTests
                 onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
                 cancellationToken: CancellationToken.None)
             .AsTask();
-        await TestAwaiter.WaitAsync(
-            requestObserved.Task,
-            "supervisor ensure-running request",
-            SignalWaitTimeout);
-        await TestAwaiter.WaitAsync(
-            timeProvider.WaitForTimerDueWithinAsync(terminalTimeout),
-            "supervisor ensure-running terminal deadline timer",
-            SignalWaitTimeout);
+        await requestObserved.Task.WaitAsync(SignalWaitTimeout);
+        await timeProvider.WaitForTimerDueWithinAsync(terminalTimeout).WaitAsync(SignalWaitTimeout);
 
         try
         {
             timeProvider.Advance(terminalTimeout);
-            var result = await TestAwaiter.WaitAsync(
-                resultTask,
-                "supervisor ensure-running timeout result",
-                SignalWaitTimeout);
+            var result = await resultTask.WaitAsync(SignalWaitTimeout);
 
             Assert.False(result.IsSuccess);
             Assert.Equal(ExecutionErrorKind.Timeout, result.Error!.Kind);
             Assert.Contains("terminal response", result.Error.Message, StringComparison.Ordinal);
-            await TestAwaiter.WaitAsync(
-                cancellationObserved.Task,
-                "supervisor ensure-running transport cancellation",
-                SignalWaitTimeout);
+            await cancellationObserved.Task.WaitAsync(SignalWaitTimeout);
         }
         finally
         {

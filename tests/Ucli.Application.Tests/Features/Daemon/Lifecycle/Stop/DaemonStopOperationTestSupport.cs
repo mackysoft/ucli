@@ -31,6 +31,6 @@ internal static class DaemonStopOperationTestSupport
             processTerminationService: processTerminationService ?? new RecordingDaemonProcessTerminationService(),
             artifactCleaner: artifactCleaner ?? new RecordingDaemonArtifactCleaner(),
             compensationOperationOwner: compensationOperationOwner ?? new DaemonCompensationOperationOwner(),
-            timeProvider: timeProvider ?? new ManualTimeProvider());
+            timeProvider: timeProvider ?? new FakeTimeProvider(DateTimeOffset.UnixEpoch));
     }
 }

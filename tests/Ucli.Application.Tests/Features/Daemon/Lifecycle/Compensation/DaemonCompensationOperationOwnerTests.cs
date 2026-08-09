@@ -9,7 +9,7 @@ public sealed class DaemonCompensationOperationOwnerTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenMutationIgnoresCancellation_RetainsAdmissionUntilOwnedMutationQuiesces ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var owner = new DaemonCompensationOperationOwner();
         var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(
             ProjectFingerprintTestFactory.Create("fingerprint-compensation-owner"));
@@ -34,16 +34,10 @@ public sealed class DaemonCompensationOperationOwnerTests
                 })
             .AsTask();
         Assert.True(mutationStarted.Task.IsCompletedSuccessfully);
-        await TestAwaiter.WaitAsync(
-            mutationStarted.Task,
-            "Compensation mutation start",
-            TimeSpan.FromSeconds(5));
+        await mutationStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
         timeProvider.Advance(TimeSpan.FromMilliseconds(100));
-        var firstResult = await TestAwaiter.WaitAsync(
-            firstExecutionTask,
-            "Compensation deadline result",
-            TimeSpan.FromSeconds(5));
+        var firstResult = await firstExecutionTask.WaitAsync(TimeSpan.FromSeconds(5));
 
         Assert.False(firstResult.IsSuccess);
         Assert.Equal(ExecutionErrorKind.Timeout, firstResult.Error!.Kind);
@@ -68,10 +62,7 @@ public sealed class DaemonCompensationOperationOwnerTests
             .AsTask();
 
         timeProvider.Advance(TimeSpan.FromMilliseconds(50));
-        var secondResult = await TestAwaiter.WaitAsync(
-            secondExecutionTask,
-            "Owned compensation admission result",
-            TimeSpan.FromSeconds(5));
+        var secondResult = await secondExecutionTask.WaitAsync(TimeSpan.FromSeconds(5));
 
         Assert.False(secondResult.IsSuccess);
         Assert.Equal(ExecutionErrorKind.Timeout, secondResult.Error!.Kind);
@@ -79,15 +70,12 @@ public sealed class DaemonCompensationOperationOwnerTests
 
         releaseMutation.TrySetResult();
         var quiescenceDeadline = ExecutionDeadline.Start(TimeSpan.FromSeconds(1), timeProvider);
-        var quiescenceError = await TestAwaiter.WaitAsync(
-            owner.WaitForQuiescenceAsync(
+        var quiescenceError = await owner.WaitForQuiescenceAsync(
                     context,
                     quiescenceDeadline,
                     CancellationToken.None,
                     "Timed out waiting for deferred compensation to quiesce.")
-                .AsTask(),
-            "Deferred compensation quiescence",
-            TimeSpan.FromSeconds(5));
+                .AsTask().WaitAsync(TimeSpan.FromSeconds(5));
         Assert.Null(quiescenceError);
         Assert.Equal(1, lifecycleLease.DisposeCount);
 
@@ -107,7 +95,7 @@ public sealed class DaemonCompensationOperationOwnerTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenAnotherProjectOwnsCompensation_AdmitsIndependentProjectConcurrently ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var owner = new DaemonCompensationOperationOwner();
         var firstContext = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(
             ProjectFingerprintTestFactory.Create("fingerprint-compensation-owner-first"));
@@ -134,13 +122,9 @@ public sealed class DaemonCompensationOperationOwnerTests
                     return true;
                 })
             .AsTask();
-        await TestAwaiter.WaitAsync(
-            firstMutationStarted.Task,
-            "First project compensation start",
-            TimeSpan.FromSeconds(5));
+        await firstMutationStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
-        var secondResult = await TestAwaiter.WaitAsync(
-            owner.ExecuteAsync(
+        var secondResult = await owner.ExecuteAsync(
                     secondContext,
                     DaemonOperationLane.LifecycleCompensation,
                     ExecutionDeadline.Start(TimeSpan.FromSeconds(1), timeProvider),
@@ -148,16 +132,11 @@ public sealed class DaemonCompensationOperationOwnerTests
                     "Timed out before second compensation began.",
                     "Timed out while second compensation was running.",
                     (_, _) => ValueTask.FromResult(true))
-                .AsTask(),
-            "Independent project compensation",
-            TimeSpan.FromSeconds(5));
+                .AsTask().WaitAsync(TimeSpan.FromSeconds(5));
 
         Assert.True(secondResult.IsSuccess);
         releaseFirstMutation.TrySetResult();
-        var firstResult = await TestAwaiter.WaitAsync(
-            firstExecutionTask,
-            "First project compensation completion",
-            TimeSpan.FromSeconds(5));
+        var firstResult = await firstExecutionTask.WaitAsync(TimeSpan.FromSeconds(5));
         Assert.True(firstResult.IsSuccess);
     }
 
@@ -165,7 +144,7 @@ public sealed class DaemonCompensationOperationOwnerTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenSupplementalLaneIsOccupied_AdmitsLifecycleLaneForSameProject ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var owner = new DaemonCompensationOperationOwner();
         var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(
             ProjectFingerprintTestFactory.Create("fingerprint-operation-lane-independence"));
@@ -190,13 +169,9 @@ public sealed class DaemonCompensationOperationOwnerTests
 
         try
         {
-            await TestAwaiter.WaitAsync(
-                supplementalStarted.Task,
-                "Supplemental persistence start",
-                TimeSpan.FromSeconds(5));
+            await supplementalStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
-            var lifecycleResult = await TestAwaiter.WaitAsync(
-                owner.ExecuteAsync(
+            var lifecycleResult = await owner.ExecuteAsync(
                         context,
                         DaemonOperationLane.LifecycleCompensation,
                         ExecutionDeadline.Start(TimeSpan.FromSeconds(1), timeProvider),
@@ -204,9 +179,7 @@ public sealed class DaemonCompensationOperationOwnerTests
                         "Timed out before lifecycle compensation began.",
                         "Timed out while lifecycle compensation was running.",
                         (_, _) => ValueTask.FromResult(true))
-                    .AsTask(),
-                "Independent lifecycle compensation",
-                TimeSpan.FromSeconds(5));
+                    .AsTask().WaitAsync(TimeSpan.FromSeconds(5));
             var lifecycleQuiescenceError = await owner.WaitForQuiescenceAsync(
                 context,
                 ExecutionDeadline.Start(TimeSpan.FromSeconds(1), timeProvider),
@@ -225,10 +198,7 @@ public sealed class DaemonCompensationOperationOwnerTests
         finally
         {
             releaseSupplemental.TrySetResult();
-            var supplementalResult = await TestAwaiter.WaitAsync(
-                supplementalTask,
-                "Supplemental persistence completion",
-                TimeSpan.FromSeconds(5));
+            var supplementalResult = await supplementalTask.WaitAsync(TimeSpan.FromSeconds(5));
             Assert.True(supplementalResult.IsSuccess);
         }
     }
@@ -237,7 +207,7 @@ public sealed class DaemonCompensationOperationOwnerTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenSameSupplementalLaneIsOccupied_SerializesLaterMutation ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var owner = new DaemonCompensationOperationOwner();
         var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(
             ProjectFingerprintTestFactory.Create("fingerprint-supplemental-lane-serialization"));
@@ -260,10 +230,7 @@ public sealed class DaemonCompensationOperationOwnerTests
                     return true;
                 })
             .AsTask();
-        await TestAwaiter.WaitAsync(
-            firstStarted.Task,
-            "First supplemental persistence start",
-            TimeSpan.FromSeconds(5));
+        await firstStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
         var secondTask = owner.ExecuteAsync(
                 context,
@@ -289,14 +256,8 @@ public sealed class DaemonCompensationOperationOwnerTests
             releaseFirst.TrySetResult();
         }
 
-        var firstResult = await TestAwaiter.WaitAsync(
-            firstTask,
-            "First supplemental persistence completion",
-            TimeSpan.FromSeconds(5));
-        var secondResult = await TestAwaiter.WaitAsync(
-            secondTask,
-            "Second supplemental persistence completion",
-            TimeSpan.FromSeconds(5));
+        var firstResult = await firstTask.WaitAsync(TimeSpan.FromSeconds(5));
+        var secondResult = await secondTask.WaitAsync(TimeSpan.FromSeconds(5));
 
         Assert.True(firstResult.IsSuccess);
         Assert.True(secondResult.IsSuccess);
@@ -307,7 +268,7 @@ public sealed class DaemonCompensationOperationOwnerTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenCancellationCallbackBlocks_ReturnsAtDeadlineAndRetainsOwnershipThroughCallback ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var owner = new DaemonCompensationOperationOwner();
         var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(
             ProjectFingerprintTestFactory.Create("fingerprint-compensation-blocking-callback"));
@@ -342,24 +303,15 @@ public sealed class DaemonCompensationOperationOwnerTests
             .AsTask();
         try
         {
-            await TestAwaiter.WaitAsync(
-                operationStarted.Task,
-                "Blocking-callback compensation start",
-                TimeSpan.FromSeconds(5));
+            await operationStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
             timeProvider.Advance(TimeSpan.FromMilliseconds(100));
-            var result = await TestAwaiter.WaitAsync(
-                executionTask,
-                "Blocking cancellation callback deadline result",
-                TimeSpan.FromSeconds(5));
+            var result = await executionTask.WaitAsync(TimeSpan.FromSeconds(5));
 
             Assert.False(result.IsSuccess);
             Assert.Equal(ExecutionErrorKind.Timeout, result.Error!.Kind);
             Assert.True(operationCancellationToken.IsCancellationRequested);
-            await TestAwaiter.WaitAsync(
-                callbackStarted.Task,
-                "Blocking cancellation callback start",
-                TimeSpan.FromSeconds(5));
+            await callbackStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
             releaseOperation.TrySetResult();
             var admissionTask = owner.WaitForQuiescenceAsync(
@@ -369,37 +321,28 @@ public sealed class DaemonCompensationOperationOwnerTests
                     "Timed out waiting for blocking cancellation callback.")
                 .AsTask();
             timeProvider.Advance(TimeSpan.FromMilliseconds(50));
-            var admissionError = await TestAwaiter.WaitAsync(
-                admissionTask,
-                "Blocking callback admission result",
-                TimeSpan.FromSeconds(5));
+            var admissionError = await admissionTask.WaitAsync(TimeSpan.FromSeconds(5));
             Assert.Equal(ExecutionErrorKind.Timeout, admissionError!.Kind);
 
             releaseCallback.TrySetResult();
-            var quiescenceError = await TestAwaiter.WaitAsync(
-                owner.WaitForQuiescenceAsync(
+            var quiescenceError = await owner.WaitForQuiescenceAsync(
                         context,
                         ExecutionDeadline.Start(TimeSpan.FromSeconds(1), timeProvider),
                         CancellationToken.None,
                         "Timed out waiting for callback compensation quiescence.")
-                    .AsTask(),
-                "Blocking callback compensation quiescence",
-                TimeSpan.FromSeconds(5));
+                    .AsTask().WaitAsync(TimeSpan.FromSeconds(5));
             Assert.Null(quiescenceError);
         }
         finally
         {
             releaseOperation.TrySetResult();
             releaseCallback.TrySetResult();
-            _ = await TestAwaiter.WaitAsync(
-                owner.WaitForQuiescenceAsync(
+            _ = await owner.WaitForQuiescenceAsync(
                         context,
                         ExecutionDeadline.Start(TimeSpan.FromSeconds(1), timeProvider),
                         CancellationToken.None,
                         "Timed out cleaning up blocking callback compensation.")
-                    .AsTask(),
-                "Blocking callback compensation cleanup",
-                TimeSpan.FromSeconds(5));
+                    .AsTask().WaitAsync(TimeSpan.FromSeconds(5));
         }
     }
 
@@ -407,7 +350,7 @@ public sealed class DaemonCompensationOperationOwnerTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenTransferredLifecycleLeaseCannotBeReleased_KeepsLaterAdmissionClosed ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var owner = new DaemonCompensationOperationOwner();
         var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(
             ProjectFingerprintTestFactory.Create("fingerprint-compensation-lease-release-failure"));
@@ -429,25 +372,16 @@ public sealed class DaemonCompensationOperationOwnerTests
                     return true;
                 })
             .AsTask();
-        await TestAwaiter.WaitAsync(
-            mutationStarted.Task,
-            "Lease-failure compensation start",
-            TimeSpan.FromSeconds(5));
+        await mutationStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
         timeProvider.Advance(TimeSpan.FromMilliseconds(100));
-        var result = await TestAwaiter.WaitAsync(
-            executionTask,
-            "Lease-failure compensation deadline result",
-            TimeSpan.FromSeconds(5));
+        var result = await executionTask.WaitAsync(TimeSpan.FromSeconds(5));
         Assert.False(result.IsSuccess);
         var lifecycleLease = new ThrowingAsyncDisposable();
         Assert.True(owner.TryTransferLifecycleLease(context, lifecycleLease));
 
         releaseMutation.TrySetResult();
-        await TestAwaiter.WaitAsync(
-            lifecycleLease.DisposeAttempted,
-            "Lifecycle lease release attempt",
-            TimeSpan.FromSeconds(5));
+        await lifecycleLease.DisposeAttempted.WaitAsync(TimeSpan.FromSeconds(5));
         var admissionTask = owner.WaitForQuiescenceAsync(
                 context,
                 ExecutionDeadline.Start(TimeSpan.FromMilliseconds(50), timeProvider),
@@ -455,10 +389,7 @@ public sealed class DaemonCompensationOperationOwnerTests
                 "Timed out because lifecycle lease release failed.")
             .AsTask();
         timeProvider.Advance(TimeSpan.FromMilliseconds(50));
-        var admissionError = await TestAwaiter.WaitAsync(
-            admissionTask,
-            "Lifecycle lease release failure admission",
-            TimeSpan.FromSeconds(5));
+        var admissionError = await admissionTask.WaitAsync(TimeSpan.FromSeconds(5));
 
         Assert.Equal(ExecutionErrorKind.Timeout, admissionError!.Kind);
     }
@@ -467,7 +398,7 @@ public sealed class DaemonCompensationOperationOwnerTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenCallerIsCanceled_ReturnsCancellationWithoutCancelingOwnedMutation ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var owner = new DaemonCompensationOperationOwner();
         var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(
             ProjectFingerprintTestFactory.Create("fingerprint-compensation-caller-cancellation"));
@@ -494,22 +425,16 @@ public sealed class DaemonCompensationOperationOwnerTests
                     return true;
                 })
             .AsTask());
-        await TestAwaiter.WaitAsync(
-            mutationStarted.Task,
-            "Caller-canceled owned mutation start",
-            TimeSpan.FromSeconds(5));
+        await mutationStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
         Assert.False(ownedTokenWasCanceled);
         releaseMutation.TrySetResult();
-        var quiescenceError = await TestAwaiter.WaitAsync(
-            owner.WaitForQuiescenceAsync(
+        var quiescenceError = await owner.WaitForQuiescenceAsync(
                     context,
                     ExecutionDeadline.Start(TimeSpan.FromSeconds(1), timeProvider),
                     CancellationToken.None,
                     "Timed out waiting for caller-canceled mutation quiescence.")
-                .AsTask(),
-            "Caller-canceled mutation quiescence",
-            TimeSpan.FromSeconds(5));
+                .AsTask().WaitAsync(TimeSpan.FromSeconds(5));
         Assert.Null(quiescenceError);
     }
 
@@ -552,33 +477,21 @@ public sealed class DaemonCompensationOperationOwnerTests
                     return true;
                 })
             .AsTask();
-        await TestAwaiter.WaitAsync(
-            mutationStarted.Task,
-            "Caller-canceled deadline mutation start",
-            TimeSpan.FromSeconds(5));
+        await mutationStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
         cancellationTokenSource.Cancel();
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => executionTask);
         Assert.False(ownedCancellationObserved.Task.IsCompleted);
         Assert.True(owner.TryTransferLifecycleLease(context, lifecycleLease));
 
-        await TestAwaiter.WaitAsync(
-            timeProvider.WaitForTimerDueWithinAsync(timeout),
-            "Owned mutation deadline timer registration",
-            TimeSpan.FromSeconds(5));
+        await timeProvider.WaitForTimerDueWithinAsync(timeout).WaitAsync(TimeSpan.FromSeconds(5));
         timeProvider.Advance(timeout);
-        await TestAwaiter.WaitAsync(
-            ownedCancellationObserved.Task,
-            "Owned mutation cancellation at original deadline",
-            TimeSpan.FromSeconds(5));
-        var quiescenceError = await TestAwaiter.WaitAsync(
-            owner.WaitForQuiescenceAsync(
+        await ownedCancellationObserved.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        var quiescenceError = await owner.WaitForQuiescenceAsync(
                     context,
                     ExecutionDeadline.Start(TimeSpan.FromSeconds(1), timeProvider),
                     CancellationToken.None,
                     "Timed out waiting for deadline-canceled compensation.")
-                .AsTask(),
-            "Deadline-canceled compensation quiescence",
-            TimeSpan.FromSeconds(5));
+                .AsTask().WaitAsync(TimeSpan.FromSeconds(5));
 
         Assert.Null(quiescenceError);
         Assert.Equal(1, lifecycleLease.DisposeCount);
@@ -588,7 +501,7 @@ public sealed class DaemonCompensationOperationOwnerTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenOperationCancelsAtOwnedDeadline_ReturnsStructuredTimeout ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var owner = new DaemonCompensationOperationOwner();
         var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(
             ProjectFingerprintTestFactory.Create("fingerprint-compensation-deadline-cancellation-race"));
@@ -616,16 +529,10 @@ public sealed class DaemonCompensationOperationOwnerTests
                     return new ValueTask<bool>(operationCompletion.Task);
                 })
             .AsTask();
-        await TestAwaiter.WaitAsync(
-            operationStarted.Task,
-            "Deadline-racing compensation start",
-            TimeSpan.FromSeconds(5));
+        await operationStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
         timeProvider.Advance(timeout);
-        var result = await TestAwaiter.WaitAsync(
-            executionTask,
-            "Deadline-racing compensation result",
-            TimeSpan.FromSeconds(5));
+        var result = await executionTask.WaitAsync(TimeSpan.FromSeconds(5));
 
         Assert.False(result.IsSuccess);
         Assert.Equal(ExecutionErrorKind.Timeout, result.Error!.Kind);
@@ -635,7 +542,7 @@ public sealed class DaemonCompensationOperationOwnerTests
     [Trait("Size", "Small")]
     public async Task WaitForQuiescence_WhenReleaseAndCallerCancellationCoincide_PrefersCallerCancellation ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var owner = new DaemonCompensationOperationOwner();
         var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(
             ProjectFingerprintTestFactory.Create("fingerprint-compensation-quiescence-cancellation-race"));
@@ -658,16 +565,10 @@ public sealed class DaemonCompensationOperationOwnerTests
                     return true;
                 })
             .AsTask();
-        await TestAwaiter.WaitAsync(
-            operationStarted.Task,
-            "Quiescence-racing compensation start",
-            TimeSpan.FromSeconds(5));
+        await operationStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
         timeProvider.Advance(operationTimeout);
-        var executionResult = await TestAwaiter.WaitAsync(
-            executionTask,
-            "Quiescence-racing compensation timeout",
-            TimeSpan.FromSeconds(5));
+        var executionResult = await executionTask.WaitAsync(TimeSpan.FromSeconds(5));
         Assert.False(executionResult.IsSuccess);
 
         using var cancellationTokenSource = new CancellationTokenSource();
@@ -683,10 +584,7 @@ public sealed class DaemonCompensationOperationOwnerTests
 
         releaseOperation.TrySetResult();
 
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => TestAwaiter.WaitAsync(
-            quiescenceTask,
-            "Quiescence and caller cancellation race",
-            TimeSpan.FromSeconds(5)));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => quiescenceTask.WaitAsync(TimeSpan.FromSeconds(5)));
     }
 
     private sealed class RecordingAsyncDisposable : IAsyncDisposable

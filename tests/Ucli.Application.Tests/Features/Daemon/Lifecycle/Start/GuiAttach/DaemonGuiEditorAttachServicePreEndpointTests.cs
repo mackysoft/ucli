@@ -27,11 +27,11 @@ public sealed class DaemonGuiEditorAttachServicePreEndpointTests
             new UnexpectedDaemonGuiRebootstrapClient("Batchmode editor mode mismatch should not request rebootstrap."),
             diagnosisStore,
             new DaemonCompensationOperationOwner(),
-            new ManualTimeProvider());
+            new FakeTimeProvider(DateTimeOffset.UnixEpoch));
 
         var result = await service.TryAttachExistingGuiEditorAsync(
             DaemonGuiEditorAttachServiceTestSupport.UnityProject,
-            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new ManualTimeProvider()),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new FakeTimeProvider(DateTimeOffset.UnixEpoch)),
             UnityEditorMode.Batchmode,
             DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);
@@ -61,11 +61,11 @@ public sealed class DaemonGuiEditorAttachServicePreEndpointTests
             new UnexpectedDaemonGuiRebootstrapClient("Rejected GUI marker should not request rebootstrap."),
             new UnexpectedDaemonDiagnosisStore("Rejected GUI marker should not write diagnosis."),
             new DaemonCompensationOperationOwner(),
-            new ManualTimeProvider());
+            new FakeTimeProvider(DateTimeOffset.UnixEpoch));
 
         var result = await service.TryAttachExistingGuiEditorAsync(
             DaemonGuiEditorAttachServiceTestSupport.UnityProject,
-            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new ManualTimeProvider()),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new FakeTimeProvider(DateTimeOffset.UnixEpoch)),
             editorMode: null,
             DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);

@@ -751,7 +751,7 @@ public sealed class SupervisorManifestStoreTests
         using var scope = TestDirectories.CreateTempScope(
             "supervisor-manifest-store",
             "consistent-successor-read");
-        var store = SupervisorManifestStoreTestSupport.CreateFileBacked(new ManualTimeProvider());
+        var store = SupervisorManifestStoreTestSupport.CreateFileBacked(new FakeTimeProvider(DateTimeOffset.UnixEpoch));
         var initialManifest = CreateManifest();
         var successorManifest = CreateManifest(
             sessionTokenDiscriminator: 2,

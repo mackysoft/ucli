@@ -24,10 +24,7 @@ public sealed class SupervisorTransportConnectionGroupTests
                 static (_, _) => Task.CompletedTask,
                 maximumActiveConnections: 1,
                 CancellationToken.None));
-            await TestAwaiter.WaitAsync(
-                firstStream.DisposeStarted,
-                "First supervisor connection cleanup",
-                SignalWaitTimeout);
+            await firstStream.DisposeStarted.WaitAsync(SignalWaitTimeout);
 
             Assert.False(group.TryStart(
                 secondStream,
@@ -42,10 +39,7 @@ public sealed class SupervisorTransportConnectionGroupTests
             Assert.False(drainTask.IsCompleted);
 
             firstStream.CompleteDispose();
-            await TestAwaiter.WaitAsync(
-                drainTask,
-                "Supervisor connection cleanup drain",
-                SignalWaitTimeout);
+            await drainTask.WaitAsync(SignalWaitTimeout);
             Assert.True(group.TryStart(
                 secondStream,
                 (_, _) =>
@@ -55,10 +49,7 @@ public sealed class SupervisorTransportConnectionGroupTests
                 },
                 maximumActiveConnections: 1,
                 CancellationToken.None));
-            await TestAwaiter.WaitAsync(
-                secondHandlerEntered.Task,
-                "Second supervisor connection handler",
-                SignalWaitTimeout);
+            await secondHandlerEntered.Task.WaitAsync(SignalWaitTimeout);
             Assert.False(fatalException.Task.IsCompleted);
         }
         finally

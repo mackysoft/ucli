@@ -93,7 +93,7 @@ public sealed class TestRunCommandProgressOutputTests
             cancellationToken: CancellationToken.None));
 
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         CommandResultAssert.HasSuccessEnvelope(
             outputJson.RootElement,
             UcliCommandNames.TestRun);
@@ -154,7 +154,7 @@ public sealed class TestRunCommandProgressOutputTests
         using var entryJson = JsonDocument.Parse(lines[0]);
         AssertTestStreamEnvelope(entryJson.RootElement, sequence: 1, TestRunProgressEventNames.RunStarted);
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         CommandResultAssert.HasStandardEnvelope(
             outputJson.RootElement,
             UcliCommandNames.TestRun,
@@ -200,7 +200,7 @@ public sealed class TestRunCommandProgressOutputTests
             cancellationToken: CancellationToken.None));
 
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         CommandResultAssert.HasSuccessEnvelope(
             outputJson.RootElement,
             UcliCommandNames.TestRun);
@@ -277,7 +277,7 @@ public sealed class TestRunCommandProgressOutputTests
             cancellationToken: CancellationToken.None));
 
         Assert.Equal(1, result.ExitCode);
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         CommandResultAssert.HasStandardEnvelope(
             outputJson.RootElement,
             UcliCommandNames.TestRun,

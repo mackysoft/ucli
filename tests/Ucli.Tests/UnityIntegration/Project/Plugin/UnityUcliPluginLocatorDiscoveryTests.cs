@@ -23,7 +23,7 @@ public sealed class UnityUcliPluginLocatorDiscoveryTests
         var result = await locator.LocateAsync(unityProjectRoot, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        await TestAwaiter.WaitAsync(cacheWriteTask, "Plugin marker cache write", SignalWaitTimeout);
+        await cacheWriteTask.WaitAsync(SignalWaitTimeout);
         Assert.Equal(UnityUcliPluginLocateStatus.Found, result.Status);
         Assert.Equal(
             ResolveMarkerPath(
@@ -49,7 +49,7 @@ public sealed class UnityUcliPluginLocatorDiscoveryTests
         var result = await locator.LocateAsync(unityProjectRoot, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        await TestAwaiter.WaitAsync(cacheWriteTask, "Plugin marker cache write", SignalWaitTimeout);
+        await cacheWriteTask.WaitAsync(SignalWaitTimeout);
         Assert.Equal(UnityUcliPluginLocateStatus.Found, result.Status);
         Assert.Equal(
             ResolveMarkerPath(
@@ -75,7 +75,7 @@ public sealed class UnityUcliPluginLocatorDiscoveryTests
         var result = await locator.LocateAsync(unityProjectRoot, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        await TestAwaiter.WaitAsync(cacheWriteTask, "Plugin marker cache write", SignalWaitTimeout);
+        await cacheWriteTask.WaitAsync(SignalWaitTimeout);
         Assert.Equal(UnityUcliPluginLocateStatus.Found, result.Status);
         Assert.Equal(
             ResolveMarkerPath(
@@ -101,7 +101,7 @@ public sealed class UnityUcliPluginLocatorDiscoveryTests
         var result = await locator.LocateAsync(unityProjectRoot, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        await TestAwaiter.WaitAsync(cacheWriteTask, "Plugin marker cache write", SignalWaitTimeout);
+        await cacheWriteTask.WaitAsync(SignalWaitTimeout);
         Assert.Equal(UnityUcliPluginLocateStatus.Found, result.Status);
         Assert.Equal(
             ResolveMarkerPath(

@@ -26,7 +26,7 @@ public sealed class ReadyCommandParserTests
                     result.ExitCode == (int)CliExitCode.InvalidArgument,
                     $"{readIndexModeOption} must dispatch to ready command validation.");
                 CommandResultAssert.DoesNotReportUnrecognizedArguments(result.StdErr, readIndexModeOption);
-                using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+                using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
                 CommandResultAssert.HasInvalidArgumentError(outputJson.RootElement, UcliCommandNames.Ready);
                 Assert.Contains("timeout must be a positive integer", outputJson.RootElement.GetProperty("message").GetString(), StringComparison.Ordinal);
             }

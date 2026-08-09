@@ -12,7 +12,7 @@ public sealed class ValidateServiceTimeoutTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenExplicitTimeoutElapsesDuringSharedPreflight_ReturnsTimeoutFailure ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var preflightService = new RecordingRequestStaticValidationPreflightService
         {
             Result = RequestStaticValidationPreflightResult.Success(
@@ -51,7 +51,7 @@ public sealed class ValidateServiceTimeoutTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenConfigTimeoutElapsesDuringSharedPreflight_ReturnsTimeoutFailure ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var config = CreateConfigWithValidateTimeout(timeoutMilliseconds: 100);
         var preparedRequest = CreatePreparedRequestContext(config);
         var preflightService = new RecordingRequestStaticValidationPreflightService
@@ -89,7 +89,7 @@ public sealed class ValidateServiceTimeoutTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenReadIndexDisabledValidationTimesOut_ReturnsTimeoutFailureWithDisabledOutput ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var validator = new RecordingRequestStaticValidator
         {
             Result = ValidationResult.Success(),

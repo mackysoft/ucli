@@ -21,7 +21,7 @@ internal static class SupervisorProjectCoordinatorTestSupport
         IDaemonArtifactCleaner? artifactCleaner = null,
         TimeProvider? timeProvider = null)
     {
-        var effectiveTimeProvider = timeProvider ?? new ManualTimeProvider();
+        var effectiveTimeProvider = timeProvider ?? new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var runtimeLogger = new SupervisorRuntimeLogger();
         var stabilityVerifier = new SupervisorStabilityVerifier(
             pingClient,
@@ -117,10 +117,7 @@ internal static class SupervisorProjectCoordinatorTestSupport
                     "Managed daemon helper process",
                     ProcessExitTimeout)
                 .ConfigureAwait(false);
-            await TestAwaiter.WaitAsync(
-                    coordinator.AwaitManagedProcessesAsync(),
-                    "Supervisor managed daemon cleanup",
-                    SignalWaitTimeout)
+            await coordinator.AwaitManagedProcessesAsync().WaitAsync(SignalWaitTimeout)
                 .ConfigureAwait(false);
         }
 

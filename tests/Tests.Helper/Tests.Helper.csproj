@@ -11,6 +11,8 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="MackySoft.Testing.IO" Version="[0.1.0]" />
+    <PackageReference Include="MackySoft.Testing.Xunit" Version="[0.1.0]" />
     <PackageReference Include="xunit.assert" Version="2.9.3" PrivateAssets="all" />
   </ItemGroup>
 

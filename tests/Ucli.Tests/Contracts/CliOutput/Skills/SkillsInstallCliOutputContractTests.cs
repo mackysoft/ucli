@@ -17,7 +17,7 @@ public sealed class SkillsInstallCliOutputContractTests
         var created = await SkillsCliOutputContractTestSupport.RunOpenAiInstallAsync(repoRoot);
         var noOp = await SkillsCliOutputContractTestSupport.RunOpenAiInstallAsync(repoRoot);
 
-        using var createdJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(created.StdOut);
+        using var createdJson = JsonAssert.ParseMultilineObject(created.StdOut);
         Assert.Equal((int)CliExitCode.Success, created.ExitCode);
         CommandResultAssert.HasSuccessEnvelope(
             createdJson.RootElement,
@@ -35,7 +35,7 @@ public sealed class SkillsInstallCliOutputContractTests
                     .HasString("skillName", SkillsCliOutputContractTestSupport.ExpectedSkillNames[0])
                     .HasString("action", "created")));
 
-        using var noOpJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(noOp.StdOut);
+        using var noOpJson = JsonAssert.ParseMultilineObject(noOp.StdOut);
         Assert.Equal((int)CliExitCode.Success, noOp.ExitCode);
         JsonAssert.For(noOpJson.RootElement)
             .HasProperty("payload", payload => payload
@@ -66,7 +66,7 @@ public sealed class SkillsInstallCliOutputContractTests
             printDiff: true,
             skill: [SkillsCliOutputContractTestSupport.SelectedSingleSkillName]);
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
         CommandResultAssert.HasSuccessEnvelope(
             outputJson.RootElement,
@@ -102,7 +102,7 @@ public sealed class SkillsInstallCliOutputContractTests
             targetDir: "shared-skills",
             skill: [SkillsCliOutputContractTestSupport.SelectedSingleSkillName]);
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(openAi.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(openAi.StdOut);
         Assert.Equal((int)CliExitCode.ToolError, openAi.ExitCode);
         CommandResultAssert.HasStandardEnvelope(
             outputJson.RootElement,
@@ -130,7 +130,7 @@ public sealed class SkillsInstallCliOutputContractTests
             printDiff: true,
             skill: [SkillsCliOutputContractTestSupport.SelectedSingleSkillName]);
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
         var action = SkillsCliOutputContractTestSupport.AssertSelectedSkillForcedUpdateWithDiff(outputJson.RootElement);
         var deleted = SkillsCliOutputContractTestSupport.FindDiffFile(action, "local.md");

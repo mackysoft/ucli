@@ -46,7 +46,9 @@ public sealed class UnityDaemonIpcClientDispatchTests
             Path.GetFullPath("/tmp/ucli-session.sock"),
             UnityIpcMethod.OpsRead,
             IpcSessionTokenTestFactory.Create("daemon-token").GetEncodedValue());
-        Assert.Equal(CreateDispatchPayload().GetRawText(), request.Payload.GetRawText());
+        Assert.True(JsonNode.DeepEquals(
+            JsonNode.Parse(CreateDispatchPayload().GetRawText()),
+            JsonNode.Parse(request.Payload.GetRawText())));
     }
 
     [Fact]
@@ -561,16 +563,10 @@ public sealed class UnityDaemonIpcClientDispatchTests
                 CancellationToken.None)
             .AsTask();
         var retryDelay = TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds);
-        await TestAwaiter.WaitAsync(
-            timeProvider.WaitForTimerDueWithinAsync(retryDelay),
-            "Unity daemon dispatch endpoint retry timer",
-            TimeSpan.FromSeconds(5));
+        await timeProvider.WaitForTimerDueWithinAsync(retryDelay).WaitAsync(TimeSpan.FromSeconds(5));
         timeProvider.Advance(DaemonTimeouts.ProbeAttemptTimeoutCap);
 
-        var result = await TestAwaiter.WaitAsync(
-            sendTask,
-            "Unity daemon dispatch endpoint window result",
-            TimeSpan.FromSeconds(5));
+        var result = await sendTask.WaitAsync(TimeSpan.FromSeconds(5));
 
         Assert.False(result.IsSuccess);
         Assert.Equal(UnityRequestFailureKind.TransportInterrupted, result.FailureInfo!.FailureKind);
@@ -593,7 +589,7 @@ public sealed class UnityDaemonIpcClientDispatchTests
         bool streaming,
         bool recoverable)
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var transportClient = new RecordingIpcTransportClient(_ => CreateResponse(Guid.NewGuid()));
         transportClient.EnqueueResponse(CreateSessionTokenInvalidResponse());
         transportClient.EnqueueResponse(CreateResponse(Guid.NewGuid()));
@@ -646,7 +642,7 @@ public sealed class UnityDaemonIpcClientDispatchTests
     [Trait("Size", "Small")]
     public async Task SendAsync_WithRequestDeadline_PreservesAbsoluteDeadlineAlongsideTransportTimeout ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var response = CreateResponse(Guid.NewGuid());
         var transportClient = new RecordingIpcTransportClient(_ => response);
         var sessionStore = new QueuedDaemonSessionStore(
@@ -674,7 +670,7 @@ public sealed class UnityDaemonIpcClientDispatchTests
     [Trait("Size", "Small")]
     public async Task SendAsync_WithNewLifecycleExecution_UsesCompletionDeadlineForIpcDelivery ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var transportClient = new RecordingIpcTransportClient(
             request => CreateResponse(request.RequestId));
         var client = new UnityDaemonIpcClient(
@@ -762,7 +758,7 @@ public sealed class UnityDaemonIpcClientDispatchTests
     [Trait("Size", "Small")]
     public async Task SendAsync_WhenExecutionDeadlineExpiresAfterStartWrite_UsesCompletionGraceForActionDelivery ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var transportClient = new RecordingIpcTransportClient(
             request =>
             {
@@ -883,24 +879,15 @@ public sealed class UnityDaemonIpcClientDispatchTests
                     cleanupCancellationTokenSource.Token)
                 .AsTask();
         await sessionStore.Started;
-        await TestAwaiter.WaitAsync(
-            timeProvider.WaitForTimerDueWithinAsync(TimeSpan.FromSeconds(5)),
-            "Unity daemon dispatch session resolution deadline timer",
-            SignalWaitTimeout);
+        await timeProvider.WaitForTimerDueWithinAsync(TimeSpan.FromSeconds(5)).WaitAsync(SignalWaitTimeout);
 
         try
         {
             timeProvider.Advance(TimeSpan.FromSeconds(5));
-            var result = await TestAwaiter.WaitAsync(
-                sendTask,
-                "Unity daemon dispatch session resolution timeout result",
-                SignalWaitTimeout);
+            var result = await sendTask.WaitAsync(SignalWaitTimeout);
             Assert.False(result.IsSuccess);
             Assert.Equal(ExecutionErrorCodes.IpcTimeout, result.ErrorCode);
-            await TestAwaiter.WaitAsync(
-                sessionStore.CancellationObserved,
-                "Unity daemon dispatch session resolution cancellation",
-                SignalWaitTimeout);
+            await sessionStore.CancellationObserved.WaitAsync(SignalWaitTimeout);
             DaemonIpcDispatchAssert.NoDispatchWasSent(transportClient);
         }
         finally
@@ -1195,7 +1182,7 @@ public sealed class UnityDaemonIpcClientDispatchTests
         var transportClient = new RecordingIpcTransportClient(_ => throw new TimeoutException("timed out"));
         var sessionStore = new QueuedDaemonSessionStore(
             CreateSessionReadResult("daemon-token"));
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var client = new UnityDaemonIpcClient(
             transportClient,
             DaemonSessionAcquisitionCoordinatorTestFactory.Create(

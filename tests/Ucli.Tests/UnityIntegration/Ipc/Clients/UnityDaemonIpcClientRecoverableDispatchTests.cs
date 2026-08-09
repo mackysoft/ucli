@@ -243,7 +243,7 @@ public sealed class UnityDaemonIpcClientRecoverableDispatchTests
     [Trait("Size", "Small")]
     public async Task SendAsync_WhenResponseInterruptionExhaustsCompletionDeadline_ReturnsTransportTimeout ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var executionTimeout = TimeSpan.FromSeconds(5);
         var transportClient = new RecordingIpcTransportClient(_ => CreateResponse(Guid.NewGuid()));
         transportClient.EnqueueResponse(_ =>
@@ -490,7 +490,9 @@ public sealed class UnityDaemonIpcClientRecoverableDispatchTests
             requests[1].RequestDeadlineRemainingMilliseconds
             < requests[0].RequestDeadlineRemainingMilliseconds);
         Assert.Equal(requests[0].Method, requests[1].Method);
-        Assert.Equal(requests[0].Payload.GetRawText(), requests[1].Payload.GetRawText());
+        Assert.True(JsonNode.DeepEquals(
+            JsonNode.Parse(requests[0].Payload.GetRawText()),
+            JsonNode.Parse(requests[1].Payload.GetRawText())));
         Assert.All(requests, request => Assert.False(request.Payload.TryGetProperty("timeoutMilliseconds", out _)));
     }
 

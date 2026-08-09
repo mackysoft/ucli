@@ -304,7 +304,7 @@ public sealed class DaemonLaunchServiceDeadlineTests
     [Trait("Size", "Small")]
     public async Task Launch_WhenCallerCancelsAfterSessionInitialization_DoesNotStartLaterPhasesAndCleansSession ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(
             ProjectFingerprintTestFactory.Create("fingerprint-cancel-after-session-initialization"));
         var initializedSession = DaemonSessionTestFactory.Create(

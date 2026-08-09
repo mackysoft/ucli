@@ -63,7 +63,7 @@ public sealed class ScreenshotCommandTests
 
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
         Assert.Empty(service.Inputs);
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         CommandResultAssert.HasInvalidArgumentError(
             outputJson.RootElement,
             UcliCommandNames.ScreenshotGame);
@@ -94,7 +94,7 @@ public sealed class ScreenshotCommandTests
         Assert.Equal(1080, input.RequestedHeight);
         Assert.Equal(5000, input.TimeoutMilliseconds);
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         CommandResultAssert.HasSuccessEnvelope(outputJson.RootElement, UcliCommandNames.ScreenshotGame);
         JsonAssert.For(outputJson.RootElement.GetProperty("payload"))
             .HasProperty("capture", capture => capture

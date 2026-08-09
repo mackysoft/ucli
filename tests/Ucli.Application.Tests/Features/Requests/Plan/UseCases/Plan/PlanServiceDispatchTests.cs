@@ -46,7 +46,7 @@ public sealed class PlanServiceDispatchTests
                     RequestStaticValidationCatalog.Available([operationDescriptor])),
             },
             unityRequestExecutor: unityIpcRequestExecutor,
-            timeProvider: new ManualTimeProvider());
+            timeProvider: new FakeTimeProvider(DateTimeOffset.UnixEpoch));
 
         var result = await service.ExecuteAsync(
             RequestId,

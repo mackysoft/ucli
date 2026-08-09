@@ -38,7 +38,7 @@ public sealed class SkillsScopeCliOutputContractTests
                 subcommand,
                 workingDirectory);
 
-            using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+            using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
             Assert.Equal((int)CliExitCode.Success, result.ExitCode);
             CommandResultAssert.HasSuccessEnvelope(
                 outputJson.RootElement,
@@ -61,7 +61,7 @@ public sealed class SkillsScopeCliOutputContractTests
             workingDirectory,
             dryRun: true);
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
         CommandResultAssert.HasSuccessEnvelope(
             outputJson.RootElement,
@@ -88,7 +88,7 @@ public sealed class SkillsScopeCliOutputContractTests
             targetDir: targetRoot,
             dryRun: true);
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
         CommandResultAssert.HasSuccessEnvelope(outputJson.RootElement, UcliCommandNames.SkillsInstall);
         var payload = outputJson.RootElement.GetProperty("payload");
@@ -114,7 +114,7 @@ public sealed class SkillsScopeCliOutputContractTests
             "--scope",
             "user");
 
-        using var installJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(install.StdOut);
+        using var installJson = JsonAssert.ParseMultilineObject(install.StdOut);
         Assert.Equal((int)CliExitCode.Success, install.ExitCode);
         JsonAssert.For(installJson.RootElement)
             .HasProperty("payload", payload => payload
@@ -157,7 +157,7 @@ public sealed class SkillsScopeCliOutputContractTests
             targetRoot,
             selectedSkill);
 
-        using var installJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(install.StdOut);
+        using var installJson = JsonAssert.ParseMultilineObject(install.StdOut);
         Assert.Equal((int)CliExitCode.Success, install.ExitCode);
         JsonAssert.For(installJson.RootElement)
             .HasProperty("payload", payload => payload
@@ -170,7 +170,7 @@ public sealed class SkillsScopeCliOutputContractTests
         Assert.True(Path.IsPathFullyQualified(resolvedTargetRoot), resolvedTargetRoot);
         Assert.EndsWith(Path.DirectorySeparatorChar + Path.GetFileName(targetRoot), resolvedTargetRoot, StringComparison.Ordinal);
 
-        using var updateJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(update.StdOut);
+        using var updateJson = JsonAssert.ParseMultilineObject(update.StdOut);
         Assert.Equal((int)CliExitCode.Success, update.ExitCode);
         JsonAssert.For(updateJson.RootElement)
             .HasProperty("payload", payload => payload
@@ -180,7 +180,7 @@ public sealed class SkillsScopeCliOutputContractTests
                 .HasInt32("noOpCount", 1)
                 .HasValueKind("reloadGuidance", JsonValueKind.String));
 
-        using var doctorJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(doctor.StdOut);
+        using var doctorJson = JsonAssert.ParseMultilineObject(doctor.StdOut);
         Assert.Equal((int)CliExitCode.Success, doctor.ExitCode);
         JsonAssert.For(doctorJson.RootElement)
             .HasProperty("payload", static payload => payload
@@ -189,7 +189,7 @@ public sealed class SkillsScopeCliOutputContractTests
                 .HasBoolean("isHealthy", true)
                 .HasValueKind("reloadGuidance", JsonValueKind.String));
 
-        using var uninstallJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(uninstall.StdOut);
+        using var uninstallJson = JsonAssert.ParseMultilineObject(uninstall.StdOut);
         Assert.Equal((int)CliExitCode.Success, uninstall.ExitCode);
         JsonAssert.For(uninstallJson.RootElement)
             .HasProperty("payload", payload => payload
@@ -216,7 +216,7 @@ public sealed class SkillsScopeCliOutputContractTests
                 scope: "project",
                 targetDir: outsideScope.FullPath);
 
-            using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+            using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
             Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
             CommandResultAssert.HasInvalidArgumentEnvelope(
                 outputJson.RootElement,

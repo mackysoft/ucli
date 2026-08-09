@@ -32,7 +32,7 @@ internal sealed class RecordingDaemonPingInfoClient : IDaemonPingInfoClient
         string description,
         TimeSpan timeout)
     {
-        return TestAwaiter.WaitAsync(firstInvocationObserved.Task, description, timeout);
+        return firstInvocationObserved.Task.WaitAsync(timeout);
     }
 
     public ValueTask<UnityEditorObservation> PingAndReadAsync (

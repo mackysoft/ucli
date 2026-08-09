@@ -10,7 +10,7 @@ public sealed class DaemonLifecycleObservationAvailabilityTests
     [Trait("Size", "Small")]
     public void IsUsableForSession_WhenMatchingRecoveryLeaseOutlivesFreshnessWindow_ReturnsTrue ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var session = DaemonSessionTestFactory.CreateEditorInstance();
         var observedAtUtc = timeProvider.GetUtcNow()
             - DaemonLifecycleObservationTimings.FreshnessWindow

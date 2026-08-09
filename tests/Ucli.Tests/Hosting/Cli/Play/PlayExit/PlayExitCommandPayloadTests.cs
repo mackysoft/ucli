@@ -18,7 +18,7 @@ public sealed class PlayExitCommandPayloadTests
         var result = await ExecuteAsync(PlayExitExecutionResult.Success(PlayExitCommandTestData.CreateOutput()));
 
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         CommandResultAssert.HasSuccessEnvelope(
             outputJson.RootElement,
             UcliCommandNames.PlayExit);
@@ -74,7 +74,7 @@ public sealed class PlayExitCommandPayloadTests
             failureContext));
 
         Assert.Equal((int)CliExitCode.ToolError, result.ExitCode);
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         CommandResultAssert.HasStandardEnvelope(
             outputJson.RootElement,
             UcliCommandNames.PlayExit,
@@ -112,7 +112,7 @@ public sealed class PlayExitCommandPayloadTests
             PlayExitCommandTestData.CreatePublicationFailureContext()));
 
         Assert.Equal((int)CliExitCode.ToolError, result.ExitCode);
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         var payload = outputJson.RootElement.GetProperty("payload");
         JsonAssert.For(payload)
             .HasString("payloadKind", "terminalPublicationFailure")
@@ -174,7 +174,7 @@ public sealed class PlayExitCommandPayloadTests
 
         Assert.Equal((int)CliExitCode.ToolError, result.ExitCode);
         using var outputJson =
-            StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+            JsonAssert.ParseMultilineObject(result.StdOut);
         var payload = outputJson.RootElement.GetProperty("payload");
         JsonAssert.For(payload)
             .HasString("payloadKind", "terminalFailure")
@@ -222,7 +222,7 @@ public sealed class PlayExitCommandPayloadTests
 
         Assert.Equal((int)CliExitCode.ToolError, result.ExitCode);
         using var outputJson =
-            StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+            JsonAssert.ParseMultilineObject(result.StdOut);
         CommandResultAssert.HasSingleError(
             outputJson.RootElement,
             LifecycleExecutionErrorCodes.UnityExited);

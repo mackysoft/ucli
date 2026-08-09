@@ -35,7 +35,7 @@ public sealed class ExecutionDeadlineOperationTests
         var operationStarted = false;
 
         var executionTask = ExecutionDeadlineOperation.ExecuteAsync(
-                ExecutionDeadline.Start(TimeSpan.FromSeconds(1), new ManualTimeProvider()),
+                ExecutionDeadline.Start(TimeSpan.FromSeconds(1), new FakeTimeProvider(DateTimeOffset.UnixEpoch)),
                 CancellationToken.None,
                 "Deadline elapsed before operation.",
                 "Deadline elapsed during operation.",
@@ -59,7 +59,7 @@ public sealed class ExecutionDeadlineOperationTests
     [Trait("Size", "Small")]
     public async Task ExecuteAsync_WhenOperationIgnoresCancellation_ReturnsAtDeadline ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var operationEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var operationCompletion = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
         var cancellationCallbackEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -89,16 +89,10 @@ public sealed class ExecutionDeadlineOperationTests
 
         try
         {
-            await TestAwaiter.WaitAsync(operationEntered.Task, "Non-cooperative operation start", SignalWaitTimeout);
+            await operationEntered.Task.WaitAsync(SignalWaitTimeout);
             timeProvider.Advance(TimeSpan.FromSeconds(1));
-            var result = await TestAwaiter.WaitAsync(
-                executionTask,
-                "Non-cooperative operation deadline result",
-                SignalWaitTimeout);
-            await TestAwaiter.WaitAsync(
-                cancellationCallbackEntered.Task,
-                "Blocking cancellation callback start",
-                SignalWaitTimeout);
+            var result = await executionTask.WaitAsync(SignalWaitTimeout);
+            await cancellationCallbackEntered.Task.WaitAsync(SignalWaitTimeout);
 
             Assert.False(result.IsSuccess);
             Assert.Equal(ExecutionErrorKind.Timeout, result.Error?.Kind);
@@ -108,16 +102,10 @@ public sealed class ExecutionDeadlineOperationTests
         {
             allowCancellationCallbackCompletion.Set();
             operationCompletion.TrySetResult("late value");
-            _ = await TestAwaiter.WaitAsync(
-                executionTask,
-                "Non-cooperative operation cleanup",
-                SignalWaitTimeout);
+            _ = await executionTask.WaitAsync(SignalWaitTimeout);
             if (operationCancellationToken.IsCancellationRequested)
             {
-                await TestAwaiter.WaitAsync(
-                    cancellationCallbackCompleted.Task,
-                    "Blocking cancellation callback completion",
-                    SignalWaitTimeout);
+                await cancellationCallbackCompleted.Task.WaitAsync(SignalWaitTimeout);
             }
 
             if (operationCancellationToken.CanBeCanceled)
@@ -203,7 +191,7 @@ public sealed class ExecutionDeadlineOperationTests
     [Trait("Size", "Small")]
     public async Task ExecuteAsync_WhenOperationThreadExpiresDeadlineImmediatelyBeforeThrowing_ReturnsTimeout ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var operationEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var startRace = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var deadline = ExecutionDeadline.Start(TimeSpan.FromSeconds(1), timeProvider);
@@ -258,7 +246,7 @@ public sealed class ExecutionDeadlineOperationTests
         using var allowCallerCancellationCallbackToReturn = new ManualResetEventSlim();
         var operationEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var callerCancellationCallbackEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var deadline = ExecutionDeadline.Start(TimeSpan.FromSeconds(1), new ManualTimeProvider());
+        var deadline = ExecutionDeadline.Start(TimeSpan.FromSeconds(1), new FakeTimeProvider(DateTimeOffset.UnixEpoch));
         var executionTask = ExecutionDeadlineOperation.ExecuteAsync(
                 deadline,
                 callerCancellationTokenSource.Token,
@@ -311,7 +299,7 @@ public sealed class ExecutionDeadlineOperationTests
     [Trait("Size", "Small")]
     public async Task ExecuteAsync_WhenDeadlineWinsBeforeCallerCancellationSignal_DoesNotReverseToCancellation ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         using var callerCancellationTokenSource = new CancellationTokenSource();
         var allowOperationToReturn = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         using var allowCallerCancellationCallbackToReturn = new ManualResetEventSlim();

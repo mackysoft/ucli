@@ -57,7 +57,7 @@ internal static class PlayEnterServiceTestSupport
             new StaticProjectContextResolver(contextResult),
             sessionStore);
         var resolvedTimeProvider =
-            timeProvider ?? new ManualTimeProvider(StartedAtUtc);
+            timeProvider ?? new FakeTimeProvider(StartedAtUtc);
         return new PlayEnterService(
             new PlayTransitionWorkflow(
                 contextResolver,

@@ -37,7 +37,7 @@ public sealed class LogsUnityClearCommandTests
             timeout: "4500"));
 
         Assert.Equal((int)CliExitCode.Success, exitCode);
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(standardOutput);
+        using var outputJson = JsonAssert.ParseMultilineObject(standardOutput);
         CommandResultAssert.HasSuccessEnvelope(
             outputJson.RootElement,
             UcliCommandNames.LogsUnityClear);

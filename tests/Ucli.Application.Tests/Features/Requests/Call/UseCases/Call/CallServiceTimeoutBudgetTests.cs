@@ -14,7 +14,7 @@ public sealed class CallServiceTimeoutBudgetTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenPrePlanConsumesTimeoutBudget_PassesRemainingTimeoutToCall ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var preparedRequest = CreateSingleOperationPreparedRequest(
             MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe,
             OperationPolicy.Safe);
@@ -93,7 +93,7 @@ public sealed class CallServiceTimeoutBudgetTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenPreflightConsumesTimeoutBudget_PassesRemainingTimeoutToUnityExecution ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var preparedRequest = CreateSingleOperationPreparedRequest(
             MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe,
             OperationPolicy.Safe);

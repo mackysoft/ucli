@@ -16,7 +16,7 @@ public sealed class DaemonCleanupOperationArtifactCleanupTests
             NextResult = DaemonArtifactCleanupResult.Success(),
         };
         var operation = DaemonCleanupOperationTestSupport.CreateOperation(
-            new ManualTimeProvider(),
+            new FakeTimeProvider(DateTimeOffset.UnixEpoch),
             daemonSessionStore: new RecordingDaemonSessionStore
             {
                 ReadResult = DaemonSessionReadResult.Missing(),
@@ -39,7 +39,7 @@ public sealed class DaemonCleanupOperationArtifactCleanupTests
             NextResult = DaemonArtifactCleanupResult.Success(deletedLaunchAttemptCount: 3),
         };
         var operation = DaemonCleanupOperationTestSupport.CreateOperation(
-            new ManualTimeProvider(),
+            new FakeTimeProvider(DateTimeOffset.UnixEpoch),
             daemonSessionStore: new RecordingDaemonSessionStore
             {
                 ReadResult = DaemonSessionReadResult.Missing(),
@@ -67,7 +67,7 @@ public sealed class DaemonCleanupOperationArtifactCleanupTests
             NextResult = DaemonArtifactCleanupResult.Success(),
         };
         var operation = DaemonCleanupOperationTestSupport.CreateOperation(
-            new ManualTimeProvider(),
+            new FakeTimeProvider(DateTimeOffset.UnixEpoch),
             daemonSessionStore: new RecordingDaemonSessionStore
             {
                 ReadResult = DaemonSessionReadResultTestFactory.Found(session),

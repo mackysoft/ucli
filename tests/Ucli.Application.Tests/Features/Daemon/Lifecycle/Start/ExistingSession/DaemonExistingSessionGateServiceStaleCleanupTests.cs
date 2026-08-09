@@ -23,7 +23,7 @@ public sealed class DaemonExistingSessionGateServiceStaleCleanupTests
         var result = await service.TryHandleExistingSessionAsync(
             ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-existing-stale")),
             session,
-            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new ManualTimeProvider()),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new FakeTimeProvider(DateTimeOffset.UnixEpoch)),
             editorMode: null,
             cancellationToken: CancellationToken.None);
 
@@ -35,7 +35,7 @@ public sealed class DaemonExistingSessionGateServiceStaleCleanupTests
     [Trait("Size", "Small")]
     public async Task TryHandleExistingSession_WhenStaleSessionCleanupRuns_UsesRemainingTimeoutBudget ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var cleanupService = new RecordingDaemonSessionCleanupService
         {
             CleanupStaleSessionArtifactsResult = DaemonSessionStoreOperationResult.Success(),
@@ -67,7 +67,7 @@ public sealed class DaemonExistingSessionGateServiceStaleCleanupTests
     [Trait("Size", "Small")]
     public async Task TryHandleExistingSession_WhenStaleSessionCleanupCannotStartWithinDeadline_ReturnsTimeoutWithoutCleanup ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var cleanupService = new RecordingDaemonSessionCleanupService();
         var service = DaemonExistingSessionGateServiceTestSupport.CreateService(
             daemonPingInfoClient: new RecordingDaemonPingInfoClient(new InvalidOperationException("stale"))
@@ -106,7 +106,7 @@ public sealed class DaemonExistingSessionGateServiceStaleCleanupTests
         var result = await service.TryHandleExistingSessionAsync(
             ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-existing-stale-failed")),
             DaemonSessionTestFactory.Create(processId: 4004),
-            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new ManualTimeProvider()),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new FakeTimeProvider(DateTimeOffset.UnixEpoch)),
             editorMode: null,
             cancellationToken: CancellationToken.None);
 

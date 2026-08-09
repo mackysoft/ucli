@@ -10,7 +10,7 @@ public sealed class EvalCliOutputContractTests
     {
         var result = await CliInProcessRunner.RunCommandAsync(UcliCommandNames.Eval, UcliContractConstants.CliOption.Unknown);
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
         CommandResultAssert.HasInvalidArgumentError(outputJson.RootElement, UcliCommandNames.Eval);
         CommandResultAssert.ReportsUnrecognizedArgument(result.StdErr, UcliContractConstants.CliOption.Unknown);
@@ -38,7 +38,7 @@ public sealed class EvalCliOutputContractTests
             UcliContractConstants.CliOption.Source,
             "return 1;");
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
         CommandResultAssert.HasInvalidArgumentEnvelope(
             outputJson.RootElement,
@@ -66,7 +66,7 @@ public sealed class EvalCliOutputContractTests
             UcliContractConstants.CliOption.File,
             sourcePath);
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
         CommandResultAssert.HasInvalidArgumentEnvelope(
             outputJson.RootElement,
@@ -86,7 +86,7 @@ public sealed class EvalCliOutputContractTests
                 UcliContractConstants.CliOption.Source,
                 "return 1;");
 
-            using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+            using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
             Assert.True(
                 result.ExitCode == (int)CliExitCode.InvalidArgument,
                 $"{option} must be rejected by eval command parsing.");
@@ -105,7 +105,7 @@ public sealed class EvalCliOutputContractTests
             UcliContractConstants.CliOption.Mode,
             "unsupported");
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
         CommandResultAssert.HasInvalidArgumentEnvelope(
             outputJson.RootElement,

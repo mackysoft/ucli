@@ -20,7 +20,7 @@ public sealed class DaemonStopOperationLifecycleTests
             lifecycleLockProvider: lockProvider,
             sessionStore: new RecordingDaemonSessionStore(DaemonSessionReadResult.Missing()));
 
-        var result = await operation.StopAsync(context, ExecutionDeadline.Start(DefaultTimeout, new ManualTimeProvider()), CancellationToken.None);
+        var result = await operation.StopAsync(context, ExecutionDeadline.Start(DefaultTimeout, new FakeTimeProvider(DateTimeOffset.UnixEpoch)), CancellationToken.None);
 
         Assert.Equal(DaemonStopStatus.NotRunning, result.Status);
         ProjectLifecycleLockProviderAssert.LifecycleLockAcquiredFor(lockProvider, context);
@@ -40,7 +40,7 @@ public sealed class DaemonStopOperationLifecycleTests
 
         var result = await operation.StopAsync(
             ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-stop-lock-timeout")),
-            ExecutionDeadline.Start(DefaultTimeout, new ManualTimeProvider()),
+            ExecutionDeadline.Start(DefaultTimeout, new FakeTimeProvider(DateTimeOffset.UnixEpoch)),
             CancellationToken.None);
 
         Assert.Null(result.Status);
@@ -55,7 +55,7 @@ public sealed class DaemonStopOperationLifecycleTests
     [InlineData(true)]
     public async Task Stop_WhenProcessTerminationBudgetIsExhausted_StillAttemptsFinalizationWithFallbackTimeout (bool endpointAlreadyNotRunning)
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var session = DaemonSessionTestFactory.Create(processId: 789);
         var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-stop-timeout-finalization"));
         var shutdownClient = new RecordingDaemonShutdownClient
@@ -102,7 +102,7 @@ public sealed class DaemonStopOperationLifecycleTests
     [Trait("Size", "Small")]
     public async Task Stop_WhenArtifactCleanupIgnoresDeadline_ReturnsTimeoutAndBlocksSuccessorUntilCleanupQuiesces ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var compensationOperationOwner = new DaemonCompensationOperationOwner();
         var lifecycleLeases = new List<RecordingAsyncDisposable>();
         var lifecycleLockProvider = new StubProjectLifecycleLockProvider(
@@ -145,16 +145,10 @@ public sealed class DaemonStopOperationLifecycleTests
                 ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), timeProvider),
                 CancellationToken.None)
             .AsTask();
-        await TestAwaiter.WaitAsync(
-            cleanupStarted.Task,
-            "Stop artifact cleanup start",
-            TimeSpan.FromSeconds(5));
+        await cleanupStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
         timeProvider.Advance(DaemonTimeouts.StopCompensationTimeout);
-        var firstResult = await TestAwaiter.WaitAsync(
-            firstStopTask,
-            "Stop compensation deadline result",
-            TimeSpan.FromSeconds(5));
+        var firstResult = await firstStopTask.WaitAsync(TimeSpan.FromSeconds(5));
         Assert.Null(firstResult.Status);
         Assert.Equal(ExecutionErrorKind.Timeout, firstResult.Error!.Kind);
         Assert.Equal(0, Assert.Single(lifecycleLeases).DisposeCount);
@@ -165,10 +159,7 @@ public sealed class DaemonStopOperationLifecycleTests
                 CancellationToken.None)
             .AsTask();
         timeProvider.Advance(TimeSpan.FromMilliseconds(100));
-        var secondResult = await TestAwaiter.WaitAsync(
-            secondStopTask,
-            "Successor stop admission result",
-            TimeSpan.FromSeconds(5));
+        var secondResult = await secondStopTask.WaitAsync(TimeSpan.FromSeconds(5));
         Assert.Null(secondResult.Status);
         Assert.Equal(ExecutionErrorKind.Timeout, secondResult.Error!.Kind);
         Assert.Single(sessionStore.ReadInvocations);
@@ -176,15 +167,12 @@ public sealed class DaemonStopOperationLifecycleTests
         Assert.Equal(0, lifecycleLeases[0].DisposeCount);
 
         releaseCleanup.TrySetResult(DaemonArtifactCleanupResult.Success());
-        var quiescenceError = await TestAwaiter.WaitAsync(
-            compensationOperationOwner.WaitForQuiescenceAsync(
+        var quiescenceError = await compensationOperationOwner.WaitForQuiescenceAsync(
                     context,
                     ExecutionDeadline.Start(TimeSpan.FromSeconds(1), timeProvider),
                     CancellationToken.None,
                     "Timed out waiting for stop compensation cleanup.")
-                .AsTask(),
-            "Stop compensation quiescence",
-            TimeSpan.FromSeconds(5));
+                .AsTask().WaitAsync(TimeSpan.FromSeconds(5));
         Assert.Null(quiescenceError);
         Assert.Equal(1, lifecycleLeases[0].DisposeCount);
     }
@@ -193,7 +181,7 @@ public sealed class DaemonStopOperationLifecycleTests
     [Trait("Size", "Small")]
     public async Task Stop_WhenCallerCancelsAfterShutdown_ReturnsCancellationAndKeepsCompensationAndLeaseOwned ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var compensationOperationOwner = new DaemonCompensationOperationOwner();
         var lifecycleLease = new RecordingAsyncDisposable();
         var session = DaemonSessionTestFactory.Create(processId: 791);
@@ -233,26 +221,17 @@ public sealed class DaemonStopOperationLifecycleTests
                 cancellationTokenSource.Token)
             .AsTask();
 
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => TestAwaiter.WaitAsync(
-            stopTask,
-            "Caller-canceled stop result",
-            TimeSpan.FromSeconds(5)));
-        await TestAwaiter.WaitAsync(
-            terminationStarted.Task,
-            "Caller-canceled stop compensation start",
-            TimeSpan.FromSeconds(5));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => stopTask.WaitAsync(TimeSpan.FromSeconds(5)));
+        await terminationStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
         Assert.Equal(0, lifecycleLease.DisposeCount);
 
         releaseTermination.TrySetResult(DaemonSessionStoreOperationResult.Success());
-        var quiescenceError = await TestAwaiter.WaitAsync(
-            compensationOperationOwner.WaitForQuiescenceAsync(
+        var quiescenceError = await compensationOperationOwner.WaitForQuiescenceAsync(
                     context,
                     ExecutionDeadline.Start(TimeSpan.FromSeconds(1), timeProvider),
                     CancellationToken.None,
                     "Timed out waiting for canceled stop compensation.")
-                .AsTask(),
-            "Caller-canceled stop compensation quiescence",
-            TimeSpan.FromSeconds(5));
+                .AsTask().WaitAsync(TimeSpan.FromSeconds(5));
         Assert.Null(quiescenceError);
         Assert.Equal(1, lifecycleLease.DisposeCount);
     }

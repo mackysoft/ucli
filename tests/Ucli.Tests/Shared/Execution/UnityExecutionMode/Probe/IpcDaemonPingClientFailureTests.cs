@@ -30,13 +30,10 @@ public sealed class IpcDaemonPingClientFailureTests
 
         await Assert.ThrowsAsync<DaemonPingResponseException>(async () =>
         {
-            await TestAwaiter.WaitAsync(
-                pingClient.PingAsync(
+            await pingClient.PingAsync(
                     CreateFingerprintMatchedProject(),
                     DefaultTimeout,
-                    cancellationToken: CancellationToken.None).AsTask(),
-                "ping failure response",
-                AsyncWaitTimeout);
+                    cancellationToken: CancellationToken.None).AsTask().WaitAsync(AsyncWaitTimeout);
         });
     }
 
@@ -53,13 +50,10 @@ public sealed class IpcDaemonPingClientFailureTests
 
         var exception = await Assert.ThrowsAsync<DaemonSessionNotAvailableException>(async () =>
         {
-            await TestAwaiter.WaitAsync(
-                pingClient.PingAsync(
+            await pingClient.PingAsync(
                     CreateFingerprintMatchedProject(),
                     DefaultTimeout,
-                    cancellationToken: CancellationToken.None).AsTask(),
-                "Missing session token ping result",
-                AsyncWaitTimeout);
+                    cancellationToken: CancellationToken.None).AsTask().WaitAsync(AsyncWaitTimeout);
         });
 
         Assert.Equal(DaemonSessionAcquisitionResult.SessionNotAvailableMessage, exception.Message);
@@ -98,16 +92,10 @@ public sealed class IpcDaemonPingClientFailureTests
                 cancellationToken: CancellationToken.None)
             .AsTask();
         var retryDelay = TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds);
-        await TestAwaiter.WaitAsync(
-            timeProvider.WaitForTimerDueWithinAsync(retryDelay),
-            "daemon ping publication retry timer",
-            AsyncWaitTimeout);
+        await timeProvider.WaitForTimerDueWithinAsync(retryDelay).WaitAsync(AsyncWaitTimeout);
         timeProvider.Advance(DaemonTimeouts.SessionPublicationRetryTimeout);
 
-        var exception = await TestAwaiter.WaitAsync(
-            Assert.ThrowsAsync<DaemonPingResponseException>(() => pingTask),
-            "daemon ping publication window failure",
-            AsyncWaitTimeout);
+        var exception = await Assert.ThrowsAsync<DaemonPingResponseException>(() => pingTask).WaitAsync(AsyncWaitTimeout);
 
         Assert.Equal(IpcSessionErrorCodes.SessionTokenInvalid, exception.ErrorCode);
         Assert.Single(unityIpcClient.Requests);
@@ -142,16 +130,10 @@ public sealed class IpcDaemonPingClientFailureTests
                 cancellationToken: CancellationToken.None)
             .AsTask();
         var retryDelay = TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds);
-        await TestAwaiter.WaitAsync(
-            timeProvider.WaitForTimerDueWithinAsync(retryDelay),
-            "daemon ping endpoint retry timer",
-            AsyncWaitTimeout);
+        await timeProvider.WaitForTimerDueWithinAsync(retryDelay).WaitAsync(AsyncWaitTimeout);
         timeProvider.Advance(DaemonTimeouts.ProbeAttemptTimeoutCap);
 
-        var exception = await TestAwaiter.WaitAsync(
-            Assert.ThrowsAsync<IpcResponseReadInterruptedException>(() => pingTask),
-            "daemon ping endpoint window failure",
-            AsyncWaitTimeout);
+        var exception = await Assert.ThrowsAsync<IpcResponseReadInterruptedException>(() => pingTask).WaitAsync(AsyncWaitTimeout);
 
         Assert.Same(interruption, exception);
         Assert.Single(unityIpcClient.Requests);
@@ -186,13 +168,10 @@ public sealed class IpcDaemonPingClientFailureTests
 
         var exception = await Assert.ThrowsAsync<DaemonPingResponseException>(async () =>
         {
-            await TestAwaiter.WaitAsync(
-                pingClient.PingAsync(
+            await pingClient.PingAsync(
                     CreateFingerprintMatchedProject(),
                     DefaultTimeout,
-                    cancellationToken: CancellationToken.None).AsTask(),
-                "Session token resolution failure ping result",
-                AsyncWaitTimeout);
+                    cancellationToken: CancellationToken.None).AsTask().WaitAsync(AsyncWaitTimeout);
         });
 
         Assert.Null(exception.ErrorCode);

@@ -63,7 +63,7 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
         var result = await awaiter.WaitForSessionAsync(
             unityProject,
             expectedProcessId: 4321,
-            ExecutionDeadline.Start(WaitTimeout, new ManualTimeProvider()),
+            ExecutionDeadline.Start(WaitTimeout, new FakeTimeProvider(DateTimeOffset.UnixEpoch)),
             expectedProcessStartedAtUtc: DefaultExpectedProcessStartedAtUtc,
             cancellationToken: cancellationTokenSource.Token);
 
@@ -185,15 +185,9 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
                 CancellationToken.None)
             .AsTask();
         var retryDelay = TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds);
-        await TestAwaiter.WaitAsync(
-            timeProvider.WaitForTimerDueWithinAsync(retryDelay),
-            "GUI session registration retry timer",
-            SignalWaitTimeout);
+        await timeProvider.WaitForTimerDueWithinAsync(retryDelay).WaitAsync(SignalWaitTimeout);
         timeProvider.Advance(WaitTimeout);
-        var result = await TestAwaiter.WaitAsync(
-            resultTask,
-            "GUI session registration deadline result",
-            SignalWaitTimeout);
+        var result = await resultTask.WaitAsync(SignalWaitTimeout);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(ExecutionErrorKind.Timeout, result.Error!.Kind);
@@ -241,20 +235,11 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
             .AsTask();
         try
         {
-            await TestAwaiter.WaitAsync(readStarted.Task, "Non-cooperative GUI session read", SignalWaitTimeout);
-            await TestAwaiter.WaitAsync(
-                timeProvider.WaitForTimerDueWithinAsync(WaitTimeout),
-                "GUI session read deadline timer",
-                SignalWaitTimeout);
+            await readStarted.Task.WaitAsync(SignalWaitTimeout);
+            await timeProvider.WaitForTimerDueWithinAsync(WaitTimeout).WaitAsync(SignalWaitTimeout);
             timeProvider.Advance(WaitTimeout);
-            var result = await TestAwaiter.WaitAsync(
-                resultTask,
-                "GUI session read deadline result",
-                SignalWaitTimeout);
-            await TestAwaiter.WaitAsync(
-                readCancellationObserved.Task,
-                "GUI session read cancellation",
-                SignalWaitTimeout);
+            var result = await resultTask.WaitAsync(SignalWaitTimeout);
+            await readCancellationObserved.Task.WaitAsync(SignalWaitTimeout);
 
             Assert.False(result.IsSuccess);
             Assert.Equal(ExecutionErrorKind.Timeout, result.Error!.Kind);
@@ -263,7 +248,7 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
         finally
         {
             readCompletion.TrySetResult(DaemonSessionReadResult.Missing());
-            await TestAwaiter.WaitAsync(readFinished.Task, "GUI session read completion", SignalWaitTimeout);
+            await readFinished.Task.WaitAsync(SignalWaitTimeout);
         }
     }
 
@@ -308,34 +293,25 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
 
         try
         {
-            await TestAwaiter.WaitAsync(pingStarted.Task, "Non-cooperative GUI session ping", SignalWaitTimeout);
-            await TestAwaiter.WaitAsync(
-                timeProvider.WaitForTimerDueWithinAsync(WaitTimeout),
-                "GUI session ping deadline timer",
-                SignalWaitTimeout);
+            await pingStarted.Task.WaitAsync(SignalWaitTimeout);
+            await timeProvider.WaitForTimerDueWithinAsync(WaitTimeout).WaitAsync(SignalWaitTimeout);
             timeProvider.Advance(WaitTimeout);
 
-            var result = await TestAwaiter.WaitAsync(
-                resultTask,
-                "Non-cooperative GUI session ping deadline result",
-                SignalWaitTimeout);
-            await TestAwaiter.WaitAsync(
-                pingCancellationObserved.Task,
-                "Non-cooperative GUI session ping cancellation",
-                SignalWaitTimeout);
+            var result = await resultTask.WaitAsync(SignalWaitTimeout);
+            await pingCancellationObserved.Task.WaitAsync(SignalWaitTimeout);
 
             Assert.False(result.IsSuccess);
             Assert.Equal(ExecutionErrorKind.Timeout, result.Error!.Kind);
             Assert.Equal(ExecutionErrorCodes.IpcTimeout, result.Error.Code);
 
             pingCompletion.TrySetResult(CreatePingResponse(unityProject.ProjectFingerprint, UnityEditorMode.Gui));
-            await TestAwaiter.WaitAsync(pingFinished.Task, "Late GUI session ping completion", SignalWaitTimeout);
+            await pingFinished.Task.WaitAsync(SignalWaitTimeout);
             Assert.False((await resultTask).IsSuccess);
         }
         finally
         {
             pingCompletion.TrySetResult(CreatePingResponse(unityProject.ProjectFingerprint, UnityEditorMode.Gui));
-            await TestAwaiter.WaitAsync(pingFinished.Task, "GUI session ping cleanup", SignalWaitTimeout);
+            await pingFinished.Task.WaitAsync(SignalWaitTimeout);
         }
     }
 
@@ -353,7 +329,7 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
         var result = await awaiter.WaitForSessionAsync(
             unityProject,
             expectedProcessId: 4321,
-            ExecutionDeadline.Start(TimeSpan.FromSeconds(5), new ManualTimeProvider()),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(5), new FakeTimeProvider(DateTimeOffset.UnixEpoch)),
             expectedProcessStartedAtUtc: DefaultExpectedProcessStartedAtUtc,
             cancellationToken: cancellationTokenSource.Token);
 
@@ -389,14 +365,11 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
             expectedProcessId: 4321,
             ExecutionDeadline.Start(WaitTimeout, timeProvider),
             expectedProcessStartedAtUtc: DefaultExpectedProcessStartedAtUtc).AsTask();
-        await TestAwaiter.WaitAsync(firstRead.Task, "first session read", SignalWaitTimeout);
-        await TestAwaiter.WaitAsync(
-            timeProvider.WaitForTimerDueWithinAsync(WaitTimeout),
-            "Session mismatch deadline timer",
-            SignalWaitTimeout);
+        await firstRead.Task.WaitAsync(SignalWaitTimeout);
+        await timeProvider.WaitForTimerDueWithinAsync(WaitTimeout).WaitAsync(SignalWaitTimeout);
         timeProvider.Advance(WaitTimeout);
 
-        var result = await TestAwaiter.WaitAsync(resultTask, "session mismatch timeout", TimeSpan.FromSeconds(5));
+        var result = await resultTask.WaitAsync(TimeSpan.FromSeconds(5));
 
         Assert.False(result.IsSuccess);
         Assert.Equal(ExecutionErrorKind.Timeout, result.Error!.Kind);
@@ -420,7 +393,7 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
         var result = await awaiter.WaitForSessionAsync(
             unityProject,
             expectedProcessId: 4321,
-            ExecutionDeadline.Start(WaitTimeout, new ManualTimeProvider()),
+            ExecutionDeadline.Start(WaitTimeout, new FakeTimeProvider(DateTimeOffset.UnixEpoch)),
             expectedProcessStartedAtUtc: expectedProcessStartedAtUtc,
             cancellationToken: cancellationTokenSource.Token);
 
@@ -433,7 +406,7 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
     [Trait("Size", "Small")]
     public async Task WaitForSession_WhenStoredProcessStartTimeExceedsTolerance_DoesNotProbeAndTimesOut ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var firstRead = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var expectedProcessStartedAtUtc = new DateTimeOffset(2026, 03, 12, 0, 0, 1, TimeSpan.Zero);
         var unityProject = DaemonCommandExecutionContextTestFactory.Create(1000).Context.UnityProject;
@@ -452,10 +425,10 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
             expectedProcessId: 4321,
             ExecutionDeadline.Start(WaitTimeout, timeProvider),
             expectedProcessStartedAtUtc: expectedProcessStartedAtUtc).AsTask();
-        await TestAwaiter.WaitAsync(firstRead.Task, "first session read", TimeSpan.FromSeconds(5));
+        await firstRead.Task.WaitAsync(TimeSpan.FromSeconds(5));
         timeProvider.Advance(WaitTimeout);
 
-        var result = await TestAwaiter.WaitAsync(resultTask, "session start-time mismatch timeout", TimeSpan.FromSeconds(5));
+        var result = await resultTask.WaitAsync(TimeSpan.FromSeconds(5));
 
         Assert.False(result.IsSuccess);
         Assert.Equal(ExecutionErrorKind.Timeout, result.Error!.Kind);
@@ -465,7 +438,7 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
     [Trait("Size", "Small")]
     public async Task WaitForSession_WhenPingTimesOut_RetriesUntilOverallTimeout ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var pingObserved = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var unityProject = DaemonCommandExecutionContextTestFactory.Create(1000).Context.UnityProject;
         var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResultTestFactory.Found(CreateGuiSession(unityProject.ProjectFingerprint, processId: 4321)));
@@ -480,10 +453,10 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
             expectedProcessId: 4321,
             ExecutionDeadline.Start(WaitTimeout, timeProvider),
             expectedProcessStartedAtUtc: DefaultExpectedProcessStartedAtUtc).AsTask();
-        await TestAwaiter.WaitAsync(pingObserved.Task, "first timeout ping", TimeSpan.FromSeconds(5));
+        await pingObserved.Task.WaitAsync(TimeSpan.FromSeconds(5));
         timeProvider.Advance(WaitTimeout);
 
-        var result = await TestAwaiter.WaitAsync(resultTask, "ping timeout result", TimeSpan.FromSeconds(5));
+        var result = await resultTask.WaitAsync(TimeSpan.FromSeconds(5));
 
         Assert.False(result.IsSuccess);
         Assert.Equal(ExecutionErrorKind.Timeout, result.Error!.Kind);
@@ -523,15 +496,12 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
             expectedProcessId: 4321,
             ExecutionDeadline.Start(TimeSpan.FromSeconds(5), timeProvider),
             expectedProcessStartedAtUtc: DefaultExpectedProcessStartedAtUtc).AsTask();
-        await TestAwaiter.WaitAsync(firstPingObserved.Task, "first registration ping", TimeSpan.FromSeconds(5));
+        await firstPingObserved.Task.WaitAsync(TimeSpan.FromSeconds(5));
         var retryDelay = TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds);
-        await TestAwaiter.WaitAsync(
-            timeProvider.WaitForTimerDueWithinAsync(retryDelay),
-            "Registration retry timer",
-            SignalWaitTimeout);
+        await timeProvider.WaitForTimerDueWithinAsync(retryDelay).WaitAsync(SignalWaitTimeout);
         timeProvider.Advance(retryDelay);
 
-        var result = await TestAwaiter.WaitAsync(resultTask, "replacement registration", TimeSpan.FromSeconds(5));
+        var result = await resultTask.WaitAsync(TimeSpan.FromSeconds(5));
 
         Assert.True(result.IsSuccess);
         Assert.Equal(replacementSession, result.Session);
@@ -584,7 +554,7 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
     [Trait("Size", "Small")]
     public async Task WaitForSession_WhenPingThrowsReachabilityError_RetriesUntilOverallTimeout ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var pingObserved = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var unityProject = DaemonCommandExecutionContextTestFactory.Create(1000).Context.UnityProject;
         var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResultTestFactory.Found(CreateGuiSession(unityProject.ProjectFingerprint, processId: 4321)));
@@ -599,10 +569,10 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
             expectedProcessId: 4321,
             ExecutionDeadline.Start(WaitTimeout, timeProvider),
             expectedProcessStartedAtUtc: DefaultExpectedProcessStartedAtUtc).AsTask();
-        await TestAwaiter.WaitAsync(pingObserved.Task, "first reachability ping", TimeSpan.FromSeconds(5));
+        await pingObserved.Task.WaitAsync(TimeSpan.FromSeconds(5));
         timeProvider.Advance(WaitTimeout);
 
-        var result = await TestAwaiter.WaitAsync(resultTask, "reachability timeout result", TimeSpan.FromSeconds(5));
+        var result = await resultTask.WaitAsync(TimeSpan.FromSeconds(5));
 
         Assert.False(result.IsSuccess);
         Assert.Equal(ExecutionErrorKind.Timeout, result.Error!.Kind);
@@ -624,7 +594,7 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
         var result = await awaiter.WaitForSessionAsync(
             unityProject,
             expectedProcessId: 4321,
-            ExecutionDeadline.Start(WaitTimeout, new ManualTimeProvider()),
+            ExecutionDeadline.Start(WaitTimeout, new FakeTimeProvider(DateTimeOffset.UnixEpoch)),
             expectedProcessStartedAtUtc: DefaultExpectedProcessStartedAtUtc,
             cancellationToken: cancellationTokenSource.Token);
 
@@ -664,15 +634,12 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
             expectedProcessId: 4321,
             ExecutionDeadline.Start(WaitTimeout, timeProvider),
             expectedProcessStartedAtUtc: DefaultExpectedProcessStartedAtUtc).AsTask();
-        await TestAwaiter.WaitAsync(firstRead.Task, "first invalid session read", TimeSpan.FromSeconds(5));
+        await firstRead.Task.WaitAsync(TimeSpan.FromSeconds(5));
         var retryDelay = TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds);
-        await TestAwaiter.WaitAsync(
-            timeProvider.WaitForTimerDueWithinAsync(retryDelay),
-            "Invalid session retry timer",
-            SignalWaitTimeout);
+        await timeProvider.WaitForTimerDueWithinAsync(retryDelay).WaitAsync(SignalWaitTimeout);
         timeProvider.Advance(retryDelay);
 
-        var result = await TestAwaiter.WaitAsync(resultTask, "retry success", TimeSpan.FromSeconds(5));
+        var result = await resultTask.WaitAsync(TimeSpan.FromSeconds(5));
 
         Assert.True(result.IsSuccess);
         Assert.Equal(session, result.Session);

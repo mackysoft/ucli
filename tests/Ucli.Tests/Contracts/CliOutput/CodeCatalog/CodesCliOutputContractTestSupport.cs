@@ -119,7 +119,7 @@ internal static class CodesCliOutputContractTestSupport
             kind: testCase.Kind.HasValue ? TextVocabulary.GetText(testCase.Kind.Value) : null,
             command: testCase.Command);
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
         CommandResultAssert.HasSuccessEnvelope(
             outputJson.RootElement,

@@ -179,15 +179,9 @@ public sealed class DaemonIpcRequestSenderTests
                 CancellationToken.None)
             .AsTask();
         var retryDelay = TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds);
-        await TestAwaiter.WaitAsync(
-            timeProvider.WaitForTimerDueWithinAsync(retryDelay),
-            "stateless read recovery retry timer",
-            AsyncWaitTimeout);
+        await timeProvider.WaitForTimerDueWithinAsync(retryDelay).WaitAsync(AsyncWaitTimeout);
         timeProvider.Advance(DaemonTimeouts.SessionPublicationRetryTimeout);
-        var result = await TestAwaiter.WaitAsync(
-            resultTask,
-            "stateless read recovery window result",
-            AsyncWaitTimeout);
+        var result = await resultTask.WaitAsync(AsyncWaitTimeout);
 
         Assert.False(result.IsSuccess);
         Assert.Single(transportClient.Requests);
@@ -224,15 +218,9 @@ public sealed class DaemonIpcRequestSenderTests
                 CancellationToken.None)
             .AsTask();
         var retryDelay = TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds);
-        await TestAwaiter.WaitAsync(
-            timeProvider.WaitForTimerDueWithinAsync(retryDelay),
-            "early timeout recovery retry timer",
-            AsyncWaitTimeout);
+        await timeProvider.WaitForTimerDueWithinAsync(retryDelay).WaitAsync(AsyncWaitTimeout);
         timeProvider.Advance(DaemonTimeouts.SessionPublicationRetryTimeout);
-        var result = await TestAwaiter.WaitAsync(
-            resultTask,
-            "early timeout recovery window result",
-            AsyncWaitTimeout);
+        var result = await resultTask.WaitAsync(AsyncWaitTimeout);
 
         Assert.False(result.IsSuccess);
         Assert.Single(transportClient.Requests);
@@ -396,7 +384,7 @@ public sealed class DaemonIpcRequestSenderTests
     [Trait("Size", "Small")]
     public async Task SendAsync_WhenConnectionIsRefusedDuringRecovery_RetriesWithReloadedSessionToken ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var transportClient = CreateTransportClient();
         transportClient.EnqueueException(new IpcConnectException(
             "IPC connection was refused before the request was sent.",
@@ -447,8 +435,12 @@ public sealed class DaemonIpcRequestSenderTests
                 DateTimeOffset.UnixEpoch + TimeSpan.FromSeconds(5),
                 request.RequestDeadlineUtc));
         _ = IpcRequestAssert.SingleRequestId(requests);
-        Assert.Equal(RequestPayload.GetRawText(), requests[0].Payload.GetRawText());
-        Assert.Equal(requests[0].Payload.GetRawText(), requests[1].Payload.GetRawText());
+        Assert.True(JsonNode.DeepEquals(
+            JsonNode.Parse(RequestPayload.GetRawText()),
+            JsonNode.Parse(requests[0].Payload.GetRawText())));
+        Assert.True(JsonNode.DeepEquals(
+            JsonNode.Parse(requests[0].Payload.GetRawText()),
+            JsonNode.Parse(requests[1].Payload.GetRawText())));
         Assert.Equal(
             requests[0].RequestDeadlineRemainingMilliseconds,
             requests[1].RequestDeadlineRemainingMilliseconds);
@@ -459,7 +451,7 @@ public sealed class DaemonIpcRequestSenderTests
     [Trait("Size", "Small")]
     public async Task SendAsync_WhenSessionTokenIsRejected_RetriesOnceWithReloadedSuccessorToken ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var transportClient = CreateTransportClient();
         transportClient.EnqueueResponse(static request => CreateSessionTokenInvalidResponse(request.RequestId));
         transportClient.EnqueueResponse(static request => CreateResponse(request.RequestId));
@@ -494,7 +486,9 @@ public sealed class DaemonIpcRequestSenderTests
                 request.RequestDeadlineUtc));
         _ = IpcRequestAssert.SingleRequestId(requests);
         Assert.Equal(requests[0].Method, requests[1].Method);
-        Assert.Equal(requests[0].Payload.GetRawText(), requests[1].Payload.GetRawText());
+        Assert.True(JsonNode.DeepEquals(
+            JsonNode.Parse(requests[0].Payload.GetRawText()),
+            JsonNode.Parse(requests[1].Payload.GetRawText())));
         Assert.Equal(
             requests[0].RequestDeadlineRemainingMilliseconds,
             requests[1].RequestDeadlineRemainingMilliseconds);
@@ -842,21 +836,12 @@ public sealed class DaemonIpcRequestSenderTests
                 CancellationToken.None)
             .AsTask();
         var retryDelay = TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds);
-        await TestAwaiter.WaitAsync(
-            timeProvider.WaitForTimerDueWithinAsync(retryDelay),
-            "daemon IPC sender first endpoint retry timer",
-            AsyncWaitTimeout);
+        await timeProvider.WaitForTimerDueWithinAsync(retryDelay).WaitAsync(AsyncWaitTimeout);
         timeProvider.Advance(retryDelay);
-        await TestAwaiter.WaitAsync(
-            timeProvider.WaitForTimerDueWithinAsync(retryDelay),
-            "daemon IPC sender second endpoint retry timer",
-            AsyncWaitTimeout);
+        await timeProvider.WaitForTimerDueWithinAsync(retryDelay).WaitAsync(AsyncWaitTimeout);
         timeProvider.Advance(DaemonTimeouts.ProbeAttemptTimeoutCap - retryDelay);
 
-        var result = await TestAwaiter.WaitAsync(
-            sendTask,
-            "daemon IPC sender endpoint window result",
-            AsyncWaitTimeout);
+        var result = await sendTask.WaitAsync(AsyncWaitTimeout);
 
         Assert.False(result.IsSuccess);
         var requests = IpcRequestAssert.RetriedAtLeastOnce(transportClient);

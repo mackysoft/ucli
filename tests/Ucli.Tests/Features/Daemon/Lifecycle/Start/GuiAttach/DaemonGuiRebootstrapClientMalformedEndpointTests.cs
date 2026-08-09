@@ -11,7 +11,7 @@ public sealed class DaemonGuiRebootstrapClientMalformedEndpointTests
     [Trait("Size", "Medium")]
     public async Task RequestRebootstrapAsync_WhenEndpointAddressViolatesTransportContract_ReturnsUnavailableWithoutIpc ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         using var scope = TestDirectories.CreateTempScope(
             "daemon-command-service",
             nameof(RequestRebootstrapAsync_WhenEndpointAddressViolatesTransportContract_ReturnsUnavailableWithoutIpc));

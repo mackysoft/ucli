@@ -1,4 +1,3 @@
-using System.Text.Json;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -31,23 +30,23 @@ public sealed class IndexOpsDescribeJsonRoundTripTests
         Assert.Equal(
             expectedArgsContract.ContractDigest,
             actualArgsContract.ContractDigest);
-        AssertJsonEqual(
-            expectedArgsContract.TypeMetadata.GetRawText(),
-            actualArgsContract.TypeMetadata.GetRawText());
-        AssertJsonEqual(
-            expectedArgsContract.Schema.GetRawText(),
-            actualArgsContract.Schema.GetRawText());
+        Assert.True(JsonNode.DeepEquals(
+            JsonNode.Parse(expectedArgsContract.TypeMetadata.GetRawText()),
+            JsonNode.Parse(actualArgsContract.TypeMetadata.GetRawText())));
+        Assert.True(JsonNode.DeepEquals(
+            JsonNode.Parse(expectedArgsContract.Schema.GetRawText()),
+            JsonNode.Parse(actualArgsContract.Schema.GetRawText())));
         var expectedResultContract = expectedOperation.ResultContract!.Value;
         var actualResultContract = deserialized.Operation.ResultContract!.Value;
         Assert.Equal(
             expectedResultContract.ContractDigest,
             actualResultContract.ContractDigest);
-        AssertJsonEqual(
-            expectedResultContract.TypeMetadata.GetRawText(),
-            actualResultContract.TypeMetadata.GetRawText());
-        AssertJsonEqual(
-            expectedResultContract.Schema.GetRawText(),
-            actualResultContract.Schema.GetRawText());
+        Assert.True(JsonNode.DeepEquals(
+            JsonNode.Parse(expectedResultContract.TypeMetadata.GetRawText()),
+            JsonNode.Parse(actualResultContract.TypeMetadata.GetRawText())));
+        Assert.True(JsonNode.DeepEquals(
+            JsonNode.Parse(expectedResultContract.Schema.GetRawText()),
+            JsonNode.Parse(actualResultContract.Schema.GetRawText())));
         Assert.Equal(
             expectedOperation.VerdictContract,
             deserialized.Operation.VerdictContract);
@@ -75,16 +74,5 @@ public sealed class IndexOpsDescribeJsonRoundTripTests
         Assert.NotNull(deserialized.Operation);
         Assert.Null(deserialized.Operation.ResultContract);
         Assert.Null(deserialized.Operation.VerdictContract);
-    }
-
-    private static void AssertJsonEqual (
-        string expected,
-        string actual)
-    {
-        using var expectedDocument = JsonDocument.Parse(expected);
-        using var actualDocument = JsonDocument.Parse(actual);
-        Assert.Equal(
-            JsonSerializer.Serialize(expectedDocument.RootElement),
-            JsonSerializer.Serialize(actualDocument.RootElement));
     }
 }

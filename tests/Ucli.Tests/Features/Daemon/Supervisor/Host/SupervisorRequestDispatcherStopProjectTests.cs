@@ -11,7 +11,7 @@ public sealed class SupervisorRequestDispatcherStopProjectTests
     [Trait("Size", "Small")]
     public async Task HandleConnection_WhenRequestDeliveryIsDelayed_UsesDeadlineRemainingAtReceipt ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var stopOperation = new RecordingDaemonStopOperation();
         var dispatcher = CreateDispatcher(
             timeProvider: timeProvider,

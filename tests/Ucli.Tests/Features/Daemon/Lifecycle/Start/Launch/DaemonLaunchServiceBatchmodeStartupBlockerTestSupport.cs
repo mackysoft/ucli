@@ -24,7 +24,7 @@ internal static class DaemonLaunchServiceBatchmodeStartupBlockerTestSupport
             projectFingerprint: context.ProjectFingerprint,
             endpointAddress: LaunchEndpointAddress);
         var processStartedAtUtc = new DateTimeOffset(2026, 03, 09, 0, 0, 1, TimeSpan.Zero);
-        var timeProvider = new ManualTimeProvider(processStartedAtUtc);
+        var timeProvider = new FakeTimeProvider(processStartedAtUtc);
         var updatedSession = DaemonSessionTestFactory.Create(
             processId: processId,
             sessionToken: LaunchSessionToken,

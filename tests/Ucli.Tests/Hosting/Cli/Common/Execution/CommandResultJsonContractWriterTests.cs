@@ -1,5 +1,5 @@
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
-using static MackySoft.Tests.JsonTextAssert;
+using static MackySoft.Tests.JsonTextNormalization;
 
 namespace MackySoft.Ucli.Tests.Hosting.Cli.Common.Execution;
 
@@ -17,7 +17,7 @@ public sealed class CommandResultJsonContractWriterTests
 
         var json = new CommandResultJsonContractWriter().Write(result);
 
-        AssertExactJson(
+        GoldenJsonAssert.Equal(
             ExpectedJson(
                 """
                 {

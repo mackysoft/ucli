@@ -16,7 +16,7 @@ public sealed class DaemonGuiRebootstrapClientAcceptedTests
     [Trait("Size", "Small")]
     public async Task RequestRebootstrapAsync_WhenSessionTokenRotates_ReloadsManifestAndReplaysSameRequestOnce ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var manifest = CreateManifest();
         var initialManifest = new GuiSupervisorManifestJsonContract(
             manifest.SchemaVersion,
@@ -89,7 +89,7 @@ public sealed class DaemonGuiRebootstrapClientAcceptedTests
     [Trait("Size", "Small")]
     public async Task RequestRebootstrapAsync_WhenRejectedSessionTokenIsStillPublished_DoesNotReplayRequest ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var manifest = CreateManifest();
         var unityProject = ResolvedUnityProjectContextTestFactory.Create(projectFingerprint: manifest.ProjectFingerprint);
         var manifestReadCount = 0;
@@ -129,7 +129,7 @@ public sealed class DaemonGuiRebootstrapClientAcceptedTests
     [Trait("Size", "Small")]
     public async Task RequestRebootstrapAsync_WhenSuccessorTokenIsAlsoRejected_DoesNotObserveThirdGeneration ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var manifest = CreateManifest();
         var initialManifest = new GuiSupervisorManifestJsonContract(
             manifest.SchemaVersion,
@@ -202,7 +202,7 @@ public sealed class DaemonGuiRebootstrapClientAcceptedTests
     [Trait("Size", "Small")]
     public async Task RequestRebootstrapAsync_WhenManifestReadConsumesBudget_UsesRemainingTimeoutForIpc ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var manifest = CreateManifest();
         var unityProject = ResolvedUnityProjectContextTestFactory.Create(projectFingerprint: manifest.ProjectFingerprint);
         var manifestStore = new StubGuiSupervisorManifestStore(cancellationToken =>
@@ -329,7 +329,7 @@ public sealed class DaemonGuiRebootstrapClientAcceptedTests
     [Trait("Size", "Medium")]
     public async Task RequestRebootstrapAsync_WhenManifestMatchesAndSupervisorAccepts_ReturnsAccepted ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         using var scope = TestDirectories.CreateTempScope(
             "daemon-command-service",
             nameof(RequestRebootstrapAsync_WhenManifestMatchesAndSupervisorAccepts_ReturnsAccepted));
@@ -359,7 +359,7 @@ public sealed class DaemonGuiRebootstrapClientAcceptedTests
     [Trait("Size", "Medium")]
     public async Task RequestRebootstrapAsync_WhenManifestStartTimeDiffersWithinTolerance_RequestsSupervisor ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         using var scope = TestDirectories.CreateTempScope(
             "daemon-command-service",
             nameof(RequestRebootstrapAsync_WhenManifestStartTimeDiffersWithinTolerance_RequestsSupervisor));

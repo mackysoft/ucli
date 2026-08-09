@@ -144,7 +144,7 @@ public sealed class SkillsCommandValidationTests
             scope.GetPath("exported"));
 
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         CommandResultAssert.HasSuccessEnvelope(outputJson.RootElement, UcliCommandNames.SkillsPrune);
         JsonAssert.For(outputJson.RootElement)
             .HasProperty("payload", static payload => payload
@@ -173,7 +173,7 @@ public sealed class SkillsCommandValidationTests
         var result = await ExecuteWithUnsupportedHostAsync(subcommand, repoRoot, outputRoot);
 
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         CommandResultAssert.HasInvalidArgumentEnvelope(
             outputJson.RootElement,
             expectedCommand);
@@ -287,7 +287,7 @@ public sealed class SkillsCommandValidationTests
         string expectedMessageFragment)
     {
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         CommandResultAssert.HasInvalidArgumentError(outputJson.RootElement, expectedCommand);
         Assert.Contains(expectedMessageFragment, outputJson.RootElement.GetProperty("message").GetString(), StringComparison.Ordinal);
     }

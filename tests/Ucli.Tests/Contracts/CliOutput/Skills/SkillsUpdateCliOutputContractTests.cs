@@ -16,7 +16,7 @@ public sealed class SkillsUpdateCliOutputContractTests
             printDiff: true,
             skill: [SkillsCliOutputContractTestSupport.SelectedSingleSkillName]);
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
         SkillsCliOutputContractTestSupport.AssertSelectedSkillCreatedDryRunPlan(outputJson.RootElement);
         SkillsCliOutputContractTestSupport.AssertSelectedSkillWasNotMaterialized(outputJson.RootElement);
@@ -39,7 +39,7 @@ public sealed class SkillsUpdateCliOutputContractTests
             printDiff: true,
             skill: [SkillsCliOutputContractTestSupport.SelectedSingleSkillName]);
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
         JsonAssert.For(outputJson.RootElement)
             .HasProperty("payload", payload => payload
@@ -72,7 +72,7 @@ public sealed class SkillsUpdateCliOutputContractTests
             printDiff: true,
             skill: [SkillsCliOutputContractTestSupport.SelectedSingleSkillName]);
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
         JsonAssert.For(outputJson.RootElement)
             .HasProperty("payload", static payload => payload

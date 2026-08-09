@@ -126,7 +126,7 @@ public sealed class CompileServiceSuccessTests
             projectContextResolver: new StaticProjectContextResolver(ProjectContextResolutionResult.Success(ProjectContextTestFactory.Create(
                 config: config))),
             unityRequestExecutor: unityRequestExecutor,
-            timeProvider: new ManualTimeProvider());
+            timeProvider: new FakeTimeProvider(DateTimeOffset.UnixEpoch));
 
         var result = await service.ExecuteAsync(new CompileCommandInput(
             ProjectPath: null,

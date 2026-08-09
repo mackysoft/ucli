@@ -36,7 +36,7 @@ public sealed class ResolveCommandPayloadTests
 
         Assert.Equal((int)CliExitCode.ToolError, result.ExitCode);
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         CommandResultAssert.HasStandardEnvelope(
             outputJson.RootElement,
             UcliCommandNames.Resolve,

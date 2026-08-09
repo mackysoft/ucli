@@ -1,7 +1,6 @@
 using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Assurance.Verify.Vocabulary;
 using MackySoft.Ucli.Features.Assurance.Verify;
-using Xunit.Sdk;
 
 namespace MackySoft.Ucli.Tests.Features.Assurance.Verify;
 
@@ -45,10 +44,7 @@ public sealed class FileVerifyFromInputFileReaderTests
         using var outside = TestDirectories.CreateTempScope("ucli-verify", "outside-from-link-target");
         var targetPath = outside.WriteFile("from.json", """{"protocolVersion":1}""");
         var fromPath = Path.Combine(repository.FullPath, "from.json");
-        if (!TestSymbolicLinks.TryCreateFile(fromPath, targetPath))
-        {
-            throw SkipException.ForSkip("Symbolic links are not supported by this test environment.");
-        }
+        File.CreateSymbolicLink(fromPath, targetPath);
 
         var reader = new FileVerifyFromInputFileReader();
 
@@ -67,10 +63,7 @@ public sealed class FileVerifyFromInputFileReaderTests
         using var outside = TestDirectories.CreateTempScope("ucli-verify", "outside-from-directory-link-target");
         outside.WriteFile("from.json", """{"protocolVersion":1}""");
         var linkPath = Path.Combine(repository.FullPath, "linked");
-        if (!TestSymbolicLinks.TryCreateDirectory(linkPath, outside.FullPath))
-        {
-            throw SkipException.ForSkip("Symbolic links are not supported by this test environment.");
-        }
+        Directory.CreateSymbolicLink(linkPath, outside.FullPath);
 
         var reader = new FileVerifyFromInputFileReader();
 

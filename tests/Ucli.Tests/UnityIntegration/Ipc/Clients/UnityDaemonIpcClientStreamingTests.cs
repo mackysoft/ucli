@@ -17,7 +17,7 @@ public sealed class UnityDaemonIpcClientStreamingTests
     [Trait("Size", "Small")]
     public async Task SendStreamingAsync_WhenDispatchUsesRotatedSessionToken_ReloadsSessionAndRetriesSameRequest ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var transportClient = new RecordingIpcTransportClient(_ => CreateResponse(Guid.NewGuid()));
         transportClient.EnqueueResponse(CreateSessionTokenInvalidResponse());
         transportClient.EnqueueResponse(CreateResponse(Guid.NewGuid()));
@@ -55,7 +55,7 @@ public sealed class UnityDaemonIpcClientStreamingTests
     [Trait("Size", "Small")]
     public async Task SendStreamingAsync_WithRequestDeadline_PreservesAbsoluteDeadlineAlongsideTransportTimeout ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var response = CreateResponse(Guid.NewGuid());
         var transportClient = new RecordingIpcTransportClient(_ => response);
         var sessionStore = new QueuedDaemonSessionStore(
@@ -150,7 +150,7 @@ public sealed class UnityDaemonIpcClientStreamingTests
     [Trait("Size", "Small")]
     public async Task SendStreamingAsync_WhenConnectionIsRefusedDuringRecovery_RetriesWithSameRequestIdAndReloadedSessionToken ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var transportClient = new RecordingIpcTransportClient(_ => CreateResponse(Guid.NewGuid()));
         transportClient.EnqueueException(new IpcConnectException(
             "IPC connection was refused before the request was sent.",
