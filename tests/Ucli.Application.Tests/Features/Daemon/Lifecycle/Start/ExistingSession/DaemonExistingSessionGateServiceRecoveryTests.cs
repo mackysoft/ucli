@@ -41,7 +41,7 @@ public sealed class DaemonExistingSessionGateServiceRecoveryTests
         var result = await service.TryHandleExistingSessionAsync(
             context,
             session,
-            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new ManualTimeProvider()),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new FakeTimeProvider(DateTimeOffset.UnixEpoch)),
             editorMode: null,
             cancellationToken: CancellationToken.None);
 
@@ -97,7 +97,7 @@ public sealed class DaemonExistingSessionGateServiceRecoveryTests
         var result = await service.TryHandleExistingSessionAsync(
             context,
             session,
-            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new ManualTimeProvider()),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new FakeTimeProvider(DateTimeOffset.UnixEpoch)),
             editorMode: null,
             cancellationToken: CancellationToken.None);
 
@@ -191,7 +191,7 @@ public sealed class DaemonExistingSessionGateServiceRecoveryTests
         var result = await service.TryHandleExistingSessionAsync(
             context,
             session,
-            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new ManualTimeProvider()),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new FakeTimeProvider(DateTimeOffset.UnixEpoch)),
             editorMode: null,
             cancellationToken: CancellationToken.None);
 
@@ -227,7 +227,7 @@ public sealed class DaemonExistingSessionGateServiceRecoveryTests
         var result = await service.TryHandleExistingSessionAsync(
             context,
             session,
-            ExecutionDeadline.Start(TimeSpan.FromSeconds(5), new ManualTimeProvider()),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(5), new FakeTimeProvider(DateTimeOffset.UnixEpoch)),
             editorMode: null,
             cancellationToken: CancellationToken.None);
 
@@ -242,7 +242,7 @@ public sealed class DaemonExistingSessionGateServiceRecoveryTests
     public async Task TryHandleExistingSession_WhenRecoveringSidecarIsStale_DoesNotRetryOrHandOff ()
     {
         var now = new DateTimeOffset(2026, 7, 10, 0, 0, 0, TimeSpan.Zero);
-        var timeProvider = new ManualTimeProvider(now);
+        var timeProvider = new FakeTimeProvider(now);
         var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-existing-stale-recovery"));
         var session = DaemonExistingSessionGateServiceTestSupport.CreateRecoveringGuiSession(
             processId: 4018,
@@ -295,7 +295,7 @@ public sealed class DaemonExistingSessionGateServiceRecoveryTests
         var result = await service.TryHandleExistingSessionAsync(
             context,
             session,
-            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new ManualTimeProvider()),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new FakeTimeProvider(DateTimeOffset.UnixEpoch)),
             editorMode: null,
             cancellationToken: CancellationToken.None);
 
@@ -311,7 +311,7 @@ public sealed class DaemonExistingSessionGateServiceRecoveryTests
     [Trait("Size", "Small")]
     public async Task TryHandleExistingSession_WhenRecoveringProbeBudgetExpiresAfterNotRunningError_ReturnsNullForStartFlow ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-existing-recovery-handoff-not-running"));
         var session = DaemonExistingSessionGateServiceTestSupport.CreateRecoveringGuiSession(
             processId: 4012,
@@ -357,7 +357,7 @@ public sealed class DaemonExistingSessionGateServiceRecoveryTests
     [Trait("Size", "Small")]
     public async Task TryHandleExistingSession_WhenRecoveringRetryReportsNotRunningAndProbeBudgetExpires_ReturnsNullForStartFlow ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-existing-recovery-retry-not-running"));
         var session = DaemonExistingSessionGateServiceTestSupport.CreateRecoveringGuiSession(
             processId: 4016,
@@ -421,7 +421,7 @@ public sealed class DaemonExistingSessionGateServiceRecoveryTests
         var result = await service.TryHandleExistingSessionAsync(
             context,
             session,
-            ExecutionDeadline.Start(TimeSpan.FromSeconds(5), new ManualTimeProvider()),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(5), new FakeTimeProvider(DateTimeOffset.UnixEpoch)),
             editorMode: UnityEditorMode.Batchmode,
             cancellationToken: CancellationToken.None);
 
@@ -459,7 +459,7 @@ public sealed class DaemonExistingSessionGateServiceRecoveryTests
         var result = await service.TryHandleExistingSessionAsync(
             context,
             session,
-            ExecutionDeadline.Start(TimeSpan.FromSeconds(5), new ManualTimeProvider()),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(5), new FakeTimeProvider(DateTimeOffset.UnixEpoch)),
             editorMode: null,
             cancellationToken: CancellationToken.None);
 
@@ -474,7 +474,7 @@ public sealed class DaemonExistingSessionGateServiceRecoveryTests
     [Trait("Size", "Small")]
     public async Task TryHandleExistingSession_WhenRecoveringProbeBudgetExpires_ReturnsNullForStartFlow ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-existing-recovery-handoff"));
         var session = DaemonExistingSessionGateServiceTestSupport.CreateRecoveringGuiSession(
             processId: 4010,
@@ -543,7 +543,7 @@ public sealed class DaemonExistingSessionGateServiceRecoveryTests
         var result = await service.TryHandleExistingSessionAsync(
             context,
             session,
-            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new ManualTimeProvider()),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new FakeTimeProvider(DateTimeOffset.UnixEpoch)),
             editorMode: null,
             cancellationToken: CancellationToken.None);
 

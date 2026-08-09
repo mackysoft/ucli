@@ -121,10 +121,7 @@ public sealed class IpcTransportClientStreamingFrameValidationTests
                         .AsTask();
                 });
 
-                await TestAwaiter.WaitAsync(
-                    exceptionTask,
-                    "IPC streaming frame rejection",
-                    IpcTransportClientTestSupport.WaitTimeout);
+                await exceptionTask.WaitAsync(IpcTransportClientTestSupport.WaitTimeout);
             },
             IpcTransportClientTestSupport.WaitTimeout);
     }

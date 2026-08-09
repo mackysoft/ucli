@@ -22,7 +22,7 @@ public sealed class DaemonCleanupOperationInvalidSessionTests
             NextResult = DaemonArtifactCleanupResult.Success(),
         };
         var operation = DaemonCleanupOperationTestSupport.CreateOperation(
-            new ManualTimeProvider(),
+            new FakeTimeProvider(DateTimeOffset.UnixEpoch),
             daemonSessionStore: new RecordingDaemonSessionStore
             {
                 ReadResult = DaemonSessionReadResultTestFactory.Invalid(invalidEvidence, artifactIdentity),
@@ -50,7 +50,7 @@ public sealed class DaemonCleanupOperationInvalidSessionTests
             NextResult = DaemonArtifactCleanupResult.Success(),
         };
         var operation = DaemonCleanupOperationTestSupport.CreateOperation(
-            new ManualTimeProvider(),
+            new FakeTimeProvider(DateTimeOffset.UnixEpoch),
             daemonSessionStore: new RecordingDaemonSessionStore
             {
                 ReadResult = DaemonSessionReadResultTestFactory.Invalid(),
@@ -70,7 +70,7 @@ public sealed class DaemonCleanupOperationInvalidSessionTests
         var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-cleanup-invalid-connect-timeout"));
         var artifactCleaner = new RecordingDaemonArtifactCleaner();
         var operation = DaemonCleanupOperationTestSupport.CreateOperation(
-            new ManualTimeProvider(),
+            new FakeTimeProvider(DateTimeOffset.UnixEpoch),
             daemonSessionStore: new RecordingDaemonSessionStore
             {
                 ReadResult = DaemonSessionReadResultTestFactory.Invalid(),
@@ -97,7 +97,7 @@ public sealed class DaemonCleanupOperationInvalidSessionTests
             processId: 2004);
         var artifactCleaner = new RecordingDaemonArtifactCleaner();
         var operation = DaemonCleanupOperationTestSupport.CreateOperation(
-            new ManualTimeProvider(),
+            new FakeTimeProvider(DateTimeOffset.UnixEpoch),
             daemonSessionStore: new RecordingDaemonSessionStore
             {
                 ReadResult = DaemonSessionReadResultTestFactory.Invalid(invalidEvidence),

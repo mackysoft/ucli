@@ -15,7 +15,7 @@ public sealed class SupervisorStabilityVerifierTests
     [Trait("Size", "Small")]
     public async Task EnsureStable_WhenRemainingTimeoutIsExhausted_ReturnsTimeout ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var pingClient = new RecordingDaemonPingClient((_, _, _, cancellationToken) =>
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -91,33 +91,24 @@ public sealed class SupervisorStabilityVerifierTests
 
         try
         {
-            await TestAwaiter.WaitAsync(pingStarted.Task, "Non-cooperative stability ping", SignalWaitTimeout);
-            await TestAwaiter.WaitAsync(
-                timeProvider.WaitForTimerDueWithinAsync(timeout),
-                "Stability ping deadline timer",
-                SignalWaitTimeout);
+            await pingStarted.Task.WaitAsync(SignalWaitTimeout);
+            await timeProvider.WaitForTimerDueWithinAsync(timeout).WaitAsync(SignalWaitTimeout);
             timeProvider.Advance(timeout);
 
-            var result = await TestAwaiter.WaitAsync(
-                verificationTask,
-                "Non-cooperative stability ping deadline result",
-                SignalWaitTimeout);
-            await TestAwaiter.WaitAsync(
-                pingCancellationObserved.Task,
-                "Non-cooperative stability ping cancellation",
-                SignalWaitTimeout);
+            var result = await verificationTask.WaitAsync(SignalWaitTimeout);
+            await pingCancellationObserved.Task.WaitAsync(SignalWaitTimeout);
 
             Assert.False(result.IsSuccess);
             Assert.Equal(ExecutionErrorKind.Timeout, result.Error!.Kind);
 
             pingCompletion.TrySetResult();
-            await TestAwaiter.WaitAsync(pingFinished.Task, "Late stability ping completion", SignalWaitTimeout);
+            await pingFinished.Task.WaitAsync(SignalWaitTimeout);
             Assert.False((await verificationTask).IsSuccess);
         }
         finally
         {
             pingCompletion.TrySetResult();
-            await TestAwaiter.WaitAsync(pingFinished.Task, "Stability ping cleanup", SignalWaitTimeout);
+            await pingFinished.Task.WaitAsync(SignalWaitTimeout);
         }
     }
 
@@ -156,10 +147,7 @@ public sealed class SupervisorStabilityVerifierTests
             timeProvider.Advance(TimeSpan.FromMilliseconds(700));
         }
 
-        var result = await TestAwaiter.WaitAsync(
-            verificationTask,
-            "Supervisor stability verification",
-            TimeSpan.FromSeconds(5));
+        var result = await verificationTask.WaitAsync(TimeSpan.FromSeconds(5));
 
         Assert.True(result.IsSuccess);
         DaemonPingClientAssert.StabilityVerificationPingsUsedCommandTimeoutBudget(
@@ -183,7 +171,7 @@ public sealed class SupervisorStabilityVerifierTests
             pingClient,
             new SupervisorDiagnosisWriter(diagnosisStore),
             new DaemonCompensationOperationOwner(),
-            new ManualTimeProvider());
+            new FakeTimeProvider(DateTimeOffset.UnixEpoch));
 
         var result = await verifier.EnsureStableAsync(
             unityProject,
@@ -213,7 +201,7 @@ public sealed class SupervisorStabilityVerifierTests
             pingClient,
             new SupervisorDiagnosisWriter(diagnosisStore),
             new DaemonCompensationOperationOwner(),
-            new ManualTimeProvider());
+            new FakeTimeProvider(DateTimeOffset.UnixEpoch));
 
         var result = await verifier.EnsureStableAsync(
             ResolvedUnityProjectContextTestFactory.CreateWithPaths(
@@ -233,7 +221,7 @@ public sealed class SupervisorStabilityVerifierTests
     [Trait("Size", "Small")]
     public async Task EnsureStable_WhenDiagnosisWriteDoesNotComplete_OwnsSupplementalLaneWithoutBlockingLifecycleLane ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var pingClient = new RecordingDaemonPingClient((_, _, _, cancellationToken) =>
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -257,10 +245,7 @@ public sealed class SupervisorStabilityVerifierTests
                 ExecutionDeadline.Start(TimeSpan.FromMilliseconds(180), timeProvider),
                 CancellationToken.None)
             .AsTask();
-        await TestAwaiter.WaitAsync(
-            diagnosisStore.WriteStarted,
-            "Non-cooperative stability diagnosis write",
-            SignalWaitTimeout);
+        await diagnosisStore.WriteStarted.WaitAsync(SignalWaitTimeout);
         timeProvider.Advance(TimeSpan.FromSeconds(1));
 
         SupervisorStabilityVerificationResult result;

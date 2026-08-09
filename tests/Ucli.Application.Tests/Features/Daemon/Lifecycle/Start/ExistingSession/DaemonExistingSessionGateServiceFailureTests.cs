@@ -51,34 +51,25 @@ public sealed class DaemonExistingSessionGateServiceFailureTests
 
         try
         {
-            await TestAwaiter.WaitAsync(pingStarted.Task, "Non-cooperative existing-session ping", SignalWaitTimeout);
-            await TestAwaiter.WaitAsync(
-                timeProvider.WaitForTimerDueWithinAsync(timeout),
-                "Existing-session ping deadline timer",
-                SignalWaitTimeout);
+            await pingStarted.Task.WaitAsync(SignalWaitTimeout);
+            await timeProvider.WaitForTimerDueWithinAsync(timeout).WaitAsync(SignalWaitTimeout);
             timeProvider.Advance(timeout);
 
-            var result = await TestAwaiter.WaitAsync(
-                resultTask,
-                "Non-cooperative existing-session ping deadline result",
-                SignalWaitTimeout);
-            await TestAwaiter.WaitAsync(
-                pingCancellationObserved.Task,
-                "Non-cooperative existing-session ping cancellation",
-                SignalWaitTimeout);
+            var result = await resultTask.WaitAsync(SignalWaitTimeout);
+            await pingCancellationObserved.Task.WaitAsync(SignalWaitTimeout);
 
             Assert.NotNull(result);
             Assert.Equal(DaemonStartStatus.Failed, result!.Status);
             Assert.Equal(ExecutionErrorKind.Timeout, result.Error!.Kind);
 
             pingCompletion.TrySetResult(DaemonExistingSessionGateServiceTestSupport.CreateReadyPingResponse());
-            await TestAwaiter.WaitAsync(pingFinished.Task, "Late existing-session ping completion", SignalWaitTimeout);
+            await pingFinished.Task.WaitAsync(SignalWaitTimeout);
             Assert.Equal(DaemonStartStatus.Failed, (await resultTask)!.Status);
         }
         finally
         {
             pingCompletion.TrySetResult(DaemonExistingSessionGateServiceTestSupport.CreateReadyPingResponse());
-            await TestAwaiter.WaitAsync(pingFinished.Task, "Existing-session ping cleanup", SignalWaitTimeout);
+            await pingFinished.Task.WaitAsync(SignalWaitTimeout);
         }
     }
 
@@ -190,7 +181,7 @@ public sealed class DaemonExistingSessionGateServiceFailureTests
         var result = await service.TryHandleExistingSessionAsync(
             ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-existing-timeout")),
             DaemonSessionTestFactory.Create(processId: 4002),
-            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new ManualTimeProvider()),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new FakeTimeProvider(DateTimeOffset.UnixEpoch)),
             editorMode: null,
             cancellationToken: CancellationToken.None);
 
@@ -210,7 +201,7 @@ public sealed class DaemonExistingSessionGateServiceFailureTests
         var result = await service.TryHandleExistingSessionAsync(
             ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-existing-unexpected")),
             DaemonSessionTestFactory.Create(processId: 4005),
-            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new ManualTimeProvider()),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new FakeTimeProvider(DateTimeOffset.UnixEpoch)),
             editorMode: null,
             cancellationToken: CancellationToken.None);
 

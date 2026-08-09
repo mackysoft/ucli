@@ -19,7 +19,7 @@ public sealed class CallCommandPayloadTests
             cancellationToken: CancellationToken.None));
 
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         JsonAssert.For(outputJson.RootElement.GetProperty("payload"))
             .HasProperty("postReadSource", postReadSource => postReadSource
                 .HasInt32("schemaVersion", 1)

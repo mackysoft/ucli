@@ -19,7 +19,7 @@ public sealed class QueryCommandParserTests
             invalidProjectPath,
             UcliContractConstants.CliOption.FailFast);
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
         CommandResultAssert.DoesNotReportUnrecognizedArguments(
             result.StdErr,

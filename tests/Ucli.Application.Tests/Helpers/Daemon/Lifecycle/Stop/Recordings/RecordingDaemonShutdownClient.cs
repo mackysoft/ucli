@@ -10,7 +10,7 @@ internal sealed class RecordingDaemonShutdownClient : IDaemonShutdownClient
 
     public TimeSpan Delay { get; set; }
 
-    public ManualTimeProvider? TimeProvider { get; set; }
+    public FakeTimeProvider? TimeProvider { get; set; }
 
     public Action? OnSend { get; set; }
 
@@ -32,7 +32,7 @@ internal sealed class RecordingDaemonShutdownClient : IDaemonShutdownClient
             }
             else
             {
-                throw new InvalidOperationException("ManualTimeProvider is required when shutdown Delay is configured.");
+                throw new InvalidOperationException("FakeTimeProvider is required when shutdown Delay is configured.");
             }
         }
 

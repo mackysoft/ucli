@@ -65,7 +65,7 @@ public sealed class SupervisorTransportServerTests
 
         try
         {
-            await TestAwaiter.WaitAsync(startedTaskSource.Task, "Supervisor transport start", SignalWaitTimeout);
+            await startedTaskSource.Task.WaitAsync(SignalWaitTimeout);
 
             var client = new IpcTransportClient(
                 new IpcTransportConnector(),
@@ -76,14 +76,14 @@ public sealed class SupervisorTransportServerTests
                     TimeSpan.FromSeconds(5))
                 .AsTask();
 
-            await TestAwaiter.WaitAsync(slowRequestEnteredTaskSource.Task, "Slow supervisor request entry", SignalWaitTimeout);
+            await slowRequestEnteredTaskSource.Task.WaitAsync(SignalWaitTimeout);
 
             var fastRequestTask = client.SendAsync(
                     IpcTransportEndpoint.FromContract(endpoint),
                     CreateRequest("fast"),
                     TimeSpan.FromSeconds(5))
                 .AsTask();
-            var fastResponse = await TestAwaiter.WaitAsync(fastRequestTask, "Fast supervisor request result", SignalWaitTimeout);
+            var fastResponse = await fastRequestTask.WaitAsync(SignalWaitTimeout);
             Assert.True(IpcPayloadCodec.TryDeserialize(
                 fastResponse.Payload,
                 out TransportServerResponse fastPayload,
@@ -92,7 +92,7 @@ public sealed class SupervisorTransportServerTests
 
             releaseSlowRequestTaskSource.TrySetResult();
 
-            var slowResponse = await TestAwaiter.WaitAsync(slowRequestTask, "Slow supervisor request result", SignalWaitTimeout);
+            var slowResponse = await slowRequestTask.WaitAsync(SignalWaitTimeout);
             Assert.True(IpcPayloadCodec.TryDeserialize(
                 slowResponse.Payload,
                 out TransportServerResponse slowPayload,
@@ -105,7 +105,7 @@ public sealed class SupervisorTransportServerTests
             server.Release();
             try
             {
-                await TestAwaiter.WaitAsync(serverTask, "Supervisor transport shutdown", SignalWaitTimeout);
+                await serverTask.WaitAsync(SignalWaitTimeout);
             }
             catch (OperationCanceledException)
             {
@@ -154,28 +154,22 @@ public sealed class SupervisorTransportServerTests
         Task<IpcResponse>? secondRequestTask = null;
         try
         {
-            await TestAwaiter.WaitAsync(startedTaskSource.Task, "Supervisor transport start", SignalWaitTimeout);
+            await startedTaskSource.Task.WaitAsync(SignalWaitTimeout);
             firstRequestTask = client
                 .SendAsync(IpcTransportEndpoint.FromContract(endpoint), CreateRequest("first"), SignalWaitTimeout)
                 .AsTask();
-            await TestAwaiter.WaitAsync(firstHandlerEntered.Task, "Synchronous supervisor handler entry", SignalWaitTimeout);
+            await firstHandlerEntered.Task.WaitAsync(SignalWaitTimeout);
 
             secondRequestTask = client
                 .SendAsync(IpcTransportEndpoint.FromContract(endpoint), CreateRequest("second"), SignalWaitTimeout)
                 .AsTask();
-            var secondResponse = await TestAwaiter.WaitAsync(
-                secondRequestTask,
-                "Second supervisor response",
-                SignalWaitTimeout);
+            var secondResponse = await secondRequestTask.WaitAsync(SignalWaitTimeout);
 
             Assert.Equal(IpcResponseStatus.Ok, secondResponse.Status);
             Assert.Equal(2, Volatile.Read(ref handlerCallCount));
 
             releaseFirstHandler.TrySetResult();
-            var firstResponse = await TestAwaiter.WaitAsync(
-                firstRequestTask,
-                "First supervisor response",
-                SignalWaitTimeout);
+            var firstResponse = await firstRequestTask.WaitAsync(SignalWaitTimeout);
             Assert.Equal(IpcResponseStatus.Ok, firstResponse.Status);
         }
         finally
@@ -183,7 +177,7 @@ public sealed class SupervisorTransportServerTests
             releaseFirstHandler.TrySetResult();
             cancellationTokenSource.Cancel();
             server.Release();
-            await TestAwaiter.WaitAsync(serverTask, "Supervisor transport shutdown", SignalWaitTimeout);
+            await serverTask.WaitAsync(SignalWaitTimeout);
             if (firstRequestTask is not null)
             {
                 await ObserveConnectionCompletionAsync(firstRequestTask);
@@ -222,10 +216,7 @@ public sealed class SupervisorTransportServerTests
         try
         {
             var exception = await Assert.ThrowsAsync<IOException>(async () =>
-                await TestAwaiter.WaitAsync(
-                    serverTask,
-                    "Named-pipe supervisor startup failure",
-                    SignalWaitTimeout));
+                await serverTask.WaitAsync(SignalWaitTimeout));
 
             Assert.Contains("startup callback failed", exception.Message, StringComparison.Ordinal);
             Assert.Equal(1, Volatile.Read(ref startupCallbackInvocations));
@@ -274,7 +265,7 @@ public sealed class SupervisorTransportServerTests
 
         try
         {
-            await TestAwaiter.WaitAsync(originalBound.Task, "Original supervisor socket bind", SignalWaitTimeout);
+            await originalBound.Task.WaitAsync(SignalWaitTimeout);
             successorServerTask = successorServer.RunAsync(
                 SupervisorTransportEndpoint.FromContract(endpoint),
                 EchoRequestAsync,
@@ -286,13 +277,13 @@ public sealed class SupervisorTransportServerTests
                 SupervisorConstants.MaximumActiveConnections,
                 SupervisorConstants.ConnectionDrainTimeout,
                 successorCancellationTokenSource.Token);
-            await TestAwaiter.WaitAsync(successorStarted.Task, "Successor supervisor socket start", SignalWaitTimeout);
+            await successorStarted.Task.WaitAsync(SignalWaitTimeout);
             Assert.True(File.Exists(endpoint.Address));
 
             originalCancellationTokenSource.Cancel();
             originalServer.Release();
             releaseOriginalPublication.TrySetResult();
-            await TestAwaiter.WaitAsync(originalServerTask, "Original supervisor transport shutdown", SignalWaitTimeout);
+            await originalServerTask.WaitAsync(SignalWaitTimeout);
 
             Assert.True(File.Exists(endpoint.Address));
             var response = await new IpcTransportClient(
@@ -351,7 +342,7 @@ public sealed class SupervisorTransportServerTests
 
         try
         {
-            await TestAwaiter.WaitAsync(originalStarted.Task, "Original supervisor start", SignalWaitTimeout);
+            await originalStarted.Task.WaitAsync(SignalWaitTimeout);
             Assert.True(SupervisorUnixSocketEndpointOwnership.TryResolvePublishedGenerationAddress(
                 AbsolutePath.Parse(endpoint.Address),
                 out var originalGenerationAddress));
@@ -452,16 +443,13 @@ public sealed class SupervisorTransportServerTests
         {
             var exception = await Assert.ThrowsAsync<IOException>(async () =>
             {
-                await TestAwaiter.WaitAsync(
-                    server.RunAsync(
+                await server.RunAsync(
                         SupervisorTransportEndpoint.FromContract(endpoint),
                         static (_, _) => Task.CompletedTask,
                         static _ => Task.CompletedTask,
                         SupervisorConstants.MaximumActiveConnections,
                         SupervisorConstants.ConnectionDrainTimeout,
-                        CancellationToken.None),
-                    "Blocked socket directory server start",
-                    SignalWaitTimeout);
+                        CancellationToken.None).WaitAsync(SignalWaitTimeout);
             });
 
             Assert.Contains(blockedDirectoryPath, exception.Message, StringComparison.Ordinal);
@@ -507,7 +495,7 @@ public sealed class SupervisorTransportServerTests
 
         try
         {
-            await TestAwaiter.WaitAsync(startedTaskSource.Task, "Unix supervisor socket start", SignalWaitTimeout);
+            await startedTaskSource.Task.WaitAsync(SignalWaitTimeout);
 
             PosixAccessBoundaryAssert.DirectoryIsOwnerOnly(Path.GetDirectoryName(endpoint.Address)!);
             PosixAccessBoundaryAssert.FileIsOwnerOnly(endpoint.Address);
@@ -518,7 +506,7 @@ public sealed class SupervisorTransportServerTests
             server.Release();
             try
             {
-                await TestAwaiter.WaitAsync(serverTask, "Unix supervisor socket shutdown", SignalWaitTimeout);
+                await serverTask.WaitAsync(SignalWaitTimeout);
             }
             catch (OperationCanceledException)
             {
@@ -562,7 +550,7 @@ public sealed class SupervisorTransportServerTests
 
         try
         {
-            await TestAwaiter.WaitAsync(startedTaskSource.Task, "Unix supervisor fallback socket start", SignalWaitTimeout);
+            await startedTaskSource.Task.WaitAsync(SignalWaitTimeout);
             Assert.True(Directory.Exists(socketDirectoryPath));
             Assert.True(File.Exists(endpoint.Address));
         }
@@ -572,7 +560,7 @@ public sealed class SupervisorTransportServerTests
             server.Release();
             try
             {
-                await TestAwaiter.WaitAsync(serverTask, "Unix supervisor fallback socket shutdown", SignalWaitTimeout);
+                await serverTask.WaitAsync(SignalWaitTimeout);
             }
             catch (OperationCanceledException)
             {
@@ -648,28 +636,22 @@ public sealed class SupervisorTransportServerTests
         Task<IpcResponse>? firstRequestTask = null;
         try
         {
-            await TestAwaiter.WaitAsync(startedTaskSource.Task, "Supervisor transport start", SignalWaitTimeout);
+            await startedTaskSource.Task.WaitAsync(SignalWaitTimeout);
             firstRequestTask = client
                 .SendAsync(IpcTransportEndpoint.FromContract(endpoint), CreateRequest("first"), SignalWaitTimeout)
                 .AsTask();
-            await TestAwaiter.WaitAsync(firstHandlerEntered.Task, "First supervisor connection", SignalWaitTimeout);
+            await firstHandlerEntered.Task.WaitAsync(SignalWaitTimeout);
 
             var secondRequestTask = client
                 .SendAsync(IpcTransportEndpoint.FromContract(endpoint), CreateRequest("overflow"), SignalWaitTimeout)
                 .AsTask();
             var rejectionException = await Record.ExceptionAsync(async () =>
-                await TestAwaiter.WaitAsync(
-                    secondRequestTask,
-                    "Rejected supervisor connection",
-                    SignalWaitTimeout));
+                await secondRequestTask.WaitAsync(SignalWaitTimeout));
 
             Assert.IsAssignableFrom<IOException>(rejectionException);
             Assert.Equal(1, Volatile.Read(ref handlerCallCount));
             releaseFirstHandler.TrySetResult();
-            var firstResponse = await TestAwaiter.WaitAsync(
-                firstRequestTask,
-                "First supervisor response",
-                SignalWaitTimeout);
+            var firstResponse = await firstRequestTask.WaitAsync(SignalWaitTimeout);
             Assert.Equal(IpcResponseStatus.Ok, firstResponse.Status);
         }
         finally
@@ -677,7 +659,7 @@ public sealed class SupervisorTransportServerTests
             releaseFirstHandler.TrySetResult();
             cancellationTokenSource.Cancel();
             server.Release();
-            await TestAwaiter.WaitAsync(serverTask, "Supervisor transport shutdown", SignalWaitTimeout);
+            await serverTask.WaitAsync(SignalWaitTimeout);
             if (firstRequestTask is not null)
             {
                 await ObserveConnectionCompletionAsync(firstRequestTask);
@@ -721,18 +703,15 @@ public sealed class SupervisorTransportServerTests
         var returnedAtDrainDeadline = false;
         try
         {
-            await TestAwaiter.WaitAsync(startedTaskSource.Task, "Supervisor transport start", SignalWaitTimeout);
+            await startedTaskSource.Task.WaitAsync(SignalWaitTimeout);
             requestTask = client
                 .SendAsync(IpcTransportEndpoint.FromContract(endpoint), CreateRequest("non-cooperative"), SignalWaitTimeout)
                 .AsTask();
-            await TestAwaiter.WaitAsync(handlerEntered.Task, "Non-cooperative supervisor handler", SignalWaitTimeout);
+            await handlerEntered.Task.WaitAsync(SignalWaitTimeout);
 
             cancellationTokenSource.Cancel();
             server.Release();
-            await TestAwaiter.WaitAsync(
-                timeProvider.WaitForTimerDueWithinAsync(TimeSpan.FromMilliseconds(50)),
-                "Supervisor connection drain timer",
-                SignalWaitTimeout);
+            await timeProvider.WaitForTimerDueWithinAsync(TimeSpan.FromMilliseconds(50)).WaitAsync(SignalWaitTimeout);
             timeProvider.Advance(TimeSpan.FromMilliseconds(50));
             await serverTask.WaitAsync(SignalWaitTimeout);
             returnedAtDrainDeadline = true;
@@ -742,7 +721,7 @@ public sealed class SupervisorTransportServerTests
             releaseHandler.TrySetResult();
             cancellationTokenSource.Cancel();
             server.Release();
-            await TestAwaiter.WaitAsync(serverTask, "Supervisor bounded-drain shutdown", SignalWaitTimeout);
+            await serverTask.WaitAsync(SignalWaitTimeout);
             await ObserveConnectionCompletionAsync(requestTask);
         }
 

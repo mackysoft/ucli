@@ -87,7 +87,7 @@ public sealed class IpcDaemonReachabilityProbeTests
     public async Task Probe_WhenPingSucceeds_ReturnsRunning ()
     {
         using var scope = TestDirectories.CreateTempScope("mode-probe", "ping-success");
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var daemonPingClient = new RecordingDaemonPingClient(static (_, _, _, _) => ValueTask.CompletedTask);
         var probe = new IpcDaemonReachabilityProbe(
             daemonPingClient,
@@ -124,19 +124,10 @@ public sealed class IpcDaemonReachabilityProbeTests
                 timeProvider);
 
             var resultTask = probe.ProbeAsync(CreateReadyContext(scope), TimeoutClassificationProbeTimeout, CancellationToken.None).AsTask();
-            await TestAwaiter.WaitAsync(
-                pingStarted.Task,
-                "daemon reachability ping start",
-                SignalWaitTimeout);
-            await TestAwaiter.WaitAsync(
-                timeProvider.WaitForTimerDueWithinAsync(TimeoutClassificationProbeTimeout),
-                "daemon reachability timeout retry timer",
-                SignalWaitTimeout);
+            await pingStarted.Task.WaitAsync(SignalWaitTimeout);
+            await timeProvider.WaitForTimerDueWithinAsync(TimeoutClassificationProbeTimeout).WaitAsync(SignalWaitTimeout);
             timeProvider.Advance(TimeoutClassificationProbeTimeout);
-            var result = await TestAwaiter.WaitAsync(
-                resultTask,
-                "daemon reachability timeout result",
-                SignalWaitTimeout);
+            var result = await resultTask.WaitAsync(SignalWaitTimeout);
 
             Assert.False(result.IsRunning);
             Assert.True(result.HasError);
@@ -265,16 +256,10 @@ public sealed class IpcDaemonReachabilityProbeTests
                 CancellationToken.None)
             .AsTask();
         var retryDelay = TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds);
-        await TestAwaiter.WaitAsync(
-            timeProvider.WaitForTimerDueWithinAsync(retryDelay),
-            "daemon reachability endpoint retry timer",
-            SignalWaitTimeout);
+        await timeProvider.WaitForTimerDueWithinAsync(retryDelay).WaitAsync(SignalWaitTimeout);
         timeProvider.Advance(ProbeAttemptTimeoutCap);
 
-        var result = await TestAwaiter.WaitAsync(
-            resultTask,
-            "daemon reachability endpoint window result",
-            SignalWaitTimeout);
+        var result = await resultTask.WaitAsync(SignalWaitTimeout);
 
         Assert.False(result.IsRunning);
         Assert.False(result.HasError);
@@ -422,16 +407,13 @@ public sealed class IpcDaemonReachabilityProbeTests
 
         await Assert.ThrowsAsync<OperationCanceledException>(async () =>
         {
-            await TestAwaiter.WaitAsync(
-                probe.ProbeAsync(
+            await probe.ProbeAsync(
                     ResolvedUnityProjectContextTestFactory.CreateWithPaths(
                         unityProjectRoot: projectRoot,
                         repositoryRoot: projectRoot,
                         projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint")),
                     DefaultProbeTimeout,
-                    cancellationTokenSource.Token).AsTask(),
-                "Canceled daemon reachability probe",
-                SignalWaitTimeout);
+                    cancellationTokenSource.Token).AsTask().WaitAsync(SignalWaitTimeout);
         });
     }
 
@@ -452,12 +434,12 @@ public sealed class IpcDaemonReachabilityProbeTests
         using var cancellationTokenSource = new CancellationTokenSource();
 
         var probeTask = probe.ProbeAsync(CreateReadyContext(scope), DefaultProbeTimeout, cancellationTokenSource.Token).AsTask();
-        await TestAwaiter.WaitAsync(pingStarted.Task, "Daemon reachability ping start", SignalWaitTimeout);
+        await pingStarted.Task.WaitAsync(SignalWaitTimeout);
         cancellationTokenSource.Cancel();
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
         {
-            await TestAwaiter.WaitAsync(probeTask, "Daemon reachability probe cancellation", SignalWaitTimeout);
+            await probeTask.WaitAsync(SignalWaitTimeout);
         });
     }
 
@@ -466,7 +448,7 @@ public sealed class IpcDaemonReachabilityProbeTests
     public async Task Probe_WithNestedUnityProject_UsesRepositoryRootForEndpointResolution ()
     {
         using var scope = TestDirectories.CreateTempScope("mode-probe", "nested-project");
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var daemonPingClient = new RecordingDaemonPingClient(static (_, _, _, _) => ValueTask.CompletedTask);
         var probe = new IpcDaemonReachabilityProbe(
             daemonPingClient,
@@ -502,16 +484,13 @@ public sealed class IpcDaemonReachabilityProbeTests
 
             await Assert.ThrowsAsync<ArgumentOutOfRangeException>(async () =>
             {
-                await TestAwaiter.WaitAsync(
-                    probe.ProbeAsync(
+                await probe.ProbeAsync(
                         ResolvedUnityProjectContextTestFactory.CreateWithPaths(
                             unityProjectRoot: projectRoot,
                             repositoryRoot: projectRoot,
                             projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint")),
                         timeout,
-                        CancellationToken.None).AsTask(),
-                    "Invalid timeout daemon reachability probe",
-                    SignalWaitTimeout);
+                        CancellationToken.None).AsTask().WaitAsync(SignalWaitTimeout);
             });
         }
     }

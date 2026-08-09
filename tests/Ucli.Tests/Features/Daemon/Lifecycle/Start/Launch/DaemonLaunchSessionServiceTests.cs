@@ -19,7 +19,7 @@ public sealed class DaemonLaunchSessionServiceTests
             daemonSessionStore: sessionStore,
             sessionTokenGenerator: new StaticDaemonSessionTokenGenerator(),
             sessionGenerationIdGenerator: new SequentialGuidGenerator(),
-            timeProvider: new ManualTimeProvider(expectedIssuedAtUtc));
+            timeProvider: new FakeTimeProvider(expectedIssuedAtUtc));
         var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-session-init"));
 
         var result = await service.InitializeAsync(context, UnityEditorMode.Batchmode, CancellationToken.None);

@@ -32,7 +32,9 @@ public sealed class UnityIpcRequestBuilderExecuteTests
         Assert.True(payload.AllowDangerous);
         Assert.True(payload.AllowPlayMode);
         Assert.Equal("plan-token", payload.PlanToken);
-        Assert.Equal(executeArguments.GetRawText(), payload.Arguments.GetRawText());
+        Assert.True(JsonNode.DeepEquals(
+            JsonNode.Parse(executeArguments.GetRawText()),
+            JsonNode.Parse(payload.Arguments.GetRawText())));
     }
 
     [Fact]
@@ -65,6 +67,8 @@ public sealed class UnityIpcRequestBuilderExecuteTests
         var step = payload.Arguments.GetProperty("steps")[0];
         Assert.Equal("op", step.GetProperty("kind").GetString());
         Assert.Equal("asset.create", step.GetProperty("op").GetString());
-        Assert.Equal(args.GetRawText(), step.GetProperty("args").GetRawText());
+        Assert.True(JsonNode.DeepEquals(
+            JsonNode.Parse(args.GetRawText()),
+            JsonNode.Parse(step.GetProperty("args").GetRawText())));
     }
 }

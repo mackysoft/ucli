@@ -65,7 +65,7 @@ public sealed class SupervisorRequestDispatcherFailurePayloadTests
     public async Task HandleConnection_WhenEnsureRunningFailureCompletesAfterRequestDeadline_EmitsDiagnosisPayload ()
     {
         var diagnosis = DaemonDiagnosisTestFactory.CreateGuiEndpointNotRegistered();
-        var timeProvider = new ManualTimeProvider(
+        var timeProvider = new FakeTimeProvider(
             new DateTimeOffset(2026, 03, 11, 0, 0, 0, TimeSpan.Zero));
         var startOperation = new RecordingDaemonStartOperation
         {
@@ -117,7 +117,7 @@ public sealed class SupervisorRequestDispatcherFailurePayloadTests
     public async Task HandleConnection_WhenStreamingEnsureRunningFailureCompletesAfterRequestDeadline_EmitsDiagnosisPayload ()
     {
         var diagnosis = DaemonDiagnosisTestFactory.CreateGuiEndpointNotRegistered();
-        var timeProvider = new ManualTimeProvider(
+        var timeProvider = new FakeTimeProvider(
             new DateTimeOffset(2026, 03, 11, 0, 0, 0, TimeSpan.Zero));
         var startOperation = new RecordingDaemonStartOperation
         {

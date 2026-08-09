@@ -20,10 +20,7 @@ internal static class DaemonReachabilityProbeAssert
     {
         await Assert.ThrowsAsync<OperationCanceledException>(async () =>
         {
-            await TestAwaiter.WaitAsync(
-                decisionTask,
-                "Canceled unity execution mode decision",
-                waitTimeout);
+            await decisionTask.WaitAsync(waitTimeout);
         });
         Assert.Empty(probe.Invocations);
     }
@@ -35,10 +32,7 @@ internal static class DaemonReachabilityProbeAssert
     {
         await Assert.ThrowsAsync<ArgumentOutOfRangeException>(async () =>
         {
-            await TestAwaiter.WaitAsync(
-                decisionTask,
-                "Invalid timeout unity execution mode decision",
-                waitTimeout);
+            await decisionTask.WaitAsync(waitTimeout);
         });
         Assert.Empty(probe.Invocations);
     }

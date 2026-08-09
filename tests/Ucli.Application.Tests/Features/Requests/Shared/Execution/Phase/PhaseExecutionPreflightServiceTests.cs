@@ -235,7 +235,7 @@ public sealed class PhaseExecutionPreflightServiceTests
     [Trait("Size", "Small")]
     public async Task Prepare_WhenDeadlineIsAlreadyExpired_ReturnsTimeoutWithoutLoadingCatalog ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var deadline = ExecutionDeadline.Start(TimeSpan.FromMilliseconds(1), timeProvider);
         timeProvider.Advance(TimeSpan.FromMilliseconds(1));
 
@@ -269,7 +269,7 @@ public sealed class PhaseExecutionPreflightServiceTests
     public async Task Prepare_PropagatesCancellationTokenModeAndRemainingTimeoutToDependencies ()
     {
         var token = new CancellationTokenSource().Token;
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var deadline = ExecutionDeadline.Start(TimeSpan.FromMilliseconds(30000), timeProvider);
         var preparedRequest = CreatePreparedRequestContext();
         var operationCatalog = new RecordingOperationCatalog

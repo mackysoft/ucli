@@ -17,7 +17,7 @@ public sealed class ValidateCliOutputContractTests
             UcliCommandNames.Validate,
             UcliContractConstants.CliOption.Unknown);
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
         CommandResultAssert.HasInvalidArgumentEnvelope(
             outputJson.RootElement,
@@ -108,7 +108,7 @@ public sealed class ValidateCliOutputContractTests
             requestJson,
             readIndexMode: UcliContractConstants.Config.ReadIndexModeDisabled);
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
         CommandResultAssert.HasInvalidArgumentEnvelope(
             outputJson.RootElement,
@@ -137,7 +137,7 @@ public sealed class ValidateCliOutputContractTests
             requestJson,
             readIndexMode: UcliContractConstants.Config.ReadIndexModeDisabled);
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
         CommandResultAssert.HasSuccessEnvelope(
             outputJson.RootElement,

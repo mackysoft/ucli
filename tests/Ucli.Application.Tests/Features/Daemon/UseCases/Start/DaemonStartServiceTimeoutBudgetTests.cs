@@ -8,7 +8,7 @@ public sealed class DaemonStartServiceTimeoutBudgetTests
     [Trait("Size", "Small")]
     public async Task Start_WhenPluginVerificationConsumesBudget_PropagatesRemainingTimeoutToEnsureRunning ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
 
         var context = DaemonCommandExecutionContextTestFactory.CreateForRepositoryRoot(
             timeoutMilliseconds: 700,
@@ -53,7 +53,7 @@ public sealed class DaemonStartServiceTimeoutBudgetTests
     [Trait("Size", "Small")]
     public async Task Start_WhenProgressSinkConsumesTime_DoesNotConsumeTimeoutBudget ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
 
         var context = DaemonCommandExecutionContextTestFactory.CreateForRepositoryRoot(
             timeoutMilliseconds: 700,

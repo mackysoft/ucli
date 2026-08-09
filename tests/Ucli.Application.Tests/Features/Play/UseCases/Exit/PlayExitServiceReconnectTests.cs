@@ -64,7 +64,7 @@ public sealed class PlayExitServiceReconnectTests
             CreateGuiSessionStore(),
             requestExecutor,
             hostExitTerminalizer: terminalizer,
-            timeProvider: new ManualTimeProvider(
+            timeProvider: new FakeTimeProvider(
                 start.StartedAtUtc.AddSeconds(1)));
 
         var result = await service.ExecuteAsync(

@@ -28,7 +28,7 @@ public sealed class DaemonLaunchCompensationServiceTests
         var service = new DaemonLaunchCompensationService(
             processTerminationService,
             artifactCleaner,
-            new ManualTimeProvider());
+            new FakeTimeProvider(DateTimeOffset.UnixEpoch));
         var result = await service.CleanupFailedLaunchAsync(
             context,
             expectedSession: observedSession,
@@ -72,7 +72,7 @@ public sealed class DaemonLaunchCompensationServiceTests
         var service = new DaemonLaunchCompensationService(
             processTerminationService,
             artifactCleaner,
-            new ManualTimeProvider());
+            new FakeTimeProvider(DateTimeOffset.UnixEpoch));
 
         var result = await service.CleanupFailedLaunchAsync(
             context,
@@ -102,7 +102,7 @@ public sealed class DaemonLaunchCompensationServiceTests
         var service = new DaemonLaunchCompensationService(
             processTerminationService,
             artifactCleaner,
-            new ManualTimeProvider());
+            new FakeTimeProvider(DateTimeOffset.UnixEpoch));
 
         var result = await service.CleanupFailedLaunchAsync(
             context,
@@ -139,7 +139,7 @@ public sealed class DaemonLaunchCompensationServiceTests
         var service = new DaemonLaunchCompensationService(
             processTerminationService,
             artifactCleaner,
-            new ManualTimeProvider());
+            new FakeTimeProvider(DateTimeOffset.UnixEpoch));
         var failedLaunchTarget = CreateTarget(2468);
 
         var result = await service.CleanupFailedLaunchAsync(
@@ -169,7 +169,7 @@ public sealed class DaemonLaunchCompensationServiceTests
         var service = new DaemonLaunchCompensationService(
             processTerminationService,
             artifactCleaner,
-            new ManualTimeProvider());
+            new FakeTimeProvider(DateTimeOffset.UnixEpoch));
         var target = CreateTarget(8642);
 
         var result = await service.CleanupFailedLaunchAsync(
@@ -204,7 +204,7 @@ public sealed class DaemonLaunchCompensationServiceTests
         var service = new DaemonLaunchCompensationService(
             processTerminationService,
             artifactCleaner,
-            new ManualTimeProvider());
+            new FakeTimeProvider(DateTimeOffset.UnixEpoch));
         var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-compensation-cleanup-fail"));
         var target = CreateTarget(1010);
 
@@ -243,7 +243,7 @@ public sealed class DaemonLaunchCompensationServiceTests
         var service = new DaemonLaunchCompensationService(
             processTerminationService,
             artifactCleaner,
-            new ManualTimeProvider());
+            new FakeTimeProvider(DateTimeOffset.UnixEpoch));
         var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-compensation-timeout-cap"));
         var target = CreateTarget(4040);
 
@@ -273,7 +273,7 @@ public sealed class DaemonLaunchCompensationServiceTests
     [Trait("Size", "Small")]
     public async Task CleanupFailedLaunch_WhenProcessTerminationConsumesRemainingBudget_ReturnsTimeoutWithoutStartingArtifactCleanup ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var processTerminationService = new RecordingDaemonProcessTerminationService
         {
             Handler = (_, _, _) =>

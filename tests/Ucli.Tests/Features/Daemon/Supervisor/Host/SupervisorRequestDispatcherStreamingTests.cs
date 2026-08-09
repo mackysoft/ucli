@@ -115,7 +115,7 @@ public sealed class SupervisorRequestDispatcherStreamingTests
     {
         var startEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var emitProgress = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var startOperation = new RecordingDaemonStartOperation
         {
             OnStart = async (progressObserver, cancellationToken) =>
@@ -161,10 +161,7 @@ public sealed class SupervisorRequestDispatcherStreamingTests
                 responseMode: TextVocabulary.GetText(IpcResponseMode.Stream),
                 requestDeadlineUtc: timeProvider.GetUtcNow().AddSeconds(5),
                 requestDeadlineRemainingMilliseconds: 5000));
-        await TestAwaiter.WaitAsync(
-            startEntered.Task,
-            "Supervisor start operation",
-            SignalWaitTimeout);
+        await startEntered.Task.WaitAsync(SignalWaitTimeout);
 
         timeProvider.Advance(TimeSpan.FromSeconds(2));
         emitProgress.TrySetResult();
@@ -229,10 +226,7 @@ public sealed class SupervisorRequestDispatcherStreamingTests
                 requestDeadlineUtc: CreateEnsureRunningDeadline(1000),
                 requestDeadlineRemainingMilliseconds: 1000));
 
-        await TestAwaiter.WaitAsync(
-            progressWriteCancellationObserved.Task,
-            "Supervisor progress-write cancellation",
-            SignalWaitTimeout);
+        await progressWriteCancellationObserved.Task.WaitAsync(SignalWaitTimeout);
         cancellationRegistration.Dispose();
         DaemonStartOperationAssert.EnsureRunningStreamRequested(
             startOperation,
@@ -339,10 +333,7 @@ public sealed class SupervisorRequestDispatcherStreamingTests
                 responseMode: TextVocabulary.GetText(IpcResponseMode.Stream),
                 requestDeadlineUtc: CreateEnsureRunningDeadline(1000),
                 requestDeadlineRemainingMilliseconds: 1000));
-        await TestAwaiter.WaitAsync(
-            cancellationCallbackEntered.Task,
-            "Supervisor blocking cancellation callback",
-            SignalWaitTimeout);
+        await cancellationCallbackEntered.Task.WaitAsync(SignalWaitTimeout);
 
         IReadOnlyList<IpcStreamFrame> frames;
         var returnedWithoutWaiting = false;

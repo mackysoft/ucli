@@ -59,7 +59,7 @@ public sealed class TestRunArtifactsServiceTests
     {
         using var scope = TestDirectories.CreateTempScope("test-run-artifacts", "complete-meta");
         var configuration = CreateResolvedConfiguration(scope);
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var service = new TestRunArtifactsService(new TestRunMetaStore(), RunIdGenerator, timeProvider);
 
         var prepareResult = await service.PrepareAsync(configuration);

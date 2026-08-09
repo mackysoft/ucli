@@ -44,10 +44,7 @@ public sealed class IpcTransportClientResponseValidationTests
                     }
                 });
 
-                var exception = await TestAwaiter.WaitAsync(
-                    exceptionTask,
-                    "Interrupted IPC response read",
-                    IpcTransportClientTestSupport.WaitTimeout);
+                var exception = await exceptionTask.WaitAsync(IpcTransportClientTestSupport.WaitTimeout);
                 Assert.IsType<EndOfStreamException>(exception.InnerException);
             },
             IpcTransportClientTestSupport.WaitTimeout);
@@ -96,10 +93,7 @@ public sealed class IpcTransportClientResponseValidationTests
                     await client.SendAsync(endpoint, request, IpcTransportClientTestSupport.DefaultTimeout).AsTask();
                 });
 
-                await TestAwaiter.WaitAsync(
-                    exceptionTask,
-                    "Invalid IPC response envelope rejection",
-                    IpcTransportClientTestSupport.WaitTimeout);
+                await exceptionTask.WaitAsync(IpcTransportClientTestSupport.WaitTimeout);
             },
             IpcTransportClientTestSupport.WaitTimeout);
     }

@@ -17,7 +17,7 @@ public sealed class TestProfileInitCliOutputContractTests
 
         var result = await RunTestProfileInitAsync(workingDirectoryPath);
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
         CommandResultAssert.HasSuccessEnvelope(
             outputJson.RootElement,
@@ -46,7 +46,7 @@ public sealed class TestProfileInitCliOutputContractTests
             UcliCommandNames.InitSubcommand,
             UcliContractConstants.CliOption.Unknown);
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
         CommandResultAssert.HasInvalidArgumentEnvelope(
             outputJson.RootElement,

@@ -19,7 +19,7 @@ public sealed class SkillsDoctorCliOutputContractTests
             repoRoot,
             skill: [SkillsCliOutputContractTestSupport.SelectedSingleSkillName]);
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(doctor.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(doctor.StdOut);
         Assert.Equal((int)CliExitCode.Success, doctor.ExitCode);
         CommandResultAssert.HasSuccessEnvelope(
             outputJson.RootElement,
@@ -49,7 +49,7 @@ public sealed class SkillsDoctorCliOutputContractTests
             repoRoot,
             skill: [SkillsCliOutputContractTestSupport.SelectedSingleSkillName]);
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(doctor.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(doctor.StdOut);
         Assert.Equal((int)CliExitCode.ToolError, doctor.ExitCode);
         CommandResultAssert.HasStandardEnvelope(
             outputJson.RootElement,
@@ -79,7 +79,7 @@ public sealed class SkillsDoctorCliOutputContractTests
             repoRoot,
             skill: [SkillsCliOutputContractTestSupport.SelectedSingleSkillName]);
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(doctor.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(doctor.StdOut);
         Assert.Equal((int)CliExitCode.ToolError, doctor.ExitCode);
         CommandResultAssert.HasSingleError(outputJson.RootElement, InstallTargetHostArtifactDigestMismatchCode);
         JsonAssert.For(outputJson.RootElement)
@@ -101,7 +101,7 @@ public sealed class SkillsDoctorCliOutputContractTests
             repoRoot,
             skill: [SkillsCliOutputContractTestSupport.SelectedSingleSkillName]);
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         Assert.Equal((int)CliExitCode.ToolError, result.ExitCode);
         CommandResultAssert.HasStandardEnvelope(
             outputJson.RootElement,

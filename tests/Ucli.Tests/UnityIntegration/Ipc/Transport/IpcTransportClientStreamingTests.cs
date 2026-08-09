@@ -46,10 +46,7 @@ public sealed class IpcTransportClientStreamingTests
                     }
                 });
 
-                var exception = await TestAwaiter.WaitAsync(
-                    exceptionTask,
-                    "Interrupted IPC streaming response read",
-                    IpcTransportClientTestSupport.WaitTimeout);
+                var exception = await exceptionTask.WaitAsync(IpcTransportClientTestSupport.WaitTimeout);
                 Assert.IsType<EndOfStreamException>(exception.InnerException);
             },
             IpcTransportClientTestSupport.WaitTimeout);
@@ -87,10 +84,7 @@ public sealed class IpcTransportClientStreamingTests
                         })
                     .AsTask();
 
-                var response = await TestAwaiter.WaitAsync(
-                    responseTask,
-                    "IPC streaming response",
-                    IpcTransportClientTestSupport.WaitTimeout);
+                var response = await responseTask.WaitAsync(IpcTransportClientTestSupport.WaitTimeout);
 
                 IpcTransportClientTestSupport.AssertProgressThenTerminalResult(
                     progressFrames,
@@ -131,10 +125,7 @@ public sealed class IpcTransportClientStreamingTests
                         .AsTask();
                 });
 
-                var exception = await TestAwaiter.WaitAsync(
-                    exceptionTask,
-                    "IPC streaming progress callback failure",
-                    IpcTransportClientTestSupport.WaitTimeout);
+                var exception = await exceptionTask.WaitAsync(IpcTransportClientTestSupport.WaitTimeout);
                 Assert.Same(handlerException, exception.InnerException);
             },
             IpcTransportClientTestSupport.WaitTimeout);
@@ -205,18 +196,9 @@ public sealed class IpcTransportClientStreamingTests
                     });
                     timeoutExceptionTask = currentTimeoutExceptionTask;
 
-                    var progressFrame = await TestAwaiter.WaitAsync(
-                        callbackStartedSource.Task,
-                        "IPC streaming progress callback start",
-                        IpcTransportClientTestSupport.WaitTimeout);
-                    var exception = await TestAwaiter.WaitAsync(
-                        currentTimeoutExceptionTask,
-                        "Bounded IPC streaming callback timeout",
-                        IpcTransportClientTestSupport.WaitTimeout);
-                    await TestAwaiter.WaitAsync(
-                        cancellationCallbackStartedSource.Task,
-                        "IPC streaming callback cancellation request",
-                        IpcTransportClientTestSupport.WaitTimeout);
+                    var progressFrame = await callbackStartedSource.Task.WaitAsync(IpcTransportClientTestSupport.WaitTimeout);
+                    var exception = await currentTimeoutExceptionTask.WaitAsync(IpcTransportClientTestSupport.WaitTimeout);
+                    await cancellationCallbackStartedSource.Task.WaitAsync(IpcTransportClientTestSupport.WaitTimeout);
 
                     Assert.Contains("IPC streaming request timed out after", exception.Message, StringComparison.Ordinal);
                     Assert.Equal(IpcStreamFrameKind.Progress, progressFrame.Kind);
@@ -241,18 +223,12 @@ public sealed class IpcTransportClientStreamingTests
             callbackCompletionSource.TrySetException(new InvalidOperationException("late progress callback failure"));
             if (cancellationCallbackStartedSource.Task.IsCompleted)
             {
-                await TestAwaiter.WaitAsync(
-                    cancellationCallbackCompletedSource.Task,
-                    "IPC streaming callback cancellation completion",
-                    IpcTransportClientTestSupport.WaitTimeout);
+                await cancellationCallbackCompletedSource.Task.WaitAsync(IpcTransportClientTestSupport.WaitTimeout);
             }
 
             if (callbackStartedSource.Task.IsCompleted)
             {
-                await TestAwaiter.WaitAsync(
-                    callbackExitedSource.Task,
-                    "IPC streaming callback completion",
-                    IpcTransportClientTestSupport.WaitTimeout);
+                await callbackExitedSource.Task.WaitAsync(IpcTransportClientTestSupport.WaitTimeout);
             }
         }
     }
@@ -307,14 +283,8 @@ public sealed class IpcTransportClientStreamingTests
                     });
                     timeoutExceptionTask = currentTimeoutExceptionTask;
 
-                    var progressFrame = await TestAwaiter.WaitAsync(
-                        callbackStartedSource.Task,
-                        "synchronously blocking IPC progress callback start",
-                        IpcTransportClientTestSupport.WaitTimeout);
-                    var exception = await TestAwaiter.WaitAsync(
-                        currentTimeoutExceptionTask,
-                        "bounded IPC streaming synchronous callback timeout",
-                        IpcTransportClientTestSupport.WaitTimeout);
+                    var progressFrame = await callbackStartedSource.Task.WaitAsync(IpcTransportClientTestSupport.WaitTimeout);
+                    var exception = await currentTimeoutExceptionTask.WaitAsync(IpcTransportClientTestSupport.WaitTimeout);
 
                     Assert.Contains("IPC streaming request timed out after", exception.Message, StringComparison.Ordinal);
                     Assert.Equal(IpcStreamFrameKind.Progress, progressFrame.Kind);
@@ -336,10 +306,7 @@ public sealed class IpcTransportClientStreamingTests
             allowCallbackToReturn.Set();
             if (callbackStartedSource.Task.IsCompleted)
             {
-                await TestAwaiter.WaitAsync(
-                    callbackExitedSource.Task,
-                    "synchronously blocking IPC progress callback completion",
-                    IpcTransportClientTestSupport.WaitTimeout);
+                await callbackExitedSource.Task.WaitAsync(IpcTransportClientTestSupport.WaitTimeout);
             }
         }
     }
@@ -398,26 +365,14 @@ public sealed class IpcTransportClientStreamingTests
 
         try
         {
-            await TestAwaiter.WaitAsync(
-                callbackStartedSource.Task,
-                "initial IPC streaming callback start",
-                IpcTransportClientTestSupport.WaitTimeout);
-            await TestAwaiter.WaitAsync(
-                timeProvider.WaitForTimerDueWithinAsync(IpcTransportClientTestSupport.DefaultTimeout),
-                "initial IPC streaming deadline registration",
-                IpcTransportClientTestSupport.WaitTimeout);
+            await callbackStartedSource.Task.WaitAsync(IpcTransportClientTestSupport.WaitTimeout);
+            await timeProvider.WaitForTimerDueWithinAsync(IpcTransportClientTestSupport.DefaultTimeout).WaitAsync(IpcTransportClientTestSupport.WaitTimeout);
             timeProvider.Advance(IpcTransportClientTestSupport.DefaultTimeout);
 
-            await TestAwaiter.WaitAsync(
-                Assert.ThrowsAsync<TimeoutException>(async () => await firstSendTask),
-                "initial IPC streaming outward timeout",
-                IpcTransportClientTestSupport.WaitTimeout);
+            await Assert.ThrowsAsync<TimeoutException>(async () => await firstSendTask).WaitAsync(IpcTransportClientTestSupport.WaitTimeout);
             if (blockCancellationHandler)
             {
-                await TestAwaiter.WaitAsync(
-                    cancellationHandlerStartedSource.Task,
-                    "initial IPC streaming cancellation handler start",
-                    IpcTransportClientTestSupport.WaitTimeout);
+                await cancellationHandlerStartedSource.Task.WaitAsync(IpcTransportClientTestSupport.WaitTimeout);
             }
 
             var rejection = await Assert.ThrowsAsync<IpcStreamingOperationInProgressException>(async () =>
@@ -442,10 +397,7 @@ public sealed class IpcTransportClientStreamingTests
 
             cancellationHandlerReleaseSource.TrySetResult();
             callbackCompletionSource.TrySetResult();
-            await TestAwaiter.WaitAsync(
-                callbackExitedSource.Task,
-                "initial IPC streaming callback convergence",
-                IpcTransportClientTestSupport.WaitTimeout);
+            await callbackExitedSource.Task.WaitAsync(IpcTransportClientTestSupport.WaitTimeout);
 
             var response = await SendAfterPreviousOperationConvergesAsync(
                 client,

@@ -31,10 +31,7 @@ public sealed class FileReadIndexGenerationStoreSafetyTests
             storageRoot,
             fingerprint,
             Guid.NewGuid());
-        if (!TestSymbolicLinks.TryCreateDirectory(reparseDirectory.Value, targetScope.FullPath))
-        {
-            return;
-        }
+        Directory.CreateSymbolicLink(reparseDirectory.Value, targetScope.FullPath);
 
         using (await CreateStore().BeginWriteAsync(storageRoot, fingerprint, CancellationToken.None))
         {
@@ -63,10 +60,7 @@ public sealed class FileReadIndexGenerationStoreSafetyTests
         var linkedFile = ContainedPath.Create(
             stagingDirectory,
             RootRelativePath.Parse("linked.json")).Target;
-        if (!TestSymbolicLinks.TryCreateFile(linkedFile.Value, targetFile))
-        {
-            return;
-        }
+        File.CreateSymbolicLink(linkedFile.Value, targetFile);
 
         using (await CreateStore().BeginWriteAsync(storageRoot, fingerprint, CancellationToken.None))
         {

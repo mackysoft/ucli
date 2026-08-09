@@ -23,30 +23,18 @@ public sealed class SupervisorRequestDispatcherConnectionLifetimeTests
             runtimeContext,
             TimeSpan.FromMilliseconds(50),
             CancellationToken.None);
-        await TestAwaiter.WaitAsync(
-            stream.ReadStarted,
-            "Supervisor initial frame read",
-            SignalWaitTimeout);
-        await TestAwaiter.WaitAsync(
-            timeProvider.WaitForTimerDueWithinAsync(TimeSpan.FromMilliseconds(50)),
-            "Supervisor initial frame timer",
-            SignalWaitTimeout);
+        await stream.ReadStarted.WaitAsync(SignalWaitTimeout);
+        await timeProvider.WaitForTimerDueWithinAsync(TimeSpan.FromMilliseconds(50)).WaitAsync(SignalWaitTimeout);
         timeProvider.Advance(TimeSpan.FromMilliseconds(50));
 
         try
         {
-            await TestAwaiter.WaitAsync(
-                handleTask,
-                "Supervisor initial frame deadline",
-                SignalWaitTimeout);
+            await handleTask.WaitAsync(SignalWaitTimeout);
         }
         finally
         {
             stream.CompleteRead();
-            await TestAwaiter.WaitAsync(
-                stream.ReadReturned,
-                "Supervisor initial frame read return",
-                SignalWaitTimeout);
+            await stream.ReadReturned.WaitAsync(SignalWaitTimeout);
         }
     }
 
@@ -67,27 +55,15 @@ public sealed class SupervisorRequestDispatcherConnectionLifetimeTests
             CancellationToken.None));
         try
         {
-            await TestAwaiter.WaitAsync(
-                stream.ReadStarted,
-                "Synchronous supervisor initial frame read",
-                SignalWaitTimeout);
-            await TestAwaiter.WaitAsync(
-                timeProvider.WaitForTimerDueWithinAsync(TimeSpan.FromMilliseconds(50)),
-                "Synchronous supervisor initial frame timer",
-                SignalWaitTimeout);
+            await stream.ReadStarted.WaitAsync(SignalWaitTimeout);
+            await timeProvider.WaitForTimerDueWithinAsync(TimeSpan.FromMilliseconds(50)).WaitAsync(SignalWaitTimeout);
             timeProvider.Advance(TimeSpan.FromMilliseconds(50));
-            await TestAwaiter.WaitAsync(
-                handleTask,
-                "Synchronous supervisor initial frame deadline",
-                SignalWaitTimeout);
+            await handleTask.WaitAsync(SignalWaitTimeout);
         }
         finally
         {
             stream.CompleteRead();
-            await TestAwaiter.WaitAsync(
-                stream.ReadReturned,
-                "Synchronous supervisor initial frame read return",
-                SignalWaitTimeout);
+            await stream.ReadReturned.WaitAsync(SignalWaitTimeout);
         }
     }
 
@@ -105,26 +81,14 @@ public sealed class SupervisorRequestDispatcherConnectionLifetimeTests
             runtimeContext,
             TimeSpan.FromMilliseconds(50),
             CancellationToken.None);
-        await TestAwaiter.WaitAsync(
-            stream.ReadStarted,
-            "Supervisor initial frame read",
-            SignalWaitTimeout);
-        await TestAwaiter.WaitAsync(
-            timeProvider.WaitForTimerDueWithinAsync(TimeSpan.FromMilliseconds(50)),
-            "Supervisor initial frame timer",
-            SignalWaitTimeout);
+        await stream.ReadStarted.WaitAsync(SignalWaitTimeout);
+        await timeProvider.WaitForTimerDueWithinAsync(TimeSpan.FromMilliseconds(50)).WaitAsync(SignalWaitTimeout);
         timeProvider.Advance(TimeSpan.FromMilliseconds(50));
-        await TestAwaiter.WaitAsync(
-            handleTask,
-            "Supervisor initial frame deadline",
-            SignalWaitTimeout);
+        await handleTask.WaitAsync(SignalWaitTimeout);
 
         stream.FailRead(new ApplicationException("late initial frame read fault"));
 
-        await TestAwaiter.WaitAsync(
-            stream.ReadReturned,
-            "Late supervisor initial frame read fault",
-            SignalWaitTimeout);
+        await stream.ReadReturned.WaitAsync(SignalWaitTimeout);
     }
 
     [Fact]
@@ -196,23 +160,11 @@ public sealed class SupervisorRequestDispatcherConnectionLifetimeTests
 
         try
         {
-            await TestAwaiter.WaitAsync(
-                stream.WriteStarted,
-                "Supervisor single-response write",
-                SignalWaitTimeout);
-            await TestAwaiter.WaitAsync(
-                timeProvider.WaitForTimerDueWithinAsync(SupervisorConstants.ResponseFrameWriteTimeout),
-                "Supervisor single-response frame timer",
-                SignalWaitTimeout);
+            await stream.WriteStarted.WaitAsync(SignalWaitTimeout);
+            await timeProvider.WaitForTimerDueWithinAsync(SupervisorConstants.ResponseFrameWriteTimeout).WaitAsync(SignalWaitTimeout);
             timeProvider.Advance(SupervisorConstants.ResponseFrameWriteTimeout);
-            await TestAwaiter.WaitAsync(
-                handlerReturned.Task,
-                "Supervisor single-response frame deadline",
-                SignalWaitTimeout);
-            await TestAwaiter.WaitAsync(
-                stream.DisposeStarted,
-                "Supervisor timed-out response stream disposal",
-                SignalWaitTimeout);
+            await handlerReturned.Task.WaitAsync(SignalWaitTimeout);
+            await stream.DisposeStarted.WaitAsync(SignalWaitTimeout);
             Assert.False(fatalException.Task.IsCompleted);
         }
         finally
@@ -220,10 +172,7 @@ public sealed class SupervisorRequestDispatcherConnectionLifetimeTests
             stream.CompleteWrite();
             stream.CompleteDispose();
             connectionGroup.Release();
-            await TestAwaiter.WaitAsync(
-                connectionGroup.DrainAsync(SignalWaitTimeout),
-                "Supervisor connection drain",
-                SignalWaitTimeout);
+            await connectionGroup.DrainAsync(SignalWaitTimeout).WaitAsync(SignalWaitTimeout);
         }
     }
 }

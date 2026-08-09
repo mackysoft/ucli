@@ -34,7 +34,7 @@ public sealed class UcliServiceCollectionExtensionsTests
     [Trait("Size", "Small")]
     public void AddUcliServices_PreservesRegisteredTimeProvider ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var services = new ServiceCollection();
         services.AddSingleton<TimeProvider>(timeProvider);
         services.AddUcliServices();

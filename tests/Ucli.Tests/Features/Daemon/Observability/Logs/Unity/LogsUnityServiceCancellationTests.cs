@@ -20,8 +20,7 @@ public sealed class LogsUnityServiceCancellationTests
 
         await Assert.ThrowsAsync<OperationCanceledException>(async () =>
         {
-            await TestAwaiter.WaitAsync(
-                service.ExecuteAsync(
+            await service.ExecuteAsync(
                         new LogsUnityServiceRequest(
                             ProjectPath: "/tmp/unity-project",
                             Tail: null,
@@ -40,9 +39,7 @@ public sealed class LogsUnityServiceCancellationTests
                             IdleTimeoutMilliseconds: null),
                         static (_, _, _) => ValueTask.CompletedTask,
                         cancellationTokenSource.Token)
-                    .AsTask(),
-                "Canceled unity logs execution",
-                AsyncWaitTimeout);
+                    .AsTask().WaitAsync(AsyncWaitTimeout);
         });
     }
 }

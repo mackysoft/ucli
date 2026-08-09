@@ -15,7 +15,7 @@ public sealed class SkillsUninstallCliOutputContractTests
 
         var result = await SkillsCliOutputContractTestSupport.RunOpenAiUninstallAsync(repoRoot, skill: [SkillsCliOutputContractTestSupport.SelectedSingleSkillName]);
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
         JsonAssert.For(outputJson.RootElement)
             .HasProperty("payload", payload => payload
@@ -42,7 +42,7 @@ public sealed class SkillsUninstallCliOutputContractTests
             dryRun: true,
             skill: [SkillsCliOutputContractTestSupport.SelectedSingleSkillName]);
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
         JsonAssert.For(outputJson.RootElement)
             .HasProperty("payload", payload => payload

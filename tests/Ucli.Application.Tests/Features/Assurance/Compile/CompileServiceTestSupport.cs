@@ -30,7 +30,7 @@ internal static class CompileServiceTestSupport
         ILifecycleExecutionHostExitTerminalizer? hostExitTerminalizer = null)
     {
         var resolvedTimeProvider =
-            timeProvider ?? new ManualTimeProvider(StartedAtUtc);
+            timeProvider ?? new FakeTimeProvider(StartedAtUtc);
         return new CompileService(
             projectContextResolver
                 ?? new StaticProjectContextResolver(

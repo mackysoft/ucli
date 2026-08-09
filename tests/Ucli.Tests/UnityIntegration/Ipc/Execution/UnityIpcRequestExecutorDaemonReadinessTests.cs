@@ -226,7 +226,7 @@ public sealed class UnityIpcRequestExecutorDaemonReadinessTests
         using var scope = TestDirectories.CreateTempScope(
             "unity-ipc-request-executor",
             "daemon-lifecycle-start-deadline");
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var daemonTransportClient =
             new RecordingUnityIpcTransportClient(
                 _ => throw new Xunit.Sdk.XunitException(

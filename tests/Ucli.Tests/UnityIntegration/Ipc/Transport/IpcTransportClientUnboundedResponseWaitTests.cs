@@ -35,10 +35,7 @@ public sealed class IpcTransportClientUnboundedResponseWaitTests
                         .AsTask();
                 });
 
-                var exception = await TestAwaiter.WaitAsync(
-                    exceptionTask,
-                    "Unbounded IPC streaming progress callback failure",
-                    IpcTransportClientTestSupport.WaitTimeout);
+                var exception = await exceptionTask.WaitAsync(IpcTransportClientTestSupport.WaitTimeout);
                 Assert.Same(handlerException, exception.InnerException);
             },
             IpcTransportClientTestSupport.WaitTimeout);

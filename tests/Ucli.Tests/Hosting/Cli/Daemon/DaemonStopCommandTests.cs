@@ -27,7 +27,7 @@ public sealed class DaemonStopCommandTests
             cancellationToken: CancellationToken.None));
 
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         CommandResultAssert.HasSuccessEnvelope(
             outputJson.RootElement,
             UcliCommandNames.DaemonStop);

@@ -1,7 +1,7 @@
 using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Configuration;
-using static MackySoft.Tests.JsonTextAssert;
+using static MackySoft.Tests.JsonTextNormalization;
 
 namespace MackySoft.Ucli.Contracts.Tests.Index;
 
@@ -70,7 +70,7 @@ public sealed class IndexOpsCatalogJsonContractTests
 
         var json = new IndexOpsCatalogJsonContractWriter().Write(contract);
 
-        AssertExactJson(
+        GoldenJsonAssert.Equal(
             ExpectedJson(
                 """
                 {

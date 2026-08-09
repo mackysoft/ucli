@@ -51,7 +51,7 @@ public sealed class DaemonStartCommandFailurePayloadTests
 
         Assert.Equal((int)CliExitCode.ToolError, result.ExitCode);
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         CommandResultAssert.HasStandardEnvelope(
             outputJson.RootElement,
             UcliCommandNames.DaemonStart,
@@ -126,7 +126,7 @@ public sealed class DaemonStartCommandFailurePayloadTests
 
         Assert.Equal((int)CliExitCode.ToolError, result.ExitCode);
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         CommandResultAssert.HasStandardEnvelope(
             outputJson.RootElement,
             UcliCommandNames.DaemonStart,
@@ -201,7 +201,7 @@ public sealed class DaemonStartCommandFailurePayloadTests
 
         Assert.Equal((int)CliExitCode.ToolError, result.ExitCode);
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         CommandResultAssert.HasSingleError(outputJson.RootElement, ExecutionErrorCodes.IpcTimeout);
         var payload = outputJson.RootElement.GetProperty("payload");
         JsonAssert.For(payload)
@@ -254,7 +254,7 @@ public sealed class DaemonStartCommandFailurePayloadTests
 
         Assert.Equal((int)CliExitCode.ToolError, result.ExitCode);
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         JsonAssert.For(outputJson.RootElement.GetProperty("payload"))
             .HasString("retryDisposition", TextVocabulary.GetText(DaemonStartupRetryDisposition.RetryImmediately))
             .HasBoolean("safeToRetryImmediately", true)

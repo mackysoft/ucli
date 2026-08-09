@@ -47,7 +47,7 @@ internal static class IpcTransportTestHarness
 
         try
         {
-            await TestAwaiter.WaitAsync(startedTaskSource.Task, "IPC streaming transport server start", waitTimeout);
+            await startedTaskSource.Task.WaitAsync(waitTimeout);
             await executeClientAsync(endpoint, CreateStreamingRequest());
         }
         finally
@@ -56,7 +56,7 @@ internal static class IpcTransportTestHarness
             server.Release();
             try
             {
-                await TestAwaiter.WaitAsync(serverTask, "IPC streaming transport server shutdown", waitTimeout);
+                await serverTask.WaitAsync(waitTimeout);
             }
             catch (OperationCanceledException)
             {
@@ -104,7 +104,7 @@ internal static class IpcTransportTestHarness
 
         try
         {
-            await TestAwaiter.WaitAsync(startedTaskSource.Task, "IPC transport server start", waitTimeout);
+            await startedTaskSource.Task.WaitAsync(waitTimeout);
             await executeClientAsync(endpoint, CreateSingleRequest());
         }
         finally
@@ -113,7 +113,7 @@ internal static class IpcTransportTestHarness
             server.Release();
             try
             {
-                await TestAwaiter.WaitAsync(serverTask, "IPC transport server shutdown", waitTimeout);
+                await serverTask.WaitAsync(waitTimeout);
             }
             catch (OperationCanceledException)
             {

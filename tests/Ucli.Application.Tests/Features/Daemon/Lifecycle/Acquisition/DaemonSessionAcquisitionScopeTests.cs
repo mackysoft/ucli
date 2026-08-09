@@ -502,15 +502,9 @@ public sealed class DaemonSessionAcquisitionScopeTests
                 rejectedSession,
                 CancellationToken.None)
             .AsTask();
-        await TestAwaiter.WaitAsync(
-            timeProvider.WaitForTimerDueWithinAsync(RetryDelay),
-            "daemon session acquisition publication retry timer",
-            TimeSpan.FromSeconds(5));
+        await timeProvider.WaitForTimerDueWithinAsync(RetryDelay).WaitAsync(TimeSpan.FromSeconds(5));
         timeProvider.Advance(requestTimeout);
-        var result = await TestAwaiter.WaitAsync(
-            resolutionTask,
-            "daemon session acquisition request deadline result",
-            TimeSpan.FromSeconds(5));
+        var result = await resolutionTask.WaitAsync(TimeSpan.FromSeconds(5));
 
         Assert.Equal(DaemonSessionAcquisitionKind.RequestDeadlineExpired, result.Kind);
         Assert.Equal(DateTimeOffset.UnixEpoch + requestTimeout, timeProvider.GetUtcNow());

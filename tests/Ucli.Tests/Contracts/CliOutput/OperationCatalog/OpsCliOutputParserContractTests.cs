@@ -16,7 +16,7 @@ public sealed class OpsCliOutputParserContractTests
         {
             var result = await CliInProcessRunner.RunCommandAsync([UcliCommandNames.Ops, .. args]);
 
-            using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+            using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
             Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
             CommandResultAssert.HasInvalidArgumentEnvelope(
                 outputJson.RootElement,
@@ -36,7 +36,7 @@ public sealed class OpsCliOutputParserContractTests
             UcliCommandNames.ListSubcommand,
             UcliContractConstants.CliOption.Unknown);
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
         CommandResultAssert.HasInvalidArgumentEnvelope(
             outputJson.RootElement,
@@ -60,7 +60,7 @@ public sealed class OpsCliOutputParserContractTests
             UcliContractConstants.CliOption.ReadIndexMode,
             "unsupported");
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
         CommandResultAssert.DoesNotReportUnrecognizedArguments(result.StdErr, UcliContractConstants.CliOption.FailFast);
         CommandResultAssert.HasInvalidArgumentEnvelope(

@@ -26,10 +26,7 @@ public sealed class IpcDaemonPingClientFingerprintTests
 
         var exception = await Assert.ThrowsAsync<DaemonPingResponseException>(async () =>
         {
-            await TestAwaiter.WaitAsync(
-                InvokePingMethodAsync(pingClient, methodName).AsTask(),
-                "Mismatched project fingerprint ping result",
-                AsyncWaitTimeout);
+            await InvokePingMethodAsync(pingClient, methodName).AsTask().WaitAsync(AsyncWaitTimeout);
         });
 
         Assert.Contains("projectFingerprint mismatch", exception.Message, StringComparison.Ordinal);

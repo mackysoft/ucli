@@ -32,7 +32,7 @@ public sealed class BuildServiceInputProjectionTests
                 projectFingerprint: DefaultProjectFingerprint))),
             requestExecutor: requestExecutor,
             artifactStore: new StubBuildRunArtifactStore(tempDirectory.FullPath),
-            timeProvider: new ManualTimeProvider());
+            timeProvider: new FakeTimeProvider(DateTimeOffset.UnixEpoch));
 
         var result = await service.ExecuteAsync(CreateInput(timeoutMilliseconds: null));
 

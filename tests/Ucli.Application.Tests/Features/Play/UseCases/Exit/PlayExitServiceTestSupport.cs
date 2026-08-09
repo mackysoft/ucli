@@ -57,7 +57,7 @@ internal static class PlayExitServiceTestSupport
             new StaticProjectContextResolver(contextResult),
             sessionStore);
         var resolvedTimeProvider =
-            timeProvider ?? new ManualTimeProvider(StartedAtUtc);
+            timeProvider ?? new FakeTimeProvider(StartedAtUtc);
         return new PlayExitService(
             new PlayTransitionWorkflow(
                 contextResolver,

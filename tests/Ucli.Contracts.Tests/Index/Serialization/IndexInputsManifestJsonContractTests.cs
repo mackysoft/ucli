@@ -1,5 +1,5 @@
 using MackySoft.Ucli.Contracts.Index;
-using static MackySoft.Tests.JsonTextAssert;
+using static MackySoft.Tests.JsonTextNormalization;
 
 namespace MackySoft.Ucli.Contracts.Tests.Index;
 
@@ -52,7 +52,7 @@ public sealed class IndexInputsManifestJsonContractTests
             GuidPathHash: "guid",
             CombinedHash: "combined");
 
-        AssertExactJson(
+        GoldenJsonAssert.Equal(
             ExpectedJson(
                 """
                 {

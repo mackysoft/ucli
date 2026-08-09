@@ -17,7 +17,7 @@ internal static class SupervisorProjectGatewayTestSupport
         string repositoryRoot,
         TimeProvider? timeProvider = null)
     {
-        var effectiveTimeProvider = timeProvider ?? new ManualTimeProvider();
+        var effectiveTimeProvider = timeProvider ?? new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var manifest = SupervisorClientTestSupport.CreateManifest();
         var manifestStore = SupervisorManifestStoreTestSupport.CreateFileBacked(
             effectiveTimeProvider);

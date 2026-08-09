@@ -7,7 +7,7 @@ public sealed class ExecutionDeadlineTests
     public void Start_WithPositiveTimeout_TryGetRemainingTimeoutReturnsTrue ()
     {
         var startedAtUtc = new DateTimeOffset(2030, 1, 2, 3, 4, 5, TimeSpan.Zero);
-        var timeProvider = new ManualTimeProvider(startedAtUtc);
+        var timeProvider = new FakeTimeProvider(startedAtUtc);
         var deadline = ExecutionDeadline.Start(TimeSpan.FromSeconds(1), timeProvider);
 
         var result = deadline.TryGetRemainingTimeout(out var remainingTimeout);
@@ -22,7 +22,7 @@ public sealed class ExecutionDeadlineTests
     [Trait("Size", "Small")]
     public void Start_WhenTimeoutElapsed_TryGetRemainingTimeoutReturnsFalse ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var deadline = ExecutionDeadline.Start(TimeSpan.FromMilliseconds(10), timeProvider);
         timeProvider.Advance(TimeSpan.FromMilliseconds(50));
 
@@ -36,7 +36,7 @@ public sealed class ExecutionDeadlineTests
     [Trait("Size", "Small")]
     public void Start_WhenUtcDeadlineExceedsMaximum_ClampsUtcDeadline ()
     {
-        var timeProvider = new ManualTimeProvider(DateTimeOffset.MaxValue - TimeSpan.FromSeconds(1));
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.MaxValue - TimeSpan.FromSeconds(1));
 
         var deadline = ExecutionDeadline.Start(TimeSpan.FromSeconds(2), timeProvider);
 
@@ -47,7 +47,7 @@ public sealed class ExecutionDeadlineTests
     [Trait("Size", "Small")]
     public void CreateCompletionDeadline_AfterElapsedTime_PreservesOriginalMonotonicStartPoint ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var deadline = ExecutionDeadline.Start(TimeSpan.FromMilliseconds(700), timeProvider);
         timeProvider.Advance(TimeSpan.FromMilliseconds(400));
 
@@ -92,7 +92,7 @@ public sealed class ExecutionDeadlineTests
     public void CreateCappedDeadline_AfterElapsedTime_ExpiresAtMaximumDurationFromObservation ()
     {
         var startedAtUtc = new DateTimeOffset(2030, 1, 2, 3, 4, 5, TimeSpan.Zero);
-        var timeProvider = new ManualTimeProvider(startedAtUtc);
+        var timeProvider = new FakeTimeProvider(startedAtUtc);
         var deadline = ExecutionDeadline.Start(TimeSpan.FromSeconds(1), timeProvider);
         timeProvider.Advance(TimeSpan.FromMilliseconds(400));
 
@@ -108,7 +108,7 @@ public sealed class ExecutionDeadlineTests
     public void CreateCappedDeadline_WhenParentExpiresSooner_DoesNotOutliveParent ()
     {
         var startedAtUtc = new DateTimeOffset(2030, 1, 2, 3, 4, 5, TimeSpan.Zero);
-        var timeProvider = new ManualTimeProvider(startedAtUtc);
+        var timeProvider = new FakeTimeProvider(startedAtUtc);
         var deadline = ExecutionDeadline.Start(TimeSpan.FromSeconds(1), timeProvider);
         timeProvider.Advance(TimeSpan.FromMilliseconds(400));
 
@@ -161,7 +161,7 @@ public sealed class ExecutionDeadlineTests
     [Trait("Size", "Small")]
     public void IsExpired_BeforeTimeout_ReturnsFalse ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var deadline = ExecutionDeadline.Start(TimeSpan.FromSeconds(1), timeProvider);
 
         Assert.False(deadline.IsExpired);
@@ -171,7 +171,7 @@ public sealed class ExecutionDeadlineTests
     [Trait("Size", "Small")]
     public void IsExpired_AfterTimeout_ReturnsTrue ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var deadline = ExecutionDeadline.Start(TimeSpan.FromMilliseconds(10), timeProvider);
         timeProvider.Advance(TimeSpan.FromMilliseconds(50));
 
@@ -182,7 +182,7 @@ public sealed class ExecutionDeadlineTests
     [Trait("Size", "Small")]
     public void TryGetRemainingMilliseconds_BeforeTimeout_ReturnsTrueWithPositiveMilliseconds ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var deadline = ExecutionDeadline.Start(TimeSpan.FromSeconds(1), timeProvider);
 
         var result = deadline.TryGetRemainingMilliseconds(out var remainingMilliseconds);
@@ -195,7 +195,7 @@ public sealed class ExecutionDeadlineTests
     [Trait("Size", "Small")]
     public void TryGetRemainingMilliseconds_WhenRemainingTimeoutIsSubMillisecond_RoundsUpToOne ()
     {
-        var deadline = ExecutionDeadline.Start(TimeSpan.FromTicks(1), new ManualTimeProvider());
+        var deadline = ExecutionDeadline.Start(TimeSpan.FromTicks(1), new FakeTimeProvider(DateTimeOffset.UnixEpoch));
 
         var result = deadline.TryGetRemainingMilliseconds(out var remainingMilliseconds);
 
@@ -207,7 +207,7 @@ public sealed class ExecutionDeadlineTests
     [Trait("Size", "Small")]
     public void TryGetRemainingMilliseconds_WhenRemainingTimeoutExceedsInt32Milliseconds_ClampsToInt32Maximum ()
     {
-        var deadline = ExecutionDeadline.Start(TimeSpan.FromDays(30), new ManualTimeProvider());
+        var deadline = ExecutionDeadline.Start(TimeSpan.FromDays(30), new FakeTimeProvider(DateTimeOffset.UnixEpoch));
 
         var result = deadline.TryGetRemainingMilliseconds(out var remainingMilliseconds);
 
@@ -219,7 +219,7 @@ public sealed class ExecutionDeadlineTests
     [Trait("Size", "Small")]
     public void TryGetRemainingMilliseconds_WhenTimeoutElapsed_ReturnsFalseWithZero ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var deadline = ExecutionDeadline.Start(TimeSpan.FromMilliseconds(10), timeProvider);
         timeProvider.Advance(TimeSpan.FromMilliseconds(50));
 

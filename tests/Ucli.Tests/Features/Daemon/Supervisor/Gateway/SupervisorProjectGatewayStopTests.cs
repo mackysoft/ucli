@@ -69,7 +69,7 @@ public sealed class SupervisorProjectGatewayStopTests
         using var scope = TestDirectories.CreateTempScope(
             "supervisor-project-gateway",
             "stop-project-token-rotation");
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var scenario = await SupervisorProjectGatewayTestSupport.CreateManifestBackedScenarioAsync(
             scope.FullPath,
             timeProvider);
@@ -134,7 +134,7 @@ public sealed class SupervisorProjectGatewayStopTests
     public async Task TryStopProject_WhenManifestIsMalformed_DeletesManifestAndReturnsNull ()
     {
         using var scope = TestDirectories.CreateTempScope("supervisor-project-gateway", "malformed-manifest");
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var manifestPath = UcliStoragePathResolver.ResolveSupervisorManifestPath(AbsolutePath.Parse(scope.FullPath));
         Directory.CreateDirectory(Path.GetDirectoryName(manifestPath.Value)!);
         await File.WriteAllTextAsync(manifestPath.Value, "{ malformed json", CancellationToken.None);
@@ -165,7 +165,7 @@ public sealed class SupervisorProjectGatewayStopTests
     public async Task TryStopProject_WhenMalformedManifestIsReplacedDuringCleanup_RetriesOnceWithSuccessorGeneration ()
     {
         using var scope = TestDirectories.CreateTempScope("supervisor-project-gateway", "malformed-manifest-replaced");
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var originalManifest = SupervisorClientTestSupport.CreateManifest();
         var successorManifest = SupervisorClientTestSupport.CreateSuccessorManifest(
             originalManifest,
@@ -218,7 +218,7 @@ public sealed class SupervisorProjectGatewayStopTests
     public async Task TryStopProject_WhenManifestChangesAgainDuringSuccessorRetry_ReturnsWithoutThirdObservation ()
     {
         using var scope = TestDirectories.CreateTempScope("supervisor-project-gateway", "manifest-changes-twice");
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var firstSuccessor = SupervisorClientTestSupport.CreateManifest(sessionTokenDiscriminator: 2);
         var secondSuccessor = SupervisorClientTestSupport.CreateSuccessorManifest(
             firstSuccessor,
@@ -262,7 +262,7 @@ public sealed class SupervisorProjectGatewayStopTests
     public async Task TryStopProject_WhenProbeConsumesBudget_PassesRemainingTimeoutToStopProject ()
     {
         using var scope = TestDirectories.CreateTempScope("supervisor-project-gateway", "stop-project-timeout");
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var scenario = await SupervisorProjectGatewayTestSupport.CreateManifestBackedScenarioAsync(
             scope.FullPath,
             timeProvider);

@@ -431,7 +431,7 @@ public sealed class DaemonShutdownClientTests
     public async Task SendShutdown_WhenInitialEndpointRefusesConnection_FollowsPublishedSuccessor ()
     {
         var startedAtUtc = new DateTimeOffset(2030, 1, 2, 3, 4, 5, TimeSpan.Zero);
-        var timeProvider = new ManualTimeProvider(startedAtUtc);
+        var timeProvider = new FakeTimeProvider(startedAtUtc);
         var transportClient = new RecordingIpcTransportClient(
             static request => IpcResponseTestFactory.CreateSuccess(
                 request,
@@ -510,7 +510,7 @@ public sealed class DaemonShutdownClientTests
                 IpcSessionErrorCodes.SessionTokenRequired,
                 "session rejected"));
         var startedAtUtc = new DateTimeOffset(2030, 1, 2, 3, 4, 5, TimeSpan.Zero);
-        var timeProvider = new ManualTimeProvider(startedAtUtc);
+        var timeProvider = new FakeTimeProvider(startedAtUtc);
         var client = new DaemonShutdownClient(
             transportClient,
             DaemonSessionAcquisitionCoordinatorTestFactory.Create(

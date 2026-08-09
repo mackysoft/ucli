@@ -54,7 +54,7 @@ public sealed class DaemonStartServicePluginVerificationTests
     public async Task Start_WhenUnityPluginVerificationExceedsTimeout_ReturnsTimeoutBeforeSupervisorBootstrap ()
     {
         var context = DaemonCommandExecutionContextTestFactory.Create(timeoutMilliseconds: 120);
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var resolver = new RecordingDaemonCommandExecutionContextResolver(
             DaemonCommandExecutionContextResolutionResult.Success(context));
         var supervisorProjectGateway = new RecordingDaemonProjectLifecycleGateway();
@@ -70,10 +70,10 @@ public sealed class DaemonStartServicePluginVerificationTests
         var service = DaemonStartServiceTestSupport.CreateService(resolver, supervisorProjectGateway, pluginVerifier, timeProvider: timeProvider);
 
         var resultTask = service.StartAsync(projectPath: null, timeoutMilliseconds: null, editorMode: null, onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto, cancellationToken: CancellationToken.None).AsTask();
-        await TestAwaiter.WaitAsync(pluginVerifier.Started!.Task, "Unity plugin verification start", SignalWaitTimeout);
+        await pluginVerifier.Started!.Task.WaitAsync(SignalWaitTimeout);
         timeProvider.Advance(context.Timeout);
 
-        var result = await TestAwaiter.WaitAsync(resultTask, "Unity plugin verification timeout result", SignalWaitTimeout);
+        var result = await resultTask.WaitAsync(SignalWaitTimeout);
 
         Assert.False(result.IsSuccess);
         var error = Assert.IsType<ExecutionError>(result.Error);

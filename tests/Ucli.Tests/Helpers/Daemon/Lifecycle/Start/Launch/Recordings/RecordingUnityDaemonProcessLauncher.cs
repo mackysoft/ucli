@@ -13,7 +13,7 @@ internal sealed class RecordingUnityDaemonProcessLauncher : IUnityDaemonProcessL
 
     public Func<ResolvedUnityProjectContext, DaemonSession, AbsolutePath, CancellationToken, ValueTask<UnityDaemonLaunchResult>>? Handler { get; set; }
 
-    public ManualTimeProvider? TimeProvider { get; set; }
+    public FakeTimeProvider? TimeProvider { get; set; }
 
     public UnityDaemonLaunchResult? NextResult { get; set; }
 
@@ -41,7 +41,7 @@ internal sealed class RecordingUnityDaemonProcessLauncher : IUnityDaemonProcessL
             }
             else
             {
-                throw new InvalidOperationException("ManualTimeProvider is required when LaunchDelay is configured.");
+                throw new InvalidOperationException("FakeTimeProvider is required when LaunchDelay is configured.");
             }
         }
 

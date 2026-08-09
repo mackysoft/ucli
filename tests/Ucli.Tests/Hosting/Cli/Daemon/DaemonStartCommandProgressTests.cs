@@ -118,7 +118,7 @@ public sealed class DaemonStartCommandProgressTests
             .HasString("blockingReason", TextVocabulary.GetText(UnityEditorBlockingReason.Compile))
             .HasBoolean("canAcceptExecutionRequests", false);
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         JsonAssert.For(outputJson.RootElement)
             .HasString("command", UcliCommandNames.DaemonStart)
             .HasValueKind("payload", JsonValueKind.Object);
@@ -207,7 +207,7 @@ public sealed class DaemonStartCommandProgressTests
         Assert.Equal(
             $"daemon start lifecycle project={expectedProjectFingerprint} timeoutMs=1234 editorMode=batchmode lifecycleState=compiling blockingReason=compile canAcceptExecutionRequests=false observed",
             lines[3]);
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         Assert.False(outputJson.RootElement.TryGetProperty("event", out _));
     }
 }

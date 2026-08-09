@@ -22,7 +22,7 @@ public sealed class OpsCliOutputValidationContractTests
             _ => throw new ArgumentOutOfRangeException(nameof(optionName), optionName, "Unsupported ops list option."),
         };
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
         CommandResultAssert.HasInvalidArgumentEnvelope(
             outputJson.RootElement,
@@ -43,7 +43,7 @@ public sealed class OpsCliOutputValidationContractTests
             readIndexMode: readIndexMode,
             timeout: "abc");
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
         CommandResultAssert.HasInvalidArgumentEnvelope(
             outputJson.RootElement,

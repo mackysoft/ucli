@@ -11,7 +11,7 @@ public sealed class SkillsCliOutputContractTests
     {
         var result = await CliInProcessRunner.RunCommandAsync(UcliCommandNames.Skills);
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
         CommandResultAssert.HasInvalidArgumentEnvelope(
             outputJson.RootElement,
@@ -25,7 +25,7 @@ public sealed class SkillsCliOutputContractTests
     {
         var result = await CliInProcessRunner.RunCommandAsync(UcliCommandNames.Skills, "unknown");
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
         CommandResultAssert.HasInvalidArgumentEnvelope(
             outputJson.RootElement,
@@ -43,7 +43,7 @@ public sealed class SkillsCliOutputContractTests
     {
         var result = await CliInProcessRunner.RunCommandAsync(UcliCommandNames.Skills, subcommand, UcliContractConstants.CliOption.Unknown);
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
         CommandResultAssert.HasInvalidArgumentEnvelope(
             outputJson.RootElement,

@@ -56,14 +56,11 @@ public sealed class IpcDaemonPingClientPayloadTests
 
         var exception = await Assert.ThrowsAsync<DaemonPingResponseException>(async () =>
         {
-            await TestAwaiter.WaitAsync(
-                pingClient.PingAndReadAsync(
+            await pingClient.PingAndReadAsync(
                     CreateFingerprintMatchedProject(),
                     DefaultTimeout,
                     validateProjectFingerprint: true,
-                    cancellationToken: CancellationToken.None).AsTask(),
-                "Invalid ping payload result",
-                AsyncWaitTimeout);
+                    cancellationToken: CancellationToken.None).AsTask().WaitAsync(AsyncWaitTimeout);
         });
 
         Assert.Contains("payload", exception.Message, StringComparison.Ordinal);
@@ -92,14 +89,11 @@ public sealed class IpcDaemonPingClientPayloadTests
 
         var exception = await Assert.ThrowsAsync<DaemonPingResponseException>(async () =>
         {
-            await TestAwaiter.WaitAsync(
-                pingClient.PingAndReadAsync(
+            await pingClient.PingAndReadAsync(
                     CreateFingerprintMatchedProject(),
                     DefaultTimeout,
                     validateProjectFingerprint: true,
-                    cancellationToken: CancellationToken.None).AsTask(),
-                "Missing editor state ping result",
-                AsyncWaitTimeout);
+                    cancellationToken: CancellationToken.None).AsTask().WaitAsync(AsyncWaitTimeout);
         });
 
         Assert.Contains("payload", exception.Message, StringComparison.Ordinal);

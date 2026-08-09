@@ -67,7 +67,7 @@ public sealed class DaemonGuiStartupObserverTests
     [Trait("Size", "Small")]
     public async Task WaitForStartup_WhenTimeoutExceedsProbeAttemptCap_PassesProbeAttemptCapToSessionAwaiter ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var awaiter = new RecordingDaemonGuiSessionRegistrationAwaiter
         {
             NextResult = CreateSuccessfulWaitResult(DaemonSessionTestFactory.Create(
@@ -308,7 +308,7 @@ public sealed class DaemonGuiStartupObserverTests
     [Trait("Size", "Small")]
     public async Task WaitForStartup_WhenTimeoutHasNoClassifiedLogAndProcessIsAlive_ReturnsEndpointRegistrationTimeout ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var awaiter = new RecordingDaemonGuiSessionRegistrationAwaiter
         {
             NextResult = DaemonGuiSessionRegistrationWaitResult.Failure(ExecutionError.Timeout("registration timeout")),

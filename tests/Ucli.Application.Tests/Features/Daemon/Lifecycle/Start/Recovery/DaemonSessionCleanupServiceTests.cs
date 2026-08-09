@@ -28,7 +28,7 @@ public sealed class DaemonSessionCleanupServiceTests
         var result = await service.CleanupInvalidSessionArtifactsAsync(
             context,
             readResult,
-            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new ManualTimeProvider()),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new FakeTimeProvider(DateTimeOffset.UnixEpoch)),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -73,7 +73,7 @@ public sealed class DaemonSessionCleanupServiceTests
         var result = await service.CleanupInvalidSessionArtifactsAsync(
             context,
             readResult,
-            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new ManualTimeProvider()),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new FakeTimeProvider(DateTimeOffset.UnixEpoch)),
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
@@ -119,7 +119,7 @@ public sealed class DaemonSessionCleanupServiceTests
         var result = await service.CleanupInvalidSessionArtifactsAsync(
             context,
             readResult,
-            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new ManualTimeProvider()),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new FakeTimeProvider(DateTimeOffset.UnixEpoch)),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -154,7 +154,7 @@ public sealed class DaemonSessionCleanupServiceTests
         var result = await service.CleanupStaleSessionArtifactsAsync(
             context,
             session,
-            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new ManualTimeProvider()),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new FakeTimeProvider(DateTimeOffset.UnixEpoch)),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -199,7 +199,7 @@ public sealed class DaemonSessionCleanupServiceTests
         var result = await service.CleanupStaleSessionArtifactsAsync(
             context,
             session,
-            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new ManualTimeProvider()),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new FakeTimeProvider(DateTimeOffset.UnixEpoch)),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -237,7 +237,7 @@ public sealed class DaemonSessionCleanupServiceTests
         var result = await service.CleanupStaleSessionArtifactsAsync(
             context,
             session,
-            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new ManualTimeProvider()),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new FakeTimeProvider(DateTimeOffset.UnixEpoch)),
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
@@ -305,16 +305,10 @@ public sealed class DaemonSessionCleanupServiceTests
                     CancellationToken.None)
                 .AsTask();
 
-        await TestAwaiter.WaitAsync(
-            cleanupStarted.Task,
-            "Session artifact cleanup start",
-            TimeSpan.FromSeconds(5));
+        await cleanupStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
         await timeProvider.WaitForTimerDueWithinAsync(timeout).WaitAsync(TimeSpan.FromSeconds(1));
         timeProvider.Advance(timeout);
-        var result = await TestAwaiter.WaitAsync(
-            cleanupTask,
-            "Session artifact cleanup timeout",
-            TimeSpan.FromSeconds(5));
+        var result = await cleanupTask.WaitAsync(TimeSpan.FromSeconds(5));
 
         Assert.False(result.IsSuccess);
         Assert.Equal(ExecutionErrorKind.Timeout, result.Error!.Kind);
@@ -328,22 +322,16 @@ public sealed class DaemonSessionCleanupServiceTests
             .AsTask();
         await timeProvider.WaitForTimerDueWithinAsync(admissionTimeout).WaitAsync(TimeSpan.FromSeconds(1));
         timeProvider.Advance(admissionTimeout);
-        var admissionError = await TestAwaiter.WaitAsync(
-            admissionTask,
-            "Owned session cleanup admission timeout",
-            TimeSpan.FromSeconds(5));
+        var admissionError = await admissionTask.WaitAsync(TimeSpan.FromSeconds(5));
         Assert.Equal(ExecutionErrorKind.Timeout, admissionError!.Kind);
 
         releaseCleanup.TrySetResult();
-        var quiescenceError = await TestAwaiter.WaitAsync(
-            owner.WaitForQuiescenceAsync(
+        var quiescenceError = await owner.WaitForQuiescenceAsync(
                     context,
                     ExecutionDeadline.Start(TimeSpan.FromSeconds(1), timeProvider),
                     CancellationToken.None,
                     "Timed out waiting for released session cleanup to quiesce.")
-                .AsTask(),
-            "Released session cleanup quiescence",
-            TimeSpan.FromSeconds(5));
+                .AsTask().WaitAsync(TimeSpan.FromSeconds(5));
         Assert.Null(quiescenceError);
     }
 }

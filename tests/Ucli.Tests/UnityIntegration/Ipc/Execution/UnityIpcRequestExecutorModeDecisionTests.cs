@@ -104,7 +104,7 @@ public sealed class UnityIpcRequestExecutorModeDecisionTests
     public async Task Execute_WhenModeDecisionConsumesSharedBudget_ReturnsTimeoutBeforeDispatch ()
     {
         using var scope = TestDirectories.CreateTempScope("unity-ipc-request-executor", "mode-decision-budget");
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var daemonTransportClient = new RecordingUnityIpcTransportClient(_ => throw new Xunit.Sdk.XunitException("Daemon transport must not be called."));
         var oneshotTransportClient = new RecordingUnityIpcTransportClient(_ => throw new Xunit.Sdk.XunitException("Oneshot transport must not be called."));
         var launcher = new RecordingUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(new StubUnityBatchmodeProcessHandle()));
@@ -118,7 +118,7 @@ public sealed class UnityIpcRequestExecutorModeDecisionTests
             TimeProvider = timeProvider,
             OnDecide = static context =>
             {
-                ((ManualTimeProvider)context.TimeProvider).Advance(TimeSpan.FromMilliseconds(120));
+                ((FakeTimeProvider)context.TimeProvider).Advance(TimeSpan.FromMilliseconds(120));
             },
         };
         var executor = CreateExecutor(

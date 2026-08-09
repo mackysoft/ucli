@@ -38,12 +38,12 @@ public sealed class DaemonGuiEditorAttachServiceAttachTests
             rebootstrapClient,
             diagnosisStore,
             new DaemonCompensationOperationOwner(),
-            new ManualTimeProvider());
+            new FakeTimeProvider(DateTimeOffset.UnixEpoch));
         var progressObserver = new CollectingDaemonStartProgressObserver();
 
         var result = await service.TryAttachExistingGuiEditorAsync(
             context,
-            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new ManualTimeProvider()),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new FakeTimeProvider(DateTimeOffset.UnixEpoch)),
             editorMode: null,
             DaemonStartupBlockedProcessPolicy.Auto,
             progressObserver,
@@ -99,12 +99,12 @@ public sealed class DaemonGuiEditorAttachServiceAttachTests
             rebootstrapClient,
             diagnosisStore,
             new DaemonCompensationOperationOwner(),
-            new ManualTimeProvider());
+            new FakeTimeProvider(DateTimeOffset.UnixEpoch));
         var progressObserver = new CollectingDaemonStartProgressObserver();
 
         var result = await service.TryAttachExistingGuiEditorAsync(
             context,
-            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new ManualTimeProvider()),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new FakeTimeProvider(DateTimeOffset.UnixEpoch)),
             editorMode: null,
             DaemonStartupBlockedProcessPolicy.Terminate,
             progressObserver,

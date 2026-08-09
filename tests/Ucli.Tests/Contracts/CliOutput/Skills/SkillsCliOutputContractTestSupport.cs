@@ -51,7 +51,7 @@ internal static class SkillsCliOutputContractTestSupport
             skill: [SelectedSingleSkillName]);
         Assert.Equal((int)CliExitCode.Success, install.ExitCode);
 
-        using JsonDocument installJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(install.StdOut);
+        using JsonDocument installJson = JsonAssert.ParseMultilineObject(install.StdOut);
         var targetRoot = installJson.RootElement.GetProperty("payload").GetProperty("targetRoot").GetString()!;
         return new InstalledSkillFixture(targetRoot, SelectedSingleSkillName);
     }

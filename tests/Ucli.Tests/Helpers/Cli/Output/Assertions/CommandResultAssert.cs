@@ -24,7 +24,7 @@ internal static class CommandResultAssert
         string standardOutput,
         string command)
     {
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(standardOutput);
+        using var outputJson = JsonAssert.ParseMultilineObject(standardOutput);
         HasInvalidArgumentError(outputJson.RootElement, command);
     }
 

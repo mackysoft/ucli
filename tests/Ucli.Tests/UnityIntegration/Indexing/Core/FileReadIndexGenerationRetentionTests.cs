@@ -13,7 +13,7 @@ public sealed class FileReadIndexGenerationRetentionTests
         using var scope = TestDirectories.CreateTempScope("read-index-generation", "retention-expired");
         var fingerprint = ProjectFingerprintTestFactory.Create("fingerprint");
         var pointerStore = new FileReadIndexGenerationPointerStore();
-        var timeProvider = new ManualTimeProvider(DateTimeOffset.Parse("2026-07-15T00:00:00Z"));
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.Parse("2026-07-15T00:00:00Z"));
         var writer = CreateWriter(new FileReadIndexGenerationStore(pointerStore, timeProvider));
         var storageRoot = AbsolutePath.Parse(scope.FullPath);
         var staleGenerationId = await PrepareStaleGenerationAsync(
@@ -43,7 +43,7 @@ public sealed class FileReadIndexGenerationRetentionTests
         using var scope = TestDirectories.CreateTempScope("read-index-generation", "retention-pointer-reread");
         var fingerprint = ProjectFingerprintTestFactory.Create("fingerprint");
         var pointerStore = new FileReadIndexGenerationPointerStore();
-        var timeProvider = new ManualTimeProvider(DateTimeOffset.Parse("2026-07-15T00:00:00Z"));
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.Parse("2026-07-15T00:00:00Z"));
         var initialWriter = CreateWriter(new FileReadIndexGenerationStore(pointerStore, timeProvider));
         var storageRoot = AbsolutePath.Parse(scope.FullPath);
         var staleGenerationId = await PrepareStaleGenerationAsync(

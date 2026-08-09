@@ -89,7 +89,7 @@ public sealed class UnityOneshotIpcClientReconnectTests
             ResolvedUnityProjectContextTestFactory
                 .CreateForRepositoryRoot(scope.FullPath);
         var nowUtc = DateTimeOffset.UtcNow;
-        var timeProvider = new ManualTimeProvider(nowUtc);
+        var timeProvider = new FakeTimeProvider(nowUtc);
         var registration =
             UnityIpcRequestBuilderTestSupport.CreateLifecycleRegistration(
                 LifecycleExecutionKind.Compile,
@@ -172,7 +172,7 @@ public sealed class UnityOneshotIpcClientReconnectTests
             ResolvedUnityProjectContextTestFactory
                 .CreateForRepositoryRoot(scope.FullPath);
         var nowUtc = DateTimeOffset.UtcNow;
-        var timeProvider = new ManualTimeProvider(nowUtc);
+        var timeProvider = new FakeTimeProvider(nowUtc);
         var registration =
             UnityIpcRequestBuilderTestSupport.CreateLifecycleRegistration(
                 LifecycleExecutionKind.Compile,

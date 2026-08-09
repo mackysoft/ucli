@@ -23,7 +23,7 @@ public sealed class CodesCliOutputDescribeContractTests
     {
         var result = await RunCodesDescribeCommandAsync(PlayModeErrorCodes.PlayModeTransitionTimeout.Value);
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
         CommandResultAssert.HasSuccessEnvelope(
             outputJson.RootElement,
@@ -42,7 +42,7 @@ public sealed class CodesCliOutputDescribeContractTests
     {
         var result = await RunCodesDescribeCommandAsync("error:IPC_TIMEOUT");
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
         CommandResultAssert.HasSuccessEnvelope(
             outputJson.RootElement,
@@ -60,7 +60,7 @@ public sealed class CodesCliOutputDescribeContractTests
     {
         var result = await RunCodesDescribeCommandAsync("claim:IPC_TIMEOUT");
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
         CommandResultAssert.HasInvalidArgumentError(outputJson.RootElement, UcliCommandNames.CodesDescribe);
         Assert.Contains(
@@ -80,7 +80,7 @@ public sealed class CodesCliOutputDescribeContractTests
     {
         var result = await RunCodesDescribeCommandAsync(code);
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
         CommandResultAssert.HasSuccessEnvelope(
             outputJson.RootElement,
@@ -102,7 +102,7 @@ public sealed class CodesCliOutputDescribeContractTests
     {
         var result = await RunCodesDescribeCommandAsync(code, requireKnown: true);
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
         CommandResultAssert.HasInvalidArgumentError(outputJson.RootElement, UcliCommandNames.CodesDescribe);
         Assert.Contains(

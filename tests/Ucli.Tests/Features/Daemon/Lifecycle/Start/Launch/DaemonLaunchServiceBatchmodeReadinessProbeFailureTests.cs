@@ -56,10 +56,7 @@ public sealed class DaemonLaunchServiceBatchmodeReadinessProbeFailureTests
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
         {
-            await TestAwaiter.WaitAsync(
-                scenario.LaunchAsync(cancellationSource.Token).AsTask(),
-                "Canceled daemon launch result",
-                AsyncWaitTimeout);
+            await scenario.LaunchAsync(cancellationSource.Token).AsTask().WaitAsync(AsyncWaitTimeout);
         });
 
         Assert.True(cancellationSource.IsCancellationRequested);

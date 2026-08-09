@@ -15,7 +15,7 @@ public sealed class DaemonCleanupOperationReachabilitySkipTests
         var artifactCleaner = new RecordingDaemonArtifactCleaner();
         var daemonPingClient = DaemonCleanupOperationTestSupport.CreateSuccessfulPingClient();
         var operation = DaemonCleanupOperationTestSupport.CreateOperation(
-            new ManualTimeProvider(),
+            new FakeTimeProvider(DateTimeOffset.UnixEpoch),
             daemonSessionStore: new RecordingDaemonSessionStore
             {
                 ReadResult = DaemonSessionReadResult.Missing(),
@@ -39,7 +39,7 @@ public sealed class DaemonCleanupOperationReachabilitySkipTests
         var session = DaemonSessionTestFactory.Create(processId: 2001);
         var artifactCleaner = new RecordingDaemonArtifactCleaner();
         var operation = DaemonCleanupOperationTestSupport.CreateOperation(
-            new ManualTimeProvider(),
+            new FakeTimeProvider(DateTimeOffset.UnixEpoch),
             daemonSessionStore: new RecordingDaemonSessionStore
             {
                 ReadResult = DaemonSessionReadResultTestFactory.Found(session),
@@ -62,7 +62,7 @@ public sealed class DaemonCleanupOperationReachabilitySkipTests
         var session = DaemonSessionTestFactory.Create(processId: 2006);
         var artifactCleaner = new RecordingDaemonArtifactCleaner();
         var operation = DaemonCleanupOperationTestSupport.CreateOperation(
-            new ManualTimeProvider(),
+            new FakeTimeProvider(DateTimeOffset.UnixEpoch),
             daemonSessionStore: new RecordingDaemonSessionStore
             {
                 ReadResult = DaemonSessionReadResultTestFactory.Found(session),
@@ -86,7 +86,7 @@ public sealed class DaemonCleanupOperationReachabilitySkipTests
         var session = DaemonSessionTestFactory.Create(processId: 2007);
         var artifactCleaner = new RecordingDaemonArtifactCleaner();
         var operation = DaemonCleanupOperationTestSupport.CreateOperation(
-            new ManualTimeProvider(),
+            new FakeTimeProvider(DateTimeOffset.UnixEpoch),
             daemonSessionStore: new RecordingDaemonSessionStore
             {
                 ReadResult = DaemonSessionReadResultTestFactory.Found(session),
@@ -110,7 +110,7 @@ public sealed class DaemonCleanupOperationReachabilitySkipTests
         var session = DaemonSessionTestFactory.Create(processId: 2007);
         var artifactCleaner = new RecordingDaemonArtifactCleaner();
         var operation = DaemonCleanupOperationTestSupport.CreateOperation(
-            new ManualTimeProvider(),
+            new FakeTimeProvider(DateTimeOffset.UnixEpoch),
             daemonSessionStore: new RecordingDaemonSessionStore
             {
                 ReadResult = DaemonSessionReadResultTestFactory.Found(session),
@@ -136,7 +136,7 @@ public sealed class DaemonCleanupOperationReachabilitySkipTests
         var session = DaemonSessionTestFactory.Create(processId: 2010);
         var artifactCleaner = new RecordingDaemonArtifactCleaner();
         var operation = DaemonCleanupOperationTestSupport.CreateOperation(
-            new ManualTimeProvider(),
+            new FakeTimeProvider(DateTimeOffset.UnixEpoch),
             daemonSessionStore: new RecordingDaemonSessionStore
             {
                 ReadResult = DaemonSessionReadResultTestFactory.Found(session),
@@ -162,7 +162,7 @@ public sealed class DaemonCleanupOperationReachabilitySkipTests
         var session = DaemonSessionTestFactory.Create(processId: 2008);
         var artifactCleaner = new RecordingDaemonArtifactCleaner();
         var operation = DaemonCleanupOperationTestSupport.CreateOperation(
-            new ManualTimeProvider(),
+            new FakeTimeProvider(DateTimeOffset.UnixEpoch),
             daemonSessionStore: new RecordingDaemonSessionStore
             {
                 ReadResult = DaemonSessionReadResultTestFactory.Found(session),
@@ -186,7 +186,7 @@ public sealed class DaemonCleanupOperationReachabilitySkipTests
         var session = DaemonSessionTestFactory.Create(processId: 2012);
         var artifactCleaner = new RecordingDaemonArtifactCleaner();
         var operation = DaemonCleanupOperationTestSupport.CreateOperation(
-            new ManualTimeProvider(),
+            new FakeTimeProvider(DateTimeOffset.UnixEpoch),
             daemonSessionStore: new RecordingDaemonSessionStore
             {
                 ReadResult = DaemonSessionReadResultTestFactory.Found(session),
@@ -209,7 +209,7 @@ public sealed class DaemonCleanupOperationReachabilitySkipTests
     {
         var artifactCleaner = new RecordingDaemonArtifactCleaner();
         var operation = DaemonCleanupOperationTestSupport.CreateOperation(
-            new ManualTimeProvider(),
+            new FakeTimeProvider(DateTimeOffset.UnixEpoch),
             daemonSessionStore: new RecordingDaemonSessionStore
             {
                 ReadResult = DaemonSessionReadResult.Missing(),
@@ -234,7 +234,7 @@ public sealed class DaemonCleanupOperationReachabilitySkipTests
     {
         var artifactCleaner = new RecordingDaemonArtifactCleaner();
         var operation = DaemonCleanupOperationTestSupport.CreateOperation(
-            new ManualTimeProvider(),
+            new FakeTimeProvider(DateTimeOffset.UnixEpoch),
             daemonSessionStore: new RecordingDaemonSessionStore
             {
                 ReadResult = DaemonSessionReadResultTestFactory.Found(DaemonSessionTestFactory.Create(processId: 2005)),

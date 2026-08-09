@@ -66,7 +66,7 @@ public sealed class DaemonGuiRebootstrapClientManifestValidationTests
     [Trait("Size", "Medium")]
     public async Task RequestRebootstrapAsync_WhenManifestMissing_ReturnsUnavailableWithoutIpc ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         using var scope = TestDirectories.CreateTempScope(
             "daemon-command-service",
             nameof(RequestRebootstrapAsync_WhenManifestMissing_ReturnsUnavailableWithoutIpc));
@@ -88,7 +88,7 @@ public sealed class DaemonGuiRebootstrapClientManifestValidationTests
     [Trait("Size", "Medium")]
     public async Task RequestRebootstrapAsync_WhenManifestProcessDoesNotMatch_ReturnsUnavailableWithoutIpc ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         using var scope = TestDirectories.CreateTempScope(
             "daemon-command-service",
             nameof(RequestRebootstrapAsync_WhenManifestProcessDoesNotMatch_ReturnsUnavailableWithoutIpc));
@@ -113,7 +113,7 @@ public sealed class DaemonGuiRebootstrapClientManifestValidationTests
     public async Task RequestRebootstrapAsync_WhenManifestValidationFails_ReturnsUnavailableWithoutIpc (
         InvalidManifestCase testCase)
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         using var scope = TestDirectories.CreateTempScope(
             "daemon-command-service",
             $"{nameof(RequestRebootstrapAsync_WhenManifestValidationFails_ReturnsUnavailableWithoutIpc)}-{testCase.Name}");
@@ -150,7 +150,7 @@ public sealed class DaemonGuiRebootstrapClientManifestValidationTests
     [Trait("Size", "Medium")]
     public async Task RequestRebootstrapAsync_WhenManifestTransportKindIsInvalid_ReturnsUnavailableWithoutIpc ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         using var scope = TestDirectories.CreateTempScope(
             "daemon-command-service",
             nameof(RequestRebootstrapAsync_WhenManifestTransportKindIsInvalid_ReturnsUnavailableWithoutIpc));
