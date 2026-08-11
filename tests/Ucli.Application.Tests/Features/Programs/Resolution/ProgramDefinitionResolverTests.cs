@@ -1,4 +1,6 @@
+using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using MackySoft.Ucli.Application.Features.Programs.Parsing;
 using MackySoft.Ucli.Application.Features.Programs.Resolution;
 
@@ -43,19 +45,15 @@ public sealed class ProgramDefinitionResolverTests
     {
         const string program = "{\"steps\":[{\"command\":\"call\",\"requestPath\":\"requests/open.json\"}]}";
         const string request = "{\"steps\":[{\"args\":{\"path\":\"Assets/Main.unity\"},\"kind\":\"op\",\"op\":\"ucli.scene.open\"}]}";
-        var result = await CreateResolver(request).ResolveAsync(new ProgramDefinitionResolutionInput(
-            program,
-            ProgramRootSource.File,
-            "/program-root/program.json",
-            PresetId: null,
-            ReferenceRootPath: "/program-root"));
+        var root = CreateTestRoot();
+        var result = await CreateResolver(root, request).ResolveAsync(CreateFileInput(program, root));
 
         var definition = Assert.IsType<ResolvedProgramDefinition>(result.Definition);
         Assert.Equal("8c68006091e3bacf1c7a2993d4b0304005559bf73eb807893a5aaa7cebfcec22", definition.DefinitionDigest);
         Assert.Equal("3de91402d7d59534368be1b06c68963855146f8669e6e10a802fa989eb7791c9", definition.SourceManifest.ProgramDigest);
-        Assert.Equal("8f8f5e1c6b99d75819fa98c7c6db81774c07302978f48cf0ab1cd285e4c39d4a", definition.SourceManifest.Digest);
+        Assert.Equal(ComputeExpectedSourceManifestDigest(root), definition.SourceManifest.Digest);
         Assert.Equal(ProgramRootSource.File, definition.SourceManifest.RootSource);
-        Assert.Equal("/program-root/program.json", definition.SourceManifest.RootPath);
+        Assert.Equal(NormalizePath(Path.Combine(root, "program.json")), definition.SourceManifest.RootPath);
         Assert.Null(definition.SourceManifest.PresetId);
         var source = Assert.Single(definition.SourceManifest.Sources);
         Assert.Equal("/steps/0/requestPath", source.InstancePath);
@@ -79,8 +77,10 @@ public sealed class ProgramDefinitionResolverTests
         const string equivalentRequest = """
         { "steps": [ { "op": "ucli.scene.open", "kind": "op", "args": { "path": "Assets/Main.unity" } } ] }
         """;
-        var canonical = await CreateResolver(canonicalRequest).ResolveAsync(CreateFileInput(canonicalProgram));
-        var equivalent = await CreateResolver(equivalentRequest).ResolveAsync(CreateFileInput(equivalentProgram));
+        var canonicalRoot = CreateTestRoot();
+        var equivalentRoot = CreateTestRoot();
+        var canonical = await CreateResolver(canonicalRoot, canonicalRequest).ResolveAsync(CreateFileInput(canonicalProgram, canonicalRoot));
+        var equivalent = await CreateResolver(equivalentRoot, equivalentRequest).ResolveAsync(CreateFileInput(equivalentProgram, equivalentRoot));
 
         Assert.True(canonical.IsSuccess);
         Assert.True(equivalent.IsSuccess);
@@ -94,15 +94,16 @@ public sealed class ProgramDefinitionResolverTests
         const string program = "{\"steps\":[{\"command\":\"call\",\"requestPath\":\"requests/a.json\"},{\"command\":\"call\",\"requestPath\":\"requests/b.json\"},{\"command\":\"call\",\"requestPath\":\"requests/a.json\"}]}";
         const string requestA = "{\"steps\":[{\"args\":{\"path\":\"Assets/A.unity\"},\"kind\":\"op\",\"op\":\"ucli.scene.open\"}]}";
         const string requestB = "{\"steps\":[{\"args\":{\"path\":\"Assets/B.unity\"},\"kind\":\"op\",\"op\":\"ucli.scene.open\"}]}";
+        var root = CreateTestRoot();
         var resolver = new ProgramDefinitionResolver(
             new ProgramJsonParser(),
             new StubFileReader(new Dictionary<string, byte[]>(StringComparer.Ordinal)
             {
-                ["/program-root/requests/a.json"] = Encoding.UTF8.GetBytes(requestA),
-                ["/program-root/requests/b.json"] = Encoding.UTF8.GetBytes(requestB),
+                [Path.Combine(root, "requests", "a.json")] = Encoding.UTF8.GetBytes(requestA),
+                [Path.Combine(root, "requests", "b.json")] = Encoding.UTF8.GetBytes(requestB),
             }));
 
-        var result = await resolver.ResolveAsync(CreateFileInput(program));
+        var result = await resolver.ResolveAsync(CreateFileInput(program, root));
 
         var definition = Assert.IsType<ResolvedProgramDefinition>(result.Definition);
         Assert.Collection(
@@ -118,11 +119,12 @@ public sealed class ProgramDefinitionResolverTests
     {
         const string request = "{\"steps\":[{\"kind\":\"op\",\"op\":\"ucli.scene.open\",\"args\":{\"path\":\"Assets/Main.unity\"}}]}";
         const string changedRequest = "{\"steps\":[{\"kind\":\"op\",\"op\":\"ucli.scene.open\",\"args\":{\"path\":\"Assets/Other.unity\"}}]}";
-        var baseline = await CreateResolver(request).ResolveAsync(CreateFileInput("{\"steps\":[{\"command\":\"call\",\"requestPath\":\"requests/open.json\"}]}"));
-        var changedPath = await CreateResolver(request, "requests/other.json").ResolveAsync(CreateFileInput("{\"steps\":[{\"command\":\"call\",\"requestPath\":\"requests/other.json\"}]}"));
-        var changedChild = await CreateResolver(changedRequest).ResolveAsync(CreateFileInput("{\"steps\":[{\"command\":\"call\",\"requestPath\":\"requests/open.json\"}]}"));
-        var firstOrder = await CreateResolver(request).ResolveAsync(CreateFileInput("{\"steps\":[{\"command\":\"ready\"},{\"command\":\"compile\"}]}"));
-        var secondOrder = await CreateResolver(request).ResolveAsync(CreateFileInput("{\"steps\":[{\"command\":\"compile\"},{\"command\":\"ready\"}]}"));
+        var root = CreateTestRoot();
+        var baseline = await CreateResolver(root, request).ResolveAsync(CreateFileInput("{\"steps\":[{\"command\":\"call\",\"requestPath\":\"requests/open.json\"}]}", root));
+        var changedPath = await CreateResolver(root, request, "requests/other.json").ResolveAsync(CreateFileInput("{\"steps\":[{\"command\":\"call\",\"requestPath\":\"requests/other.json\"}]}", root));
+        var changedChild = await CreateResolver(root, changedRequest).ResolveAsync(CreateFileInput("{\"steps\":[{\"command\":\"call\",\"requestPath\":\"requests/open.json\"}]}", root));
+        var firstOrder = await CreateResolver(root, request).ResolveAsync(CreateFileInput("{\"steps\":[{\"command\":\"ready\"},{\"command\":\"compile\"}]}", root));
+        var secondOrder = await CreateResolver(root, request).ResolveAsync(CreateFileInput("{\"steps\":[{\"command\":\"compile\"},{\"command\":\"ready\"}]}", root));
 
         Assert.True(baseline.IsSuccess);
         Assert.True(changedPath.IsSuccess);
@@ -227,25 +229,36 @@ public sealed class ProgramDefinitionResolverTests
         }
     }
 
-    private static ProgramDefinitionResolver CreateResolver (string request, string requestPath = "requests/open.json")
+    private static ProgramDefinitionResolver CreateResolver (string root, string request, string requestPath = "requests/open.json")
     {
         return new ProgramDefinitionResolver(
             new ProgramJsonParser(),
             new StubFileReader(new Dictionary<string, byte[]>(StringComparer.Ordinal)
             {
-                [$"/program-root/{requestPath}"] = Encoding.UTF8.GetBytes(request),
+                [Path.Combine(root, requestPath.Replace('/', Path.DirectorySeparatorChar))] = Encoding.UTF8.GetBytes(request),
             }));
     }
 
-    private static ProgramDefinitionResolutionInput CreateFileInput (string json)
+    private static ProgramDefinitionResolutionInput CreateFileInput (string json, string root)
     {
         return new ProgramDefinitionResolutionInput(
             json,
             ProgramRootSource.File,
-            "/program-root/program.json",
+            Path.Combine(root, "program.json"),
             PresetId: null,
-            ReferenceRootPath: "/program-root");
+            ReferenceRootPath: root);
     }
+
+    private static string CreateTestRoot () => Path.GetFullPath($"ucli-program-definition-resolver-tests-{Guid.NewGuid():N}");
+
+    private static string ComputeExpectedSourceManifestDigest (string root)
+    {
+        var rootPathJson = JsonSerializer.Serialize(NormalizePath(Path.Combine(root, "program.json")));
+        var canonicalManifest = $$"""{"presetId":null,"programDigest":"3de91402d7d59534368be1b06c68963855146f8669e6e10a802fa989eb7791c9","rootPath":{{rootPathJson}},"rootSource":"file","sources":[{"byteLength":84,"documentDigest":"e3df0c26993e2ef372cf23b712acf537ffc6ef036c3c46cb39007d17337db24a","instancePath":"/steps/0/requestPath","path":"requests/open.json","role":"request"}]}""";
+        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(canonicalManifest))).ToLowerInvariant();
+    }
+
+    private static string NormalizePath (string path) => Path.GetFullPath(path).Replace('\\', '/');
 
     private static void AssertSource (ProgramSourceManifestEntry source, string instancePath, string path, string documentDigest)
     {

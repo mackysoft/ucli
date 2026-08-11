@@ -79,41 +79,43 @@ public sealed class ProgramPresetCatalogTests
     [Trait("Size", "Small")]
     public async Task ListAsync_ResolvesEveryPresetThroughNormalDefinitionResolutionInOrdinalOrder ()
     {
+        var configDirectory = CreateTestRoot();
         var reader = new RecordingFileReader(new Dictionary<string, string>(StringComparer.Ordinal)
         {
-            ["/preset-root/alpha.json"] = "{ \"steps\": [{ \"command\": \"ready\" }] }",
-            ["/preset-root/zeta.json"] = "{ \"steps\": [{ \"command\": \"compile\" }] }",
+            [Path.Combine(configDirectory, "alpha.json")] = "{ \"steps\": [{ \"command\": \"ready\" }] }",
+            [Path.Combine(configDirectory, "zeta.json")] = "{ \"steps\": [{ \"command\": \"compile\" }] }",
         });
         var catalog = new ProgramPresetCatalog(reader, new ProgramDefinitionResolver(new ProgramJsonParser(), reader));
         var config = CreateConfig(
             new KeyValuePair<string, ProgramPresetRegistration>("zeta", new ProgramPresetRegistration("Compiles.", "zeta.json")),
             new KeyValuePair<string, ProgramPresetRegistration>("alpha", new ProgramPresetRegistration("Checks readiness.", "alpha.json")));
 
-        var result = await catalog.ListAsync(config, "/preset-root");
+        var result = await catalog.ListAsync(config, configDirectory);
 
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Presets);
         var presets = result.Presets!;
         Assert.Equal(["alpha", "zeta"], presets.Select(static preset => preset.Id));
         Assert.All(presets, static preset => Assert.Matches("^[0-9a-f]{64}$", preset.Definition.DefinitionDigest));
-        Assert.Equal(["/preset-root/alpha.json", "/preset-root/zeta.json"], reader.ReadPaths);
+        Assert.Equal([Path.Combine(configDirectory, "alpha.json"), Path.Combine(configDirectory, "zeta.json")], reader.ReadPaths);
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public async Task ListAsync_WhenAnyPresetCannotResolve_ReturnsNoPartialList ()
     {
+        var configDirectory = CreateTestRoot();
         var reader = new RecordingFileReader(new Dictionary<string, string>(StringComparer.Ordinal)
         {
-            ["/preset-root/alpha.json"] = "{ \"steps\": [{ \"command\": \"ready\" }] }",
-            ["/preset-root/zeta.json"] = "{}",
+            [Path.Combine(configDirectory, "alpha.json")] = "{ \"steps\": [{ \"command\": \"ready\" }] }",
+            [Path.Combine(configDirectory, "zeta.json")] = "{}",
         });
         var catalog = new ProgramPresetCatalog(reader, new ProgramDefinitionResolver(new ProgramJsonParser(), reader));
         var config = CreateConfig(
             new KeyValuePair<string, ProgramPresetRegistration>("alpha", new ProgramPresetRegistration("Checks readiness.", "alpha.json")),
             new KeyValuePair<string, ProgramPresetRegistration>("zeta", new ProgramPresetRegistration("Compiles.", "zeta.json")));
 
-        var result = await catalog.ListAsync(config, "/preset-root");
+        var result = await catalog.ListAsync(config, configDirectory);
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Presets);
@@ -148,4 +150,6 @@ public sealed class ProgramPresetCatalogTests
             ProgramPresets = new Dictionary<string, ProgramPresetRegistration>(entries, StringComparer.Ordinal),
         };
     }
+
+    private static string CreateTestRoot () => Path.GetFullPath($"ucli-program-preset-catalog-tests-{Guid.NewGuid():N}");
 }
