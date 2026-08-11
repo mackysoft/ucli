@@ -1,0 +1,43 @@
+using System.Text.Json.Serialization;
+using MackySoft.JsonSchema.Generation.Annotations;
+
+namespace MackySoft.Ucli.Contracts.Ipc;
+
+[Description("A requested asset scope that could not be fully observed.")]
+public sealed record MissingScriptsUnscannedScope
+{
+    [JsonConstructor]
+    public MissingScriptsUnscannedScope (
+        UnityAssetPathPrefix root,
+        MissingScriptsAssetKind assetKind,
+        MissingScriptsUnscannedReason reason)
+    {
+        if (!TextVocabulary.IsDefined(assetKind))
+        {
+            throw new ArgumentOutOfRangeException(nameof(assetKind), assetKind, "Missing script asset kind must be defined.");
+        }
+
+        if (reason is not MissingScriptsUnscannedReason.ScopeReadFailed
+            and not MissingScriptsUnscannedReason.AssetChanged
+            and not MissingScriptsUnscannedReason.EditorNotReady)
+        {
+            throw new ArgumentOutOfRangeException(nameof(reason), reason, "An unscanned scope must report a scope-specific reason.");
+        }
+
+        Root = root ?? throw new ArgumentNullException(nameof(root));
+        AssetKind = assetKind;
+        Reason = reason;
+    }
+
+    [JsonInclude]
+    [JsonRequired]
+    public UnityAssetPathPrefix Root { get; private init; }
+
+    [JsonInclude]
+    [JsonRequired]
+    public MissingScriptsAssetKind AssetKind { get; private init; }
+
+    [JsonInclude]
+    [JsonRequired]
+    public MissingScriptsUnscannedReason Reason { get; private init; }
+}

@@ -1,11 +1,10 @@
 using System.Text.Json;
 using MackySoft.Ucli.Application.Features.Requests.Call.Common.Contracts;
-using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Editor;
+using MackySoft.Ucli.Contracts.Execution;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 using MackySoft.Ucli.Hosting.Cli.Requests;
-using MackySoft.Ucli.Contracts.Editor;
-using MackySoft.Ucli.Contracts.Execution;
 
 namespace MackySoft.Ucli.Tests;
 
@@ -61,6 +60,43 @@ public sealed class CallCommandResultFactoryTests
         Assert.Equal(
             "empty",
             json.RootElement.GetProperty("payload").GetProperty("payloadKind").GetString());
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Create_WhenExecuteFails_ReportsErrorsInTheCommandEnvelopeWithoutOperationResultOrVerdict ()
+    {
+        var result = CallCommandResultFactory.Create(CallServiceResult.Failure(
+            "Missing script scan cleanup failed.",
+            [
+                ApplicationFailure.InternalError(
+                    "Missing script scan cleanup failed.",
+                    UcliCoreErrorCodes.InternalError,
+                    instancePath: null,
+                    startupFailure: null),
+            ],
+            new CallExecutionOutput(
+                requestId: Guid.Parse("b2dc6c6e-713c-48c9-8490-b3b6d84d626e"),
+                project: ProjectIdentityInfoTestFactory.Create(),
+                opResults: [],
+                plan: new CallPlanOutput(
+                    opResults: [],
+                    planToken: null),
+                readPostcondition: null,
+                postReadSource: null)));
+
+        using var json = JsonDocument.Parse(ResultWriter.Write(result));
+        var root = json.RootElement;
+        CommandResultAssert.HasStandardEnvelope(
+            root,
+            UcliCommandNames.Call,
+            TextVocabulary.GetText(CommandResultStatus.Error),
+            (int)CliExitCode.ToolError);
+        CommandResultAssert.HasSingleError(root, UcliCoreErrorCodes.InternalError);
+        var payload = root.GetProperty("payload");
+        Assert.Equal(0, payload.GetProperty("opResults").GetArrayLength());
+        Assert.False(payload.TryGetProperty("result", out _));
+        Assert.False(payload.TryGetProperty("verdict", out _));
     }
 
     [Fact]
