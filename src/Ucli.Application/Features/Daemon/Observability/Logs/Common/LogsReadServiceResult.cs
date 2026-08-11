@@ -102,7 +102,7 @@ internal sealed record LogsReadServiceResult
         string? nextCursor)
     {
         return new LogsReadServiceResult(
-            ExecutionError.InternalError("Log read was canceled.", ExecutionErrorCodes.Canceled),
+            ExecutionError.Canceled("Log read was canceled.", ExecutionErrorCodes.Canceled),
             count,
             nextCursor,
             LogsReadCompletionReason.Canceled);

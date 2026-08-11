@@ -1,3 +1,4 @@
+global using MackySoft.FileSystem;
 global using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Contracts;
 global using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.EditorInstance;
 global using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Gateway;

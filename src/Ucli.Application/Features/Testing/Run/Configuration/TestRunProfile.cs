@@ -16,7 +16,7 @@ internal sealed record TestRunProfile
     public string? UnityVersion { get; init; }
 
     /// <summary> Gets the optional Unity editor path override value. </summary>
-    public string? UnityEditorPath { get; init; }
+    public AbsolutePath? UnityEditorPath { get; init; }
 
     /// <summary> Gets the optional test-platform value. </summary>
     public string? TestPlatform { get; init; }

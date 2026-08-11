@@ -45,6 +45,8 @@ using MackySoft.Ucli.Application.Features.Programs.Parsing;
 using MackySoft.Ucli.Application.Features.Programs.Presets;
 using MackySoft.Ucli.Application.Features.Programs.Resolution;
 using MackySoft.Ucli.Application.Features.Programs.Validate;
+using MackySoft.Ucli.Application.Features.Recording.Capability;
+using MackySoft.Ucli.Application.Features.Recording.UseCases;
 using MackySoft.Ucli.Application.Features.Requests.Call.UseCases.Call;
 using MackySoft.Ucli.Application.Features.Requests.Plan.UseCases.Plan;
 using MackySoft.Ucli.Application.Features.Requests.Query.UseCases.Query;
@@ -72,7 +74,6 @@ using MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Assets;
 using MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Scenes;
 using MackySoft.Ucli.Application.Shared.Identifiers;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace MackySoft.Ucli.Application;
 
@@ -81,13 +82,19 @@ public static class UcliApplicationServiceCollectionExtensions
 {
     /// <summary> Registers use cases and application-internal policies for uCLI. </summary>
     /// <param name="services"> The target service collection. </param>
+    /// <param name="timeProvider"> The clock used by application deadlines and persisted timestamps. </param>
     /// <returns> The updated service collection. </returns>
-    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="services" /> is <see langword="null" />. </exception>
-    public static IServiceCollection AddUcliApplicationServices (this IServiceCollection services)
+    /// <exception cref="ArgumentNullException">
+    /// Thrown when <paramref name="services" /> or <paramref name="timeProvider" /> is <see langword="null" />.
+    /// </exception>
+    public static IServiceCollection AddUcliApplicationServices (
+        this IServiceCollection services,
+        TimeProvider timeProvider)
     {
         ArgumentNullException.ThrowIfNull(services);
+        ArgumentNullException.ThrowIfNull(timeProvider);
 
-        services.TryAddSingleton(TimeProvider.System);
+        services.AddSingleton(timeProvider);
         services.AddUcliApplicationSharedServices();
         services.AddUcliApplicationCodeCatalogServices();
         services.AddUcliApplicationAssuranceServices();
@@ -97,6 +104,7 @@ public static class UcliApplicationServiceCollectionExtensions
         services.AddUcliApplicationInitServices();
         services.AddUcliApplicationPlayServices();
         services.AddUcliApplicationProgramServices();
+        services.AddUcliApplicationRecordingServices();
         services.AddUcliApplicationScreenshotServices();
         services.AddUcliApplicationStatusServices();
         services.AddUcliApplicationTestingServices();
@@ -245,6 +253,13 @@ public static class UcliApplicationServiceCollectionExtensions
     private static IServiceCollection AddUcliApplicationScreenshotServices (this IServiceCollection services)
     {
         services.AddSingleton<IScreenshotCaptureService, ScreenshotCaptureService>();
+        return services;
+    }
+
+    private static IServiceCollection AddUcliApplicationRecordingServices (this IServiceCollection services)
+    {
+        services.AddSingleton<GameViewRecordingCapabilityResolver>();
+        services.AddSingleton<IGameViewRecordingService, GameViewRecordingService>();
         return services;
     }
 

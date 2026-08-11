@@ -11,28 +11,19 @@ namespace MackySoft.Ucli.UnityIntegration.Project.Resolution;
 internal sealed class UnityProjectResolver : IUnityProjectResolver
 {
     /// <summary> Resolves UnityProject context from a selected project-path candidate and validates required project markers. </summary>
-    /// <param name="projectPathCandidate"> The selected but not yet normalized project-path candidate. </param>
+    /// <param name="projectPathCandidate"> The selected normalized project-path candidate. </param>
     /// <returns> The resolution result containing either a validated UnityProject context or a structured error. </returns>
     public UnityProjectResolutionResult Resolve (ProjectPathCandidate projectPathCandidate)
     {
         ArgumentNullException.ThrowIfNull(projectPathCandidate);
 
-        var currentDirectory = AbsolutePath.Parse(Environment.CurrentDirectory);
-        if (!AbsolutePath.TryResolve(currentDirectory, projectPathCandidate.Path, out var unityProjectRoot, out _))
-        {
-            return UnityProjectResolutionResult.Failure(ExecutionError.InvalidArgument(
-                "UnityProject path is invalid: Path format is invalid.",
-                ProjectContextErrorCodes.ProjectPathInvalidFormat));
-        }
-
-        return Resolve(
-            unityProjectRoot,
+        return ResolveProject(
+            projectPathCandidate.Path,
             projectPathCandidate.Source,
             projectPathCandidate.SourceLabel);
     }
 
-    /// <inheritdoc />
-    public UnityProjectResolutionResult Resolve (
+    private static UnityProjectResolutionResult ResolveProject (
         AbsolutePath unityProjectRoot,
         UnityProjectPathSource source,
         string? sourceLabel = null)

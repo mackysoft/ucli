@@ -72,6 +72,14 @@ internal static class UcliCommandGroupDefinitions
             ],
             []),
         new(
+            UcliCommandNames.Recording,
+            [
+                Leaf(UcliCommandNames.StartSubcommand, UcliRecordingCommandOutputContracts.RecordingStart),
+                Leaf(UcliCommandNames.Status, UcliRecordingCommandOutputContracts.RecordingStatus),
+                Leaf(UcliCommandNames.StopSubcommand, UcliRecordingCommandOutputContracts.RecordingStop),
+            ],
+            []),
+        new(
             UcliCommandNames.Ops,
             [
                 Leaf(UcliCommandNames.ListSubcommand, UcliCatalogCommandOutputContracts.OpsList),

@@ -15,7 +15,7 @@ public sealed class ValidateCommandDispatchTests
         var command = new ValidateCommand(service, RequestInputReaderStub.Success(DefaultRequestJson), CommandResultTestWriter.Create());
 
         var result = await CommandResultCapture.ExecuteAsync(() => command.ValidateAsync(
-            projectPath: "/repo/UnityProject",
+            projectPath: AbsolutePath.Parse(ProjectPathTestValues.RepositoryUnityProject),
             timeout: "1234",
             readIndexMode: "disabled",
             cancellationToken: CancellationToken.None));
@@ -24,7 +24,7 @@ public sealed class ValidateCommandDispatchTests
             result,
             service,
             CancellationToken.None,
-            "/repo/UnityProject",
+            ProjectPathTestValues.RepositoryUnityProject,
             expectedTimeoutMilliseconds: 1234,
             ReadIndexMode.Disabled,
             expectedRequestJson: DefaultRequestJson);

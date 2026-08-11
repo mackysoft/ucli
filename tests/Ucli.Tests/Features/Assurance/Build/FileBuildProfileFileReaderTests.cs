@@ -14,7 +14,7 @@ public sealed class FileBuildProfileFileReaderTests
         var profilePath = repository.WriteFile("profiles/build.json", """{"schemaVersion":1}""");
         var reader = new FileBuildProfileFileReader();
 
-        var result = await reader.ReadAsync("profiles/build.json", ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(
+        var result = await reader.ReadAsync(FilePathReference.Parse("profiles/build.json"), ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(
             repository.FullPath,
             pathSourceLabel: "--projectPath",
             unityVersion: "6000.1.4f1"));
@@ -26,31 +26,12 @@ public sealed class FileBuildProfileFileReaderTests
 
     [Fact]
     [Trait("Size", "Medium")]
-    public async Task ReadAsync_WithBlankProfilePath_ReturnsBuildProfileInvalid ()
-    {
-        using var repository = TestDirectories.CreateTempScope("ucli-build", nameof(ReadAsync_WithBlankProfilePath_ReturnsBuildProfileInvalid));
-        var reader = new FileBuildProfileFileReader();
-
-        var result = await reader.ReadAsync(
-            " ",
-            ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(
-                repository.FullPath,
-                pathSourceLabel: "--projectPath",
-                unityVersion: "6000.1.4f1"));
-
-        Assert.False(result.IsSuccess);
-        Assert.Equal(ExecutionErrorKind.InvalidArgument, result.Error!.Kind);
-        Assert.Equal(BuildErrorCodes.BuildProfileInvalid, result.Error.Code);
-    }
-
-    [Fact]
-    [Trait("Size", "Medium")]
     public async Task ReadAsync_WithMissingProfileFile_ReturnsBuildProfileInvalid ()
     {
         using var repository = TestDirectories.CreateTempScope("ucli-build", nameof(ReadAsync_WithMissingProfileFile_ReturnsBuildProfileInvalid));
         var reader = new FileBuildProfileFileReader();
 
-        var result = await reader.ReadAsync("profiles/missing.json", ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(
+        var result = await reader.ReadAsync(FilePathReference.Parse("profiles/missing.json"), ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(
             repository.FullPath,
             pathSourceLabel: "--projectPath",
             unityVersion: "6000.1.4f1"));
@@ -68,7 +49,7 @@ public sealed class FileBuildProfileFileReaderTests
         repository.CreateDirectory("profiles");
         var reader = new FileBuildProfileFileReader();
 
-        var result = await reader.ReadAsync("profiles", ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(
+        var result = await reader.ReadAsync(FilePathReference.Parse("profiles"), ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(
             repository.FullPath,
             pathSourceLabel: "--projectPath",
             unityVersion: "6000.1.4f1"));
@@ -86,7 +67,7 @@ public sealed class FileBuildProfileFileReaderTests
         repository.WriteFile("profiles/build.json", new string('x', (1024 * 1024) + 1));
         var reader = new FileBuildProfileFileReader();
 
-        var result = await reader.ReadAsync("profiles/build.json", ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(
+        var result = await reader.ReadAsync(FilePathReference.Parse("profiles/build.json"), ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(
             repository.FullPath,
             pathSourceLabel: "--projectPath",
             unityVersion: "6000.1.4f1"));

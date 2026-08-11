@@ -12,7 +12,7 @@ internal sealed class StubBuildProfileFileReader : IBuildProfileFileReader
     }
 
     public ValueTask<BuildProfileFileReadResult> ReadAsync (
-        string profilePath,
+        FilePathReference profilePath,
         ResolvedUnityProjectContext unityProject,
         CancellationToken cancellationToken = default)
     {

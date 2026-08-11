@@ -19,7 +19,7 @@ public sealed class ReadyCommandDispatchTests
 
         var result = await CommandResultCapture.ExecuteAsync(() => command.ReadyAsync(
             @for: "execution",
-            projectPath: "/repo/UnityProject",
+            projectPath: AbsolutePath.Parse(ProjectPathTestValues.RepositoryUnityProject),
             mode: "daemon",
             timeout: "1234",
             failFast: true,
@@ -29,7 +29,7 @@ public sealed class ReadyCommandDispatchTests
             result,
             service,
             cancellationTokenSource.Token,
-            "/repo/UnityProject",
+            ProjectPathTestValues.RepositoryUnityProject,
             UnityExecutionMode.Daemon,
             expectedTimeoutMilliseconds: 1234,
             expectedFailFast: true);

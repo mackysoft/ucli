@@ -24,6 +24,7 @@ internal static class ExecutionErrorCodeMapper
         {
             ExecutionErrorKind.InvalidArgument => UcliCoreErrorCodes.InvalidArgument,
             ExecutionErrorKind.Timeout => ExecutionErrorCodes.IpcTimeout,
+            ExecutionErrorKind.Canceled => ExecutionErrorCodes.Canceled,
             ExecutionErrorKind.InternalError => UcliCoreErrorCodes.InternalError,
             _ => UcliCoreErrorCodes.InternalError,
         };

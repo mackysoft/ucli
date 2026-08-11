@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using MackySoft.Ucli.Contracts.Presentation;
 using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
@@ -9,16 +10,14 @@ public sealed record IpcScreenshotCaptureRequest
     /// <summary> Initializes one screenshot capture request identified independently of its transport envelope. </summary>
     /// <param name="CaptureId"> The non-empty identifier shared with the response and staging layout. </param>
     /// <param name="Target"> The screenshot target. </param>
-    /// <param name="RequestedWidth"> The requested GameView width, or <see langword="null" /> for the current surface size. </param>
-    /// <param name="RequestedHeight"> The requested GameView height, or <see langword="null" /> for the current surface size. </param>
+    /// <param name="RequestedDimensions"> The requested GameView dimensions, or <see langword="null" /> for the current surface size. </param>
     /// <exception cref="ArgumentException"> Thrown when the capture identifier or requested-size combination is invalid. </exception>
     /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="Target" /> is not a contract value. </exception>
     [JsonConstructor]
     public IpcScreenshotCaptureRequest (
         Guid CaptureId,
         IpcScreenshotTarget Target,
-        int? RequestedWidth,
-        int? RequestedHeight)
+        PixelDimensions? RequestedDimensions)
     {
         if (CaptureId == Guid.Empty)
         {
@@ -30,15 +29,7 @@ public sealed record IpcScreenshotCaptureRequest
             throw new ArgumentOutOfRangeException(nameof(Target), Target, "Screenshot target must be specified.");
         }
 
-        var hasRequestedWidth = RequestedWidth.HasValue;
-        if (hasRequestedWidth != RequestedHeight.HasValue)
-        {
-            throw new ArgumentException(
-                "Requested width and height must be omitted together or specified together.",
-                nameof(RequestedWidth));
-        }
-
-        if (hasRequestedWidth)
+        if (RequestedDimensions is not null)
         {
             if (Target != IpcScreenshotTarget.Game)
             {
@@ -48,21 +39,20 @@ public sealed record IpcScreenshotCaptureRequest
             }
 
             if (!IpcScreenshotCaptureLimits.TryCalculateRgba8Layout(
-                RequestedWidth!.Value,
-                RequestedHeight!.Value,
+                RequestedDimensions.Width,
+                RequestedDimensions.Height,
                 out _,
                 out _))
             {
                 throw new ArgumentOutOfRangeException(
-                    nameof(RequestedWidth),
+                    nameof(RequestedDimensions),
                     "Requested screenshot dimensions exceed the supported normalized RGBA8 layout.");
             }
         }
 
         this.CaptureId = CaptureId;
         this.Target = Target;
-        this.RequestedWidth = RequestedWidth;
-        this.RequestedHeight = RequestedHeight;
+        this.RequestedDimensions = RequestedDimensions;
     }
 
     /// <summary> Gets the identifier shared with the response and staging layout. </summary>
@@ -71,9 +61,6 @@ public sealed record IpcScreenshotCaptureRequest
     /// <summary> Gets the screenshot target. </summary>
     public IpcScreenshotTarget Target { get; }
 
-    /// <summary> Gets the requested GameView width, or <see langword="null" /> for the current surface size. </summary>
-    public int? RequestedWidth { get; }
-
-    /// <summary> Gets the requested GameView height, or <see langword="null" /> for the current surface size. </summary>
-    public int? RequestedHeight { get; }
+    /// <summary> Gets the requested GameView dimensions, or <see langword="null" /> for the current surface size. </summary>
+    public PixelDimensions? RequestedDimensions { get; }
 }

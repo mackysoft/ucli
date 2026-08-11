@@ -7,7 +7,7 @@ namespace MackySoft.Ucli.Application.Features.Requests.Validate.UseCases.Validat
 /// <param name="ReadIndexMode"> The optional normalized <c>--readIndexMode</c> override. </param>
 /// <param name="RequestJson"> The raw request JSON read by the CLI host. </param>
 internal sealed record ValidateCommandInput (
-    string? ProjectPath,
+    AbsolutePath? ProjectPath,
     ReadIndexMode? ReadIndexMode,
     string RequestJson)
 {

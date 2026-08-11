@@ -49,11 +49,11 @@ internal sealed class TestRunCommand
     /// <returns> The exit code contained in the emitted command result. </returns>
     [Command(UcliCommandNames.RunSubcommand)]
     public async Task<int> RunAsync (
-        string? projectPath = null,
-        string? profilePath = null,
+        [AbsolutePathArgumentParser] AbsolutePath? projectPath = null,
+        [AbsolutePathArgumentParser] AbsolutePath? profilePath = null,
         string? executionMode = null,
         string? unityVersion = null,
-        string? unityEditorPath = null,
+        [AbsolutePathArgumentParser] AbsolutePath? unityEditorPath = null,
         string? testPlatform = null,
         string? testFilter = null,
         string? testCategory = null,

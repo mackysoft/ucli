@@ -50,27 +50,6 @@ public sealed class UnityProjectResolverTests
 
     [Fact]
     [Trait("Size", "Medium")]
-    public void Resolve_WithRelativePath_NormalizesToAbsolutePath ()
-    {
-        using var scope = TestDirectories.CreateTempScope("unity-project-resolver", "relative-path");
-        var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
-        var relativePath = Path.GetRelativePath(Environment.CurrentDirectory, unityProjectPath);
-        var resolver = CreateResolver();
-
-        var result = resolver.Resolve(CreateCandidate(relativePath));
-
-        Assert.True(result.IsSuccess);
-        var context = Assert.IsType<ResolvedUnityProjectContext>(result.Context);
-        FileSystemAssert.ForPath(context.UnityProjectRoot.Value)
-            .IsRooted()
-            .EqualsNormalized(unityProjectPath);
-        FileSystemAssert.ForPath(context.RepositoryRoot.Value)
-            .IsRooted()
-            .EqualsNormalized(unityProjectPath);
-    }
-
-    [Fact]
-    [Trait("Size", "Medium")]
     public void Resolve_WithEnvironmentVariableCandidate_RetainsPathSource ()
     {
         using var scope = TestDirectories.CreateTempScope("unity-project-resolver", "environment-variable-source");
@@ -78,7 +57,7 @@ public sealed class UnityProjectResolverTests
         var resolver = CreateResolver();
 
         var result = resolver.Resolve(new ProjectPathCandidate(
-            unityProjectPath,
+            AbsolutePath.Parse(unityProjectPath),
             UnityProjectPathSource.EnvironmentVariable,
             "UCLI_PROJECT_PATH"));
 
@@ -105,23 +84,6 @@ public sealed class UnityProjectResolverTests
         Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
         Assert.Equal(ProjectContextErrorCodes.ProjectPathNotFound, error.Code);
         Assert.Contains("does not exist", error.Message, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void Resolve_ReturnsInvalidArgument_WhenProjectPathFormatIsInvalid ()
-    {
-        var resolver = CreateResolver();
-
-        var result = resolver.Resolve(CreateCandidate("invalid\0path"));
-
-        Assert.False(result.IsSuccess);
-        Assert.Null(result.Context);
-        var error = Assert.IsType<ExecutionError>(result.Error);
-        Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
-        Assert.Equal(ProjectContextErrorCodes.ProjectPathInvalidFormat, error.Code);
-        Assert.Contains("UnityProject path is invalid", error.Message, StringComparison.Ordinal);
-        Assert.DoesNotContain("\0", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -202,7 +164,7 @@ public sealed class UnityProjectResolverTests
 
     private static ProjectPathCandidate CreateCandidate (string projectPath)
     {
-        return new ProjectPathCandidate(projectPath, UnityProjectPathSource.CommandOption, "--projectPath");
+        return new ProjectPathCandidate(AbsolutePath.Parse(projectPath), UnityProjectPathSource.CommandOption, "--projectPath");
     }
 
     private static UnityProjectResolver CreateResolver ()

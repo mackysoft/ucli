@@ -17,7 +17,7 @@ namespace MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Common;
 /// <param name="PollIntervalMilliseconds"> The optional stream polling interval in milliseconds. </param>
 /// <param name="IdleTimeoutMilliseconds"> The optional stream idle-timeout threshold in milliseconds. </param>
 internal sealed record LogsUnityServiceRequest (
-    string? ProjectPath,
+    AbsolutePath? ProjectPath,
     int? Tail,
     string? After,
     string? Since,

@@ -7,7 +7,7 @@ internal sealed class UnexpectedPlanCommandPreflightService : IPlanCommandPrefli
 {
     public ValueTask<PlanCommandPreflightResult> PrepareAsync (
         Guid requestId,
-        string? projectPath,
+        AbsolutePath? projectPath,
         string requestJson,
         ReadIndexMode? readIndexMode,
         CancellationToken cancellationToken = default)

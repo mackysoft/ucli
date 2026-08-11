@@ -1,0 +1,34 @@
+{
+    "name": "MackySoft.Ucli.Unity.Recorder.Tests.Editor",
+    "rootNamespace": "MackySoft.Ucli.Unity.Recording.Recorder.Tests",
+    "references": [
+        "MackySoft.Ucli.Unity.Editor",
+        "MackySoft.Ucli.Unity.Recorder.Editor",
+        "Unity.Recorder.Editor"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "MackySoft.FileSystem.dll",
+        "MackySoft.Ucli.Contracts.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UCLI_RECORDER"
+    ],
+    "versionDefines": [
+        {
+            "name": "com.unity.recorder",
+            "expression": "[5.1.5,5.2.0)",
+            "define": "UCLI_RECORDER"
+        }
+    ],
+    "optionalUnityReferences": [
+        "TestAssemblies"
+    ],
+    "noEngineReferences": false
+}

@@ -18,7 +18,7 @@ internal static class OpsCommandAssert
         bool expectedFailFast)
     {
         var invocation = Assert.Single(service.ListInvocations);
-        Assert.Equal(expectedProjectPath, invocation.Input.ProjectPath);
+        ProjectPathDispatchAssert.EqualNormalized(expectedProjectPath, invocation.Input.ProjectPath);
         Assert.Equal(expectedMode, invocation.Input.Mode);
         Assert.Equal(expectedTimeoutMilliseconds, invocation.Input.TimeoutMilliseconds);
         Assert.Equal(expectedReadIndexMode, invocation.Input.ReadIndexMode);
@@ -39,7 +39,7 @@ internal static class OpsCommandAssert
     {
         var invocation = Assert.Single(service.DescribeInvocations);
         Assert.Equal(expectedOperationName, invocation.Input.OperationName);
-        Assert.Equal(expectedProjectPath, invocation.Input.ProjectPath);
+        ProjectPathDispatchAssert.EqualNormalized(expectedProjectPath, invocation.Input.ProjectPath);
         Assert.Equal(expectedMode, invocation.Input.Mode);
         Assert.Equal(expectedTimeoutMilliseconds, invocation.Input.TimeoutMilliseconds);
         Assert.Equal(expectedReadIndexMode, invocation.Input.ReadIndexMode);

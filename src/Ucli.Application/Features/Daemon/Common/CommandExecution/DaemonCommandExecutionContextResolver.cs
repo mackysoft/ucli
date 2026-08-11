@@ -23,7 +23,7 @@ internal sealed class DaemonCommandExecutionContextResolver : IDaemonCommandExec
     /// <returns> The daemon-command execution-context resolution result. </returns>
     public async ValueTask<DaemonCommandExecutionContextResolutionResult> ResolveAsync (
         UcliCommand timeoutCommand,
-        string? projectPath,
+        AbsolutePath? projectPath,
         int? timeoutMilliseconds,
         CancellationToken cancellationToken = default)
     {

@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandExecution;
+using MackySoft.FileSystem;
 
 namespace MackySoft.Ucli.TestSupport;
 
@@ -16,7 +17,7 @@ internal sealed class RecordingDaemonCommandExecutionContextResolver : IDaemonCo
 
     public ValueTask<DaemonCommandExecutionContextResolutionResult> ResolveAsync (
         UcliCommand timeoutCommand,
-        string? projectPath,
+        AbsolutePath? projectPath,
         int? timeoutMilliseconds,
         CancellationToken cancellationToken = default)
     {
@@ -31,7 +32,7 @@ internal sealed class RecordingDaemonCommandExecutionContextResolver : IDaemonCo
 
     internal readonly record struct Invocation (
         UcliCommand TimeoutCommand,
-        string? ProjectPath,
+        AbsolutePath? ProjectPath,
         int? TimeoutMilliseconds,
         CancellationToken CancellationToken);
 }

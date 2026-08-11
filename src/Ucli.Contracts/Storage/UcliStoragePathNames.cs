@@ -99,6 +99,51 @@ public static class UcliStoragePathNames
     /// <summary> Gets the normalized raw screenshot staging file name. </summary>
     public const string ScreenshotRawStagingFileName = "capture.rgba";
 
+    /// <summary> Gets the GameView recording directory name under project-scoped artifact and work roots. </summary>
+    public const string GameViewRecordingsDirectoryName = "game-view-recordings";
+
+    /// <summary> Gets the directory containing runtime-scoped GameView recording admission locks. </summary>
+    public const string GameViewRecordingAdmissionLocksDirectoryName = "game-view-recording-admissions";
+
+    /// <summary> Gets the extension for one runtime-scoped GameView recording admission lock. </summary>
+    public const string GameViewRecordingAdmissionLockFileExtension = ".lock";
+
+    /// <summary> Gets the normalized recording request artifact file name. </summary>
+    public const string GameViewRecordingRequestFileName = "recording-request.json";
+
+    /// <summary> Gets the recording manifest artifact file name. </summary>
+    public const string GameViewRecordingManifestFileName = "recording-manifest.json";
+
+    /// <summary> Gets the finalized GameView recording video file name. </summary>
+    public const string GameViewRecordingVideoFileName = "game-view.mp4";
+
+    /// <summary> Gets the recording cleanup artifact file name. </summary>
+    public const string GameViewRecordingCleanupFileName = "recording-cleanup.json";
+
+    /// <summary> Gets the recording terminal artifact file name. </summary>
+    public const string GameViewRecordingTerminalFileName = "recording-terminal.json";
+
+    /// <summary> Gets the recording diagnostics directory name. </summary>
+    public const string GameViewRecordingDiagnosticsDirectoryName = "diagnostics";
+
+    /// <summary> Gets the recovered partial recording artifact file name. </summary>
+    public const string GameViewRecordingPartialOutputFileName = "partial-game-view.mp4";
+
+    /// <summary> Gets the provider-private work directory name under one recording scope. </summary>
+    public const string GameViewRecordingProviderWorkDirectoryName = "provider";
+
+    /// <summary> Gets the durable execution-state file name under one recording work scope. </summary>
+    public const string GameViewRecordingExecutionStateFileName = "execution-state.json";
+
+    /// <summary> Gets the execution-state mutation lock file name under one recording work scope. </summary>
+    public const string GameViewRecordingExecutionStateLockFileName = "execution-state.lock";
+
+    /// <summary> Gets the terminal-publication ownership lock file name under one recording work scope. </summary>
+    public const string GameViewRecordingTerminalPublicationLockFileName = "terminal-publication.lock";
+
+    /// <summary> Gets the Recorder provider staging output file name. </summary>
+    public const string GameViewRecordingProviderOutputFileName = "game-view.mp4";
+
     /// <summary> Gets the oneshot bootstrap-envelope directory name under one project-scoped directory. </summary>
     public const string OneshotBootstrapDirectoryName = "oneshot-bootstrap";
 

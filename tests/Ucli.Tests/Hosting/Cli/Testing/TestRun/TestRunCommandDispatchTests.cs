@@ -20,14 +20,16 @@ public sealed class TestRunCommandDispatchTests
                     RunIdTestValues.Test,
                     artifactsDir.Value))));
         var command = new TestRunCommand(service, CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
+        var profilePath = AbsolutePath.Parse(Path.GetFullPath("test.profile.json"));
+        var unityEditorPath = AbsolutePath.Parse(Path.GetFullPath(Path.Combine("Editors", "6000.1.4f1", "Unity")));
         using var cancellationTokenSource = new CancellationTokenSource();
 
         var result = await CommandResultCapture.ExecuteAsync(() => command.RunAsync(
-            projectPath: "/repo/UnityProject",
-            profilePath: "/repo/test.profile.json",
+            projectPath: AbsolutePath.Parse(ProjectPathTestValues.RepositoryUnityProject),
+            profilePath: profilePath,
             executionMode: "oneshot",
             unityVersion: "6000.1.4f1",
-            unityEditorPath: "/Applications/Unity/Hub/Editor/6000.1.4f1/Unity.app",
+            unityEditorPath: unityEditorPath,
             testPlatform: "Android",
             testFilter: "Name~Smoke",
             testCategory: "smoke, fast,nightly",
@@ -42,11 +44,11 @@ public sealed class TestRunCommandDispatchTests
         Assert.Equal(cancellationTokenSource.Token, invocation.CancellationToken);
 
         var input = Assert.IsType<TestRunCommandInput>(invocation.Input);
-        Assert.Equal("/repo/UnityProject", input.ProjectPath);
-        Assert.Equal("/repo/test.profile.json", input.ProfilePath);
+        ProjectPathDispatchAssert.EqualNormalized(ProjectPathTestValues.RepositoryUnityProject, input.ProjectPath);
+        Assert.Equal(profilePath, input.ProfilePath);
         Assert.Equal(UnityExecutionMode.Oneshot, input.Mode);
         Assert.Equal("6000.1.4f1", input.UnityVersion);
-        Assert.Equal("/Applications/Unity/Hub/Editor/6000.1.4f1/Unity.app", input.UnityEditorPath);
+        Assert.Equal(unityEditorPath, input.UnityEditorPath);
         Assert.Equal(TestRunPlatform.Player("Android"), input.TestPlatform);
         Assert.Equal("Name~Smoke", input.TestFilter);
         Assert.Equal(["smoke", "fast", "nightly"], Assert.IsType<string[]>(input.TestCategory));

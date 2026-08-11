@@ -13,6 +13,7 @@
     },
     "lifecycleExecutionRef": {
       "lifecycle": "terminal",
+      "statusLocator": null,
       "terminalRecordRef": {
         "locationKind": "path",
         "path": "lifecycle-executions/32c8976c42f24e42a8573cba1241a7de/terminal-record.json",
@@ -25,8 +26,7 @@
       "kind": "compile",
       "id": "32c8976c-42f2-4e42-a857-3cba1241a7de",
       "definitionDigest": "bc29f185eb2b6fd7e5f11211fc0abc479c91ab5eb826c3dabb27f49549bb3597",
-      "state": "completed",
-      "statusLocator": null
+      "state": "completed"
     },
     "compile": {
       "refresh": {

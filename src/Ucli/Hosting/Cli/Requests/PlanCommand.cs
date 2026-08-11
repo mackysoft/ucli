@@ -49,7 +49,7 @@ internal sealed class PlanCommand
     /// <returns> The exit code contained in the emitted command result. </returns>
     [Command(UcliCommandNames.Plan)]
     public async Task<int> PlanAsync (
-        string? projectPath = null,
+        [AbsolutePathArgumentParser] AbsolutePath? projectPath = null,
         string? mode = null,
         string? timeout = null,
         string? readIndexMode = null,

@@ -80,4 +80,20 @@ public enum UnityIpcMethod
     /// <summary> Rebootstraps a stopped GUI daemon endpoint. </summary>
     [VocabularyText("gui.rebootstrap")]
     GuiRebootstrap,
+
+    /// <summary>Reads runtime-side GameView recording capability.</summary>
+    [VocabularyText("recording.capability")]
+    RecordingCapability,
+
+    /// <summary>Starts or returns one durable GameView recording.</summary>
+    [VocabularyText("recording.start")]
+    RecordingStart,
+
+    /// <summary>Reads one GameView recording or the current environment selection.</summary>
+    [VocabularyText("recording.status")]
+    RecordingStatus,
+
+    /// <summary>Requests an idempotent stop for one GameView recording.</summary>
+    [VocabularyText("recording.stop")]
+    RecordingStop,
 }

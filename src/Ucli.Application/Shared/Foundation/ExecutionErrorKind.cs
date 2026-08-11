@@ -11,4 +11,7 @@ internal enum ExecutionErrorKind
 
     /// <summary> Indicates an unexpected infrastructure or runtime failure. </summary>
     InternalError = 2,
+
+    /// <summary> Indicates that the caller stopped waiting for the operation. </summary>
+    Canceled = 3,
 }

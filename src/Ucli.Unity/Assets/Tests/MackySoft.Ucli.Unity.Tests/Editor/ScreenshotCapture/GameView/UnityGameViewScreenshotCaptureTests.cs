@@ -3,6 +3,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Projects;
 using MackySoft.Ucli.Unity.Runtime;
 using MackySoft.Ucli.Unity.ScreenshotCapture.GameView;
 using MackySoft.Ucli.Unity.ScreenshotCapture.GameView.Resolution;
@@ -63,8 +64,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     new IpcScreenshotCaptureRequest(
                         Guid.Parse("1e556a0d-3b9c-4be6-bae3-c1142637afcb"),
                         IpcScreenshotTarget.Game,
-                        RequestedWidth: null,
-                        RequestedHeight: null),
+                        RequestedDimensions: null),
                     CancellationToken.None)
                 .GetAwaiter()
                 .GetResult();
@@ -105,8 +105,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     new IpcScreenshotCaptureRequest(
                         Guid.Parse("62485cbb-c8b1-4e2c-b5fc-80b47c8d410c"),
                         IpcScreenshotTarget.Game,
-                        RequestedWidth: null,
-                        RequestedHeight: null),
+                        RequestedDimensions: null),
                     CancellationToken.None)
                 .GetAwaiter()
                 .GetResult();
@@ -125,7 +124,7 @@ namespace MackySoft.Ucli.Unity.Tests
             float backingScale)
         {
             var colorSpace = UnityScreenshotPixelNormalizer.ResolveColorSpace();
-            var graphicsFormat = colorSpace == IpcScreenshotColorSpace.Linear
+            var graphicsFormat = colorSpace == UnityProjectColorSpace.Linear
                 ? GraphicsFormat.R8G8B8A8_SRGB
                 : GraphicsFormat.R8G8B8A8_UNorm;
             Assert.That(

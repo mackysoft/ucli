@@ -56,7 +56,7 @@ public sealed class CallServiceReadPostconditionTests
         var result = await service.ExecuteAsync(
             RequestId,
             new CallCommandInput(
-                ProjectPath: ProjectPathTestValues.RepositoryUnityProject,
+                ProjectPath: AbsolutePath.Parse(ProjectPathTestValues.RepositoryUnityProject),
                 Mode: NormalizeMode("oneshot"),
                 TimeoutMilliseconds: NormalizeTimeout("1200"),
                 PlanToken: null,
@@ -125,7 +125,7 @@ public sealed class CallServiceReadPostconditionTests
         var result = await service.ExecuteAsync(
             RequestId,
             new CallCommandInput(
-                ProjectPath: ProjectPathTestValues.RepositoryUnityProject,
+                ProjectPath: AbsolutePath.Parse(ProjectPathTestValues.RepositoryUnityProject),
                 Mode: NormalizeMode("oneshot"),
                 TimeoutMilliseconds: NormalizeTimeout("1200"),
                 PlanToken: null,

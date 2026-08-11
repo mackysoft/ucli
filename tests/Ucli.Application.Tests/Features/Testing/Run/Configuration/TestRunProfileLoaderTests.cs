@@ -5,6 +5,8 @@ namespace MackySoft.Ucli.Application.Tests;
 
 public sealed class TestRunProfileLoaderTests
 {
+    private static readonly AbsolutePath ProfilePath = AbsolutePath.Parse(Path.GetFullPath("test.profile.json"));
+
     [Fact]
     [Trait("Size", "Small")]
     public async Task Load_WithValidProfile_ReturnsSuccess ()
@@ -24,7 +26,7 @@ public sealed class TestRunProfileLoaderTests
             }
             """);
 
-        var result = await loader.LoadAsync("test.profile.json", CancellationToken.None);
+        var result = await loader.LoadAsync(ProfilePath, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         var profile = Assert.IsType<TestRunProfile>(result.Profile);
@@ -54,7 +56,7 @@ public sealed class TestRunProfileLoaderTests
             }
             """);
 
-        var result = await loader.LoadAsync("test.profile.json", CancellationToken.None);
+        var result = await loader.LoadAsync(ProfilePath, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         var profile = Assert.IsType<TestRunProfile>(result.Profile);
@@ -83,7 +85,7 @@ public sealed class TestRunProfileLoaderTests
             }
             """);
 
-        var result = await loader.LoadAsync("test.profile.json", CancellationToken.None);
+        var result = await loader.LoadAsync(ProfilePath, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         var error = Assert.IsType<ExecutionError>(result.Error);
@@ -111,7 +113,7 @@ public sealed class TestRunProfileLoaderTests
             }
             """);
 
-        var result = await loader.LoadAsync("test.profile.json", CancellationToken.None);
+        var result = await loader.LoadAsync(ProfilePath, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         var error = Assert.IsType<ExecutionError>(result.Error);
@@ -139,7 +141,7 @@ public sealed class TestRunProfileLoaderTests
             }
             """);
 
-        var result = await loader.LoadAsync("test.profile.json", CancellationToken.None);
+        var result = await loader.LoadAsync(ProfilePath, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         var error = Assert.IsType<ExecutionError>(result.Error);
@@ -167,7 +169,7 @@ public sealed class TestRunProfileLoaderTests
             }
             """);
 
-        var result = await loader.LoadAsync("test.profile.json", CancellationToken.None);
+        var result = await loader.LoadAsync(ProfilePath, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         var error = Assert.IsType<ExecutionError>(result.Error);
@@ -195,7 +197,7 @@ public sealed class TestRunProfileLoaderTests
             }
             """);
 
-        var result = await loader.LoadAsync("test.profile.json", CancellationToken.None);
+        var result = await loader.LoadAsync(ProfilePath, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         var error = Assert.IsType<ExecutionError>(result.Error);

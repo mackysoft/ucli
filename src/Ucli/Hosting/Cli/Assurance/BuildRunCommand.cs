@@ -1,6 +1,7 @@
 using ConsoleAppFramework;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Contracts;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Application.Shared.Paths;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 using MackySoft.Ucli.Hosting.Cli.Common.Streaming;
@@ -38,8 +39,8 @@ internal sealed class BuildRunCommand
     /// <returns> The exit code contained in the emitted command result. </returns>
     [Command(UcliCommandNames.RunSubcommand)]
     public async Task<int> RunAsync (
-        string? profilePath = null,
-        string? projectPath = null,
+        [FilePathReferenceArgumentParser] FilePathReference? profilePath = null,
+        [AbsolutePathArgumentParser] AbsolutePath? projectPath = null,
         string? mode = null,
         string? timeout = null,
         string? format = null,
@@ -73,7 +74,7 @@ internal sealed class BuildRunCommand
             return errorResult.ExitCode;
         }
 
-        if (string.IsNullOrWhiteSpace(profilePath))
+        if (profilePath is null)
         {
             var errorResult = BuildRunCommandResultFactory.CreateExecutionError(ExecutionError.InvalidArgument(
                 "--profilePath is required for build run.",

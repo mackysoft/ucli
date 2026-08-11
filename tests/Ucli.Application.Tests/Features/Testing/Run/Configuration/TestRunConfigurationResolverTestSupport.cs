@@ -13,7 +13,13 @@ internal static class TestRunConfigurationResolverTestSupport
 
         return new TestRunConfigurationResolver(
             new StubTestRunProfileLoader(TestRunProfileLoadResult.Success(new TestRunProfile())),
-            new RecordingProjectPathInputResolver(static (commandOptionProjectPath, fallbackProjectPath) => commandOptionProjectPath ?? fallbackProjectPath),
+            new RecordingProjectPathInputResolver(static input => RecordingProjectPathInputResolver.Success(
+                input.CommandOptionProjectPath ?? input.FallbackProjectPath ?? AbsolutePath.Parse(Environment.CurrentDirectory),
+                input.CommandOptionProjectPath is not null
+                    ? UnityProjectPathSource.CommandOption
+                    : input.FallbackProjectPath is not null
+                        ? UnityProjectPathSource.Fallback
+                        : UnityProjectPathSource.CurrentDirectory)),
             new RecordingUnityProjectResolver(UnityProjectResolutionResult.Success(unityProject)),
             new RecordingUnityVersionResolver(UnityVersionResolutionResult.Success("6000.1.4f1")),
             new StubUnityEditorPathResolver(UnityEditorPathResolutionResult.Success(

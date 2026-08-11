@@ -13,13 +13,14 @@ public sealed class TestProfileInitServiceTests
         var expectedResult = TestProfileInitExecutionResult.Success(new TestProfileInitExecutionOutput("/repo/test.profile.json"));
         var templateStore = new RecordingTestProfileTemplateStore(expectedResult);
         var service = new TestProfileInitService(templateStore);
+        var outputPath = AbsolutePath.Parse(Path.GetFullPath("custom.json"));
 
-        var result = await service.ExecuteAsync(new TestProfileInitCommandInput(OutputPath: "custom.json", Force: true), CancellationToken.None);
+        var result = await service.ExecuteAsync(new TestProfileInitCommandInput(OutputPath: outputPath, Force: true), CancellationToken.None);
 
         Assert.Same(expectedResult, result);
         TestProfileTemplateStoreAssert.DefaultProfileWritten(
             templateStore,
-            expectedOutputPath: "custom.json",
+            expectedOutputPath: outputPath,
             expectedForce: true);
     }
 

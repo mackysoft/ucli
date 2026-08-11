@@ -1,11 +1,11 @@
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Contracts.Presentation;
 
 namespace MackySoft.Ucli.Hosting.Cli.Screenshot;
 
 /// <summary> Represents normalized screenshot command options. </summary>
 internal sealed record ScreenshotCommandOptionsNormalizationResult (
-    int? RequestedWidth,
-    int? RequestedHeight,
+    PixelDimensions? RequestedDimensions,
     int? TimeoutMilliseconds,
     ExecutionError? Error)
 {
@@ -14,13 +14,11 @@ internal sealed record ScreenshotCommandOptionsNormalizationResult (
 
     /// <summary> Creates a successful option result. </summary>
     public static ScreenshotCommandOptionsNormalizationResult Success (
-        int? requestedWidth,
-        int? requestedHeight,
+        PixelDimensions? requestedDimensions,
         int? timeoutMilliseconds)
     {
         return new ScreenshotCommandOptionsNormalizationResult(
-            requestedWidth,
-            requestedHeight,
+            requestedDimensions,
             timeoutMilliseconds,
             Error: null);
     }
@@ -29,6 +27,6 @@ internal sealed record ScreenshotCommandOptionsNormalizationResult (
     public static ScreenshotCommandOptionsNormalizationResult Failure (ExecutionError error)
     {
         ArgumentNullException.ThrowIfNull(error);
-        return new ScreenshotCommandOptionsNormalizationResult(null, null, null, error);
+        return new ScreenshotCommandOptionsNormalizationResult(null, null, error);
     }
 }

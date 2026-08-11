@@ -37,7 +37,7 @@ internal sealed class QueryCompSchemaCommand
     /// <returns> The exit code contained in the emitted command result. </returns>
     [Command(UcliCommandNames.SchemaSubcommand)]
     public async Task<int> SchemaAsync (
-        string? projectPath = null,
+        [AbsolutePathArgumentParser] AbsolutePath? projectPath = null,
         string? mode = null,
         string? timeout = null,
         string? readIndexMode = null,

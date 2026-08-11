@@ -1,5 +1,8 @@
+global using MackySoft.FileSystem;
+global using MackySoft.Ucli.Application.Shared.Context.Project;
 global using MackySoft.Ucli.Application.Shared.Execution;
 global using MackySoft.Ucli.Application.Shared.Execution.ErrorCodes;
+global using MackySoft.Ucli.Hosting.Cli.Options;
 global using MackySoft.Ucli.Contracts;
 global using MackySoft.Ucli.Contracts.Assurance;
 global using MackySoft.Ucli.Contracts.Daemon;

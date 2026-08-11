@@ -9,5 +9,5 @@ internal interface IUnityEditorPathResolver
     /// <returns> The editor-path resolution result. </returns>
     UnityEditorPathResolutionResult Resolve (
         string unityVersion,
-        string? preferredUnityEditorPath);
+        AbsolutePath? preferredUnityEditorPath);
 }

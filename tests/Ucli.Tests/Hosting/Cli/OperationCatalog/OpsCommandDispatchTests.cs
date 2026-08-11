@@ -16,7 +16,7 @@ public sealed class OpsCommandDispatchTests
         var command = new OpsListCommand(service, CommandResultTestWriter.Create());
 
         await StandardOutputCapture.ExecuteAsync(() => command.ListAsync(
-            projectPath: "/repo/UnityProject",
+            projectPath: AbsolutePath.Parse(ProjectPathTestValues.RepositoryUnityProject),
             mode: "daemon",
             timeout: "1234",
             readIndexMode: "allowStale",
@@ -28,7 +28,7 @@ public sealed class OpsCommandDispatchTests
 
         OpsCommandAssert.ListOptionsDispatchedAsOpsQuery(
             service,
-            expectedProjectPath: "/repo/UnityProject",
+            expectedProjectPath: ProjectPathTestValues.RepositoryUnityProject,
             expectedMode: UnityExecutionMode.Daemon,
             expectedTimeoutMilliseconds: 1234,
             expectedReadIndexMode: ReadIndexMode.AllowStale,
@@ -47,7 +47,7 @@ public sealed class OpsCommandDispatchTests
 
         await StandardOutputCapture.ExecuteAsync(() => command.DescribeAsync(
             operationName: "ucli.go.describe",
-            projectPath: "/repo/UnityProject",
+            projectPath: AbsolutePath.Parse(ProjectPathTestValues.RepositoryUnityProject),
             mode: "daemon",
             timeout: "1234",
             readIndexMode: "requireFresh",
@@ -57,7 +57,7 @@ public sealed class OpsCommandDispatchTests
         OpsCommandAssert.DescribeOptionsDispatchedAsOpsQuery(
             service,
             expectedOperationName: "ucli.go.describe",
-            expectedProjectPath: "/repo/UnityProject",
+            expectedProjectPath: ProjectPathTestValues.RepositoryUnityProject,
             expectedMode: UnityExecutionMode.Daemon,
             expectedTimeoutMilliseconds: 1234,
             expectedReadIndexMode: ReadIndexMode.RequireFresh,

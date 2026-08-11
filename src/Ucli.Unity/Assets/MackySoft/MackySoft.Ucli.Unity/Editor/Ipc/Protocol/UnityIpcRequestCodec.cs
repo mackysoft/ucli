@@ -241,6 +241,42 @@ namespace MackySoft.Ucli.Unity.Ipc
             return TryDecodePayload(request, "ScreenshotCapture", out payload, out errorResponse);
         }
 
+        /// <summary> Tries to decode one recording capability request payload. </summary>
+        public static bool TryDecodeGameViewRecordingCapabilityRequest (
+            ValidatedUnityIpcRequest request,
+            out IpcGameViewRecordingCapabilityRequest? payload,
+            out IpcResponse? errorResponse)
+        {
+            return TryDecodePayload(request, "RecordingCapability", out payload, out errorResponse);
+        }
+
+        /// <summary> Tries to decode one GameView recording start request payload. </summary>
+        public static bool TryDecodeGameViewRecordingStartRequest (
+            ValidatedUnityIpcRequest request,
+            out IpcGameViewRecordingStartRequest? payload,
+            out IpcResponse? errorResponse)
+        {
+            return TryDecodePayload(request, "RecordingStart", out payload, out errorResponse);
+        }
+
+        /// <summary> Tries to decode one GameView recording status request payload. </summary>
+        public static bool TryDecodeGameViewRecordingStatusRequest (
+            ValidatedUnityIpcRequest request,
+            out IpcGameViewRecordingStatusRequest? payload,
+            out IpcResponse? errorResponse)
+        {
+            return TryDecodePayload(request, "RecordingStatus", out payload, out errorResponse);
+        }
+
+        /// <summary> Tries to decode one GameView recording stop request payload. </summary>
+        public static bool TryDecodeGameViewRecordingStopRequest (
+            ValidatedUnityIpcRequest request,
+            out IpcGameViewRecordingStopRequest? payload,
+            out IpcResponse? errorResponse)
+        {
+            return TryDecodePayload(request, "RecordingStop", out payload, out errorResponse);
+        }
+
         /// <summary> Tries to decode one method payload and creates standardized invalid-payload errors. </summary>
         /// <typeparam name="TPayload"> The payload model type. </typeparam>
         /// <param name="request"> The incoming request envelope. </param>

@@ -1,6 +1,7 @@
 using MackySoft.Ucli.Application.Features.Requests.Resolve.UseCases.Resolve.Contracts;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts.Configuration;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Requests;
 using MackySoft.Ucli.Tests.Hosting.Cli.Common.Execution;
 using static MackySoft.Ucli.Tests.ResolveCommandTestData;
@@ -52,20 +53,20 @@ public sealed class ResolveCommandDispatchTests
         using var cancellationTokenSource = new CancellationTokenSource();
 
         var result = await CommandResultCapture.ExecuteAsync(() => command.ResolveAsync(
-            projectPath: "/repo/UnityProject",
+            projectPath: AbsolutePath.Parse(ProjectPathTestValues.RepositoryUnityProject),
             mode: "oneshot",
             timeout: "1234",
             readIndexMode: "allowStale",
             failFast: true,
-            scene: "Assets/Scenes/Main.unity",
-            hierarchyPath: "Root/Child",
+            scene: new SceneAssetPath("Assets/Scenes/Main.unity"),
+            hierarchyPath: new UnityHierarchyPath("Root/Child"),
             cancellationToken: cancellationTokenSource.Token));
 
         ResolveCommandAssert.SucceededWithSceneHierarchySelector(
             result,
             service,
             cancellationTokenSource.Token,
-            "/repo/UnityProject",
+            ProjectPathTestValues.RepositoryUnityProject,
             UnityExecutionMode.Oneshot,
             expectedTimeoutMilliseconds: 1234,
             ReadIndexMode.AllowStale,
