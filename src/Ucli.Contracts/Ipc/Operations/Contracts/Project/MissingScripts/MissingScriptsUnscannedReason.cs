@@ -1,5 +1,3 @@
-using MackySoft.JsonSchema.Generation.Annotations;
-
 namespace MackySoft.Ucli.Contracts.Ipc;
 
 /// <summary> Defines why a requested missing-script scan target was not fully observed. </summary>
@@ -21,4 +19,8 @@ public enum MissingScriptsUnscannedReason
     /// <summary> At least one GameObject hierarchy cannot be represented by the operation result contract. </summary>
     [VocabularyText("hierarchyPathUnrepresentable")]
     HierarchyPathUnrepresentable = 4,
+
+    /// <summary> Unity Editor was not ready to begin the requested asset inspection. </summary>
+    [VocabularyText("editorNotReady")]
+    EditorNotReady = 5,
 }

@@ -108,6 +108,18 @@ public sealed class OperationContractConstructorTests
         Assert.Equal("componentIndex", exception.ParamName);
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public void MissingScriptsUnscannedScope_WhenEditorIsNotReady_AcceptsEditorNotReadyReason ()
+    {
+        var scope = new MissingScriptsUnscannedScope(
+            new UnityAssetPathPrefix("Assets"),
+            MissingScriptsAssetKind.Scene,
+            MissingScriptsUnscannedReason.EditorNotReady);
+
+        Assert.Equal(MissingScriptsUnscannedReason.EditorNotReady, scope.Reason);
+    }
+
     [Theory]
     [InlineData(true)]
     [InlineData(false)]

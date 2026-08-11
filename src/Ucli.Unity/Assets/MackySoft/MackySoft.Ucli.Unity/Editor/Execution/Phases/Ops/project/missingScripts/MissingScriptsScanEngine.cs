@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using UnityEngine;
@@ -19,22 +20,27 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             this.assetAccess = assetAccess ?? throw new ArgumentNullException(nameof(assetAccess));
         }
 
-        public MissingScriptsCheckResult Scan (MissingScriptsCheckArgs args)
+        public MissingScriptsCheckResult Scan (
+            MissingScriptsCheckArgs args,
+            CancellationToken cancellationToken)
         {
             if (args == null)
             {
                 throw new ArgumentNullException(nameof(args));
             }
 
+            cancellationToken.ThrowIfCancellationRequested();
             var unscannedScopes = new List<MissingScriptsUnscannedScope>();
-            var discoveredAssets = DiscoverAssets(args, unscannedScopes);
-            var scannedAssets = new List<UnityAssetPath>(discoveredAssets.Count);
             var unscannedAssets = new List<MissingScriptsUnscannedAsset>();
+            var discoveredAssets = DiscoverAssets(args, unscannedScopes, unscannedAssets, cancellationToken);
+            var scannedAssets = new List<UnityAssetPath>(discoveredAssets.Count);
             var missingScriptSlots = new List<MissingScriptSlot>();
 
             foreach (var discoveredAsset in discoveredAssets.Values)
             {
-                var scanOutcome = ScanAsset(discoveredAsset, missingScriptSlots);
+                cancellationToken.ThrowIfCancellationRequested();
+                var scanOutcome = ScanAsset(discoveredAsset, missingScriptSlots, cancellationToken);
+                cancellationToken.ThrowIfCancellationRequested();
                 switch (scanOutcome)
                 {
                     case AssetScanOutcome.Scanned:
@@ -67,58 +73,75 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 }
             }
 
+            cancellationToken.ThrowIfCancellationRequested();
             missingScriptSlots.Sort(MissingScriptSlotComparer.Instance);
-            return new MissingScriptsCheckResult(
+            cancellationToken.ThrowIfCancellationRequested();
+            unscannedScopes.Sort(MissingScriptsUnscannedScopeComparer.Instance);
+            cancellationToken.ThrowIfCancellationRequested();
+            unscannedAssets.Sort(MissingScriptsUnscannedAssetComparer.Instance);
+            cancellationToken.ThrowIfCancellationRequested();
+            var result = new MissingScriptsCheckResult(
                 new MissingScriptsRequestedScope(args.Roots, args.AssetKinds),
                 unscannedScopes,
                 scannedAssets,
                 unscannedAssets,
                 missingScriptSlots);
+            cancellationToken.ThrowIfCancellationRequested();
+            return result;
         }
 
         private SortedDictionary<string, DiscoveredAsset> DiscoverAssets (
             MissingScriptsCheckArgs args,
-            ICollection<MissingScriptsUnscannedScope> unscannedScopes)
+            ICollection<MissingScriptsUnscannedScope> unscannedScopes,
+            ICollection<MissingScriptsUnscannedAsset> unscannedAssets,
+            CancellationToken cancellationToken)
         {
             var discoveredAssets = new SortedDictionary<string, DiscoveredAsset>(StringComparer.Ordinal);
             for (var rootIndex = 0; rootIndex < args.Roots.Count; rootIndex++)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 var root = args.Roots[rootIndex];
                 for (var assetKindIndex = 0; assetKindIndex < args.AssetKinds.Count; assetKindIndex++)
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
                     var assetKind = args.AssetKinds[assetKindIndex];
-                    string[] assetGuids;
-                    try
+                    var discovery = assetAccess.FindAssets(CreateAssetFilter(assetKind), new[] { root.Value });
+                    cancellationToken.ThrowIfCancellationRequested();
+                    if (!discovery.IsAvailable)
                     {
-                        assetGuids = assetAccess.FindAssets(CreateAssetFilter(assetKind), new[] { root.Value });
-                    }
-                    catch (Exception)
-                    {
-                        unscannedScopes.Add(new MissingScriptsUnscannedScope(
-                            root,
-                            assetKind,
-                            MissingScriptsUnscannedReason.ScopeReadFailed));
+                        AddUnscannedScope(unscannedScopes, root, assetKind, MissingScriptsUnscannedReason.ScopeReadFailed);
                         continue;
                     }
 
-                    for (var assetGuidIndex = 0; assetGuidIndex < assetGuids.Length; assetGuidIndex++)
+                    var assetGuids = discovery.Value;
+                    for (var assetGuidIndex = 0; assetGuidIndex < assetGuids.Count; assetGuidIndex++)
                     {
-                        string assetPath;
-                        try
+                        cancellationToken.ThrowIfCancellationRequested();
+                        var resolvedPath = assetAccess.GuidToAssetPath(assetGuids[assetGuidIndex]);
+                        cancellationToken.ThrowIfCancellationRequested();
+                        if (!resolvedPath.IsAvailable)
                         {
-                            assetPath = assetAccess.GuidToAssetPath(assetGuids[assetGuidIndex]);
-                        }
-                        catch (Exception)
-                        {
-                            AddUnscannedScope(unscannedScopes, root, assetKind);
-                            break;
+                            AddUnscannedScope(unscannedScopes, root, assetKind, MissingScriptsUnscannedReason.AssetChanged);
+                            continue;
                         }
 
+                        var assetPath = resolvedPath.Value;
                         if (!UnityAssetPath.TryParse(assetPath, out var typedAssetPath)
                             || !MatchesAssetKind(typedAssetPath.Value, assetKind))
                         {
-                            AddUnscannedScope(unscannedScopes, root, assetKind);
-                            break;
+                            if (typedAssetPath == null)
+                            {
+                                AddUnscannedScope(unscannedScopes, root, assetKind, MissingScriptsUnscannedReason.AssetChanged);
+                            }
+                            else
+                            {
+                                unscannedAssets.Add(new MissingScriptsUnscannedAsset(
+                                    new UnityAssetPath(typedAssetPath.Value),
+                                    assetKind,
+                                    MissingScriptsUnscannedReason.AssetChanged));
+                            }
+
+                            continue;
                         }
 
                         discoveredAssets.TryAdd(typedAssetPath.Value, new DiscoveredAsset(typedAssetPath.Value, assetKind));
@@ -132,40 +155,58 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         private static void AddUnscannedScope (
             ICollection<MissingScriptsUnscannedScope> unscannedScopes,
             UnityAssetPathPrefix root,
-            MissingScriptsAssetKind assetKind)
+            MissingScriptsAssetKind assetKind,
+            MissingScriptsUnscannedReason reason)
         {
+            foreach (var existingScope in unscannedScopes)
+            {
+                if (existingScope.Root.Value == root.Value && existingScope.AssetKind == assetKind)
+                {
+                    return;
+                }
+            }
+
             unscannedScopes.Add(new MissingScriptsUnscannedScope(
                 root,
                 assetKind,
-                MissingScriptsUnscannedReason.ScopeReadFailed));
+                reason));
         }
 
         private AssetScanOutcome ScanAsset (
             DiscoveredAsset asset,
-            ICollection<MissingScriptSlot> missingScriptSlots)
+            ICollection<MissingScriptSlot> missingScriptSlots,
+            CancellationToken cancellationToken)
         {
             return asset.AssetKind == MissingScriptsAssetKind.Scene
-                ? ScanScene(asset.AssetPath, missingScriptSlots)
-                : ScanPrefab(asset.AssetPath, missingScriptSlots);
+                ? ScanScene(asset.AssetPath, missingScriptSlots, cancellationToken)
+                : ScanPrefab(asset.AssetPath, missingScriptSlots, cancellationToken);
         }
 
         private AssetScanOutcome ScanScene (
             string assetPath,
-            ICollection<MissingScriptSlot> missingScriptSlots)
+            ICollection<MissingScriptSlot> missingScriptSlots,
+            CancellationToken cancellationToken)
         {
-            if (!assetAccess.IsSceneAsset(assetPath))
+            cancellationToken.ThrowIfCancellationRequested();
+            var sceneAsset = assetAccess.IsSceneAsset(assetPath);
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!sceneAsset.IsAvailable)
             {
                 return AssetScanOutcome.AssetChanged;
             }
 
-            if (!assetAccess.TryAcquirePersistedPreview(assetPath, out var sceneLease))
+            cancellationToken.ThrowIfCancellationRequested();
+            var sceneSource = assetAccess.TryAcquirePersistedPreview(assetPath);
+            if (!sceneSource.IsAvailable)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 return AssetScanOutcome.AssetReadFailed;
             }
 
-            using (sceneLease)
+            using (var sceneLease = sceneSource.Value)
             {
-                return CollectMissingScriptSlots(assetPath, sceneLease.Scene, missingScriptSlots)
+                cancellationToken.ThrowIfCancellationRequested();
+                return CollectMissingScriptSlots(assetPath, sceneLease.Scene, missingScriptSlots, cancellationToken)
                     ? AssetScanOutcome.Scanned
                     : AssetScanOutcome.HierarchyPathUnrepresentable;
             }
@@ -173,26 +214,30 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         private AssetScanOutcome ScanPrefab (
             string assetPath,
-            ICollection<MissingScriptSlot> missingScriptSlots)
+            ICollection<MissingScriptSlot> missingScriptSlots,
+            CancellationToken cancellationToken)
         {
-            if (!assetAccess.IsPrefabAsset(assetPath))
+            cancellationToken.ThrowIfCancellationRequested();
+            var prefabAsset = assetAccess.IsPrefabAsset(assetPath);
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!prefabAsset.IsAvailable)
             {
                 return AssetScanOutcome.AssetChanged;
             }
 
-            GameObject prefabRoot;
-            try
+            cancellationToken.ThrowIfCancellationRequested();
+            var prefabContents = assetAccess.LoadPrefabContents(assetPath);
+            if (!prefabContents.IsAvailable)
             {
-                prefabRoot = assetAccess.LoadPrefabContents(assetPath);
-            }
-            catch (Exception)
-            {
+                cancellationToken.ThrowIfCancellationRequested();
                 return AssetScanOutcome.AssetReadFailed;
             }
 
+            var prefabRoot = prefabContents.Value;
             try
             {
-                return CollectMissingScriptSlots(assetPath, prefabRoot, missingScriptSlots)
+                cancellationToken.ThrowIfCancellationRequested();
+                return CollectMissingScriptSlots(assetPath, prefabRoot, missingScriptSlots, cancellationToken)
                     ? AssetScanOutcome.Scanned
                     : AssetScanOutcome.HierarchyPathUnrepresentable;
             }
@@ -205,12 +250,16 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         private static bool CollectMissingScriptSlots (
             string assetPath,
             Scene scene,
-            ICollection<MissingScriptSlot> missingScriptSlots)
+            ICollection<MissingScriptSlot> missingScriptSlots,
+            CancellationToken cancellationToken)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var roots = scene.GetRootGameObjects();
+            cancellationToken.ThrowIfCancellationRequested();
             for (var rootIndex = 0; rootIndex < roots.Length; rootIndex++)
             {
-                if (!CollectMissingScriptSlots(assetPath, roots[rootIndex].transform, missingScriptSlots))
+                cancellationToken.ThrowIfCancellationRequested();
+                if (!CollectMissingScriptSlots(assetPath, roots[rootIndex].transform, missingScriptSlots, cancellationToken))
                 {
                     return false;
                 }
@@ -222,24 +271,31 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         private static bool CollectMissingScriptSlots (
             string assetPath,
             GameObject prefabRoot,
-            ICollection<MissingScriptSlot> missingScriptSlots)
+            ICollection<MissingScriptSlot> missingScriptSlots,
+            CancellationToken cancellationToken)
         {
-            return CollectMissingScriptSlots(assetPath, prefabRoot.transform, missingScriptSlots);
+            cancellationToken.ThrowIfCancellationRequested();
+            return CollectMissingScriptSlots(assetPath, prefabRoot.transform, missingScriptSlots, cancellationToken);
         }
 
         private static bool CollectMissingScriptSlots (
             string assetPath,
             Transform transform,
-            ICollection<MissingScriptSlot> missingScriptSlots)
+            ICollection<MissingScriptSlot> missingScriptSlots,
+            CancellationToken cancellationToken)
         {
-            if (!UnityHierarchyPath.TryParse(CreateHierarchyPath(transform), out var hierarchyPath))
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!UnityHierarchyPath.TryParse(CreateHierarchyPath(transform, cancellationToken), out var hierarchyPath))
             {
                 return false;
             }
 
+            cancellationToken.ThrowIfCancellationRequested();
             var components = transform.gameObject.GetComponents<Component>();
+            cancellationToken.ThrowIfCancellationRequested();
             for (var componentIndex = 0; componentIndex < components.Length; componentIndex++)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 if (components[componentIndex] == null)
                 {
                     missingScriptSlots.Add(new MissingScriptSlot(
@@ -249,9 +305,15 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 }
             }
 
-            for (var childIndex = 0; childIndex < transform.childCount; childIndex++)
+            cancellationToken.ThrowIfCancellationRequested();
+            var childCount = transform.childCount;
+            cancellationToken.ThrowIfCancellationRequested();
+            for (var childIndex = 0; childIndex < childCount; childIndex++)
             {
-                if (!CollectMissingScriptSlots(assetPath, transform.GetChild(childIndex), missingScriptSlots))
+                cancellationToken.ThrowIfCancellationRequested();
+                var child = transform.GetChild(childIndex);
+                cancellationToken.ThrowIfCancellationRequested();
+                if (!CollectMissingScriptSlots(assetPath, child, missingScriptSlots, cancellationToken))
                 {
                     return false;
                 }
@@ -282,14 +344,17 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             };
         }
 
-        private static string CreateHierarchyPath (Transform transform)
+        private static string CreateHierarchyPath (Transform transform, CancellationToken cancellationToken)
         {
             var names = new Stack<string>();
             var current = transform;
             while (current != null)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 names.Push(current.name);
+                cancellationToken.ThrowIfCancellationRequested();
                 current = current.parent;
+                cancellationToken.ThrowIfCancellationRequested();
             }
 
             return string.Join("/", names);
@@ -349,6 +414,74 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return hierarchyPathComparison != 0
                     ? hierarchyPathComparison
                     : left.ComponentIndex.CompareTo(right.ComponentIndex);
+            }
+        }
+
+        private sealed class MissingScriptsUnscannedAssetComparer : IComparer<MissingScriptsUnscannedAsset>
+        {
+            public static readonly MissingScriptsUnscannedAssetComparer Instance = new();
+
+            public int Compare (MissingScriptsUnscannedAsset? left, MissingScriptsUnscannedAsset? right)
+            {
+                if (ReferenceEquals(left, right))
+                {
+                    return 0;
+                }
+
+                if (left == null)
+                {
+                    return -1;
+                }
+
+                if (right == null)
+                {
+                    return 1;
+                }
+
+                var assetPathComparison = string.CompareOrdinal(left.AssetPath.Value, right.AssetPath.Value);
+                if (assetPathComparison != 0)
+                {
+                    return assetPathComparison;
+                }
+
+                var assetKindComparison = left.AssetKind.CompareTo(right.AssetKind);
+                return assetKindComparison != 0
+                    ? assetKindComparison
+                    : left.Reason.CompareTo(right.Reason);
+            }
+        }
+
+        private sealed class MissingScriptsUnscannedScopeComparer : IComparer<MissingScriptsUnscannedScope>
+        {
+            public static readonly MissingScriptsUnscannedScopeComparer Instance = new();
+
+            public int Compare (MissingScriptsUnscannedScope? left, MissingScriptsUnscannedScope? right)
+            {
+                if (ReferenceEquals(left, right))
+                {
+                    return 0;
+                }
+
+                if (left == null)
+                {
+                    return -1;
+                }
+
+                if (right == null)
+                {
+                    return 1;
+                }
+
+                var rootComparison = string.CompareOrdinal(left.Root.Value, right.Root.Value);
+                if (rootComparison != 0)
+                {
+                    return rootComparison;
+                }
+
+                var assetKindComparison = left.AssetKind.CompareTo(right.AssetKind);
+                return assetKindComparison != 0
+                    ? assetKindComparison
+                    : left.Reason.CompareTo(right.Reason);
             }
         }
     }

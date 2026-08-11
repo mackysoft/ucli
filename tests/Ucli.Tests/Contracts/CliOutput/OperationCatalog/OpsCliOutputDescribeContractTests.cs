@@ -1,6 +1,5 @@
 using System.Text.Json;
 using Json.Schema;
-using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Schemas;
@@ -184,6 +183,10 @@ public sealed class OpsCliOutputDescribeContractTests
         Assert.Equal(
             new[] { "prefab", "scene" },
             requestedScopeAssetKinds.GetProperty("items").GetProperty("enum").EnumerateArray().Select(static item => item.GetString()));
+        var missingScriptSlotSchema = ResolveReference(
+            resultSchema.GetProperty("properties").GetProperty("missingScriptSlots").GetProperty("items"),
+            resultContractSchema);
+        Assert.Equal(0, missingScriptSlotSchema.GetProperty("properties").GetProperty("componentIndex").GetProperty("minimum").GetInt32());
     }
 
     private static void AssertProjectionDigestsAgree (JsonElement contract)

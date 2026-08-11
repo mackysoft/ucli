@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using MackySoft.Ucli.Unity.SceneInspection;
 using UnityEngine;
 
@@ -8,17 +9,17 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
     /// <summary> Defines the Unity asset access used to discover and inspect saved missing-script targets. </summary>
     internal interface IMissingScriptsAssetAccess
     {
-        string[] FindAssets (string filter, string[] searchInFolders);
+        MissingScriptsAssetAccessOutcome<IReadOnlyList<string>> FindAssets (string filter, string[] searchInFolders);
 
-        string GuidToAssetPath (string assetGuid);
+        MissingScriptsAssetAccessOutcome<string> GuidToAssetPath (string assetGuid);
 
-        bool IsSceneAsset (string assetPath);
+        MissingScriptsAssetAccessOutcome<bool> IsSceneAsset (string assetPath);
 
-        bool IsPrefabAsset (string assetPath);
+        MissingScriptsAssetAccessOutcome<bool> IsPrefabAsset (string assetPath);
 
-        bool TryAcquirePersistedPreview (string assetPath, out SceneSourceLease lease);
+        MissingScriptsAssetAccessOutcome<SceneSourceLease> TryAcquirePersistedPreview (string assetPath);
 
-        GameObject LoadPrefabContents (string assetPath);
+        MissingScriptsAssetAccessOutcome<GameObject> LoadPrefabContents (string assetPath);
 
         void UnloadPrefabContents (GameObject prefabRoot);
     }

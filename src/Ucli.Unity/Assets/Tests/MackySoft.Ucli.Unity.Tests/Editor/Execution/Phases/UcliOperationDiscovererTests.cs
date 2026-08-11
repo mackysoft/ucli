@@ -34,6 +34,7 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             return new ServiceCollection()
                 .AddSingleton<IUnityMutationLaneControl>(new UnexpectedMutationLaneControl())
+                .AddSingleton<IUnityEditorReadinessGate>(new StubUnityEditorReadinessGate())
                 .AddUnityOperationServices()
                 .BuildServiceProvider(new ServiceProviderOptions
                 {

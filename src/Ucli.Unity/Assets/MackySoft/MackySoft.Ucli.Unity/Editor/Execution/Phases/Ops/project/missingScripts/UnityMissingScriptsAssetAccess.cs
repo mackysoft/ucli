@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using MackySoft.Ucli.Unity.SceneInspection;
 using UnityEditor;
 using UnityEngine;
@@ -9,34 +10,47 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
     /// <summary> Provides production Unity Editor access for missing-script inspection. </summary>
     internal sealed class UnityMissingScriptsAssetAccess : IMissingScriptsAssetAccess
     {
-        public string[] FindAssets (string filter, string[] searchInFolders)
+        public MissingScriptsAssetAccessOutcome<IReadOnlyList<string>> FindAssets (string filter, string[] searchInFolders)
         {
-            return AssetDatabase.FindAssets(filter, searchInFolders);
+            return MissingScriptsAssetAccessOutcome<IReadOnlyList<string>>.Available(
+                AssetDatabase.FindAssets(filter, searchInFolders));
         }
 
-        public string GuidToAssetPath (string assetGuid)
+        public MissingScriptsAssetAccessOutcome<string> GuidToAssetPath (string assetGuid)
         {
-            return AssetDatabase.GUIDToAssetPath(assetGuid);
+            var assetPath = AssetDatabase.GUIDToAssetPath(assetGuid);
+            return string.IsNullOrEmpty(assetPath)
+                ? MissingScriptsAssetAccessOutcome<string>.Unavailable()
+                : MissingScriptsAssetAccessOutcome<string>.Available(assetPath);
         }
 
-        public bool IsSceneAsset (string assetPath)
+        public MissingScriptsAssetAccessOutcome<bool> IsSceneAsset (string assetPath)
         {
-            return AssetDatabase.LoadAssetAtPath<SceneAsset>(assetPath) != null;
+            return AssetDatabase.LoadAssetAtPath<SceneAsset>(assetPath) == null
+                ? MissingScriptsAssetAccessOutcome<bool>.Unavailable()
+                : MissingScriptsAssetAccessOutcome<bool>.Available(true);
         }
 
-        public bool IsPrefabAsset (string assetPath)
+        public MissingScriptsAssetAccessOutcome<bool> IsPrefabAsset (string assetPath)
         {
-            return AssetDatabase.LoadAssetAtPath<GameObject>(assetPath) != null;
+            return AssetDatabase.LoadAssetAtPath<GameObject>(assetPath) == null
+                ? MissingScriptsAssetAccessOutcome<bool>.Unavailable()
+                : MissingScriptsAssetAccessOutcome<bool>.Available(true);
         }
 
-        public bool TryAcquirePersistedPreview (string assetPath, out SceneSourceLease lease)
+        public MissingScriptsAssetAccessOutcome<SceneSourceLease> TryAcquirePersistedPreview (string assetPath)
         {
-            return SceneReadSourceResolver.TryAcquirePersistedPreview(assetPath, out lease, out _);
+            return SceneReadSourceResolver.TryAcquirePersistedPreview(assetPath, out var lease, out _)
+                ? MissingScriptsAssetAccessOutcome<SceneSourceLease>.Available(lease)
+                : MissingScriptsAssetAccessOutcome<SceneSourceLease>.Unavailable();
         }
 
-        public GameObject LoadPrefabContents (string assetPath)
+        public MissingScriptsAssetAccessOutcome<GameObject> LoadPrefabContents (string assetPath)
         {
-            return PrefabUtility.LoadPrefabContents(assetPath);
+            var prefabRoot = PrefabUtility.LoadPrefabContents(assetPath);
+            return prefabRoot == null
+                ? MissingScriptsAssetAccessOutcome<GameObject>.Unavailable()
+                : MissingScriptsAssetAccessOutcome<GameObject>.Available(prefabRoot);
         }
 
         public void UnloadPrefabContents (GameObject prefabRoot)

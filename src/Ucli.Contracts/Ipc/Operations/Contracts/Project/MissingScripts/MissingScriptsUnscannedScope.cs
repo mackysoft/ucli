@@ -3,7 +3,7 @@ using MackySoft.JsonSchema.Generation.Annotations;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
-[Description("A requested asset scope that could not be enumerated.")]
+[Description("A requested asset scope that could not be fully observed.")]
 public sealed record MissingScriptsUnscannedScope
 {
     [JsonConstructor]
@@ -17,9 +17,11 @@ public sealed record MissingScriptsUnscannedScope
             throw new ArgumentOutOfRangeException(nameof(assetKind), assetKind, "Missing script asset kind must be defined.");
         }
 
-        if (reason != MissingScriptsUnscannedReason.ScopeReadFailed)
+        if (reason is not MissingScriptsUnscannedReason.ScopeReadFailed
+            and not MissingScriptsUnscannedReason.AssetChanged
+            and not MissingScriptsUnscannedReason.EditorNotReady)
         {
-            throw new ArgumentOutOfRangeException(nameof(reason), reason, "An unscanned scope must report scopeReadFailed.");
+            throw new ArgumentOutOfRangeException(nameof(reason), reason, "An unscanned scope must report a scope-specific reason.");
         }
 
         Root = root ?? throw new ArgumentNullException(nameof(root));

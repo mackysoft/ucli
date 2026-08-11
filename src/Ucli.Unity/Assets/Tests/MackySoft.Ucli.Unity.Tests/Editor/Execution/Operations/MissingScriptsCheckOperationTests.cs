@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
 using System.Threading;
 using Cysharp.Threading.Tasks;
@@ -14,6 +15,7 @@ using MackySoft.Ucli.Unity.Execution;
 using MackySoft.Ucli.Unity.Execution.Dispatch;
 using MackySoft.Ucli.Unity.Execution.Phases;
 using MackySoft.Ucli.Unity.Execution.Requests;
+using MackySoft.Ucli.Unity.Runtime;
 using MackySoft.Ucli.Unity.SceneInspection;
 using NUnit.Framework;
 using UnityEditor;
@@ -179,12 +181,14 @@ namespace MackySoft.Ucli.Unity.Tests
             var unreadablePath = CreatePrefab(scope, directoryPath, "unreadable");
             var assetAccess = new DelegatingMissingScriptsAssetAccess
             {
-                IsPrefabAssetOverride = assetPath => assetPath != changedPath,
+                IsPrefabAssetOverride = assetPath => assetPath == changedPath
+                    ? MissingScriptsAssetAccessOutcome<bool>.Unavailable()
+                    : MissingScriptsAssetAccessOutcome<bool>.Available(true),
                 LoadPrefabContentsOverride = assetPath => assetPath == unreadablePath
-                    ? throw new InvalidOperationException("Simulated unreadable prefab.")
-                    : PrefabUtility.LoadPrefabContents(assetPath),
+                    ? MissingScriptsAssetAccessOutcome<GameObject>.Unavailable()
+                    : MissingScriptsAssetAccessOutcome<GameObject>.Available(PrefabUtility.LoadPrefabContents(assetPath)),
             };
-            var operation = new MissingScriptsCheckOperation(new MissingScriptsScanEngine(assetAccess));
+            var operation = CreateOperation(new MissingScriptsScanEngine(assetAccess));
 
             var result = await operation.CallAsync(
                 CreateOperation(new
@@ -204,15 +208,15 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
-        public IEnumerator Call_WhenAssetDiscoveryFails_ReturnsIncompleteWithScopeReadFailed () => UniTask.ToCoroutine(async () =>
+        public IEnumerator Call_WhenAssetScopeIsUnavailable_ReturnsIncompleteWithScopeReadFailed () => UniTask.ToCoroutine(async () =>
         {
             using var scope = new EditorTestScope();
             var directoryPath = CreateDirectory(scope);
             var assetAccess = new DelegatingMissingScriptsAssetAccess
             {
-                FindAssetsOverride = (_, _) => throw new InvalidOperationException("Simulated discovery failure."),
+                FindAssetsOverride = (_, _) => MissingScriptsAssetAccessOutcome<IReadOnlyList<string>>.Unavailable(),
             };
-            var operation = new MissingScriptsCheckOperation(new MissingScriptsScanEngine(assetAccess));
+            var operation = CreateOperation(new MissingScriptsScanEngine(assetAccess));
 
             var result = await operation.CallAsync(
                 CreateOperation(new
@@ -231,10 +235,184 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(unscannedScope.GetProperty("reason").GetString(), Is.EqualTo("scopeReadFailed"));
         });
 
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Call_WhenEditorCannotAcceptRequests_ReturnsEditorNotReadyWithoutScanning () => UniTask.ToCoroutine(async () =>
+        {
+            using var scope = new EditorTestScope();
+            var directoryPath = CreateDirectory(scope);
+            var scanCalled = false;
+            var readinessGate = StubUnityEditorReadinessGate.CreatePending();
+            var operation = CreateOperation(
+                new StubMissingScriptsScanEngine(args =>
+                {
+                    scanCalled = true;
+                    return CreateResult(args);
+                }),
+                readinessGate);
+
+            var result = await operation.CallAsync(
+                CreateOperation(new
+                {
+                    roots = new[] { directoryPath },
+                    assetKinds = new[] { "scene", "prefab" },
+                }),
+                scope.CreateExecutionContext(),
+                CancellationToken.None);
+
+            AssertQuerySuccess(result);
+            Assert.That(result.Verdict, Is.EqualTo(Verdict.Incomplete));
+            Assert.That(scanCalled, Is.False);
+            Assert.That(readinessGate.CaptureObservationCallCount, Is.EqualTo(1));
+            var unscannedScopes = result.Result!.Value.GetProperty("unscannedScopes");
+            Assert.That(unscannedScopes.GetArrayLength(), Is.EqualTo(2));
+            Assert.That(unscannedScopes[0].GetProperty("reason").GetString(), Is.EqualTo("editorNotReady"));
+            Assert.That(unscannedScopes[1].GetProperty("reason").GetString(), Is.EqualTo("editorNotReady"));
+        });
+
+        [Test]
+        [Category("Size.Small")]
+        public void Scan_WhenAssetAccessThrows_PropagatesExecutionFailure ()
+        {
+            var assetAccess = new DelegatingMissingScriptsAssetAccess
+            {
+                FindAssetsOverride = (_, _) => throw new InvalidOperationException("Unexpected asset access failure."),
+            };
+
+            Assert.Throws<InvalidOperationException>(() => new MissingScriptsScanEngine(assetAccess).Scan(
+                new MissingScriptsCheckArgs(
+                    new[] { new UnityAssetPathPrefix("Assets") },
+                    new[] { MissingScriptsAssetKind.Prefab }),
+                CancellationToken.None));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void Scan_WhenCanceledAfterPrefabLoad_UnloadsContentsAndRethrowsCancellation ()
+        {
+            using var scope = new EditorTestScope();
+            var directoryPath = CreateDirectory(scope);
+            _ = CreatePrefab(scope, directoryPath);
+            using var cancellationTokenSource = new CancellationTokenSource();
+            var cleanupCount = 0;
+            var assetAccess = new DelegatingMissingScriptsAssetAccess
+            {
+                LoadPrefabContentsOverride = assetPath =>
+                {
+                    var prefabRoot = PrefabUtility.LoadPrefabContents(assetPath);
+                    cancellationTokenSource.Cancel();
+                    return MissingScriptsAssetAccessOutcome<GameObject>.Available(prefabRoot);
+                },
+                UnloadPrefabContentsOverride = prefabRoot =>
+                {
+                    cleanupCount++;
+                    PrefabUtility.UnloadPrefabContents(prefabRoot);
+                },
+            };
+
+            Assert.Throws<OperationCanceledException>(() => new MissingScriptsScanEngine(assetAccess).Scan(
+                new MissingScriptsCheckArgs(
+                    new[] { new UnityAssetPathPrefix(directoryPath) },
+                    new[] { MissingScriptsAssetKind.Prefab }),
+                cancellationTokenSource.Token));
+            Assert.That(cleanupCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        [TestCase(MissingScriptsAssetKind.Scene)]
+        [TestCase(MissingScriptsAssetKind.Prefab)]
+        public void Scan_WhenAssetAccessCancelsAndReportsUnavailable_RethrowsCancellation (
+            MissingScriptsAssetKind assetKind)
+        {
+            using var scope = new EditorTestScope();
+            var directoryPath = CreateDirectory(scope);
+            var assetPath = assetKind == MissingScriptsAssetKind.Scene
+                ? CreateScene(scope, directoryPath)
+                : CreatePrefab(scope, directoryPath);
+            using var cancellationTokenSource = new CancellationTokenSource();
+            var assetAccess = new DelegatingMissingScriptsAssetAccess
+            {
+                IsSceneAssetOverride = path => path == assetPath
+                    ? MissingScriptsAssetAccessOutcome<bool>.Available(true)
+                    : MissingScriptsAssetAccessOutcome<bool>.Unavailable(),
+                IsPrefabAssetOverride = path => path == assetPath
+                    ? MissingScriptsAssetAccessOutcome<bool>.Available(true)
+                    : MissingScriptsAssetAccessOutcome<bool>.Unavailable(),
+                TryAcquirePersistedPreviewOverride = _ =>
+                {
+                    cancellationTokenSource.Cancel();
+                    return MissingScriptsAssetAccessOutcome<SceneSourceLease>.Unavailable();
+                },
+                LoadPrefabContentsOverride = _ =>
+                {
+                    cancellationTokenSource.Cancel();
+                    return MissingScriptsAssetAccessOutcome<GameObject>.Unavailable();
+                },
+            };
+
+            Assert.Throws<OperationCanceledException>(() => new MissingScriptsScanEngine(assetAccess).Scan(
+                new MissingScriptsCheckArgs(
+                    new[] { new UnityAssetPathPrefix(directoryPath) },
+                    new[] { assetKind }),
+                cancellationTokenSource.Token));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void Scan_WhenGuidOrderChanges_AggregatesUnscannedScopeAndKeepsResultStable ()
+        {
+            var assetAccess = new DelegatingMissingScriptsAssetAccess();
+            var invocationCount = 0;
+            assetAccess.FindAssetsOverride = (_, _) =>
+            {
+                invocationCount++;
+                return MissingScriptsAssetAccessOutcome<IReadOnlyList<string>>.Available(
+                    invocationCount == 1 ? new[] { "first", "second" } : new[] { "second", "first" });
+            };
+            assetAccess.GuidToAssetPathOverride = _ => MissingScriptsAssetAccessOutcome<string>.Unavailable();
+            var args = new MissingScriptsCheckArgs(
+                new[] { new UnityAssetPathPrefix("Assets") },
+                new[] { MissingScriptsAssetKind.Prefab });
+            var scanEngine = new MissingScriptsScanEngine(assetAccess);
+
+            var firstResult = scanEngine.Scan(args, CancellationToken.None);
+            var secondResult = scanEngine.Scan(args, CancellationToken.None);
+
+            Assert.That(firstResult.UnscannedScopes, Has.Count.EqualTo(1));
+            Assert.That(firstResult.UnscannedScopes[0].Reason, Is.EqualTo(MissingScriptsUnscannedReason.AssetChanged));
+            Assert.That(secondResult.UnscannedScopes, Has.Count.EqualTo(1));
+            Assert.That(secondResult.UnscannedScopes[0].Root.Value, Is.EqualTo(firstResult.UnscannedScopes[0].Root.Value));
+            Assert.That(secondResult.UnscannedScopes[0].AssetKind, Is.EqualTo(firstResult.UnscannedScopes[0].AssetKind));
+            Assert.That(secondResult.UnscannedScopes[0].Reason, Is.EqualTo(firstResult.UnscannedScopes[0].Reason));
+            Assert.That(firstResult.UnscannedAssets, Is.Empty);
+            Assert.That(secondResult.UnscannedAssets, Is.Empty);
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void Scan_WhenDiscoveryProducesUnscannedAssets_SortsAssetsAndScopesDeterministically ()
+        {
+            var assetAccess = new DelegatingMissingScriptsAssetAccess
+            {
+                FindAssetsOverride = (_, searchInFolders) => searchInFolders[0] == "Assets/z"
+                    ? MissingScriptsAssetAccessOutcome<IReadOnlyList<string>>.Available(new[] { "z", "a" })
+                    : MissingScriptsAssetAccessOutcome<IReadOnlyList<string>>.Unavailable(),
+                GuidToAssetPathOverride = guid => MissingScriptsAssetAccessOutcome<string>.Available(
+                    guid == "z" ? "Assets/z.unity" : "Assets/a.unity"),
+            };
+
+            var result = new MissingScriptsScanEngine(assetAccess).Scan(new MissingScriptsCheckArgs(
+                new[] { new UnityAssetPathPrefix("Assets/z"), new UnityAssetPathPrefix("Assets/a") },
+                new[] { MissingScriptsAssetKind.Prefab }), CancellationToken.None);
+
+            Assert.That(result.UnscannedAssets.Select(asset => asset.AssetPath.Value), Is.EqualTo(new[] { "Assets/a.unity", "Assets/z.unity" }));
+            Assert.That(result.UnscannedScopes.Select(scope => scope.Root.Value), Is.EqualTo(new[] { "Assets/a" }));
+        }
+
         [Test]
         [Category("Size.Small")]
         [TestCase(DiscoveryResolutionFailure.EmptyPath)]
-        [TestCase(DiscoveryResolutionFailure.Throws)]
         [TestCase(DiscoveryResolutionFailure.InvalidPath)]
         [TestCase(DiscoveryResolutionFailure.KindMismatch)]
         public void Scan_WhenDiscoveredGuidCannotResolveToTheRequestedAssetKind_MarksScopeUnscanned (
@@ -242,27 +420,34 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var assetAccess = new DelegatingMissingScriptsAssetAccess
             {
-                FindAssetsOverride = (_, _) => new[] { "guid" },
+                FindAssetsOverride = (_, _) => MissingScriptsAssetAccessOutcome<IReadOnlyList<string>>.Available(new[] { "guid" }),
                 GuidToAssetPathOverride = _ => failure switch
                 {
-                    DiscoveryResolutionFailure.EmptyPath => string.Empty,
-                    DiscoveryResolutionFailure.Throws => throw new InvalidOperationException("Simulated GUID resolution failure."),
-                    DiscoveryResolutionFailure.InvalidPath => "invalid path",
-                    DiscoveryResolutionFailure.KindMismatch => "Assets/checked.unity",
+                    DiscoveryResolutionFailure.EmptyPath => MissingScriptsAssetAccessOutcome<string>.Unavailable(),
+                    DiscoveryResolutionFailure.InvalidPath => MissingScriptsAssetAccessOutcome<string>.Available("invalid path"),
+                    DiscoveryResolutionFailure.KindMismatch => MissingScriptsAssetAccessOutcome<string>.Available("Assets/checked.unity"),
                     _ => throw new ArgumentOutOfRangeException(nameof(failure), failure, null),
                 },
             };
 
             var result = new MissingScriptsScanEngine(assetAccess).Scan(new MissingScriptsCheckArgs(
                 new[] { new UnityAssetPathPrefix("Assets") },
-                new[] { MissingScriptsAssetKind.Prefab }));
+                new[] { MissingScriptsAssetKind.Prefab }), CancellationToken.None);
 
-            Assert.That(result.UnscannedScopes, Has.Count.EqualTo(1));
-            Assert.That(result.UnscannedScopes[0].Root.Value, Is.EqualTo("Assets"));
-            Assert.That(result.UnscannedScopes[0].AssetKind, Is.EqualTo(MissingScriptsAssetKind.Prefab));
-            Assert.That(result.UnscannedScopes[0].Reason, Is.EqualTo(MissingScriptsUnscannedReason.ScopeReadFailed));
             Assert.That(result.ScannedAssets, Is.Empty);
-            Assert.That(result.UnscannedAssets, Is.Empty);
+            if (failure == DiscoveryResolutionFailure.KindMismatch)
+            {
+                Assert.That(result.UnscannedScopes, Is.Empty);
+                Assert.That(result.UnscannedAssets, Is.Not.Empty);
+            }
+            else
+            {
+                Assert.That(result.UnscannedScopes, Is.Not.Empty);
+                Assert.That(result.UnscannedScopes[0].Root.Value, Is.EqualTo("Assets"));
+                Assert.That(result.UnscannedScopes[0].AssetKind, Is.EqualTo(MissingScriptsAssetKind.Prefab));
+                Assert.That(result.UnscannedScopes[0].Reason, Is.EqualTo(MissingScriptsUnscannedReason.AssetChanged));
+                Assert.That(result.UnscannedAssets, Is.Empty);
+            }
         }
 
         [UnityTest]
@@ -278,10 +463,10 @@ namespace MackySoft.Ucli.Unity.Tests
                 {
                     var prefabRoot = PrefabUtility.LoadPrefabContents(assetPath);
                     prefabRoot.name = "Invalid//Child";
-                    return prefabRoot;
+                    return MissingScriptsAssetAccessOutcome<GameObject>.Available(prefabRoot);
                 },
             };
-            var operation = new MissingScriptsCheckOperation(new MissingScriptsScanEngine(assetAccess));
+            var operation = CreateOperation(new MissingScriptsScanEngine(assetAccess));
 
             var result = await operation.CallAsync(
                 CreateOperation(new
@@ -305,7 +490,7 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             using var scope = new EditorTestScope();
             var directoryPath = CreateDirectory(scope);
-            var operation = new MissingScriptsCheckOperation(new StubMissingScriptsScanEngine(args =>
+            var operation = CreateOperation(new StubMissingScriptsScanEngine(args =>
                 CreateResult(
                     args,
                     unscannedAssets: new[]
@@ -351,7 +536,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     throw new InvalidOperationException("Prefab cleanup failed.");
                 },
             };
-            var operation = new MissingScriptsCheckOperation(new MissingScriptsScanEngine(assetAccess));
+            var operation = CreateOperation(new MissingScriptsScanEngine(assetAccess));
             var normalizedOperation = CreateOperation(new
             {
                 roots = new[] { directoryPath },
@@ -500,7 +685,16 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private static MissingScriptsCheckOperation CreateProductionOperation ()
         {
-            return new MissingScriptsCheckOperation(new MissingScriptsScanEngine(new UnityMissingScriptsAssetAccess()));
+            return CreateOperation(new MissingScriptsScanEngine(new UnityMissingScriptsAssetAccess()));
+        }
+
+        private static MissingScriptsCheckOperation CreateOperation (
+            IMissingScriptsScanEngine scanEngine,
+            IUnityEditorReadinessGate? readinessGate = null)
+        {
+            return new MissingScriptsCheckOperation(
+                scanEngine,
+                readinessGate ?? new StubUnityEditorReadinessGate());
         }
 
         private static MissingScriptsCheckResult CreateResult (
@@ -527,56 +721,69 @@ namespace MackySoft.Ucli.Unity.Tests
                 this.scan = scan ?? throw new ArgumentNullException(nameof(scan));
             }
 
-            public MissingScriptsCheckResult Scan (MissingScriptsCheckArgs args)
+            public MissingScriptsCheckResult Scan (MissingScriptsCheckArgs args, CancellationToken cancellationToken)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 return scan(args);
             }
         }
 
         private sealed class DelegatingMissingScriptsAssetAccess : IMissingScriptsAssetAccess
         {
-            public Func<string, string[], string[]>? FindAssetsOverride { get; set; }
+            public Func<string, string[], MissingScriptsAssetAccessOutcome<IReadOnlyList<string>>>? FindAssetsOverride { get; set; }
 
-            public Func<string, string>? GuidToAssetPathOverride { get; set; }
+            public Func<string, MissingScriptsAssetAccessOutcome<string>>? GuidToAssetPathOverride { get; set; }
 
-            public Func<string, bool>? IsPrefabAssetOverride { get; set; }
+            public Func<string, MissingScriptsAssetAccessOutcome<bool>>? IsSceneAssetOverride { get; set; }
 
-            public Func<string, GameObject>? LoadPrefabContentsOverride { get; set; }
+            public Func<string, MissingScriptsAssetAccessOutcome<bool>>? IsPrefabAssetOverride { get; set; }
+
+            public Func<string, MissingScriptsAssetAccessOutcome<SceneSourceLease>>? TryAcquirePersistedPreviewOverride { get; set; }
+
+            public Func<string, MissingScriptsAssetAccessOutcome<GameObject>>? LoadPrefabContentsOverride { get; set; }
 
             public Action<GameObject>? UnloadPrefabContentsOverride { get; set; }
 
-            public string[] FindAssets (string filter, string[] searchInFolders)
+            public MissingScriptsAssetAccessOutcome<IReadOnlyList<string>> FindAssets (string filter, string[] searchInFolders)
             {
                 return FindAssetsOverride?.Invoke(filter, searchInFolders)
-                    ?? AssetDatabase.FindAssets(filter, searchInFolders);
+                    ?? MissingScriptsAssetAccessOutcome<IReadOnlyList<string>>.Available(AssetDatabase.FindAssets(filter, searchInFolders));
             }
 
-            public string GuidToAssetPath (string assetGuid)
+            public MissingScriptsAssetAccessOutcome<string> GuidToAssetPath (string assetGuid)
             {
                 return GuidToAssetPathOverride?.Invoke(assetGuid)
-                    ?? AssetDatabase.GUIDToAssetPath(assetGuid);
+                    ?? MissingScriptsAssetAccessOutcome<string>.Available(AssetDatabase.GUIDToAssetPath(assetGuid));
             }
 
-            public bool IsSceneAsset (string assetPath)
+            public MissingScriptsAssetAccessOutcome<bool> IsSceneAsset (string assetPath)
             {
-                return AssetDatabase.LoadAssetAtPath<SceneAsset>(assetPath) != null;
+                return IsSceneAssetOverride?.Invoke(assetPath)
+                    ?? (AssetDatabase.LoadAssetAtPath<SceneAsset>(assetPath) == null
+                    ? MissingScriptsAssetAccessOutcome<bool>.Unavailable()
+                    : MissingScriptsAssetAccessOutcome<bool>.Available(true));
             }
 
-            public bool IsPrefabAsset (string assetPath)
+            public MissingScriptsAssetAccessOutcome<bool> IsPrefabAsset (string assetPath)
             {
                 return IsPrefabAssetOverride?.Invoke(assetPath)
-                    ?? AssetDatabase.LoadAssetAtPath<GameObject>(assetPath) != null;
+                    ?? (AssetDatabase.LoadAssetAtPath<GameObject>(assetPath) == null
+                        ? MissingScriptsAssetAccessOutcome<bool>.Unavailable()
+                        : MissingScriptsAssetAccessOutcome<bool>.Available(true));
             }
 
-            public bool TryAcquirePersistedPreview (string assetPath, out SceneSourceLease lease)
+            public MissingScriptsAssetAccessOutcome<SceneSourceLease> TryAcquirePersistedPreview (string assetPath)
             {
-                return SceneReadSourceResolver.TryAcquirePersistedPreview(assetPath, out lease, out _);
+                return TryAcquirePersistedPreviewOverride?.Invoke(assetPath)
+                    ?? (SceneReadSourceResolver.TryAcquirePersistedPreview(assetPath, out var lease, out _)
+                    ? MissingScriptsAssetAccessOutcome<SceneSourceLease>.Available(lease)
+                    : MissingScriptsAssetAccessOutcome<SceneSourceLease>.Unavailable());
             }
 
-            public GameObject LoadPrefabContents (string assetPath)
+            public MissingScriptsAssetAccessOutcome<GameObject> LoadPrefabContents (string assetPath)
             {
                 return LoadPrefabContentsOverride?.Invoke(assetPath)
-                    ?? PrefabUtility.LoadPrefabContents(assetPath);
+                    ?? MissingScriptsAssetAccessOutcome<GameObject>.Available(PrefabUtility.LoadPrefabContents(assetPath));
             }
 
             public void UnloadPrefabContents (GameObject prefabRoot)
@@ -594,7 +801,6 @@ namespace MackySoft.Ucli.Unity.Tests
         public enum DiscoveryResolutionFailure
         {
             EmptyPath,
-            Throws,
             InvalidPath,
             KindMismatch,
         }
