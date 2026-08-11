@@ -16,7 +16,7 @@ public sealed class CliProcessContractTests
             "--unknown-option");
 
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         CommandResultAssert.HasInvalidArgumentEnvelope(
             outputJson.RootElement,
             UcliCommandNames.BuildRun);

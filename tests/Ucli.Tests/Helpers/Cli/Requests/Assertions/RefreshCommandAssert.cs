@@ -32,7 +32,7 @@ internal static class RefreshCommandAssert
         string expectedExecutionId)
     {
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         CommandResultAssert.HasSuccessEnvelope(
             outputJson.RootElement,
             UcliCommandNames.Refresh);
@@ -69,7 +69,7 @@ internal static class RefreshCommandAssert
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
         Assert.Empty(service.Invocations);
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         CommandResultAssert.HasInvalidArgumentEnvelope(
             outputJson.RootElement,
             UcliCommandNames.Refresh);

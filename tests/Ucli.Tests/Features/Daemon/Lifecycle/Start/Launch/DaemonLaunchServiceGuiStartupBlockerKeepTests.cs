@@ -18,7 +18,7 @@ public sealed class DaemonLaunchServiceGuiStartupBlockerKeepTests
     {
         var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-gui-launch-compiler-error"));
         var processStartedAtUtc = new DateTimeOffset(2026, 03, 12, 0, 0, 1, TimeSpan.Zero);
-        var timeProvider = new ManualTimeProvider(processStartedAtUtc);
+        var timeProvider = new FakeTimeProvider(processStartedAtUtc);
         var guiLauncher = new RecordingUnityGuiEditorProcessLauncher
         {
             NextResult = UnityDaemonLaunchResult.Success(6543, processStartedAtUtc),
@@ -109,7 +109,7 @@ public sealed class DaemonLaunchServiceGuiStartupBlockerKeepTests
 
         var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create($"fingerprint-gui-launch-{startupBlockingReason}"));
         var processStartedAtUtc = new DateTimeOffset(2026, 03, 12, 0, 0, 1, TimeSpan.Zero);
-        var timeProvider = new ManualTimeProvider(processStartedAtUtc);
+        var timeProvider = new FakeTimeProvider(processStartedAtUtc);
         var guiLauncher = new RecordingUnityGuiEditorProcessLauncher
         {
             NextResult = UnityDaemonLaunchResult.Success(6543, processStartedAtUtc),

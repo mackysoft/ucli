@@ -114,7 +114,7 @@ public sealed class DaemonGuiEditorAttachServiceTimeoutBudgetTests
     [Trait("Size", "Small")]
     public async Task TryAttachExistingGuiEditor_WhenMarkerAndProbeConsumeTime_PassesRemainingTimeoutToAwaiter ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var marker = DaemonGuiEditorAttachServiceTestSupport.CreateMarker();
         var markerReader = new RecordingUnityEditorInstanceMarkerReader
         {

@@ -15,7 +15,7 @@ public sealed class DaemonGuiRebootstrapClientSupervisorFailureTests
     [Trait("Size", "Medium")]
     public async Task RequestRebootstrapAsync_WhenSupervisorIsUnreachable_ReturnsUnavailable ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         using var scope = TestDirectories.CreateTempScope(
             "daemon-command-service",
             nameof(RequestRebootstrapAsync_WhenSupervisorIsUnreachable_ReturnsUnavailable));
@@ -43,7 +43,7 @@ public sealed class DaemonGuiRebootstrapClientSupervisorFailureTests
     [Trait("Size", "Medium")]
     public async Task RequestRebootstrapAsync_WhenSupervisorReturnsInvalidPayload_ReturnsUnavailable ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         using var scope = TestDirectories.CreateTempScope(
             "daemon-command-service",
             nameof(RequestRebootstrapAsync_WhenSupervisorReturnsInvalidPayload_ReturnsUnavailable));
@@ -76,7 +76,7 @@ public sealed class DaemonGuiRebootstrapClientSupervisorFailureTests
     [Trait("Size", "Medium")]
     public async Task RequestRebootstrapAsync_WhenSupervisorReturnsError_ReturnsUnavailable ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         using var scope = TestDirectories.CreateTempScope(
             "daemon-command-service",
             nameof(RequestRebootstrapAsync_WhenSupervisorReturnsError_ReturnsUnavailable));

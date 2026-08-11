@@ -120,7 +120,9 @@ internal static class UnityDaemonIpcClientTestSupport
     {
         Assert.NotNull(actual);
         Assert.Empty(actual!.Errors);
-        Assert.Equal(expected.Payload.GetRawText(), actual.Payload.GetRawText());
+        Assert.True(JsonNode.DeepEquals(
+            JsonNode.Parse(expected.Payload.GetRawText()),
+            JsonNode.Parse(actual.Payload.GetRawText())));
         Assert.Equal(expected.Errors.Count, actual.Errors.Count);
         for (var i = 0; i < expected.Errors.Count; i++)
         {

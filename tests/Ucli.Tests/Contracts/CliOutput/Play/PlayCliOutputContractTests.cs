@@ -21,7 +21,7 @@ public sealed class PlayCliOutputContractTests
             subcommand,
             "--allowPlayMode");
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
         CommandResultAssert.HasInvalidArgumentError(outputJson.RootElement, expectedCommand);
         CommandResultAssert.ReportsUnrecognizedArgument(result.StdErr, UcliContractConstants.CliOption.AllowPlayMode);

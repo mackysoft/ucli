@@ -26,7 +26,7 @@ public sealed class CliCommandProgressSinkTests
     {
         var timestamp = DateTimeOffset.Parse("2026-07-15T10:30:00+00:00");
         var factory = new CliStreamEntryWriterFactory(
-            new ManualTimeProvider(timestamp),
+            new FakeTimeProvider(timestamp),
             new FixedGuidGenerator(StreamId));
 
         var (_, _, standardError) = await StandardOutputCapture.ExecuteWithErrorAsync(() =>
@@ -45,7 +45,7 @@ public sealed class CliCommandProgressSinkTests
     public async Task OnEntryAsync_WithJsonFormat_WritesEntryEnvelopeWithIncrementingSequence ()
     {
         var standardError = new StringWriter();
-        var timeProvider = new ManualTimeProvider(DateTimeOffset.Parse("2026-03-05T10:30:00+00:00"));
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.Parse("2026-03-05T10:30:00+00:00"));
         var sink = new CliCommandProgressSink(
             CliStreamEntryFormat.Json,
             new CliStreamEntryWriter("sample.command", StreamId, standardError, timeProvider),

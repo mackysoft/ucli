@@ -27,7 +27,7 @@ public sealed class OpsCliOutputDescribeContractTests
             projectPath: unityProjectPath,
             readIndexMode: UcliContractConstants.Config.ReadIndexModeAllowStale);
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
         CommandResultAssert.HasSuccessEnvelope(
             outputJson.RootElement,
@@ -109,7 +109,7 @@ public sealed class OpsCliOutputDescribeContractTests
             projectPath: unityProjectPath,
             readIndexMode: UcliContractConstants.Config.ReadIndexModeAllowStale);
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
         CommandResultAssert.HasInvalidArgumentEnvelope(
             outputJson.RootElement,

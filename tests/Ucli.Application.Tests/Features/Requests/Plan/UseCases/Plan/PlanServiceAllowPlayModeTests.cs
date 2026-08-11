@@ -27,7 +27,7 @@ public sealed class PlanServiceAllowPlayModeTests
             operationCatalog: operationCatalog,
             requestStaticValidator: staticValidator,
             unityRequestExecutor: unityIpcRequestExecutor,
-            timeProvider: new ManualTimeProvider());
+            timeProvider: new FakeTimeProvider(DateTimeOffset.UnixEpoch));
 
         var result = await service.ExecuteAsync(
             RequestId,

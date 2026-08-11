@@ -23,7 +23,7 @@ public sealed class PlanCommandGoldenOutputTests
             cancellationToken: CancellationToken.None));
 
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         JsonAssert.For(outputJson.RootElement)
             .HasProperty("payload", payload => payload
                 .HasString("requestId", RequestId));

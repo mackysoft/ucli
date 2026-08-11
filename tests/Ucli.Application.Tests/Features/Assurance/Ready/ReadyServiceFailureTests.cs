@@ -28,7 +28,7 @@ public sealed class ReadyServiceFailureTests
     [Trait("Size", "Small")]
     public async Task Execute_WithDaemonTimeoutBeforeLifecycleObservation_ReturnsCommandFailure ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var service = CreateService(
             modeDecisionService: CreateModeDecisionService(
                 UnityExecutionMode.Daemon,

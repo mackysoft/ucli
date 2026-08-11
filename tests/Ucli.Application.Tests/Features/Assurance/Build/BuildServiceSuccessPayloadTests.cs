@@ -108,7 +108,12 @@ public sealed class BuildServiceSuccessPayloadTests
         Assert.False(artifactStore.WrittenMetadata.Inputs.TryGetProperty("unityBuildProfile", out _));
         Assert.Equal("buildPipeline", artifactStore.WrittenMetadata.Runner.GetProperty("kind").GetString());
         Assert.Equal(JsonValueKind.Null, artifactStore.WrittenMetadata.Runner.GetProperty("method").ValueKind);
-        Assert.Equal("{}", artifactStore.WrittenMetadata.Runner.GetProperty("invocation").GetProperty("arguments").GetRawText());
+        Assert.True(JsonNode.DeepEquals(
+            JsonNode.Parse("{}"),
+            JsonNode.Parse(artifactStore.WrittenMetadata.Runner
+                .GetProperty("invocation")
+                .GetProperty("arguments")
+                .GetRawText())));
         var runnerEnvironment = artifactStore.WrittenMetadata.Runner.GetProperty("invocation").GetProperty("environment");
         Assert.Equal(0, runnerEnvironment.GetProperty("variables").GetArrayLength());
         Assert.Equal(0, runnerEnvironment.GetProperty("secrets").GetArrayLength());

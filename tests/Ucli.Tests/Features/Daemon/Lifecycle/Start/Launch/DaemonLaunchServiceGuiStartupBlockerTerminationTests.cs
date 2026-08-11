@@ -16,7 +16,7 @@ public sealed class DaemonLaunchServiceGuiStartupBlockerTerminationTests
     {
         var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-gui-launch-terminate"));
         var processStartedAtUtc = new DateTimeOffset(2026, 03, 12, 0, 0, 1, TimeSpan.Zero);
-        var timeProvider = new ManualTimeProvider(processStartedAtUtc);
+        var timeProvider = new FakeTimeProvider(processStartedAtUtc);
         var guiLauncher = new RecordingUnityGuiEditorProcessLauncher
         {
             NextResult = UnityDaemonLaunchResult.Success(6544, processStartedAtUtc),
@@ -65,7 +65,7 @@ public sealed class DaemonLaunchServiceGuiStartupBlockerTerminationTests
     {
         var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-gui-launch-terminate-cleanup-fail"));
         var processStartedAtUtc = new DateTimeOffset(2026, 03, 12, 0, 0, 1, TimeSpan.Zero);
-        var timeProvider = new ManualTimeProvider(processStartedAtUtc);
+        var timeProvider = new FakeTimeProvider(processStartedAtUtc);
         var primaryDiagnostic = new DaemonPrimaryDiagnostic(
             Kind: UnityEditorPrimaryDiagnosticKind.Compiler,
             Code: "CS0103",
@@ -139,7 +139,7 @@ public sealed class DaemonLaunchServiceGuiStartupBlockerTerminationTests
     {
         var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-gui-launch-process-exit"));
         var processStartedAtUtc = new DateTimeOffset(2026, 03, 12, 0, 0, 1, TimeSpan.Zero);
-        var timeProvider = new ManualTimeProvider(processStartedAtUtc);
+        var timeProvider = new FakeTimeProvider(processStartedAtUtc);
         var guiLauncher = new RecordingUnityGuiEditorProcessLauncher
         {
             NextResult = UnityDaemonLaunchResult.Success(6543, processStartedAtUtc),

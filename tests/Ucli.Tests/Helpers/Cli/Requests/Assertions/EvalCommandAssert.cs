@@ -43,7 +43,7 @@ internal static class EvalCommandAssert
         string expectedRequestId)
     {
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         CommandResultAssert.HasSuccessEnvelope(
             outputJson.RootElement,
             UcliCommandNames.Eval);
@@ -152,7 +152,7 @@ internal static class EvalCommandAssert
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
         Assert.Empty(service.Invocations);
         Assert.Empty(sourceReader.Invocations);
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         CommandResultAssert.HasInvalidArgumentEnvelope(
             outputJson.RootElement,
             UcliCommandNames.Eval);

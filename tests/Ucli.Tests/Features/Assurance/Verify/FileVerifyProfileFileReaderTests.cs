@@ -1,7 +1,6 @@
 using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Features.Assurance.Verify;
-using Xunit.Sdk;
 
 namespace MackySoft.Ucli.Tests.Features.Assurance.Verify;
 
@@ -45,10 +44,7 @@ public sealed class FileVerifyProfileFileReaderTests
         using var outside = TestDirectories.CreateTempScope("ucli-verify", "outside-profile-link-target");
         var targetPath = outside.WriteFile("verify.json", """{"schemaVersion":1,"steps":[]}""");
         var profilePath = Path.Combine(repository.FullPath, "verify.json");
-        if (!TestSymbolicLinks.TryCreateFile(profilePath, targetPath))
-        {
-            throw SkipException.ForSkip("Symbolic links are not supported by this test environment.");
-        }
+        File.CreateSymbolicLink(profilePath, targetPath);
 
         var reader = new FileVerifyProfileFileReader();
 
@@ -66,10 +62,7 @@ public sealed class FileVerifyProfileFileReaderTests
         using var outside = TestDirectories.CreateTempScope("ucli-verify", "outside-profile-directory-link-target");
         outside.WriteFile("verify.json", """{"schemaVersion":1,"steps":[]}""");
         var linkPath = Path.Combine(repository.FullPath, "linked");
-        if (!TestSymbolicLinks.TryCreateDirectory(linkPath, outside.FullPath))
-        {
-            throw SkipException.ForSkip("Symbolic links are not supported by this test environment.");
-        }
+        Directory.CreateSymbolicLink(linkPath, outside.FullPath);
 
         var reader = new FileVerifyProfileFileReader();
 
@@ -91,7 +84,11 @@ public sealed class FileVerifyProfileFileReaderTests
         using var repository = TestDirectories.CreateTempScope(
             "ucli-verify",
             nameof(ReadAsync_OnUnixWithLiteralBackslashProfileName_ReturnsInvalidArgument));
-        repository.WriteFile(@"profiles/verify\local.json", """{"schemaVersion":1,"steps":[]}""");
+        var profilesDirectory = Path.Combine(repository.FullPath, "profiles");
+        Directory.CreateDirectory(profilesDirectory);
+        File.WriteAllText(
+            Path.Combine(profilesDirectory, @"verify\local.json"),
+            """{"schemaVersion":1,"steps":[]}""");
         var reader = new FileVerifyProfileFileReader();
 
         var result = await reader.ReadAsync(

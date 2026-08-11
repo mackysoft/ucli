@@ -95,7 +95,7 @@ public sealed class DaemonStopServiceTests
     public async Task Stop_WhenSupervisorStopTimesOut_FallsBackToDirectStopOperation ()
     {
         using var scope = TestDirectories.CreateTempScope("daemon-command-service", "stop-supervisor-timeout-fallback");
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var context = DaemonCommandExecutionContextTestFactory.CreateForRepositoryRoot(
             timeoutMilliseconds: 15000,
             repositoryRoot: scope.FullPath);
@@ -134,7 +134,7 @@ public sealed class DaemonStopServiceTests
     public async Task Stop_WhenSupervisorProbeConsumesBudget_PropagatesRemainingTimeoutToStopProject ()
     {
         using var scope = TestDirectories.CreateTempScope("daemon-command-service", "stop-remaining-timeout");
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var context = DaemonCommandExecutionContextTestFactory.CreateForRepositoryRoot(
             timeoutMilliseconds: 700,
             repositoryRoot: scope.FullPath);

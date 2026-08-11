@@ -66,7 +66,7 @@ public sealed class BuildRunCommandParserTests
 
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
         Assert.True(string.IsNullOrEmpty(result.StdErr), result.StdErr);
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         CommandResultAssert.HasInvalidArgumentEnvelope(
             outputJson.RootElement,
             UcliCommandNames.BuildRun);

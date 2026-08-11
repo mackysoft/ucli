@@ -12,7 +12,7 @@ public sealed class SupervisorBootstrapperTimeoutTests
     public async Task EnsureReady_WhenLaunchExceedsRemainingTimeout_ReturnsTimeout ()
     {
         using var scope = TestDirectories.CreateTempScope("supervisor-bootstrapper", "launch-timeout");
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var transportClient = new StubIpcTransportClient
         {
             SendHandler = static (_, _, _, _) => throw new InvalidOperationException("Supervisor ping should not be called before launch succeeds."),
@@ -41,10 +41,10 @@ public sealed class SupervisorBootstrapperTimeoutTests
                 TimeSpan.FromMilliseconds(150),
                 CancellationToken.None)
             .AsTask();
-        await TestAwaiter.WaitAsync(launchStarted.Task, "Supervisor launch start", SupervisorBootstrapperTestSupport.SignalWaitTimeout);
+        await launchStarted.Task.WaitAsync(SupervisorBootstrapperTestSupport.SignalWaitTimeout);
         timeProvider.Advance(TimeSpan.FromMilliseconds(150));
 
-        var result = await TestAwaiter.WaitAsync(resultTask, "Supervisor launch timeout result", SupervisorBootstrapperTestSupport.SignalWaitTimeout);
+        var result = await resultTask.WaitAsync(SupervisorBootstrapperTestSupport.SignalWaitTimeout);
 
         Assert.False(result.IsSuccess);
         Assert.NotNull(result.Error);
@@ -57,7 +57,7 @@ public sealed class SupervisorBootstrapperTimeoutTests
     public async Task EnsureReady_WhenManifestReadExceedsRemainingTimeout_ReturnsTimeout ()
     {
         using var scope = TestDirectories.CreateTempScope("supervisor-bootstrapper", "manifest-read-timeout");
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var transportClient = new StubIpcTransportClient
         {
             SendHandler = static (_, _, _, _) => throw new InvalidOperationException("Supervisor transport should not be called while manifest read is pending."),
@@ -86,10 +86,10 @@ public sealed class SupervisorBootstrapperTimeoutTests
                 TimeSpan.FromMilliseconds(500),
                 CancellationToken.None)
             .AsTask();
-        await TestAwaiter.WaitAsync(manifestReadStarted.Task, "Supervisor manifest read start", SupervisorBootstrapperTestSupport.SignalWaitTimeout);
+        await manifestReadStarted.Task.WaitAsync(SupervisorBootstrapperTestSupport.SignalWaitTimeout);
         timeProvider.Advance(TimeSpan.FromMilliseconds(500));
 
-        var result = await TestAwaiter.WaitAsync(resultTask, "Supervisor manifest read timeout result", SupervisorBootstrapperTestSupport.SignalWaitTimeout);
+        var result = await resultTask.WaitAsync(SupervisorBootstrapperTestSupport.SignalWaitTimeout);
 
         Assert.False(result.IsSuccess);
         Assert.NotNull(result.Error);
@@ -148,14 +148,11 @@ public sealed class SupervisorBootstrapperTimeoutTests
             timeProvider.Advance(TimeSpan.FromMilliseconds(50));
         }
 
-        await TestAwaiter.WaitAsync(
-            releaseStarted.Task,
-            "Supervisor launch registration rollback start",
-            SupervisorBootstrapperTestSupport.SignalWaitTimeout);
+        await releaseStarted.Task.WaitAsync(SupervisorBootstrapperTestSupport.SignalWaitTimeout);
         Assert.False(resultTask.IsCompleted);
         releaseAllowed.TrySetResult();
 
-        var result = await TestAwaiter.WaitAsync(resultTask, "Supervisor poll deadline result", SupervisorBootstrapperTestSupport.SignalWaitTimeout);
+        var result = await resultTask.WaitAsync(SupervisorBootstrapperTestSupport.SignalWaitTimeout);
 
         Assert.False(result.IsSuccess);
         Assert.NotNull(result.Error);

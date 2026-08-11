@@ -40,7 +40,7 @@ public sealed class CompileCommandGoldenOutputTests
             cancellationToken: CancellationToken.None));
 
         Assert.Equal(1, result.ExitCode);
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         CommandResultAssert.HasStandardEnvelope(
             outputJson.RootElement,
             UcliCommandNames.Compile,
@@ -82,7 +82,7 @@ public sealed class CompileCommandGoldenOutputTests
         var result = await CommandResultCapture.ExecuteAsync(
             () => command.CompileAsync(cancellationToken: CancellationToken.None));
 
-        using var document = StdoutJsonParser.ParseSinglePrettyPrintedObject(
+        using var document = JsonAssert.ParseMultilineObject(
             result.StdOut);
         var payload = document.RootElement.GetProperty("payload");
         Assert.Equal(
@@ -137,7 +137,7 @@ public sealed class CompileCommandGoldenOutputTests
             () => command.CompileAsync(
                 cancellationToken: CancellationToken.None));
 
-        using var document = StdoutJsonParser.ParseSinglePrettyPrintedObject(
+        using var document = JsonAssert.ParseMultilineObject(
             result.StdOut);
         var payload = document.RootElement.GetProperty("payload");
         Assert.Equal(

@@ -17,7 +17,7 @@ public sealed class DaemonLaunchServiceBatchmodeLaunchFailureTests
     public async Task Launch_WhenUnityLaunchFails_RunsCompensationAndReturnsLaunchFailure ()
     {
         var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-launch-fail"));
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var initialSession = DaemonSessionTestFactory.Create(
             processId: null,
             sessionToken: LaunchSessionToken,
@@ -81,7 +81,7 @@ public sealed class DaemonLaunchServiceBatchmodeLaunchFailureTests
     public async Task Launch_WhenCompensationFails_ReturnsInternalError ()
     {
         var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-launch-compensation-fail"));
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var initialSession = DaemonSessionTestFactory.Create(
             processId: null,
             sessionToken: LaunchSessionToken,
@@ -137,7 +137,7 @@ public sealed class DaemonLaunchServiceBatchmodeLaunchFailureTests
             sessionToken: LaunchSessionToken,
             projectFingerprint: context.ProjectFingerprint,
             endpointAddress: LaunchEndpointAddress);
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var launchError = ExecutionError.InternalError("launch failed after timeout");
         var launchSessionService = new RecordingDaemonLaunchSessionService
         {
@@ -188,7 +188,7 @@ public sealed class DaemonLaunchServiceBatchmodeLaunchFailureTests
     public async Task Launch_WhenCancellationRequestedAfterLaunchFailure_RethrowsAfterOwnedCompensation ()
     {
         var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-launch-cancel-after-failure"));
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var initialSession = DaemonSessionTestFactory.Create(
             processId: null,
             sessionToken: LaunchSessionToken,
@@ -245,7 +245,7 @@ public sealed class DaemonLaunchServiceBatchmodeLaunchFailureTests
     public async Task Launch_WhenDiagnosisWriteFails_ReturnsInternalError ()
     {
         var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-launch-diagnosis-fail"));
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var initialSession = DaemonSessionTestFactory.Create(
             processId: null,
             sessionToken: LaunchSessionToken,

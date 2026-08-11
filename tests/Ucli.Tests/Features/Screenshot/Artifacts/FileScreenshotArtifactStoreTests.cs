@@ -88,7 +88,7 @@ public sealed class FileScreenshotArtifactStoreTests
             ProjectFingerprintTestFactory.Create("fingerprint"));
         var expectedPaths = ResolveExpectedPaths(project);
         var store = CreateStore(
-            new ManualTimeProvider(CreatedAtUtc),
+            new FakeTimeProvider(CreatedAtUtc),
             ensureSecureStagingDirectory: path =>
             {
                 Directory.CreateDirectory(path.Value);
@@ -136,7 +136,7 @@ public sealed class FileScreenshotArtifactStoreTests
         var expectedPaths = ResolveExpectedPaths(project);
         var unexpectedPath = Path.Combine(expectedPaths.StagingDirectory, "unexpected.txt");
         var store = CreateStore(
-            new ManualTimeProvider(CreatedAtUtc),
+            new FakeTimeProvider(CreatedAtUtc),
             ensureSecureStagingDirectory: path =>
             {
                 Directory.CreateDirectory(path.Value);

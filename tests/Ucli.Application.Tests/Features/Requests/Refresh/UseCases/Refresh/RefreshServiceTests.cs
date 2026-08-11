@@ -75,7 +75,7 @@ public sealed class RefreshServiceTests
             requestExecutor,
             postconditionStore,
             hostExitTerminalizer: terminalizer,
-            timeProvider: new ManualTimeProvider(StartedAtUtc));
+            timeProvider: new FakeTimeProvider(StartedAtUtc));
 
         var result = await service.ExecuteAsync(
             RequestId,
@@ -168,7 +168,7 @@ public sealed class RefreshServiceTests
             requestExecutor,
             postconditionStore,
             hostExitTerminalizer: terminalizer,
-            timeProvider: new ManualTimeProvider(StartedAtUtc));
+            timeProvider: new FakeTimeProvider(StartedAtUtc));
 
         var result = await service.ExecuteAsync(
             RequestId,
@@ -925,7 +925,7 @@ public sealed class RefreshServiceTests
         TimeProvider? timeProvider = null)
     {
         var resolvedTimeProvider =
-            timeProvider ?? new ManualTimeProvider(StartedAtUtc);
+            timeProvider ?? new FakeTimeProvider(StartedAtUtc);
         return new RefreshService(
             new StaticProjectContextResolver(ProjectContextResolutionResult.Success(context)),
             requestExecutor,

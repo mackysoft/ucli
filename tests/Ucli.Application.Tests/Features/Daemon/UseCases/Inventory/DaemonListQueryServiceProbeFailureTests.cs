@@ -188,7 +188,7 @@ public sealed class DaemonListQueryServiceProbeFailureTests
             new RecordingDaemonDiagnosisStore(),
             CreateThrowingPingClient(new TimeoutException("probe timed out")),
             new StubDaemonReachabilityClassifier(static _ => false),
-            new ManualTimeProvider(now),
+            new FakeTimeProvider(now),
             lifecycleStore,
             processIdentityAssessor);
 
@@ -216,7 +216,7 @@ public sealed class DaemonListQueryServiceProbeFailureTests
             new RecordingDaemonDiagnosisStore(),
             CreateThrowingPingClient(new SocketException((int)SocketError.ConnectionRefused)),
             new StubDaemonReachabilityClassifier(static exception => exception is SocketException),
-            new ManualTimeProvider(now),
+            new FakeTimeProvider(now),
             lifecycleStore,
             processIdentityAssessor);
 
@@ -250,7 +250,7 @@ public sealed class DaemonListQueryServiceProbeFailureTests
             diagnosisStore,
             CreateThrowingPingClient(new SocketException((int)SocketError.ConnectionRefused)),
             new StubDaemonReachabilityClassifier(static exception => exception is SocketException),
-            new ManualTimeProvider(now),
+            new FakeTimeProvider(now),
             lifecycleStore,
             processIdentityAssessor);
 

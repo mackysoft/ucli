@@ -24,10 +24,7 @@ public sealed class UnityBatchmodeProcessLifetimeOwnerTests
 
         Assert.Equal(0, processHandle.DisposeCount);
         releaseProcess.SetResult();
-        await TestAwaiter.WaitAsync(
-            handleDisposed.Task,
-            "Owned batchmode process handle disposal",
-            TimeSpan.FromSeconds(5));
+        await handleDisposed.Task.WaitAsync(TimeSpan.FromSeconds(5));
         Assert.Equal(1, processHandle.DisposeCount);
         UnityBatchmodeProcessHandleAssert.WasNotTerminated(processHandle);
     }
@@ -55,19 +52,13 @@ public sealed class UnityBatchmodeProcessLifetimeOwnerTests
         owner.Transfer(firstHandle);
         owner.Transfer(secondHandle);
         firstExit.SetResult();
-        await TestAwaiter.WaitAsync(
-            firstDisposed.Task,
-            "First owned batchmode process handle disposal",
-            TimeSpan.FromSeconds(5));
+        await firstDisposed.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
         Assert.Equal(1, firstHandle.DisposeCount);
         Assert.Equal(0, secondHandle.DisposeCount);
 
         secondExit.SetResult();
-        await TestAwaiter.WaitAsync(
-            secondDisposed.Task,
-            "Second owned batchmode process handle disposal",
-            TimeSpan.FromSeconds(5));
+        await secondDisposed.Task.WaitAsync(TimeSpan.FromSeconds(5));
         Assert.Equal(1, secondHandle.DisposeCount);
     }
 
@@ -85,10 +76,7 @@ public sealed class UnityBatchmodeProcessLifetimeOwnerTests
         var owner = new UnityBatchmodeProcessLifetimeOwner();
 
         owner.Transfer(processHandle);
-        await TestAwaiter.WaitAsync(
-            firstDispose.Task,
-            "Faulted batchmode process ownership cleanup",
-            TimeSpan.FromSeconds(5));
+        await firstDispose.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
         UnityBatchmodeProcessHandleAssert.TerminatedOnceWithMode(
             processHandle,
@@ -98,10 +86,7 @@ public sealed class UnityBatchmodeProcessLifetimeOwnerTests
         var secondDispose = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         processHandle.OnDispose = secondDispose.SetResult;
         owner.Transfer(processHandle);
-        await TestAwaiter.WaitAsync(
-            secondDispose.Task,
-            "Retransferred batchmode process ownership cleanup",
-            TimeSpan.FromSeconds(5));
+        await secondDispose.Task.WaitAsync(TimeSpan.FromSeconds(5));
         Assert.Equal(2, processHandle.DisposeCount);
     }
 }

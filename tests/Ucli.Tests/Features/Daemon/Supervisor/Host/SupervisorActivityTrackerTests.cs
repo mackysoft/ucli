@@ -6,7 +6,7 @@ public sealed class SupervisorActivityTrackerTests
     [Trait("Size", "Small")]
     public void IsIdle_WhenMonotonicClockReachesThreshold_ReturnsTrue ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var tracker = new SupervisorActivityTracker(timeProvider);
         var idleDelay = TimeSpan.FromSeconds(10);
 
@@ -21,7 +21,7 @@ public sealed class SupervisorActivityTrackerTests
     [Trait("Size", "Small")]
     public void IsIdle_WhenLongRunningRequestEnds_StartsIdlePeriodAtRequestCompletion ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var tracker = new SupervisorActivityTracker(timeProvider);
         var idleDelay = TimeSpan.FromSeconds(10);
         var request = tracker.BeginRequest();

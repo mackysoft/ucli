@@ -21,7 +21,7 @@ public sealed class ReadyCommandResultTests
             cancellationToken: CancellationToken.None));
 
         Assert.Equal(1, result.ExitCode);
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         CommandResultAssert.HasStandardEnvelope(
             outputJson.RootElement,
             UcliCommandNames.Ready,

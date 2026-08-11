@@ -26,10 +26,7 @@ public sealed class FileUtilitiesTests
         using var scope = TestDirectories.CreateTempScope("infrastructure-storage", "reopen-safe-symlink");
         var targetPath = scope.WriteFile("target.txt", "target-contents");
         var symbolicLinkPath = scope.GetPath("linked.txt");
-        if (!TestSymbolicLinks.TryCreateFile(symbolicLinkPath, targetPath))
-        {
-            return;
-        }
+        File.CreateSymbolicLink(symbolicLinkPath, targetPath);
 
         await Assert.ThrowsAsync<IOException>(() => FileUtilities
             .ReadAllTextOrNullAsync(AbsolutePath.Parse(symbolicLinkPath), CancellationToken.None)
@@ -45,10 +42,7 @@ public sealed class FileUtilitiesTests
         using var scope = TestDirectories.CreateTempScope("infrastructure-storage", "reopen-safe-dangling-symlink");
         var missingTargetPath = scope.GetPath("missing-target.txt");
         var symbolicLinkPath = scope.GetPath("linked.txt");
-        if (!TestSymbolicLinks.TryCreateFile(symbolicLinkPath, missingTargetPath))
-        {
-            return;
-        }
+        File.CreateSymbolicLink(symbolicLinkPath, missingTargetPath);
 
         await Assert.ThrowsAsync<IOException>(() => FileUtilities
             .ReadAllTextOrNullAsync(AbsolutePath.Parse(symbolicLinkPath), CancellationToken.None)
@@ -64,10 +58,7 @@ public sealed class FileUtilitiesTests
         using var scope = TestDirectories.CreateTempScope("infrastructure-storage", "atomic-write-symlink");
         var targetPath = scope.WriteFile("target.txt", "target-contents");
         var symbolicLinkPath = scope.GetPath("linked.txt");
-        if (!TestSymbolicLinks.TryCreateFile(symbolicLinkPath, targetPath))
-        {
-            return;
-        }
+        File.CreateSymbolicLink(symbolicLinkPath, targetPath);
 
         await Assert.ThrowsAsync<IOException>(() => FileUtilities
             .WriteAllTextAtomicallyAsync(

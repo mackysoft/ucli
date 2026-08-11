@@ -184,10 +184,7 @@ public sealed class UnityOneshotIpcClientCleanupTests
             resultTask,
             requestTimeout);
         timeProvider.Advance(requestTimeout);
-        var result = await TestAwaiter.WaitAsync(
-            resultTask,
-            "Unity oneshot startup timeout cleanup result",
-            TimeSpan.FromSeconds(5));
+        var result = await resultTask.WaitAsync(TimeSpan.FromSeconds(5));
 
         Assert.False(result.IsSuccess);
         Assert.Equal(ExecutionErrorCodes.IpcTimeout, result.ErrorCode);
@@ -207,7 +204,7 @@ public sealed class UnityOneshotIpcClientCleanupTests
     {
         using var scope = TestDirectories.CreateTempScope("unity-oneshot-ipc-client", "response-before-deadline-cleanup-budget");
         var unityProject = ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(scope.FullPath);
-        var timeProvider = new ManualTimeProvider(DateTimeOffset.UtcNow);
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UtcNow);
         var processHandle = new StubUnityBatchmodeProcessHandle(
             waitForExitBehavior: cancellationToken =>
             {
@@ -351,10 +348,7 @@ public sealed class UnityOneshotIpcClientCleanupTests
             releaseOwnedProcess.TrySetResult();
         }
 
-        await TestAwaiter.WaitAsync(
-            handleDisposed.Task,
-            "Successful oneshot process handle disposal",
-            TimeSpan.FromSeconds(5));
+        await handleDisposed.Task.WaitAsync(TimeSpan.FromSeconds(5));
         Assert.Equal(1, processHandle.DisposeCount);
     }
 
@@ -616,10 +610,7 @@ public sealed class UnityOneshotIpcClientCleanupTests
             releaseOwnedProcess.TrySetResult();
         }
 
-        await TestAwaiter.WaitAsync(
-            handleDisposed.Task,
-            "Transferred oneshot process handle disposal",
-            TimeSpan.FromSeconds(5));
+        await handleDisposed.Task.WaitAsync(TimeSpan.FromSeconds(5));
         Assert.Equal(1, processHandle.DisposeCount);
     }
 

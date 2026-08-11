@@ -130,7 +130,7 @@ internal static class PlanServiceTestSupport
                     RequestStaticValidationCatalog.Available([operationDescriptor])),
             },
             unityRequestExecutor: unityRequestExecutor,
-            timeProvider: new ManualTimeProvider());
+            timeProvider: new FakeTimeProvider(DateTimeOffset.UnixEpoch));
     }
 
     public static PreparedRequestContext CreatePreparedRequestContext ()

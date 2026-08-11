@@ -107,7 +107,7 @@ public sealed class SupervisorProjectCoordinatorExitCleanupTests
                 cancellationToken: CancellationToken.None);
             Assert.True(ensureRunningResult.IsSuccess);
 
-            await TestAwaiter.WaitAsync(cleanupStarted.Task, "Managed project cleanup start", SignalWaitTimeout);
+            await cleanupStarted.Task.WaitAsync(SignalWaitTimeout);
             Assert.True(coordinator.HasManagedProjects);
         }
         finally

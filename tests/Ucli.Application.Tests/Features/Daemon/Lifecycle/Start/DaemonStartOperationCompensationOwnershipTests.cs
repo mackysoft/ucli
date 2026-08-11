@@ -12,7 +12,7 @@ public sealed class DaemonStartOperationCompensationOwnershipTests
     [Trait("Size", "Small")]
     public async Task Start_WhenLaunchLeavesOwnedCompensation_RetainsLifecycleLeaseUntilLaunchCompensationQuiesces ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var compensationOperationOwner = new DaemonCompensationOperationOwner();
         var lifecycleLease = new RecordingAsyncDisposable();
         var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(
@@ -59,31 +59,22 @@ public sealed class DaemonStartOperationCompensationOwnershipTests
                 onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
                 cancellationToken: CancellationToken.None)
             .AsTask();
-        await TestAwaiter.WaitAsync(
-            compensationStarted.Task,
-            "Launch compensation start",
-            TimeSpan.FromSeconds(5));
+        await compensationStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
         timeProvider.Advance(TimeSpan.FromMilliseconds(100));
-        var result = await TestAwaiter.WaitAsync(
-            startTask,
-            "Start result after launch compensation deadline",
-            TimeSpan.FromSeconds(5));
+        var result = await startTask.WaitAsync(TimeSpan.FromSeconds(5));
 
         Assert.Equal(DaemonStartStatus.Failed, result.Status);
         Assert.Equal(ExecutionErrorKind.Timeout, result.Error!.Kind);
         Assert.Equal(0, lifecycleLease.DisposeCount);
 
         releaseCompensation.TrySetResult();
-        var quiescenceError = await TestAwaiter.WaitAsync(
-            compensationOperationOwner.WaitForQuiescenceAsync(
+        var quiescenceError = await compensationOperationOwner.WaitForQuiescenceAsync(
                     context,
                     ExecutionDeadline.Start(TimeSpan.FromSeconds(1), timeProvider),
                     CancellationToken.None,
                     "Timed out waiting for launch compensation quiescence.")
-                .AsTask(),
-            "Launch compensation quiescence",
-            TimeSpan.FromSeconds(5));
+                .AsTask().WaitAsync(TimeSpan.FromSeconds(5));
         Assert.Null(quiescenceError);
         Assert.Equal(1, lifecycleLease.DisposeCount);
     }

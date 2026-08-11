@@ -28,7 +28,7 @@ public sealed class DaemonStartOperationDiagnosisTests
 
         var result = await operation.StartAsync(
             context,
-            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new ManualTimeProvider()),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new FakeTimeProvider(DateTimeOffset.UnixEpoch)),
             editorMode: null,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);
@@ -60,7 +60,7 @@ public sealed class DaemonStartOperationDiagnosisTests
 
         var result = await operation.StartAsync(
             context,
-            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new ManualTimeProvider()),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new FakeTimeProvider(DateTimeOffset.UnixEpoch)),
             editorMode: null,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);
@@ -93,7 +93,7 @@ public sealed class DaemonStartOperationDiagnosisTests
 
         var result = await operation.StartAsync(
             context,
-            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new ManualTimeProvider()),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new FakeTimeProvider(DateTimeOffset.UnixEpoch)),
             editorMode: null,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);
@@ -130,7 +130,7 @@ public sealed class DaemonStartOperationDiagnosisTests
 
         var result = await operation.StartAsync(
             context,
-            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new ManualTimeProvider()),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new FakeTimeProvider(DateTimeOffset.UnixEpoch)),
             editorMode: UnityEditorMode.Gui,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);
@@ -182,19 +182,13 @@ public sealed class DaemonStartOperationDiagnosisTests
                 onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
                 cancellationToken: CancellationToken.None)
             .AsTask();
-        await TestAwaiter.WaitAsync(
-            deleteStarted.Task,
-            "Daemon diagnosis delete start",
-            TimeSpan.FromSeconds(5));
+        await deleteStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
         await timeProvider
             .WaitForTimerDueWithinAsync(DaemonTimeouts.SupplementalPersistenceTimeout)
             .WaitAsync(TimeSpan.FromSeconds(1));
         timeProvider.Advance(DaemonTimeouts.SupplementalPersistenceTimeout);
-        var result = await TestAwaiter.WaitAsync(
-            startTask,
-            "Daemon diagnosis delete deadline result",
-            TimeSpan.FromSeconds(5));
+        var result = await startTask.WaitAsync(TimeSpan.FromSeconds(5));
 
         Assert.True(result.IsSuccess);
         Assert.Single(sessionStore.ReadInvocations);
@@ -212,8 +206,7 @@ public sealed class DaemonStartOperationDiagnosisTests
         Assert.True(lifecycleMutationResult.Value);
 
         releaseDelete.TrySetResult(DaemonDiagnosisStoreOperationResult.Success());
-        var supplementalMutationResult = await TestAwaiter.WaitAsync(
-            compensationOperationOwner.ExecuteAsync(
+        var supplementalMutationResult = await compensationOperationOwner.ExecuteAsync(
                     context,
                     DaemonOperationLane.SupplementalPersistence,
                     ExecutionDeadline.Start(TimeSpan.FromSeconds(1), timeProvider),
@@ -221,9 +214,7 @@ public sealed class DaemonStartOperationDiagnosisTests
                     "Timed out waiting for diagnosis cleanup quiescence.",
                     "Timed out while replacement supplemental mutation was running.",
                     (_, _) => ValueTask.FromResult(true))
-                .AsTask(),
-            "Replacement supplemental mutation",
-            TimeSpan.FromSeconds(5));
+                .AsTask().WaitAsync(TimeSpan.FromSeconds(5));
         Assert.True(supplementalMutationResult.IsSuccess);
     }
 

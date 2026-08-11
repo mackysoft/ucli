@@ -89,7 +89,7 @@ public sealed class FileReadIndexArtifactReaderGenerationTests
         var storageRoot = AbsolutePath.Parse(scope.FullPath);
         var snapshot = CreateSnapshot("01234567");
         var pointerStore = new FileReadIndexGenerationPointerStore();
-        var timeProvider = new ManualTimeProvider(DateTimeOffset.Parse("2026-07-15T00:00:00Z"));
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.Parse("2026-07-15T00:00:00Z"));
         var writer = CreateWriter(new FileReadIndexGenerationStore(pointerStore, timeProvider));
         await writer.WriteAssetLookupsAsync(
             storageRoot,

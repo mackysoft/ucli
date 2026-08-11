@@ -238,10 +238,7 @@ public sealed class LaunchdSupervisorProcessManagerTests
                 cancellation.Token)
             .AsTask();
 
-        await TestAwaiter.WaitAsync(
-            rollbackStarted.Task,
-            "LaunchAgent rollback start",
-            SupervisorBootstrapperTestSupport.SignalWaitTimeout);
+        await rollbackStarted.Task.WaitAsync(SupervisorBootstrapperTestSupport.SignalWaitTimeout);
         Assert.False(resultTask.IsCompleted);
         rollbackAllowed.TrySetResult(ProcessRunResult.Exited(0));
 

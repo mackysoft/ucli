@@ -49,7 +49,7 @@ public sealed class CompileServiceFailureTests
                     lifecycleActionDispatched: false,
                     new LifecycleExecutionHostExitObservation(
                         start.Host.Process))),
-            timeProvider: new ManualTimeProvider(observedAtUtc),
+            timeProvider: new FakeTimeProvider(observedAtUtc),
             hostExitTerminalizer: terminalizer);
 
         var result = await service.ExecuteAsync(new CompileCommandInput(
@@ -108,7 +108,7 @@ public sealed class CompileServiceFailureTests
                     lifecycleActionDispatched: true,
                     new LifecycleExecutionHostExitObservation(
                         start.Host.Process))),
-            timeProvider: new ManualTimeProvider(
+            timeProvider: new FakeTimeProvider(
                 start.StartedAtUtc.AddSeconds(1)),
             hostExitTerminalizer: terminalizer);
 
@@ -325,7 +325,7 @@ public sealed class CompileServiceFailureTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenModeDecisionConsumesDeadline_DoesNotRegisterOrDispatch ()
     {
-        var timeProvider = new ManualTimeProvider(StartedAtUtc);
+        var timeProvider = new FakeTimeProvider(StartedAtUtc);
         var modeDecisionService = new StubModeDecisionService(
             UnityExecutionModeDecisionResult.Success(
                 new UnityExecutionModeDecision(

@@ -56,18 +56,15 @@ public sealed class SupervisorProjectCoordinatorStabilityCompensationTests
             .AsTask();
         try
         {
-            await TestAwaiter.WaitAsync(pingStarted.Task, "Daemon stability ping start", SignalWaitTimeout);
+            await pingStarted.Task.WaitAsync(SignalWaitTimeout);
             cancellationTokenSource.Cancel();
 
             await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
             {
-                await TestAwaiter.WaitAsync(
-                    ensureRunningTask,
-                    "Canceled supervisor ensure-running result",
-                    SignalWaitTimeout);
+                await ensureRunningTask.WaitAsync(SignalWaitTimeout);
             });
 
-            await TestAwaiter.WaitAsync(stopStarted.Task, "Daemon compensation stop start", SignalWaitTimeout);
+            await stopStarted.Task.WaitAsync(SignalWaitTimeout);
             DaemonStopOperationAssert.CompensationStopAttempted(
                 stopOperation,
                 unityProject,
@@ -91,7 +88,7 @@ public sealed class SupervisorProjectCoordinatorStabilityCompensationTests
         using var daemonProcess = SupervisorOwnedDaemonProcess.Start();
         using var scope = CreateUnityProjectScope(nameof(EnsureRunning_WhenStabilityTimesOut_ReturnsBeforeBackgroundCompensationCompletes));
         var unityProject = CreateUnityProject(scope);
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var stopStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var stopRelease = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var startOperation = new RecordingDaemonStartOperation
@@ -134,7 +131,7 @@ public sealed class SupervisorProjectCoordinatorStabilityCompensationTests
             Assert.False(result.IsSuccess);
             Assert.Equal(ExecutionErrorKind.Timeout, result.Error!.Kind);
             Assert.True(coordinator.HasActiveProjectWork);
-            await TestAwaiter.WaitAsync(stopStarted.Task, "Daemon timeout compensation stop start", SignalWaitTimeout);
+            await stopStarted.Task.WaitAsync(SignalWaitTimeout);
         }
         finally
         {
@@ -187,7 +184,7 @@ public sealed class SupervisorProjectCoordinatorStabilityCompensationTests
             Assert.False(result.IsSuccess);
             Assert.Equal(ExecutionErrorKind.InternalError, result.Error!.Kind);
             Assert.True(coordinator.HasActiveProjectWork);
-            await TestAwaiter.WaitAsync(stopStarted.Task, "Daemon failure compensation stop start", SignalWaitTimeout);
+            await stopStarted.Task.WaitAsync(SignalWaitTimeout);
         }
         finally
         {
@@ -225,7 +222,7 @@ public sealed class SupervisorProjectCoordinatorStabilityCompensationTests
         var diagnosisStore = new RecordingDaemonDiagnosisStore();
         var sessionStore = new RecordingDaemonSessionStore();
         var runtimeLogger = new SupervisorRuntimeLogger();
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var runtimeLogWriteGate = GetRuntimeLogWriteGate(runtimeLogger);
         await runtimeLogWriteGate.WaitAsync();
         var diagnosisWriter = new SupervisorDiagnosisWriter(diagnosisStore);
@@ -267,10 +264,7 @@ public sealed class SupervisorProjectCoordinatorStabilityCompensationTests
             runtimeLogWriteGate.Release();
             try
             {
-                await TestAwaiter.WaitAsync(
-                    stopStarted.Task,
-                    "Daemon compensation stop after runtime-log release",
-                    SignalWaitTimeout);
+                await stopStarted.Task.WaitAsync(SignalWaitTimeout);
             }
             finally
             {
@@ -289,7 +283,7 @@ public sealed class SupervisorProjectCoordinatorStabilityCompensationTests
         using var daemonProcess = SupervisorOwnedDaemonProcess.Start();
         using var scope = CreateUnityProjectScope(nameof(StopProject_WhenBackgroundCompensationIsStillRunning_RespectsCallerTimeout));
         var unityProject = CreateUnityProject(scope);
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var stopStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var stopRelease = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var startOperation = new RecordingDaemonStartOperation
@@ -329,14 +323,14 @@ public sealed class SupervisorProjectCoordinatorStabilityCompensationTests
                 cancellationToken: CancellationToken.None);
             Assert.False(ensureRunningResult.IsSuccess);
             Assert.Equal(ExecutionErrorKind.Timeout, ensureRunningResult.Error!.Kind);
-            await TestAwaiter.WaitAsync(stopStarted.Task, "Daemon stop failure compensation start", SignalWaitTimeout);
+            await stopStarted.Task.WaitAsync(SignalWaitTimeout);
 
             var stopTask = coordinator.StopProjectAsync(
                     unityProject,
                     ExecutionDeadline.Start(TimeSpan.FromMilliseconds(50), TimeProvider.System),
                     CancellationToken.None)
                 .AsTask();
-            var stopResult = await TestAwaiter.WaitAsync(stopTask, "Supervisor stop project result", SignalWaitTimeout);
+            var stopResult = await stopTask.WaitAsync(SignalWaitTimeout);
 
             SupervisorProjectCoordinatorAssert.StopProjectTimedOutWhileCompensationStopIsRunning(
                 stopResult,

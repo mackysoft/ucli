@@ -79,7 +79,7 @@ public sealed class DaemonStartCommandTests
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
         Assert.Equal(string.Empty, result.StdErr);
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         JsonAssert.For(outputJson.RootElement.GetProperty("payload"))
             .HasString("startStatus", "started")
             .HasString("daemonStatus", "running")

@@ -81,7 +81,7 @@ public sealed class DaemonSessionCleanupServiceConcurrencyTests
         var cleanupResult = await service.CleanupInvalidSessionArtifactsAsync(
             unityProject,
             invalidObservation,
-            ExecutionDeadline.Start(TimeSpan.FromSeconds(1), new ManualTimeProvider()),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(1), new FakeTimeProvider(DateTimeOffset.UnixEpoch)),
             CancellationToken.None);
         var currentSessionResult = await sessionStore.ReadAsync(
             storageRoot,

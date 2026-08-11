@@ -42,7 +42,7 @@ internal static class DaemonStartupReadinessProbeTestSupport
         await pingClient.WaitForFirstInvocationAsync(description, TimeSpan.FromSeconds(5));
         await timeProvider.WaitForTimerDueWithinAsync(timeout);
         timeProvider.Advance(timeout);
-        return await TestAwaiter.WaitAsync(resultTask, description, TimeSpan.FromSeconds(5));
+        return await resultTask.WaitAsync(TimeSpan.FromSeconds(5));
     }
 
     public static UnityEditorObservation CreatePingPayload (

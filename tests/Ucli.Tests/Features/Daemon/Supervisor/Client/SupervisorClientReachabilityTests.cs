@@ -124,25 +124,16 @@ public sealed class SupervisorClientReachabilityTests
                 timeout,
                 CancellationToken.None)
             .AsTask();
-        await TestAwaiter.WaitAsync(
-            timeProvider.WaitForTimerDueWithinAsync(timeout),
-            "supervisor reachability deadline timer",
-            SignalWaitTimeout);
+        await timeProvider.WaitForTimerDueWithinAsync(timeout).WaitAsync(SignalWaitTimeout);
 
         try
         {
             timeProvider.Advance(timeout);
 
-            var result = await TestAwaiter.WaitAsync(
-                resultTask,
-                "supervisor reachability timeout result",
-                SignalWaitTimeout);
+            var result = await resultTask.WaitAsync(SignalWaitTimeout);
 
             Assert.Equal(SupervisorReachabilityProbeStatus.TimedOut, result);
-            await TestAwaiter.WaitAsync(
-                cancellationObserved.Task,
-                "supervisor reachability transport cancellation",
-                SignalWaitTimeout);
+            await cancellationObserved.Task.WaitAsync(SignalWaitTimeout);
         }
         finally
         {

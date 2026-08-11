@@ -17,7 +17,7 @@ public sealed class SupervisorProjectGatewayEnsureRunningTests
         using var scope = TestDirectories.CreateTempScope(
             "supervisor-project-gateway",
             "ensure-running-token-rotation");
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var scenario = await SupervisorProjectGatewayTestSupport.CreateManifestBackedScenarioAsync(
             scope.FullPath,
             timeProvider);
@@ -140,7 +140,7 @@ public sealed class SupervisorProjectGatewayEnsureRunningTests
     public async Task EnsureRunning_WhenBootstrapConsumesBudget_PassesRemainingTimeoutToSupervisorClient ()
     {
         using var scope = TestDirectories.CreateTempScope("supervisor-project-gateway", "ensure-running-timeout");
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var scenario = await SupervisorProjectGatewayTestSupport.CreateManifestBackedScenarioAsync(
             scope.FullPath,
             timeProvider);
@@ -259,7 +259,7 @@ public sealed class SupervisorProjectGatewayEnsureRunningTests
     public async Task EnsureRunning_WhenProgressObserverConsumesTime_DoesNotConsumeTimeoutBudget ()
     {
         using var scope = TestDirectories.CreateTempScope("supervisor-project-gateway", "ensure-running-progress-timeout");
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var scenario = await SupervisorProjectGatewayTestSupport.CreateManifestBackedScenarioAsync(
             scope.FullPath,
             timeProvider);
@@ -362,7 +362,7 @@ public sealed class SupervisorProjectGatewayEnsureRunningTests
     public async Task EnsureRunning_WhenSupervisorBootstrapFails_EmitsFailedProgressEntry ()
     {
         using var scope = TestDirectories.CreateTempScope("supervisor-project-gateway", "bootstrap-progress-failure");
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var manifestStore = SupervisorManifestStoreTestSupport.CreateFileBacked(timeProvider);
         var transportClient = new StubIpcTransportClient
         {

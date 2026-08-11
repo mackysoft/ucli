@@ -97,10 +97,7 @@ public sealed class FileReadIndexArtifactReaderOpsTests
             AbsolutePath.Parse(scope.FullPath),
             fingerprint,
             generationId);
-        if (!TestSymbolicLinks.TryCreateFile(catalogPath.Value, targetPath))
-        {
-            return;
-        }
+        File.CreateSymbolicLink(catalogPath.Value, targetPath);
 
         var result = await reader.ReadOpsCatalogAsync(project, CancellationToken.None);
 

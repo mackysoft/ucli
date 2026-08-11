@@ -13,7 +13,7 @@ public sealed class SkillsListCliOutputContractTests
     {
         var result = await SkillsCliOutputContractTestSupport.SharedRunner.ListAsync(category: ["basic"]);
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
         CommandResultAssert.HasSuccessEnvelope(
             outputJson.RootElement,
@@ -75,7 +75,7 @@ public sealed class SkillsListCliOutputContractTests
     {
         var result = await SkillsCliOutputContractTestSupport.SharedRunner.ListAsync();
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
         CommandResultAssert.HasSuccessEnvelope(
             outputJson.RootElement,
@@ -102,7 +102,7 @@ public sealed class SkillsListCliOutputContractTests
     {
         var result = await SkillsCliOutputContractTestSupport.SharedRunner.ListAsync(skill: [SkillsCliOutputContractTestSupport.SelectedSingleSkillName]);
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
         CommandResultAssert.HasSuccessEnvelope(
             outputJson.RootElement,
@@ -136,7 +136,7 @@ public sealed class SkillsListCliOutputContractTests
     {
         var result = await SkillsCliOutputContractTestSupport.SharedRunner.ListAsync(category: [category]);
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
         CommandResultAssert.HasInvalidArgumentEnvelope(
             outputJson.RootElement,

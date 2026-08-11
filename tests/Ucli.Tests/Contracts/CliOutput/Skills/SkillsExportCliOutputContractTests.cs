@@ -17,7 +17,7 @@ public sealed class SkillsExportCliOutputContractTests
 
         var result = await RunSkillsExportCommandAsync(outputRoot);
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
         CommandResultAssert.HasSuccessEnvelope(
             outputJson.RootElement,
@@ -53,7 +53,7 @@ public sealed class SkillsExportCliOutputContractTests
             outputRoot,
             skill: [SkillsCliOutputContractTestSupport.SelectedSingleSkillName]);
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
         CommandResultAssert.HasSuccessEnvelope(
             outputJson.RootElement,
@@ -90,7 +90,7 @@ public sealed class SkillsExportCliOutputContractTests
         var first = await RunSkillsExportCommandAsync(firstZip, format: "zip");
         var second = await RunSkillsExportCommandAsync(secondZip, format: "zip");
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(first.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(first.StdOut);
         Assert.Equal((int)CliExitCode.Success, first.ExitCode);
         Assert.Equal((int)CliExitCode.Success, second.ExitCode);
         JsonAssert.For(outputJson.RootElement)
@@ -117,7 +117,7 @@ public sealed class SkillsExportCliOutputContractTests
             scope.GetPath("exported"),
             host: null);
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
         CommandResultAssert.HasInvalidArgumentEnvelope(
             outputJson.RootElement,
@@ -131,7 +131,7 @@ public sealed class SkillsExportCliOutputContractTests
     {
         var result = await RunSkillsExportCommandAsync(outputRoot: null);
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
         CommandResultAssert.HasInvalidArgumentEnvelope(
             outputJson.RootElement,

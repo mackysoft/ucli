@@ -57,33 +57,24 @@ public sealed class DaemonStartupReadinessProbeTimeoutTests
 
         try
         {
-            await TestAwaiter.WaitAsync(pingStarted.Task, "Non-cooperative startup readiness ping", SignalWaitTimeout);
-            await TestAwaiter.WaitAsync(
-                timeProvider.WaitForTimerDueWithinAsync(timeout),
-                "Startup readiness ping deadline timer",
-                SignalWaitTimeout);
+            await pingStarted.Task.WaitAsync(SignalWaitTimeout);
+            await timeProvider.WaitForTimerDueWithinAsync(timeout).WaitAsync(SignalWaitTimeout);
             timeProvider.Advance(timeout);
 
-            var result = await TestAwaiter.WaitAsync(
-                resultTask,
-                "Non-cooperative startup readiness ping deadline result",
-                SignalWaitTimeout);
-            await TestAwaiter.WaitAsync(
-                pingCancellationObserved.Task,
-                "Non-cooperative startup readiness ping cancellation",
-                SignalWaitTimeout);
+            var result = await resultTask.WaitAsync(SignalWaitTimeout);
+            await pingCancellationObserved.Task.WaitAsync(SignalWaitTimeout);
 
             Assert.False(result.IsReady);
             Assert.Equal(ExecutionErrorKind.Timeout, result.Error!.Kind);
 
             pingCompletion.TrySetResult(CreatePingPayload());
-            await TestAwaiter.WaitAsync(pingFinished.Task, "Late startup readiness ping completion", SignalWaitTimeout);
+            await pingFinished.Task.WaitAsync(SignalWaitTimeout);
             Assert.False((await resultTask).IsReady);
         }
         finally
         {
             pingCompletion.TrySetResult(CreatePingPayload());
-            await TestAwaiter.WaitAsync(pingFinished.Task, "Startup readiness ping cleanup", SignalWaitTimeout);
+            await pingFinished.Task.WaitAsync(SignalWaitTimeout);
         }
     }
 
@@ -216,10 +207,7 @@ public sealed class DaemonStartupReadinessProbeTimeoutTests
         await logReadStarted.Task.WaitAsync(TimeSpan.FromSeconds(1));
         await timeProvider.WaitForTimerDueWithinAsync(timeout).WaitAsync(TimeSpan.FromSeconds(1));
         timeProvider.Advance(timeout);
-        var result = await TestAwaiter.WaitAsync(
-            resultTask,
-            "not-running daemon startup timeout",
-            TimeSpan.FromSeconds(5));
+        var result = await resultTask.WaitAsync(TimeSpan.FromSeconds(5));
 
         Assert.False(result.IsReady);
         var error = Assert.IsType<ExecutionError>(result.Error);

@@ -51,7 +51,7 @@ internal static class PlanCommandAssert
             service.Invocations,
             UcliCommandNames.Plan);
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         if (expectedRequestId is not null)
         {
             JsonAssert.For(outputJson.RootElement)

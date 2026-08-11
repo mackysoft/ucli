@@ -18,7 +18,7 @@ public sealed class TestRunCliOutputContractTests
             UcliCommandNames.RunSubcommand,
             UcliContractConstants.CliOption.Unknown);
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
         CommandResultAssert.HasInvalidArgumentEnvelope(
             outputJson.RootElement,
@@ -39,7 +39,7 @@ public sealed class TestRunCliOutputContractTests
         var result = await RunTestRunCommandAsync(
             projectPath: missingProjectPath);
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
         CommandResultAssert.HasInvalidArgumentEnvelope(
             outputJson.RootElement,
@@ -61,7 +61,7 @@ public sealed class TestRunCliOutputContractTests
             "--format",
             "unsupported");
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
         CommandResultAssert.DoesNotReportUnrecognizedArguments(result.StdErr, UcliContractConstants.CliOption.FailFast);
         CommandResultAssert.HasInvalidArgumentEnvelope(
@@ -90,7 +90,7 @@ public sealed class TestRunCliOutputContractTests
         var result = await RunTestRunCommandAsync(
             testPlatform: " ");
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
         CommandResultAssert.HasInvalidArgumentEnvelope(
             outputJson.RootElement,

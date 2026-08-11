@@ -98,10 +98,7 @@ public sealed class OperationCatalogLookupTests
 
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
         {
-            await TestAwaiter.WaitAsync(
-                catalog.GetAllAsync(CancellationToken.None).AsTask(),
-                "Duplicate operation catalog load",
-                AsyncWaitTimeout);
+            await catalog.GetAllAsync(CancellationToken.None).AsTask().WaitAsync(AsyncWaitTimeout);
         });
         Assert.Contains("duplicated", exception.Message, StringComparison.OrdinalIgnoreCase);
     }

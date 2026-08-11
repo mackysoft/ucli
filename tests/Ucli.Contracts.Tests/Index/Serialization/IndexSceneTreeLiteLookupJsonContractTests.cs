@@ -1,6 +1,6 @@
 using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Text;
-using static MackySoft.Tests.JsonTextAssert;
+using static MackySoft.Tests.JsonTextNormalization;
 
 namespace MackySoft.Ucli.Contracts.Tests.Index;
 
@@ -119,7 +119,7 @@ public sealed class IndexSceneTreeLiteLookupJsonContractTests
                     childrenState: IndexSceneTreeLiteNodeChildrenState.Complete),
             ]);
 
-        AssertExactJson(
+        GoldenJsonAssert.Equal(
             ExpectedJson(
                 """
                 {

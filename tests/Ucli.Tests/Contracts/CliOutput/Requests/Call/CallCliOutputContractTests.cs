@@ -16,7 +16,7 @@ public sealed class CallCliOutputContractTests
     {
         var result = await CliInProcessRunner.RunCommandAsync(UcliCommandNames.Call, UcliContractConstants.CliOption.Unknown);
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
         CommandResultAssert.HasInvalidArgumentError(outputJson.RootElement, UcliCommandNames.Call);
         CommandResultAssert.ReportsUnrecognizedArgument(result.StdErr, UcliContractConstants.CliOption.Unknown);
@@ -37,7 +37,7 @@ public sealed class CallCliOutputContractTests
             UcliContractConstants.CliOption.AllowDangerous,
             UcliContractConstants.CliOption.FailFast);
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
         CommandResultAssert.HasInvalidArgumentEnvelope(
             outputJson.RootElement,
@@ -59,7 +59,7 @@ public sealed class CallCliOutputContractTests
             UcliContractConstants.CliOption.ReadIndexMode,
             UcliContractConstants.Config.ReadIndexModeDisabled);
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
         CommandResultAssert.HasInvalidArgumentError(outputJson.RootElement, UcliCommandNames.Call);
         CommandResultAssert.ReportsUnrecognizedArgument(result.StdErr, UcliContractConstants.CliOption.ReadIndexMode);
@@ -78,7 +78,7 @@ public sealed class CallCliOutputContractTests
             projectPath: unityProjectPath,
             mode: "daemon");
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         Assert.Equal((int)CliExitCode.ToolError, result.ExitCode);
         CommandResultAssert.HasStandardEnvelope(
             outputJson.RootElement,
@@ -105,7 +105,7 @@ public sealed class CallCliOutputContractTests
             projectPath: unityProjectPath,
             timeout: "abc");
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
         CommandResultAssert.HasInvalidArgumentEnvelope(
             outputJson.RootElement,

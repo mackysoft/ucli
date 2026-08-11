@@ -78,12 +78,9 @@ public sealed class ProcessRunnerTests
         using var cancellationTokenSource = new CancellationTokenSource();
         cancellationTokenSource.Cancel();
 
-        var result = await TestAwaiter.WaitAsync(
-            runner.RunAsync(
+        var result = await runner.RunAsync(
                 CreateLongRunningRequest(TimeSpan.Zero),
-                cancellationTokenSource.Token),
-            "Process runner caller cancellation race result",
-            SignalWaitTimeout);
+                cancellationTokenSource.Token).WaitAsync(SignalWaitTimeout);
 
         Assert.Equal(ProcessRunStatus.Canceled, result.Status);
         Assert.Null(result.ExitCode);
@@ -96,12 +93,9 @@ public sealed class ProcessRunnerTests
     {
         var runner = new ProcessRunner();
 
-        var result = await TestAwaiter.WaitAsync(
-            runner.RunAsync(
+        var result = await runner.RunAsync(
                 CreateLongRunningRequest(TimeSpan.FromMilliseconds(20)),
-                CancellationToken.None),
-            "Process runner timeout result",
-            SignalWaitTimeout);
+                CancellationToken.None).WaitAsync(SignalWaitTimeout);
 
         Assert.Equal(ProcessRunStatus.TimedOut, result.Status);
         Assert.Null(result.ExitCode);
@@ -123,8 +117,7 @@ public sealed class ProcessRunnerTests
         var invocation = TestProcessInvocations.CreateUnixTermSignalMarkerLoop(markerPath);
         var runner = new ProcessRunner();
 
-        var result = await TestAwaiter.WaitAsync(
-            runner.RunAsync(
+        var result = await runner.RunAsync(
                 new ProcessRunRequest(
                     FileName: invocation.FileName,
                     Arguments: invocation.Arguments,
@@ -134,9 +127,7 @@ public sealed class ProcessRunnerTests
                         ProcessTerminationMode.GracefulThenKill,
                         TimeSpan.FromMilliseconds(250),
                         TimeSpan.FromMilliseconds(250))),
-                CancellationToken.None),
-            "Process runner graceful termination result",
-            SignalWaitTimeout);
+                CancellationToken.None).WaitAsync(SignalWaitTimeout);
 
         Assert.Equal(ProcessRunStatus.TimedOut, result.Status);
         Assert.Equal(ProcessTerminationResult.GracefulExited, result.TerminationResult);
@@ -149,12 +140,9 @@ public sealed class ProcessRunnerTests
     {
         var runner = new ProcessRunner();
 
-        var result = await TestAwaiter.WaitAsync(
-            runner.RunAsync(
+        var result = await runner.RunAsync(
                 CreateGracefulThenKillNonResponsiveRequest(),
-                CancellationToken.None),
-            "Process runner force-kill fallback result",
-            SignalWaitTimeout);
+                CancellationToken.None).WaitAsync(SignalWaitTimeout);
 
         Assert.Equal(ProcessRunStatus.TimedOut, result.Status);
         Assert.Equal(ProcessTerminationResult.ForceKilled, result.TerminationResult);
@@ -171,15 +159,12 @@ public sealed class ProcessRunnerTests
 
         var runner = new ProcessRunner();
 
-        var result = await TestAwaiter.WaitAsync(
-            runner.RunAsync(
+        var result = await runner.RunAsync(
                 CreateExitedProcessWithInheritedOutputHandleRequest(
                     timeout: TimeSpan.FromMilliseconds(250),
                     outputDrainMode: ProcessOutputDrainMode.BestEffort,
                     childLifetime: InheritedOutputHandleLifetime),
-                CancellationToken.None),
-            "Process runner inherited output handle result",
-            TimeSpan.FromSeconds(8));
+                CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(8));
 
         Assert.Equal(ProcessRunStatus.Exited, result.Status);
         Assert.Equal(0, result.ExitCode);
@@ -196,15 +181,12 @@ public sealed class ProcessRunnerTests
 
         var runner = new ProcessRunner();
 
-        var result = await TestAwaiter.WaitAsync(
-            runner.RunAsync(
+        var result = await runner.RunAsync(
                 CreateExitedProcessWithInheritedOutputHandleRequest(
                     timeout: RequiredOutputCompletionTimeout,
                     outputDrainMode: ProcessOutputDrainMode.WaitForCompletion,
                     childLifetime: RequiredOutputCompletionHandleLifetime),
-                CancellationToken.None),
-            "Process runner required output completion timeout result",
-            SignalWaitTimeout);
+                CancellationToken.None).WaitAsync(SignalWaitTimeout);
 
         Assert.Equal(ProcessRunStatus.TimedOut, result.Status);
         Assert.Null(result.ExitCode);

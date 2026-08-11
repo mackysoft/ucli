@@ -18,7 +18,7 @@ public sealed class DaemonListQueryServiceTimeoutTests
     public async Task List_WhenSessionReadOnlyStopsAfterInjectedTimeout_ReturnsPartialSuccess ()
     {
         var currentProject = CreateUnityProject("/repo/wt-current", "UnityProject", "fp-current");
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var sessionReadStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var service = CreateService(
             new RecordingGitWorktreeQueryService(GitWorktreeQueryResult.Success(new GitWorktreeQueryOutput(
@@ -44,10 +44,10 @@ public sealed class DaemonListQueryServiceTimeoutTests
             timeProvider);
 
         var resultTask = service.GetListAsync(currentProject, TimeSpan.FromMilliseconds(150), CancellationToken.None).AsTask();
-        await TestAwaiter.WaitAsync(sessionReadStarted.Task, "Daemon list session read start", SignalWaitTimeout);
+        await sessionReadStarted.Task.WaitAsync(SignalWaitTimeout);
         timeProvider.Advance(TimeSpan.FromMilliseconds(150));
 
-        var result = await TestAwaiter.WaitAsync(resultTask, "Daemon list session read timeout result", SignalWaitTimeout);
+        var result = await resultTask.WaitAsync(SignalWaitTimeout);
 
         Assert.True(result.IsSuccess);
         var output = Assert.IsType<DaemonListExecutionOutput>(result.Output);
@@ -62,7 +62,7 @@ public sealed class DaemonListQueryServiceTimeoutTests
     public async Task List_WhenSessionReadIgnoresCancellation_ReturnsAtSharedDeadline ()
     {
         var currentProject = CreateUnityProject("/repo/wt-current", "UnityProject", "fp-current");
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var sessionReadStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var sessionReadCompletion = new TaskCompletionSource<DaemonSessionReadResult>(TaskCreationOptions.RunContinuationsAsynchronously);
         var service = CreateService(
@@ -92,15 +92,12 @@ public sealed class DaemonListQueryServiceTimeoutTests
                 TimeSpan.FromMilliseconds(150),
                 CancellationToken.None)
             .AsTask();
-        await TestAwaiter.WaitAsync(sessionReadStarted.Task, "Non-cooperative daemon list session read start", SignalWaitTimeout);
+        await sessionReadStarted.Task.WaitAsync(SignalWaitTimeout);
         timeProvider.Advance(TimeSpan.FromMilliseconds(150));
 
         try
         {
-            var result = await TestAwaiter.WaitAsync(
-                resultTask,
-                "Non-cooperative daemon list session read deadline",
-                SignalWaitTimeout);
+            var result = await resultTask.WaitAsync(SignalWaitTimeout);
 
             Assert.True(result.IsSuccess);
             Assert.False(result.Output!.IsComplete);
@@ -118,7 +115,7 @@ public sealed class DaemonListQueryServiceTimeoutTests
     public async Task List_WhenCallerCancellationRacesSessionReadTimeout_RethrowsCancellation ()
     {
         var currentProject = CreateUnityProject("/repo/wt-current", "UnityProject", "fp-current");
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var sessionReadStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         using var cancellationTokenSource = new CancellationTokenSource();
         var service = CreateService(
@@ -149,16 +146,13 @@ public sealed class DaemonListQueryServiceTimeoutTests
                 TimeSpan.FromMilliseconds(150),
                 cancellationTokenSource.Token)
             .AsTask();
-        await TestAwaiter.WaitAsync(sessionReadStarted.Task, "Daemon list session read start", SignalWaitTimeout);
+        await sessionReadStarted.Task.WaitAsync(SignalWaitTimeout);
 
         cancellationTokenSource.Cancel();
         timeProvider.Advance(TimeSpan.FromMilliseconds(150));
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
-            await TestAwaiter.WaitAsync(
-                    resultTask,
-                    "Daemon list session read caller cancellation result",
-                    SignalWaitTimeout)
+            await resultTask.WaitAsync(SignalWaitTimeout)
                 .ConfigureAwait(false));
     }
 
@@ -171,7 +165,7 @@ public sealed class DaemonListQueryServiceTimeoutTests
             projectFingerprint: ProjectFingerprintTestFactory.Create("fp-current"),
             endpointAddress: "endpoint-timeout",
             processId: 2100);
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var probeStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var service = CreateSingleWorktreeService(
             currentProject,
@@ -187,10 +181,10 @@ public sealed class DaemonListQueryServiceTimeoutTests
             timeProvider);
 
         var resultTask = service.GetListAsync(currentProject, TimeSpan.FromMilliseconds(150), CancellationToken.None).AsTask();
-        await TestAwaiter.WaitAsync(probeStarted.Task, "Daemon list probe start", SignalWaitTimeout);
+        await probeStarted.Task.WaitAsync(SignalWaitTimeout);
         timeProvider.Advance(TimeSpan.FromMilliseconds(150));
 
-        var result = await TestAwaiter.WaitAsync(resultTask, "Daemon list probe timeout result", SignalWaitTimeout);
+        var result = await resultTask.WaitAsync(SignalWaitTimeout);
 
         Assert.True(result.IsSuccess);
         var output = Assert.IsType<DaemonListExecutionOutput>(result.Output);
@@ -209,7 +203,7 @@ public sealed class DaemonListQueryServiceTimeoutTests
             projectFingerprint: ProjectFingerprintTestFactory.Create("fp-current"),
             endpointAddress: "endpoint-timeout",
             processId: 2100);
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var probeStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         using var cancellationTokenSource = new CancellationTokenSource();
         var service = CreateSingleWorktreeService(
@@ -230,16 +224,13 @@ public sealed class DaemonListQueryServiceTimeoutTests
                 TimeSpan.FromMilliseconds(150),
                 cancellationTokenSource.Token)
             .AsTask();
-        await TestAwaiter.WaitAsync(probeStarted.Task, "Daemon list probe start", SignalWaitTimeout);
+        await probeStarted.Task.WaitAsync(SignalWaitTimeout);
 
         cancellationTokenSource.Cancel();
         timeProvider.Advance(TimeSpan.FromMilliseconds(150));
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
-            await TestAwaiter.WaitAsync(
-                    resultTask,
-                    "Daemon list probe caller cancellation result",
-                    SignalWaitTimeout)
+            await resultTask.WaitAsync(SignalWaitTimeout)
                 .ConfigureAwait(false));
     }
 
@@ -250,7 +241,7 @@ public sealed class DaemonListQueryServiceTimeoutTests
         var currentProject = CreateUnityProject("/repo/wt-current", "UnityProject", "fp-current");
         var worktreeA = CreateUnityProject("/repo/wt-a", "UnityProject", "fp-a");
         var worktreeB = CreateUnityProject("/repo/wt-b", "UnityProject", "fp-b");
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var gitWorktreeQueryService = new RecordingGitWorktreeQueryService(GitWorktreeQueryResult.Success(new GitWorktreeQueryOutput(
             CurrentWorktreeRoot: currentProject.RepositoryRoot,
             ProjectRelativePath: GuardedRelativePath("UnityProject"),
@@ -316,7 +307,7 @@ public sealed class DaemonListQueryServiceTimeoutTests
             projectFingerprint: currentProject.ProjectFingerprint,
             endpointAddress: "endpoint-unreachable",
             processId: 2501);
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var lifecycleStore = new BlockingDaemonLifecycleStore();
         var service = CreateSingleWorktreeService(
             currentProject,
@@ -328,10 +319,10 @@ public sealed class DaemonListQueryServiceTimeoutTests
             daemonLifecycleStore: lifecycleStore);
 
         var resultTask = service.GetListAsync(currentProject, TimeSpan.FromMilliseconds(150), CancellationToken.None).AsTask();
-        await TestAwaiter.WaitAsync(lifecycleStore.ReadStarted, "Daemon lifecycle read start", SignalWaitTimeout);
+        await lifecycleStore.ReadStarted.WaitAsync(SignalWaitTimeout);
         timeProvider.Advance(TimeSpan.FromMilliseconds(150));
 
-        var result = await TestAwaiter.WaitAsync(resultTask, "Daemon lifecycle read timeout result", SignalWaitTimeout);
+        var result = await resultTask.WaitAsync(SignalWaitTimeout);
 
         AssertSingleWorktreeTimeout(result);
     }
@@ -345,7 +336,7 @@ public sealed class DaemonListQueryServiceTimeoutTests
             projectFingerprint: currentProject.ProjectFingerprint,
             endpointAddress: "endpoint-unreachable",
             processId: 2502);
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var diagnosisStore = new BlockingDaemonDiagnosisStore();
         var service = CreateSingleWorktreeService(
             currentProject,
@@ -356,10 +347,10 @@ public sealed class DaemonListQueryServiceTimeoutTests
             timeProvider);
 
         var resultTask = service.GetListAsync(currentProject, TimeSpan.FromMilliseconds(150), CancellationToken.None).AsTask();
-        await TestAwaiter.WaitAsync(diagnosisStore.ReadStarted, "Daemon diagnosis read start", SignalWaitTimeout);
+        await diagnosisStore.ReadStarted.WaitAsync(SignalWaitTimeout);
         timeProvider.Advance(TimeSpan.FromMilliseconds(150));
 
-        var result = await TestAwaiter.WaitAsync(resultTask, "Daemon diagnosis read timeout result", SignalWaitTimeout);
+        var result = await resultTask.WaitAsync(SignalWaitTimeout);
 
         AssertSingleWorktreeTimeout(result);
     }
@@ -373,7 +364,7 @@ public sealed class DaemonListQueryServiceTimeoutTests
             projectFingerprint: currentProject.ProjectFingerprint,
             endpointAddress: "endpoint-unreachable",
             processId: 2503);
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var diagnosisResolutionStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var diagnosisResolver = new RecordingDaemonSessionDiagnosisResolver
         {
@@ -394,10 +385,10 @@ public sealed class DaemonListQueryServiceTimeoutTests
             daemonSessionDiagnosisResolver: diagnosisResolver);
 
         var resultTask = service.GetListAsync(currentProject, TimeSpan.FromMilliseconds(150), CancellationToken.None).AsTask();
-        await TestAwaiter.WaitAsync(diagnosisResolutionStarted.Task, "Daemon diagnosis resolution start", SignalWaitTimeout);
+        await diagnosisResolutionStarted.Task.WaitAsync(SignalWaitTimeout);
         timeProvider.Advance(TimeSpan.FromMilliseconds(150));
 
-        var result = await TestAwaiter.WaitAsync(resultTask, "Daemon diagnosis resolution timeout result", SignalWaitTimeout);
+        var result = await resultTask.WaitAsync(SignalWaitTimeout);
 
         AssertSingleWorktreeTimeout(result);
     }
@@ -411,7 +402,7 @@ public sealed class DaemonListQueryServiceTimeoutTests
             projectFingerprint: currentProject.ProjectFingerprint,
             endpointAddress: "endpoint-unreachable",
             processId: 2504);
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var diagnosisResolutionStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var diagnosisResolver = new RecordingDaemonSessionDiagnosisResolver
         {
@@ -437,14 +428,11 @@ public sealed class DaemonListQueryServiceTimeoutTests
                 TimeSpan.FromMilliseconds(150),
                 cancellationTokenSource.Token)
             .AsTask();
-        await TestAwaiter.WaitAsync(diagnosisResolutionStarted.Task, "Daemon diagnosis resolution start", SignalWaitTimeout);
+        await diagnosisResolutionStarted.Task.WaitAsync(SignalWaitTimeout);
         cancellationTokenSource.Cancel();
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
-            await TestAwaiter.WaitAsync(
-                    resultTask,
-                    "Daemon diagnosis resolution caller cancellation result",
-                    SignalWaitTimeout)
+            await resultTask.WaitAsync(SignalWaitTimeout)
                 .ConfigureAwait(false));
     }
 

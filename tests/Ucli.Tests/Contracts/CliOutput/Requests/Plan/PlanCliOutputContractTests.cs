@@ -15,7 +15,7 @@ public sealed class PlanCliOutputContractTests
     {
         var result = await CliInProcessRunner.RunCommandAsync(UcliCommandNames.Plan, UcliContractConstants.CliOption.Unknown);
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
         CommandResultAssert.HasInvalidArgumentError(outputJson.RootElement, UcliCommandNames.Plan);
         CommandResultAssert.ReportsUnrecognizedArgument(result.StdErr, UcliContractConstants.CliOption.Unknown);
@@ -27,7 +27,7 @@ public sealed class PlanCliOutputContractTests
     {
         var result = await RunPlanCommandAsync("""{}""");
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
         CommandResultAssert.HasInvalidArgumentError(outputJson.RootElement, UcliCommandNames.Plan);
         Assert.Contains(
@@ -49,7 +49,7 @@ public sealed class PlanCliOutputContractTests
             UcliContractConstants.CliOption.ReadIndexMode,
             "unsupported");
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
         CommandResultAssert.DoesNotReportUnrecognizedArguments(result.StdErr, UcliContractConstants.CliOption.FailFast);
         CommandResultAssert.HasInvalidArgumentError(outputJson.RootElement, UcliCommandNames.Plan);
@@ -68,7 +68,7 @@ public sealed class PlanCliOutputContractTests
             readIndexMode: UcliContractConstants.Config.ReadIndexModeDisabled,
             timeout: "abc");
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
         CommandResultAssert.HasInvalidArgumentError(outputJson.RootElement, UcliCommandNames.Plan);
         JsonAssert.For(outputJson.RootElement)
@@ -112,7 +112,7 @@ public sealed class PlanCliOutputContractTests
             readIndexMode: UcliContractConstants.Config.ReadIndexModeDisabled,
             mode: "daemon");
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         Assert.Equal((int)CliExitCode.ToolError, result.ExitCode);
         CommandResultAssert.HasStandardEnvelope(
             outputJson.RootElement,

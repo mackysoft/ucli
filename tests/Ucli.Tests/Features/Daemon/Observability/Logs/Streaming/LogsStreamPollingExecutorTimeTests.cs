@@ -40,7 +40,7 @@ public sealed class LogsStreamPollingExecutorTimeTests
         Assert.Equal(2, daemonLogsClient.Invocations.Count);
 
         cancellationTokenSource.Cancel();
-        var result = await TestAwaiter.WaitAsync(resultTask, "log stream cancellation", TestTimeout);
+        var result = await resultTask.WaitAsync(TestTimeout);
         Assert.Equal(LogsReadCompletionReason.Canceled, result.CompletionReason);
     }
 
@@ -68,7 +68,7 @@ public sealed class LogsStreamPollingExecutorTimeTests
         Assert.False(resultTask.IsCompleted);
 
         timeProvider.Advance(PollInterval);
-        var result = await TestAwaiter.WaitAsync(resultTask, "idle log stream completion", TestTimeout);
+        var result = await resultTask.WaitAsync(TestTimeout);
 
         Assert.Equal(LogsReadCompletionReason.IdleTimeout, result.CompletionReason);
         Assert.Equal(3, daemonLogsClient.Invocations.Count);
@@ -97,7 +97,7 @@ public sealed class LogsStreamPollingExecutorTimeTests
         timeProvider.ShiftUtc(TimeSpan.FromHours(2));
         timeProvider.Advance(PollInterval);
 
-        var result = await TestAwaiter.WaitAsync(resultTask, "until-bounded log stream completion", TestTimeout);
+        var result = await resultTask.WaitAsync(TestTimeout);
 
         Assert.Equal(LogsReadCompletionReason.UntilReached, result.CompletionReason);
         Assert.Equal(2, daemonLogsClient.Invocations.Count);

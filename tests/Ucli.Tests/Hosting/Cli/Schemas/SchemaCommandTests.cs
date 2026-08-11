@@ -19,7 +19,7 @@ public sealed class SchemaCommandTests
             () => command.List(CancellationToken.None));
 
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         CommandResultAssert.HasSuccessEnvelope(outputJson.RootElement, UcliCommandNames.SchemaList);
         var actualManifest = JsonNode.Parse(outputJson.RootElement.GetProperty("payload").GetRawText());
         Assert.True(JsonNode.DeepEquals(expectedManifest, actualManifest));
@@ -42,7 +42,7 @@ public sealed class SchemaCommandTests
             () => command.Get(logicalName, CancellationToken.None));
 
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         CommandResultAssert.HasSuccessEnvelope(outputJson.RootElement, UcliCommandNames.SchemaGet);
         var payload = outputJson.RootElement.GetProperty("payload");
         Assert.Equal(logicalName, payload.GetProperty("name").GetString());
@@ -95,7 +95,7 @@ public sealed class SchemaCommandTests
             () => command.Export(AbsolutePath.Parse(destination), CancellationToken.None));
 
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         CommandResultAssert.HasSuccessEnvelope(outputJson.RootElement, UcliCommandNames.SchemaExport);
         var payload = outputJson.RootElement.GetProperty("payload");
         Assert.Equal(Path.GetFullPath(destination), payload.GetProperty("outputPath").GetString());

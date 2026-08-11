@@ -99,7 +99,7 @@ public sealed class PlayEnterServiceReconnectTests
             CreateGuiSessionStore(),
             requestExecutor,
             hostExitTerminalizer: terminalizer,
-            timeProvider: new ManualTimeProvider(
+            timeProvider: new FakeTimeProvider(
                 start.DeadlineUtc));
 
         var result = await service.ExecuteAsync(

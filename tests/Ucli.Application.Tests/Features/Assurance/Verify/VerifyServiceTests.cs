@@ -54,9 +54,9 @@ public sealed class VerifyServiceTests
 
         var completedWithoutProgress = Assert.IsType<VerifyExecutionResult.CompletedResult>(withoutProgress);
         var completedWithProgress = Assert.IsType<VerifyExecutionResult.CompletedResult>(withProgress);
-        Assert.Equal(
-            JsonSerializer.Serialize(completedWithoutProgress.Output),
-            JsonSerializer.Serialize(completedWithProgress.Output));
+        Assert.True(JsonNode.DeepEquals(
+            JsonSerializer.SerializeToNode(completedWithoutProgress.Output),
+            JsonSerializer.SerializeToNode(completedWithProgress.Output)));
         Assert.NotEmpty(progressSink.Entries);
     }
 
@@ -230,7 +230,7 @@ public sealed class VerifyServiceTests
     public async Task Execute_WhenReadyConsumesTimeoutBudget_PassesRemainingTimeoutToCompile ()
     {
         using var scope = TestDirectories.CreateTempScope("ucli-verify", nameof(Execute_WhenReadyConsumesTimeoutBudget_PassesRemainingTimeoutToCompile));
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var project = ProjectIdentityInfoTestFactory.CreateForRepositoryRoot(scope.FullPath);
         var readyService = new RecordingVerifyReadyService(input =>
         {
@@ -264,7 +264,7 @@ public sealed class VerifyServiceTests
     public async Task Execute_WhenRemainingTimeoutIsSubMillisecond_RoundsStepTimeoutUp ()
     {
         using var scope = TestDirectories.CreateTempScope("ucli-verify", nameof(Execute_WhenRemainingTimeoutIsSubMillisecond_RoundsStepTimeoutUp));
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var project = ProjectIdentityInfoTestFactory.CreateForRepositoryRoot(scope.FullPath);
         var readyService = new RecordingVerifyReadyService(input =>
         {
@@ -297,7 +297,7 @@ public sealed class VerifyServiceTests
     public async Task Execute_WhenLogsStepExceedsRemainingTimeout_ReturnsTimeoutFailure ()
     {
         using var scope = TestDirectories.CreateTempScope("ucli-verify", nameof(Execute_WhenLogsStepExceedsRemainingTimeout_ReturnsTimeoutFailure));
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var project = ProjectIdentityInfoTestFactory.CreateForRepositoryRoot(scope.FullPath);
         var compileService = new RecordingVerifyCompileService(_ =>
         {
@@ -334,7 +334,7 @@ public sealed class VerifyServiceTests
     public async Task Execute_WhenStepReturnsSuccessAfterDeadline_ReturnsTimeoutFailure ()
     {
         using var scope = TestDirectories.CreateTempScope("ucli-verify", nameof(Execute_WhenStepReturnsSuccessAfterDeadline_ReturnsTimeoutFailure));
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var project = ProjectIdentityInfoTestFactory.CreateForRepositoryRoot(scope.FullPath);
         var compileService = new RecordingVerifyCompileService(_ =>
         {

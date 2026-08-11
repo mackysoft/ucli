@@ -49,7 +49,9 @@ public sealed class UnityIpcRequestFactoryDeadlineTests
 
         Assert.Equal(RequestDeadlineUtc, request.RequestDeadlineUtc);
         Assert.Equal(1234, request.RequestDeadlineRemainingMilliseconds);
-        Assert.Equal(payload.GetRawText(), request.Payload.GetRawText());
+        Assert.True(JsonNode.DeepEquals(
+            JsonNode.Parse(payload.GetRawText()),
+            JsonNode.Parse(request.Payload.GetRawText())));
         Assert.False(request.Payload.TryGetProperty("timeoutMilliseconds", out _));
     }
 }

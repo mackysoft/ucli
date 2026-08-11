@@ -57,20 +57,11 @@ public sealed class DaemonStopOperationTimeoutTests
             .AsTask();
         try
         {
-            await TestAwaiter.WaitAsync(readStarted.Task, "Non-cooperative stop session read", SignalWaitTimeout);
-            await TestAwaiter.WaitAsync(
-                timeProvider.WaitForTimerDueWithinAsync(timeout),
-                "Stop session read deadline timer",
-                SignalWaitTimeout);
+            await readStarted.Task.WaitAsync(SignalWaitTimeout);
+            await timeProvider.WaitForTimerDueWithinAsync(timeout).WaitAsync(SignalWaitTimeout);
             timeProvider.Advance(timeout);
-            var result = await TestAwaiter.WaitAsync(
-                resultTask,
-                "Stop session read deadline result",
-                SignalWaitTimeout);
-            await TestAwaiter.WaitAsync(
-                readCancellationObserved.Task,
-                "Stop session read cancellation",
-                SignalWaitTimeout);
+            var result = await resultTask.WaitAsync(SignalWaitTimeout);
+            await readCancellationObserved.Task.WaitAsync(SignalWaitTimeout);
 
             Assert.False(result.IsSuccess);
             Assert.Equal(ExecutionErrorKind.Timeout, result.Error!.Kind);
@@ -82,7 +73,7 @@ public sealed class DaemonStopOperationTimeoutTests
         finally
         {
             readCompletion.TrySetResult(DaemonSessionReadResult.Missing());
-            await TestAwaiter.WaitAsync(readFinished.Task, "Stop session read completion", SignalWaitTimeout);
+            await readFinished.Task.WaitAsync(SignalWaitTimeout);
         }
     }
 

@@ -50,14 +50,14 @@ public sealed class SupervisorBootstrapperLaunchRecoveryTests
                 TimeSpan.FromSeconds(30),
                 CancellationToken.None)
             .AsTask();
-        await TestAwaiter.WaitAsync(launchStarted.Task, "Supervisor delayed manifest launch start", SupervisorBootstrapperTestSupport.SignalWaitTimeout);
+        await launchStarted.Task.WaitAsync(SupervisorBootstrapperTestSupport.SignalWaitTimeout);
         await ManualTimeTaskDriver.AdvanceUntilCompletedAsync(
             timeProvider,
             resultTask,
             SupervisorConstants.BootstrapPollDelay + SupervisorConstants.BootstrapPollDelay,
             SupervisorConstants.BootstrapPollDelay);
 
-        var result = await TestAwaiter.WaitAsync(resultTask, "Supervisor delayed manifest result", SupervisorBootstrapperTestSupport.SignalWaitTimeout);
+        var result = await resultTask.WaitAsync(SupervisorBootstrapperTestSupport.SignalWaitTimeout);
 
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Manifest);
@@ -148,7 +148,7 @@ public sealed class SupervisorBootstrapperLaunchRecoveryTests
             }
         }
 
-        var result = await TestAwaiter.WaitAsync(resultTask, "Supervisor relaunch success result", SupervisorBootstrapperTestSupport.SignalWaitTimeout);
+        var result = await resultTask.WaitAsync(SupervisorBootstrapperTestSupport.SignalWaitTimeout);
 
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Manifest);
@@ -215,7 +215,7 @@ public sealed class SupervisorBootstrapperLaunchRecoveryTests
             }
         }
 
-        var result = await TestAwaiter.WaitAsync(resultTask, "Supervisor manifest publication failure result", SupervisorBootstrapperTestSupport.SignalWaitTimeout);
+        var result = await resultTask.WaitAsync(SupervisorBootstrapperTestSupport.SignalWaitTimeout);
 
         Assert.False(result.IsSuccess);
         Assert.NotNull(result.Error);
@@ -271,10 +271,7 @@ public sealed class SupervisorBootstrapperLaunchRecoveryTests
             timeProvider.Advance(SupervisorConstants.ManifestPublicationTimeout);
         }
 
-        var result = await TestAwaiter.WaitAsync(
-            resultTask,
-            "Supervisor rollback failure result",
-            SupervisorBootstrapperTestSupport.SignalWaitTimeout);
+        var result = await resultTask.WaitAsync(SupervisorBootstrapperTestSupport.SignalWaitTimeout);
 
         Assert.False(result.IsSuccess);
         Assert.Equal("Injected rollback failure.", result.Error!.Message);
@@ -288,7 +285,7 @@ public sealed class SupervisorBootstrapperLaunchRecoveryTests
     public async Task EnsureReady_WhenFailedLaunchRetainsGenerationLease_RollsItBackBeforeReturning ()
     {
         using var scope = TestDirectories.CreateTempScope("supervisor-bootstrapper", "failed-launch-lease");
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var launchLease = new RecordingSupervisorProcessLaunchLease();
         var launchError = ExecutionError.InternalError("Injected launch failure with unresolved ownership.");
         var processManager = new RecordingSupervisorProcessManager

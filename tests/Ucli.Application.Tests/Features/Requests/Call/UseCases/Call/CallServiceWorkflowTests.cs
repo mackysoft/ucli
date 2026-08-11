@@ -41,7 +41,7 @@ public sealed class CallServiceWorkflowTests
         {
             Result = PhaseExecutionPreflightResult.Success(preparedRequest),
         };
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var service = CreateService(
             PhaseExecutionPreflightResult.Success(preparedRequest),
             ipcRequestExecutor,
@@ -211,7 +211,7 @@ public sealed class CallServiceWorkflowTests
                     ],
                     errors: [],
                     planToken: null)));
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var service = CreateService(
             PhaseExecutionPreflightResult.Success(preparedRequest),
             ipcRequestExecutor,

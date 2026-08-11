@@ -19,7 +19,7 @@ public sealed class DaemonExistingSessionGateServiceRunningTests
         var result = await service.TryHandleExistingSessionAsync(
             ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-existing-running")),
             session,
-            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new ManualTimeProvider()),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new FakeTimeProvider(DateTimeOffset.UnixEpoch)),
             editorMode: null,
             cancellationToken: CancellationToken.None);
 
@@ -45,7 +45,7 @@ public sealed class DaemonExistingSessionGateServiceRunningTests
         var result = await service.TryHandleExistingSessionAsync(
             ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-existing-running-capped")),
             session,
-            ExecutionDeadline.Start(TimeSpan.FromSeconds(5), new ManualTimeProvider()),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(5), new FakeTimeProvider(DateTimeOffset.UnixEpoch)),
             editorMode: null,
             cancellationToken: CancellationToken.None);
 
@@ -67,7 +67,7 @@ public sealed class DaemonExistingSessionGateServiceRunningTests
         var result = await service.TryHandleExistingSessionAsync(
             ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-existing-running-compiling")),
             session,
-            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new ManualTimeProvider()),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new FakeTimeProvider(DateTimeOffset.UnixEpoch)),
             editorMode: null,
             cancellationToken: CancellationToken.None);
 
@@ -90,7 +90,7 @@ public sealed class DaemonExistingSessionGateServiceRunningTests
         var result = await service.TryHandleExistingSessionAsync(
             ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-existing-running-mismatch")),
             session,
-            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new ManualTimeProvider()),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new FakeTimeProvider(DateTimeOffset.UnixEpoch)),
             editorMode: UnityEditorMode.Gui,
             cancellationToken: CancellationToken.None);
 

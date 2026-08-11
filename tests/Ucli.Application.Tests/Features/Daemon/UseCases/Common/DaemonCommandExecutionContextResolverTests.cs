@@ -106,14 +106,11 @@ public sealed class DaemonCommandExecutionContextResolverTests
 
         await Assert.ThrowsAsync<ArgumentNullException>(async () =>
         {
-            await TestAwaiter.WaitAsync(
-                resolver.ResolveAsync(
+            await resolver.ResolveAsync(
                     timeoutCommand: null!,
                     projectPath: null,
                     timeoutMilliseconds: null,
-                    cancellationToken: CancellationToken.None).AsTask(),
-                "Invalid daemon timeout command resolution",
-                AsyncWaitTimeout);
+                    cancellationToken: CancellationToken.None).AsTask().WaitAsync(AsyncWaitTimeout);
         });
     }
 }

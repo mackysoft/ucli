@@ -28,7 +28,7 @@ internal static class DaemonLaunchServiceBatchmodeReadinessFailureTestSupport
             projectFingerprint: context.ProjectFingerprint,
             endpointAddress: LaunchEndpointAddress);
         var startedAtUtc = processStartedAtUtc ?? DefaultProcessStartedAtUtc;
-        var timeProvider = new ManualTimeProvider(startedAtUtc);
+        var timeProvider = new FakeTimeProvider(startedAtUtc);
         var updatedSession = DaemonSessionTestFactory.Create(
             processId: processId,
             sessionToken: LaunchSessionToken,

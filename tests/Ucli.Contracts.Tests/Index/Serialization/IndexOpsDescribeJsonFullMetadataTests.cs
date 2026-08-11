@@ -57,11 +57,11 @@ public sealed class IndexOpsDescribeJsonFullMetadataTests
         Assert.Equal(
             expected.ContractDigest.ToString(),
             actual.GetProperty("contractDigest").GetString());
-        Assert.Equal(
-            expected.TypeMetadata.GetRawText(),
-            JsonSerializer.Serialize(actual.GetProperty("typeMetadata")));
-        Assert.Equal(
-            expected.Schema.GetRawText(),
-            JsonSerializer.Serialize(actual.GetProperty("schema")));
+        Assert.True(JsonNode.DeepEquals(
+            JsonNode.Parse(expected.TypeMetadata.GetRawText()),
+            JsonNode.Parse(actual.GetProperty("typeMetadata").GetRawText())));
+        Assert.True(JsonNode.DeepEquals(
+            JsonNode.Parse(expected.Schema.GetRawText()),
+            JsonNode.Parse(actual.GetProperty("schema").GetRawText())));
     }
 }

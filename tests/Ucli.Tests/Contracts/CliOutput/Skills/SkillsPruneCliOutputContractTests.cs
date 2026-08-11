@@ -23,7 +23,7 @@ public sealed class SkillsPruneCliOutputContractTests
             serviceProvider: serviceProvider,
             skill: [SkillsCliOutputContractTestSupport.SelectedSingleSkillName]);
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
         CommandResultAssert.HasSuccessEnvelope(
             outputJson.RootElement,
@@ -60,7 +60,7 @@ public sealed class SkillsPruneCliOutputContractTests
             repoRoot,
             skill: [SkillsCliOutputContractTestSupport.SelectedSingleSkillName]);
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
         JsonAssert.For(outputJson.RootElement)
             .HasProperty("payload", payload => payload

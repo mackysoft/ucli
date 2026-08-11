@@ -2399,13 +2399,9 @@ public sealed class FileLifecycleExecutionStoreTests
         LifecycleExecutionTerminalRecord? actual)
     {
         Assert.NotNull(actual);
-        Assert.Equal(
-            JsonSerializer.SerializeToUtf8Bytes<LifecycleExecutionTerminalRecord>(
-                expected,
-                IpcJsonSerializerOptions.Default),
-            JsonSerializer.SerializeToUtf8Bytes<LifecycleExecutionTerminalRecord>(
-                actual,
-                IpcJsonSerializerOptions.Default));
+        Assert.True(JsonNode.DeepEquals(
+            JsonSerializer.SerializeToNode(expected, IpcJsonSerializerOptions.Default),
+            JsonSerializer.SerializeToNode(actual, IpcJsonSerializerOptions.Default)));
     }
 
     private static ValueTask<LifecycleExecutionStartResult> StartAsync (

@@ -35,7 +35,7 @@ public sealed class RefreshCommandPayloadTests
             cancellationToken: CancellationToken.None));
 
         Assert.Equal((int)CliExitCode.ToolError, result.ExitCode);
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         CommandResultAssert.HasStandardEnvelope(
             outputJson.RootElement,
             UcliCommandNames.Refresh,
@@ -78,7 +78,7 @@ public sealed class RefreshCommandPayloadTests
             command.RefreshAsync(cancellationToken: CancellationToken.None));
 
         Assert.Equal((int)CliExitCode.ToolError, result.ExitCode);
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(
+        using var outputJson = JsonAssert.ParseMultilineObject(
             result.StdOut);
         var payload = outputJson.RootElement.GetProperty("payload");
         Assert.False(payload.TryGetProperty("result", out _));
@@ -111,7 +111,7 @@ public sealed class RefreshCommandPayloadTests
             cancellationToken: CancellationToken.None));
 
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
         JsonAssert.For(outputJson.RootElement.GetProperty("payload"))
             .HasProperty("readPostcondition", readPostconditionElement => readPostconditionElement
                 .HasArrayLength("requirements", 1)
