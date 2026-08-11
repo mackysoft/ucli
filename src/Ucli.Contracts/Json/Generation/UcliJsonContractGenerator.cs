@@ -66,6 +66,28 @@ public static class UcliJsonContractGenerator
     }
 
     /// <summary>
+    /// Generates one operation args or result contract with operation-owned scalar metadata.
+    /// </summary>
+    /// <param name="contractId"> The product-assigned stable contract identifier. </param>
+    /// <param name="typeInfo"> The effective serializer contract used by the operation at runtime. </param>
+    /// <param name="documentOptions"> The product-owned projection options. </param>
+    /// <returns> The provider result that contains one immutable Contract Model and both deterministic projections. </returns>
+    internal static JsonContractGenerationResult GenerateWithOperationContractProfile (
+        string contractId,
+        JsonTypeInfo typeInfo,
+        JsonSchemaDocumentOptions documentOptions)
+    {
+        return CreateGenerator(
+            JsonContractMetadataProfile.OperationContract,
+            lifecycleExecutionKind: null,
+            commandResultStatus: null).Generate(
+            new JsonContractGenerationRequest(
+                contractId,
+                typeInfo,
+                documentOptions));
+    }
+
+    /// <summary>
     /// Generates one action-specific Lifecycle Execution CLI output contract.
     /// </summary>
     /// <param name="contractId"> The product-assigned stable contract identifier. </param>
@@ -273,6 +295,16 @@ public static class UcliJsonContractGenerator
             return registry;
         }
 
+        if (profile == JsonContractMetadataProfile.OperationContract)
+        {
+            EnsureLifecycleExecutionSelectorsAreAbsent(
+                lifecycleExecutionKind,
+                commandResultStatus,
+                "The operation contract profile cannot include Lifecycle Execution selectors.");
+            return registry.RegisterAttributeInterpreter<UcliInt32MinimumAttribute, int>(
+                new UcliInt32MinimumAttributeInterpreter());
+        }
+
         if (profile == JsonContractMetadataProfile.GameViewRecordingRequest)
         {
             EnsureLifecycleExecutionSelectorsAreAbsent(
@@ -412,6 +444,8 @@ public static class UcliJsonContractGenerator
         GameViewRecordingOutput = 6,
 
         PixelDimensions = 7,
+
+        OperationContract = 8,
     }
 
     private static IReadOnlyList<IJsonContractTypeMapper> CreateTypeMappers (

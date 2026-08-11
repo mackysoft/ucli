@@ -88,7 +88,7 @@ public static class UcliOperationJsonContractGenerator
         string contractId,
         JsonTypeInfo typeInfo)
     {
-        return UcliJsonContractGenerator.Generate(
+        return UcliJsonContractGenerator.GenerateWithOperationContractProfile(
             contractId,
             typeInfo,
             DocumentOptions);
