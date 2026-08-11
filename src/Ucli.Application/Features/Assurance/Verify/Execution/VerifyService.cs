@@ -12,9 +12,11 @@ using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Common;
 using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Unity;
 using MackySoft.Ucli.Application.Features.Testing.Run.UseCases.TestRun;
 using MackySoft.Ucli.Application.Shared.Context;
+using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Application.Shared.Execution.Progress;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Cryptography;
+using MackySoft.Ucli.Contracts.Execution;
 
 namespace MackySoft.Ucli.Application.Features.Assurance.Verify.Execution;
 
@@ -34,6 +36,8 @@ internal sealed class VerifyService : IVerifyService
 
     private readonly ICompileService compileService;
 
+    private readonly ILifecycleExecutionStartInvocationFactory invocationFactory;
+
     private readonly ITestRunService testRunService;
 
     private readonly ILogsUnityService logsUnityService;
@@ -49,6 +53,7 @@ internal sealed class VerifyService : IVerifyService
         IProjectContextResolver projectContextResolver,
         IReadyService readyService,
         ICompileService compileService,
+        ILifecycleExecutionStartInvocationFactory invocationFactory,
         ITestRunService testRunService,
         ILogsUnityService logsUnityService,
         IVerifyProfileFileReader profileFileReader,
@@ -58,6 +63,7 @@ internal sealed class VerifyService : IVerifyService
         this.projectContextResolver = projectContextResolver ?? throw new ArgumentNullException(nameof(projectContextResolver));
         this.readyService = readyService ?? throw new ArgumentNullException(nameof(readyService));
         this.compileService = compileService ?? throw new ArgumentNullException(nameof(compileService));
+        this.invocationFactory = invocationFactory ?? throw new ArgumentNullException(nameof(invocationFactory));
         this.testRunService = testRunService ?? throw new ArgumentNullException(nameof(testRunService));
         this.logsUnityService = logsUnityService ?? throw new ArgumentNullException(nameof(logsUnityService));
         this.profileFileReader = profileFileReader ?? throw new ArgumentNullException(nameof(profileFileReader));
@@ -412,14 +418,25 @@ internal sealed class VerifyService : IVerifyService
         VerifyPacketBuilder builder,
         CancellationToken cancellationToken)
     {
-        var result = await compileService.ExecuteAsync(
-                new CompileCommandInput(
-                    ProjectPath: input.ProjectPath,
-                    Mode: input.Mode,
-                    TimeoutMilliseconds: ToTimeoutMilliseconds(timeout)),
-                progressSink: null,
+        var invocationResult = await invocationFactory.CreateAsync(
+                input.ProjectPath,
+                input.Mode ?? UnityExecutionMode.Auto,
+                ToTimeoutMilliseconds(timeout),
+                UcliCommandIds.Compile,
+                decideMode: true,
                 cancellationToken)
             .ConfigureAwait(false);
+        var result = invocationResult.IsSuccess
+            ? await compileService.StartAsync(
+                    invocationResult.Invocation!,
+                    progressSink: null,
+                    cancellationToken)
+                .ConfigureAwait(false)
+            : CompileExecutionResult.Failed(
+                invocationResult.Failure!,
+                invocationResult.Project,
+                lifecycleExecutionRef: null,
+                ExecutionApplicationState.NotApplied);
         if (result is CompileExecutionResult.FailedResult failed)
         {
             return VerifyStepExecutionResult.FromFailure(failed.Failure);

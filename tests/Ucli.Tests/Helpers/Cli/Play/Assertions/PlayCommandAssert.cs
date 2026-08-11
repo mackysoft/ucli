@@ -1,5 +1,3 @@
-using MackySoft.Ucli.Application.Features.Play.UseCases.Enter;
-using MackySoft.Ucli.Application.Features.Play.UseCases.Exit;
 using MackySoft.Ucli.Application.Features.Play.UseCases.Status;
 
 namespace MackySoft.Tests;
@@ -8,34 +6,32 @@ internal static class PlayCommandAssert
 {
     public static void EnterSucceededWithDispatchedInput (
         CommandExecutionResult result,
-        RecordingPlayEnterService service,
+        RecordingLifecycleExecutionCliInvocationFactory invocationFactory,
         CancellationToken expectedCancellationToken,
         string expectedProjectPath,
         int expectedTimeoutMilliseconds)
     {
-        SucceededWithDispatchedInput(
+        SucceededWithPlayStart(
             result,
-            service.Invocations,
+            invocationFactory.PlayEnterRequests,
             expectedCancellationToken,
-            new PlayEnterCommandInput(
-                expectedProjectPath,
-                expectedTimeoutMilliseconds));
+            expectedProjectPath,
+            expectedTimeoutMilliseconds);
     }
 
     public static void ExitSucceededWithDispatchedInput (
         CommandExecutionResult result,
-        RecordingPlayExitService service,
+        RecordingLifecycleExecutionCliInvocationFactory invocationFactory,
         CancellationToken expectedCancellationToken,
         string expectedProjectPath,
         int expectedTimeoutMilliseconds)
     {
-        SucceededWithDispatchedInput(
+        SucceededWithPlayStart(
             result,
-            service.Invocations,
+            invocationFactory.PlayExitRequests,
             expectedCancellationToken,
-            new PlayExitCommandInput(
-                expectedProjectPath,
-                expectedTimeoutMilliseconds));
+            expectedProjectPath,
+            expectedTimeoutMilliseconds);
     }
 
     public static void StatusSucceededWithDispatchedInput (
@@ -96,6 +92,20 @@ internal static class PlayCommandAssert
         var invocation = Assert.Single(invocations);
         Assert.Equal(expectedCancellationToken, invocation.CancellationToken);
         Assert.Equal(expectedInput, invocation.Input);
+    }
+
+    private static void SucceededWithPlayStart (
+        CommandExecutionResult result,
+        IReadOnlyList<RecordingLifecycleExecutionCliInvocationFactory.PlayStartRequest> requests,
+        CancellationToken expectedCancellationToken,
+        string expectedProjectPath,
+        int expectedTimeoutMilliseconds)
+    {
+        Assert.Equal((int)CliExitCode.Success, result.ExitCode);
+        var request = Assert.Single(requests);
+        Assert.Equal(expectedCancellationToken, request.CancellationToken);
+        Assert.Equal(expectedProjectPath, request.ProjectPath);
+        Assert.Equal(expectedTimeoutMilliseconds, request.TimeoutMilliseconds);
     }
 
     private static void HasEmptyTransitionErrorPayload (

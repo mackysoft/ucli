@@ -11,8 +11,9 @@ public sealed class RefreshCommandDispatchTests
     [Trait("Size", "Small")]
     public async Task Refresh_MapsOptionsToServiceInputAndCancellationToken ()
     {
-        var service = new RecordingRefreshService((_, _) => ValueTask.FromResult(CreateSuccessResult()));
-        var command = new RefreshCommand(service, CommandResultTestWriter.Create());
+        var service = new RecordingRefreshService((_, _, _, _) => ValueTask.FromResult(CreateSuccessResult()));
+        var invocationFactory = new RecordingLifecycleExecutionCliInvocationFactory();
+        var command = new RefreshCommand(service, CommandResultTestWriter.Create(), invocationFactory);
         using var cancellationTokenSource = new CancellationTokenSource();
 
         var result = await CommandResultCapture.ExecuteAsync(() => command.RefreshAsync(
@@ -25,6 +26,7 @@ public sealed class RefreshCommandDispatchTests
         RefreshCommandAssert.SucceededWithDispatchedInput(
             result,
             service,
+            invocationFactory,
             cancellationTokenSource.Token,
             "/repo/UnityProject",
             UnityExecutionMode.Oneshot,

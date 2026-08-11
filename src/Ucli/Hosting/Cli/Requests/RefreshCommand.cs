@@ -1,5 +1,7 @@
 using ConsoleAppFramework;
 using MackySoft.Ucli.Application.Features.Requests.Refresh.UseCases.Refresh;
+using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
+using MackySoft.Ucli.Contracts.Execution;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 using MackySoft.Ucli.Hosting.Cli.Options;
@@ -13,16 +15,20 @@ internal sealed class RefreshCommand
 
     private readonly ICommandResultWriter commandResultWriter;
 
+    private readonly ILifecycleExecutionCliInvocationFactory invocationFactory;
+
     /// <summary> Initializes a new instance of the RefreshCommand class. </summary>
     /// <param name="refreshService"> The refresh service dependency. </param>
     /// <param name="commandResultWriter"> The command-result writer dependency. </param>
     /// <exception cref="ArgumentNullException"> Thrown when refreshService is null. </exception>
     public RefreshCommand (
         IRefreshService refreshService,
-        ICommandResultWriter commandResultWriter)
+        ICommandResultWriter commandResultWriter,
+        ILifecycleExecutionCliInvocationFactory invocationFactory)
     {
         this.refreshService = refreshService ?? throw new ArgumentNullException(nameof(refreshService));
         this.commandResultWriter = commandResultWriter ?? throw new ArgumentNullException(nameof(commandResultWriter));
+        this.invocationFactory = invocationFactory ?? throw new ArgumentNullException(nameof(invocationFactory));
     }
 
     /// <summary> Executes the refresh command and emits the JSON result contract. </summary>
@@ -61,15 +67,31 @@ internal sealed class RefreshCommand
             return errorResult.ExitCode;
         }
 
-        var executionResult = await refreshService.ExecuteAsync(
-                requestId,
-                new RefreshCommandInput(
-                    ProjectPath: projectPath,
-                    Mode: normalizedModeResult.Mode,
-                    TimeoutMilliseconds: normalizedTimeoutResult.TimeoutMilliseconds,
-                    FailFast: failFast),
+        var invocationResult = await invocationFactory.CreateRefreshStartAsync(
+                projectPath,
+                normalizedModeResult.Mode ?? UnityExecutionMode.Auto,
+                normalizedTimeoutResult.TimeoutMilliseconds,
                 cancellationToken)
             .ConfigureAwait(false);
+        var executionResult = invocationResult.IsSuccess
+            ? await refreshService.StartAsync(
+                    requestId,
+                    invocationResult.Invocation!,
+                    failFast,
+                    cancellationToken)
+                .ConfigureAwait(false)
+            : RefreshExecutionResult.Failure(
+                invocationResult.Failure!,
+                invocationResult.Project is null
+                    ? null
+                    : new RefreshExecutionErrorOutput(
+                        invocationResult.Project,
+                        requestId,
+                        LifecycleExecutionRef: null,
+                        ExecutionApplicationState.NotApplied,
+                        Refresh: null,
+                        ObservedLifecycle: null,
+                        ReadPostcondition: null));
         var commandResult = RefreshCommandResultFactory.Create(executionResult);
         commandResultWriter.WriteToStandardOutput(commandResult);
         return commandResult.ExitCode;

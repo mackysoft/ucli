@@ -13,12 +13,8 @@ namespace MackySoft.Ucli.Application.Features.Play.Common;
 /// projection while delegating common registration issuance and direction-specific state
 /// interpretation to their owning policies.
 /// </summary>
-internal sealed class PlayTransitionWorkflow
+internal sealed partial class PlayTransitionWorkflow
 {
-    private readonly IPlayCommandExecutionContextResolver contextResolver;
-
-    private readonly IUnityRequestExecutor unityRequestExecutor;
-
     private readonly ILifecycleExecutionReconnectResolver reconnectResolver;
 
     private readonly ILifecycleExecutionHostExitTerminalizer hostExitTerminalizer;
@@ -28,17 +24,11 @@ internal sealed class PlayTransitionWorkflow
     private readonly TimeProvider timeProvider;
 
     public PlayTransitionWorkflow (
-        IPlayCommandExecutionContextResolver contextResolver,
-        IUnityRequestExecutor unityRequestExecutor,
         ILifecycleExecutionReconnectResolver reconnectResolver,
         ILifecycleExecutionHostExitTerminalizer hostExitTerminalizer,
         LifecycleExecutionRegistrationIssuer registrationIssuer,
         TimeProvider timeProvider)
     {
-        this.contextResolver = contextResolver
-            ?? throw new ArgumentNullException(nameof(contextResolver));
-        this.unityRequestExecutor = unityRequestExecutor
-            ?? throw new ArgumentNullException(nameof(unityRequestExecutor));
         this.reconnectResolver = reconnectResolver
             ?? throw new ArgumentNullException(nameof(reconnectResolver));
         this.hostExitTerminalizer = hostExitTerminalizer
@@ -49,131 +39,6 @@ internal sealed class PlayTransitionWorkflow
             ?? throw new ArgumentNullException(nameof(timeProvider));
     }
 
-    public async ValueTask<PlayTransitionWorkflowResult<TOutput>> ExecuteAsync<TOutput> (
-        string? projectPath,
-        int? timeoutMilliseconds,
-        IPlayTransitionDirectionPolicy<TOutput> direction,
-        CancellationToken cancellationToken)
-        where TOutput : class
-    {
-        ArgumentNullException.ThrowIfNull(direction);
-        cancellationToken.ThrowIfCancellationRequested();
-
-        var contextResult = await contextResolver.ResolveAsync(
-                projectPath,
-                timeoutMilliseconds,
-                direction.Command,
-                direction.SessionNotAvailableMessage,
-                direction.RequiresGuiEditorMessage,
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (!contextResult.IsSuccess)
-        {
-            return PlayTransitionWorkflowResult<TOutput>.Failure(
-                ApplicationFailure.FromExecutionError(
-                    contextResult.Error!));
-        }
-
-        var context = contextResult.Context!;
-        var registration = registrationIssuer.IssueForTimeout(
-            direction.Definition,
-            context.Timeout);
-        return await ExecuteRegisteredAsync(
-                context,
-                registration,
-                establishedExecutionReference: null,
-                requiredStart: null,
-                direction,
-                cancellationToken)
-            .ConfigureAwait(false);
-    }
-
-    public async ValueTask<PlayTransitionWorkflowResult<TOutput>> ReconnectAsync<TOutput> (
-        string? projectPath,
-        int? timeoutMilliseconds,
-        ExecutionRef lifecycleExecutionRef,
-        IPlayTransitionDirectionPolicy<TOutput> direction,
-        CancellationToken cancellationToken)
-        where TOutput : class
-    {
-        ArgumentNullException.ThrowIfNull(lifecycleExecutionRef);
-        ArgumentNullException.ThrowIfNull(direction);
-        cancellationToken.ThrowIfCancellationRequested();
-
-        var contextResult = await contextResolver.ResolveReconnectAsync(
-                projectPath,
-                timeoutMilliseconds,
-                direction.Command,
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (!contextResult.IsSuccess)
-        {
-            return PlayTransitionWorkflowResult<TOutput>.Failure(
-                ApplicationFailure.FromExecutionError(
-                    contextResult.Error!));
-        }
-
-        var context = contextResult.Context!;
-        var reconnectResult = await reconnectResolver.ResolveAsync(
-                context.ProjectContext.UnityProject,
-                direction.Definition,
-                lifecycleExecutionRef,
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (reconnectResult
-            is LifecycleExecutionReconnectResolution.PublicationFailed
-                publicationFailed)
-        {
-            return PlayTransitionWorkflowResult<TOutput>.Failure(
-                publicationFailed.Failure,
-                CreateFailureContext(
-                    context,
-                    publicationFailed.CurrentReference,
-                    ExecutionApplicationState.Indeterminate));
-        }
-        if (reconnectResult
-            is LifecycleExecutionReconnectResolution.Rejected rejected)
-        {
-            return PlayTransitionWorkflowResult<TOutput>.Failure(
-                rejected.Failure);
-        }
-        if (reconnectResult
-            is LifecycleExecutionReconnectResolution.Terminal terminal)
-        {
-            return CreateResultFromTerminalRecord(
-                context,
-                terminal.ExecutionReference,
-                terminal.TerminalRecord,
-                direction);
-        }
-
-        var open =
-            (LifecycleExecutionReconnectResolution.Open)reconnectResult;
-        try
-        {
-            return await ExecuteRegisteredAsync(
-                    context,
-                    open.Registration,
-                    open.CurrentReference,
-                    open.RequiredStart,
-                    direction,
-                    cancellationToken)
-                .ConfigureAwait(false);
-        }
-        catch (OperationCanceledException)
-            when (cancellationToken.IsCancellationRequested)
-        {
-            return PlayTransitionWorkflowResult<TOutput>.Failure(
-                ApplicationFailure.Canceled(
-                    $"Waiting for the reconnected {direction.CommandDisplayName} execution was canceled.",
-                    ExecutionErrorCodes.Canceled),
-                CreateFailureContext(
-                    context,
-                    open.CurrentReference,
-                    ExecutionApplicationState.Unknown));
-        }
-    }
-
     private async ValueTask<PlayTransitionWorkflowResult<TOutput>>
         ExecuteRegisteredAsync<TOutput> (
             PlayCommandExecutionContext context,
@@ -181,19 +46,12 @@ internal sealed class PlayTransitionWorkflow
             ExecutionRef? establishedExecutionReference,
             LifecycleExecutionStartBinding? requiredStart,
             IPlayTransitionDirectionPolicy<TOutput> direction,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            Func<UnityRequestPayload, CancellationToken, ValueTask<UnityRequestExecutionResult>> dispatchAsync)
         where TOutput : class
     {
-        var requestTimeout = LifecycleExecutionTiming.AddResponseDeliveryGrace(
-            context.Timeout);
-        var executionResult = await unityRequestExecutor.ExecuteAsync(
-                direction.Command,
-                UnityExecutionMode.Daemon,
-                requestTimeout,
-                context.ProjectContext.Config,
-                context.ProjectContext.UnityProject,
-                direction.CreatePayload(registration, requiredStart),
-                cancellationToken)
+        var payload = direction.CreatePayload(registration, requiredStart);
+        var executionResult = await dispatchAsync(payload, cancellationToken)
             .ConfigureAwait(false);
         if (!executionResult.IsSuccess)
         {

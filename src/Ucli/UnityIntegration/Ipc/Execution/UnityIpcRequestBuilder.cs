@@ -1,4 +1,5 @@
 using System.Text.Json;
+using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Application.Shared.Execution.UnityRequest;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Testing;
@@ -14,7 +15,9 @@ internal sealed class UnityIpcRequestBuilder
     /// <param name="request"> The application request payload. </param>
     /// <returns> The IPC dispatch request. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="request" /> is <see langword="null" />. </exception>
-    public UnityIpcDispatchRequest Build (UnityRequestPayload request)
+    public UnityIpcDispatchRequest Build (
+        UnityRequestPayload request,
+        ILifecycleExecutionStartObserver? lifecycleStartObserver = null)
     {
         ArgumentNullException.ThrowIfNull(request);
 
@@ -47,12 +50,14 @@ internal sealed class UnityIpcRequestBuilder
                 refresh.Registration,
                 refresh.RequiredStart,
                 static start => IpcPayloadCodec.SerializeToElement(new IpcRefreshRequest(start)),
-                refresh.StartAdmissionPolicy),
+                refresh.StartAdmissionPolicy,
+                lifecycleStartObserver),
             UnityRequestPayload.Compile compile => UnityIpcDispatchRequest.LifecycleExecution(
                 UnityIpcMethod.Compile,
                 compile.Registration,
                 compile.RequiredStart,
-                static start => IpcPayloadCodec.SerializeToElement(new IpcCompileRequest(start))),
+                static start => IpcPayloadCodec.SerializeToElement(new IpcCompileRequest(start)),
+                lifecycleStartObserver: lifecycleStartObserver),
             UnityRequestPayload.BuildRun buildRun => new UnityIpcDispatchRequest(
                 UnityIpcMethod.BuildRun,
                 IpcPayloadCodec.SerializeToElement(buildRun.Request),
@@ -82,12 +87,14 @@ internal sealed class UnityIpcRequestBuilder
                 UnityIpcMethod.PlayEnter,
                 playEnter.Registration,
                 playEnter.RequiredStart,
-                static start => IpcPayloadCodec.SerializeToElement(new IpcPlayEnterRequest(start))),
+                static start => IpcPayloadCodec.SerializeToElement(new IpcPlayEnterRequest(start)),
+                lifecycleStartObserver: lifecycleStartObserver),
             UnityRequestPayload.PlayExit playExit => UnityIpcDispatchRequest.LifecycleExecution(
                 UnityIpcMethod.PlayExit,
                 playExit.Registration,
                 playExit.RequiredStart,
-                static start => IpcPayloadCodec.SerializeToElement(new IpcPlayExitRequest(start))),
+                static start => IpcPayloadCodec.SerializeToElement(new IpcPlayExitRequest(start)),
+                lifecycleStartObserver: lifecycleStartObserver),
             UnityRequestPayload.ExecuteJson executeJson => new UnityIpcDispatchRequest(
                 UnityIpcMethod.Execute,
                 CreateExecutePayload(

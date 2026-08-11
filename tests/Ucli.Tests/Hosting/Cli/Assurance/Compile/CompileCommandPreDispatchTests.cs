@@ -10,7 +10,7 @@ public sealed class CompileCommandPreDispatchTests
     public async Task Compile_WhenModeIsInvalid_ReturnsInvalidArgumentWithoutCallingService ()
     {
         var service = new RecordingCompileService((_, _, _) => throw new InvalidOperationException("Service should not be called."));
-        var command = new CompileCommand(service, CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
+        var command = new CompileCommand(service, CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System, new RecordingLifecycleExecutionCliInvocationFactory());
 
         var result = await CommandResultCapture.ExecuteAsync(() => command.CompileAsync(
             mode: "unknown",
@@ -26,7 +26,7 @@ public sealed class CompileCommandPreDispatchTests
     public async Task Compile_WhenFormatIsInvalid_ReturnsInvalidArgumentWithoutCallingService ()
     {
         var service = new RecordingCompileService((_, _, _) => throw new InvalidOperationException("Service should not be called."));
-        var command = new CompileCommand(service, CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
+        var command = new CompileCommand(service, CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System, new RecordingLifecycleExecutionCliInvocationFactory());
 
         var result = await CommandResultCapture.ExecuteWithErrorAsync(() => command.CompileAsync(
             format: "yaml",

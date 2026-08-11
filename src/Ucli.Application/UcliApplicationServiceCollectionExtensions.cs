@@ -102,6 +102,7 @@ public static class UcliApplicationServiceCollectionExtensions
     {
         services.AddSingleton<IGuidGenerator, GuidGenerator>();
         services.AddSingleton<LifecycleExecutionRegistrationIssuer>();
+        services.AddSingleton<ILifecycleExecutionStartInvocationFactory, LifecycleExecutionStartInvocationFactory>();
         services.AddSingleton<IProjectPathInputResolver, ProjectPathInputResolver>();
         services.AddSingleton<IProjectContextResolver, ProjectContextResolver>();
         services.AddSingleton<IUnityExecutionModeDecisionService, UnityExecutionModeDecisionService>();

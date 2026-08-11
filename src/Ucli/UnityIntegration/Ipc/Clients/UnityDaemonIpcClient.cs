@@ -458,8 +458,16 @@ internal sealed class UnityDaemonIpcClient : IUnityIpcClient
                                         CreateReconnectHostMismatchResult());
                                 }
                                 lifecycleExecutionStart = confirmed.Start;
-                                dispatchObservation?.ReportStarted(
-                                    confirmed.Start);
+                                var startObservation = await ObserveStartAsync(
+                                        dispatchRequest,
+                                        confirmed.Start,
+                                        deadline,
+                                        dispatchObservation)
+                                    .ConfigureAwait(false);
+                                if (startObservation is not null)
+                                {
+                                    return RetainLifecycleStart(startObservation);
+                                }
                                 break;
                             default:
                                 throw new InvalidOperationException(
@@ -563,8 +571,16 @@ internal sealed class UnityDaemonIpcClient : IUnityIpcClient
                             return RetainLifecycleStart(
                                 CreateReconnectHostMismatchResult());
                         }
-                        dispatchObservation?.ReportStarted(
-                            lifecycleExecutionStart);
+                        var startObservation = await ObserveStartAsync(
+                                dispatchRequest,
+                                lifecycleExecutionStart,
+                                deadline,
+                                dispatchObservation)
+                            .ConfigureAwait(false);
+                        if (startObservation is not null)
+                        {
+                            return RetainLifecycleStart(startObservation);
+                        }
                     }
                 }
 
@@ -699,6 +715,37 @@ internal sealed class UnityDaemonIpcClient : IUnityIpcClient
             UnityIpcFailureClassifier.FromCodeAndMessage(
                 LifecycleExecutionErrorCodes.HostMismatch,
                 "The daemon session does not belong to the Unity Editor host fixed by the Lifecycle Execution start."));
+    }
+
+    private static async ValueTask<UnityRequestExecutionResult?> ObserveStartAsync (
+        UnityIpcDispatchRequest dispatchRequest,
+        LifecycleExecutionStartBinding start,
+        ExecutionDeadline deadline,
+        LifecycleExecutionDispatchObservation? dispatchObservation)
+    {
+        var observation = await dispatchRequest
+            .ObserveLifecycleStartAsync(start)
+            .ConfigureAwait(false);
+        if (observation is LifecycleExecutionStartObservation.Rejected rejected)
+        {
+            return UnityRequestExecutionResult.Failure(
+                UnityIpcFailureClassifier.FromCodeAndMessage(
+                    rejected.Failure.Code,
+                    rejected.Failure.Message),
+                start);
+        }
+
+        if (dispatchRequest.LifecycleStartObserver is not null
+            && deadline.IsExpired)
+        {
+            return UnityRequestExecutionResult.Failure(
+                UnityIpcFailureClassifier.Timeout(
+                    "Lifecycle Execution deadline expired while its durable start was being recorded."),
+                start);
+        }
+
+        dispatchObservation?.ReportStarted(start);
+        return null;
     }
 
     private static UnityRequestExecutionResult CreateConfirmedHostExitResult (

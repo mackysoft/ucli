@@ -10,7 +10,7 @@ public sealed class PlayEnterCommandPreDispatchTests
     public async Task Enter_WithInvalidTimeout_ReturnsInvalidArgumentBeforeServiceExecution ()
     {
         var service = new RecordingPlayEnterService((_, _) => throw new InvalidOperationException("Service should not be called."));
-        var command = new PlayEnterCommand(service, CommandResultTestWriter.Create());
+        var command = new PlayEnterCommand(service, CommandResultTestWriter.Create(), new RecordingLifecycleExecutionCliInvocationFactory());
 
         var result = await CommandResultCapture.ExecuteAsync(() => command.EnterAsync(
             timeout: "abc",

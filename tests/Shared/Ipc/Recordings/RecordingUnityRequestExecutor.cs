@@ -1,4 +1,7 @@
 using MackySoft.Ucli.Application.Shared.Configuration;
+using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
+using MackySoft.Ucli.Contracts.Execution.Lifecycle;
+using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 
 namespace MackySoft.Ucli.TestSupport;
@@ -35,6 +38,26 @@ internal sealed class RecordingUnityRequestExecutor : IUnityRequestExecutor, IUn
     public IReadOnlyList<Invocation> StreamingInvocations => streamingInvocations;
 
     public Action<InvocationContext>? OnExecute { get; init; }
+
+    public ValueTask<LifecycleExecutionHostBindingResolution> BindAsync (
+        UnityExecutionMode requestedMode,
+        ResolvedUnityProjectContext project,
+        ExecutionDeadline executionDeadline,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return ValueTask.FromResult(LifecycleExecutionHostBindingResolution.Success(
+            new RecordingHostBinding(this, project, requestedMode)));
+    }
+
+    public ValueTask<LifecycleExecutionHostBindingResolution> BindReconnectAsync (
+        ResolvedUnityProjectContext project,
+        LifecycleExecutionStartBinding requiredStart,
+        ExecutionDeadline callerWaitDeadline,
+        CancellationToken cancellationToken = default)
+    {
+        return BindAsync(UnityExecutionMode.Daemon, project, callerWaitDeadline, CancellationToken.None);
+    }
 
     public ValueTask<UnityRequestExecutionResult> ExecuteAsync (
         UcliCommand command,
@@ -111,4 +134,44 @@ internal sealed class RecordingUnityRequestExecutor : IUnityRequestExecutor, IUn
     internal readonly record struct InvocationContext (
         int Index,
         Invocation Invocation);
+
+    private sealed class RecordingHostBinding : IUnityExecutionHostBinding
+    {
+        private readonly RecordingUnityRequestExecutor owner;
+
+        public RecordingHostBinding (RecordingUnityRequestExecutor owner, ResolvedUnityProjectContext project, UnityExecutionMode requestedMode)
+        {
+            this.owner = owner;
+            Project = project;
+            Target = requestedMode == UnityExecutionMode.Oneshot
+                ? UnityExecutionTarget.Oneshot
+                : UnityExecutionTarget.Daemon;
+            RequestedMode = requestedMode;
+        }
+
+        private UnityExecutionMode RequestedMode { get; }
+
+        public ResolvedUnityProjectContext Project { get; }
+
+        public UnityExecutionTarget Target { get; }
+
+        public async ValueTask<UnityRequestExecutionResult> StartAsync (UcliCommand command, UnityRequestPayload payload, LifecycleExecutionStartInvocation invocation, CancellationToken cancellationToken = default)
+        {
+            var result = await owner.ExecuteAsync(command, RequestedMode, invocation.CallerWaitDeadline.Timeout, UcliConfig.CreateDefault(), Project, payload, cancellationToken);
+            if (result.LifecycleExecutionStart is null)
+            {
+                return result;
+            }
+
+            var observation = await invocation.StartObserver.ObserveAsync(result.LifecycleExecutionStart);
+            return observation is LifecycleExecutionStartObservation.Rejected rejected
+                ? UnityRequestExecutionResult.Failure(new UnityRequestFailure(UnityRequestFailureKind.General, rejected.Failure.Code, rejected.Failure.Message), result.LifecycleExecutionStart)
+                : result;
+        }
+
+        public ValueTask<UnityRequestExecutionResult> ReconnectAsync (UcliCommand command, UnityRequestPayload payload, LifecycleExecutionReconnectInvocation invocation, CancellationToken cancellationToken = default)
+        {
+            return owner.ExecuteAsync(command, RequestedMode, invocation.CallerWaitDeadline.Timeout, UcliConfig.CreateDefault(), Project, payload, cancellationToken);
+        }
+    }
 }

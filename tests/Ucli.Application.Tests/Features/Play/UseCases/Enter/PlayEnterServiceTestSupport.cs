@@ -4,6 +4,7 @@ using MackySoft.Ucli.Application.Features.Play.Common;
 using MackySoft.Ucli.Application.Features.Play.UseCases.Enter;
 using MackySoft.Ucli.Application.Shared.Context;
 using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
+using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Editor;
 using MackySoft.Ucli.Contracts.Execution;
@@ -60,8 +61,6 @@ internal static class PlayEnterServiceTestSupport
             timeProvider ?? new FakeTimeProvider(StartedAtUtc);
         return new PlayEnterService(
             new PlayTransitionWorkflow(
-                contextResolver,
-                requestExecutor,
                 reconnectResolver
                     ?? new UnexpectedLifecycleExecutionReconnectResolver(),
                 hostExitTerminalizer
@@ -80,6 +79,60 @@ internal static class PlayEnterServiceTestSupport
                 UnityEditorMode.Gui,
                 PlaySessionEndpointAddress,
                 DaemonSessionTestFactory.DefaultEditorInstanceId)));
+    }
+
+    public static async ValueTask<LifecycleExecutionStartInvocation>
+        CreateStartInvocationAsync (
+            RecordingUnityRequestExecutor requestExecutor,
+            ProjectContext? context = null,
+            TimeProvider? timeProvider = null)
+    {
+        ArgumentNullException.ThrowIfNull(requestExecutor);
+        var resolvedContext = context ?? PlayProjectContext;
+        var deadline = ExecutionDeadline.Start(
+            TimeSpan.FromMilliseconds(1500),
+            timeProvider ?? new FakeTimeProvider(StartedAtUtc));
+        var bindingResult = await requestExecutor.BindAsync(
+                UnityExecutionMode.Daemon,
+                resolvedContext.UnityProject,
+                deadline)
+            .ConfigureAwait(false);
+        return new LifecycleExecutionStartInvocation(
+            new LifecycleExecutionFixedContext(
+                resolvedContext,
+                UnityExecutionMode.Daemon,
+                bindingResult.Binding!),
+            deadline,
+            deadline.CreateCompletionDeadline(
+                LifecycleExecutionTiming.ResponseDeliveryGrace),
+            NullLifecycleExecutionStartObserver.Instance);
+    }
+
+    public static async ValueTask<LifecycleExecutionReconnectInvocation>
+        CreateReconnectInvocationAsync (
+            RecordingUnityRequestExecutor requestExecutor,
+            ExecutionRef executionReference,
+            ProjectContext? context = null,
+            TimeProvider? timeProvider = null)
+    {
+        ArgumentNullException.ThrowIfNull(requestExecutor);
+        ArgumentNullException.ThrowIfNull(executionReference);
+        var resolvedContext = context ?? PlayProjectContext;
+        var deadline = ExecutionDeadline.Start(
+            TimeSpan.FromMilliseconds(4500),
+            timeProvider ?? new FakeTimeProvider(StartedAtUtc));
+        var bindingResult = await requestExecutor.BindAsync(
+                UnityExecutionMode.Daemon,
+                resolvedContext.UnityProject,
+                deadline)
+            .ConfigureAwait(false);
+        return new LifecycleExecutionReconnectInvocation(
+            new LifecycleExecutionFixedContext(
+                resolvedContext,
+                UnityExecutionMode.Daemon,
+                bindingResult.Binding!),
+            executionReference,
+            deadline);
     }
 
     public static IpcPlayTransitionResponse CreateEnteredResponse ()

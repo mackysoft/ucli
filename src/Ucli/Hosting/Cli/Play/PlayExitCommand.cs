@@ -13,15 +13,19 @@ internal sealed class PlayExitCommand
 
     private readonly ICommandResultWriter commandResultWriter;
 
+    private readonly ILifecycleExecutionCliInvocationFactory invocationFactory;
+
     /// <summary> Initializes a new instance of the <see cref="PlayExitCommand" /> class. </summary>
     /// <param name="playExitService"> The Play Mode exit service dependency. </param>
     /// <param name="commandResultWriter"> The command-result writer dependency. </param>
     public PlayExitCommand (
         IPlayExitService playExitService,
-        ICommandResultWriter commandResultWriter)
+        ICommandResultWriter commandResultWriter,
+        ILifecycleExecutionCliInvocationFactory invocationFactory)
     {
         this.playExitService = playExitService ?? throw new ArgumentNullException(nameof(playExitService));
         this.commandResultWriter = commandResultWriter ?? throw new ArgumentNullException(nameof(commandResultWriter));
+        this.invocationFactory = invocationFactory ?? throw new ArgumentNullException(nameof(invocationFactory));
     }
 
     /// <summary> Requests Unity to exit Play Mode and emits the JSON result contract. </summary>
@@ -48,10 +52,17 @@ internal sealed class PlayExitCommand
             return invalidTimeoutResult.ExitCode;
         }
 
-        var input = new PlayExitCommandInput(
-            ProjectPath: projectPath,
-            TimeoutMilliseconds: timeoutNormalizationResult.TimeoutMilliseconds);
-        var executionResult = await playExitService.ExecuteAsync(input, cancellationToken).ConfigureAwait(false);
+        var invocationResult = await invocationFactory.CreatePlayExitStartAsync(
+                projectPath,
+                timeoutNormalizationResult.TimeoutMilliseconds,
+                cancellationToken)
+            .ConfigureAwait(false);
+        var executionResult = invocationResult.IsSuccess
+            ? await playExitService.StartAsync(
+                    invocationResult.Invocation!,
+                    cancellationToken)
+                .ConfigureAwait(false)
+            : PlayExitExecutionResult.Failure(invocationResult.Failure!);
         var commandResult = PlayExitCommandResultFactory.Create(executionResult);
         commandResultWriter.WriteToStandardOutput(commandResult);
         return commandResult.ExitCode;

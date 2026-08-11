@@ -1,23 +1,18 @@
+using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
+
 namespace MackySoft.Ucli.Application.Features.Play.UseCases.Exit;
 
 /// <summary> Provides Play Mode exit workflow execution. </summary>
 internal interface IPlayExitService
 {
-    /// <summary> Executes one Play Mode exit workflow. </summary>
-    /// <param name="input"> The normalized Play Mode transition input. </param>
-    /// <param name="cancellationToken"> The application caller's wait cancellation token. </param>
-    /// <returns> A task that resolves to the Play Mode exit result. </returns>
-    ValueTask<PlayExitExecutionResult> ExecuteAsync (
-        PlayExitCommandInput input,
+    /// <summary> Starts Play Mode exit through the caller-fixed Lifecycle Execution context. </summary>
+    ValueTask<PlayExitExecutionResult> StartAsync (
+        LifecycleExecutionStartInvocation invocation,
         CancellationToken cancellationToken = default);
 
-    /// <summary> Reconnects to one previously published Play Mode exit Lifecycle Execution. </summary>
-    /// <param name="input"> The normalized caller wait input. </param>
-    /// <param name="lifecycleExecutionRef"> The published Play Mode exit execution reference. </param>
-    /// <param name="cancellationToken"> The application caller's wait cancellation token. </param>
-    /// <returns> A task that resolves to the result collected from the original transition. </returns>
+    /// <summary> Reconnects Play Mode exit through the caller-fixed Lifecycle Execution context. </summary>
     ValueTask<PlayExitExecutionResult> ReconnectAsync (
-        PlayExitCommandInput input,
-        ExecutionRef lifecycleExecutionRef,
+        LifecycleExecutionReconnectInvocation invocation,
         CancellationToken cancellationToken = default);
+
 }

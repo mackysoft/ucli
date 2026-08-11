@@ -1,27 +1,25 @@
+using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
+
 namespace MackySoft.Ucli.Application.Features.Requests.Refresh.UseCases.Refresh;
 
 /// <summary> Executes the typed project-refresh application workflow. </summary>
 internal interface IRefreshService
 {
-    /// <summary> Executes one project refresh and returns the normalized execution result. </summary>
-    /// <param name="requestId"> The non-empty correlation identifier owned by the application caller. </param>
-    /// <param name="input"> The normalized command input values. </param>
-    /// <param name="cancellationToken"> The application caller's wait cancellation token. </param>
-    /// <returns> A task that resolves to the refresh execution result. </returns>
-    ValueTask<RefreshExecutionResult> ExecuteAsync (
+    /// <summary>
+    /// Starts one refresh through a project, host, and deadline fixed by the caller before
+    /// Lifecycle Execution registration. Program callers use this entry to durably observe the
+    /// provider-confirmed start before Unity receives the refresh action.
+    /// </summary>
+    ValueTask<RefreshExecutionResult> StartAsync (
         Guid requestId,
-        RefreshCommandInput input,
+        LifecycleExecutionStartInvocation invocation,
+        bool failFast,
         CancellationToken cancellationToken = default);
 
-    /// <summary> Reconnects to one previously published project-refresh Lifecycle Execution. </summary>
-    /// <param name="requestId"> The non-empty correlation identifier owned by the current caller. </param>
-    /// <param name="input"> The normalized caller wait and execution-target input. </param>
-    /// <param name="lifecycleExecutionRef"> The published refresh execution reference to reconnect. </param>
-    /// <param name="cancellationToken"> The application caller's wait cancellation token. </param>
-    /// <returns> A task that resolves to the result collected from the original refresh execution. </returns>
+    /// <summary> Reconnects through the caller-fixed binding for an existing refresh execution. </summary>
     ValueTask<RefreshExecutionResult> ReconnectAsync (
         Guid requestId,
-        RefreshCommandInput input,
-        ExecutionRef lifecycleExecutionRef,
+        LifecycleExecutionReconnectInvocation invocation,
         CancellationToken cancellationToken = default);
+
 }

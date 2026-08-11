@@ -509,6 +509,86 @@ namespace MackySoft.Ucli.Unity.Tests
                     $"Play Mode entry registration failed: {result.Outcome}");
         }
 
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator RecoverAsync_WhenOnlyStartWasRegisteredBeforeDeadline_RemainsOpenWithoutEnteringPlayMode () =>
+            UniTask.ToCoroutine(async () =>
+            {
+                using var scope = TemporaryStorageScope.Create();
+                var executionStore = scope.CreateExecutionStore(ProjectFingerprint);
+                var start = await RegisterAsync(
+                    executionStore,
+                    playModeGeneration: 50);
+                var enterRequestCount = 0;
+                var handler = CreateHandler(
+                    executionStore,
+                    new MutableUnityEditorReadinessGate(
+                        CreateReadyStoppedSnapshot(50)),
+                    enterPlayModeRequester: () => enterRequestCount++);
+
+                await handler.RecoverAsync(
+                    new LifecycleExecutionRecoveryRequest(
+                        start,
+                        rejectionReason: null,
+                        canAttributeCurrentProviderObservation: true),
+                    CancellationToken.None);
+
+                Assert.That(enterRequestCount, Is.EqualTo(0));
+                var execution = await executionStore.ReadAsync(
+                    LifecycleExecutionKind.PlayEnter,
+                    start.LifecycleExecutionRef.Id,
+                    CancellationToken.None);
+                Assert.That(execution.IsTerminal, Is.False);
+                Assert.That(
+                    execution.CurrentReference.State.Value,
+                    Is.EqualTo(TextVocabulary.GetText(
+                        LifecycleExecutionState.Registered)));
+            });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator RecoverAsync_WhenOnlyStartWasRegisteredAfterDeadline_PublishesNotAppliedTerminalWithoutEnteringPlayMode () =>
+            UniTask.ToCoroutine(async () =>
+            {
+                using var scope = TemporaryStorageScope.Create();
+                var executionStore = scope.CreateExecutionStore(ProjectFingerprint);
+                var start = await RegisterAsync(
+                    executionStore,
+                    playModeGeneration: 50,
+                    deadlineUtc: DateTimeOffset.UtcNow.AddMilliseconds(-100));
+                var enterRequestCount = 0;
+                var handler = CreateHandler(
+                    executionStore,
+                    new MutableUnityEditorReadinessGate(
+                        CreateReadyStoppedSnapshot(50)),
+                    enterPlayModeRequester: () => enterRequestCount++);
+
+                await handler.RecoverAsync(
+                    new LifecycleExecutionRecoveryRequest(
+                        start,
+                        rejectionReason: null,
+                        canAttributeCurrentProviderObservation: true),
+                    CancellationToken.None);
+
+                Assert.That(enterRequestCount, Is.EqualTo(0));
+                Assert.That(
+                    await new FilePlayEnterLifecycleExecutionCheckpointStore(
+                            executionStore)
+                        .ReadAsync(start.LifecycleExecutionRef.Id, CancellationToken.None),
+                    Is.Null);
+                var terminal = ReadTerminalRecord(
+                    executionStore,
+                    start.LifecycleExecutionRef.Id);
+                Assert.That(
+                    terminal.TerminalReason,
+                    Is.EqualTo(LifecycleExecutionTerminalReason.DeadlineExceeded));
+                Assert.That(
+                    terminal.ApplicationState,
+                    Is.EqualTo(ExecutionApplicationState.NotApplied));
+                Assert.That(terminal.Result, Is.Null);
+                Assert.That(terminal.Verdict, Is.Null);
+            });
+
         private static PlayEnterHandlerFixture CreateHandler (
             FileLifecycleExecutionStore executionStore,
             MutableUnityEditorReadinessGate readinessGate,

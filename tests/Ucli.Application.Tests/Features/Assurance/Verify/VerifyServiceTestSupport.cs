@@ -9,6 +9,11 @@ using MackySoft.Ucli.Application.Features.Assurance.Verify.Input;
 using MackySoft.Ucli.Application.Features.Assurance.Verify.Profiles;
 using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Common;
 using MackySoft.Ucli.Application.Shared.Context;
+using MackySoft.Ucli.Application.Shared.Context.Project;
+using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
+using MackySoft.Ucli.Application.Shared.Execution.Timeout;
+using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
+using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Application.Tests.Features.Assurance.Payload;
 using MackySoft.Ucli.Contracts.Editor;
 using MackySoft.Ucli.Contracts.Execution.Lifecycle;
@@ -35,6 +40,10 @@ internal static class VerifyServiceTestSupport
         TimeProvider? timeProvider = null)
     {
         var project = ProjectIdentityInfoTestFactory.CreateForRepositoryRoot(repositoryRoot);
+        var clock = timeProvider ?? TimeProvider.System;
+        var projectContext = ProjectContextTestFactory.CreateWithPaths(
+            unityProjectRoot: Path.Combine(repositoryRoot, "UnityProject"),
+            repositoryRoot: repositoryRoot);
         var testRunArtifactsDirectory = AbsolutePath.Parse(Path.Combine(
             project.ProjectPath,
             ".ucli",
@@ -42,11 +51,10 @@ internal static class VerifyServiceTestSupport
             "test",
             "test-run-1"));
         return new VerifyService(
-            new StaticProjectContextResolver(ProjectContextResolutionResult.Success(ProjectContextTestFactory.CreateWithPaths(
-                unityProjectRoot: Path.Combine(repositoryRoot, "UnityProject"),
-                repositoryRoot: repositoryRoot))),
+            new StaticProjectContextResolver(ProjectContextResolutionResult.Success(projectContext)),
             readyService ?? new RecordingVerifyReadyService(input => CreateReadyResult(input.Target, project)),
             compileService ?? new RecordingVerifyCompileService(_ => CreateCompileResult(project)),
+            new VerifyInvocationFactory(projectContext, clock),
             testRunService ?? new RecordingVerifyTestRunService(_ => TestRunResultTestValues.CreateCompleted(
                 Verdict.Pass,
                 TestArtifactPaths.CreateSession(TestRunId, testRunArtifactsDirectory.Value))),
@@ -60,7 +68,7 @@ internal static class VerifyServiceTestSupport
             }),
             fromInputFileReader ?? new StubVerifyFromInputFileReader((fromPath, root) => VerifyFromInputFileReadResult.Success(
                 File.ReadAllText(Path.Combine(root.Value, fromPath)))),
-            timeProvider ?? TimeProvider.System);
+            clock);
     }
 
     public static void WriteRequiredPostReadProfile (TestDirectoryScope scope)
@@ -418,4 +426,52 @@ internal static class VerifyServiceTestSupport
                 sequence));
     }
 
+}
+
+internal sealed class VerifyInvocationFactory : ILifecycleExecutionStartInvocationFactory
+{
+    private readonly ProjectContext projectContext;
+    private readonly TimeProvider timeProvider;
+
+    public VerifyInvocationFactory (ProjectContext projectContext, TimeProvider timeProvider)
+    {
+        this.projectContext = projectContext;
+        this.timeProvider = timeProvider;
+    }
+
+    public ValueTask<LifecycleExecutionStartInvocationPreparation> CreateAsync (
+        string? projectPath,
+        UnityExecutionMode requestedMode,
+        int? timeoutMilliseconds,
+        UcliCommand command,
+        bool decideMode,
+        CancellationToken cancellationToken = default)
+    {
+        var deadline = ExecutionDeadline.Start(TimeSpan.FromMilliseconds(timeoutMilliseconds!.Value), timeProvider);
+        var invocation = new LifecycleExecutionStartInvocation(
+            new LifecycleExecutionFixedContext(
+                projectContext,
+                requestedMode,
+                new VerifyHostBinding(projectContext.UnityProject)),
+            deadline,
+            deadline.CreateCompletionDeadline(LifecycleExecutionTiming.ResponseDeliveryGrace),
+            NullLifecycleExecutionStartObserver.Instance);
+        return ValueTask.FromResult(LifecycleExecutionStartInvocationPreparation.Success(invocation));
+    }
+
+    private sealed class VerifyHostBinding : IUnityExecutionHostBinding
+    {
+        public VerifyHostBinding (ResolvedUnityProjectContext project)
+        {
+            Project = project;
+        }
+
+        public ResolvedUnityProjectContext Project { get; }
+
+        public UnityExecutionTarget Target => UnityExecutionTarget.Daemon;
+
+        public ValueTask<UnityRequestExecutionResult> StartAsync (UcliCommand command, UnityRequestPayload payload, LifecycleExecutionStartInvocation invocation, CancellationToken cancellationToken = default) => throw new InvalidOperationException();
+
+        public ValueTask<UnityRequestExecutionResult> ReconnectAsync (UcliCommand command, UnityRequestPayload payload, LifecycleExecutionReconnectInvocation invocation, CancellationToken cancellationToken = default) => throw new InvalidOperationException();
+    }
 }

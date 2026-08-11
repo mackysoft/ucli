@@ -30,6 +30,7 @@ internal static class HostingServiceCollectionExtensions
         services.AddSingleton<IInstalledStaticSchemaSetProvider>(
             static _ => InstalledStaticSchemaSetProvider.CreateForRunningApplication());
         services.AddSingleton<CliStreamEntryWriterFactory>();
+        services.AddSingleton<ILifecycleExecutionCliInvocationFactory, LifecycleExecutionCliInvocationFactory>();
         services.AddSingleton<IUserRequestJsonNormalizer, UserRequestJsonNormalizer>();
         services.AddSingleton<IEvalSourceInputReader, EvalSourceInputReader>();
         services.AddSingleton<ICallCommandPreflightService, CallCommandPreflightService>();

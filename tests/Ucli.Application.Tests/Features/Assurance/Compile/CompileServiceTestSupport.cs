@@ -32,21 +32,6 @@ internal static class CompileServiceTestSupport
         var resolvedTimeProvider =
             timeProvider ?? new FakeTimeProvider(StartedAtUtc);
         return new CompileService(
-            projectContextResolver
-                ?? new StaticProjectContextResolver(
-                    ProjectContextResolutionResult.Success(
-                        ProjectContextTestFactory.Create())),
-            modeDecisionService
-                ?? new StubModeDecisionService(
-                    UnityExecutionModeDecisionResult.Success(
-                        new UnityExecutionModeDecision(
-                            UnityExecutionMode.Auto,
-                            DaemonRunning: false,
-                            UnityExecutionTarget.Oneshot,
-                            TimeSpan.FromSeconds(10)))),
-            unityRequestExecutor
-                ?? new RecordingUnityRequestExecutor(
-                    CreateCompileResponseResult(CreateResult())),
             reconnectResolver
                 ?? new RecordingLifecycleExecutionReconnectResolver(
                     CreateTerminalResolution(
@@ -59,6 +44,62 @@ internal static class CompileServiceTestSupport
                     ?? new StaticGuidGenerator(ExecutionId),
                 resolvedTimeProvider),
             resolvedTimeProvider);
+    }
+
+    public static async ValueTask<LifecycleExecutionStartInvocation>
+        CreateStartInvocationAsync (
+            RecordingUnityRequestExecutor requestExecutor,
+            ProjectContext? context = null,
+            UnityExecutionMode mode = UnityExecutionMode.Oneshot,
+            TimeProvider? timeProvider = null)
+    {
+        ArgumentNullException.ThrowIfNull(requestExecutor);
+        var resolvedContext = context ?? ProjectContextTestFactory.CreateSingleRootProject();
+        var deadline = ExecutionDeadline.Start(
+            TimeSpan.FromSeconds(10),
+            timeProvider ?? new FakeTimeProvider(StartedAtUtc));
+        var bindingResult = await requestExecutor.BindAsync(
+                mode,
+                resolvedContext.UnityProject,
+                deadline)
+            .ConfigureAwait(false);
+        return new LifecycleExecutionStartInvocation(
+            new LifecycleExecutionFixedContext(
+                resolvedContext,
+                mode,
+                bindingResult.Binding!),
+            deadline,
+            deadline.CreateCompletionDeadline(
+                LifecycleExecutionTiming.ResponseDeliveryGrace),
+            NullLifecycleExecutionStartObserver.Instance);
+    }
+
+    public static async ValueTask<LifecycleExecutionReconnectInvocation>
+        CreateReconnectInvocationAsync (
+            RecordingUnityRequestExecutor requestExecutor,
+            ExecutionRef executionReference,
+            ProjectContext? context = null,
+            UnityExecutionMode mode = UnityExecutionMode.Oneshot,
+            TimeProvider? timeProvider = null)
+    {
+        ArgumentNullException.ThrowIfNull(requestExecutor);
+        ArgumentNullException.ThrowIfNull(executionReference);
+        var resolvedContext = context ?? ProjectContextTestFactory.CreateSingleRootProject();
+        var deadline = ExecutionDeadline.Start(
+            TimeSpan.FromSeconds(13),
+            timeProvider ?? new FakeTimeProvider(StartedAtUtc));
+        var bindingResult = await requestExecutor.BindAsync(
+                mode,
+                resolvedContext.UnityProject,
+                deadline)
+            .ConfigureAwait(false);
+        return new LifecycleExecutionReconnectInvocation(
+            new LifecycleExecutionFixedContext(
+                resolvedContext,
+                mode,
+                bindingResult.Binding!),
+            executionReference,
+            deadline);
     }
 
     public static UnityRequestExecutionResult CreateCompileResponseResult (

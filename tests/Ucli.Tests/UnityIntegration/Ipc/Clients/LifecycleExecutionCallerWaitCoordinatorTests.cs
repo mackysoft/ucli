@@ -2,6 +2,8 @@ using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Contracts.Execution.Lifecycle;
 using MackySoft.Ucli.Tests.Helpers.Ipc;
 using MackySoft.Ucli.UnityIntegration.Ipc.Clients;
+using MackySoft.Ucli.UnityIntegration.Ipc.Dispatch;
+using MackySoft.Ucli.UnityIntegration.Ipc.Execution;
 using MackySoft.Ucli.UnityIntegration.Ipc.Failures;
 using static MackySoft.Ucli.Tests.Ipc.UnityDaemonIpcClientTestSupport;
 
@@ -113,6 +115,120 @@ public sealed class LifecycleExecutionCallerWaitCoordinatorTests
         Assert.False(dispatchRelease.Task.IsCompleted);
 
         dispatchRelease.TrySetResult(CreateReleasedDispatchResult());
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task WaitAsync_WhenResponseOmitsPersistedStartAndObserverRejects_ReturnsUndispatchedFailure ()
+    {
+        using var scope = TestDirectories.CreateTempScope(
+            "lifecycle-caller-wait",
+            "recovered-start-observer");
+        var unityProject = ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(
+            scope.FullPath);
+        var observer = new RejectingObserver();
+        var dispatchRequest = CreateObservedCompileDispatchRequest(observer);
+        var persistedStart = await LifecycleExecutionIpcTestResponseFactory.PersistStartAsync(
+            unityProject,
+            dispatchRequest);
+
+        var result = await LifecycleExecutionCallerWaitCoordinator.WaitAsync(
+            unityProject,
+            dispatchRequest,
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(30), TimeProvider.System),
+            _ => ValueTask.FromResult(UnityRequestExecutionResult.Failure(
+                UnityIpcFailureClassifier.InternalError("The response omitted its durable start."))),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(
+            persistedStart.LifecycleExecutionRef,
+            result.LifecycleExecutionStart!.LifecycleExecutionRef);
+        Assert.False(result.LifecycleActionDispatched);
+        Assert.Equal(1, observer.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task WaitAsync_WhenResponseContainsStart_ObservesItBeforeReturningResult ()
+    {
+        var unityProject = ResolvedUnityProjectContextTestFactory.Create();
+        var observer = new RecordingObserver();
+        var dispatchRequest = CreateObservedCompileDispatchRequest(observer);
+        var start = LifecycleExecutionIpcTestResponseFactory.CreateStartBinding(
+            dispatchRequest.CreateLifecycleStartRequest());
+
+        var result = await LifecycleExecutionCallerWaitCoordinator.WaitAsync(
+            unityProject,
+            dispatchRequest,
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(30), TimeProvider.System),
+            _ => ValueTask.FromResult(UnityRequestExecutionResult.Failure(
+                UnityIpcFailureClassifier.InternalError("The transport completed."), start)),
+            CancellationToken.None);
+
+        Assert.Same(start, result.LifecycleExecutionStart);
+        Assert.Equal(1, observer.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task WaitAsync_WhenUnobservedStartWouldFollowActionDispatch_ThrowsInvariantViolation ()
+    {
+        var unityProject = ResolvedUnityProjectContextTestFactory.Create();
+        var observer = new RejectingObserver();
+        var dispatchRequest = CreateObservedCompileDispatchRequest(observer);
+        var start = LifecycleExecutionIpcTestResponseFactory.CreateStartBinding(
+            dispatchRequest.CreateLifecycleStartRequest());
+
+        await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+            await LifecycleExecutionCallerWaitCoordinator.WaitAsync(
+                unityProject,
+                dispatchRequest,
+                ExecutionDeadline.Start(TimeSpan.FromSeconds(30), TimeProvider.System),
+                _ => ValueTask.FromResult(UnityRequestExecutionResult.Failure(
+                    UnityIpcFailureClassifier.InternalError("Invalid provider sequence."),
+                    start,
+                    lifecycleActionDispatched: true)),
+                CancellationToken.None));
+    }
+
+    private static UnityIpcDispatchRequest CreateObservedCompileDispatchRequest (
+        ILifecycleExecutionStartObserver observer)
+    {
+        var registration = UnityIpcRequestBuilderTestSupport.CreateLifecycleRegistration(
+            LifecycleExecutionKind.Compile);
+        return new UnityIpcRequestBuilder().Build(
+            new UnityRequestPayload.Compile(registration, requiredStart: null),
+            observer);
+    }
+
+    private sealed class RejectingObserver : ILifecycleExecutionStartObserver
+    {
+        public int CallCount { get; private set; }
+
+        public ValueTask<LifecycleExecutionStartObservation> ObserveAsync (
+            LifecycleExecutionStartBinding start)
+        {
+            ArgumentNullException.ThrowIfNull(start);
+            CallCount++;
+            return ValueTask.FromResult<LifecycleExecutionStartObservation>(
+                new LifecycleExecutionStartObservation.Rejected(
+                    ApplicationFailure.InternalError("Program Run durable start persistence failed.")));
+        }
+    }
+
+    private sealed class RecordingObserver : ILifecycleExecutionStartObserver
+    {
+        public int CallCount { get; private set; }
+
+        public ValueTask<LifecycleExecutionStartObservation> ObserveAsync (
+            LifecycleExecutionStartBinding start)
+        {
+            ArgumentNullException.ThrowIfNull(start);
+            CallCount++;
+            return ValueTask.FromResult<LifecycleExecutionStartObservation>(
+                LifecycleExecutionStartObservation.Observed.Instance);
+        }
     }
 
     private static UnityRequestExecutionResult CreateReleasedDispatchResult ()

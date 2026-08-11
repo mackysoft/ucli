@@ -107,6 +107,21 @@ internal static class LifecycleExecutionCallerWaitCoordinator
                 return CreateStartObservationTimeoutResult(deadline.Timeout);
             }
 
+            var observerResult = await dispatchRequest
+                .ObserveLifecycleStartAsync(observedStart)
+                .ConfigureAwait(false);
+            if (observerResult
+                is LifecycleExecutionStartObservation.Rejected rejected)
+            {
+                return UnityRequestExecutionResult.Failure(
+                    UnityIpcFailureClassifier.FromCodeAndMessage(
+                        rejected.Failure.Code,
+                        rejected.Failure.Message),
+                    observedStart);
+            }
+
+            dispatchObservation.ReportStarted(observedStart);
+
             return CreateCallerCanceledResult(
                 observedStart,
                 dispatchObservation.ActionDispatched);
@@ -123,18 +138,40 @@ internal static class LifecycleExecutionCallerWaitCoordinator
         UnityIpcDispatchRequest dispatchRequest,
         UnityRequestExecutionResult result)
     {
-        if (result.LifecycleExecutionStart is not null
-            || dispatchRequest.Registration is null)
+        if (dispatchRequest.Registration is null)
         {
             return result;
         }
 
-        var recoveredStart =
-            await LifecycleExecutionStartRecordRecovery.TryReadAsync(
+        var authoritativeStart = result.LifecycleExecutionStart
+            ?? await LifecycleExecutionStartRecordRecovery.TryReadAsync(
                     unityProject,
                     dispatchRequest)
                 .ConfigureAwait(false);
-        return result.WithLifecycleExecutionStart(recoveredStart);
+        if (authoritativeStart is null)
+        {
+            return result;
+        }
+
+        var observation = await dispatchRequest
+            .ObserveLifecycleStartAsync(authoritativeStart)
+            .ConfigureAwait(false);
+        if (observation is LifecycleExecutionStartObservation.Rejected rejected)
+        {
+            if (result.LifecycleActionDispatched)
+            {
+                throw new InvalidOperationException(
+                    "A Lifecycle Execution action was dispatched before its durable start observer completed.");
+            }
+
+            return UnityRequestExecutionResult.Failure(
+                UnityIpcFailureClassifier.FromCodeAndMessage(
+                    rejected.Failure.Code,
+                    rejected.Failure.Message),
+                authoritativeStart);
+        }
+
+        return result.WithLifecycleExecutionStart(authoritativeStart);
     }
 
     private static UnityRequestExecutionResult CreateCallerCanceledResult (

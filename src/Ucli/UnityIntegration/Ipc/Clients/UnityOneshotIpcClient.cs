@@ -371,10 +371,15 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
                                 responseMode,
                                 processHandle,
                                 sendPreparedRequestAsync,
-                                confirmedStart =>
+                                async confirmedStart =>
                                 {
                                     lifecycleExecutionStart = confirmedStart;
-                                    dispatchObservation?.ReportStarted(confirmedStart);
+                                    return await ObserveStartAsync(
+                                            dispatchRequest,
+                                            confirmedStart,
+                                            deadline,
+                                            dispatchObservation)
+                                        .ConfigureAwait(false);
                                 },
                                 () =>
                                 {
@@ -395,8 +400,19 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
                                     .ConfigureAwait(false);
                             if (lifecycleExecutionStart is not null)
                             {
-                                dispatchObservation?.ReportStarted(
-                                    lifecycleExecutionStart);
+                                var startObservation = await ObserveStartAsync(
+                                        dispatchRequest,
+                                        lifecycleExecutionStart,
+                                        deadline,
+                                        dispatchObservation)
+                                    .ConfigureAwait(false);
+                                if (startObservation is not null)
+                                {
+                                    result = UnityRequestExecutionResult.Failure(
+                                        startObservation,
+                                        lifecycleExecutionStart);
+                                    break;
+                                }
                             }
                         }
 
@@ -742,7 +758,11 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
                 SendPreparedSingleRequestAsync,
                 dispatchObservation is null
                     ? null
-                    : dispatchObservation.ReportStarted,
+                    : start =>
+                    {
+                        dispatchObservation.ReportStarted(start);
+                        return ValueTask.FromResult<UnityRequestFailure?>(null);
+                    },
                 dispatchObservation is null
                     ? null
                     : dispatchObservation.ReportActionDispatched,
@@ -787,7 +807,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
             TimeSpan,
             CancellationToken,
             ValueTask<IpcResponse>> sendPreparedRequestAsync,
-        Action<LifecycleExecutionStartBinding>? lifecycleStarted,
+        Func<LifecycleExecutionStartBinding, ValueTask<UnityRequestFailure?>>? lifecycleStarted,
         Action? lifecycleActionDispatched,
         CancellationToken cancellationToken)
     {
@@ -801,7 +821,17 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
         var lifecycleCompletionDeadlineStarted = false;
         if (lifecycleExecutionStart is not null)
         {
-            lifecycleStarted?.Invoke(lifecycleExecutionStart);
+            var requiredStartObservation = lifecycleStarted is null
+                ? null
+                : await lifecycleStarted(lifecycleExecutionStart)
+                    .ConfigureAwait(false);
+            if (requiredStartObservation is not null)
+            {
+                return OneshotPreparedDispatchOutcome.Failed(
+                    requiredStartObservation,
+                    lifecycleExecutionStart,
+                    actionWasDispatched);
+            }
             lifecycleStartReported = true;
         }
 
@@ -906,7 +936,17 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
                             lifecycleExecutionStart = confirmed.Start;
                             if (!lifecycleStartReported)
                             {
-                                lifecycleStarted?.Invoke(confirmed.Start);
+                                var startObservation = lifecycleStarted is null
+                                    ? null
+                                    : await lifecycleStarted(confirmed.Start)
+                                        .ConfigureAwait(false);
+                                if (startObservation is not null)
+                                {
+                                    return OneshotPreparedDispatchOutcome.Failed(
+                                        startObservation,
+                                        lifecycleExecutionStart,
+                                        actionWasDispatched);
+                                }
                                 lifecycleStartReported = true;
                             }
                             break;
@@ -976,7 +1016,17 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
                     if (lifecycleExecutionStart is not null
                         && !lifecycleStartReported)
                     {
-                        lifecycleStarted?.Invoke(lifecycleExecutionStart);
+                        var startObservation = lifecycleStarted is null
+                            ? null
+                            : await lifecycleStarted(lifecycleExecutionStart)
+                                .ConfigureAwait(false);
+                        if (startObservation is not null)
+                        {
+                            return OneshotPreparedDispatchOutcome.Failed(
+                                startObservation,
+                                lifecycleExecutionStart,
+                                actionWasDispatched);
+                        }
                         lifecycleStartReported = true;
                     }
                 }
@@ -1044,6 +1094,33 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
                 }
             }
         }
+    }
+
+    private static async ValueTask<UnityRequestFailure?> ObserveStartAsync (
+        UnityIpcDispatchRequest dispatchRequest,
+        LifecycleExecutionStartBinding start,
+        ExecutionDeadline deadline,
+        LifecycleExecutionDispatchObservation? dispatchObservation)
+    {
+        var observation = await dispatchRequest
+            .ObserveLifecycleStartAsync(start)
+            .ConfigureAwait(false);
+        if (observation is LifecycleExecutionStartObservation.Rejected rejected)
+        {
+            return UnityIpcFailureClassifier.FromCodeAndMessage(
+                rejected.Failure.Code,
+                rejected.Failure.Message);
+        }
+
+        if (dispatchRequest.LifecycleStartObserver is not null
+            && deadline.IsExpired)
+        {
+            return UnityIpcFailureClassifier.Timeout(
+                "Lifecycle Execution deadline expired while its durable start was being recorded.");
+        }
+
+        dispatchObservation?.ReportStarted(start);
+        return null;
     }
 
     private ValueTask<IpcResponse> SendPreparedSingleRequestAsync (

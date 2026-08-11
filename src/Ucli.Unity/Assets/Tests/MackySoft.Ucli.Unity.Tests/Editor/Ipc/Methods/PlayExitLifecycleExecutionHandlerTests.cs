@@ -563,6 +563,49 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator RecoverAsync_WhenOnlyStartWasRegisteredAfterDeadline_PublishesNotAppliedTerminalWithoutExitingPlayMode () =>
+            UniTask.ToCoroutine(async () =>
+            {
+                using var scope = TemporaryStorageScope.Create();
+                var executionStore = scope.CreateExecutionStore(ProjectFingerprint);
+                var start = await RegisterAsync(
+                    executionStore,
+                    playModeGeneration: 50,
+                    deadlineUtc: DateTimeOffset.UtcNow.AddMilliseconds(-100));
+                var exitRequestCount = 0;
+                var handler = CreateHandler(
+                    executionStore,
+                    new MutableUnityEditorReadinessGate(CreatePlayingSnapshot(50)),
+                    exitPlayModeRequester: () => exitRequestCount++);
+
+                await handler.RecoverAsync(
+                    new LifecycleExecutionRecoveryRequest(
+                        start,
+                        rejectionReason: null,
+                        canAttributeCurrentProviderObservation: true),
+                    CancellationToken.None);
+
+                Assert.That(exitRequestCount, Is.EqualTo(0));
+                Assert.That(
+                    await new FilePlayExitLifecycleExecutionCheckpointStore(
+                            executionStore)
+                        .ReadAsync(start.LifecycleExecutionRef.Id, CancellationToken.None),
+                    Is.Null);
+                var terminal = ReadTerminalRecord(
+                    executionStore,
+                    start.LifecycleExecutionRef.Id);
+                Assert.That(
+                    terminal.TerminalReason,
+                    Is.EqualTo(LifecycleExecutionTerminalReason.DeadlineExceeded));
+                Assert.That(
+                    terminal.ApplicationState,
+                    Is.EqualTo(ExecutionApplicationState.NotApplied));
+                Assert.That(terminal.Result, Is.Null);
+                Assert.That(terminal.Verdict, Is.Null);
+            });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator RecoverAsync_WhenOnlyStartWasRegistered_DoesNotIssueOrTerminalizeAction () =>
             UniTask.ToCoroutine(async () =>
             {

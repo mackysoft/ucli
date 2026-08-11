@@ -12,7 +12,8 @@ public sealed class PlayEnterCommandDispatchTests
     {
         var service = new RecordingPlayEnterService((_, _) => ValueTask.FromResult(PlayEnterExecutionResult.Success(
             PlayEnterCommandTestData.CreateOutput())));
-        var command = new PlayEnterCommand(service, CommandResultTestWriter.Create());
+        var invocationFactory = new RecordingLifecycleExecutionCliInvocationFactory();
+        var command = new PlayEnterCommand(service, CommandResultTestWriter.Create(), invocationFactory);
         using var cancellationTokenSource = new CancellationTokenSource();
 
         var result = await CommandResultCapture.ExecuteAsync(() => command.EnterAsync(
@@ -22,7 +23,7 @@ public sealed class PlayEnterCommandDispatchTests
 
         PlayCommandAssert.EnterSucceededWithDispatchedInput(
             result,
-            service,
+            invocationFactory,
             cancellationTokenSource.Token,
             PlayCommandOutputTestData.ProjectPath,
             expectedTimeoutMilliseconds: 1234);

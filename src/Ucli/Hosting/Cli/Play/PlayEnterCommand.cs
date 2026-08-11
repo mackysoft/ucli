@@ -13,15 +13,19 @@ internal sealed class PlayEnterCommand
 
     private readonly ICommandResultWriter commandResultWriter;
 
+    private readonly ILifecycleExecutionCliInvocationFactory invocationFactory;
+
     /// <summary> Initializes a new instance of the <see cref="PlayEnterCommand" /> class. </summary>
     /// <param name="playEnterService"> The Play Mode enter service dependency. </param>
     /// <param name="commandResultWriter"> The command-result writer dependency. </param>
     public PlayEnterCommand (
         IPlayEnterService playEnterService,
-        ICommandResultWriter commandResultWriter)
+        ICommandResultWriter commandResultWriter,
+        ILifecycleExecutionCliInvocationFactory invocationFactory)
     {
         this.playEnterService = playEnterService ?? throw new ArgumentNullException(nameof(playEnterService));
         this.commandResultWriter = commandResultWriter ?? throw new ArgumentNullException(nameof(commandResultWriter));
+        this.invocationFactory = invocationFactory ?? throw new ArgumentNullException(nameof(invocationFactory));
     }
 
     /// <summary> Requests Unity to enter Play Mode and emits the JSON result contract. </summary>
@@ -48,10 +52,17 @@ internal sealed class PlayEnterCommand
             return invalidTimeoutResult.ExitCode;
         }
 
-        var input = new PlayEnterCommandInput(
-            ProjectPath: projectPath,
-            TimeoutMilliseconds: timeoutNormalizationResult.TimeoutMilliseconds);
-        var executionResult = await playEnterService.ExecuteAsync(input, cancellationToken).ConfigureAwait(false);
+        var invocationResult = await invocationFactory.CreatePlayEnterStartAsync(
+                projectPath,
+                timeoutNormalizationResult.TimeoutMilliseconds,
+                cancellationToken)
+            .ConfigureAwait(false);
+        var executionResult = invocationResult.IsSuccess
+            ? await playEnterService.StartAsync(
+                    invocationResult.Invocation!,
+                    cancellationToken)
+                .ConfigureAwait(false)
+            : PlayEnterExecutionResult.Failure(invocationResult.Failure!);
         var commandResult = PlayEnterCommandResultFactory.Create(executionResult);
         commandResultWriter.WriteToStandardOutput(commandResult);
         return commandResult.ExitCode;
