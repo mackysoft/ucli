@@ -243,6 +243,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             services.AddSingleton<IUnityScreenshotCaptureService, UnityScreenshotCaptureService>();
             services.AddSingleton(GameViewRecordingAdapterRegistry.Shared);
             services.AddSingleton<GameViewRecordingIpcProjection>();
+            services.AddSingleton<IGameViewRecorderPackageRegistry, UnityEditorGameViewRecorderPackageRegistry>();
             services.AddSingleton<IUnityIpcMethodHandler, GameViewRecordingCapabilityUnityIpcMethodHandler>();
             services.AddSingleton<IUnityIpcMethodHandler, GameViewRecordingStartUnityIpcMethodHandler>();
             services.AddSingleton<IUnityIpcMethodHandler, GameViewRecordingStatusUnityIpcMethodHandler>();

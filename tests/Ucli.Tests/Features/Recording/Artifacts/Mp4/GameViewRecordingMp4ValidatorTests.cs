@@ -18,6 +18,7 @@ public sealed class GameViewRecordingMp4ValidatorTests
             SyntheticGameViewRecordingMp4.Width,
             SyntheticGameViewRecordingMp4.Height,
             expectedFrameRate: 30,
+            expectedMaxDurationSeconds: 120,
             CancellationToken.None);
 
         Assert.Equal(codec, result.Codec);
@@ -50,6 +51,7 @@ public sealed class GameViewRecordingMp4ValidatorTests
             SyntheticGameViewRecordingMp4.Width,
             SyntheticGameViewRecordingMp4.Height,
             expectedFrameRate: 30,
+            expectedMaxDurationSeconds: 120,
             CancellationToken.None);
 
         Assert.Equal((ulong)SyntheticGameViewRecordingMp4.SampleCount, result.SampleCount);
@@ -69,6 +71,7 @@ public sealed class GameViewRecordingMp4ValidatorTests
             SyntheticGameViewRecordingMp4.Width,
             SyntheticGameViewRecordingMp4.Height,
             expectedFrameRate: 30,
+            expectedMaxDurationSeconds: 120,
             CancellationToken.None);
 
         Assert.Equal(sampleDuration, result.DurationInMediaTimeUnits);
@@ -273,6 +276,74 @@ public sealed class GameViewRecordingMp4ValidatorTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task ValidateAsync_WhenSampleCountEqualsRequestedLimit_ReturnsVideoStructure ()
+    {
+        var result = await new GameViewRecordingMp4Validator().ValidateAsync(
+            new MemoryStream(SyntheticGameViewRecordingMp4.Create(), writable: false),
+            SyntheticGameViewRecordingMp4.Width,
+            SyntheticGameViewRecordingMp4.Height,
+            expectedFrameRate: 30,
+            expectedMaxDurationSeconds: 2,
+            CancellationToken.None);
+
+        Assert.Equal((ulong)SyntheticGameViewRecordingMp4.SampleCount, result.SampleCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task ValidateAsync_WhenSampleCountExceedsRequestedLimitByOne_ThrowsInvalidDataException ()
+    {
+        var bytes = SyntheticGameViewRecordingMp4.Create(
+            timeToSampleEntries:
+            [
+                (SyntheticGameViewRecordingMp4.SampleCount + 1, SyntheticGameViewRecordingMp4.SampleDelta),
+            ]);
+
+        var exception = await Assert.ThrowsAsync<InvalidDataException>(() =>
+            new GameViewRecordingMp4Validator()
+                .ValidateAsync(
+                    new MemoryStream(bytes, writable: false),
+                    SyntheticGameViewRecordingMp4.Width,
+                    SyntheticGameViewRecordingMp4.Height,
+                    expectedFrameRate: 30,
+                    expectedMaxDurationSeconds: 2,
+                    CancellationToken.None)
+                .AsTask());
+
+        Assert.Contains("exceeds the requested duration limit", exception.Message);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task ValidateAsync_WhenQuantizedPlaybackDurationExceedsRequestedLimitButSampleCountDoesNot_ReturnsVideoStructure ()
+    {
+        var sampleDuration = (ulong)SyntheticGameViewRecordingMp4.SampleCount
+            * (SyntheticGameViewRecordingMp4.SampleDelta * 4);
+        var quantizedDuration = sampleDuration + 1;
+        var bytes = SyntheticGameViewRecordingMp4.Create(
+            timeToSampleEntries:
+            [
+                (SyntheticGameViewRecordingMp4.SampleCount, SyntheticGameViewRecordingMp4.SampleDelta * 4),
+            ],
+            mediaDurationOverride: quantizedDuration,
+            trackDurationOverride: quantizedDuration,
+            movieDurationOverride: quantizedDuration,
+            timescale: SyntheticGameViewRecordingMp4.MediaTimescale * 4);
+
+        var result = await new GameViewRecordingMp4Validator().ValidateAsync(
+            new MemoryStream(bytes, writable: false),
+            SyntheticGameViewRecordingMp4.Width,
+            SyntheticGameViewRecordingMp4.Height,
+            expectedFrameRate: 30,
+            expectedMaxDurationSeconds: 2,
+            CancellationToken.None);
+
+        Assert.True(result.DurationSeconds > 2);
+        Assert.Equal((ulong)SyntheticGameViewRecordingMp4.SampleCount, result.SampleCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task ValidateAsync_WhenSampleCountExceedsStructuralLimit_ThrowsInvalidDataException ()
     {
         var bytes = SyntheticGameViewRecordingMp4.Create(
@@ -291,7 +362,8 @@ public sealed class GameViewRecordingMp4ValidatorTests
                     new MemoryStream(bytes, writable: false),
                     SyntheticGameViewRecordingMp4.Width,
                     SyntheticGameViewRecordingMp4.Height,
-                    expectedFrameRate: 30,
+                    expectedFrameRate: double.MaxValue,
+                    expectedMaxDurationSeconds: int.MaxValue,
                     CancellationToken.None)
                 .AsTask());
 
@@ -300,7 +372,8 @@ public sealed class GameViewRecordingMp4ValidatorTests
 
     private static async Task AssertInvalidAsync (
         byte[] bytes,
-        double expectedFrameRate = 30)
+        double expectedFrameRate = 30,
+        int expectedMaxDurationSeconds = 120)
     {
         await Assert.ThrowsAsync<InvalidDataException>(() =>
             new GameViewRecordingMp4Validator()
@@ -309,6 +382,7 @@ public sealed class GameViewRecordingMp4ValidatorTests
                     SyntheticGameViewRecordingMp4.Width,
                     SyntheticGameViewRecordingMp4.Height,
                     expectedFrameRate,
+                    expectedMaxDurationSeconds,
                     CancellationToken.None)
                 .AsTask());
     }

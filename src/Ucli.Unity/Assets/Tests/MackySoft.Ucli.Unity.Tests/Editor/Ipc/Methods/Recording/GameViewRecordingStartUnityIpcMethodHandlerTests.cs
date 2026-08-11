@@ -1,3 +1,5 @@
+#nullable enable annotations
+
 using System;
 using System.IO;
 using System.Threading;
@@ -37,7 +39,8 @@ namespace MackySoft.Ucli.Unity.Tests
             var fixture = CreateFixture();
             var handler = new GameViewRecordingCapabilityUnityIpcMethodHandler(
                 fixture.Registry,
-                fixture.Projection);
+                fixture.Projection,
+                new FixedRecorderPackageRegistry("5.1.5"));
             var request = CreateRequest(
                 UnityIpcMethod.RecordingCapability,
                 new IpcGameViewRecordingCapabilityRequest());
@@ -57,6 +60,60 @@ namespace MackySoft.Ucli.Unity.Tests
                 out _), Is.True);
             Assert.That(payload.StartBinding, Is.EqualTo(
                 fixture.Projection.CaptureCurrentBinding()));
+        }
+
+        [TestCase("5.2.0", GameViewRecordingAdapterState.NotApplicable,
+            "GAME_VIEW_RECORDING_RECORDER_UNSUPPORTED")]
+        [TestCase("5.1.5", GameViewRecordingAdapterState.Missing,
+            "GAME_VIEW_RECORDING_ADAPTER_FAULTED")]
+        public void Capability_WhenAvailabilityIsObservedButCannotAdmit_ReturnsBlockedAdmission (
+            string recorderVersion,
+            GameViewRecordingAdapterState expectedAdapterState,
+            string expectedBlockingCode)
+        {
+            var fixture = CreateFixture(registerAdapter: false);
+
+            var payload = InvokeCapability(
+                fixture,
+                new FixedRecorderPackageRegistry(recorderVersion));
+
+            Assert.That(payload.Adapter.State, Is.EqualTo(expectedAdapterState));
+            Assert.That(payload.RuntimeAdmission.State, Is.EqualTo(
+                GameViewRecordingRuntimeAdmissionState.Blocked));
+            Assert.That(payload.RuntimeAdmission.BlockingCodes.Count, Is.EqualTo(1));
+            Assert.That(payload.RuntimeAdmission.BlockingCodes[0].Value, Is.EqualTo(expectedBlockingCode));
+        }
+
+        [Test]
+        public void Capability_WhenRecorderIsAbsent_ReturnsBlockedAdmission ()
+        {
+            var fixture = CreateFixture(registerAdapter: false);
+
+            var payload = InvokeCapability(
+                fixture,
+                new MissingRecorderPackageRegistry());
+
+            Assert.That(payload.Adapter.State, Is.EqualTo(
+                GameViewRecordingAdapterState.NotApplicable));
+            Assert.That(payload.RuntimeAdmission.State, Is.EqualTo(
+                GameViewRecordingRuntimeAdmissionState.Blocked));
+            Assert.That(payload.RuntimeAdmission.BlockingCodes, Is.EqualTo(
+                new[] { GameViewRecordingErrorCodes.Unavailable }));
+        }
+
+        [Test]
+        public void Capability_WhenRecorderRegistrationCannotBeObserved_ReturnsUnobservedAdmission ()
+        {
+            var fixture = CreateFixture(registerAdapter: false);
+
+            var payload = InvokeCapability(fixture, new ThrowingRecorderPackageRegistry());
+
+            Assert.That(payload.Adapter.State, Is.EqualTo(
+                GameViewRecordingAdapterState.Unobserved));
+            Assert.That(payload.RuntimeAdmission.State, Is.EqualTo(
+                GameViewRecordingRuntimeAdmissionState.Unobserved));
+            Assert.That(payload.RuntimeAdmission.BlockingCodes, Is.EqualTo(
+                new[] { GameViewRecordingErrorCodes.AdapterFaulted }));
         }
 
         [Test]
@@ -580,6 +637,32 @@ namespace MackySoft.Ucli.Unity.Tests
                 CancellationToken.None);
         }
 
+        private static IpcGameViewRecordingCapabilityResponse InvokeCapability (
+            Fixture fixture,
+            IGameViewRecorderPackageRegistry packageRegistry)
+        {
+            var handler = new GameViewRecordingCapabilityUnityIpcMethodHandler(
+                fixture.Registry,
+                fixture.Projection,
+                packageRegistry);
+            var response = UnityIpcMethodHandlerTestInvoker.HandleAsync(
+                    handler,
+                    CreateRequest(
+                        UnityIpcMethod.RecordingCapability,
+                        new IpcGameViewRecordingCapabilityRequest()),
+                    CancellationToken.None)
+                .AsTask()
+                .GetAwaiter()
+                .GetResult();
+
+            Assert.That(response.Status, Is.EqualTo(IpcResponseStatus.Ok));
+            Assert.That(IpcPayloadCodec.TryDeserialize(
+                response.Payload,
+                out IpcGameViewRecordingCapabilityResponse payload,
+                out _), Is.True);
+            return payload;
+        }
+
         private static GameViewRecordingSnapshot CreateObservedSnapshot (
             Guid recordingId,
             Sha256Digest requestDigest,
@@ -777,6 +860,39 @@ namespace MackySoft.Ucli.Unity.Tests
             }
         }
 
+        private sealed class FixedRecorderPackageRegistry : IGameViewRecorderPackageRegistry
+        {
+            private readonly string version;
+
+            public FixedRecorderPackageRegistry (string version)
+            {
+                this.version = version;
+            }
+
+            public bool TryGetRecorderPackageVersion (out string resolvedVersion)
+            {
+                resolvedVersion = version;
+                return true;
+            }
+        }
+
+        private sealed class MissingRecorderPackageRegistry : IGameViewRecorderPackageRegistry
+        {
+            public bool TryGetRecorderPackageVersion (out string version)
+            {
+                version = string.Empty;
+                return false;
+            }
+        }
+
+        private sealed class ThrowingRecorderPackageRegistry : IGameViewRecorderPackageRegistry
+        {
+            public bool TryGetRecorderPackageVersion (out string version)
+            {
+                throw new InvalidOperationException("Package registration cannot be observed.");
+            }
+        }
+
         private sealed class FixedAvailabilitySource : IUnityEditorAvailabilityObservationSource
         {
             private readonly UnityEditorRuntimeObservation observation;
@@ -804,3 +920,5 @@ namespace MackySoft.Ucli.Unity.Tests
         }
     }
 }
+
+#nullable restore

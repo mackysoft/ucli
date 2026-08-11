@@ -346,6 +346,88 @@ public sealed class FileGameViewRecordingArtifactStoreTests
 
     [Fact]
     [Trait("Size", "Medium")]
+    public async Task PublishVideoAsync_WhenProviderStagingExceedsSampleLimit_FailsFinalization ()
+    {
+        using var scope = TestDirectories.CreateTempScope(
+            "game-view-recording-artifacts",
+            "staging-sample-limit");
+        var project = CreateProject(scope);
+        using var admissionLease = await AcquireAdmissionLeaseAsync(project);
+        var lease = AssertPrepared(CreateStore().Prepare(project, RecordingId, admissionLease));
+        var bytes = CreateSampleLimitExceedingMp4();
+        await File.WriteAllBytesAsync(ResolveProviderOutputPath(project).Value, bytes, CancellationToken.None);
+
+        var result = await lease.PublishVideoAsync(
+            CreateEffectiveRequest(maxDurationSeconds: 2),
+            observedEncodedFrameCount: checked((int)SyntheticGameViewRecordingMp4.SampleCount + 1),
+            knownArtifact: null,
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(GameViewRecordingErrorCodes.FinalizationFailed, result.Error!.Code);
+        Assert.True(File.Exists(ResolveProviderOutputPath(project).Value));
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task PublishVideoAsync_WhenUncheckpointedArtifactExceedsSampleLimit_FailsFinalization ()
+    {
+        using var scope = TestDirectories.CreateTempScope(
+            "game-view-recording-artifacts",
+            "uncheckpointed-sample-limit");
+        var project = CreateProject(scope);
+        using var admissionLease = await AcquireAdmissionLeaseAsync(project);
+        var lease = AssertPrepared(CreateStore().Prepare(project, RecordingId, admissionLease));
+        var bytes = CreateSampleLimitExceedingMp4();
+        var destination = UcliStoragePathResolver.ResolveGameViewRecordingVideoArtifactPath(
+            project.RepositoryRoot,
+            project.ProjectFingerprint,
+            RecordingId);
+        await File.WriteAllBytesAsync(destination.Value, bytes, CancellationToken.None);
+        await File.WriteAllBytesAsync(ResolveProviderOutputPath(project).Value, bytes, CancellationToken.None);
+
+        var result = await lease.PublishVideoAsync(
+            CreateEffectiveRequest(maxDurationSeconds: 2),
+            observedEncodedFrameCount: checked((int)SyntheticGameViewRecordingMp4.SampleCount + 1),
+            knownArtifact: null,
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(GameViewRecordingErrorCodes.FinalizationFailed, result.Error!.Code);
+        Assert.True(File.Exists(destination.Value));
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task PublishVideoAsync_WhenCheckpointedArtifactExceedsSampleLimit_FailsFinalization ()
+    {
+        using var scope = TestDirectories.CreateTempScope(
+            "game-view-recording-artifacts",
+            "checkpointed-sample-limit");
+        var project = CreateProject(scope);
+        using var admissionLease = await AcquireAdmissionLeaseAsync(project);
+        var lease = AssertPrepared(CreateStore().Prepare(project, RecordingId, admissionLease));
+        var bytes = CreateSampleLimitExceedingMp4();
+        await File.WriteAllBytesAsync(ResolveProviderOutputPath(project).Value, bytes, CancellationToken.None);
+        var publication = Assert.IsType<GameViewRecordingVideoPublication>(
+            (await lease.PublishVideoAsync(
+                CreateEffectiveRequest(maxDurationSeconds: 3),
+                observedEncodedFrameCount: checked((int)SyntheticGameViewRecordingMp4.SampleCount + 1),
+                knownArtifact: null,
+                CancellationToken.None)).Publication);
+
+        var result = await lease.PublishVideoAsync(
+            CreateEffectiveRequest(maxDurationSeconds: 2),
+            observedEncodedFrameCount: checked((int)SyntheticGameViewRecordingMp4.SampleCount + 1),
+            publication.Artifact,
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(GameViewRecordingErrorCodes.FinalizationFailed, result.Error!.Code);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
     public async Task PublishVideoAsync_WhenProviderOutputIsNotFinalized_DoesNotPublishVideo ()
     {
         using var scope = TestDirectories.CreateTempScope(
@@ -468,6 +550,15 @@ public sealed class FileGameViewRecordingArtifactStoreTests
         return new FileGameViewRecordingArtifactStore(
             new ImmutableArtifactFilePublisher(static () => DateTimeOffset.UtcNow),
             new GameViewRecordingMp4Validator());
+    }
+
+    private static byte[] CreateSampleLimitExceedingMp4 ()
+    {
+        return SyntheticGameViewRecordingMp4.Create(
+            timeToSampleEntries:
+            [
+                (SyntheticGameViewRecordingMp4.SampleCount + 1, SyntheticGameViewRecordingMp4.SampleDelta),
+            ]);
     }
 
     private static async ValueTask<IGameViewRecordingAdmissionLease> AcquireAdmissionLeaseAsync (

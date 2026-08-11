@@ -210,6 +210,7 @@ internal sealed class FileGameViewRecordingArtifactStore : IGameViewRecordingArt
                                         request.Resolution.Width,
                                         request.Resolution.Height,
                                         request.FrameRate,
+                                        request.MaxDurationSeconds,
                                         token)
                                     .ConfigureAwait(false);
                                 EnsureObservedFrameCount(existingValidation, observedEncodedFrameCount);
@@ -235,6 +236,7 @@ internal sealed class FileGameViewRecordingArtifactStore : IGameViewRecordingArt
                                     request.Resolution.Width,
                                     request.Resolution.Height,
                                     request.FrameRate,
+                                    request.MaxDurationSeconds,
                                     token)
                                 .ConfigureAwait(false);
                             EnsureObservedFrameCount(validation, observedEncodedFrameCount);
@@ -261,6 +263,7 @@ internal sealed class FileGameViewRecordingArtifactStore : IGameViewRecordingArt
                                 request.Resolution.Width,
                                 request.Resolution.Height,
                                 request.FrameRate,
+                                request.MaxDurationSeconds,
                                 token)
                             .ConfigureAwait(false);
                     },
@@ -284,6 +287,7 @@ internal sealed class FileGameViewRecordingArtifactStore : IGameViewRecordingArt
                                 request.Resolution.Width,
                                 request.Resolution.Height,
                                 request.FrameRate,
+                                request.MaxDurationSeconds,
                                 token)
                             .ConfigureAwait(false);
                         EnsureObservedFrameCount(publishedValidation, observedEncodedFrameCount);

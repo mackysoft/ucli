@@ -36,7 +36,8 @@ internal static class SyntheticGameViewRecordingMp4
         int videoTrackCount = 1,
         bool includeMediaData = true,
         bool useCompactSampleSizes = false,
-        bool use64BitChunkOffsets = false)
+        bool use64BitChunkOffsets = false,
+        uint timescale = MediaTimescale)
     {
         return CreateCore(
             codec,
@@ -53,6 +54,7 @@ internal static class SyntheticGameViewRecordingMp4
             includeMediaData,
             useCompactSampleSizes,
             use64BitChunkOffsets,
+            timescale,
             includeAvcConfiguration: true,
             EncodedSampleSize,
             samplesPerChunkOverride: null,
@@ -208,6 +210,7 @@ internal static class SyntheticGameViewRecordingMp4
         bool includeMediaData = true,
         bool useCompactSampleSizes = false,
         bool use64BitChunkOffsets = false,
+        uint timescale = MediaTimescale,
         bool includeAvcConfiguration = true,
         uint sampleSize = EncodedSampleSize,
         uint? samplesPerChunkOverride = null,
@@ -239,6 +242,7 @@ internal static class SyntheticGameViewRecordingMp4
             videoTrackCount,
             useCompactSampleSizes,
             use64BitChunkOffsets,
+            timescale,
             includeAvcConfiguration,
             sampleCount,
             sampleSize,
@@ -265,6 +269,7 @@ internal static class SyntheticGameViewRecordingMp4
             videoTrackCount,
             useCompactSampleSizes,
             use64BitChunkOffsets,
+            timescale,
             includeAvcConfiguration,
             sampleCount,
             sampleSize,
@@ -301,6 +306,7 @@ internal static class SyntheticGameViewRecordingMp4
         int videoTrackCount,
         bool useCompactSampleSizes,
         bool use64BitChunkOffsets,
+        uint timescale,
         bool includeAvcConfiguration,
         uint sampleCount,
         uint sampleSize,
@@ -327,6 +333,7 @@ internal static class SyntheticGameViewRecordingMp4
                 includeAvcConfiguration,
                 useCompactSampleSizes,
                 use64BitChunkOffsets,
+                timescale,
                 sampleCount,
                 sampleSize,
                 samplesPerChunkOverride ?? sampleCount,
@@ -351,6 +358,7 @@ internal static class SyntheticGameViewRecordingMp4
                 includeAvcConfiguration: false,
                 useCompactSampleSizes: false,
                 use64BitChunkOffsets,
+                timescale,
                 sampleCount,
                 sampleSize,
                 samplesPerChunkOverride ?? sampleCount,
@@ -361,7 +369,7 @@ internal static class SyntheticGameViewRecordingMp4
 
         var moviePayloadParts = new List<byte[]>
         {
-            CreateMovieHeader(movieDuration),
+            CreateMovieHeader(movieDuration, timescale),
             Box("free", [0x42, 0x4F, 0x58]),
         };
         moviePayloadParts.AddRange(tracks);
@@ -411,10 +419,12 @@ internal static class SyntheticGameViewRecordingMp4
         return Box("ftyp", payload);
     }
 
-    private static byte[] CreateMovieHeader (ulong duration)
+    private static byte[] CreateMovieHeader (
+        ulong duration,
+        uint timescale)
     {
         var payload = new byte[100];
-        BinaryPrimitives.WriteUInt32BigEndian(payload.AsSpan(12, 4), MediaTimescale);
+        BinaryPrimitives.WriteUInt32BigEndian(payload.AsSpan(12, 4), timescale);
         BinaryPrimitives.WriteUInt32BigEndian(payload.AsSpan(16, 4), checked((uint)duration));
         BinaryPrimitives.WriteUInt32BigEndian(payload.AsSpan(20, 4), 0x00010000);
         BinaryPrimitives.WriteUInt16BigEndian(payload.AsSpan(24, 2), 0x0100);
@@ -436,6 +446,7 @@ internal static class SyntheticGameViewRecordingMp4
         bool includeAvcConfiguration,
         bool useCompactSampleSizes,
         bool use64BitChunkOffsets,
+        uint timescale,
         uint sampleCount,
         uint sampleSize,
         uint samplesPerChunk,
@@ -474,7 +485,7 @@ internal static class SyntheticGameViewRecordingMp4
                 "mdia",
                 Concatenate(
                 [
-                    CreateMediaHeader(mediaDuration),
+                    CreateMediaHeader(mediaDuration, timescale),
                     CreateHandler(handlerType),
                     Box("minf", Box("stbl", Concatenate(sampleTableParts))),
                 ])));
@@ -499,10 +510,12 @@ internal static class SyntheticGameViewRecordingMp4
         return Box("tkhd", payload);
     }
 
-    private static byte[] CreateMediaHeader (ulong duration)
+    private static byte[] CreateMediaHeader (
+        ulong duration,
+        uint timescale)
     {
         var payload = new byte[24];
-        BinaryPrimitives.WriteUInt32BigEndian(payload.AsSpan(12, 4), MediaTimescale);
+        BinaryPrimitives.WriteUInt32BigEndian(payload.AsSpan(12, 4), timescale);
         BinaryPrimitives.WriteUInt32BigEndian(payload.AsSpan(16, 4), checked((uint)duration));
         return Box("mdhd", payload);
     }

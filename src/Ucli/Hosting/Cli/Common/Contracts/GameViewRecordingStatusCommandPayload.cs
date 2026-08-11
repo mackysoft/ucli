@@ -3,7 +3,7 @@ using System.Text.Json.Serialization.Metadata;
 using MackySoft.Ucli.Contracts.Projects;
 using MackySoft.Ucli.Contracts.Recording;
 
-namespace MackySoft.Ucli.Hosting.Cli.Recording;
+namespace MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 
 /// <summary>Represents the closed successful payload of <c>recording status</c>.</summary>
 internal abstract record GameViewRecordingStatusCommandPayload

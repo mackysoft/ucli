@@ -1,11 +1,9 @@
 using System;
-using System.Linq;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Recording;
 using MackySoft.Ucli.Unity.Recording;
-using UnityEditor.PackageManager;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
@@ -16,12 +14,16 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private readonly GameViewRecordingIpcProjection projection;
 
+        private readonly IGameViewRecorderPackageRegistry packageRegistry;
+
         public GameViewRecordingCapabilityUnityIpcMethodHandler (
             GameViewRecordingAdapterRegistry registry,
-            GameViewRecordingIpcProjection projection)
+            GameViewRecordingIpcProjection projection,
+            IGameViewRecorderPackageRegistry packageRegistry)
         {
             this.registry = registry ?? throw new ArgumentNullException(nameof(registry));
             this.projection = projection ?? throw new ArgumentNullException(nameof(projection));
+            this.packageRegistry = packageRegistry ?? throw new ArgumentNullException(nameof(packageRegistry));
         }
 
         public UnityIpcMethod Method => UnityIpcMethod.RecordingCapability;
@@ -76,45 +78,61 @@ namespace MackySoft.Ucli.Unity.Ipc
         {
             try
             {
-                var package = PackageInfo.GetAllRegisteredPackages()
-                    .FirstOrDefault(static item => string.Equals(
-                        item.name,
-                        GameViewRecorderCompatibilityMetadata.PackageId,
-                        StringComparison.Ordinal));
-                if (package == null)
+                if (!packageRegistry.TryGetRecorderPackageVersion(out var packageVersion))
                 {
-                    return CreateUnavailable(
+                    return CreateBlockedUnavailable(
                         GameViewRecordingAdapterState.NotApplicable,
                         GameViewRecordingErrorCodes.Unavailable);
                 }
 
-                if (!IsSupportedRecorderVersion(package.version))
+                if (!IsSupportedRecorderVersion(packageVersion))
                 {
-                    return CreateUnavailable(
+                    return CreateBlockedUnavailable(
                         GameViewRecordingAdapterState.NotApplicable,
                         GameViewRecordingErrorCodes.RecorderUnsupported);
                 }
 
-                return CreateUnavailable(
+                return CreateBlockedUnavailable(
                     GameViewRecordingAdapterState.Missing,
                     GameViewRecordingErrorCodes.AdapterFaulted);
             }
             catch
             {
-                return CreateUnavailable(
+                return CreateUnobservedUnavailable(
                     GameViewRecordingAdapterState.Unobserved,
                     GameViewRecordingErrorCodes.AdapterFaulted);
             }
         }
 
+        private IpcGameViewRecordingCapabilityResponse CreateBlockedUnavailable (
+            GameViewRecordingAdapterState adapterState,
+            UcliCode code)
+        {
+            return CreateUnavailable(
+                adapterState,
+                GameViewRecordingRuntimeAdmissionState.Blocked,
+                code);
+        }
+
+        private IpcGameViewRecordingCapabilityResponse CreateUnobservedUnavailable (
+            GameViewRecordingAdapterState adapterState,
+            UcliCode code)
+        {
+            return CreateUnavailable(
+                adapterState,
+                GameViewRecordingRuntimeAdmissionState.Unobserved,
+                code);
+        }
+
         private IpcGameViewRecordingCapabilityResponse CreateUnavailable (
             GameViewRecordingAdapterState adapterState,
+            GameViewRecordingRuntimeAdmissionState runtimeAdmissionState,
             UcliCode code)
         {
             return new IpcGameViewRecordingCapabilityResponse(
                 new GameViewRecordingAdapterCapability(adapterState, null, null),
                 new MackySoft.Ucli.Contracts.Recording.GameViewRecordingRuntimeAdmission(
-                    GameViewRecordingRuntimeAdmissionState.Unobserved,
+                    runtimeAdmissionState,
                     new[] { code }),
                 limits: null,
                 captureProfile: null,

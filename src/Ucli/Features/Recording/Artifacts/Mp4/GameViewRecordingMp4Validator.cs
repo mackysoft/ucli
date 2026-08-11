@@ -46,6 +46,7 @@ internal sealed class GameViewRecordingMp4Validator
     /// <param name="expectedWidth"> The requested video width. </param>
     /// <param name="expectedHeight"> The requested video height. </param>
     /// <param name="expectedFrameRate"> The requested constant frame rate. </param>
+    /// <param name="expectedMaxDurationSeconds"> The effective maximum recording duration in seconds. </param>
     /// <param name="cancellationToken"> The cancellation token observed while reading the stream. </param>
     /// <returns> The validated video format and timing. </returns>
     /// <exception cref="ArgumentException">
@@ -60,6 +61,7 @@ internal sealed class GameViewRecordingMp4Validator
         int expectedWidth,
         int expectedHeight,
         double expectedFrameRate,
+        int expectedMaxDurationSeconds,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(stream);
@@ -79,6 +81,17 @@ internal sealed class GameViewRecordingMp4Validator
                 expectedFrameRate,
                 "Expected frame rate must be positive and finite.");
         }
+        if (expectedMaxDurationSeconds <= 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(expectedMaxDurationSeconds),
+                expectedMaxDurationSeconds,
+                "Expected maximum duration must be positive.");
+        }
+
+        var maximumSampleCount = CalculateMaximumSampleCount(
+            expectedFrameRate,
+            expectedMaxDurationSeconds);
 
         var reader = new IsoBmffReader(stream, MaximumStructuralSampleCount);
         var fileTypeObserved = false;
@@ -129,6 +142,7 @@ internal sealed class GameViewRecordingMp4Validator
                 expectedWidth,
                 expectedHeight,
                 expectedFrameRate,
+                maximumSampleCount,
                 cancellationToken)
             .ConfigureAwait(false);
         reader.Seek(fileEnd);
@@ -1404,6 +1418,7 @@ internal sealed class GameViewRecordingMp4Validator
         int expectedWidth,
         int expectedHeight,
         double expectedFrameRate,
+        ulong maximumSampleCount,
         CancellationToken cancellationToken)
     {
         var videoTrack = movie.VideoTrack
@@ -1447,6 +1462,12 @@ internal sealed class GameViewRecordingMp4Validator
         if (timeToSample.SampleCount == 0 || timeToSample.SampleDelta is not { } sampleDelta)
         {
             throw new InvalidDataException("Finalized video track must describe at least one sample.");
+        }
+        if (timeToSample.SampleCount > maximumSampleCount)
+        {
+            throw new InvalidDataException(
+                $"Video sample count exceeds the requested duration limit. "
+                + $"Maximum={maximumSampleCount}, Actual={timeToSample.SampleCount}.");
         }
 
 
@@ -1533,6 +1554,20 @@ internal sealed class GameViewRecordingMp4Validator
             sampleDuration,
             durationSeconds,
             effectiveFrameRate);
+    }
+
+    private static ulong CalculateMaximumSampleCount (
+        double expectedFrameRate,
+        int expectedMaxDurationSeconds)
+    {
+        var maximumSampleCount = expectedFrameRate * expectedMaxDurationSeconds;
+        if (double.IsPositiveInfinity(maximumSampleCount)
+            || maximumSampleCount >= ulong.MaxValue)
+        {
+            return ulong.MaxValue;
+        }
+
+        return checked((ulong)Math.Floor(maximumSampleCount));
     }
 
     private static async ValueTask ValidateSampleDataAsync (
