@@ -19,11 +19,11 @@ internal sealed class RecordingLifecycleExecutionStartInvocationFactory :
     public RecordingLifecycleExecutionStartInvocationFactory ()
     {
         var project = ResolvedUnityProjectContext.Create(
-            AbsolutePath.Parse("/repo/UnityProject"),
-            AbsolutePath.Parse("/repo"),
+            AbsolutePath.Parse(ProjectPathTestValues.RepositoryUnityProject),
+            AbsolutePath.Parse(ProjectPathTestValues.RepositoryRoot),
             new ProjectFingerprint(new string('a', 64)),
             UnityProjectPathSource.CommandOption,
-            "/repo/UnityProject",
+            ProjectPathTestValues.RepositoryUnityProject,
             "6000.1.4f1");
         var context = new ProjectContext(project, UcliConfig.CreateDefault(), ConfigSource.Default);
         hostBinding = new RecordingHostBinding(project);
