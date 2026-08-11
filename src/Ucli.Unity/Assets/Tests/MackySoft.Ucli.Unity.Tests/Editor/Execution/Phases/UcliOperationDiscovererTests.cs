@@ -303,6 +303,59 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
+        public void BuildCatalog_WhenMissingScriptsCheckIsExported_UsesTypedArgsResultAndVerdictContracts ()
+        {
+            var operations = UcliOperationDiscoverer.Discover(operationServiceProvider);
+            var metadata = FindMetadata(operations, UcliPrimitiveOperationNames.ProjectMissingScriptsCheck);
+
+            var snapshot = UcliOperationCatalogSnapshotBuilder.Build(operations);
+
+            Assert.That(metadata.Kind, Is.EqualTo(UcliOperationKind.Query));
+            Assert.That(metadata.Policy, Is.EqualTo(OperationPolicy.Safe));
+            Assert.That(metadata.DescribeContract.VerdictContract, Is.Not.Null);
+            var catalogEntry = FindCatalogEntry(snapshot.Catalog.Operations!, UcliPrimitiveOperationNames.ProjectMissingScriptsCheck);
+            Assert.That(catalogEntry.ArgsContract, Is.Not.Null);
+            Assert.That(catalogEntry.ResultContract, Is.Not.Null);
+            Assert.That(catalogEntry.VerdictContract, Is.Not.Null);
+            var argsSchema = GetReferencedRootSchema(catalogEntry.ArgsContract!.Value.Schema.ToJsonElement());
+            var argsProperties = argsSchema.GetProperty("properties");
+            Assert.That(argsProperties.TryGetProperty("roots", out var rootsSchema), Is.True);
+            Assert.That(rootsSchema.GetProperty("minItems").GetInt32(), Is.EqualTo(1));
+            Assert.That(argsProperties.TryGetProperty("assetKinds", out var assetKindsSchema), Is.True);
+            Assert.That(assetKindsSchema.GetProperty("minItems").GetInt32(), Is.EqualTo(1));
+            Assert.That(
+                argsSchema.GetProperty("required").EnumerateArray().Select(static item => item.GetString()),
+                Is.EquivalentTo(new[] { "roots", "assetKinds" }));
+            Assert.That(
+                assetKindsSchema.GetProperty("items").GetProperty("enum").EnumerateArray().Select(static item => item.GetString()),
+                Is.EquivalentTo(new[] { "scene", "prefab" }));
+            var resultProperties = GetReferencedRootSchema(catalogEntry.ResultContract!.Value.Schema.ToJsonElement())
+                .GetProperty("properties");
+            Assert.That(resultProperties.TryGetProperty("requestedScope", out _), Is.True);
+            Assert.That(resultProperties.TryGetProperty("unscannedScopes", out _), Is.True);
+            Assert.That(resultProperties.TryGetProperty("scannedAssets", out _), Is.True);
+            Assert.That(resultProperties.TryGetProperty("unscannedAssets", out _), Is.True);
+            Assert.That(resultProperties.TryGetProperty("missingScriptSlots", out _), Is.True);
+            Assert.That(resultProperties.TryGetProperty("errors", out _), Is.False);
+            Assert.That(resultProperties.TryGetProperty("diagnostics", out _), Is.False);
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void AddUnityOperationServices_WhenMissingScriptsCheckIsDiscovered_ResolvesItsExplicitAssetAccessDependencies ()
+        {
+            using var serviceProvider = CreateOperationServiceProvider();
+
+            Assert.That(serviceProvider.GetRequiredService<IMissingScriptsAssetAccess>(), Is.TypeOf<UnityMissingScriptsAssetAccess>());
+            Assert.That(serviceProvider.GetRequiredService<IMissingScriptsScanEngine>(), Is.TypeOf<MissingScriptsScanEngine>());
+            Assert.That(
+                UcliOperationDiscoverer.Discover(serviceProvider).Any(
+                    static registration => registration.Metadata.OperationName == UcliPrimitiveOperationNames.ProjectMissingScriptsCheck),
+                Is.True);
+        }
+
+        [Test]
+        [Category("Size.Small")]
         public void BuildCatalog_WhenPrefabRevertOverridesIsExported_DescribesSceneTouchAndReadInvalidation ()
         {
             var operations = UcliOperationDiscoverer.Discover(operationServiceProvider);
@@ -662,6 +715,13 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.Fail($"Catalog operation was not discovered: {operationName}");
             return null!;
+        }
+
+        private static JsonElement GetReferencedRootSchema (JsonElement schema)
+        {
+            var reference = schema.GetProperty("$ref").GetString();
+            Assert.That(reference, Does.StartWith("#/$defs/"));
+            return schema.GetProperty("$defs").GetProperty(reference!.Substring("#/$defs/".Length));
         }
 
         private static bool SchemaDeclaresProperty (

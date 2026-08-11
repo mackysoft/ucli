@@ -112,6 +112,22 @@ internal static class OpsCliOutputContractTestSupport
             dangerousNotes: isRiskyPolicy ? ["Fixture operation has policy-specific risk metadata for contract validation."] : Array.Empty<string>());
     }
 
+    public static UcliOperationDescribeContract CreateMissingScriptsCheckContract (string operationName)
+    {
+        var serializerOptions = IpcJsonSerializerOptions.PublicRawOperationContracts;
+        var generationResult = UcliOperationJsonContractGenerator.Generate(
+            operationName,
+            serializerOptions.GetTypeInfo(typeof(MissingScriptsCheckArgs)),
+            serializerOptions.GetTypeInfo(typeof(MissingScriptsCheckResult)));
+        return UcliOperationDescribeContractBuilder.CreateJudging(
+            generationResult,
+            "Checks saved scenes and prefabs under requested Assets directories for missing script component slots.",
+            CreateAssurance(UcliOperationKind.Query, OperationPolicy.Safe),
+            new UcliOperationVerdictContract(
+                "Returns fail when a missing script slot is confirmed, incomplete when any requested scope or discovered asset is unscanned, and pass otherwise."),
+            codeContract: null);
+    }
+
     private static UcliOperationDescribeContract CreateGoDescribeContract (
         string operationName,
         UcliOperationKind kind,
