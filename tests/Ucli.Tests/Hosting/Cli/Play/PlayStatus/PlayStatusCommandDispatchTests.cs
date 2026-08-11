@@ -16,7 +16,7 @@ public sealed class PlayStatusCommandDispatchTests
         using var cancellationTokenSource = new CancellationTokenSource();
 
         var result = await CommandResultCapture.ExecuteAsync(() => command.StatusAsync(
-            projectPath: PlayCommandOutputTestData.ProjectPath,
+            projectPath: AbsolutePath.Parse(PlayCommandOutputTestData.ProjectPath),
             timeout: "1234",
             cancellationToken: cancellationTokenSource.Token));
 

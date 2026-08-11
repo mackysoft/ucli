@@ -9,7 +9,7 @@ internal interface IDaemonListService
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The daemon-list execution result. </returns>
     ValueTask<DaemonListExecutionResult> GetListAsync (
-        string? projectPath,
+        AbsolutePath? projectPath,
         int? timeoutMilliseconds,
         CancellationToken cancellationToken = default);
 }

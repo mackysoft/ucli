@@ -15,7 +15,7 @@ namespace MackySoft.Ucli.Application.Features.Testing.Run.Configuration;
 internal sealed record MergedTestRunConfiguration (
     UnityExecutionMode Mode,
     string? UnityVersion,
-    string? UnityEditorPath,
+    AbsolutePath? UnityEditorPath,
     TestRunPlatform? TestPlatform,
     string RawTestPlatform,
     string? TestFilter,

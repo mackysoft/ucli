@@ -1,0 +1,27 @@
+{
+    "name": "MackySoft.Ucli.Unity.Recorder.Editor",
+    "rootNamespace": "MackySoft.Ucli.Unity.Recording.Recorder",
+    "references": [
+        "MackySoft.Ucli.Unity.Editor",
+        "Unity.Recorder.Editor"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UCLI_RECORDER"
+    ],
+    "versionDefines": [
+        {
+            "name": "com.unity.recorder",
+            "expression": "[5.1.5,5.2.0)",
+            "define": "UCLI_RECORDER"
+        }
+    ],
+    "noEngineReferences": false
+}

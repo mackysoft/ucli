@@ -145,7 +145,7 @@ public sealed class PlanCliOutputContractTests
                     RequestInputReaderStub.Success(requestJson),
                     CommandResultTestWriter.Create())
                 .PlanAsync(
-                    projectPath: projectPath,
+                    projectPath: projectPath is null ? null : AbsolutePath.Parse(projectPath),
                     mode: mode,
                     timeout: timeout,
                     readIndexMode: readIndexMode,

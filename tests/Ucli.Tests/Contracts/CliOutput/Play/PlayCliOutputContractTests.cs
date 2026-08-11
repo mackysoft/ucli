@@ -55,7 +55,7 @@ public sealed class PlayCliOutputContractTests
                     SharedPlayServiceProvider.Value,
                     CommandResultTestWriter.Create())
                 .EnterAsync(
-                    projectPath: projectPath,
+                    projectPath: projectPath is null ? null : AbsolutePath.Parse(projectPath),
                     timeout: timeout,
                     cancellationToken: CancellationToken.None));
     }
@@ -69,7 +69,7 @@ public sealed class PlayCliOutputContractTests
                     SharedPlayServiceProvider.Value,
                     CommandResultTestWriter.Create())
                 .ExitAsync(
-                    projectPath: projectPath,
+                    projectPath: projectPath is null ? null : AbsolutePath.Parse(projectPath),
                     timeout: timeout,
                     cancellationToken: CancellationToken.None));
     }

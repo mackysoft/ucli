@@ -4,5 +4,5 @@ namespace MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Unity;
 /// <param name="ProjectPath"> The optional target Unity project path. </param>
 /// <param name="TimeoutMilliseconds"> The optional timeout override in milliseconds. </param>
 internal sealed record LogsUnityClearServiceRequest (
-    string? ProjectPath,
+    AbsolutePath? ProjectPath,
     int? TimeoutMilliseconds);

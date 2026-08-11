@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Shared.Configuration;
+using MackySoft.FileSystem;
 
 namespace MackySoft.Ucli.Application.Shared.Context;
 
@@ -31,13 +32,18 @@ internal sealed class ProjectContextResolver : IProjectContextResolver
     /// <param name="cancellationToken"> A cancellation token propagated by command execution. </param>
     /// <returns> A task that resolves to the context-resolution result that contains either a fully resolved context or a structured error. </returns>
     public async ValueTask<ProjectContextResolutionResult> ResolveAsync (
-        string? projectPath,
+        AbsolutePath? projectPath,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var projectPathCandidate = projectPathInputResolver.Resolve(new ProjectContextResolutionInput(projectPath));
-        var unityProjectResult = unityProjectResolver.Resolve(projectPathCandidate);
+        var projectPathResult = projectPathInputResolver.Resolve(new ProjectContextResolutionInput(projectPath));
+        if (!projectPathResult.IsSuccess)
+        {
+            return ProjectContextResolutionResult.Failure(projectPathResult.Error);
+        }
+
+        var unityProjectResult = unityProjectResolver.Resolve(projectPathResult.Candidate);
         if (!unityProjectResult.IsSuccess)
         {
             return ProjectContextResolutionResult.Failure(unityProjectResult.Error!);

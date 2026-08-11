@@ -15,7 +15,7 @@ public sealed class UnityEditorPathResolverTests
         var executablePath = UnityEditorInstallationTestFactory.WriteEditorExecutable(scope, "Editors", "6000.1.4f1");
         var resolver = CreateResolver();
 
-        var result = resolver.Resolve("6000.1.4f1", executablePath);
+        var result = resolver.Resolve("6000.1.4f1", AbsolutePath.Parse(executablePath));
 
         Assert.True(result.IsSuccess);
         Assert.Equal(AbsolutePath.Parse(executablePath), result.UnityEditorPath);
@@ -31,7 +31,7 @@ public sealed class UnityEditorPathResolverTests
         var versionDirectoryPath = Path.GetDirectoryName(Path.GetDirectoryName(executablePath)!)!;
         var resolver = CreateResolver();
 
-        var result = resolver.Resolve("6000.1.4f1", versionDirectoryPath);
+        var result = resolver.Resolve("6000.1.4f1", AbsolutePath.Parse(versionDirectoryPath));
 
         Assert.True(result.IsSuccess);
         Assert.Equal(AbsolutePath.Parse(executablePath), result.UnityEditorPath);
@@ -46,7 +46,7 @@ public sealed class UnityEditorPathResolverTests
         var missingPath = scope.GetPath(Path.Combine("Missing", "Editor", "Unity.exe"));
         var resolver = CreateResolver();
 
-        var result = resolver.Resolve("6000.1.4f1", missingPath);
+        var result = resolver.Resolve("6000.1.4f1", AbsolutePath.Parse(missingPath));
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.UnityEditorPath);
@@ -63,7 +63,7 @@ public sealed class UnityEditorPathResolverTests
         var filePath = scope.WriteFile(Path.Combine("Editors", "not-unity-binary"), string.Empty);
         var resolver = CreateResolver();
 
-        var result = resolver.Resolve("6000.1.4f1", filePath);
+        var result = resolver.Resolve("6000.1.4f1", AbsolutePath.Parse(filePath));
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.UnityEditorPath);
@@ -80,7 +80,7 @@ public sealed class UnityEditorPathResolverTests
         var executablePath = UnityEditorInstallationTestFactory.WriteEditorExecutable(scope, "Editors", "6000.1.3f1");
         var resolver = CreateResolver();
 
-        var result = resolver.Resolve("6000.1.4f1", executablePath);
+        var result = resolver.Resolve("6000.1.4f1", AbsolutePath.Parse(executablePath));
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.UnityEditorPath);
@@ -98,7 +98,7 @@ public sealed class UnityEditorPathResolverTests
         var executablePath = UnityEditorInstallationTestFactory.WriteEditorExecutable(scope, "Editors", unityVersion);
         var resolver = CreateResolver();
 
-        var result = resolver.Resolve(unityVersion, executablePath);
+        var result = resolver.Resolve(unityVersion, AbsolutePath.Parse(executablePath));
 
         Assert.True(result.IsSuccess);
         Assert.Equal(AbsolutePath.Parse(executablePath), result.UnityEditorPath);

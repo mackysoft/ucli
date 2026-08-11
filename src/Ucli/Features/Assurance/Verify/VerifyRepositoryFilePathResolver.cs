@@ -1,5 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using MackySoft.FileSystem;
+using MackySoft.Ucli.Application.Shared.Paths;
 
 namespace MackySoft.Ucli.Features.Assurance.Verify;
 
@@ -9,16 +10,16 @@ internal static class VerifyRepositoryFilePathResolver
     /// <summary> Resolves one repository-local file path and rejects symlink traversal. </summary>
     public static bool TryResolve (
         AbsolutePath repositoryRoot,
-        string path,
+        FilePathReference path,
         [NotNullWhen(true)] out ContainedPath? resolvedPath,
         out string diagnosticMessage)
     {
         resolvedPath = null;
         diagnosticMessage = string.Empty;
 
-        if (!ContainedPath.TryResolve(repositoryRoot, path, out resolvedPath, out var failure))
+        if (!path.TryResolveContained(repositoryRoot, out resolvedPath))
         {
-            diagnosticMessage = failure.Message;
+            diagnosticMessage = "Path must resolve under the repository root.";
             return false;
         }
 

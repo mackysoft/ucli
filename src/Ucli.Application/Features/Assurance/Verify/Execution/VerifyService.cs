@@ -105,17 +105,6 @@ internal sealed class VerifyService : IVerifyService
         VerifyFromInput? fromInput = null;
         if (input.FromPath is not null)
         {
-            if (string.IsNullOrWhiteSpace(input.FromPath))
-            {
-                return VerifyExecutionResult.Failed(
-                    ApplicationFailure.InvalidInput(
-                        "--from must not be empty.",
-                        UcliCoreErrorCodes.InvalidArgument,
-                        instancePath: null,
-                        startupFailure: null),
-                    project);
-            }
-
             var fromFileResult = await fromInputFileReader.ReadAsync(
                 input.FromPath,
                 context.UnityProject.RepositoryRoot,
@@ -287,13 +276,6 @@ internal sealed class VerifyService : IVerifyService
         {
             return VerifyProfileResolutionResult.Failure(ExecutionError.InvalidArgument(
                 "--profile must not be empty.",
-                UcliCoreErrorCodes.InvalidArgument));
-        }
-
-        if (input.ProfilePath is not null && string.IsNullOrWhiteSpace(input.ProfilePath))
-        {
-            return VerifyProfileResolutionResult.Failure(ExecutionError.InvalidArgument(
-                "--profilePath must not be empty.",
                 UcliCoreErrorCodes.InvalidArgument));
         }
 

@@ -4,5 +4,5 @@ namespace MackySoft.Ucli.Application.Features.Play.UseCases.Status;
 /// <param name="ProjectPath"> The optional Unity project path. </param>
 /// <param name="TimeoutMilliseconds"> The optional normalized timeout in milliseconds. </param>
 internal sealed record PlayStatusCommandInput (
-    string? ProjectPath,
+    AbsolutePath? ProjectPath,
     int? TimeoutMilliseconds);

@@ -59,7 +59,7 @@ internal sealed class DaemonStartService : IDaemonStartService
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The daemon-start execution result. </returns>
     public async ValueTask<DaemonStartExecutionResult> StartAsync (
-        string? projectPath,
+        AbsolutePath? projectPath,
         int? timeoutMilliseconds,
         UnityEditorMode? editorMode,
         DaemonStartupBlockedProcessPolicy onStartupBlocked,

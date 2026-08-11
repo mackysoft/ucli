@@ -9,7 +9,7 @@ internal interface IRequestPreparationService
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The request-preparation result. </returns>
     ValueTask<RequestPreparationResult> PrepareAsync (
-        string? projectPath,
+        AbsolutePath? projectPath,
         string requestJson,
         CancellationToken cancellationToken = default);
 }

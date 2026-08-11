@@ -16,7 +16,7 @@ internal sealed class StubDaemonStopService : IDaemonStopService
     public IReadOnlyList<Invocation> Invocations => invocations;
 
     public ValueTask<DaemonStopExecutionResult> StopAsync (
-        string? projectPath,
+        AbsolutePath? projectPath,
         int? timeoutMilliseconds,
         CancellationToken cancellationToken = default)
     {
@@ -26,7 +26,7 @@ internal sealed class StubDaemonStopService : IDaemonStopService
     }
 
     internal readonly record struct Invocation (
-        string? ProjectPath,
+        AbsolutePath? ProjectPath,
         int? TimeoutMilliseconds,
         CancellationToken CancellationToken);
 }

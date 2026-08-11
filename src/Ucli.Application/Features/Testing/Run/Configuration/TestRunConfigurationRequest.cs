@@ -14,11 +14,11 @@ namespace MackySoft.Ucli.Application.Features.Testing.Run.Configuration;
 /// <param name="AssemblyName"> Optional assembly names parsed from the CLI option. </param>
 /// <param name="TimeoutMilliseconds"> Optional timeout in milliseconds. </param>
 internal sealed record TestRunConfigurationRequest (
-    string? ProjectPath,
-    string? ProfilePath,
+    AbsolutePath? ProjectPath,
+    AbsolutePath? ProfilePath,
     UnityExecutionMode? Mode,
     string? UnityVersion,
-    string? UnityEditorPath,
+    AbsolutePath? UnityEditorPath,
     TestRunPlatform? TestPlatform,
     string? TestFilter,
     string[]? TestCategory,

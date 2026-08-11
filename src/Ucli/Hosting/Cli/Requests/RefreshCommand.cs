@@ -34,7 +34,7 @@ internal sealed class RefreshCommand
     /// <returns> The exit code contained in the emitted command result. </returns>
     [Command(UcliCommandNames.Refresh)]
     public async Task<int> RefreshAsync (
-        string? projectPath = null,
+        [AbsolutePathArgumentParser] AbsolutePath? projectPath = null,
         string? mode = null,
         string? timeout = null,
         bool failFast = false,

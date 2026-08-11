@@ -99,8 +99,10 @@
             "pathExact": [
               "src/Ucli.Application/Features/Assurance/Build/Profiles/BuildProfileDigestCalculator.cs",
               "src/Ucli.Application/Features/Assurance/Verify/Profiles/VerifyProfileDigestCalculator.cs",
+              "src/Ucli.Application/Features/Recording/Requests/GameViewRecordingRequestNormalizer.cs",
               "src/Ucli.Contracts/Execution/Lifecycle/LifecycleExecutionDefinitionDigest.cs",
-              "src/Ucli.Contracts/Index/Catalogs/Ops/UcliOperationDescriptorDigest.cs"
+              "src/Ucli.Contracts/Index/Catalogs/Ops/UcliOperationDescriptorDigest.cs",
+              "src/Ucli/Features/Recording/Artifacts/FileGameViewRecordingArtifactStore.cs"
             ]
           }
         ]
@@ -138,6 +140,7 @@
               "src/Ucli.Infrastructure/Ucli.Infrastructure.csproj",
               "src/Ucli/Ucli.csproj",
               "src/Ucli.Unity/Assets/MackySoft/MackySoft.Ucli.Unity/Editor/MackySoft.Ucli.Unity.Editor.asmdef",
+              "src/Ucli.Unity/Assets/MackySoft/MackySoft.Ucli.Unity/Editor/Recorder/MackySoft.Ucli.Unity.Recorder.Editor.asmdef",
               "tools/Ucli.SchemaGenerator/Ucli.SchemaGenerator.csproj"
             ]
           }
@@ -938,6 +941,25 @@
               "src/Ucli.Unity/Assets/MackySoft/MackySoft.Ucli.Unity/Editor/AssemblyInfo.cs",
               "src/Ucli.Unity/Assets/MackySoft/MackySoft.Ucli.Unity/Editor/Compatibility/IsExternalInit.cs",
               "src/Ucli.Unity/Assets/MackySoft/MackySoft.Ucli.Unity/Editor/MackySoft.Ucli.Unity.Editor.asmdef"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "UnityRecording",
+        "matches": [
+          {
+            "namespacePrefix": [
+              "MackySoft.Ucli.Unity.Recording"
+            ],
+            "pathPrefix": [
+              "src/Ucli.Unity/Assets/MackySoft/MackySoft.Ucli.Unity/Editor/Recording",
+              "src/Ucli.Unity/Assets/MackySoft/MackySoft.Ucli.Unity/Editor/Recorder"
+            ]
+          },
+          {
+            "pathExact": [
+              "src/Ucli.Unity/Assets/MackySoft/MackySoft.Ucli.Unity/Editor/Recorder/MackySoft.Ucli.Unity.Recorder.Editor.asmdef"
             ]
           }
         ]
@@ -1803,9 +1825,29 @@
               "UnityIndex",
               "UnityIpc",
               "UnityProject",
+              "UnityRecording",
               "UnityRuntime",
               "UnityScreenshotCapture",
               "UnitySupport"
+            ]
+          }
+        ]
+      },
+      {
+        "from": {
+          "layer": [
+            "UnityRecording"
+          ]
+        },
+        "allow": [
+          {
+            "subject": "owned",
+            "layer": [
+              "Contracts",
+              "Infrastructure",
+              "UnityRecording",
+              "UnityRuntime",
+              "UnityScreenshotCapture"
             ]
           }
         ]

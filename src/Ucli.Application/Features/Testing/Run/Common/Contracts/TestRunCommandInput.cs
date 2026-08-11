@@ -16,11 +16,11 @@ namespace MackySoft.Ucli.Application.Features.Testing.Run.Common.Contracts;
 /// <param name="FailFast"> Whether readiness-gated Unity execution should fail immediately instead of waiting for lifecycle readiness. </param>
 /// <param name="AllowEmptyTestRun"> Whether a run that reports zero test cases should be accepted. </param>
 internal sealed record TestRunCommandInput (
-    string? ProjectPath,
-    string? ProfilePath,
+    AbsolutePath? ProjectPath,
+    AbsolutePath? ProfilePath,
     UnityExecutionMode? Mode,
     string? UnityVersion,
-    string? UnityEditorPath,
+    AbsolutePath? UnityEditorPath,
     TestRunPlatform? TestPlatform,
     string? TestFilter,
     string[]? TestCategory,

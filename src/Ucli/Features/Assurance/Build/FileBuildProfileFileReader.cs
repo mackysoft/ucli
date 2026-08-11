@@ -2,6 +2,7 @@ using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Profiles;
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Application.Shared.Paths;
 
 namespace MackySoft.Ucli.Features.Assurance.Build;
 
@@ -12,23 +13,14 @@ internal sealed class FileBuildProfileFileReader : IBuildProfileFileReader
 
     /// <inheritdoc />
     public async ValueTask<BuildProfileFileReadResult> ReadAsync (
-        string profilePath,
+        FilePathReference profilePath,
         ResolvedUnityProjectContext unityProject,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(unityProject);
         cancellationToken.ThrowIfCancellationRequested();
 
-        if (!AbsolutePath.TryResolve(
-                unityProject.RepositoryRoot,
-                profilePath,
-                out var resolvedPath,
-                out var failure))
-        {
-            return BuildProfileFileReadResult.Failure(ExecutionError.InvalidArgument(
-                $"Build profile path is invalid. {failure.Message}",
-                BuildErrorCodes.BuildProfileInvalid));
-        }
+        var resolvedPath = profilePath.ResolveAgainst(unityProject.RepositoryRoot);
 
         try
         {

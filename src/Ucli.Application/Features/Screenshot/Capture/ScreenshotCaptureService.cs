@@ -132,8 +132,7 @@ internal sealed class ScreenshotCaptureService : IScreenshotCaptureService
         var screenshotRequest = new IpcScreenshotCaptureRequest(
             CaptureId: captureId,
             Target: input.Target,
-            RequestedWidth: input.RequestedWidth,
-            RequestedHeight: input.RequestedHeight);
+            RequestedDimensions: input.RequestedDimensions);
         var executionResult = await unityRequestExecutor.ExecuteAsync(
                 UcliCommandIds.Screenshot,
                 UnityExecutionMode.Daemon,
@@ -195,22 +194,19 @@ internal sealed class ScreenshotCaptureService : IScreenshotCaptureService
                 $"Screenshot target must be one of: {string.Join(", ", TextVocabulary.GetTexts<IpcScreenshotTarget>())}.");
         }
 
-        var hasWidth = input.RequestedWidth.HasValue;
-        var hasHeight = input.RequestedHeight.HasValue;
-        if (hasWidth != hasHeight
-            || (hasWidth && input.RequestedWidth!.Value <= 0)
-            || (hasHeight && input.RequestedHeight!.Value <= 0)
-            || (hasWidth && !IpcScreenshotCaptureLimits.TryCalculateRgba8Layout(
-                input.RequestedWidth!.Value,
-                input.RequestedHeight!.Value,
+        var requestedDimensions = input.RequestedDimensions;
+        if (requestedDimensions is not null
+            && !IpcScreenshotCaptureLimits.TryCalculateRgba8Layout(
+                requestedDimensions.Width,
+                requestedDimensions.Height,
                 out _,
-                out _)))
+                out _))
         {
             return ExecutionError.InvalidArgument(
-                "Requested width and height must be omitted together or specified together within the supported screenshot layout.");
+                "Requested dimensions exceed the supported screenshot layout.");
         }
 
-        if (input.Target == IpcScreenshotTarget.Scene && hasWidth)
+        if (input.Target == IpcScreenshotTarget.Scene && requestedDimensions is not null)
         {
             return ExecutionError.InvalidArgument("SceneView screenshot capture does not accept a requested resolution.");
         }
@@ -229,13 +225,12 @@ internal sealed class ScreenshotCaptureService : IScreenshotCaptureService
         }
 
         var capture = response.Capture;
-        var expectedSizeMode = input.RequestedWidth.HasValue
+        var expectedSizeMode = input.RequestedDimensions is not null
             ? IpcScreenshotSizeMode.RequestedResolution
             : IpcScreenshotSizeMode.CurrentSurface;
         if (capture.Target != input.Target
             || capture.SizeMode != expectedSizeMode
-            || capture.RequestedWidth != input.RequestedWidth
-            || capture.RequestedHeight != input.RequestedHeight)
+            || capture.RequestedDimensions != input.RequestedDimensions)
         {
             return InvalidResponse("capture target or requested-size metadata does not match the request");
         }

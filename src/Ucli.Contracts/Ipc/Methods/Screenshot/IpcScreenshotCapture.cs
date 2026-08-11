@@ -1,7 +1,9 @@
 using System.Text.Json.Serialization;
 using MackySoft.Ucli.Contracts.Daemon;
-using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Contracts.Editor;
+using MackySoft.Ucli.Contracts.Presentation;
+using MackySoft.Ucli.Contracts.Projects;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
@@ -16,11 +18,9 @@ public sealed record IpcScreenshotCapture
     public IpcScreenshotCapture (
         IpcScreenshotTarget Target,
         IpcScreenshotSizeMode SizeMode,
-        int? RequestedWidth,
-        int? RequestedHeight,
-        int Width,
-        int Height,
-        IpcScreenshotColorSpace ColorSpace,
+        PixelDimensions? RequestedDimensions,
+        PixelDimensions Dimensions,
+        UnityProjectColorSpace ProjectColorSpace,
         UnityEditorStateSnapshot State)
     {
         if (!TextVocabulary.IsDefined(Target))
@@ -33,9 +33,12 @@ public sealed record IpcScreenshotCapture
             throw new ArgumentOutOfRangeException(nameof(SizeMode), SizeMode, "Screenshot size mode must be specified.");
         }
 
-        if (!TextVocabulary.IsDefined(ColorSpace))
+        if (!TextVocabulary.IsDefined(ProjectColorSpace))
         {
-            throw new ArgumentOutOfRangeException(nameof(ColorSpace), ColorSpace, "Screenshot color space must be specified.");
+            throw new ArgumentOutOfRangeException(
+                nameof(ProjectColorSpace),
+                ProjectColorSpace,
+                "Unity project color space must be specified.");
         }
 
         var state = State ?? throw new ArgumentNullException(nameof(State));
@@ -46,33 +49,30 @@ public sealed record IpcScreenshotCapture
                 nameof(State));
         }
 
-        if (!IpcScreenshotCaptureLimits.TryCalculateRgba8Layout(Width, Height, out _, out _))
+        var dimensions = Dimensions ?? throw new ArgumentNullException(nameof(Dimensions));
+        if (!IpcScreenshotCaptureLimits.TryCalculateRgba8Layout(
+            dimensions.Width,
+            dimensions.Height,
+            out _,
+            out _))
         {
             throw new ArgumentOutOfRangeException(
-                nameof(Width),
+                nameof(Dimensions),
                 "Captured screenshot dimensions exceed the supported normalized RGBA8 layout.");
-        }
-
-        var hasRequestedWidth = RequestedWidth.HasValue;
-        if (hasRequestedWidth != RequestedHeight.HasValue)
-        {
-            throw new ArgumentException(
-                "Requested width and height must be omitted together or specified together.",
-                nameof(RequestedWidth));
         }
 
         switch (SizeMode)
         {
-            case IpcScreenshotSizeMode.CurrentSurface when hasRequestedWidth:
+            case IpcScreenshotSizeMode.CurrentSurface when RequestedDimensions is not null:
                 throw new ArgumentException(
                     "Current-surface capture metadata must not contain requested dimensions.",
-                    nameof(RequestedWidth));
+                    nameof(RequestedDimensions));
             case IpcScreenshotSizeMode.CurrentSurface:
                 break;
-            case IpcScreenshotSizeMode.RequestedResolution when !hasRequestedWidth:
+            case IpcScreenshotSizeMode.RequestedResolution when RequestedDimensions is null:
                 throw new ArgumentException(
                     "Requested-resolution capture metadata must contain requested dimensions.",
-                    nameof(RequestedWidth));
+                    nameof(RequestedDimensions));
             case IpcScreenshotSizeMode.RequestedResolution:
                 if (Target != IpcScreenshotTarget.Game)
                 {
@@ -81,11 +81,11 @@ public sealed record IpcScreenshotCapture
                         nameof(Target));
                 }
 
-                if (Width != RequestedWidth!.Value || Height != RequestedHeight!.Value)
+                if (dimensions != RequestedDimensions)
                 {
                     throw new ArgumentException(
                         "Captured dimensions must match requested-resolution dimensions.",
-                        nameof(Width));
+                        nameof(Dimensions));
                 }
 
                 break;
@@ -98,11 +98,9 @@ public sealed record IpcScreenshotCapture
 
         this.Target = Target;
         this.SizeMode = SizeMode;
-        this.RequestedWidth = RequestedWidth;
-        this.RequestedHeight = RequestedHeight;
-        this.Width = Width;
-        this.Height = Height;
-        this.ColorSpace = ColorSpace;
+        this.RequestedDimensions = RequestedDimensions;
+        this.Dimensions = dimensions;
+        this.ProjectColorSpace = ProjectColorSpace;
         this.State = state;
     }
 
@@ -146,20 +144,14 @@ public sealed record IpcScreenshotCapture
     /// <summary> Gets the rule used to determine the captured dimensions. </summary>
     public IpcScreenshotSizeMode SizeMode { get; }
 
-    /// <summary> Gets the requested GameView width, or <see langword="null" /> when omitted. </summary>
-    public int? RequestedWidth { get; }
+    /// <summary> Gets the requested GameView dimensions, or <see langword="null" /> when omitted. </summary>
+    public PixelDimensions? RequestedDimensions { get; }
 
-    /// <summary> Gets the requested GameView height, or <see langword="null" /> when omitted. </summary>
-    public int? RequestedHeight { get; }
-
-    /// <summary> Gets the captured image width in pixels. </summary>
-    public int Width { get; }
-
-    /// <summary> Gets the captured image height in pixels. </summary>
-    public int Height { get; }
+    /// <summary> Gets the captured image dimensions. </summary>
+    public PixelDimensions Dimensions { get; }
 
     /// <summary> Gets the active Unity project color space at capture time. </summary>
-    public IpcScreenshotColorSpace ColorSpace { get; }
+    public UnityProjectColorSpace ProjectColorSpace { get; }
 
     /// <summary> Gets the comparable Unity Editor state at capture time. </summary>
     public UnityEditorStateSnapshot State { get; }

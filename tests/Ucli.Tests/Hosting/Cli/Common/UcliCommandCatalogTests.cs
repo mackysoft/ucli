@@ -58,6 +58,9 @@ public sealed class UcliCommandCatalogTests
     [InlineData(UcliCommandNames.Logs, UcliCommandNames.UnitySubcommand, UcliCommandNames.ClearSubcommand, UcliCommandNames.LogsUnityClear)]
     [InlineData(UcliCommandNames.Screenshot, UcliCommandNames.GameSubcommand, null, UcliCommandNames.ScreenshotGame)]
     [InlineData(UcliCommandNames.Screenshot, UcliCommandNames.SceneSubcommand, null, UcliCommandNames.ScreenshotScene)]
+    [InlineData(UcliCommandNames.Recording, UcliCommandNames.StartSubcommand, null, UcliCommandNames.RecordingStart)]
+    [InlineData(UcliCommandNames.Recording, UcliCommandNames.Status, null, UcliCommandNames.RecordingStatus)]
+    [InlineData(UcliCommandNames.Recording, UcliCommandNames.StopSubcommand, null, UcliCommandNames.RecordingStop)]
     [InlineData(UcliCommandNames.Ops, UcliCommandNames.ListSubcommand, null, UcliCommandNames.OpsList)]
     [InlineData(UcliCommandNames.Ops, UcliCommandNames.DescribeSubcommand, null, UcliCommandNames.OpsDescribe)]
     [InlineData(UcliCommandNames.Schema, UcliCommandNames.ListSubcommand, null, UcliCommandNames.SchemaList)]
@@ -114,6 +117,7 @@ public sealed class UcliCommandCatalogTests
     [InlineData(UcliCommandNames.Daemon)]
     [InlineData(UcliCommandNames.Logs)]
     [InlineData(UcliCommandNames.Screenshot)]
+    [InlineData(UcliCommandNames.Recording)]
     [InlineData(UcliCommandNames.Ops)]
     [InlineData(UcliCommandNames.Schema)]
     [InlineData(UcliCommandNames.Codes)]
@@ -201,6 +205,24 @@ public sealed class UcliCommandCatalogTests
             [
                 UcliCommandNames.GameSubcommand,
                 UcliCommandNames.SceneSubcommand,
+            ],
+            subcommands);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void TryGetPreDispatchSupportedSubcommands_WhenRecordingCommandSpecified_ReturnsRecordingActions ()
+    {
+        var found = UcliCommandCatalog.TryGetPreDispatchSupportedSubcommands(
+            UcliCommandNames.Recording,
+            out var subcommands);
+
+        Assert.True(found);
+        Assert.Equal(
+            [
+                UcliCommandNames.StartSubcommand,
+                UcliCommandNames.Status,
+                UcliCommandNames.StopSubcommand,
             ],
             subcommands);
     }

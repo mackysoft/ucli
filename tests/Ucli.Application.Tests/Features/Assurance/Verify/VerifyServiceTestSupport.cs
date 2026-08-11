@@ -53,13 +53,13 @@ internal static class VerifyServiceTestSupport
             logsService ?? new RecordingVerifyLogsUnityService((_, _, _) => ValueTask.FromResult(LogsReadServiceResult.Completed(0, null))),
             profileFileReader ?? new StubVerifyProfileFileReader((profilePath, root) =>
             {
-                var resolvedPath = ContainedPath.Resolve(root, profilePath);
+                Assert.True(profilePath.TryResolveContained(root, out var resolvedPath));
                 return VerifyProfileFileReadResult.Success(
                     File.ReadAllText(resolvedPath.Target.Value),
-                    profilePath);
+                    resolvedPath.RelativePath.Value);
             }),
             fromInputFileReader ?? new StubVerifyFromInputFileReader((fromPath, root) => VerifyFromInputFileReadResult.Success(
-                File.ReadAllText(Path.Combine(root.Value, fromPath)))),
+                File.ReadAllText(fromPath.ResolveAgainst(root).Value))),
             timeProvider ?? TimeProvider.System);
     }
 

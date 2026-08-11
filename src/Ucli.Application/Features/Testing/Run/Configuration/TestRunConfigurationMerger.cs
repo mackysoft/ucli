@@ -22,26 +22,13 @@ internal static class TestRunConfigurationMerger
         return new MergedTestRunConfiguration(
             Mode: mode,
             UnityVersion: StringValueNormalizer.TrimToNull(cli.UnityVersion ?? profile?.UnityVersion),
-            UnityEditorPath: NormalizeOptionalValue(cli.UnityEditorPath ?? profile?.UnityEditorPath),
+            UnityEditorPath: cli.UnityEditorPath ?? profile?.UnityEditorPath,
             TestPlatform: parsedTestPlatform,
             RawTestPlatform: mergedRawTestPlatform,
             TestFilter: StringValueNormalizer.TrimToNull(cli.TestFilter ?? profile?.TestFilter),
             TestCategories: NormalizeValues(cli.TestCategory, profile?.TestCategories),
             AssemblyNames: NormalizeValues(cli.AssemblyName, profile?.AssemblyNames),
             TimeoutMilliseconds: cli.TimeoutMilliseconds ?? profile?.Timeout);
-    }
-
-    /// <summary> Normalizes optional string values. </summary>
-    /// <param name="value"> The optional string value. </param>
-    /// <returns> The trimmed value when provided; otherwise <see langword="null" />. </returns>
-    private static string? NormalizeOptionalValue (string? value)
-    {
-        if (!StringValueNormalizer.TryTrimToNonEmpty(value, out var normalizedValue))
-        {
-            return null;
-        }
-
-        return normalizedValue;
     }
 
     private static UnityExecutionMode ResolveMode (

@@ -11,12 +11,12 @@ internal static class ResolveSelectorInputFactory
     public static ResolveSelectorInputCreationResult Create (
         string? globalObjectId,
         string? assetGuid,
-        string? assetPath,
-        string? projectAssetPath,
-        string? scene,
-        string? hierarchyPath,
+        UnityAssetPath? assetPath,
+        ProjectSettingsAssetPath? projectAssetPath,
+        SceneAssetPath? scene,
+        UnityHierarchyPath? hierarchyPath,
         string? componentType,
-        string? prefab)
+        PrefabAssetPath? prefab)
     {
         if (!TryNormalizeOptional(globalObjectId, "globalObjectId", out var normalizedGlobalObjectId, out var error))
         {
@@ -26,73 +26,45 @@ internal static class ResolveSelectorInputFactory
         {
             return ResolveSelectorInputCreationResult.Failure(error!);
         }
-        if (!TryNormalizeOptional(assetPath, "assetPath", out var normalizedAssetPath, out error))
-        {
-            return ResolveSelectorInputCreationResult.Failure(error!);
-        }
-        if (!TryNormalizeOptional(projectAssetPath, "projectAssetPath", out var normalizedProjectAssetPath, out error))
-        {
-            return ResolveSelectorInputCreationResult.Failure(error!);
-        }
-        if (!TryNormalizeOptional(scene, "scene", out var normalizedScene, out error))
-        {
-            return ResolveSelectorInputCreationResult.Failure(error!);
-        }
-        if (!TryNormalizeOptional(hierarchyPath, "hierarchyPath", out var normalizedHierarchyPath, out error))
-        {
-            return ResolveSelectorInputCreationResult.Failure(error!);
-        }
         if (!TryNormalizeOptional(componentType, "componentType", out var normalizedComponentType, out error))
         {
             return ResolveSelectorInputCreationResult.Failure(error!);
         }
-        if (!TryNormalizeOptional(prefab, "prefab", out var normalizedPrefab, out error))
-        {
-            return ResolveSelectorInputCreationResult.Failure(error!);
-        }
-
         var selectorCount = CountSpecifiedSelectors(
             normalizedGlobalObjectId,
             normalizedAssetGuid,
-            normalizedAssetPath,
-            normalizedProjectAssetPath,
-            normalizedScene,
-            normalizedPrefab);
+            assetPath,
+            projectAssetPath,
+            scene,
+            prefab);
         if (selectorCount != 1)
         {
             return ResolveSelectorInputCreationResult.Failure(CreateExactlyOneSelectorError());
         }
 
-        if (normalizedScene is not null)
+        if (scene is not null)
         {
-            if (normalizedHierarchyPath is null)
+            if (hierarchyPath is null)
             {
                 return ResolveSelectorInputCreationResult.Failure(CreateHierarchySelectorError());
-            }
-
-            if (!SceneAssetPath.TryParse(normalizedScene, out var typedScene)
-                || !UnityHierarchyPath.TryParse(normalizedHierarchyPath, out var typedHierarchyPath))
-            {
-                return ResolveSelectorInputCreationResult.Failure(ExecutionError.InvalidArgument(
-                    "Selector '--scene' must be a .unity path below 'Assets/' and '--hierarchyPath' must contain non-empty slash-separated object names."));
             }
 
             if (normalizedComponentType is null)
             {
                 return ResolveSelectorInputCreationResult.Success(
-                    new ResolveSceneHierarchySelectorInput(typedScene, typedHierarchyPath));
+                    new ResolveSceneHierarchySelectorInput(scene, hierarchyPath));
             }
 
             return ResolveSelectorInputCreationResult.Success(
                 new ResolveSceneComponentSelectorInput(
-                    typedScene,
-                    typedHierarchyPath,
+                    scene,
+                    hierarchyPath,
                     new UnityComponentTypeId(normalizedComponentType)));
         }
 
-        if (normalizedPrefab is not null)
+        if (prefab is not null)
         {
-            if (normalizedHierarchyPath is null)
+            if (hierarchyPath is null)
             {
                 return ResolveSelectorInputCreationResult.Failure(CreateHierarchySelectorError());
             }
@@ -102,18 +74,11 @@ internal static class ResolveSelectorInputFactory
                     "Selector '--componentType' is supported only with '--scene --hierarchyPath'."));
             }
 
-            if (!PrefabAssetPath.TryParse(normalizedPrefab, out var typedPrefab)
-                || !UnityHierarchyPath.TryParse(normalizedHierarchyPath, out var typedHierarchyPath))
-            {
-                return ResolveSelectorInputCreationResult.Failure(ExecutionError.InvalidArgument(
-                    "Selector '--prefab' must be a .prefab path below 'Assets/' and '--hierarchyPath' must contain non-empty slash-separated object names."));
-            }
-
             return ResolveSelectorInputCreationResult.Success(
-                new ResolvePrefabHierarchySelectorInput(typedPrefab, typedHierarchyPath));
+                new ResolvePrefabHierarchySelectorInput(prefab, hierarchyPath));
         }
 
-        if (normalizedHierarchyPath is not null || normalizedComponentType is not null)
+        if (hierarchyPath is not null || normalizedComponentType is not null)
         {
             return ResolveSelectorInputCreationResult.Failure(CreateHierarchySelectorError());
         }
@@ -139,26 +104,14 @@ internal static class ResolveSelectorInputFactory
 
             return ResolveSelectorInputCreationResult.Success(new ResolveAssetGuidSelectorInput(typedAssetGuid));
         }
-        if (normalizedAssetPath is not null)
+        if (assetPath is not null)
         {
-            if (!UnityAssetPath.TryParse(normalizedAssetPath, out var typedAssetPath))
-            {
-                return ResolveSelectorInputCreationResult.Failure(ExecutionError.InvalidArgument(
-                    "Selector '--assetPath' must be a normalized path below 'Assets/'."));
-            }
-
-            return ResolveSelectorInputCreationResult.Success(new ResolveAssetPathSelectorInput(typedAssetPath));
+            return ResolveSelectorInputCreationResult.Success(new ResolveAssetPathSelectorInput(assetPath));
         }
 
-        if (normalizedProjectAssetPath is not null)
+        if (projectAssetPath is not null)
         {
-            if (!ProjectSettingsAssetPath.TryParse(normalizedProjectAssetPath, out var typedProjectAssetPath))
-            {
-                return ResolveSelectorInputCreationResult.Failure(ExecutionError.InvalidArgument(
-                    "Selector '--projectAssetPath' must be a normalized path below 'ProjectSettings/'."));
-            }
-
-            return ResolveSelectorInputCreationResult.Success(new ResolveProjectAssetPathSelectorInput(typedProjectAssetPath));
+            return ResolveSelectorInputCreationResult.Success(new ResolveProjectAssetPathSelectorInput(projectAssetPath));
         }
 
         throw new InvalidOperationException("Exactly one resolve selector was expected after validation.");
@@ -197,10 +150,10 @@ internal static class ResolveSelectorInputFactory
     private static int CountSpecifiedSelectors (
         string? globalObjectId,
         string? assetGuid,
-        string? assetPath,
-        string? projectAssetPath,
-        string? scene,
-        string? prefab)
+        UnityAssetPath? assetPath,
+        ProjectSettingsAssetPath? projectAssetPath,
+        SceneAssetPath? scene,
+        PrefabAssetPath? prefab)
     {
         var count = 0;
         count += globalObjectId is null ? 0 : 1;

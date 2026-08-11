@@ -2,6 +2,7 @@ using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Assurance.Verify.Input;
 using MackySoft.Ucli.Application.Features.Assurance.Verify.Vocabulary;
 using MackySoft.Ucli.Application.Shared.Execution;
+using MackySoft.Ucli.Application.Shared.Paths;
 
 namespace MackySoft.Ucli.Features.Assurance.Verify;
 
@@ -10,7 +11,7 @@ internal sealed class FileVerifyFromInputFileReader : IVerifyFromInputFileReader
 {
     /// <inheritdoc />
     public async ValueTask<VerifyFromInputFileReadResult> ReadAsync (
-        string fromPath,
+        FilePathReference fromPath,
         AbsolutePath repositoryRoot,
         CancellationToken cancellationToken = default)
     {

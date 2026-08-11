@@ -1,6 +1,7 @@
 using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Assurance.Verify.Profiles;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Application.Shared.Paths;
 using MackySoft.Ucli.Infrastructure.Paths;
 
 namespace MackySoft.Ucli.Features.Assurance.Verify;
@@ -10,7 +11,7 @@ internal sealed class FileVerifyProfileFileReader : IVerifyProfileFileReader
 {
     /// <inheritdoc />
     public async ValueTask<VerifyProfileFileReadResult> ReadAsync (
-        string profilePath,
+        FilePathReference profilePath,
         AbsolutePath repositoryRoot,
         CancellationToken cancellationToken = default)
     {

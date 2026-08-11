@@ -29,18 +29,14 @@ public sealed class BuildRunCommandPreDispatchTests
             service);
     }
 
-    [Theory]
-    [InlineData(null)]
-    [InlineData("")]
-    [InlineData(" ")]
+    [Fact]
     [Trait("Size", "Small")]
-    public async Task Run_WithoutProfilePath_ReturnsInvalidArgumentWithoutCallingService (string? profilePath)
+    public async Task Run_WithoutProfilePath_ReturnsInvalidArgumentWithoutCallingService ()
     {
         var service = new RecordingBuildService((_, _, _) => throw new InvalidOperationException("Service should not be called."));
         var command = new BuildRunCommand(service, CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
 
         var result = await CommandResultCapture.ExecuteWithErrorAsync(() => command.RunAsync(
-            profilePath: profilePath,
             cancellationToken: CancellationToken.None));
 
         BuildRunCommandAssert.InvalidArgumentReturnedWithoutBuildExecution(

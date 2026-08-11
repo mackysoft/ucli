@@ -13,7 +13,7 @@ internal interface ITestProfileTemplateStore
     /// <returns> A task that resolves to the profile initialization result. </returns>
     ValueTask<TestProfileInitExecutionResult> WriteAsync (
         TestProfile profile,
-        string? outputPath,
+        AbsolutePath? outputPath,
         bool force,
         CancellationToken cancellationToken = default);
 }

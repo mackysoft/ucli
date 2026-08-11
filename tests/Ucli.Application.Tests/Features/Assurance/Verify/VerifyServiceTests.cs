@@ -150,7 +150,7 @@ public sealed class VerifyServiceTests
             new VerifyCommandInput(
                 ProjectPath: null,
                 Profile: null,
-                ProfilePath: "verify.json",
+                ProfilePath: FilePathReference.Parse("verify.json"),
                 FromPath: null,
                 Mode: UnityExecutionMode.Auto,
                 TimeoutMilliseconds: 10000),
@@ -170,7 +170,7 @@ public sealed class VerifyServiceTests
         var result = await service.ExecuteAsync(new VerifyCommandInput(
             ProjectPath: null,
             Profile: "built-in:default",
-            ProfilePath: "verify.json",
+            ProfilePath: FilePathReference.Parse("verify.json"),
             FromPath: null,
             Mode: UnityExecutionMode.Auto,
             TimeoutMilliseconds: 10000));
@@ -180,28 +180,21 @@ public sealed class VerifyServiceTests
     }
 
     [Theory]
-    [InlineData("", null, null)]
-    [InlineData("   ", null, null)]
-    [InlineData(null, "", null)]
-    [InlineData(null, "   ", null)]
-    [InlineData(null, null, "")]
-    [InlineData(null, null, "   ")]
+    [InlineData("")]
+    [InlineData("   ")]
     [Trait("Size", "Medium")]
-    public async Task Execute_WithEmptyOptionalPathOrProfile_ReturnsInvalidArgument (
-        string? profile,
-        string? profilePath,
-        string? fromPath)
+    public async Task Execute_WithEmptyProfile_ReturnsInvalidArgument (string profile)
     {
         using var scope = TestDirectories.CreateTempScope(
             "ucli-verify",
-            nameof(Execute_WithEmptyOptionalPathOrProfile_ReturnsInvalidArgument));
+            nameof(Execute_WithEmptyProfile_ReturnsInvalidArgument));
         var service = CreateService(scope.FullPath);
 
         var result = await service.ExecuteAsync(new VerifyCommandInput(
             ProjectPath: null,
             Profile: profile,
-            ProfilePath: profilePath,
-            FromPath: fromPath,
+            ProfilePath: null,
+            FromPath: null,
             Mode: UnityExecutionMode.Auto,
             TimeoutMilliseconds: 10000));
 
@@ -222,7 +215,7 @@ public sealed class VerifyServiceTests
             ProjectPath: null,
             Profile: "built-in:mutation",
             ProfilePath: null,
-            FromPath: fromPath,
+            FromPath: FilePathReference.Parse(fromPath),
             Mode: UnityExecutionMode.Auto,
             TimeoutMilliseconds: 10000));
 

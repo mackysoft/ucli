@@ -45,14 +45,14 @@ internal sealed class EvalCommand
     /// <returns> The exit code contained in the emitted command result. </returns>
     [Command(UcliCommandNames.Eval)]
     public async Task<int> EvalAsync (
-        string? projectPath = null,
+        [AbsolutePathArgumentParser] AbsolutePath? projectPath = null,
         string? mode = null,
         string? timeout = null,
         bool allowDangerous = false,
         bool allowPlayMode = false,
         bool failFast = false,
         string? source = null,
-        string? file = null,
+        [AbsolutePathArgumentParser] AbsolutePath? file = null,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();

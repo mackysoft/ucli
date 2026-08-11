@@ -125,7 +125,7 @@ public sealed class OpsServiceTests
         var describeResultMapper = new RecordingOpsDescribeResultMapper();
         var service = new OpsService(preflightService, catalogAccessService, listResultMapper, describeResultMapper);
 
-        var result = await service.GetAllAsync(new OpsCommandInput("/repo", NormalizeMode("auto"), NormalizeTimeout("1000"), NormalizeReadIndexMode("allowStale"), null, null, null, true));
+        var result = await service.GetAllAsync(new OpsCommandInput(AbsolutePath.Parse(ProjectPathTestValues.RepositoryRoot), NormalizeMode("auto"), NormalizeTimeout("1000"), NormalizeReadIndexMode("allowStale"), null, null, null, true));
 
         Assert.Same(expectedResult, result);
         OpsServiceInvocationAssert.PreflightRequestedFailFast(preflightService);
@@ -173,7 +173,7 @@ public sealed class OpsServiceTests
         var result = await service.DescribeAsync(
             new OpsDescribeCommandInput(
                 OperationName: "ucli.unknown",
-                ProjectPath: "/repo",
+            ProjectPath: AbsolutePath.Parse(ProjectPathTestValues.RepositoryRoot),
                 Mode: NormalizeMode("auto"),
                 TimeoutMilliseconds: NormalizeTimeout("1000"),
                 ReadIndexMode: NormalizeReadIndexMode("allowStale"),

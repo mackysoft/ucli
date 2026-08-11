@@ -16,7 +16,7 @@ public sealed class EvalCommandGoldenOutputTests
         var command = new EvalCommand(service, sourceReader, CommandResultTestWriter.Create());
 
         var result = await CommandResultCapture.ExecuteAsync(() => command.EvalAsync(
-            projectPath: "/repo/UnityProject",
+            projectPath: AbsolutePath.Parse(ProjectPathTestValues.RepositoryUnityProject),
             mode: "oneshot",
             timeout: "1234",
             allowDangerous: true,

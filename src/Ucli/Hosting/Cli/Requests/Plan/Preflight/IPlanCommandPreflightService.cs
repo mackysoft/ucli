@@ -14,7 +14,7 @@ internal interface IPlanCommandPreflightService
     /// <returns> The preflight result containing either the base payload or one normalized failure. </returns>
     ValueTask<PlanCommandPreflightResult> PrepareAsync (
         Guid requestId,
-        string? projectPath,
+        AbsolutePath? projectPath,
         string requestJson,
         ReadIndexMode? readIndexMode,
         CancellationToken cancellationToken = default);

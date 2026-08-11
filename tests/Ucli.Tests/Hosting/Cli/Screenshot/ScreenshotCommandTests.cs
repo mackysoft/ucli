@@ -81,7 +81,7 @@ public sealed class ScreenshotCommandTests
         var command = new ScreenshotGameCommand(service, CommandResultTestWriter.Create());
 
         var result = await CommandResultCapture.ExecuteAsync(() => command.GameAsync(
-            projectPath: ProjectPathTestValues.RepositoryUnityProject,
+            projectPath: AbsolutePath.Parse(ProjectPathTestValues.RepositoryUnityProject),
             width: "1920",
             height: "1080",
             timeout: "5000",
@@ -90,8 +90,7 @@ public sealed class ScreenshotCommandTests
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
         var input = Assert.Single(service.Inputs);
         Assert.Equal(IpcScreenshotTarget.Game, input.Target);
-        Assert.Equal(1920, input.RequestedWidth);
-        Assert.Equal(1080, input.RequestedHeight);
+        Assert.Equal(new PixelDimensions(1920, 1080), input.RequestedDimensions);
         Assert.Equal(5000, input.TimeoutMilliseconds);
 
         using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
@@ -100,11 +99,13 @@ public sealed class ScreenshotCommandTests
             .HasProperty("capture", capture => capture
                 .HasString("target", "game")
                 .HasString("sizeMode", "requestedResolution")
-                .HasInt32("requestedWidth", 1920)
-                .HasInt32("requestedHeight", 1080)
-                .HasInt32("width", 1920)
-                .HasInt32("height", 1080)
-                .HasString("colorSpace", "linear")
+                .HasProperty("requestedDimensions", dimensions => dimensions
+                    .HasInt32("width", 1920)
+                    .HasInt32("height", 1080))
+                .HasProperty("dimensions", dimensions => dimensions
+                    .HasInt32("width", 1920)
+                    .HasInt32("height", 1080))
+                .HasString("projectColorSpace", "linear")
                 .HasString("lifecycleStateAtCapture", "ready")
                 .HasString("compileStateAtCapture", "ready")
                 .HasProperty("generations", generations => generations
@@ -146,8 +147,7 @@ public sealed class ScreenshotCommandTests
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
         var input = Assert.Single(service.Inputs);
         Assert.Equal(IpcScreenshotTarget.Scene, input.Target);
-        Assert.Null(input.RequestedWidth);
-        Assert.Null(input.RequestedHeight);
+        Assert.Null(input.RequestedDimensions);
     }
 
     private static RecordingScreenshotCaptureService CreateFailIfCalledService ()
@@ -171,11 +171,11 @@ public sealed class ScreenshotCommandTests
                 requestedWidth.HasValue
                     ? IpcScreenshotSizeMode.RequestedResolution
                     : IpcScreenshotSizeMode.CurrentSurface,
-                requestedWidth,
-                requestedHeight,
-                requestedWidth ?? 1280,
-                requestedHeight ?? 720,
-                IpcScreenshotColorSpace.Linear,
+                requestedWidth.HasValue
+                    ? new PixelDimensions(requestedWidth.Value, requestedHeight!.Value)
+                    : null,
+                new PixelDimensions(requestedWidth ?? 1280, requestedHeight ?? 720),
+                UnityProjectColorSpace.Linear,
                 new UnityEditorStateSnapshot(
                     UnityEditorMode.Gui,
                     UnityEditorLifecycleState.Ready,

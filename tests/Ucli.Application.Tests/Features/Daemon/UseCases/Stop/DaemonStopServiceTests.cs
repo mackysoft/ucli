@@ -179,7 +179,7 @@ public sealed class DaemonStopServiceTests
         var service = CreateService(resolver, supervisorProjectGateway, daemonStopOperation);
 
         var result = await service.StopAsync(
-            projectPath: ProjectPathTestValues.IndependentUnityProject,
+            projectPath: AbsolutePath.Parse(ProjectPathTestValues.IndependentUnityProject),
             timeoutMilliseconds: 8888,
             cancellationToken: CancellationToken.None);
 

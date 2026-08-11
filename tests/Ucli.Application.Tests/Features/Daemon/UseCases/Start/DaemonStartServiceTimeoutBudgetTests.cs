@@ -31,7 +31,7 @@ public sealed class DaemonStartServiceTimeoutBudgetTests
         var service = DaemonStartServiceTestSupport.CreateService(resolver, supervisorProjectGateway, pluginVerifier, timeProvider: timeProvider);
 
         var result = await service.StartAsync(
-            projectPath: ProjectPathTestValues.IndependentUnityProject,
+            projectPath: AbsolutePath.Parse(ProjectPathTestValues.IndependentUnityProject),
             timeoutMilliseconds: 700,
             editorMode: null,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
@@ -77,7 +77,7 @@ public sealed class DaemonStartServiceTimeoutBudgetTests
         var service = DaemonStartServiceTestSupport.CreateService(resolver, supervisorProjectGateway, pluginVerifier, timeProvider: timeProvider);
 
         var result = await service.StartAsync(
-            projectPath: ProjectPathTestValues.IndependentUnityProject,
+            projectPath: AbsolutePath.Parse(ProjectPathTestValues.IndependentUnityProject),
             timeoutMilliseconds: 700,
             editorMode: null,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,

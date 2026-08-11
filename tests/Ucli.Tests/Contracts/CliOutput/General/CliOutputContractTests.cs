@@ -245,7 +245,7 @@ public sealed class CliOutputContractTests
                     SharedUcliServiceProvider.Value,
                     CommandResultTestWriter.Create())
                 .StatusAsync(
-                    projectPath: projectPath,
+                    projectPath: projectPath is null ? null : AbsolutePath.Parse(projectPath),
                     timeout: timeout,
                     cancellationToken: CancellationToken.None));
     }
@@ -318,6 +318,9 @@ public sealed class CliOutputContractTests
         Assert.Equal(UcliContractConstants.Config.IpcTimeoutDefaultLogsUnityMilliseconds, timeoutByCommand.GetProperty(UcliContractConstants.Config.IpcTimeoutCommandLogsUnityRead).GetInt32());
         Assert.Equal(UcliContractConstants.Config.IpcTimeoutDefaultLogsUnityClearMilliseconds, timeoutByCommand.GetProperty(UcliContractConstants.Config.IpcTimeoutCommandLogsUnityClear).GetInt32());
         Assert.Equal(UcliContractConstants.Config.IpcTimeoutDefaultScreenshotMilliseconds, timeoutByCommand.GetProperty(UcliContractConstants.Config.IpcTimeoutCommandScreenshot).GetInt32());
+        Assert.Equal(UcliContractConstants.Config.IpcTimeoutDefaultRecordingStartMilliseconds, timeoutByCommand.GetProperty(UcliContractConstants.Config.IpcTimeoutCommandRecordingStart).GetInt32());
+        Assert.Equal(UcliContractConstants.Config.IpcTimeoutDefaultRecordingStatusMilliseconds, timeoutByCommand.GetProperty(UcliContractConstants.Config.IpcTimeoutCommandRecordingStatus).GetInt32());
+        Assert.Equal(UcliContractConstants.Config.IpcTimeoutDefaultRecordingStopMilliseconds, timeoutByCommand.GetProperty(UcliContractConstants.Config.IpcTimeoutCommandRecordingStop).GetInt32());
         Assert.Equal(UcliContractConstants.Config.IpcTimeoutDefaultPlayStatusMilliseconds, timeoutByCommand.GetProperty(UcliContractConstants.Config.IpcTimeoutCommandPlayStatus).GetInt32());
         Assert.Equal(UcliContractConstants.Config.IpcTimeoutDefaultPlayEnterMilliseconds, timeoutByCommand.GetProperty(UcliContractConstants.Config.IpcTimeoutCommandPlayEnter).GetInt32());
         Assert.Equal(UcliContractConstants.Config.IpcTimeoutDefaultPlayExitMilliseconds, timeoutByCommand.GetProperty(UcliContractConstants.Config.IpcTimeoutCommandPlayExit).GetInt32());

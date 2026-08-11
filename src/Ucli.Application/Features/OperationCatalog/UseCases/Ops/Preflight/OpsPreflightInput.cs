@@ -9,7 +9,7 @@ namespace MackySoft.Ucli.Application.Features.OperationCatalog.UseCases.Ops.Pref
 /// <param name="ReadIndexMode"> The optional normalized read-index mode override. </param>
 /// <param name="FailFast"> Whether live source fallback should fail immediately instead of waiting for Unity readiness. </param>
 internal sealed record OpsPreflightInput (
-    string? ProjectPath,
+    AbsolutePath? ProjectPath,
     UnityExecutionMode? Mode,
     int? TimeoutMilliseconds,
     ReadIndexMode? ReadIndexMode,

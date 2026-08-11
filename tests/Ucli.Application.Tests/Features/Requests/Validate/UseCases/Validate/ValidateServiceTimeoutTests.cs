@@ -38,7 +38,7 @@ public sealed class ValidateServiceTimeoutTests
             timeProvider);
 
         var result = await service.ExecuteAsync(
-            new ValidateCommandInput("/tmp/project", null, """{"steps":[]}""")
+            new ValidateCommandInput(AbsolutePath.Parse(ProjectPathTestValues.TemporaryUnityProject), null, """{"steps":[]}""")
             {
                 TimeoutMilliseconds = 100,
             },
@@ -79,7 +79,7 @@ public sealed class ValidateServiceTimeoutTests
             timeProvider);
 
         var result = await service.ExecuteAsync(
-            new ValidateCommandInput("/tmp/project", null, """{"steps":[]}"""),
+            new ValidateCommandInput(AbsolutePath.Parse(ProjectPathTestValues.TemporaryUnityProject), null, """{"steps":[]}"""),
             CancellationToken.None);
 
         ValidateServiceAssert.SharedPreflightTimedOutAfterPrepareAttempt(result, preflightService);
@@ -116,7 +116,7 @@ public sealed class ValidateServiceTimeoutTests
             timeProvider);
 
         var result = await service.ExecuteAsync(
-            new ValidateCommandInput("/tmp/project", ReadIndexMode.Disabled, """{"steps":[]}""")
+            new ValidateCommandInput(AbsolutePath.Parse(ProjectPathTestValues.TemporaryUnityProject), ReadIndexMode.Disabled, """{"steps":[]}""")
             {
                 TimeoutMilliseconds = 100,
             },

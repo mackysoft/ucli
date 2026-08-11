@@ -33,7 +33,7 @@ public sealed class LogsUnityClearCommandTests
             CommandResultTestWriter.Create());
 
         var (exitCode, standardOutput) = await StandardOutputCapture.ExecuteAsync(() => command.ClearAsync(
-            projectPath: "/tmp/unity-project",
+            projectPath: AbsolutePath.Parse(ProjectPathTestValues.IndependentUnityProject),
             timeout: "4500"));
 
         Assert.Equal((int)CliExitCode.Success, exitCode);

@@ -12,13 +12,14 @@ public sealed class TestRunConfigurationResolverInputProjectionTests
     public async Task Resolve_WithCliOverridesProfileValues_ReturnsMergedCliValues ()
     {
         using var scope = TestDirectories.CreateTempScope("test-run-config-resolver", "cli-overrides-profile");
+        var profileUnityEditorPath = AbsolutePath.Parse(scope.GetPath("profile-editor/Unity"));
 
         var profile = new TestRunProfile
         {
             SchemaVersion = 1,
             ProjectPath = "./profile-project",
             UnityVersion = "6000.1.3f1",
-            UnityEditorPath = "./profile-editor/Unity",
+            UnityEditorPath = profileUnityEditorPath,
             TestPlatform = "playmode",
             TestFilter = "Category=Smoke",
             TestCategories = ["profile"],
@@ -35,17 +36,23 @@ public sealed class TestRunConfigurationResolverInputProjectionTests
 
         var resolver = new TestRunConfigurationResolver(
             profileLoader,
-            new RecordingProjectPathInputResolver(static (commandOptionProjectPath, fallbackProjectPath) => commandOptionProjectPath ?? fallbackProjectPath),
+            new RecordingProjectPathInputResolver(static input => RecordingProjectPathInputResolver.Success(
+                input.CommandOptionProjectPath ?? input.FallbackProjectPath ?? AbsolutePath.Parse(Environment.CurrentDirectory),
+                input.CommandOptionProjectPath is not null
+                    ? UnityProjectPathSource.CommandOption
+                    : input.FallbackProjectPath is not null
+                        ? UnityProjectPathSource.Fallback
+                        : UnityProjectPathSource.CurrentDirectory)),
             unityProjectResolver,
             unityVersionResolver,
             unityEditorPathResolver);
 
         var input = new TestRunConfigurationRequest(
-            ProjectPath: unityProject.UnityProjectRoot.Value,
-            ProfilePath: scope.GetPath("test.profile.json"),
+            ProjectPath: unityProject.UnityProjectRoot,
+            ProfilePath: AbsolutePath.Parse(scope.GetPath("test.profile.json")),
             Mode: UnityExecutionMode.Oneshot,
             UnityVersion: "6000.1.4f1",
-            UnityEditorPath: scope.GetPath("Editors/6000.1.4f1/Editor/Unity"),
+            UnityEditorPath: AbsolutePath.Parse(scope.GetPath("Editors/6000.1.4f1/Editor/Unity")),
             TestPlatform: TestRunPlatform.EditMode,
             TestFilter: "Name~Smoke",
             TestCategory: ["smoke", "quick"],
@@ -84,7 +91,13 @@ public sealed class TestRunConfigurationResolverInputProjectionTests
 
         var resolver = new TestRunConfigurationResolver(
             new StubTestRunProfileLoader(TestRunProfileLoadResult.Success(profile)),
-            new RecordingProjectPathInputResolver(static (commandOptionProjectPath, fallbackProjectPath) => commandOptionProjectPath ?? fallbackProjectPath),
+            new RecordingProjectPathInputResolver(static input => RecordingProjectPathInputResolver.Success(
+                input.CommandOptionProjectPath ?? input.FallbackProjectPath ?? AbsolutePath.Parse(Environment.CurrentDirectory),
+                input.CommandOptionProjectPath is not null
+                    ? UnityProjectPathSource.CommandOption
+                    : input.FallbackProjectPath is not null
+                        ? UnityProjectPathSource.Fallback
+                        : UnityProjectPathSource.CurrentDirectory)),
             new RecordingUnityProjectResolver(UnityProjectResolutionResult.Success(CreateUnityProjectContext(scope, "profile-project"))),
             new RecordingUnityVersionResolver(UnityVersionResolutionResult.Success("6000.1.4f1")),
             new StubUnityEditorPathResolver(UnityEditorPathResolutionResult.Success(
@@ -92,7 +105,7 @@ public sealed class TestRunConfigurationResolverInputProjectionTests
 
         var input = new TestRunConfigurationRequest(
             ProjectPath: null,
-            ProfilePath: scope.GetPath("test.profile.json"),
+            ProfilePath: AbsolutePath.Parse(scope.GetPath("test.profile.json")),
             Mode: UnityExecutionMode.Auto,
             UnityVersion: null,
             UnityEditorPath: null,
@@ -117,7 +130,7 @@ public sealed class TestRunConfigurationResolverInputProjectionTests
 
         var resolver = CreateResolverWithSuccessfulDependencies(scope);
         var input = new TestRunConfigurationRequest(
-            ProjectPath: scope.GetPath("Unity"),
+            ProjectPath: AbsolutePath.Parse(scope.GetPath("Unity")),
             ProfilePath: null,
             Mode: UnityExecutionMode.Auto,
             UnityVersion: null,

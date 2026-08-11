@@ -31,7 +31,7 @@ internal sealed class PlayExitCommand
     /// <returns> The exit code contained in the emitted command result. </returns>
     [Command(UcliCommandNames.ExitSubcommand)]
     public async Task<int> ExitAsync (
-        string? projectPath = null,
+        [AbsolutePathArgumentParser] AbsolutePath? projectPath = null,
         string? timeout = null,
         CancellationToken cancellationToken = default)
     {

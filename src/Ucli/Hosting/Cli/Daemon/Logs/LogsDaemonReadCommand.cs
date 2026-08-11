@@ -61,7 +61,7 @@ internal sealed class LogsDaemonReadCommand
     /// <returns> The command exit code. </returns>
     [Command(UcliCommandNames.ReadSubcommand)]
     public async Task<int> ReadAsync (
-        string? projectPath = null,
+        [AbsolutePathArgumentParser] AbsolutePath? projectPath = null,
         int? tail = null,
         string? after = null,
         string? since = null,
@@ -77,6 +77,7 @@ internal sealed class LogsDaemonReadCommand
         string? format = null,
         CancellationToken cancellationToken = default)
     {
+
         return await LogsReadCommandExecutor.ExecuteAsync<IpcDaemonLogEvent, JsonLinePayload>(
                 UcliCommandNames.LogsDaemonRead,
                 format,

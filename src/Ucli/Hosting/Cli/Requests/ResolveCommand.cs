@@ -1,6 +1,7 @@
 using ConsoleAppFramework;
 using MackySoft.Ucli.Application.Features.Requests.Resolve.UseCases.Resolve;
 using MackySoft.Ucli.Application.Features.Requests.Resolve.UseCases.Resolve.Contracts;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 using MackySoft.Ucli.Hosting.Cli.Options;
@@ -43,19 +44,19 @@ internal sealed class ResolveCommand
     /// <returns> The exit code contained in the emitted command result. </returns>
     [Command(UcliCommandNames.Resolve)]
     public async Task<int> ResolveAsync (
-        string? projectPath = null,
+        [AbsolutePathArgumentParser] AbsolutePath? projectPath = null,
         string? mode = null,
         string? timeout = null,
         string? readIndexMode = null,
         bool failFast = false,
         string? globalObjectId = null,
         string? assetGuid = null,
-        string? assetPath = null,
-        string? projectAssetPath = null,
-        string? scene = null,
-        string? hierarchyPath = null,
+        [UnityAssetPathArgumentParser] UnityAssetPath? assetPath = null,
+        [ProjectSettingsAssetPathArgumentParser] ProjectSettingsAssetPath? projectAssetPath = null,
+        [SceneAssetPathArgumentParser] SceneAssetPath? scene = null,
+        [UnityHierarchyPathArgumentParser] UnityHierarchyPath? hierarchyPath = null,
         string? componentType = null,
-        string? prefab = null,
+        [PrefabAssetPathArgumentParser] PrefabAssetPath? prefab = null,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -117,4 +118,5 @@ internal sealed class ResolveCommand
         commandResultWriter.WriteToStandardOutput(commandResult);
         return commandResult.ExitCode;
     }
+
 }

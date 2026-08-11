@@ -29,7 +29,7 @@ internal sealed class ScreenshotSceneCommand
     /// <returns>The exit code contained in the emitted command result.</returns>
     [Command(UcliCommandNames.SceneSubcommand)]
     public async Task<int> SceneAsync (
-        string? projectPath = null,
+        [AbsolutePathArgumentParser] AbsolutePath? projectPath = null,
         string? timeout = null,
         CancellationToken cancellationToken = default)
     {
@@ -50,8 +50,7 @@ internal sealed class ScreenshotSceneCommand
                 new ScreenshotCaptureInput(
                     IpcScreenshotTarget.Scene,
                     projectPath,
-                    RequestedWidth: null,
-                    RequestedHeight: null,
+                    RequestedDimensions: null,
                     timeoutResult.TimeoutMilliseconds),
                 cancellationToken)
             .ConfigureAwait(false);

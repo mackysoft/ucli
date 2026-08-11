@@ -677,7 +677,8 @@ public sealed class RefreshServiceTests
             start.LifecycleExecutionRef.DefinitionDigest,
             new ExecutionState(TextVocabulary.GetText(
                 LifecycleExecutionState.Publishing)),
-            start.LifecycleExecutionRef.StatusLocator);
+            start.LifecycleExecutionRef.StatusLocator
+                ?? throw new InvalidOperationException("The registered start must have a status locator."));
         var reconnectResolver =
             new RecordingLifecycleExecutionReconnectResolver(
                 new LifecycleExecutionReconnectResolution.PublicationFailed(
@@ -943,7 +944,7 @@ public sealed class RefreshServiceTests
     private static RefreshCommandInput CreateInput ()
     {
         return new RefreshCommandInput(
-            ProjectPath: ProjectContextTestFactory.UnityProjectRoot,
+            ProjectPath: AbsolutePath.Parse(ProjectContextTestFactory.UnityProjectRoot),
             Mode: UnityExecutionMode.Oneshot,
             TimeoutMilliseconds: 1234,
             FailFast: true);

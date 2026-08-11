@@ -2,8 +2,8 @@ using System.Text.Json;
 using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Execution;
-using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Execution.Lifecycle;
+using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Contracts.Tests.Execution.Lifecycle;
 
@@ -80,26 +80,15 @@ public sealed class LifecycleExecutionStartBindingTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void Constructor_WhenReferenceIsTerminalOrHasNoStatusLocator_RejectsBinding ()
+    public void Constructor_WhenReferenceIsTerminal_RejectsBinding ()
     {
         var terminal = LifecycleExecutionContractTestFactory.CreateReference(
             LifecycleExecutionKind.Refresh,
             ExecutionLifecycle.Terminal,
             LifecycleExecutionState.Completed);
-        var withoutLocator = new ActiveExecutionRef(
-            new LifecycleExecutionDefinition(LifecycleExecutionKind.Refresh).ExecutionKind,
-            LifecycleExecutionContractTestFactory.ExecutionId,
-            LifecycleExecutionDefinitionDigest.Calculate(
-                new LifecycleExecutionDefinition(LifecycleExecutionKind.Refresh)),
-            new ExecutionState("registered"),
-            statusLocator: null);
-
         Assert.Equal(
             "lifecycleExecutionRef",
             Assert.Throws<ArgumentException>(() => CreateBinding(terminal)).ParamName);
-        Assert.Equal(
-            "lifecycleExecutionRef",
-            Assert.Throws<ArgumentException>(() => CreateBinding(withoutLocator)).ParamName);
     }
 
     [Fact]
