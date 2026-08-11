@@ -4,18 +4,18 @@ internal static class ProjectPathInputResolverAssert
 {
     public static RecordingProjectPathInputResolver.Invocation ResolvedOnceFor (
         RecordingProjectPathInputResolver resolver,
-        string? expectedCommandOptionProjectPath,
-        string? expectedFallbackProjectPath,
+        AbsolutePath? expectedCommandOptionProjectPath,
+        AbsolutePath? expectedFallbackProjectPath,
         string? expectedFallbackSourceLabel,
-        string expectedResolvedPath,
+        AbsolutePath expectedResolvedPath,
         UnityProjectPathSource expectedSource)
     {
         var invocation = Assert.Single(resolver.Invocations);
         Assert.Equal(expectedCommandOptionProjectPath, invocation.Input.CommandOptionProjectPath);
         Assert.Equal(expectedFallbackProjectPath, invocation.Input.FallbackProjectPath);
         Assert.Equal(expectedFallbackSourceLabel, invocation.Input.FallbackSourceLabel);
-        Assert.Equal(Path.GetFullPath(expectedResolvedPath), Path.GetFullPath(invocation.ProjectPathCandidate.Path));
-        Assert.Equal(expectedSource, invocation.ProjectPathCandidate.Source);
+        Assert.True(invocation.Result.Candidate!.Path.IsSameAs(expectedResolvedPath));
+        Assert.Equal(expectedSource, invocation.Result.Candidate.Source);
         return invocation;
     }
 }

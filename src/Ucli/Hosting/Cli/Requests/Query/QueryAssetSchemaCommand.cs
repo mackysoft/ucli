@@ -42,7 +42,7 @@ internal sealed class QueryAssetSchemaCommand
     /// <returns> The exit code contained in the emitted command result. </returns>
     [Command(UcliCommandNames.SchemaSubcommand)]
     public async Task<int> SchemaAsync (
-        string? projectPath = null,
+        [AbsolutePathArgumentParser] AbsolutePath? projectPath = null,
         string? mode = null,
         string? timeout = null,
         string? readIndexMode = null,
@@ -50,8 +50,8 @@ internal sealed class QueryAssetSchemaCommand
         string? type = null,
         string? globalObjectId = null,
         string? assetGuid = null,
-        string? assetPath = null,
-        string? projectAssetPath = null,
+        [UnityAssetPathArgumentParser] UnityAssetPath? assetPath = null,
+        [ProjectSettingsAssetPathArgumentParser] ProjectSettingsAssetPath? projectAssetPath = null,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -87,8 +87,8 @@ internal sealed class QueryAssetSchemaCommand
         string? type,
         string? globalObjectId,
         string? assetGuid,
-        string? assetPath,
-        string? projectAssetPath,
+        UnityAssetPath? assetPath,
+        ProjectSettingsAssetPath? projectAssetPath,
         out System.Text.Json.JsonElement args,
         out ExecutionError? error)
     {
@@ -105,21 +105,12 @@ internal sealed class QueryAssetSchemaCommand
         {
             return false;
         }
-        if (!QueryOptionValueNormalizer.TryNormalizeOptional(assetPath, "assetPath", out var normalizedAssetPath, out error))
-        {
-            return false;
-        }
-        if (!QueryOptionValueNormalizer.TryNormalizeOptional(projectAssetPath, "projectAssetPath", out var normalizedProjectAssetPath, out error))
-        {
-            return false;
-        }
-
         var selectorCount = 0;
         selectorCount += normalizedType is null ? 0 : 1;
         selectorCount += normalizedGlobalObjectId is null ? 0 : 1;
         selectorCount += normalizedAssetGuid is null ? 0 : 1;
-        selectorCount += normalizedAssetPath is null ? 0 : 1;
-        selectorCount += normalizedProjectAssetPath is null ? 0 : 1;
+        selectorCount += assetPath is null ? 0 : 1;
+        selectorCount += projectAssetPath is null ? 0 : 1;
         if (selectorCount != 1)
         {
             error = ExecutionError.InvalidArgument(
@@ -156,30 +147,12 @@ internal sealed class QueryAssetSchemaCommand
             typedAssetGuid = parsedAssetGuid;
         }
 
-        UnityAssetPath? typedAssetPath = null;
-        if (normalizedAssetPath is not null
-            && !UnityAssetPath.TryParse(normalizedAssetPath, out typedAssetPath))
-        {
-            error = ExecutionError.InvalidArgument(
-                "Selector '--assetPath' must be a normalized path below 'Assets/'.");
-            return false;
-        }
-
-        ProjectSettingsAssetPath? typedProjectAssetPath = null;
-        if (normalizedProjectAssetPath is not null
-            && !ProjectSettingsAssetPath.TryParse(normalizedProjectAssetPath, out typedProjectAssetPath))
-        {
-            error = ExecutionError.InvalidArgument(
-                "Selector '--projectAssetPath' must be a normalized path below 'ProjectSettings/'.");
-            return false;
-        }
-
         AssetReferenceArgs target = typedGlobalObjectId switch
         {
             not null => new GlobalObjectIdReferenceArgs(typedGlobalObjectId),
             _ when typedAssetGuid.HasValue => new AssetGuidReferenceArgs(typedAssetGuid.Value),
-            _ when typedAssetPath is not null => new AssetPathReferenceArgs(typedAssetPath),
-            _ => new ProjectAssetPathReferenceArgs(typedProjectAssetPath!),
+            _ when assetPath is not null => new AssetPathReferenceArgs(assetPath),
+            _ => new ProjectAssetPathReferenceArgs(projectAssetPath!),
         };
         args = QueryOperationArgsFactory.CreateAssetSchemaTarget(target);
         return true;

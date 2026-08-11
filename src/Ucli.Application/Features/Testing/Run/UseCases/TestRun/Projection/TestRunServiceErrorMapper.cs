@@ -31,6 +31,8 @@ internal static class TestRunServiceErrorMapper
                 errorCode),
             ExecutionErrorKind.Timeout => TestRunServiceResult.ToolError(
                 ApplicationFailure.Timeout(error.Message, errorCode, instancePath: null, startupFailure: null)),
+            ExecutionErrorKind.Canceled => TestRunServiceResult.ToolError(
+                ApplicationFailure.Canceled(error.Message, errorCode)),
             ExecutionErrorKind.InternalError => TestRunServiceResult.InfraError(
                 error.Message,
                 errorCode),

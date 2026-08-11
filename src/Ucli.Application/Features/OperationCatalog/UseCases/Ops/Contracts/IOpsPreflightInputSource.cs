@@ -6,7 +6,7 @@ namespace MackySoft.Ucli.Application.Features.OperationCatalog.UseCases.Ops.Cont
 internal interface IOpsPreflightInputSource
 {
     /// <summary> Gets the optional project path. </summary>
-    string? ProjectPath { get; }
+    AbsolutePath? ProjectPath { get; }
 
     /// <summary> Gets the normalized execution-mode value. </summary>
     UnityExecutionMode? Mode { get; }

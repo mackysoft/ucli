@@ -5,15 +5,15 @@ namespace MackySoft.Ucli.Application.Tests;
 
 internal sealed class StubVerifyProfileFileReader : IVerifyProfileFileReader
 {
-    private readonly Func<string, AbsolutePath, VerifyProfileFileReadResult> resultFactory;
+    private readonly Func<FilePathReference, AbsolutePath, VerifyProfileFileReadResult> resultFactory;
 
-    public StubVerifyProfileFileReader (Func<string, AbsolutePath, VerifyProfileFileReadResult> resultFactory)
+    public StubVerifyProfileFileReader (Func<FilePathReference, AbsolutePath, VerifyProfileFileReadResult> resultFactory)
     {
         this.resultFactory = resultFactory;
     }
 
     public ValueTask<VerifyProfileFileReadResult> ReadAsync (
-        string profilePath,
+        FilePathReference profilePath,
         AbsolutePath repositoryRoot,
         CancellationToken cancellationToken = default)
     {

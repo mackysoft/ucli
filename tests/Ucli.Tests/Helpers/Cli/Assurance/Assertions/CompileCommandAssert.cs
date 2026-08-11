@@ -16,7 +16,7 @@ internal static class CompileCommandAssert
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
         var invocation = Assert.Single(service.Invocations);
         Assert.Equal(expectedCancellationToken, invocation.CancellationToken);
-        Assert.Equal(expectedProjectPath, invocation.Input.ProjectPath);
+        ProjectPathDispatchAssert.EqualNormalized(expectedProjectPath, invocation.Input.ProjectPath);
         Assert.Equal(expectedMode, invocation.Input.Mode);
         Assert.Equal(expectedTimeoutMilliseconds, invocation.Input.TimeoutMilliseconds);
         Assert.NotNull(invocation.ProgressSink);

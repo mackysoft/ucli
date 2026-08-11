@@ -51,7 +51,7 @@ internal static class PlanServiceTestSupport
         bool allowPlayMode = false)
     {
         return new PlanCommandInput(
-            ProjectPath: "/repo/UnityProject",
+            ProjectPath: AbsolutePath.Parse(ProjectPathTestValues.RepositoryUnityProject),
             Mode: mode,
             TimeoutMilliseconds: timeoutMilliseconds,
             ReadIndexMode: readIndexMode,

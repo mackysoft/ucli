@@ -12,7 +12,7 @@ internal sealed class StubTestRunProfileJsonReader : ITestRunProfileJsonReader
     }
 
     public ValueTask<TestRunProfileJsonReadResult> ReadTextAsync (
-        string profilePath,
+        AbsolutePath profilePath,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();

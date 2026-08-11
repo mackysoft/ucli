@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Shared.EnvironmentVariables;
+using MackySoft.Ucli.Application.Shared.Foundation;
 
 namespace MackySoft.Ucli.Application.Tests;
 
@@ -14,13 +15,15 @@ public sealed class ProjectPathInputResolverTests
         }));
 
         var result = resolver.Resolve(new ProjectContextResolutionInput(
-            CommandOptionProjectPath: "./cli-project",
-            FallbackProjectPath: "./fallback-project",
+            CommandOptionProjectPath: Resolve("./cli-project"),
+            FallbackProjectPath: Resolve("./fallback-project"),
             FallbackSourceLabel: "fallback.source"));
 
-        Assert.Equal("./cli-project", result.Path);
-        Assert.Equal(UnityProjectPathSource.CommandOption, result.Source);
-        Assert.Equal("--projectPath", result.SourceLabel);
+        Assert.True(result.IsSuccess);
+        var candidate = Assert.IsType<ProjectPathCandidate>(result.Candidate);
+        Assert.True(candidate.Path.IsSameAs(Resolve("./cli-project")));
+        Assert.Equal(UnityProjectPathSource.CommandOption, candidate.Source);
+        Assert.Equal("--projectPath", candidate.SourceLabel);
     }
 
     [Fact]
@@ -34,31 +37,33 @@ public sealed class ProjectPathInputResolverTests
 
         var result = resolver.Resolve(new ProjectContextResolutionInput(
             CommandOptionProjectPath: null,
-            FallbackProjectPath: "./fallback-project",
+            FallbackProjectPath: Resolve("./fallback-project"),
             FallbackSourceLabel: "fallback.source"));
 
-        Assert.Equal("./env-project", result.Path);
-        Assert.Equal(UnityProjectPathSource.EnvironmentVariable, result.Source);
-        Assert.Equal(UcliEnvironmentVariableNames.ProjectPath, result.SourceLabel);
+        Assert.True(result.IsSuccess);
+        var candidate = Assert.IsType<ProjectPathCandidate>(result.Candidate);
+        Assert.True(candidate.Path.IsSameAs(Resolve("./env-project")));
+        Assert.Equal(UnityProjectPathSource.EnvironmentVariable, candidate.Source);
+        Assert.Equal(UcliEnvironmentVariableNames.ProjectPath, candidate.SourceLabel);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void Resolve_WhenEnvironmentVariableIsWhitespace_UsesFallback ()
+    public void Resolve_WhenEnvironmentVariableIsInvalid_ReturnsInvalidFormat ()
     {
         var resolver = new ProjectPathInputResolver(new StubEnvironmentVariableReader(new Dictionary<string, string?>(StringComparer.Ordinal)
         {
-            [UcliEnvironmentVariableNames.ProjectPath] = "   ",
+            [UcliEnvironmentVariableNames.ProjectPath] = "invalid\0path",
         }));
 
         var result = resolver.Resolve(new ProjectContextResolutionInput(
             CommandOptionProjectPath: null,
-            FallbackProjectPath: "./fallback-project",
+            FallbackProjectPath: Resolve("./fallback-project"),
             FallbackSourceLabel: "testRunProfile.projectPath"));
 
-        Assert.Equal("./fallback-project", result.Path);
-        Assert.Equal(UnityProjectPathSource.Fallback, result.Source);
-        Assert.Equal("testRunProfile.projectPath", result.SourceLabel);
+        Assert.False(result.IsSuccess);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(ProjectContextErrorCodes.ProjectPathInvalidFormat, error.Code);
     }
 
     [Fact]
@@ -71,26 +76,34 @@ public sealed class ProjectPathInputResolverTests
             CommandOptionProjectPath: null,
             FallbackProjectPath: null));
 
-        Assert.Equal(".", result.Path);
-        Assert.Equal(UnityProjectPathSource.CurrentDirectory, result.Source);
-        Assert.Null(result.SourceLabel);
+        Assert.True(result.IsSuccess);
+        var candidate = Assert.IsType<ProjectPathCandidate>(result.Candidate);
+        Assert.True(candidate.Path.IsSameAs(AbsolutePath.Parse(Environment.CurrentDirectory)));
+        Assert.Equal(UnityProjectPathSource.CurrentDirectory, candidate.Source);
+        Assert.Null(candidate.SourceLabel);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void Resolve_WhenCommandAndEnvironmentAreWhitespace_UsesCurrentDirectory ()
+    public void Resolve_WhenEnvironmentIsMissing_UsesFallback ()
     {
-        var resolver = new ProjectPathInputResolver(new StubEnvironmentVariableReader(new Dictionary<string, string?>(StringComparer.Ordinal)
-        {
-            [UcliEnvironmentVariableNames.ProjectPath] = "   ",
-        }));
+        var resolver = new ProjectPathInputResolver(new StubEnvironmentVariableReader());
 
         var result = resolver.Resolve(new ProjectContextResolutionInput(
-            CommandOptionProjectPath: "  ",
-            FallbackProjectPath: "\t"));
+            CommandOptionProjectPath: null,
+            FallbackProjectPath: Resolve("./fallback-project"),
+            FallbackSourceLabel: "fallback.source"));
 
-        Assert.Equal(".", result.Path);
-        Assert.Equal(UnityProjectPathSource.CurrentDirectory, result.Source);
+        Assert.True(result.IsSuccess);
+        var candidate = Assert.IsType<ProjectPathCandidate>(result.Candidate);
+        Assert.True(candidate.Path.IsSameAs(Resolve("./fallback-project")));
+        Assert.Equal(UnityProjectPathSource.Fallback, candidate.Source);
     }
 
+    private static AbsolutePath Resolve (string path)
+    {
+        var result = ProjectPathNormalizer.Normalize(path, "test");
+        Assert.True(result.IsSuccess);
+        return result.ProjectPath;
+    }
 }

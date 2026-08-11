@@ -7,7 +7,7 @@ namespace MackySoft.Ucli.Application.Features.Assurance.Ready;
 internal sealed record ReadyCommandInput
 {
     public ReadyCommandInput (
-        string? ProjectPath,
+        AbsolutePath? ProjectPath,
         ReadyTarget Target,
         UnityExecutionMode? Mode,
         int? TimeoutMilliseconds,
@@ -29,7 +29,7 @@ internal sealed record ReadyCommandInput
         this.FailFast = FailFast;
     }
 
-    public string? ProjectPath { get; }
+    public AbsolutePath? ProjectPath { get; }
 
     public ReadyTarget Target { get; }
 

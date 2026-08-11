@@ -32,25 +32,6 @@ public sealed class UcliServiceCollectionExtensionsTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void AddUcliServices_PreservesRegisteredTimeProvider ()
-    {
-        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
-        var services = new ServiceCollection();
-        services.AddSingleton<TimeProvider>(timeProvider);
-        services.AddUcliServices();
-
-        using var serviceProvider = services.BuildServiceProvider(
-            new ServiceProviderOptions
-            {
-                ValidateOnBuild = true,
-                ValidateScopes = true,
-            });
-
-        Assert.Same(timeProvider, serviceProvider.GetRequiredService<TimeProvider>());
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
     public void AddUcliServices_ResolvesGuidGeneratorWithNonEmptyGuid ()
     {
         var services = new ServiceCollection();

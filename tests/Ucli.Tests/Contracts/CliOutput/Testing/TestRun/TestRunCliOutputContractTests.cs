@@ -111,7 +111,7 @@ public sealed class TestRunCliOutputContractTests
                     SharedTestRunServiceProvider.Value,
                     CommandResultTestWriter.Create())
                 .RunAsync(
-                    projectPath: projectPath,
+                    projectPath: projectPath is null ? null : AbsolutePath.Parse(projectPath),
                     executionMode: executionMode,
                     testPlatform: testPlatform,
                     cancellationToken: CancellationToken.None));

@@ -14,7 +14,7 @@ internal static class DaemonStatusServiceInvocationAssert
     {
         var resolverInvocation = Assert.Single(resolver.Invocations);
         Assert.Equal(UcliCommandIds.DaemonStatus, resolverInvocation.TimeoutCommand);
-        Assert.Equal(expectedProjectPath, resolverInvocation.ProjectPath);
+        Assert.Equal(expectedProjectPath, resolverInvocation.ProjectPath?.Value);
         Assert.Equal(expectedTimeoutMilliseconds, resolverInvocation.TimeoutMilliseconds);
         Assert.Equal(cancellationToken, resolverInvocation.CancellationToken);
 

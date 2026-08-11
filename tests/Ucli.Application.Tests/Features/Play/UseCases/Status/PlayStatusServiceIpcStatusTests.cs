@@ -20,7 +20,7 @@ public sealed class PlayStatusServiceIpcStatusTests
         var requestExecutor = new RecordingUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateResponse(CreateStatusResponse())));
         var service = CreateService(context, sessionStore, requestExecutor);
 
-        var result = await service.ExecuteAsync(new PlayStatusCommandInput("/repo/UnityProject", 1500), CancellationToken.None);
+        var result = await service.ExecuteAsync(new PlayStatusCommandInput(AbsolutePath.Parse(ProjectPathTestValues.RepositoryUnityProject), 1500), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         var output = Assert.IsType<PlayStatusExecutionOutput>(result.Output);

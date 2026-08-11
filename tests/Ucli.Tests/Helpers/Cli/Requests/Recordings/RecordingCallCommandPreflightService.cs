@@ -4,11 +4,11 @@ namespace MackySoft.Tests;
 
 internal sealed class RecordingCallCommandPreflightService : ICallCommandPreflightService
 {
-    private readonly Func<string?, string, CancellationToken, ValueTask<CallCommandPreflightResult>> handler;
+    private readonly Func<AbsolutePath?, string, CancellationToken, ValueTask<CallCommandPreflightResult>> handler;
     private readonly List<Invocation> invocations = [];
 
     public RecordingCallCommandPreflightService (
-        Func<string?, string, CancellationToken, ValueTask<CallCommandPreflightResult>> handler)
+        Func<AbsolutePath?, string, CancellationToken, ValueTask<CallCommandPreflightResult>> handler)
     {
         this.handler = handler ?? throw new ArgumentNullException(nameof(handler));
     }
@@ -17,7 +17,7 @@ internal sealed class RecordingCallCommandPreflightService : ICallCommandPreflig
 
     public ValueTask<CallCommandPreflightResult> PrepareAsync (
         Guid requestId,
-        string? projectPath,
+        AbsolutePath? projectPath,
         string requestJson,
         CancellationToken cancellationToken = default)
     {
@@ -27,7 +27,7 @@ internal sealed class RecordingCallCommandPreflightService : ICallCommandPreflig
 
     public readonly record struct Invocation (
         Guid RequestId,
-        string? ProjectPath,
+        AbsolutePath? ProjectPath,
         string RequestJson,
         CancellationToken CancellationToken);
 }

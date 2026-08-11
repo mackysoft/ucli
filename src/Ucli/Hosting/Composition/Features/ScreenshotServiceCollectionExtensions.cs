@@ -17,11 +17,6 @@ internal static class ScreenshotServiceCollectionExtensions
 
         services.AddSingleton<Rgba8SrgbPngEncoder>();
         services.AddSingleton<Rgba8SrgbPngValidator>();
-        services.AddSingleton(serviceProvider =>
-        {
-            var timeProvider = serviceProvider.GetRequiredService<TimeProvider>();
-            return new ImmutableArtifactFilePublisher(timeProvider.GetUtcNow);
-        });
         services.AddSingleton<IScreenshotArtifactStore>(serviceProvider =>
             new FileScreenshotArtifactStore(
                 serviceProvider.GetRequiredService<Rgba8SrgbPngEncoder>(),

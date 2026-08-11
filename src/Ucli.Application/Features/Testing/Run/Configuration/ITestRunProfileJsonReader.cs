@@ -8,6 +8,6 @@ internal interface ITestRunProfileJsonReader
     /// <param name="cancellationToken"> A cancellation token propagated by caller. </param>
     /// <returns> A task that resolves to the profile JSON read result. </returns>
     ValueTask<TestRunProfileJsonReadResult> ReadTextAsync (
-        string profilePath,
+        AbsolutePath profilePath,
         CancellationToken cancellationToken = default);
 }

@@ -9,34 +9,27 @@ internal sealed class FileTestRunProfileJsonReader : ITestRunProfileJsonReader
 {
     /// <inheritdoc />
     public async ValueTask<TestRunProfileJsonReadResult> ReadTextAsync (
-        string profilePath,
+        AbsolutePath profilePath,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var currentDirectory = AbsolutePath.Parse(Directory.GetCurrentDirectory());
-        if (!AbsolutePath.TryResolve(currentDirectory, profilePath, out var normalizedProfilePath, out _))
+        if (!File.Exists(profilePath.Value))
         {
             return TestRunProfileJsonReadResult.Failure(ExecutionError.InvalidArgument(
-                "profilePath is invalid: Path format is invalid."));
-        }
-
-        if (!File.Exists(normalizedProfilePath.Value))
-        {
-            return TestRunProfileJsonReadResult.Failure(ExecutionError.InvalidArgument(
-                $"profilePath does not exist: {normalizedProfilePath.Value}"));
+                $"profilePath does not exist: {profilePath.Value}"));
         }
 
         try
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var json = await File.ReadAllTextAsync(normalizedProfilePath.Value, cancellationToken).ConfigureAwait(false);
+            var json = await File.ReadAllTextAsync(profilePath.Value, cancellationToken).ConfigureAwait(false);
             return TestRunProfileJsonReadResult.Success(json);
         }
         catch (Exception exception) when (exception is UnauthorizedAccessException or IOException)
         {
             return TestRunProfileJsonReadResult.Failure(ExecutionError.InternalError(
-                $"Failed to read profile file: {normalizedProfilePath.Value}. {exception.Message}"));
+                $"Failed to read profile file: {profilePath.Value}. {exception.Message}"));
         }
     }
 }

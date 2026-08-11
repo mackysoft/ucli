@@ -46,12 +46,12 @@ internal sealed class QuerySceneTreeCommand
     /// <returns> The exit code contained in the emitted command result. </returns>
     [Command(UcliCommandNames.TreeSubcommand)]
     public async Task<int> TreeAsync (
-        string? projectPath = null,
+        [AbsolutePathArgumentParser] AbsolutePath? projectPath = null,
         string? mode = null,
         string? timeout = null,
         string? readIndexMode = null,
         bool failFast = false,
-        string? path = null,
+        [UnityScenePathArgumentParser] UnityScenePath? path = null,
         int? depth = null,
         bool fullDepth = false,
         int? limit = null,
@@ -69,18 +69,13 @@ internal sealed class QuerySceneTreeCommand
             return QueryCommandExecutionHelper.WriteExecutionError(requestId, commandResultWriter, UcliCommandNames.QuerySceneTree, commonOptionsResult.Error!);
         }
 
-        if (!QueryOptionValueNormalizer.TryNormalizeRequired(path, "path", out var normalizedPath, out var error))
-        {
-            return QueryCommandExecutionHelper.WriteExecutionError(requestId, commandResultWriter, UcliCommandNames.QuerySceneTree, error!);
-        }
-
-        if (!UnityScenePath.TryParse(normalizedPath, out var scenePath))
+        if (path is null)
         {
             return QueryCommandExecutionHelper.WriteExecutionError(
                 requestId,
                 commandResultWriter,
                 UcliCommandNames.QuerySceneTree,
-                ExecutionError.InvalidArgument("Option '--path' must identify a .unity scene below 'Assets/' or 'Packages/'."));
+                ExecutionError.InvalidArgument("Option '--path' is required."));
         }
 
         var depthResult = QueryDepthOptionNormalizer.Normalize(depth, fullDepth, DefaultDepth);
@@ -103,7 +98,7 @@ internal sealed class QuerySceneTreeCommand
                     CommandName: UcliCommandNames.QuerySceneTree,
                     OperationId: OperationId,
                     OperationName: UcliPrimitiveOperationNames.SceneTree,
-                    ScenePath: scenePath,
+                    ScenePath: path,
                     Depth: depthResult.Depth,
                     WindowOptions: windowResult.Options!),
                 commandResultWriter,

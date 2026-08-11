@@ -22,7 +22,7 @@ public sealed class LogsUnityServiceCancellationTests
         {
             await service.ExecuteAsync(
                         new LogsUnityServiceRequest(
-                            ProjectPath: "/tmp/unity-project",
+                            ProjectPath: AbsolutePath.Parse(ProjectPathTestValues.IndependentUnityProject),
                             Tail: null,
                             After: null,
                             Since: null,

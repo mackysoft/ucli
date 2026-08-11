@@ -22,7 +22,7 @@ internal sealed class RecordingDaemonStartService : IDaemonStartService
     public IReadOnlyList<Invocation> Invocations => invocations;
 
     public ValueTask<DaemonStartExecutionResult> StartAsync (
-        string? projectPath,
+        AbsolutePath? projectPath,
         int? timeoutMilliseconds,
         UnityEditorMode? editorMode,
         DaemonStartupBlockedProcessPolicy onStartupBlocked,
@@ -53,7 +53,7 @@ internal sealed class RecordingDaemonStartService : IDaemonStartService
     }
 
     public readonly record struct Invocation (
-        string? ProjectPath,
+        AbsolutePath? ProjectPath,
         int? TimeoutMilliseconds,
         UnityEditorMode? EditorMode,
         DaemonStartupBlockedProcessPolicy OnStartupBlocked,

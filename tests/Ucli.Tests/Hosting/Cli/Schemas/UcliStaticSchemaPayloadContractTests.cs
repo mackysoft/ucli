@@ -79,12 +79,6 @@ public sealed class UcliStaticSchemaPayloadContractTests
             active.DefinitionDigest,
             new ExecutionState("recovering"),
             active.StatusLocator);
-        var activeWithNullStatusLocator = new ActiveExecutionRef(
-            active.Kind,
-            Guid.Parse("b9bdd995-e5a8-4523-bd9e-866404109cca"),
-            active.DefinitionDigest,
-            active.State,
-            statusLocator: null);
         var terminal = new TerminalExecutionRef(
             active.Kind,
             active.Id,
@@ -108,10 +102,6 @@ public sealed class UcliStaticSchemaPayloadContractTests
         var recoveryJson = JsonSerializer.SerializeToElement<ExecutionRef>(
             recovery,
             IpcJsonSerializerOptions.StrictPropertyNames);
-        var activeWithoutStatusLocatorJson =
-            JsonSerializer.SerializeToElement<ExecutionRef>(
-                activeWithNullStatusLocator,
-                IpcJsonSerializerOptions.StrictPropertyNames);
         var terminalJson = JsonSerializer.SerializeToElement<ExecutionRef>(
             terminal,
             IpcJsonSerializerOptions.StrictPropertyNames);
@@ -121,9 +111,6 @@ public sealed class UcliStaticSchemaPayloadContractTests
         Assert.True(artifactSchema.Evaluate(multiplyLocatedEditorLogJson).IsValid);
         Assert.True(executionSchema.Evaluate(activeJson).IsValid);
         Assert.True(executionSchema.Evaluate(recoveryJson).IsValid);
-        Assert.True(executionSchema
-            .Evaluate(activeWithoutStatusLocatorJson)
-            .IsValid);
         Assert.True(executionSchema.Evaluate(terminalJson).IsValid);
 
         var artifactWithoutLocator = JsonNode.Parse(artifactJson.GetRawText())!.AsObject();
@@ -152,10 +139,22 @@ public sealed class UcliStaticSchemaPayloadContractTests
             .Evaluate(JsonSerializer.SerializeToElement(activeWithoutStatusLocator))
             .IsValid);
 
+        var activeWithNullStatusLocator = JsonNode.Parse(activeJson.GetRawText())!.AsObject();
+        activeWithNullStatusLocator["statusLocator"] = null;
+        Assert.False(executionSchema
+            .Evaluate(JsonSerializer.SerializeToElement(activeWithNullStatusLocator))
+            .IsValid);
+
         var terminalWithoutRecord = JsonNode.Parse(terminalJson.GetRawText())!.AsObject();
         Assert.True(terminalWithoutRecord.Remove("terminalRecordRef"));
         Assert.False(executionSchema
             .Evaluate(JsonSerializer.SerializeToElement(terminalWithoutRecord))
+            .IsValid);
+
+        var terminalWithoutStatusLocator = JsonNode.Parse(terminalJson.GetRawText())!.AsObject();
+        Assert.True(terminalWithoutStatusLocator.Remove("statusLocator"));
+        Assert.False(executionSchema
+            .Evaluate(JsonSerializer.SerializeToElement(terminalWithoutStatusLocator))
             .IsValid);
     }
 

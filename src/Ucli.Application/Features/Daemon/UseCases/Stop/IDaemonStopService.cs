@@ -9,7 +9,7 @@ internal interface IDaemonStopService
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The daemon-stop execution result. </returns>
     ValueTask<DaemonStopExecutionResult> StopAsync (
-        string? projectPath,
+        AbsolutePath? projectPath,
         int? timeoutMilliseconds,
         CancellationToken cancellationToken = default);
 }

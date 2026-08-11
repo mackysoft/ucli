@@ -12,7 +12,7 @@ internal sealed class StubTestRunProfileLoader : ITestRunProfileLoader
     }
 
     public ValueTask<TestRunProfileLoadResult> LoadAsync (
-        string profilePath,
+        AbsolutePath profilePath,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();

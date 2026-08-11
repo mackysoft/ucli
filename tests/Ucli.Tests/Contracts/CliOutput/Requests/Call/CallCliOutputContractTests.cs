@@ -147,7 +147,7 @@ public sealed class CallCliOutputContractTests
                     RequestInputReaderStub.Success(requestJson),
                     CommandResultTestWriter.Create())
                 .CallAsync(
-                    projectPath: projectPath,
+                    projectPath: projectPath is null ? null : AbsolutePath.Parse(projectPath),
                     mode: mode,
                     timeout: timeout,
                     cancellationToken: CancellationToken.None));

@@ -40,7 +40,7 @@ internal sealed class LogsUnityClearCommand
     /// <returns> The exit code contained in the emitted command result. </returns>
     [Command(UcliCommandNames.ClearSubcommand)]
     public async Task<int> ClearAsync (
-        string? projectPath = null,
+        [AbsolutePathArgumentParser] AbsolutePath? projectPath = null,
         string? timeout = null,
         CancellationToken cancellationToken = default)
     {

@@ -15,7 +15,7 @@ public sealed class PlanCommandGoldenOutputTests
         var command = new PlanCommand(service, preflightService, RequestInputReaderStub.Success(DefaultRequestJson), CommandResultTestWriter.Create());
 
         var result = await CommandResultCapture.ExecuteAsync(() => command.PlanAsync(
-            projectPath: "/repo/UnityProject",
+            projectPath: AbsolutePath.Parse(ProjectPathTestValues.RepositoryUnityProject),
             mode: "oneshot",
             timeout: "1234",
             readIndexMode: "disabled",
@@ -42,7 +42,7 @@ public sealed class PlanCommandGoldenOutputTests
         var command = new PlanCommand(service, preflightService, RequestInputReaderStub.Success(DefaultRequestJson), CommandResultTestWriter.Create());
 
         var result = await CommandResultCapture.ExecuteAsync(() => command.PlanAsync(
-            projectPath: "/repo/UnityProject",
+            projectPath: AbsolutePath.Parse(ProjectPathTestValues.RepositoryUnityProject),
             cancellationToken: CancellationToken.None));
 
         Assert.Equal((int)CliExitCode.ToolError, result.ExitCode);

@@ -388,8 +388,7 @@ public sealed class FileScreenshotArtifactStoreTests
         int height = 2)
     {
         return new IpcScreenshotStagingImage(
-            width,
-            height,
+            new PixelDimensions(width, height),
             IpcScreenshotPixelFormat.Rgba8Srgb,
             IpcScreenshotRowOrder.TopDown,
             RowStrideBytes: checked(width * 4),

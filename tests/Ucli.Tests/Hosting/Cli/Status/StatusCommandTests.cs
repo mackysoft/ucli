@@ -30,7 +30,7 @@ public sealed class StatusCommandTests
         using var cancellationTokenSource = new CancellationTokenSource();
 
         var result = await CommandResultCapture.ExecuteAsync(() => command.StatusAsync(
-            projectPath: "/repo/UnityProject",
+            projectPath: AbsolutePath.Parse(ProjectPathTestValues.RepositoryUnityProject),
             timeout: "1234",
             cancellationToken: cancellationTokenSource.Token));
 
@@ -38,7 +38,7 @@ public sealed class StatusCommandTests
             result,
             service,
             cancellationTokenSource.Token,
-            "/repo/UnityProject",
+            ProjectPathTestValues.RepositoryUnityProject,
             expectedTimeoutMilliseconds: 1234);
     }
 

@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using MackySoft.Ucli.Contracts.Presentation;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
@@ -10,8 +11,7 @@ public sealed record IpcScreenshotStagingImage
     /// <exception cref="ArgumentOutOfRangeException"> Thrown when a required contract literal or image dimension is invalid. </exception>
     [JsonConstructor]
     public IpcScreenshotStagingImage (
-        int Width,
-        int Height,
+        PixelDimensions Dimensions,
         IpcScreenshotPixelFormat PixelFormat,
         IpcScreenshotRowOrder RowOrder,
         int RowStrideBytes,
@@ -27,14 +27,15 @@ public sealed record IpcScreenshotStagingImage
             throw new ArgumentOutOfRangeException(nameof(RowOrder), RowOrder, "Screenshot row order must be specified.");
         }
 
+        var dimensions = Dimensions ?? throw new ArgumentNullException(nameof(Dimensions));
         if (!IpcScreenshotCaptureLimits.TryCalculateRgba8Layout(
-            Width,
-            Height,
+            dimensions.Width,
+            dimensions.Height,
             out var expectedRowStrideBytes,
             out var expectedSizeBytes))
         {
             throw new ArgumentOutOfRangeException(
-                nameof(Width),
+                nameof(Dimensions),
                 "Screenshot staging dimensions exceed the supported normalized RGBA8 layout.");
         }
 
@@ -52,19 +53,15 @@ public sealed record IpcScreenshotStagingImage
                 nameof(SizeBytes));
         }
 
-        this.Width = Width;
-        this.Height = Height;
+        this.Dimensions = dimensions;
         this.PixelFormat = PixelFormat;
         this.RowOrder = RowOrder;
         this.RowStrideBytes = RowStrideBytes;
         this.SizeBytes = SizeBytes;
     }
 
-    /// <summary> Gets the staged image width in pixels. </summary>
-    public int Width { get; }
-
-    /// <summary> Gets the staged image height in pixels. </summary>
-    public int Height { get; }
+    /// <summary> Gets the staged image dimensions. </summary>
+    public PixelDimensions Dimensions { get; }
 
     /// <summary> Gets the raw pixel format. </summary>
     public IpcScreenshotPixelFormat PixelFormat { get; }

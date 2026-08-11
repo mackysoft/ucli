@@ -22,8 +22,9 @@ public sealed record TerminalExecutionRef : ExecutionRef, ITerminalExecutionRef
         ExecutionState state,
         ExecutionStatusLocator? statusLocator,
         ArtifactRef terminalRecordRef)
-        : base(kind, id, definitionDigest, state, statusLocator)
+        : base(kind, id, definitionDigest, state)
     {
+        StatusLocator = statusLocator;
         TerminalRecordRef = terminalRecordRef
             ?? throw new ArgumentNullException(nameof(terminalRecordRef));
     }
@@ -31,6 +32,11 @@ public sealed record TerminalExecutionRef : ExecutionRef, ITerminalExecutionRef
     /// <inheritdoc />
     private protected override ExecutionLifecycle LifecycleCore =>
         ExecutionLifecycle.Terminal;
+
+    /// <inheritdoc />
+    [JsonInclude]
+    [JsonRequired]
+    public override ExecutionStatusLocator? StatusLocator { get; protected init; }
 
     /// <summary> Gets the finalized immutable terminal-record artifact. </summary>
     [JsonInclude]

@@ -18,7 +18,7 @@ public sealed class LogsUnityClearServiceTests
 
         var result = await service.ExecuteAsync(
             new LogsUnityClearServiceRequest(
-                ProjectPath: "/tmp/unity-project",
+                ProjectPath: AbsolutePath.Parse(ProjectPathTestValues.IndependentUnityProject),
                 TimeoutMilliseconds: 4500),
             CancellationToken.None);
 
@@ -28,7 +28,7 @@ public sealed class LogsUnityClearServiceTests
         DaemonCommandExecutionContextResolverAssert.ResolvedFor(
             resolver,
             UcliCommandIds.LogsUnityClear,
-            expectedProjectPath: "/tmp/unity-project",
+            expectedProjectPath: ProjectPathTestValues.IndependentUnityProject,
             expectedTimeoutMilliseconds: 4500,
             expectedCancellationToken: CancellationToken.None);
         UnityConsoleClearClientAssert.ClearRequestedOnce(
@@ -70,7 +70,7 @@ public sealed class LogsUnityClearServiceTests
 
         var result = await service.ExecuteAsync(
             new LogsUnityClearServiceRequest(
-                ProjectPath: "missing",
+                ProjectPath: AbsolutePath.Parse(Path.GetFullPath("missing")),
                 TimeoutMilliseconds: null),
             CancellationToken.None);
 

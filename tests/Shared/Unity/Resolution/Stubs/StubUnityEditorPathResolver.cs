@@ -25,7 +25,7 @@ internal sealed class StubUnityEditorPathResolver : IUnityEditorPathResolver
 
     public UnityEditorPathResolutionResult Resolve (
         string unityVersion,
-        string? preferredUnityEditorPath)
+        AbsolutePath? preferredUnityEditorPath)
     {
         return result;
     }

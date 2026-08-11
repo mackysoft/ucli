@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Projects;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
@@ -11,7 +12,7 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Pixels
         /// <summary> Validates one GameView render texture against the supported source contract. </summary>
         public static bool TryValidateGameViewSource (
             RenderTexture source,
-            IpcScreenshotColorSpace colorSpace,
+            UnityProjectColorSpace colorSpace,
             out string errorMessage)
         {
             if (source == null)
@@ -58,7 +59,7 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Pixels
             GraphicsFormat graphicsFormat,
             TextureDimension dimension,
             int antiAliasing,
-            IpcScreenshotColorSpace colorSpace,
+            UnityProjectColorSpace colorSpace,
             out string errorMessage)
         {
             if (dimension != TextureDimension.Tex2D
@@ -70,10 +71,10 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Pixels
 
             var formatSupported = colorSpace switch
             {
-                IpcScreenshotColorSpace.Linear =>
+                UnityProjectColorSpace.Linear =>
                     graphicsFormat == GraphicsFormat.R8G8B8A8_SRGB
                     || graphicsFormat == GraphicsFormat.B8G8R8A8_SRGB,
-                IpcScreenshotColorSpace.Gamma =>
+                UnityProjectColorSpace.Gamma =>
                     graphicsFormat == GraphicsFormat.R8G8B8A8_UNorm
                     || graphicsFormat == GraphicsFormat.B8G8R8A8_UNorm,
                 _ => false,

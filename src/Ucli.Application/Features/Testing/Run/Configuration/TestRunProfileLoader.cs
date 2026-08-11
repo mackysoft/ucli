@@ -31,7 +31,7 @@ internal sealed class TestRunProfileLoader : ITestRunProfileLoader
 
     /// <inheritdoc />
     public async ValueTask<TestRunProfileLoadResult> LoadAsync (
-        string profilePath,
+        AbsolutePath profilePath,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -191,12 +191,17 @@ internal sealed class TestRunProfileLoader : ITestRunProfileLoader
             return false;
         }
 
+        if (!TryResolveUnityEditorPath(unityEditorPath, out var resolvedUnityEditorPath, out errorMessage))
+        {
+            return false;
+        }
+
         profile = new TestRunProfile
         {
             SchemaVersion = schemaVersion,
             ProjectPath = projectPath,
             UnityVersion = unityVersion,
-            UnityEditorPath = unityEditorPath,
+            UnityEditorPath = resolvedUnityEditorPath,
             TestPlatform = testPlatform,
             TestFilter = testFilter,
             TestCategories = NormalizeListValues(testCategories),
@@ -204,6 +209,28 @@ internal sealed class TestRunProfileLoader : ITestRunProfileLoader
             Timeout = timeoutMilliseconds,
         };
         return true;
+    }
+
+    private static bool TryResolveUnityEditorPath (
+        string? unityEditorPath,
+        out AbsolutePath? resolvedUnityEditorPath,
+        out string? errorMessage)
+    {
+        resolvedUnityEditorPath = null;
+        errorMessage = null;
+        if (string.IsNullOrWhiteSpace(unityEditorPath))
+        {
+            return true;
+        }
+
+        var currentDirectory = AbsolutePath.Parse(Environment.CurrentDirectory);
+        if (AbsolutePath.TryResolve(currentDirectory, unityEditorPath, out resolvedUnityEditorPath, out _))
+        {
+            return true;
+        }
+
+        errorMessage = $"profile property 'unityEditorPath' is invalid: {unityEditorPath}";
+        return false;
     }
 
     private static string CreateMissingRequiredPropertyError (string propertyName)

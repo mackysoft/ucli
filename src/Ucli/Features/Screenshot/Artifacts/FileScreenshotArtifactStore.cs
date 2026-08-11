@@ -164,8 +164,8 @@ internal sealed class FileScreenshotArtifactStore : IScreenshotArtifactStore
         await pngEncoder
             .EncodeAsync(
                 rawStream,
-                staging.Width,
-                staging.Height,
+                staging.Dimensions.Width,
+                staging.Dimensions.Height,
                 pngStream,
                 cancellationToken)
             .ConfigureAwait(false);
@@ -184,8 +184,8 @@ internal sealed class FileScreenshotArtifactStore : IScreenshotArtifactStore
             .ValidateAsync(
                 pngStream,
                 rawStream,
-                staging.Width,
-                staging.Height,
+                staging.Dimensions.Width,
+                staging.Dimensions.Height,
                 cancellationToken)
             .ConfigureAwait(false);
     }

@@ -14,10 +14,11 @@ public sealed class TestProfileInitCommandTests
         var service = new RecordingTestProfileInitService((_, _) => ValueTask.FromResult(TestProfileInitExecutionResult.Success(
             new TestProfileInitExecutionOutput("/repo/test.profile.json"))));
         var command = new TestProfileInitCommand(service, CommandResultTestWriter.Create());
+        var outputPath = AbsolutePath.Parse(Path.GetFullPath("test.profile.json"));
         using var cancellationTokenSource = new CancellationTokenSource();
 
         var result = await CommandResultCapture.ExecuteAsync(() => command.InitAsync(
-            outputPath: "/repo/test.profile",
+            outputPath: outputPath,
             force: true,
             cancellationToken: cancellationTokenSource.Token));
 
@@ -25,7 +26,7 @@ public sealed class TestProfileInitCommandTests
             result,
             service,
             cancellationTokenSource.Token,
-            expectedOutputPath: "/repo/test.profile",
+            expectedOutputPath: outputPath,
             expectedForce: true);
     }
 
@@ -36,9 +37,10 @@ public sealed class TestProfileInitCommandTests
         var service = new RecordingTestProfileInitService((_, _) => ValueTask.FromResult(
             TestProfileInitExecutionResult.Failure(ExecutionError.InvalidArgument("profile path already exists."))));
         var command = new TestProfileInitCommand(service, CommandResultTestWriter.Create());
+        var outputPath = AbsolutePath.Parse(Path.GetFullPath("test.profile.json"));
 
         var result = await CommandResultCapture.ExecuteAsync(() => command.InitAsync(
-            outputPath: "/repo/test.profile.json",
+            outputPath: outputPath,
             cancellationToken: CancellationToken.None));
 
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);

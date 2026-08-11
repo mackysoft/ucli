@@ -9,35 +9,6 @@ namespace MackySoft.Ucli.Application.Tests;
 public sealed class TestRunConfigurationResolverValidationTests
 {
     [Theory]
-    [InlineData("")]
-    [InlineData("   ")]
-    [Trait("Size", "Small")]
-    public async Task Resolve_WithEmptyProfilePath_ReturnsInvalidArgument (string profilePath)
-    {
-        using var scope = TestDirectories.CreateTempScope(
-            "test-run-config-resolver",
-            "empty-profile-path");
-        var resolver = CreateResolverWithSuccessfulDependencies(scope);
-        var input = new TestRunConfigurationRequest(
-            ProjectPath: scope.GetPath("Unity"),
-            ProfilePath: profilePath,
-            Mode: UnityExecutionMode.Auto,
-            UnityVersion: null,
-            UnityEditorPath: null,
-            TestPlatform: TestRunPlatform.EditMode,
-            TestFilter: null,
-            TestCategory: null,
-            AssemblyName: null,
-            TimeoutMilliseconds: 10000);
-
-        var result = await resolver.ResolveAsync(input, CancellationToken.None);
-
-        var failed = Assert.IsType<TestRunConfigurationResolutionResult.Failed>(result);
-        var error = Assert.Single(failed.Errors);
-        Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
-    }
-
-    [Theory]
     [Trait("Size", "Medium")]
     [InlineData(0)]
     [InlineData(-1)]
@@ -47,7 +18,7 @@ public sealed class TestRunConfigurationResolverValidationTests
 
         var resolver = CreateResolverWithSuccessfulDependencies(scope);
         var input = new TestRunConfigurationRequest(
-            ProjectPath: scope.GetPath("Unity"),
+            ProjectPath: AbsolutePath.Parse(scope.GetPath("Unity")),
             ProfilePath: null,
             Mode: UnityExecutionMode.Auto,
             UnityVersion: null,

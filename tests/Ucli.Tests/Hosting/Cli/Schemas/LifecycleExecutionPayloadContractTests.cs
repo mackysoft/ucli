@@ -381,11 +381,19 @@ public sealed class LifecycleExecutionPayloadContractTests
                 Assert.Equal(
                     LifecycleExecutionDefinitionDigest.Calculate(definition).ToString(),
                     referenceProperties["definitionDigest"]!["const"]!.GetValue<string>());
-                Assert.Equal(
-                    new[] { "string", "null" },
-                    referenceProperties["statusLocator"]!["type"]!
-                        .AsArray()
-                        .Select(static item => item!.GetValue<string>()));
+                var statusLocatorType = referenceProperties["statusLocator"]!["type"]!;
+                if (lifecycle == ExecutionLifecycle.Terminal)
+                {
+                    Assert.Equal(
+                        new[] { "string", "null" },
+                        statusLocatorType
+                            .AsArray()
+                            .Select(static item => item!.GetValue<string>()));
+                }
+                else
+                {
+                    Assert.Equal("string", statusLocatorType.GetValue<string>());
+                }
                 AssertAcceptsExactly(
                     referenceProperties["state"]!.AsObject(),
                     Enum.GetValues<LifecycleExecutionState>(),

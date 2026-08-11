@@ -36,7 +36,7 @@ public sealed class ValidateServiceSharedPreflightTests
             TimeProvider.System);
 
         var result = await service.ExecuteAsync(
-            new ValidateCommandInput("/tmp/project", null, """{"steps":[]}"""),
+            new ValidateCommandInput(AbsolutePath.Parse(ProjectPathTestValues.TemporaryUnityProject), null, """{"steps":[]}"""),
             CancellationToken.None);
 
         ValidateServiceAssert.SharedPreflightFailureReturnedWithReadIndexOutput(
@@ -78,7 +78,7 @@ public sealed class ValidateServiceSharedPreflightTests
             TimeProvider.System);
 
         var result = await service.ExecuteAsync(
-            new ValidateCommandInput("/tmp/project", null, """{"steps":[]}"""),
+            new ValidateCommandInput(AbsolutePath.Parse(ProjectPathTestValues.TemporaryUnityProject), null, """{"steps":[]}"""),
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
@@ -111,7 +111,7 @@ public sealed class ValidateServiceSharedPreflightTests
             TimeProvider.System);
 
         var result = await service.ExecuteAsync(
-            new ValidateCommandInput("/tmp/project", null, """{"steps":[]}"""),
+            new ValidateCommandInput(AbsolutePath.Parse(ProjectPathTestValues.TemporaryUnityProject), null, """{"steps":[]}"""),
             CancellationToken.None);
 
         ValidateServiceAssert.SharedPreflightSuccessReturned(

@@ -18,16 +18,13 @@ internal static class ReadyCommandAssert
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
         var invocation = Assert.Single(service.Invocations);
         Assert.Equal(expectedCancellationToken, invocation.CancellationToken);
-        Assert.Equal(
-            new ReadyCommandInput(
-                expectedProjectPath,
-                ReadyTarget.Execution,
-                expectedMode,
-                expectedTimeoutMilliseconds,
-                null,
-                false,
-                expectedFailFast),
-            invocation.Input);
+        ProjectPathDispatchAssert.EqualNormalized(expectedProjectPath, invocation.Input.ProjectPath);
+        Assert.Equal(ReadyTarget.Execution, invocation.Input.Target);
+        Assert.Equal(expectedMode, invocation.Input.Mode);
+        Assert.Equal(expectedTimeoutMilliseconds, invocation.Input.TimeoutMilliseconds);
+        Assert.Null(invocation.Input.ReadIndexMode);
+        Assert.False(invocation.Input.IsReadIndexModeSpecified);
+        Assert.Equal(expectedFailFast, invocation.Input.FailFast);
     }
 
     public static void ReadIndexTargetDispatchedWithReadIndexMode (

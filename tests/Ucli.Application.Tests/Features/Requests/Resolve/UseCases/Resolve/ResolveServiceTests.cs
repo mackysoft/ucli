@@ -346,7 +346,7 @@ public sealed class ResolveServiceTests
         bool failFast = false)
     {
         return new ResolveCommandInput(
-            ProjectPath: "/repo/UnityProject",
+            ProjectPath: AbsolutePath.Parse(ProjectPathTestValues.RepositoryUnityProject),
             Mode: UnityExecutionMode.Oneshot,
             TimeoutMilliseconds: 1234,
             ReadIndexMode: readIndexMode,

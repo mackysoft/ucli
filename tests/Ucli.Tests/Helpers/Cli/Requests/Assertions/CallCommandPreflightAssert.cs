@@ -9,7 +9,7 @@ internal static class CallCommandPreflightAssert
     {
         var invocation = Assert.Single(preflightService.Invocations);
         Assert.NotEqual(Guid.Empty, invocation.RequestId);
-        Assert.Equal(expectedProjectPath, invocation.ProjectPath);
+        ProjectPathDispatchAssert.EqualNormalized(expectedProjectPath, invocation.ProjectPath);
         Assert.Equal(expectedRequestJson, invocation.RequestJson);
         return invocation;
     }

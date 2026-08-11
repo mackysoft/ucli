@@ -15,7 +15,7 @@ internal sealed class RecordingRequestPreparationService : IRequestPreparationSe
     public Action<CancellationToken>? OnPrepare { get; set; }
 
     public ValueTask<RequestPreparationResult> PrepareAsync (
-        string? projectPath,
+        AbsolutePath? projectPath,
         string requestJson,
         CancellationToken cancellationToken = default)
     {
@@ -40,7 +40,7 @@ internal sealed class RecordingRequestPreparationService : IRequestPreparationSe
     }
 
     internal readonly record struct PrepareInvocation (
-        string? ProjectPath,
+        AbsolutePath? ProjectPath,
         string RequestJson,
         CancellationToken CancellationToken);
 }

@@ -14,13 +14,15 @@ public sealed class VerifyCommandDispatchTests
     {
         var service = new RecordingVerifyService((_, _, _) => ValueTask.FromResult<VerifyExecutionResult>(VerifyExecutionResult.Completed(CreateOutput(Verdict.Pass))));
         var command = new VerifyCommand(service, CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
+        var profilePath = FilePathReference.Parse("profiles/verify.json");
+        var fromPath = FilePathReference.Parse("artifacts/call-result.json");
         using var cancellationTokenSource = new CancellationTokenSource();
 
         var result = await CommandResultCapture.ExecuteAsync(() => command.VerifyAsync(
             profile: null,
-            profilePath: "profiles/verify.json",
-            from: "artifacts/call-result.json",
-            projectPath: "/repo/UnityProject",
+            profilePath: profilePath,
+            from: fromPath,
+            projectPath: AbsolutePath.Parse(ProjectPathTestValues.RepositoryUnityProject),
             mode: "daemon",
             timeout: "1234",
             cancellationToken: cancellationTokenSource.Token));
@@ -30,9 +32,9 @@ public sealed class VerifyCommandDispatchTests
             service,
             cancellationTokenSource.Token,
             expectedProfile: null,
-            expectedProfilePath: "profiles/verify.json",
-            expectedFromPath: "artifacts/call-result.json",
-            expectedProjectPath: "/repo/UnityProject",
+            expectedProfilePath: profilePath,
+            expectedFromPath: fromPath,
+            expectedProjectPath: ProjectPathTestValues.RepositoryUnityProject,
             expectedMode: UnityExecutionMode.Daemon,
             expectedTimeoutMilliseconds: 1234);
     }

@@ -32,7 +32,6 @@ public sealed class QueryAssetsFindOperationRequestFactoryTests
     [Theory]
     [Trait("Size", "Small")]
     [InlineData(" type-id", "type", "leading or trailing whitespace")]
-    [InlineData("Assets/ ", "pathPrefix", null)]
     [InlineData(" Player", "nameContains", "leading or trailing whitespace")]
     public void Create_WhenFilterContainsOuterWhitespace_ReturnsInvalidArgument (
         string value,
@@ -41,7 +40,7 @@ public sealed class QueryAssetsFindOperationRequestFactoryTests
     {
         var result = Create(
             type: expectedOptionName == "type" ? value : "Texture2D",
-            pathPrefix: expectedOptionName == "pathPrefix" ? value : null,
+            pathPrefix: null,
             nameContains: expectedOptionName == "nameContains" ? value : null);
 
         Assert.False(result.IsSuccess);
@@ -60,7 +59,7 @@ public sealed class QueryAssetsFindOperationRequestFactoryTests
     {
         var result = Create(
             type: "Texture2D",
-            pathPrefix: "Assets/UI",
+            pathPrefix: new UnityAssetPathPrefix("Assets/UI"),
             nameContains: "Button");
 
         Assert.True(result.IsSuccess);
@@ -146,7 +145,7 @@ public sealed class QueryAssetsFindOperationRequestFactoryTests
 
     private static QueryAssetsFindOperationRequestCreationResult Create (
         string? type = "Texture2D",
-        string? pathPrefix = null,
+        UnityAssetPathPrefix? pathPrefix = null,
         string? nameContains = null,
         bool all = false,
         int? limit = null,

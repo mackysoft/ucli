@@ -17,7 +17,7 @@ internal static class UcliServiceProviderTestFactory
     public static ServiceProvider CreateApplication ()
     {
         var services = new ServiceCollection();
-        services.AddUcliApplicationServices();
+        services.AddUcliApplicationServices(TimeProvider.System);
         return services.BuildServiceProvider();
     }
 
