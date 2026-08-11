@@ -38,7 +38,7 @@ public sealed class DaemonCleanupCommandTests
 
         CommandExecutionState.Reset();
         var result = await CommandResultCapture.ExecuteAsync(() => command.CleanupAsync(
-            projectPath: "/repo/UnityProject",
+            projectPath: AbsolutePath.Parse(ProjectPathTestValues.RepositoryUnityProject),
             timeout: "3000",
             cancellationToken: CancellationToken.None));
 

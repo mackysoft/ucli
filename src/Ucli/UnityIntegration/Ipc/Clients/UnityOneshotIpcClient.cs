@@ -1,10 +1,8 @@
 using System.Runtime.ExceptionServices;
 using System.Text.Json;
-using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Daemon.Common.Projection;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Logs;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Startup;
-using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
@@ -103,7 +101,8 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
                     dispatchRequest,
                     deadline,
                     IpcResponseMode.Single,
-                    SendPreparedSingleRequestAsync,
+                    (endpoint, _, request, requestTimeout, requestCancellationToken) =>
+                        transportClient.SendAsync(endpoint, request, requestTimeout, requestCancellationToken),
                     dispatchObservation,
                     cancellationToken),
                 cancellationToken)
@@ -209,9 +208,9 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
                     dispatchRequest,
                     deadline,
                     IpcResponseMode.Stream,
-                    (preparedUnityProject, request, requestTimeout, requestCancellationToken) =>
-                        SendPreparedStreamingRequestAsync(
-                            preparedUnityProject,
+                    (endpoint, _, request, requestTimeout, requestCancellationToken) =>
+                        transportClient.SendStreamingAsync(
+                            endpoint,
                             request,
                             requestTimeout,
                             cancellationToken.IsCancellationRequested
@@ -224,92 +223,223 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
             .ConfigureAwait(false);
     }
 
+    /// <summary> Launches and retains the one oneshot process used by a Lifecycle Execution start. </summary>
+    internal ValueTask<OneshotHostBindingResult> BindHostAsync (
+        ResolvedUnityProjectContext unityProject,
+        ExecutionDeadline deadline,
+        CancellationToken cancellationToken)
+    {
+        return AcquireHostLeaseAsync(
+            unityProject,
+            UnityBatchmodeLaunchOptions.Default,
+            beginsLifecycleExecution: true,
+            deadline,
+            cancellationToken);
+    }
+
+    /// <summary> Dispatches through the exact process, token, and endpoint fixed by <see cref="BindHostAsync" />. </summary>
+    internal async ValueTask<UnityRequestExecutionResult> SendBoundAsync (
+        ResolvedUnityProjectContext unityProject,
+        UnityIpcDispatchRequest dispatchRequest,
+        ExecutionDeadline deadline,
+        OneshotHostLease lease,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(unityProject);
+        ArgumentNullException.ThrowIfNull(dispatchRequest);
+        ArgumentNullException.ThrowIfNull(deadline);
+        ArgumentNullException.ThrowIfNull(lease);
+        if (lease.Project != unityProject)
+        {
+            throw new ArgumentException("The oneshot lease belongs to a different Unity project.", nameof(lease));
+        }
+        if (!dispatchRequest.BeginsLifecycleExecution)
+        {
+            throw new ArgumentException("A bound oneshot host may start only a new Lifecycle Execution.", nameof(dispatchRequest));
+        }
+
+        return await LifecycleExecutionCallerWaitCoordinator.WaitAsync(
+                unityProject,
+                dispatchRequest,
+                deadline,
+                dispatchObservation => SendCoreAsync(
+                    unityProject,
+                    dispatchRequest,
+                    deadline,
+                    IpcResponseMode.Single,
+                    (endpoint, _, request, requestTimeout, requestCancellationToken) =>
+                        transportClient.SendAsync(endpoint, request, requestTimeout, requestCancellationToken),
+                    dispatchObservation,
+                    cancellationToken,
+                    lease),
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    /// <summary> Cleans up a bound lease that never transferred to its durable dispatch owner. </summary>
+    internal async ValueTask DisposeBoundLeaseAsync (OneshotHostLease lease)
+    {
+        ArgumentNullException.ThrowIfNull(lease);
+        try
+        {
+            if (!lease.ProcessHandle.HasExited)
+            {
+                await CleanupLaunchedProcessAsync(
+                        lease.Project,
+                        lease.SessionToken,
+                        lease.ProcessHandle,
+                        lease.Endpoint)
+                    .ConfigureAwait(false);
+            }
+        }
+        catch (Exception)
+        {
+            // The caller's failed pre-dispatch path remains authoritative; releasing the lease still follows.
+        }
+        finally
+        {
+            await lease.DisposeAsync().ConfigureAwait(false);
+        }
+    }
+
+    private async ValueTask<OneshotHostBindingResult> AcquireHostLeaseAsync (
+        ResolvedUnityProjectContext unityProject,
+        UnityBatchmodeLaunchOptions launchOptions,
+        bool beginsLifecycleExecution,
+        ExecutionDeadline deadline,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(unityProject);
+        ArgumentNullException.ThrowIfNull(launchOptions);
+        ArgumentNullException.ThrowIfNull(deadline);
+        if (!deadline.TryGetRemainingTimeout(out var lockTimeout))
+        {
+            return OneshotHostBindingResult.Rejected(
+                UnityIpcFailureClassifier.OneshotTimeout(deadline.Timeout));
+        }
+
+        IAsyncDisposable? lifecycleLock = null;
+        try
+        {
+            lifecycleLock = await lifecycleLockProvider.AcquireAsync(
+                    new ProjectLifecycleLockRequest(unityProject.UnityProjectRoot),
+                    lockTimeout,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            var unityLogPath = UcliStoragePathResolver.ResolveUnityLogPath(
+                unityProject.RepositoryRoot,
+                unityProject.ProjectFingerprint);
+            if (unityLogPath.TryGetParent(out var unityLogDirectoryPath))
+            {
+                FileSystemAccessBoundary.EnsureSecureDirectory(unityLogDirectoryPath);
+            }
+
+            if (!TryGetDispatchBudget(deadline, out _, out _, out _))
+            {
+                return OneshotHostBindingResult.Rejected(
+                    UnityIpcFailureClassifier.OneshotTimeout(deadline.Timeout));
+            }
+
+            var endpoint = UcliIpcEndpointResolver.ResolveDaemonEndpoint(
+                unityProject.RepositoryRoot,
+                unityProject.ProjectFingerprint);
+            var bootstrapEnvelope = new IpcOneshotBootstrapEnvelope(
+                BootstrapId: Guid.NewGuid(),
+                ParentProcess: ProcessLivenessProbe.CaptureCurrentProcess(),
+                ProjectFingerprint: unityProject.ProjectFingerprint,
+                SessionToken: IpcSessionToken.CreateRandom(),
+                CreatedAtUtc: timeProvider.GetUtcNow(),
+                ExitDeadlineUtc: beginsLifecycleExecution
+                    ? deadline.CreateCompletionDeadline(
+                            LifecycleExecutionTiming.ResponseDeliveryGrace)
+                        .UtcDeadline
+                    : deadline.UtcDeadline,
+                Endpoint: endpoint.Contract);
+            var launchResult = await batchmodeProcessLauncher.LaunchOneshotAsync(
+                    unityProject,
+                    bootstrapEnvelope,
+                    unityLogPath,
+                    launchOptions,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (!launchResult.IsSuccess)
+            {
+                return OneshotHostBindingResult.Rejected(
+                    UnityIpcFailureClassifier.FromExecutionError(launchResult.Error!));
+            }
+
+            var lease = new OneshotHostLease(
+                unityProject,
+                lifecycleLock,
+                launchResult.ProcessHandle!,
+                bootstrapEnvelope,
+                endpoint);
+            lifecycleLock = null;
+            return OneshotHostBindingResult.Success(lease);
+        }
+        finally
+        {
+            if (lifecycleLock is not null)
+            {
+                try
+                {
+                    await lifecycleLock.DisposeAsync().ConfigureAwait(false);
+                }
+                catch (Exception)
+                {
+                    // The binding failure remains authoritative over lock-release failure.
+                }
+            }
+        }
+    }
+
     private async ValueTask<UnityRequestExecutionResult> SendCoreAsync (
         ResolvedUnityProjectContext unityProject,
         UnityIpcDispatchRequest dispatchRequest,
         ExecutionDeadline deadline,
         IpcResponseMode responseMode,
         Func<
+            IpcTransportEndpoint,
             ResolvedUnityProjectContext,
             IpcRequestEnvelope,
             TimeSpan,
             CancellationToken,
             ValueTask<IpcResponse>> sendPreparedRequestAsync,
         LifecycleExecutionDispatchObservation? dispatchObservation,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        OneshotHostLease? fixedLease = null)
     {
         ArgumentNullException.ThrowIfNull(unityProject);
         ArgumentNullException.ThrowIfNull(dispatchRequest);
         ArgumentNullException.ThrowIfNull(sendPreparedRequestAsync);
         cancellationToken.ThrowIfCancellationRequested();
         var dispatchCancellationToken = cancellationToken;
-
-        var unityLogPath = UcliStoragePathResolver.ResolveUnityLogPath(
-            unityProject.RepositoryRoot,
-            unityProject.ProjectFingerprint);
-        var endpoint = UcliIpcEndpointResolver.ResolveDaemonEndpoint(
-            unityProject.RepositoryRoot,
-            unityProject.ProjectFingerprint);
+        var requiresBoundHostMatch = fixedLease is not null;
 
         try
         {
-            if (!deadline.TryGetRemainingTimeout(out var lockTimeout))
-            {
-                return UnityRequestExecutionResult.Failure(UnityIpcFailureClassifier.OneshotTimeout(deadline.Timeout));
-            }
-
-            await using var lifecycleLock = new BestEffortAsyncDisposable(
-                await lifecycleLockProvider.AcquireAsync(
-                        new ProjectLifecycleLockRequest(unityProject.UnityProjectRoot),
-                        lockTimeout,
+            var binding = fixedLease is null
+                ? await AcquireHostLeaseAsync(
+                        unityProject,
+                        dispatchRequest.LaunchOptions,
+                        dispatchRequest.BeginsLifecycleExecution,
+                        deadline,
                         dispatchCancellationToken)
-                    .ConfigureAwait(false));
-
-            if (unityLogPath.TryGetParent(out var unityLogDirectoryPath))
+                    .ConfigureAwait(false)
+                : OneshotHostBindingResult.Success(fixedLease);
+            if (!binding.IsSuccess)
             {
-                FileSystemAccessBoundary.EnsureSecureDirectory(unityLogDirectoryPath);
+                return UnityRequestExecutionResult.Failure(binding.Failure!);
             }
 
-            if (!TryGetDispatchBudget(
-                    deadline,
-                    out _,
-                    out _,
-                    out _))
+            await using var lease = binding.Lease!;
+            if (lease.Project != unityProject)
             {
-                return UnityRequestExecutionResult.Failure(UnityIpcFailureClassifier.OneshotTimeout(deadline.Timeout));
+                throw new ArgumentException("The oneshot lease belongs to a different Unity project.", nameof(fixedLease));
             }
 
-            var sessionToken = IpcSessionToken.CreateRandom();
-            var bootstrapCreatedAtUtc = timeProvider.GetUtcNow();
-            var hardExitDeadlineUtc =
-                dispatchRequest.BeginsLifecycleExecution
-                    ? deadline.CreateCompletionDeadline(
-                            LifecycleExecutionTiming.ResponseDeliveryGrace)
-                        .UtcDeadline
-                    : deadline.UtcDeadline;
-            var bootstrapEnvelope = new IpcOneshotBootstrapEnvelope(
-                BootstrapId: Guid.NewGuid(),
-                ParentProcess: ProcessLivenessProbe.CaptureCurrentProcess(),
-                ProjectFingerprint: unityProject.ProjectFingerprint,
-                SessionToken: sessionToken,
-                CreatedAtUtc: bootstrapCreatedAtUtc,
-                ExitDeadlineUtc: hardExitDeadlineUtc,
-                Endpoint: endpoint.Contract);
-            var launchResult = await batchmodeProcessLauncher.LaunchOneshotAsync(
-                    unityProject,
-                    bootstrapEnvelope,
-                    unityLogPath,
-                    dispatchRequest.LaunchOptions,
-                    dispatchCancellationToken)
-                .ConfigureAwait(false);
-            if (!launchResult.IsSuccess)
-            {
-                return UnityRequestExecutionResult.Failure(
-                    UnityIpcFailureClassifier.FromExecutionError(launchResult.Error!));
-            }
-
-            var processHandle = launchResult.ProcessHandle!;
-            await using var processHandleDisposal = new BestEffortAsyncDisposable(processHandle);
+            var sessionToken = lease.SessionToken;
+            var processHandle = lease.ProcessHandle;
             var shouldTerminateProcess = true;
             var terminationResult = ProcessTerminationResult.None;
             Exception? processCleanupException = null;
@@ -327,7 +457,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
                 }
 
                 processLifetimeOwner.Transfer(processHandle);
-                processHandleDisposal.RelinquishOwnership();
+                lease.RelinquishProcessOwnership();
                 shouldTerminateProcess = false;
             }
 
@@ -338,6 +468,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
                     var startupProbeFailure = await WaitUntilReachableAsync(
                         unityProject,
                         sessionToken,
+                        lease.Endpoint,
                         dispatchRequest,
                         ResolveStartupProbeFailFast(dispatchRequest),
                         deadline,
@@ -366,6 +497,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
                         var dispatchOutcome = await SendPreparedDispatchAsync(
                                 unityProject,
                                 sessionToken,
+                                lease.Endpoint,
                                 dispatchRequest,
                                 deadline,
                                 responseMode,
@@ -373,6 +505,14 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
                                 sendPreparedRequestAsync,
                                 async confirmedStart =>
                                 {
+                                    var leaseMismatch = requiresBoundHostMatch
+                                        ? ValidateBoundLeaseStart(lease, confirmedStart)
+                                        : null;
+                                    if (leaseMismatch is not null)
+                                    {
+                                        return leaseMismatch;
+                                    }
+
                                     lifecycleExecutionStart = confirmedStart;
                                     return await ObserveStartAsync(
                                             dispatchRequest,
@@ -400,6 +540,17 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
                                     .ConfigureAwait(false);
                             if (lifecycleExecutionStart is not null)
                             {
+                                var leaseMismatch = requiresBoundHostMatch
+                                    ? ValidateBoundLeaseStart(lease, lifecycleExecutionStart)
+                                    : null;
+                                if (leaseMismatch is not null)
+                                {
+                                    result = UnityRequestExecutionResult.Failure(
+                                        leaseMismatch,
+                                        lifecycleExecutionStart);
+                                    break;
+                                }
+
                                 var startObservation = await ObserveStartAsync(
                                         dispatchRequest,
                                         lifecycleExecutionStart,
@@ -465,7 +616,8 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
                                         unityProject,
                                         sessionToken,
                                         dispatchRequest,
-                                        processHandle)
+                                        processHandle,
+                                        lease.Endpoint)
                                     .ConfigureAwait(false)
                                 : null;
                             if (terminalPingShutdownError != null)
@@ -546,7 +698,8 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
                             terminationResult = await CleanupLaunchedProcessAsync(
                                     unityProject,
                                     sessionToken,
-                                    processHandle)
+                                    processHandle,
+                                    lease.Endpoint)
                                 .ConfigureAwait(false);
                         }
                     }
@@ -561,7 +714,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
                         try
                         {
                             processLifetimeOwner.Transfer(processHandle);
-                            processHandleDisposal.RelinquishOwnership();
+                            lease.RelinquishProcessOwnership();
                         }
                         catch (Exception exception)
                         {
@@ -751,11 +904,15 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
         var dispatchOutcome = await SendPreparedDispatchAsync(
                 unityProject,
                 sessionToken,
+                UcliIpcEndpointResolver.ResolveDaemonEndpoint(
+                    unityProject.RepositoryRoot,
+                    unityProject.ProjectFingerprint),
                 dispatchRequest,
                 deadline,
                 IpcResponseMode.Single,
                 processHandle: null,
-                SendPreparedSingleRequestAsync,
+                (endpoint, _, request, requestTimeout, requestCancellationToken) =>
+                    transportClient.SendAsync(endpoint, request, requestTimeout, requestCancellationToken),
                 dispatchObservation is null
                     ? null
                     : start =>
@@ -797,11 +954,13 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
     private async ValueTask<OneshotPreparedDispatchOutcome> SendPreparedDispatchAsync (
         ResolvedUnityProjectContext unityProject,
         IpcSessionToken sessionToken,
+        IpcTransportEndpoint endpoint,
         UnityIpcDispatchRequest dispatchRequest,
         ExecutionDeadline deadline,
         IpcResponseMode responseMode,
         IUnityBatchmodeProcessHandle? processHandle,
         Func<
+            IpcTransportEndpoint,
             ResolvedUnityProjectContext,
             IpcRequestEnvelope,
             TimeSpan,
@@ -984,6 +1143,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
 
                 actionWasDispatched = true;
                 var responseAttempt = sendPreparedRequestAsync(
+                        endpoint,
                         unityProject,
                         request,
                         requestTimeout,
@@ -1076,9 +1236,10 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
                     continue;
                 }
 
-                var reachabilityFailure = await WaitUntilReachableAsync(
-                        unityProject,
-                        sessionToken,
+                        var reachabilityFailure = await WaitUntilReachableAsync(
+                                unityProject,
+                                sessionToken,
+                                endpoint,
                         dispatchRequest,
                         failFast: false,
                         dispatchDeadline,
@@ -1112,45 +1273,29 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
                 rejected.Failure.Message);
         }
 
-        if (dispatchRequest.LifecycleStartObserver is not null
-            && deadline.IsExpired)
-        {
-            return UnityIpcFailureClassifier.Timeout(
-                "Lifecycle Execution deadline expired while its durable start was being recorded.");
-        }
-
         dispatchObservation?.ReportStarted(start);
         return null;
     }
 
-    private ValueTask<IpcResponse> SendPreparedSingleRequestAsync (
-        ResolvedUnityProjectContext unityProject,
-        IpcRequestEnvelope request,
-        TimeSpan timeout,
-        CancellationToken cancellationToken)
+    private static UnityRequestFailure? ValidateBoundLeaseStart (
+        OneshotHostLease lease,
+        LifecycleExecutionStartBinding start)
     {
-        return transportClient.SendAsync(
-            unityProject.RepositoryRoot,
-            unityProject.ProjectFingerprint,
-            request,
-            timeout,
-            cancellationToken);
-    }
+        ArgumentNullException.ThrowIfNull(lease);
+        ArgumentNullException.ThrowIfNull(start);
+        if (!ProjectIdentityInfo.TryFromHost(
+                lease.Project,
+                start.Project,
+                out _,
+                out _)
+            || !lease.TryAcceptLifecycleHost(start.Host))
+        {
+            return UnityIpcFailureClassifier.FromCodeAndMessage(
+                LifecycleExecutionErrorCodes.HostMismatch,
+                "The oneshot provider confirmed a Lifecycle Execution host that does not match the fixed process lease.");
+        }
 
-    private ValueTask<IpcResponse> SendPreparedStreamingRequestAsync (
-        ResolvedUnityProjectContext unityProject,
-        IpcRequestEnvelope request,
-        TimeSpan timeout,
-        Func<IpcStreamFrame, CancellationToken, ValueTask> onProgressFrame,
-        CancellationToken cancellationToken)
-    {
-        return transportClient.SendStreamingAsync(
-            unityProject.RepositoryRoot,
-            unityProject.ProjectFingerprint,
-            request,
-            timeout,
-            onProgressFrame,
-            cancellationToken);
+        return null;
     }
 
     private static bool IsCommandResponseBoundary (UnityIpcDispatchRequest dispatchRequest)
@@ -1204,7 +1349,8 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
         ResolvedUnityProjectContext unityProject,
         IpcSessionToken sessionToken,
         UnityIpcDispatchRequest dispatchRequest,
-        IUnityBatchmodeProcessHandle processHandle)
+        IUnityBatchmodeProcessHandle processHandle,
+        IpcTransportEndpoint endpoint)
     {
         if (dispatchRequest.Method != UnityIpcMethod.Ping
             || processHandle.HasExited)
@@ -1219,7 +1365,8 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
                 sessionToken,
                 shutdownRequestId,
                 processHandle,
-                cleanupDeadline)
+                cleanupDeadline,
+                endpoint)
             .ConfigureAwait(false))
         {
             return null;
@@ -1233,7 +1380,8 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
     private async ValueTask<ProcessTerminationResult> CleanupLaunchedProcessAsync (
         ResolvedUnityProjectContext unityProject,
         IpcSessionToken sessionToken,
-        IUnityBatchmodeProcessHandle processHandle)
+        IUnityBatchmodeProcessHandle processHandle,
+        IpcTransportEndpoint? endpoint = null)
     {
         if (processHandle.HasExited)
         {
@@ -1247,7 +1395,8 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
                 sessionToken,
                 shutdownRequestId,
                 processHandle,
-                cleanupDeadline)
+                cleanupDeadline,
+                endpoint)
             .ConfigureAwait(false)
             && !processHandle.HasExited
             && cleanupDeadline.TryGetRemainingTimeout(out var exitTimeout))
@@ -1275,7 +1424,8 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
         IpcSessionToken sessionToken,
         Guid shutdownRequestId,
         IUnityBatchmodeProcessHandle processHandle,
-        ExecutionDeadline cleanupDeadline)
+        ExecutionDeadline cleanupDeadline,
+        IpcTransportEndpoint? endpoint = null)
     {
         while (!processHandle.HasExited)
         {
@@ -1297,13 +1447,20 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
                     shutdownRequestId,
                     cleanupDeadline.UtcDeadline,
                     requestDeadlineRemainingMilliseconds);
-                var response = await transportClient.SendAsync(
-                        unityProject.RepositoryRoot,
-                        unityProject.ProjectFingerprint,
-                        shutdownRequest,
-                        attemptTimeout,
-                        CancellationToken.None)
-                    .ConfigureAwait(false);
+                var response = endpoint is null
+                    ? await transportClient.SendAsync(
+                            unityProject.RepositoryRoot,
+                            unityProject.ProjectFingerprint,
+                            shutdownRequest,
+                            attemptTimeout,
+                            CancellationToken.None)
+                        .ConfigureAwait(false)
+                    : await transportClient.SendAsync(
+                            endpoint,
+                            shutdownRequest,
+                            attemptTimeout,
+                            CancellationToken.None)
+                        .ConfigureAwait(false);
                 if (!IpcResponseFailureReader.TryRead(response, out var firstError))
                 {
                     return true;
@@ -1355,6 +1512,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
     private async ValueTask<UnityRequestFailure?> WaitUntilReachableAsync (
         ResolvedUnityProjectContext unityProject,
         IpcSessionToken sessionToken,
+        IpcTransportEndpoint endpoint,
         UnityIpcDispatchRequest dispatchRequest,
         bool failFast,
         ExecutionDeadline deadline,
@@ -1416,8 +1574,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
                     deadline.UtcDeadline,
                     requestDeadlineRemainingMilliseconds);
                 var pingResponse = await transportClient.SendAsync(
-                        unityProject.RepositoryRoot,
-                        unityProject.ProjectFingerprint,
+                        endpoint,
                         startupProbeRequest,
                         attemptTimeout,
                         cancellationToken)
@@ -2103,4 +2260,20 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
             }
         }
     }
+}
+
+/// <summary> Contains either the retained oneshot host lease or the typed binding failure. </summary>
+internal sealed record OneshotHostBindingResult (
+    OneshotHostLease? Lease,
+    UnityRequestFailure? Failure)
+{
+    public bool IsSuccess => Lease is not null;
+
+    public static OneshotHostBindingResult Success (OneshotHostLease lease) => new(
+        lease ?? throw new ArgumentNullException(nameof(lease)),
+        Failure: null);
+
+    public static OneshotHostBindingResult Rejected (UnityRequestFailure failure) => new(
+        Lease: null,
+        failure ?? throw new ArgumentNullException(nameof(failure)));
 }

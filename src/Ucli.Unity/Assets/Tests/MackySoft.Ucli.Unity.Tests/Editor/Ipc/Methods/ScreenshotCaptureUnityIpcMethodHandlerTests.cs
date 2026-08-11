@@ -6,6 +6,8 @@ using TextVocabulary = MackySoft.Text.Vocabularies.Vocabulary;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Presentation;
+using MackySoft.Ucli.Contracts.Projects;
 using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Unity.Ipc;
 using MackySoft.Ucli.Unity.ScreenshotCapture.Capture;
@@ -46,7 +48,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     out IpcScreenshotCaptureResponse payload,
                     out _),
                 Is.True);
-            Assert.That(payload.Capture.Width, Is.EqualTo(2));
+            Assert.That(payload.Capture.Dimensions, Is.EqualTo(new PixelDimensions(2, 1)));
             Assert.That(payload.Staging.SizeBytes, Is.EqualTo(8));
         }
 
@@ -132,8 +134,7 @@ namespace MackySoft.Ucli.Unity.Tests
             return new IpcScreenshotCaptureRequest(
                 CaptureId,
                 IpcScreenshotTarget.Game,
-                RequestedWidth: null,
-                RequestedHeight: null);
+                RequestedDimensions: null);
         }
 
         private static IpcRequestEnvelope CreateRequest<TPayload> (
@@ -159,11 +160,9 @@ namespace MackySoft.Ucli.Unity.Tests
                 new IpcScreenshotCapture(
                     IpcScreenshotTarget.Game,
                     IpcScreenshotSizeMode.CurrentSurface,
-                    RequestedWidth: null,
-                    RequestedHeight: null,
-                    Width: 2,
-                    Height: 1,
-                    IpcScreenshotColorSpace.Linear,
+                    RequestedDimensions: null,
+                    Dimensions: new PixelDimensions(2, 1),
+                    UnityProjectColorSpace.Linear,
                     State: new UnityEditorStateSnapshot(
                         editorMode: UnityEditorMode.Gui,
                         lifecycleState: UnityEditorLifecycleState.Ready,
@@ -175,8 +174,7 @@ namespace MackySoft.Ucli.Unity.Tests
                             IsPlaying: false,
                             IsPlayingOrWillChangePlaymode: false))),
                 new IpcScreenshotStagingImage(
-                    Width: 2,
-                    Height: 1,
+                    Dimensions: new PixelDimensions(2, 1),
                     IpcScreenshotPixelFormat.Rgba8Srgb,
                     IpcScreenshotRowOrder.TopDown,
                     RowStrideBytes: 8,

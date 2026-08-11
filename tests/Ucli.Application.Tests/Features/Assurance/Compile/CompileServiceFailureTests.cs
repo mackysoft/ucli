@@ -34,8 +34,7 @@ public sealed class CompileServiceFailureTests
                 UnityExecutionMode.Oneshot,
                 binding),
             deadline,
-            deadline.CreateCompletionDeadline(
-                LifecycleExecutionTiming.ResponseDeliveryGrace),
+            deadline,
             NullLifecycleExecutionStartObserver.Instance));
 
         var failed = Assert.IsType<CompileExecutionResult.FailedResult>(result);

@@ -7,7 +7,7 @@ internal static class CompileCommandAssert
 {
     public static void SucceededWithDispatchedInput (
         CommandExecutionResult result,
-        RecordingLifecycleExecutionCliInvocationFactory invocationFactory,
+        RecordingLifecycleExecutionStartInvocationFactory invocationFactory,
         CancellationToken expectedCancellationToken,
         string expectedProjectPath,
         UnityExecutionMode expectedMode,
@@ -16,7 +16,7 @@ internal static class CompileCommandAssert
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
         var invocation = Assert.Single(invocationFactory.CompileRequests);
         Assert.Equal(expectedCancellationToken, invocation.CancellationToken);
-        Assert.Equal(expectedProjectPath, invocation.ProjectPath);
+        ProjectPathDispatchAssert.EqualNormalized(expectedProjectPath, invocation.ProjectPath);
         Assert.Equal(expectedMode, invocation.RequestedMode);
         Assert.Equal(expectedTimeoutMilliseconds, invocation.TimeoutMilliseconds);
     }

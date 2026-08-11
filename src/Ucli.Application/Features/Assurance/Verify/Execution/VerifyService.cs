@@ -1,5 +1,5 @@
-using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Contracts;
+using MackySoft.Ucli.Application.Features.Assurance.Compile.Execution;
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Payload;
 using MackySoft.Ucli.Application.Features.Assurance.Ready;
 using MackySoft.Ucli.Application.Features.Assurance.Verify.Contracts;
@@ -12,7 +12,6 @@ using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Common;
 using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Unity;
 using MackySoft.Ucli.Application.Features.Testing.Run.UseCases.TestRun;
 using MackySoft.Ucli.Application.Shared.Context;
-using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Application.Shared.Execution.Progress;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Cryptography;
@@ -36,7 +35,7 @@ internal sealed class VerifyService : IVerifyService
 
     private readonly ICompileService compileService;
 
-    private readonly ILifecycleExecutionStartInvocationFactory invocationFactory;
+    private readonly ICompileLifecycleExecutionStartInvocationFactory invocationFactory;
 
     private readonly ITestRunService testRunService;
 
@@ -53,7 +52,7 @@ internal sealed class VerifyService : IVerifyService
         IProjectContextResolver projectContextResolver,
         IReadyService readyService,
         ICompileService compileService,
-        ILifecycleExecutionStartInvocationFactory invocationFactory,
+        ICompileLifecycleExecutionStartInvocationFactory invocationFactory,
         ITestRunService testRunService,
         ILogsUnityService logsUnityService,
         IVerifyProfileFileReader profileFileReader,
@@ -111,17 +110,6 @@ internal sealed class VerifyService : IVerifyService
         VerifyFromInput? fromInput = null;
         if (input.FromPath is not null)
         {
-            if (string.IsNullOrWhiteSpace(input.FromPath))
-            {
-                return VerifyExecutionResult.Failed(
-                    ApplicationFailure.InvalidInput(
-                        "--from must not be empty.",
-                        UcliCoreErrorCodes.InvalidArgument,
-                        instancePath: null,
-                        startupFailure: null),
-                    project);
-            }
-
             var fromFileResult = await fromInputFileReader.ReadAsync(
                 input.FromPath,
                 context.UnityProject.RepositoryRoot,
@@ -296,13 +284,6 @@ internal sealed class VerifyService : IVerifyService
                 UcliCoreErrorCodes.InvalidArgument));
         }
 
-        if (input.ProfilePath is not null && string.IsNullOrWhiteSpace(input.ProfilePath))
-        {
-            return VerifyProfileResolutionResult.Failure(ExecutionError.InvalidArgument(
-                "--profilePath must not be empty.",
-                UcliCoreErrorCodes.InvalidArgument));
-        }
-
         if (input.Profile is not null && input.ProfilePath is not null)
         {
             return VerifyProfileResolutionResult.Failure(ExecutionError.InvalidArgument(
@@ -422,21 +403,27 @@ internal sealed class VerifyService : IVerifyService
                 input.ProjectPath,
                 input.Mode ?? UnityExecutionMode.Auto,
                 ToTimeoutMilliseconds(timeout),
-                UcliCommandIds.Compile,
-                decideMode: true,
                 cancellationToken)
             .ConfigureAwait(false);
-        var result = invocationResult.IsSuccess
-            ? await compileService.StartAsync(
-                    invocationResult.Invocation!,
+        CompileExecutionResult result;
+        if (invocationResult.IsSuccess)
+        {
+            var invocation = invocationResult.Invocation!;
+            await using var hostBinding = invocation.Context.HostBinding;
+            result = await compileService.StartAsync(
+                    invocation,
                     progressSink: null,
                     cancellationToken)
-                .ConfigureAwait(false)
-            : CompileExecutionResult.Failed(
+                .ConfigureAwait(false);
+        }
+        else
+        {
+            result = CompileExecutionResult.Failed(
                 invocationResult.Failure!,
                 invocationResult.Project,
                 lifecycleExecutionRef: null,
                 ExecutionApplicationState.NotApplied);
+        }
         if (result is CompileExecutionResult.FailedResult failed)
         {
             return VerifyStepExecutionResult.FromFailure(failed.Failure);

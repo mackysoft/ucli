@@ -8,7 +8,7 @@ internal static class TestProfileInitCommandAssert
         CommandExecutionResult result,
         RecordingTestProfileInitService service,
         CancellationToken expectedCancellationToken,
-        string expectedOutputPath,
+        AbsolutePath expectedOutputPath,
         bool expectedForce)
     {
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);

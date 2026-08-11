@@ -2,6 +2,7 @@ using ConsoleAppFramework;
 using MackySoft.Ucli.Application.Features.Testing.Profiles.UseCases.ProfileInit;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
+using MackySoft.Ucli.Hosting.Cli.Options;
 
 namespace MackySoft.Ucli.Hosting.Cli.Testing;
 
@@ -31,7 +32,7 @@ internal sealed class TestProfileInitCommand
     /// <returns> The exit code contained in the emitted command result. </returns>
     [Command(UcliCommandNames.InitSubcommand)]
     public async Task<int> InitAsync (
-        string? outputPath = null,
+        [TestProfileOutputPathArgumentParser] AbsolutePath? outputPath = null,
         bool force = false,
         CancellationToken cancellationToken = default)
     {

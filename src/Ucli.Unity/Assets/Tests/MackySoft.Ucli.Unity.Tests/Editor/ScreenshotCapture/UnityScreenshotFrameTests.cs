@@ -1,5 +1,7 @@
 using System;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Presentation;
+using MackySoft.Ucli.Contracts.Projects;
 using MackySoft.Ucli.Unity.ScreenshotCapture;
 using MackySoft.Ucli.Unity.ScreenshotCapture.Capture;
 using MackySoft.Ucli.Unity.ScreenshotCapture.Pixels;
@@ -16,21 +18,17 @@ namespace MackySoft.Ucli.Unity.Tests
             var rgba8SrgbTopDown = new byte[] { 1, 2, 3, 255, 4, 5, 6, 255 };
 
             var frame = new UnityScreenshotFrame(
-                width: 2,
-                height: 1,
-                IpcScreenshotColorSpace.Linear,
+                new PixelDimensions(2, 1),
+                UnityProjectColorSpace.Linear,
                 rgba8SrgbTopDown);
 
-            Assert.That(frame.Width, Is.EqualTo(2));
-            Assert.That(frame.Height, Is.EqualTo(1));
-            Assert.That(frame.ColorSpace, Is.EqualTo(IpcScreenshotColorSpace.Linear));
+            Assert.That(frame.Dimensions, Is.EqualTo(new PixelDimensions(2, 1)));
+            Assert.That(frame.ProjectColorSpace, Is.EqualTo(UnityProjectColorSpace.Linear));
             Assert.That(frame.Rgba8SrgbTopDown, Is.EqualTo(rgba8SrgbTopDown.AsMemory()));
         }
 
         [Test]
         [Category("Size.Small")]
-        [TestCase(0, 1)]
-        [TestCase(1, 0)]
         [TestCase(IpcScreenshotCaptureLimits.MaximumDimension + 1, 1)]
         [TestCase(1, IpcScreenshotCaptureLimits.MaximumDimension + 1)]
         public void Constructor_WithDimensionOutsideContract_Throws (
@@ -39,9 +37,8 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             Assert.Throws<ArgumentOutOfRangeException>(() =>
                 new UnityScreenshotFrame(
-                    width,
-                    height,
-                    IpcScreenshotColorSpace.Linear,
+                    new PixelDimensions(width, height),
+                    UnityProjectColorSpace.Linear,
                     ReadOnlyMemory<byte>.Empty));
         }
 
@@ -51,9 +48,10 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             Assert.Throws<ArgumentOutOfRangeException>(() =>
                 new UnityScreenshotFrame(
-                    width: IpcScreenshotCaptureLimits.MaximumDimension,
-                    height: IpcScreenshotCaptureLimits.MaximumDimension,
-                    IpcScreenshotColorSpace.Linear,
+                    new PixelDimensions(
+                        IpcScreenshotCaptureLimits.MaximumDimension,
+                        IpcScreenshotCaptureLimits.MaximumDimension),
+                    UnityProjectColorSpace.Linear,
                     ReadOnlyMemory<byte>.Empty));
         }
 
@@ -63,9 +61,8 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             Assert.Throws<ArgumentOutOfRangeException>(() =>
                 new UnityScreenshotFrame(
-                    width: 1,
-                    height: 1,
-                    (IpcScreenshotColorSpace)999,
+                    new PixelDimensions(1, 1),
+                    (UnityProjectColorSpace)999,
                     new byte[4]));
         }
 
@@ -77,9 +74,8 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             Assert.Throws<ArgumentException>(() =>
                 new UnityScreenshotFrame(
-                    width: 2,
-                    height: 1,
-                    IpcScreenshotColorSpace.Linear,
+                    new PixelDimensions(2, 1),
+                    UnityProjectColorSpace.Linear,
                     new byte[byteLength]));
         }
     }

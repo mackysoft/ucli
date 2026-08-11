@@ -55,52 +55,13 @@ internal sealed class RecordingUnityProjectResolver : IUnityProjectResolver
 
         if (resultsByPath is not null)
         {
-            var currentDirectory = AbsolutePath.Parse(Environment.CurrentDirectory);
-            if (AbsolutePath.TryResolve(
-                    currentDirectory,
-                    projectPathCandidate.Path,
-                    out var guardedPath,
-                    out _)
-                && resultsByPath.TryGetValue(guardedPath, out var mappedResult))
+            if (resultsByPath.TryGetValue(projectPathCandidate.Path, out var mappedResult))
             {
                 return mappedResult;
             }
 
             return UnityProjectResolutionResult.Failure(ExecutionError.InvalidArgument(
                 $"UnityProject path does not exist: {projectPathCandidate.Path}",
-                ProjectContextErrorCodes.ProjectPathNotFound));
-        }
-
-        return result!;
-    }
-
-    public UnityProjectResolutionResult Resolve (
-        AbsolutePath unityProjectRoot,
-        UnityProjectPathSource source,
-        string? sourceLabel = null)
-    {
-        ArgumentNullException.ThrowIfNull(unityProjectRoot);
-
-        var projectPathCandidate = new ProjectPathCandidate(
-            unityProjectRoot.Value,
-            source,
-            sourceLabel);
-        invocations.Add(new Invocation(projectPathCandidate));
-
-        if (handler is not null)
-        {
-            return handler(projectPathCandidate);
-        }
-
-        if (resultsByPath is not null)
-        {
-            if (resultsByPath.TryGetValue(unityProjectRoot, out var mappedResult))
-            {
-                return mappedResult;
-            }
-
-            return UnityProjectResolutionResult.Failure(ExecutionError.InvalidArgument(
-                $"UnityProject path does not exist: {unityProjectRoot.Value}",
                 ProjectContextErrorCodes.ProjectPathNotFound));
         }
 

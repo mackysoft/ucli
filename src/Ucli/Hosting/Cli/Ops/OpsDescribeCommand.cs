@@ -39,7 +39,7 @@ internal sealed class OpsDescribeCommand
     public async Task<int> DescribeAsync (
         [Argument]
         string operationName,
-        string? projectPath = null,
+        [AbsolutePathArgumentParser] AbsolutePath? projectPath = null,
         string? mode = null,
         string? timeout = null,
         string? readIndexMode = null,

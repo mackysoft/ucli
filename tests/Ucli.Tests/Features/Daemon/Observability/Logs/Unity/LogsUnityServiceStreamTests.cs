@@ -32,7 +32,7 @@ public sealed class LogsUnityServiceStreamTests
 
         var result = await service.ExecuteAsync(
             new LogsUnityServiceRequest(
-                ProjectPath: "/tmp/unity-project",
+                ProjectPath: AbsolutePath.Parse(ProjectPathTestValues.IndependentUnityProject),
                 Tail: null,
                 After: null,
                 Since: null,
@@ -96,7 +96,7 @@ public sealed class LogsUnityServiceStreamTests
 
         var result = await service.ExecuteAsync(
             new LogsUnityServiceRequest(
-                ProjectPath: "/tmp/unity-project",
+                ProjectPath: AbsolutePath.Parse(ProjectPathTestValues.IndependentUnityProject),
                 Tail: null,
                 After: "abcdef0123456789abcdef0123456789:1",
                 Since: "2026-03-06T00:00:00Z",
@@ -125,7 +125,7 @@ public sealed class LogsUnityServiceStreamTests
         DaemonCommandExecutionContextResolverAssert.ResolvedFor(
             resolver,
             UcliCommandIds.LogsUnityRead,
-            "/tmp/unity-project",
+            ProjectPathTestValues.IndependentUnityProject,
             4321);
         Assert.Equal(["alpha", "bravo"], emittedMessages);
         UnityLogsClientAssert.ReadAfterCursors(
@@ -159,7 +159,7 @@ public sealed class LogsUnityServiceStreamTests
 
         var result = await service.ExecuteAsync(
             new LogsUnityServiceRequest(
-                ProjectPath: "/tmp/unity-project",
+                ProjectPath: AbsolutePath.Parse(ProjectPathTestValues.IndependentUnityProject),
                 Tail: 100,
                 After: null,
                 Since: null,
@@ -205,7 +205,7 @@ public sealed class LogsUnityServiceStreamTests
 
         var result = await service.ExecuteAsync(
             new LogsUnityServiceRequest(
-                ProjectPath: "/tmp/unity-project",
+                ProjectPath: AbsolutePath.Parse(ProjectPathTestValues.IndependentUnityProject),
                 Tail: null,
                 After: null,
                 Since: null,
@@ -250,7 +250,7 @@ public sealed class LogsUnityServiceStreamTests
 
         var result = await service.ExecuteAsync(
             new LogsUnityServiceRequest(
-                ProjectPath: "/tmp/unity-project",
+                ProjectPath: AbsolutePath.Parse(ProjectPathTestValues.IndependentUnityProject),
                 Tail: null,
                 After: null,
                 Since: null,
@@ -299,7 +299,7 @@ public sealed class LogsUnityServiceStreamTests
 
         var result = await service.ExecuteAsync(
             new LogsUnityServiceRequest(
-                ProjectPath: "/tmp/unity-project",
+                ProjectPath: AbsolutePath.Parse(ProjectPathTestValues.IndependentUnityProject),
                 Tail: null,
                 After: null,
                 Since: null,

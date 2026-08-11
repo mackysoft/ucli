@@ -33,7 +33,7 @@ public sealed class CallServicePreflightFailureTests
         var result = await service.ExecuteAsync(
             RequestId,
             new CallCommandInput(
-                ProjectPath: "/repo/UnityProject",
+                ProjectPath: AbsolutePath.Parse(ProjectPathTestValues.RepositoryUnityProject),
                 Mode: NormalizeMode(null),
                 TimeoutMilliseconds: NormalizeTimeout(null),
                 PlanToken: null,
@@ -72,7 +72,7 @@ public sealed class CallServicePreflightFailureTests
         var result = await service.ExecuteAsync(
             RequestId,
             new CallCommandInput(
-                ProjectPath: "/repo/UnityProject",
+                ProjectPath: AbsolutePath.Parse(ProjectPathTestValues.RepositoryUnityProject),
                 Mode: NormalizeMode(null),
                 TimeoutMilliseconds: NormalizeTimeout(null),
                 PlanToken: null,
@@ -111,7 +111,7 @@ public sealed class CallServicePreflightFailureTests
         var result = await service.ExecuteAsync(
             RequestId,
             new CallCommandInput(
-                ProjectPath: "/repo/UnityProject",
+                ProjectPath: AbsolutePath.Parse(ProjectPathTestValues.RepositoryUnityProject),
                 Mode: NormalizeMode("daemon"),
                 TimeoutMilliseconds: NormalizeTimeout(null),
                 PlanToken: null,

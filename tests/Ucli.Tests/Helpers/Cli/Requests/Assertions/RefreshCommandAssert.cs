@@ -10,7 +10,7 @@ internal static class RefreshCommandAssert
     public static void SucceededWithDispatchedInput (
         CommandExecutionResult result,
         RecordingRefreshService service,
-        RecordingLifecycleExecutionCliInvocationFactory invocationFactory,
+        RecordingLifecycleExecutionStartInvocationFactory invocationFactory,
         CancellationToken expectedCancellationToken,
         string expectedProjectPath,
         UnityExecutionMode expectedMode,
@@ -21,7 +21,7 @@ internal static class RefreshCommandAssert
         Assert.NotEqual(Guid.Empty, Assert.Single(service.RequestIds));
         var invocation = Assert.Single(invocationFactory.RefreshRequests);
         Assert.Equal(expectedCancellationToken, invocation.CancellationToken);
-        Assert.Equal(expectedProjectPath, invocation.ProjectPath);
+        ProjectPathDispatchAssert.EqualNormalized(expectedProjectPath, invocation.ProjectPath);
         Assert.Equal(expectedMode, invocation.RequestedMode);
         Assert.Equal(expectedTimeoutMilliseconds, invocation.TimeoutMilliseconds);
         Assert.Equal(expectedFailFast, Assert.Single(service.Invocations).FailFast);

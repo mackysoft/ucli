@@ -1,11 +1,9 @@
 using MackySoft.Ucli.Application.Shared.Configuration;
-using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.Timeout;
-using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Execution.UnityRequest;
-using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Execution.Lifecycle;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.UnityIntegration.Ipc.Clients;
 using MackySoft.Ucli.UnityIntegration.Ipc.Dispatch;
 using MackySoft.Ucli.UnityIntegration.Ipc.Failures;
@@ -154,11 +152,107 @@ internal sealed class UnityIpcRequestExecutor : IUnityRequestExecutor, IUnityStr
                 resolution.Failure!);
         }
 
+        return await BindTargetAsync(
+                project,
+                resolution.Target,
+                executionDeadline,
+                verifyOneshotPlugin: false,
+                cancellationToken: cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public async ValueTask<LifecycleExecutionHostBindingResolution> BindResolvedTargetAsync (
+        ResolvedUnityProjectContext project,
+        UnityExecutionTarget target,
+        ExecutionDeadline executionDeadline,
+        CancellationToken cancellationToken = default)
+    {
+        return await BindTargetAsync(
+                project,
+                target,
+                executionDeadline,
+                verifyOneshotPlugin: true,
+                cancellationToken: cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private async ValueTask<LifecycleExecutionHostBindingResolution> BindTargetAsync (
+        ResolvedUnityProjectContext project,
+        UnityExecutionTarget target,
+        ExecutionDeadline executionDeadline,
+        bool verifyOneshotPlugin,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(project);
+        ArgumentNullException.ThrowIfNull(executionDeadline);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (verifyOneshotPlugin && target == UnityExecutionTarget.Oneshot)
+        {
+            var pluginFailure = await targetResolver.VerifyOneshotPluginAsync(
+                    project,
+                    executionDeadline,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (pluginFailure != null)
+            {
+                return LifecycleExecutionHostBindingResolution.FromFailure(pluginFailure);
+            }
+        }
+
+        var client = clientSelector.Select(target);
+        if (client is UnityOneshotIpcClient oneshotClient)
+        {
+            var hostBinding = await oneshotClient.BindHostAsync(
+                    project,
+                    executionDeadline,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (!hostBinding.IsSuccess)
+            {
+                return LifecycleExecutionHostBindingResolution.FromFailure(
+                    hostBinding.Failure!);
+            }
+
+            return LifecycleExecutionHostBindingResolution.Success(
+                new UnityExecutionHostBinding(
+                    project,
+                    target,
+                    client,
+                    requestBuilder,
+                    daemonReadinessGate,
+                    fixedOneshotLease: hostBinding.Lease));
+        }
+
+        if (client is UnityDaemonIpcClient daemonClient)
+        {
+            var hostBinding = await daemonClient.BindHostAsync(
+                    project,
+                    executionDeadline,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (!hostBinding.IsSuccess)
+            {
+                return LifecycleExecutionHostBindingResolution.FromFailure(
+                    hostBinding.Failure!);
+            }
+
+            return LifecycleExecutionHostBindingResolution.Success(
+                new UnityExecutionHostBinding(
+                    project,
+                    target,
+                    client,
+                    requestBuilder,
+                    daemonReadinessGate,
+                    hostBinding.Session));
+        }
+
         return LifecycleExecutionHostBindingResolution.Success(
             new UnityExecutionHostBinding(
                 project,
-                resolution.Target,
-                clientSelector.Select(resolution.Target),
+                target,
+                client,
                 requestBuilder,
                 daemonReadinessGate));
     }

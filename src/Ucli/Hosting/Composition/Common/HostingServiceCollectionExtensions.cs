@@ -3,6 +3,7 @@ using MackySoft.Ucli.Contracts.Json;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 using MackySoft.Ucli.Hosting.Cli.Common.Streaming;
+using MackySoft.Ucli.Hosting.Cli.Recording.Input;
 using MackySoft.Ucli.Hosting.Cli.Requests;
 using MackySoft.Ucli.Hosting.Cli.Requests.Call.Preflight;
 using MackySoft.Ucli.Hosting.Cli.Requests.Eval.Input;
@@ -25,12 +26,12 @@ internal static class HostingServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
 
         services.AddSingleton<IRequestInputReader, RequestInputReader>();
+        services.AddSingleton<IGameViewRecordingRequestInputReader, GameViewRecordingRequestInputReader>();
         services.AddSingleton<IJsonContractWriter<CommandResult>, CommandResultJsonContractWriter>();
         services.AddSingleton<ICommandResultWriter, CommandResultWriter>();
         services.AddSingleton<IInstalledStaticSchemaSetProvider>(
             static _ => InstalledStaticSchemaSetProvider.CreateForRunningApplication());
         services.AddSingleton<CliStreamEntryWriterFactory>();
-        services.AddSingleton<ILifecycleExecutionCliInvocationFactory, LifecycleExecutionCliInvocationFactory>();
         services.AddSingleton<IUserRequestJsonNormalizer, UserRequestJsonNormalizer>();
         services.AddSingleton<IEvalSourceInputReader, EvalSourceInputReader>();
         services.AddSingleton<ICallCommandPreflightService, CallCommandPreflightService>();

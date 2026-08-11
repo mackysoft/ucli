@@ -9,7 +9,7 @@ internal static class BuildRunCommandAssert
         CommandExecutionResult result,
         RecordingBuildService service,
         CancellationToken expectedCancellationToken,
-        string expectedProfilePath,
+        FilePathReference expectedProfilePath,
         string expectedProjectPath,
         UnityExecutionMode expectedMode,
         int expectedTimeoutMilliseconds)
@@ -17,13 +17,10 @@ internal static class BuildRunCommandAssert
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
         var invocation = Assert.Single(service.Invocations);
         Assert.Equal(expectedCancellationToken, invocation.CancellationToken);
-        Assert.Equal(
-            new BuildCommandInput(
-                expectedProfilePath,
-                expectedProjectPath,
-                expectedMode,
-                expectedTimeoutMilliseconds),
-            invocation.Input);
+        Assert.Equal(expectedProfilePath, invocation.Input.ProfilePath);
+        ProjectPathDispatchAssert.EqualNormalized(expectedProjectPath, invocation.Input.ProjectPath);
+        Assert.Equal(expectedMode, invocation.Input.Mode);
+        Assert.Equal(expectedTimeoutMilliseconds, invocation.Input.TimeoutMilliseconds);
         Assert.NotNull(invocation.ProgressSink);
     }
 

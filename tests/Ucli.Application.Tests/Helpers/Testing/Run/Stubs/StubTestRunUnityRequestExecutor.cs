@@ -1,9 +1,8 @@
 using MackySoft.Ucli.Application.Features.Testing.Run.Artifacts;
 using MackySoft.Ucli.Application.Features.Testing.Run.Execution;
 using MackySoft.Ucli.Application.Shared.Configuration;
-using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
-using MackySoft.Ucli.Contracts.Execution.Lifecycle;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
+using MackySoft.Ucli.Contracts.Execution.Lifecycle;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Testing;
 
@@ -18,6 +17,10 @@ internal sealed class StubTestRunUnityRequestExecutor : IUnityRequestExecutor, I
     public ValueTask<LifecycleExecutionHostBindingResolution> BindReconnectAsync (ResolvedUnityProjectContext project, LifecycleExecutionStartBinding requiredStart, ExecutionDeadline callerWaitDeadline, CancellationToken cancellationToken = default)
     {
         throw new InvalidOperationException("Lifecycle execution reconnect binding is not supported by this test stub.");
+    }
+    public ValueTask<LifecycleExecutionHostBindingResolution> BindResolvedTargetAsync (ResolvedUnityProjectContext project, UnityExecutionTarget target, ExecutionDeadline executionDeadline, CancellationToken cancellationToken = default)
+    {
+        throw new InvalidOperationException("Resolved Lifecycle execution host binding is not supported by this test stub.");
     }
     private readonly StubUnityTestExecutor unityTestExecutor;
     private readonly RecordingDaemonTestRunClient? daemonTestRunClient;

@@ -1,5 +1,5 @@
-using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Infrastructure.Ipc;
 
 namespace MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 
@@ -23,6 +23,13 @@ internal interface IUnityIpcTransportClient
         TimeSpan timeout,
         CancellationToken cancellationToken = default);
 
+    /// <summary> Sends one request through the endpoint fixed by a caller-owned execution host binding. </summary>
+    ValueTask<IpcResponse> SendAsync (
+        IpcTransportEndpoint endpoint,
+        IpcRequestEnvelope request,
+        TimeSpan timeout,
+        CancellationToken cancellationToken = default);
+
     /// <summary> Sends one request and reads progress frames until the terminal response frame is received. </summary>
     /// <param name="storageRoot"> The guarded storage root used to resolve endpoint paths. </param>
     /// <param name="projectFingerprint"> The guarded project fingerprint used to resolve endpoint identity. </param>
@@ -35,6 +42,14 @@ internal interface IUnityIpcTransportClient
     ValueTask<IpcResponse> SendStreamingAsync (
         AbsolutePath storageRoot,
         ProjectFingerprint projectFingerprint,
+        IpcRequestEnvelope request,
+        TimeSpan timeout,
+        Func<IpcStreamFrame, CancellationToken, ValueTask> onProgressFrame,
+        CancellationToken cancellationToken = default);
+
+    /// <summary> Sends one streaming request through the endpoint fixed by a caller-owned execution host binding. </summary>
+    ValueTask<IpcResponse> SendStreamingAsync (
+        IpcTransportEndpoint endpoint,
         IpcRequestEnvelope request,
         TimeSpan timeout,
         Func<IpcStreamFrame, CancellationToken, ValueTask> onProgressFrame,

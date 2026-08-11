@@ -1,4 +1,4 @@
-using MackySoft.Ucli.Application.Shared.Context.Project;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Execution.UnityRequest;
@@ -24,18 +24,29 @@ internal sealed class UnityExecutionHostBinding : IUnityExecutionHostBinding
 
     private readonly UnityIpcClientSelector? reconnectClientSelector;
 
+    private readonly DaemonSession? fixedDaemonSession;
+
+    private OneshotHostLease? fixedOneshotLease;
+
+    private readonly bool hasFixedOneshotLease;
+
     public UnityExecutionHostBinding (
         ResolvedUnityProjectContext project,
         UnityExecutionTarget target,
         IUnityIpcClient client,
         UnityIpcRequestBuilder requestBuilder,
-        UnityDaemonReadinessGate daemonReadinessGate)
+        UnityDaemonReadinessGate daemonReadinessGate,
+        DaemonSession? fixedDaemonSession = null,
+        OneshotHostLease? fixedOneshotLease = null)
     {
         Project = project ?? throw new ArgumentNullException(nameof(project));
         Target = target;
         this.client = client ?? throw new ArgumentNullException(nameof(client));
         this.requestBuilder = requestBuilder ?? throw new ArgumentNullException(nameof(requestBuilder));
         this.daemonReadinessGate = daemonReadinessGate ?? throw new ArgumentNullException(nameof(daemonReadinessGate));
+        this.fixedDaemonSession = fixedDaemonSession;
+        this.fixedOneshotLease = fixedOneshotLease;
+        hasFixedOneshotLease = fixedOneshotLease is not null;
         if (client.Target != target)
         {
             throw new ArgumentException(
@@ -90,6 +101,31 @@ internal sealed class UnityExecutionHostBinding : IUnityExecutionHostBinding
             return UnityRequestExecutionResult.Failure(
                 UnityIpcFailureClassifier.Timeout(
                     "Lifecycle Execution deadline expired before fixed-host action dispatch could begin."));
+        }
+
+        if (fixedDaemonSession is not null)
+        {
+            return await ((UnityDaemonIpcClient)client!).SendBoundAsync(
+                    Project,
+                    request,
+                    invocation.CallerWaitDeadline,
+                    fixedDaemonSession,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        if (hasFixedOneshotLease)
+        {
+            var lease = Interlocked.Exchange(ref fixedOneshotLease, null)
+                ?? throw new InvalidOperationException(
+                    "The fixed oneshot host binding may start its Lifecycle Execution only once.");
+            return await ((UnityOneshotIpcClient)client!).SendBoundAsync(
+                    Project,
+                    request,
+                    invocation.CallerWaitDeadline,
+                    lease,
+                    cancellationToken)
+                .ConfigureAwait(false);
         }
 
         if (Target == UnityExecutionTarget.Daemon
@@ -172,5 +208,16 @@ internal sealed class UnityExecutionHostBinding : IUnityExecutionHostBinding
                     EditorLifecycleErrorCodes.EditorUnavailable,
                     "The fixed Unity execution host did not prove ownership of the Lifecycle Execution."),
                 requiredStart);
+    }
+
+    /// <inheritdoc />
+    public async ValueTask DisposeAsync ()
+    {
+        var lease = Interlocked.Exchange(ref fixedOneshotLease, null);
+        if (lease is not null)
+        {
+            await ((UnityOneshotIpcClient)client!).DisposeBoundLeaseAsync(lease)
+                .ConfigureAwait(false);
+        }
     }
 }

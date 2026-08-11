@@ -6,33 +6,6 @@ namespace MackySoft.Ucli.Hosting.Cli.Schemas;
 /// <summary> Resolves and executes the filesystem boundary owned by <c>schema export</c>. </summary>
 internal static class SchemaExportCommandExecution
 {
-    public static CommandResult? TryResolveDestination (
-        string output,
-        out AbsolutePath? destination)
-    {
-        destination = null;
-        if (string.IsNullOrWhiteSpace(output))
-        {
-            return CommandResult.InvalidArgument(
-                UcliCommandNames.SchemaExport,
-                "Schema export output must not be null, empty, or whitespace.");
-        }
-
-        var currentDirectory = AbsolutePath.Parse(Environment.CurrentDirectory);
-        if (AbsolutePath.TryResolve(
-                currentDirectory,
-                output,
-                out destination,
-                out var failure))
-        {
-            return null;
-        }
-
-        return CommandResult.InvalidArgument(
-            UcliCommandNames.SchemaExport,
-            $"Schema export output path is invalid. {failure.Message}");
-    }
-
     public static CommandResult Export (
         UcliStaticSchemaSet schemaSet,
         AbsolutePath destination)

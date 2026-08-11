@@ -72,7 +72,7 @@ public sealed class DaemonListCommandTests
 
         CommandExecutionState.Reset();
         var result = await CommandResultCapture.ExecuteAsync(() => command.ListAsync(
-            projectPath: "/repo/wt-a/UnityProject",
+            projectPath: AbsolutePath.Parse(ProjectPathTestValues.RepositoryUnityProject),
             timeout: "3000",
             cancellationToken: CancellationToken.None));
 

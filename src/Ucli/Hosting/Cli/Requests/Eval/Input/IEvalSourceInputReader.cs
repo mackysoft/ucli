@@ -10,6 +10,6 @@ internal interface IEvalSourceInputReader
     /// <returns> The source read result. </returns>
     ValueTask<EvalSourceInputReadResult> ReadAsync (
         string? source,
-        string? file,
+        AbsolutePath? file,
         CancellationToken cancellationToken = default);
 }

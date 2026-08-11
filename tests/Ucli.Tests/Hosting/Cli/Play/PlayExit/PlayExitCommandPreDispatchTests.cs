@@ -10,7 +10,7 @@ public sealed class PlayExitCommandPreDispatchTests
     public async Task Exit_WithInvalidTimeout_ReturnsInvalidArgumentBeforeServiceExecution ()
     {
         var service = new RecordingPlayExitService((_, _) => throw new InvalidOperationException("Service should not be called."));
-        var command = new PlayExitCommand(service, CommandResultTestWriter.Create(), new RecordingLifecycleExecutionCliInvocationFactory());
+        var command = new PlayExitCommand(service, CommandResultTestWriter.Create(), new RecordingLifecycleExecutionStartInvocationFactory());
 
         var result = await CommandResultCapture.ExecuteAsync(() => command.ExitAsync(
             timeout: "abc",

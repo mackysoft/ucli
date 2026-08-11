@@ -261,7 +261,7 @@ public sealed class PlayExitCommandPayloadTests
     private static async Task<CommandExecutionResult> ExecuteAsync (PlayExitExecutionResult executionResult)
     {
         var service = new RecordingPlayExitService((_, _) => ValueTask.FromResult(executionResult));
-        var command = new PlayExitCommand(service, CommandResultTestWriter.Create(), new RecordingLifecycleExecutionCliInvocationFactory());
+        var command = new PlayExitCommand(service, CommandResultTestWriter.Create(), new RecordingLifecycleExecutionStartInvocationFactory());
 
         return await CommandResultCapture.ExecuteAsync(() => command.ExitAsync(
             timeout: "1000",

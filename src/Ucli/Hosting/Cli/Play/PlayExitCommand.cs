@@ -1,8 +1,8 @@
 using ConsoleAppFramework;
+using MackySoft.Ucli.Application.Features.Play.Common;
 using MackySoft.Ucli.Application.Features.Play.UseCases.Exit;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
-using MackySoft.Ucli.Hosting.Cli.Options;
 
 namespace MackySoft.Ucli.Hosting.Cli.Play;
 
@@ -13,7 +13,7 @@ internal sealed class PlayExitCommand
 
     private readonly ICommandResultWriter commandResultWriter;
 
-    private readonly ILifecycleExecutionCliInvocationFactory invocationFactory;
+    private readonly IPlayLifecycleExecutionStartInvocationFactory invocationFactory;
 
     /// <summary> Initializes a new instance of the <see cref="PlayExitCommand" /> class. </summary>
     /// <param name="playExitService"> The Play Mode exit service dependency. </param>
@@ -21,7 +21,7 @@ internal sealed class PlayExitCommand
     public PlayExitCommand (
         IPlayExitService playExitService,
         ICommandResultWriter commandResultWriter,
-        ILifecycleExecutionCliInvocationFactory invocationFactory)
+        IPlayLifecycleExecutionStartInvocationFactory invocationFactory)
     {
         this.playExitService = playExitService ?? throw new ArgumentNullException(nameof(playExitService));
         this.commandResultWriter = commandResultWriter ?? throw new ArgumentNullException(nameof(commandResultWriter));
@@ -35,7 +35,7 @@ internal sealed class PlayExitCommand
     /// <returns> The exit code contained in the emitted command result. </returns>
     [Command(UcliCommandNames.ExitSubcommand)]
     public async Task<int> ExitAsync (
-        string? projectPath = null,
+        [AbsolutePathArgumentParser] AbsolutePath? projectPath = null,
         string? timeout = null,
         CancellationToken cancellationToken = default)
     {
@@ -52,17 +52,25 @@ internal sealed class PlayExitCommand
             return invalidTimeoutResult.ExitCode;
         }
 
-        var invocationResult = await invocationFactory.CreatePlayExitStartAsync(
+        var invocationResult = await invocationFactory.CreateExitAsync(
                 projectPath,
                 timeoutNormalizationResult.TimeoutMilliseconds,
                 cancellationToken)
             .ConfigureAwait(false);
-        var executionResult = invocationResult.IsSuccess
-            ? await playExitService.StartAsync(
-                    invocationResult.Invocation!,
+        PlayExitExecutionResult executionResult;
+        if (invocationResult.IsSuccess)
+        {
+            var invocation = invocationResult.Invocation!;
+            await using var hostBinding = invocation.Context.HostBinding;
+            executionResult = await playExitService.StartAsync(
+                    invocation,
                     cancellationToken)
-                .ConfigureAwait(false)
-            : PlayExitExecutionResult.Failure(invocationResult.Failure!);
+                .ConfigureAwait(false);
+        }
+        else
+        {
+            executionResult = PlayExitExecutionResult.Failure(invocationResult.Failure!);
+        }
         var commandResult = PlayExitCommandResultFactory.Create(executionResult);
         commandResultWriter.WriteToStandardOutput(commandResult);
         return commandResult.ExitCode;

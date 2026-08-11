@@ -41,7 +41,7 @@ internal sealed class DaemonCleanupCommand
     /// <returns> The exit code contained in the emitted command result. </returns>
     [Command(UcliCommandNames.CleanupSubcommand)]
     public async Task<int> CleanupAsync (
-        string? projectPath = null,
+        [AbsolutePathArgumentParser] AbsolutePath? projectPath = null,
         string? timeout = null,
         CancellationToken cancellationToken = default)
     {

@@ -53,7 +53,7 @@ internal static class QueryServiceTestSupport
         bool failFast = false)
     {
         return new QueryCommandInput(
-            ProjectPath: "/repo/UnityProject",
+            ProjectPath: AbsolutePath.Parse(ProjectPathTestValues.RepositoryUnityProject),
             Mode: UnityExecutionMode.Oneshot,
             TimeoutMilliseconds: 1234,
             ReadIndexMode: readIndexMode,

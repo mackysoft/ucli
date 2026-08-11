@@ -86,7 +86,7 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Capture
                         "Screenshot staging writer returned a byte count that does not match the captured raster.");
                 }
 
-                var sizeMode = request.RequestedWidth.HasValue
+                var sizeMode = request.RequestedDimensions != null
                     ? IpcScreenshotSizeMode.RequestedResolution
                     : IpcScreenshotSizeMode.CurrentSurface;
                 var response = new IpcScreenshotCaptureResponse(
@@ -94,18 +94,15 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Capture
                     new IpcScreenshotCapture(
                         Target: request.Target,
                         SizeMode: sizeMode,
-                        RequestedWidth: request.RequestedWidth,
-                        RequestedHeight: request.RequestedHeight,
-                        Width: frame.Width,
-                        Height: frame.Height,
-                        ColorSpace: frame.ColorSpace,
+                        RequestedDimensions: request.RequestedDimensions,
+                        Dimensions: frame.Dimensions,
+                        ProjectColorSpace: frame.ProjectColorSpace,
                         State: before.State),
                     new IpcScreenshotStagingImage(
-                        Width: frame.Width,
-                        Height: frame.Height,
+                        Dimensions: frame.Dimensions,
                         PixelFormat: IpcScreenshotPixelFormat.Rgba8Srgb,
                         RowOrder: IpcScreenshotRowOrder.TopDown,
-                        RowStrideBytes: checked(frame.Width * IpcScreenshotCaptureLimits.Rgba8BytesPerPixel),
+                        RowStrideBytes: checked(frame.Dimensions.Width * IpcScreenshotCaptureLimits.Rgba8BytesPerPixel),
                         SizeBytes: sizeBytes));
                 return UnityScreenshotCaptureResult.Success(response);
             }

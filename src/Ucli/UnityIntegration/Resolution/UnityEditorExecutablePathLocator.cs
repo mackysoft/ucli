@@ -33,13 +33,13 @@ internal static class UnityEditorExecutablePathLocator
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="searchRoots" /> is <see langword="null" />. </exception>
     public static UnityEditorPathResolutionResult Resolve (
         string unityVersion,
-        string? preferredUnityEditorPath,
+        AbsolutePath? preferredUnityEditorPath,
         IReadOnlyList<AbsolutePath> searchRoots)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(unityVersion);
         ArgumentNullException.ThrowIfNull(searchRoots);
 
-        if (!string.IsNullOrWhiteSpace(preferredUnityEditorPath))
+        if (preferredUnityEditorPath is not null)
         {
             return ResolvePreferredPath(preferredUnityEditorPath);
         }
@@ -50,36 +50,29 @@ internal static class UnityEditorExecutablePathLocator
     /// <summary> Resolves one preferred editor path value to a normalized executable path. </summary>
     /// <param name="preferredUnityEditorPath"> The preferred editor path value. </param>
     /// <returns> The executable-path resolution result. </returns>
-    private static UnityEditorPathResolutionResult ResolvePreferredPath (string preferredUnityEditorPath)
+    private static UnityEditorPathResolutionResult ResolvePreferredPath (AbsolutePath preferredUnityEditorPath)
     {
-        var currentDirectory = AbsolutePath.Parse(Environment.CurrentDirectory);
-        if (!AbsolutePath.TryResolve(currentDirectory, preferredUnityEditorPath, out var normalizedPath, out _))
+        if (File.Exists(preferredUnityEditorPath.Value))
         {
-            return UnityEditorPathResolutionResult.Failure(ExecutionError.InvalidArgument(
-                $"Unity editor path is invalid: {preferredUnityEditorPath}"));
-        }
-
-        if (File.Exists(normalizedPath.Value))
-        {
-            if (!IsSupportedExecutableFileName(normalizedPath))
+            if (!IsSupportedExecutableFileName(preferredUnityEditorPath))
             {
                 return UnityEditorPathResolutionResult.Failure(ExecutionError.InvalidArgument(
-                    $"unityEditorPath must point to a Unity executable (Unity or Unity.exe): {normalizedPath.Value}"));
+                    $"unityEditorPath must point to a Unity executable (Unity or Unity.exe): {preferredUnityEditorPath.Value}"));
             }
 
-            return UnityEditorPathResolutionResult.Success(normalizedPath);
+            return UnityEditorPathResolutionResult.Success(preferredUnityEditorPath);
         }
 
-        if (!Directory.Exists(normalizedPath.Value))
+        if (!Directory.Exists(preferredUnityEditorPath.Value))
         {
             return UnityEditorPathResolutionResult.Failure(ExecutionError.InvalidArgument(
-                $"unityEditorPath does not exist: {normalizedPath.Value}"));
+                $"unityEditorPath does not exist: {preferredUnityEditorPath.Value}"));
         }
 
-        if (!TryResolveExecutablePath(normalizedPath, out var executablePath))
+        if (!TryResolveExecutablePath(preferredUnityEditorPath, out var executablePath))
         {
             return UnityEditorPathResolutionResult.Failure(ExecutionError.InvalidArgument(
-                $"unityEditorPath does not contain a Unity executable: {normalizedPath.Value}"));
+                $"unityEditorPath does not contain a Unity executable: {preferredUnityEditorPath.Value}"));
         }
 
         return UnityEditorPathResolutionResult.Success(executablePath);

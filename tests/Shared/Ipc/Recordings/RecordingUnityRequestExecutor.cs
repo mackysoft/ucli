@@ -1,8 +1,7 @@
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
-using MackySoft.Ucli.Contracts.Execution.Lifecycle;
-using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
+using MackySoft.Ucli.Contracts.Execution.Lifecycle;
 
 namespace MackySoft.Ucli.TestSupport;
 
@@ -57,6 +56,19 @@ internal sealed class RecordingUnityRequestExecutor : IUnityRequestExecutor, IUn
         CancellationToken cancellationToken = default)
     {
         return BindAsync(UnityExecutionMode.Daemon, project, callerWaitDeadline, CancellationToken.None);
+    }
+
+    public ValueTask<LifecycleExecutionHostBindingResolution> BindResolvedTargetAsync (
+        ResolvedUnityProjectContext project,
+        UnityExecutionTarget target,
+        ExecutionDeadline executionDeadline,
+        CancellationToken cancellationToken = default)
+    {
+        return BindAsync(
+            target == UnityExecutionTarget.Oneshot ? UnityExecutionMode.Oneshot : UnityExecutionMode.Daemon,
+            project,
+            executionDeadline,
+            cancellationToken);
     }
 
     public ValueTask<UnityRequestExecutionResult> ExecuteAsync (
@@ -173,5 +185,7 @@ internal sealed class RecordingUnityRequestExecutor : IUnityRequestExecutor, IUn
         {
             return owner.ExecuteAsync(command, RequestedMode, invocation.CallerWaitDeadline.Timeout, UcliConfig.CreateDefault(), Project, payload, cancellationToken);
         }
+
+        public ValueTask DisposeAsync () => ValueTask.CompletedTask;
     }
 }

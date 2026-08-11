@@ -26,6 +26,23 @@ package_path="${package_dir}/${package_id}.${expected_version}.nupkg"
 nuspec_entry="${package_id}.nuspec"
 unity_packages_config="${repository_root}/src/Ucli.Unity/Assets/packages.config"
 unity_editor_asmdef_entry="Editor/MackySoft.Ucli.Unity.Editor.asmdef"
+unity_recorder_directory_meta_entry="Editor/Recorder.meta"
+unity_recorder_asmdef_entry="Editor/Recorder/MackySoft.Ucli.Unity.Recorder.Editor.asmdef"
+unity_recorder_asmdef_meta_entry="${unity_recorder_asmdef_entry}.meta"
+unity_recorder_adapter_entry="Editor/Recorder/UnityRecorderGameViewRecordingAdapter.cs"
+unity_recorder_adapter_meta_entry="${unity_recorder_adapter_entry}.meta"
+unity_recorder_registration_entry="Editor/Recorder/UnityRecorderAdapterRegistration.cs"
+unity_recorder_registration_meta_entry="${unity_recorder_registration_entry}.meta"
+unity_recorder_settings_factory_entry="Editor/Recorder/UnityRecorderSettingsFactory.cs"
+unity_recorder_settings_factory_meta_entry="${unity_recorder_settings_factory_entry}.meta"
+unity_recorder_package_id="com.unity.recorder"
+unity_recorder_assembly_name="Unity.Recorder.Editor"
+unity_recorder_define="UCLI_RECORDER"
+recorder_compatibility_metadata_source="${repository_root}/src/Ucli.Contracts/Recording/GameViewRecorderCompatibilityMetadata.cs"
+unity_recorder_version_range="$({
+  sed -nE 's#.*RecorderPackageVersionRange[[:space:]]*=[[:space:]]*"([^"]+)".*#\1#p' \
+    "${recorder_compatibility_metadata_source}"
+} | head -n 1)"
 filesystem_package_id="MackySoft.FileSystem"
 filesystem_package_version="0.1.0"
 canonicalization_package_id="MackySoft.Json.Canonicalization"
@@ -54,6 +71,29 @@ schema_validation_assembly_names=(
   "Json.More.dll"
   "Humanizer.dll"
 )
+
+contains_case_insensitive_literal() {
+  local needle="$1"
+  local file_path="$2"
+
+  awk -v needle="${needle}" '
+    BEGIN {
+      needle = tolower(needle)
+    }
+    index(tolower($0), needle) != 0 {
+      found = 1
+      exit
+    }
+    END {
+      exit found ? 0 : 1
+    }
+  ' "${file_path}"
+}
+
+if [[ -z "${unity_recorder_version_range}" ]]; then
+  echo "Recorder compatibility range could not be read from ${recorder_compatibility_metadata_source}." >&2
+  exit 1
+fi
 
 read_plugin_importer_platform_settings() {
   local importer_meta_path="$1"
@@ -313,8 +353,13 @@ if [[ ! -f "${unity_packages_config}" ]]; then
   exit 1
 fi
 
+if contains_case_insensitive_literal "<package id=\"${unity_recorder_package_id}\"" "${unity_packages_config}"; then
+  echo "Unity packages.config must not make ${unity_recorder_package_id} a required dependency." >&2
+  exit 1
+fi
+
 for schema_validation_package_id in "${schema_validation_package_ids[@]}"; do
-  if grep -Fi "<package id=\"${schema_validation_package_id}\"" "${unity_packages_config}" >/dev/null; then
+  if contains_case_insensitive_literal "<package id=\"${schema_validation_package_id}\"" "${unity_packages_config}"; then
     echo "Unity packages.config must not reference ${schema_validation_package_id}." >&2
     exit 1
   fi
@@ -366,6 +411,15 @@ required_entries=(
   "${nuspec_entry}"
   "ucli-plugin.json"
   "${unity_editor_asmdef_entry}"
+  "${unity_recorder_directory_meta_entry}"
+  "${unity_recorder_asmdef_entry}"
+  "${unity_recorder_asmdef_meta_entry}"
+  "${unity_recorder_adapter_entry}"
+  "${unity_recorder_adapter_meta_entry}"
+  "${unity_recorder_registration_entry}"
+  "${unity_recorder_registration_meta_entry}"
+  "${unity_recorder_settings_factory_entry}"
+  "${unity_recorder_settings_factory_meta_entry}"
   "Editor/csc.rsp"
   "Editor/csc.rsp.meta"
   "Editor/AssemblyInfo.cs"
@@ -381,6 +435,33 @@ for entry in "${required_entries[@]}"; do
     exit 1
   fi
 done
+
+core_asmdef_json="$(unzip -p "${package_path}" "${unity_editor_asmdef_entry}")"
+if jq -e --arg recorder_assembly "${unity_recorder_assembly_name}" \
+  '(.references // []) | index($recorder_assembly) != null' \
+  <<<"${core_asmdef_json}" >/dev/null; then
+  echo "The core Unity Editor asmdef must not reference ${unity_recorder_assembly_name}." >&2
+  exit 1
+fi
+
+recorder_asmdef_json="$(unzip -p "${package_path}" "${unity_recorder_asmdef_entry}")"
+if ! jq -e \
+  --arg recorder_assembly "${unity_recorder_assembly_name}" \
+  --arg recorder_package "${unity_recorder_package_id}" \
+  --arg recorder_range "${unity_recorder_version_range}" \
+  --arg recorder_define "${unity_recorder_define}" \
+  '((.references // []) | index($recorder_assembly) != null)
+    and ((.defineConstraints // []) | index($recorder_define) != null)
+    and ((.versionDefines // []) | any(
+      .name == $recorder_package
+      and .expression == $recorder_range
+      and .define == $recorder_define))
+    and (.autoReferenced == false)
+    and ((.includePlatforms // []) == ["Editor"])' \
+  <<<"${recorder_asmdef_json}" >/dev/null; then
+  echo "The optional Recorder asmdef does not match the verified package gate." >&2
+  exit 1
+fi
 
 for forbidden_pattern in \
   '^Assets/' \
@@ -428,13 +509,18 @@ if ! grep -F "<version>${expected_version}</version>" "${nuspec_path}" >/dev/nul
   exit 1
 fi
 
-if grep -Fi "es6numberserializer" "${nuspec_path}" >/dev/null; then
+if contains_case_insensitive_literal "es6numberserializer" "${nuspec_path}"; then
   echo "Unity package nuspec references the retired es6numberserializer dependency." >&2
   exit 1
 fi
 
+if contains_case_insensitive_literal "<dependency id=\"${unity_recorder_package_id}\"" "${nuspec_path}"; then
+  echo "Unity package nuspec must not require ${unity_recorder_package_id}." >&2
+  exit 1
+fi
+
 for schema_validation_package_id in "${schema_validation_package_ids[@]}"; do
-  if grep -Fi "<dependency id=\"${schema_validation_package_id}\"" "${nuspec_path}" >/dev/null; then
+  if contains_case_insensitive_literal "<dependency id=\"${schema_validation_package_id}\"" "${nuspec_path}"; then
     echo "Unity package nuspec must not depend on ${schema_validation_package_id}." >&2
     exit 1
   fi

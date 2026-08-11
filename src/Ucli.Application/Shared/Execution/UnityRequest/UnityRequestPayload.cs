@@ -229,6 +229,42 @@ internal abstract record UnityRequestPayload
         public IpcScreenshotCaptureRequest Request { get; }
     }
 
+    /// <summary>Represents a runtime recording-capability observation request.</summary>
+    internal sealed record RecordingCapability : UnityRequestPayload;
+
+    /// <summary>Represents a non-blocking GameView recording start request.</summary>
+    internal sealed record RecordingStart : UnityRequestPayload
+    {
+        public RecordingStart (IpcGameViewRecordingStartRequest request)
+        {
+            Request = request ?? throw new ArgumentNullException(nameof(request));
+        }
+
+        public IpcGameViewRecordingStartRequest Request { get; }
+    }
+
+    /// <summary>Represents a GameView recording status observation request.</summary>
+    internal sealed record RecordingStatus : UnityRequestPayload
+    {
+        public RecordingStatus (IpcGameViewRecordingStatusRequest request)
+        {
+            Request = request ?? throw new ArgumentNullException(nameof(request));
+        }
+
+        public IpcGameViewRecordingStatusRequest Request { get; }
+    }
+
+    /// <summary>Represents an idempotent GameView recording stop request.</summary>
+    internal sealed record RecordingStop : UnityRequestPayload
+    {
+        public RecordingStop (IpcGameViewRecordingStopRequest request)
+        {
+            Request = request ?? throw new ArgumentNullException(nameof(request));
+        }
+
+        public IpcGameViewRecordingStopRequest Request { get; }
+    }
+
     /// <summary> Represents a Play Mode enter request prepared by application orchestration. </summary>
     internal sealed record PlayEnter : UnityRequestPayload
     {

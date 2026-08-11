@@ -1,14 +1,12 @@
 using MackySoft.Ucli.Application.Features.Requests.Refresh.UseCases.Refresh;
 using MackySoft.Ucli.Application.Shared.Context;
 using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
-using MackySoft.Ucli.Application.Shared.Execution.ReadPostcondition;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Editor;
 using MackySoft.Ucli.Contracts.Execution;
 using MackySoft.Ucli.Contracts.Execution.Lifecycle;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Contracts.Projects;
 
 namespace MackySoft.Ucli.Application.Tests.Refresh;
 
@@ -48,7 +46,7 @@ public sealed class RefreshServiceTests
         Assert.Equal(RequestId, result.Output!.RequestId);
         var provider = Assert.Single(requestExecutor.Invocations);
         Assert.Equal(UcliCommandIds.Refresh, provider.Command);
-        Assert.Equal(TimeSpan.FromMilliseconds(4234), provider.Timeout);
+        Assert.Equal(TimeSpan.FromMilliseconds(1234), provider.Timeout);
         Assert.True(Assert.IsType<RefreshLifecycleExecutionStartAdmissionPolicy>(
             Assert.IsType<UnityRequestPayload.Refresh>(provider.Payload).StartAdmissionPolicy).FailFast);
         Assert.Single(postconditionStore.WriteInvocations);
@@ -165,7 +163,7 @@ public sealed class RefreshServiceTests
                 UnityExecutionMode.Oneshot,
                 binding),
             deadline,
-            deadline.CreateCompletionDeadline(LifecycleExecutionTiming.ResponseDeliveryGrace),
+            deadline,
             NullLifecycleExecutionStartObserver.Instance);
     }
 

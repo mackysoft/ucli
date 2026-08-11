@@ -10,6 +10,7 @@ using MackySoft.Ucli.Hosting.Cli.Daemon.Logs;
 using MackySoft.Ucli.Hosting.Cli.Init;
 using MackySoft.Ucli.Hosting.Cli.Ops;
 using MackySoft.Ucli.Hosting.Cli.Play;
+using MackySoft.Ucli.Hosting.Cli.Recording;
 using MackySoft.Ucli.Hosting.Cli.Requests;
 using MackySoft.Ucli.Hosting.Cli.Schemas;
 using MackySoft.Ucli.Hosting.Cli.Screenshot;
@@ -75,6 +76,9 @@ internal static class UcliCommandCatalog
         app.Add<LogsUnityClearCommand>("logs unity");
         app.Add<ScreenshotGameCommand>("screenshot");
         app.Add<ScreenshotSceneCommand>("screenshot");
+        app.Add<GameViewRecordingStartCommand>("recording");
+        app.Add<GameViewRecordingStatusCommand>("recording");
+        app.Add<GameViewRecordingStopCommand>("recording");
         app.Add<OpsListCommand>("ops");
         app.Add<OpsDescribeCommand>("ops");
         app.Add<SchemaListCommand>("schema");

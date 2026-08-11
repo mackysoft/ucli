@@ -7,7 +7,6 @@ using MackySoft.Ucli.Contracts.Editor;
 using MackySoft.Ucli.Contracts.Execution;
 using MackySoft.Ucli.Contracts.Execution.Lifecycle;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Contracts.Projects;
 
 namespace MackySoft.Ucli.Application.Tests.Features.Assurance.Compile;
 
@@ -69,8 +68,7 @@ internal static class CompileServiceTestSupport
                 mode,
                 bindingResult.Binding!),
             deadline,
-            deadline.CreateCompletionDeadline(
-                LifecycleExecutionTiming.ResponseDeliveryGrace),
+            deadline,
             NullLifecycleExecutionStartObserver.Instance);
     }
 

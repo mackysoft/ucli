@@ -23,7 +23,7 @@ public sealed class DaemonStatusServiceDispatchTests
         var cancellationToken = cancellationSource.Token;
 
         var result = await service.GetStatusAsync(
-            projectPath: "/tmp/sandbox-unity",
+            projectPath: AbsolutePath.Parse(ProjectPathTestValues.IndependentUnityProject),
             timeoutMilliseconds: 9999,
             cancellationToken: cancellationToken);
 
@@ -32,7 +32,7 @@ public sealed class DaemonStatusServiceDispatchTests
             resolver,
             daemonStatusOperation,
             context,
-            expectedProjectPath: "/tmp/sandbox-unity",
+            expectedProjectPath: ProjectPathTestValues.IndependentUnityProject,
             expectedTimeoutMilliseconds: 9999,
             cancellationToken);
     }

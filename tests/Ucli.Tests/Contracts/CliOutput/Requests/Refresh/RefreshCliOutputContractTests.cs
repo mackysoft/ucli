@@ -91,7 +91,7 @@ public sealed class RefreshCliOutputContractTests
                     SharedRefreshServiceProvider.Value,
                     CommandResultTestWriter.Create())
                 .RefreshAsync(
-                    projectPath: projectPath,
+                    projectPath: projectPath is null ? null : AbsolutePath.Parse(projectPath),
                     mode: mode,
                     cancellationToken: CancellationToken.None));
     }

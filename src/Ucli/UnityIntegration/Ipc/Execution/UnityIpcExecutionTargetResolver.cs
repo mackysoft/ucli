@@ -1,6 +1,6 @@
-using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
+using MackySoft.Ucli.Application.Shared.Execution.UnityRequest;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.UnityIntegration.Ipc.Failures;
 
@@ -103,6 +103,20 @@ internal sealed class UnityIpcExecutionTargetResolver
         }
 
         return UnityIpcExecutionTargetResolutionResult.Success(decision.Target);
+    }
+
+    /// <summary> Verifies the oneshot-only prerequisite for an already resolved target. </summary>
+    public ValueTask<UnityRequestFailure?> VerifyOneshotPluginAsync (
+        ResolvedUnityProjectContext unityProject,
+        ExecutionDeadline deadline,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(unityProject);
+        ArgumentNullException.ThrowIfNull(deadline);
+        return pluginVerifier.VerifyWithinBudgetAsync(
+            unityProject.UnityProjectRoot,
+            deadline,
+            cancellationToken);
     }
 
     private async ValueTask<UnityIpcExecutionTargetResolutionResult> ResolveContractFailureAsync (

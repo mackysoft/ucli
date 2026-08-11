@@ -1,4 +1,3 @@
-using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Application.Shared.Execution.UnityRequest;
@@ -72,9 +71,10 @@ internal static class LifecycleExecutionCallerWaitCoordinator
 
         using var startObservationCancellation =
             new CancellationTokenSource();
+        // The caller's deadline remains immutable. Recovery alone receives one bounded delivery
+        // grace because the first provider write may already have persisted a Start Record.
         var startObservationDeadline = dispatchRequest.BeginsLifecycleExecution
-            ? deadline.CreateCompletionDeadline(
-                LifecycleExecutionTiming.ResponseDeliveryGrace)
+            ? deadline.CreateCompletionDeadline(LifecycleExecutionTiming.ResponseDeliveryGrace)
             : deadline;
         var persistedStartTask =
             LifecycleExecutionStartRecordRecovery.WaitUntilAvailableAsync(

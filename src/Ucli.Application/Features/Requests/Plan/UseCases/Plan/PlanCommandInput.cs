@@ -10,7 +10,7 @@ namespace MackySoft.Ucli.Application.Features.Requests.Plan.UseCases.Plan;
 /// <param name="FailFast"> Whether Unity-side execution should fail immediately instead of waiting for lifecycle readiness. </param>
 /// <param name="RequestJson"> The raw request JSON read by the CLI host. </param>
 internal sealed record PlanCommandInput (
-    string? ProjectPath,
+    AbsolutePath? ProjectPath,
     UnityExecutionMode? Mode,
     int? TimeoutMilliseconds,
     ReadIndexMode? ReadIndexMode,

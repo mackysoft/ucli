@@ -33,7 +33,7 @@ internal sealed class StatusCommand
     /// <returns> The exit code contained in the emitted command result. </returns>
     [Command(UcliCommandNames.Status)]
     public async Task<int> StatusAsync (
-        string? projectPath = null,
+        [AbsolutePathArgumentParser] AbsolutePath? projectPath = null,
         string? timeout = null,
         CancellationToken cancellationToken = default)
     {

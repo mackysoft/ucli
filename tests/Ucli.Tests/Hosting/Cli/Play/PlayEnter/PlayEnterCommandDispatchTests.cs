@@ -12,12 +12,12 @@ public sealed class PlayEnterCommandDispatchTests
     {
         var service = new RecordingPlayEnterService((_, _) => ValueTask.FromResult(PlayEnterExecutionResult.Success(
             PlayEnterCommandTestData.CreateOutput())));
-        var invocationFactory = new RecordingLifecycleExecutionCliInvocationFactory();
+        var invocationFactory = new RecordingLifecycleExecutionStartInvocationFactory();
         var command = new PlayEnterCommand(service, CommandResultTestWriter.Create(), invocationFactory);
         using var cancellationTokenSource = new CancellationTokenSource();
 
         var result = await CommandResultCapture.ExecuteAsync(() => command.EnterAsync(
-            projectPath: PlayCommandOutputTestData.ProjectPath,
+            projectPath: AbsolutePath.Parse(PlayCommandOutputTestData.ProjectPath),
             timeout: "1234",
             cancellationToken: cancellationTokenSource.Token));
 
@@ -27,5 +27,6 @@ public sealed class PlayEnterCommandDispatchTests
             cancellationTokenSource.Token,
             PlayCommandOutputTestData.ProjectPath,
             expectedTimeoutMilliseconds: 1234);
+        Assert.Equal(1, invocationFactory.DisposeCount);
     }
 }

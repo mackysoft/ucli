@@ -69,6 +69,18 @@ public static class UcliCommandIds
     /// <summary> Gets command identifier for <c>screenshot.scene</c>. </summary>
     public static UcliCommand ScreenshotScene { get; } = new("screenshot.scene");
 
+    /// <summary> Gets command identifier for <c>recording</c>. </summary>
+    public static UcliCommand Recording { get; } = new("recording");
+
+    /// <summary> Gets command identifier for <c>recording.start</c>. </summary>
+    public static UcliCommand RecordingStart { get; } = new("recording.start");
+
+    /// <summary> Gets command identifier for <c>recording.status</c>. </summary>
+    public static UcliCommand RecordingStatus { get; } = new("recording.status");
+
+    /// <summary> Gets command identifier for <c>recording.stop</c>. </summary>
+    public static UcliCommand RecordingStop { get; } = new("recording.stop");
+
     /// <summary> Gets command identifier for <c>codes</c>. </summary>
     public static UcliCommand Codes { get; } = new("codes");
 

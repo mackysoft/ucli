@@ -1,6 +1,7 @@
 using ConsoleAppFramework;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
+using MackySoft.Ucli.Hosting.Cli.Options;
 
 namespace MackySoft.Ucli.Hosting.Cli.Schemas;
 
@@ -25,7 +26,7 @@ internal sealed class SchemaExportCommand
     /// <returns> The exit code contained in the emitted command result. </returns>
     [Command(UcliCommandNames.ExportSubcommand)]
     public int Export (
-        string output,
+        [AbsolutePathArgumentParser] AbsolutePath output,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -33,18 +34,8 @@ internal sealed class SchemaExportCommand
         return Execute(output);
     }
 
-    private int Execute (string output)
+    private int Execute (AbsolutePath output)
     {
-        var inputError = SchemaExportCommandExecution.TryResolveDestination(
-            output,
-            out var destination);
-        if (inputError is CommandResult error)
-        {
-            return SchemaCommandExecution.WriteError(
-                commandResultWriter,
-                error);
-        }
-
         var schemaSet = SchemaCommandExecution.TryLoad(
             schemaSetProvider,
             commandResultWriter,
@@ -54,7 +45,7 @@ internal sealed class SchemaExportCommand
             return (int)CliExitCode.ToolError;
         }
 
-        var result = SchemaExportCommandExecution.Export(schemaSet, destination!);
+        var result = SchemaExportCommandExecution.Export(schemaSet, output);
         commandResultWriter.WriteToStandardOutput(result);
         return result.ExitCode;
     }

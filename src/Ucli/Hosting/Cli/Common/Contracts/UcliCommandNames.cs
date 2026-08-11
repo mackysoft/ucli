@@ -87,6 +87,9 @@ internal static class UcliCommandNames
     /// <summary> Gets the top-level command name for screenshot capture. </summary>
     public const string Screenshot = "screenshot";
 
+    /// <summary> Gets the top-level command name for GameView recording. </summary>
+    public const string Recording = "recording";
+
     /// <summary> Gets the top-level command name for ops. </summary>
     public const string Ops = "ops";
 
@@ -116,6 +119,15 @@ internal static class UcliCommandNames
 
     /// <summary> Gets the command name for <c>screenshot scene</c> result payloads. </summary>
     public const string ScreenshotScene = "screenshot.scene";
+
+    /// <summary> Gets the command name for <c>recording start</c> result payloads. </summary>
+    public const string RecordingStart = "recording.start";
+
+    /// <summary> Gets the command name for <c>recording status</c> result payloads. </summary>
+    public const string RecordingStatus = "recording.status";
+
+    /// <summary> Gets the command name for <c>recording stop</c> result payloads. </summary>
+    public const string RecordingStop = "recording.stop";
 
     /// <summary> Gets the command name for <c>ops list</c> result payloads. </summary>
     public const string OpsList = "ops.list";

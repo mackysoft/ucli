@@ -45,7 +45,7 @@ public sealed class DaemonCleanupServiceTests
         var cancellationToken = cancellationSource.Token;
 
         var result = await service.CleanupAsync(
-            projectPath: "/tmp/unity-project",
+            projectPath: AbsolutePath.Parse(ProjectPathTestValues.IndependentUnityProject),
             timeoutMilliseconds: 3100,
             cancellationToken: cancellationToken);
 
@@ -57,7 +57,7 @@ public sealed class DaemonCleanupServiceTests
         DaemonCommandExecutionContextResolverAssert.ResolvedFor(
             resolver,
             UcliCommandIds.DaemonCleanup,
-            expectedProjectPath: "/tmp/unity-project",
+            expectedProjectPath: ProjectPathTestValues.IndependentUnityProject,
             expectedTimeoutMilliseconds: 3100,
             expectedCancellationToken: cancellationToken);
         DaemonCleanupOperationAssert.CleanupRequestedOnce(

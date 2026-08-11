@@ -1,4 +1,3 @@
-using MackySoft.Ucli.Application.Features.Play.UseCases.Enter;
 using MackySoft.Ucli.Contracts.Execution.Lifecycle;
 using static MackySoft.Ucli.Application.Tests.Play.PlayEnterServiceTestSupport;
 
@@ -26,6 +25,6 @@ public sealed class PlayEnterServiceTests
         Assert.Equal(PlayLifecycleTransitionOutcome.Entered, result.Output!.Transition.Result);
         var provider = Assert.Single(requestExecutor.Invocations);
         Assert.Equal(UcliCommandIds.PlayEnter, provider.Command);
-        Assert.Equal(TimeSpan.FromMilliseconds(4500), provider.Timeout);
+        Assert.Equal(TimeSpan.FromMilliseconds(1500), provider.Timeout);
     }
 }

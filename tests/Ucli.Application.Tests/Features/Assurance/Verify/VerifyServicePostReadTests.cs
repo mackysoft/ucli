@@ -35,7 +35,7 @@ public sealed class VerifyServicePostReadTests
             ProjectPath: null,
             Profile: "built-in:mutation",
             ProfilePath: null,
-            FromPath: fromPath,
+            FromPath: FilePathReference.Parse(fromPath),
             Mode: UnityExecutionMode.Auto,
             TimeoutMilliseconds: 10000));
 
@@ -87,8 +87,8 @@ public sealed class VerifyServicePostReadTests
         var result = await service.ExecuteAsync(new VerifyCommandInput(
             ProjectPath: null,
             Profile: null,
-            ProfilePath: "verify.json",
-            FromPath: fromPath,
+            ProfilePath: FilePathReference.Parse("verify.json"),
+            FromPath: FilePathReference.Parse(fromPath),
             Mode: UnityExecutionMode.Auto,
             TimeoutMilliseconds: 10000));
 
@@ -114,8 +114,8 @@ public sealed class VerifyServicePostReadTests
         var result = await service.ExecuteAsync(new VerifyCommandInput(
             ProjectPath: null,
             Profile: null,
-            ProfilePath: "verify.json",
-            FromPath: fromPath,
+            ProfilePath: FilePathReference.Parse("verify.json"),
+            FromPath: FilePathReference.Parse(fromPath),
             Mode: UnityExecutionMode.Auto,
             TimeoutMilliseconds: 10000));
 
@@ -144,8 +144,8 @@ public sealed class VerifyServicePostReadTests
         var result = await service.ExecuteAsync(new VerifyCommandInput(
             ProjectPath: null,
             Profile: null,
-            ProfilePath: "verify.json",
-            FromPath: fromPath,
+            ProfilePath: FilePathReference.Parse("verify.json"),
+            FromPath: FilePathReference.Parse(fromPath),
             Mode: UnityExecutionMode.Auto,
             TimeoutMilliseconds: 10000));
 
@@ -180,8 +180,8 @@ public sealed class VerifyServicePostReadTests
         var result = await service.ExecuteAsync(new VerifyCommandInput(
             ProjectPath: null,
             Profile: null,
-            ProfilePath: "verify.json",
-            FromPath: fromPath,
+            ProfilePath: FilePathReference.Parse("verify.json"),
+            FromPath: FilePathReference.Parse(fromPath),
             Mode: UnityExecutionMode.Auto,
             TimeoutMilliseconds: 10000));
 
@@ -214,8 +214,8 @@ public sealed class VerifyServicePostReadTests
         var result = await service.ExecuteAsync(new VerifyCommandInput(
             ProjectPath: null,
             Profile: null,
-            ProfilePath: "verify.json",
-            FromPath: fromPath,
+            ProfilePath: FilePathReference.Parse("verify.json"),
+            FromPath: FilePathReference.Parse(fromPath),
             Mode: UnityExecutionMode.Auto,
             TimeoutMilliseconds: 10000));
 
@@ -240,8 +240,8 @@ public sealed class VerifyServicePostReadTests
         var result = await service.ExecuteAsync(new VerifyCommandInput(
             ProjectPath: null,
             Profile: null,
-            ProfilePath: "verify.json",
-            FromPath: fromPath,
+            ProfilePath: FilePathReference.Parse("verify.json"),
+            FromPath: FilePathReference.Parse(fromPath),
             Mode: UnityExecutionMode.Auto,
             TimeoutMilliseconds: 10000));
 
@@ -266,8 +266,8 @@ public sealed class VerifyServicePostReadTests
         var result = await service.ExecuteAsync(new VerifyCommandInput(
             ProjectPath: null,
             Profile: null,
-            ProfilePath: "verify.json",
-            FromPath: fromPath,
+            ProfilePath: FilePathReference.Parse("verify.json"),
+            FromPath: FilePathReference.Parse(fromPath),
             Mode: UnityExecutionMode.Auto,
             TimeoutMilliseconds: 10000));
 
@@ -301,7 +301,7 @@ public sealed class VerifyServicePostReadTests
             ProjectPath: null,
             Profile: "built-in:mutation",
             ProfilePath: null,
-            FromPath: fromPath,
+            FromPath: FilePathReference.Parse(fromPath),
             Mode: UnityExecutionMode.Auto,
             TimeoutMilliseconds: 10000));
 
@@ -324,8 +324,8 @@ public sealed class VerifyServicePostReadTests
         var result = await service.ExecuteAsync(new VerifyCommandInput(
             ProjectPath: null,
             Profile: null,
-            ProfilePath: "verify.json",
-            FromPath: fromPath,
+            ProfilePath: FilePathReference.Parse("verify.json"),
+            FromPath: FilePathReference.Parse(fromPath),
             Mode: UnityExecutionMode.Auto,
             TimeoutMilliseconds: 10000));
 

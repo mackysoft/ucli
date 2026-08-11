@@ -13,12 +13,12 @@ public sealed class CompileCommandDispatchTests
     public async Task Compile_MapsOptionsToServiceInputAndCancellationToken ()
     {
         var service = new RecordingCompileService((_, _, _) => ValueTask.FromResult<CompileExecutionResult>(CompileExecutionResult.Completed(CreateOutput())));
-        var invocationFactory = new RecordingLifecycleExecutionCliInvocationFactory();
+        var invocationFactory = new RecordingLifecycleExecutionStartInvocationFactory();
         var command = new CompileCommand(service, CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System, invocationFactory);
         using var cancellationTokenSource = new CancellationTokenSource();
 
         var result = await CommandResultCapture.ExecuteAsync(() => command.CompileAsync(
-            projectPath: "/repo/UnityProject",
+            projectPath: AbsolutePath.Parse(ProjectPathTestValues.RepositoryUnityProject),
             mode: "daemon",
             timeout: "1234",
             cancellationToken: cancellationTokenSource.Token));
@@ -27,8 +27,9 @@ public sealed class CompileCommandDispatchTests
             result,
             invocationFactory,
             cancellationTokenSource.Token,
-            "/repo/UnityProject",
+            ProjectPathTestValues.RepositoryUnityProject,
             UnityExecutionMode.Daemon,
             expectedTimeoutMilliseconds: 1234);
+        Assert.Equal(1, invocationFactory.DisposeCount);
     }
 }

@@ -15,7 +15,7 @@ internal interface IDaemonStartService
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The daemon-start execution result. </returns>
     ValueTask<DaemonStartExecutionResult> StartAsync (
-        string? projectPath,
+        AbsolutePath? projectPath,
         int? timeoutMilliseconds,
         UnityEditorMode? editorMode,
         DaemonStartupBlockedProcessPolicy onStartupBlocked,

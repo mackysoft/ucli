@@ -46,7 +46,9 @@ public static class UnityIpcMethodCapabilities
             or UnityIpcMethod.IndexSceneTreeLiteRead
             or UnityIpcMethod.DaemonLogsRead
             or UnityIpcMethod.UnityLogsRead
-            or UnityIpcMethod.PlayStatus;
+            or UnityIpcMethod.PlayStatus
+            or UnityIpcMethod.RecordingCapability
+            or UnityIpcMethod.RecordingStatus;
     }
 
     /// <summary> Determines whether a method may be dispatched while the oneshot editor reports a non-ready startup state. </summary>

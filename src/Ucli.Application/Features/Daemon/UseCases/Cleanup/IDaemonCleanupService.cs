@@ -9,7 +9,7 @@ internal interface IDaemonCleanupService
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The daemon-cleanup execution result. </returns>
     ValueTask<DaemonCleanupExecutionResult> CleanupAsync (
-        string? projectPath,
+        AbsolutePath? projectPath,
         int? timeoutMilliseconds,
         CancellationToken cancellationToken = default);
 }

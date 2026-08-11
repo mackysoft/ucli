@@ -12,12 +12,12 @@ public sealed class RefreshCommandDispatchTests
     public async Task Refresh_MapsOptionsToServiceInputAndCancellationToken ()
     {
         var service = new RecordingRefreshService((_, _, _, _) => ValueTask.FromResult(CreateSuccessResult()));
-        var invocationFactory = new RecordingLifecycleExecutionCliInvocationFactory();
+        var invocationFactory = new RecordingLifecycleExecutionStartInvocationFactory();
         var command = new RefreshCommand(service, CommandResultTestWriter.Create(), invocationFactory);
         using var cancellationTokenSource = new CancellationTokenSource();
 
         var result = await CommandResultCapture.ExecuteAsync(() => command.RefreshAsync(
-            projectPath: "/repo/UnityProject",
+            projectPath: AbsolutePath.Parse(ProjectPathTestValues.RepositoryUnityProject),
             mode: "oneshot",
             timeout: "1234",
             failFast: true,
@@ -28,9 +28,10 @@ public sealed class RefreshCommandDispatchTests
             service,
             invocationFactory,
             cancellationTokenSource.Token,
-            "/repo/UnityProject",
+            ProjectPathTestValues.RepositoryUnityProject,
             UnityExecutionMode.Oneshot,
             expectedTimeoutMilliseconds: 1234,
             expectedFailFast: true);
+        Assert.Equal(1, invocationFactory.DisposeCount);
     }
 }

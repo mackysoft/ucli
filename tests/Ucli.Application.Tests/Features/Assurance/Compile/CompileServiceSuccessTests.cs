@@ -1,6 +1,4 @@
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Contracts;
-using MackySoft.Ucli.Application.Shared.Execution.Progress;
-using MackySoft.Ucli.Contracts.Execution;
 using static MackySoft.Ucli.Application.Tests.Features.Assurance.Compile.CompileServiceTestSupport;
 
 namespace MackySoft.Ucli.Application.Tests.Features.Assurance.Compile;
@@ -29,7 +27,7 @@ public sealed class CompileServiceSuccessTests
         Assert.Equal(ExecutionId, completed.Output.LifecycleExecutionRef.Id);
         var provider = Assert.Single(requestExecutor.Invocations);
         Assert.Equal(UcliCommandIds.Compile, provider.Command);
-        Assert.Equal(TimeSpan.FromSeconds(13), provider.Timeout);
+        Assert.Equal(TimeSpan.FromSeconds(10), provider.Timeout);
         Assert.IsType<UnityRequestPayload.Compile>(provider.Payload);
         Assert.Single(reconnectResolver.Invocations);
         EventSequenceAssert.EmittedEventsInOrder(

@@ -18,7 +18,8 @@ public sealed class PlayEnterServiceReconnectTests
             start.LifecycleExecutionRef.Id,
             start.LifecycleExecutionRef.DefinitionDigest,
             new ExecutionState(TextVocabulary.GetText(LifecycleExecutionState.Publishing)),
-            start.LifecycleExecutionRef.StatusLocator);
+            start.LifecycleExecutionRef.StatusLocator
+                ?? throw new InvalidOperationException("The registered start must have a status locator."));
         var requestExecutor = new RecordingUnityRequestExecutor(
             _ => throw new InvalidOperationException("Publication failure must not dispatch."));
         var service = CreateService(

@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Features.Play.UseCases.Status;
+using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 
 namespace MackySoft.Tests;
 
@@ -6,7 +7,7 @@ internal static class PlayCommandAssert
 {
     public static void EnterSucceededWithDispatchedInput (
         CommandExecutionResult result,
-        RecordingLifecycleExecutionCliInvocationFactory invocationFactory,
+        RecordingLifecycleExecutionStartInvocationFactory invocationFactory,
         CancellationToken expectedCancellationToken,
         string expectedProjectPath,
         int expectedTimeoutMilliseconds)
@@ -21,7 +22,7 @@ internal static class PlayCommandAssert
 
     public static void ExitSucceededWithDispatchedInput (
         CommandExecutionResult result,
-        RecordingLifecycleExecutionCliInvocationFactory invocationFactory,
+        RecordingLifecycleExecutionStartInvocationFactory invocationFactory,
         CancellationToken expectedCancellationToken,
         string expectedProjectPath,
         int expectedTimeoutMilliseconds)
@@ -46,7 +47,7 @@ internal static class PlayCommandAssert
             service.Invocations,
             expectedCancellationToken,
             new PlayStatusCommandInput(
-                expectedProjectPath,
+                AbsolutePath.Parse(expectedProjectPath),
                 expectedTimeoutMilliseconds));
     }
 
@@ -96,7 +97,7 @@ internal static class PlayCommandAssert
 
     private static void SucceededWithPlayStart (
         CommandExecutionResult result,
-        IReadOnlyList<RecordingLifecycleExecutionCliInvocationFactory.PlayStartRequest> requests,
+        IReadOnlyList<RecordingLifecycleExecutionStartInvocationFactory.PlayStartRequest> requests,
         CancellationToken expectedCancellationToken,
         string expectedProjectPath,
         int expectedTimeoutMilliseconds)
@@ -104,7 +105,8 @@ internal static class PlayCommandAssert
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
         var request = Assert.Single(requests);
         Assert.Equal(expectedCancellationToken, request.CancellationToken);
-        Assert.Equal(expectedProjectPath, request.ProjectPath);
+        ProjectPathDispatchAssert.EqualNormalized(expectedProjectPath, request.ProjectPath);
+        Assert.Equal(UnityExecutionMode.Daemon, request.RequestedMode);
         Assert.Equal(expectedTimeoutMilliseconds, request.TimeoutMilliseconds);
     }
 

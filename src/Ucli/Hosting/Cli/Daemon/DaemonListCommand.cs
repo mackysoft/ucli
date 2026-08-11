@@ -41,7 +41,7 @@ internal sealed class DaemonListCommand
     /// <returns> The exit code contained in the emitted command result. </returns>
     [Command(UcliCommandNames.ListSubcommand)]
     public async Task<int> ListAsync (
-        string? projectPath = null,
+        [AbsolutePathArgumentParser] AbsolutePath? projectPath = null,
         string? timeout = null,
         CancellationToken cancellationToken = default)
     {

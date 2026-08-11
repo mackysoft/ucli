@@ -83,6 +83,22 @@ internal sealed class UnityIpcRequestBuilder
                 UnityIpcMethod.ScreenshotCapture,
                 IpcPayloadCodec.SerializeToElement(screenshotCapture.Request),
                 UnityBatchmodeLaunchOptions.Default),
+            UnityRequestPayload.RecordingCapability => new UnityIpcDispatchRequest(
+                UnityIpcMethod.RecordingCapability,
+                IpcPayloadCodec.SerializeToElement(new IpcGameViewRecordingCapabilityRequest()),
+                UnityBatchmodeLaunchOptions.Default),
+            UnityRequestPayload.RecordingStart recordingStart => new UnityIpcDispatchRequest(
+                UnityIpcMethod.RecordingStart,
+                IpcPayloadCodec.SerializeToElement(recordingStart.Request),
+                UnityBatchmodeLaunchOptions.Default),
+            UnityRequestPayload.RecordingStatus recordingStatus => new UnityIpcDispatchRequest(
+                UnityIpcMethod.RecordingStatus,
+                IpcPayloadCodec.SerializeToElement(recordingStatus.Request),
+                UnityBatchmodeLaunchOptions.Default),
+            UnityRequestPayload.RecordingStop recordingStop => new UnityIpcDispatchRequest(
+                UnityIpcMethod.RecordingStop,
+                IpcPayloadCodec.SerializeToElement(recordingStop.Request),
+                UnityBatchmodeLaunchOptions.Default),
             UnityRequestPayload.PlayEnter playEnter => UnityIpcDispatchRequest.LifecycleExecution(
                 UnityIpcMethod.PlayEnter,
                 playEnter.Registration,

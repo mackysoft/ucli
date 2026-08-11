@@ -111,7 +111,7 @@ public sealed class DaemonCliOutputContractTests
                 CompletionReason: null,
                 RemainingWorktreeCount: 0,
                 Items: Array.Empty<DaemonListItemOutput>())));
-        var unityProjectPath = "/repo/wt-current/UnityProject";
+        var unityProjectPath = ProjectPathTestValues.RepositoryUnityProject;
 
         var result = await RunDaemonListCommandAsync(
             service,
@@ -229,7 +229,7 @@ public sealed class DaemonCliOutputContractTests
                     SharedDaemonServiceProvider.Value,
                     CommandResultTestWriter.Create())
                 .StatusAsync(
-                    projectPath: projectPath,
+                    projectPath: projectPath is null ? null : AbsolutePath.Parse(projectPath),
                     timeout: timeout,
                     cancellationToken: CancellationToken.None));
     }
@@ -245,7 +245,7 @@ public sealed class DaemonCliOutputContractTests
                     daemonListService,
                     CommandResultTestWriter.Create())
                 .ListAsync(
-                    projectPath: projectPath,
+                    projectPath: projectPath is null ? null : AbsolutePath.Parse(projectPath),
                     timeout: timeout,
                     cancellationToken: CancellationToken.None));
     }

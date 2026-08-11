@@ -2,6 +2,8 @@ using System;
 using System.Buffers;
 using System.Threading;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Presentation;
+using MackySoft.Ucli.Contracts.Projects;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
@@ -19,7 +21,7 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Pixels
             int width,
             int height,
             Vector4 sourceUvTransform,
-            IpcScreenshotColorSpace colorSpace,
+            UnityProjectColorSpace colorSpace,
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -34,7 +36,7 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Pixels
                     $"Screenshot source format is not sampleable: {source.graphicsFormat}.");
             }
 
-            var stagingGraphicsFormat = colorSpace == IpcScreenshotColorSpace.Linear
+            var stagingGraphicsFormat = colorSpace == UnityProjectColorSpace.Linear
                 ? GraphicsFormat.R8G8B8A8_SRGB
                 : GraphicsFormat.R8G8B8A8_UNorm;
             if (!TryValidateStagingFormat(stagingGraphicsFormat, out var formatError))
@@ -116,8 +118,7 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Pixels
                 cancellationToken.ThrowIfCancellationRequested();
                 return UnityScreenshotNormalizationResult.Success(
                     new UnityScreenshotFrame(
-                        width,
-                        height,
+                        new PixelDimensions(width, height),
                         colorSpace,
                         rawBytes));
             }
@@ -199,17 +200,17 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Pixels
                     out _);
         }
 
-        public static IpcScreenshotColorSpace ResolveColorSpace ()
+        public static UnityProjectColorSpace ResolveColorSpace ()
         {
             return QualitySettings.activeColorSpace == ColorSpace.Linear
-                ? IpcScreenshotColorSpace.Linear
-                : IpcScreenshotColorSpace.Gamma;
+                ? UnityProjectColorSpace.Linear
+                : UnityProjectColorSpace.Gamma;
         }
 
         private static bool TryResolveRawRowOrder (
             Material material,
             GraphicsFormat stagingGraphicsFormat,
-            IpcScreenshotColorSpace colorSpace,
+            UnityProjectColorSpace colorSpace,
             CancellationToken cancellationToken,
             out bool rawIsTopDown,
             out string errorMessage)
@@ -288,7 +289,7 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Pixels
             Material material,
             int shaderPass,
             RenderTexture destination,
-            IpcScreenshotColorSpace colorSpace,
+            UnityProjectColorSpace colorSpace,
             CancellationToken cancellationToken,
             out string errorMessage)
         {
@@ -301,7 +302,7 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Pixels
             };
             try
             {
-                GL.sRGBWrite = colorSpace == IpcScreenshotColorSpace.Linear;
+                GL.sRGBWrite = colorSpace == UnityProjectColorSpace.Linear;
                 commandBuffer.SetRenderTarget(destination);
                 commandBuffer.SetViewport(new Rect(0f, 0f, destination.width, destination.height));
                 commandBuffer.ClearRenderTarget(clearDepth: false, clearColor: true, Color.clear);

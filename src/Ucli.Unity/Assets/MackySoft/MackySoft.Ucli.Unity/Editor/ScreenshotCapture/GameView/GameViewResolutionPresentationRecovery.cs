@@ -32,6 +32,10 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.GameView
 
         private bool isTerminal;
 
+        private Observation? terminalObservation;
+
+        private string terminalErrorMessage;
+
         public GameViewResolutionPresentationRecovery (
             GameViewPresentationSource originalSource,
             IGameViewPresentationAdapter presentationAdapter)
@@ -59,12 +63,18 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.GameView
 
         public bool IsPending => !isTerminal;
 
+        internal Observation? TerminalObservation => terminalObservation;
+
+        internal string TerminalErrorMessage => terminalErrorMessage;
+
         internal bool IsScheduled => isScheduled;
 
         /// <summary> Releases ownership when an external state change makes original-resolution recovery inapplicable. </summary>
         public void ReleaseOwnership ()
         {
-            Complete();
+            Complete(
+                Observation.TargetUnavailable,
+                "GameView presentation recovery ownership was released before restoration was observed.");
         }
 
         /// <summary> Reserves this target before the resolution transaction releases its durable ownership marker. </summary>
@@ -85,7 +95,7 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.GameView
             if (gameView == null)
             {
                 errorMessage = "The target GameView was destroyed before presentation recovery ownership could be reserved.";
-                Complete();
+                Complete(Observation.TargetUnavailable, errorMessage);
                 return false;
             }
 
@@ -107,7 +117,7 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.GameView
             if (gameView == null)
             {
                 errorMessage = "The target GameView was destroyed before presentation recovery completed.";
-                Complete();
+                Complete(Observation.TargetUnavailable, errorMessage);
                 return false;
             }
 
@@ -138,7 +148,7 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.GameView
             if (gameView == null)
             {
                 errorMessage = "The target GameView was destroyed before presentation recovery completed.";
-                Complete();
+                Complete(Observation.TargetUnavailable, errorMessage);
                 return Observation.TargetUnavailable;
             }
 
@@ -148,7 +158,7 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.GameView
                 if (!presentationAdapter.IsCurrentTarget(gameView))
                 {
                     errorMessage = "The target GameView is no longer the current presentation target.";
-                    Complete();
+                    Complete(Observation.TargetUnavailable, errorMessage);
                     return Observation.TargetUnavailable;
                 }
 
@@ -158,7 +168,7 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.GameView
             if (currentSource.View != gameView)
             {
                 errorMessage = "The selected GameView changed before presentation recovery completed.";
-                Complete();
+                Complete(Observation.TargetUnavailable, errorMessage);
                 return Observation.TargetUnavailable;
             }
 
@@ -184,7 +194,7 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.GameView
             if (currentSource.View != gameView)
             {
                 errorMessage = "The selected GameView changed during presentation recovery repaint.";
-                Complete();
+                Complete(Observation.TargetUnavailable, errorMessage);
                 return Observation.TargetUnavailable;
             }
 
@@ -199,7 +209,7 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.GameView
 
             restoredSource = currentSource;
             errorMessage = null;
-            Complete();
+            Complete(Observation.RestoredResolutionPresented, errorMessage: null);
             return Observation.RestoredResolutionPresented;
         }
 
@@ -218,8 +228,8 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.GameView
 
             isScheduled = true;
             EditorApplication.update += RetryDeferredRecovery;
-            AssemblyReloadEvents.beforeAssemblyReload += Complete;
-            EditorApplication.quitting += Complete;
+            AssemblyReloadEvents.beforeAssemblyReload += CompleteUnconfirmed;
+            EditorApplication.quitting += CompleteUnconfirmed;
             errorMessage = null;
             return true;
         }
@@ -233,7 +243,9 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.GameView
 
             if (gameView == null)
             {
-                Complete();
+                Complete(
+                    Observation.TargetUnavailable,
+                    "The target GameView was destroyed before presentation recovery completed.");
                 return;
             }
 
@@ -267,7 +279,9 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.GameView
         {
             foreach (var recovery in new List<GameViewResolutionPresentationRecovery>(ActiveRecoveries.Values))
             {
-                recovery.Complete();
+                recovery.Complete(
+                    Observation.TargetUnavailable,
+                    "GameView presentation recovery was cleared before restoration was observed.");
             }
 
             ActiveRecoveries.Clear();
@@ -285,7 +299,14 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.GameView
                 completedEditorUpdateGeneration);
         }
 
-        private void Complete ()
+        private void CompleteUnconfirmed ()
+        {
+            Complete(
+                Observation.TargetUnavailable,
+                "The Editor lifecycle ended before presentation restoration was observed.");
+        }
+
+        private void Complete (Observation observation, string errorMessage)
         {
             if (isTerminal)
             {
@@ -293,6 +314,8 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.GameView
             }
 
             isTerminal = true;
+            terminalObservation = observation;
+            terminalErrorMessage = errorMessage;
             if (isReserved)
             {
                 if (ActiveRecoveries.TryGetValue(gameViewSessionId, out var active)
@@ -303,8 +326,8 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.GameView
             }
 
             EditorApplication.update -= RetryDeferredRecovery;
-            AssemblyReloadEvents.beforeAssemblyReload -= Complete;
-            EditorApplication.quitting -= Complete;
+            AssemblyReloadEvents.beforeAssemblyReload -= CompleteUnconfirmed;
+            EditorApplication.quitting -= CompleteUnconfirmed;
             isReserved = false;
             isScheduled = false;
         }

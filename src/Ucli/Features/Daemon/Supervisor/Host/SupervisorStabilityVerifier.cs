@@ -225,6 +225,7 @@ internal sealed class SupervisorStabilityVerifier
         {
             ExecutionErrorKind.InvalidArgument => ExecutionError.InvalidArgument(message),
             ExecutionErrorKind.Timeout => ExecutionError.Timeout(message),
+            ExecutionErrorKind.Canceled => ExecutionError.Canceled(message),
             ExecutionErrorKind.InternalError => ExecutionError.InternalError(message),
             _ => throw new ArgumentOutOfRangeException(nameof(primaryError), primaryError.Kind, "Unsupported execution error kind."),
         };

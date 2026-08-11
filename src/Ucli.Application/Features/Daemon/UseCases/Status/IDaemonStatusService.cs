@@ -9,7 +9,7 @@ internal interface IDaemonStatusService
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The daemon-status execution result. </returns>
     ValueTask<DaemonStatusExecutionResult> GetStatusAsync (
-        string? projectPath,
+        AbsolutePath? projectPath,
         int? timeoutMilliseconds,
         CancellationToken cancellationToken = default);
 }

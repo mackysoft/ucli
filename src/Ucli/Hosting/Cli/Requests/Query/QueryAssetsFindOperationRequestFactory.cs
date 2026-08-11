@@ -14,7 +14,7 @@ internal static class QueryAssetsFindOperationRequestFactory
         IpcExecuteStepId operationId,
         string operationName,
         string? type,
-        string? pathPrefix,
+        UnityAssetPathPrefix? pathPrefix,
         string? nameContains,
         bool all,
         int? limit,
@@ -42,7 +42,7 @@ internal static class QueryAssetsFindOperationRequestFactory
 
     private static bool TryCreateQuery (
         string? type,
-        string? pathPrefix,
+        UnityAssetPathPrefix? pathPrefix,
         string? nameContains,
         out AssetSearchLookupQuery? query,
         out ExecutionError? error)
@@ -64,23 +64,9 @@ internal static class QueryAssetsFindOperationRequestFactory
             }
         }
 
-        UnityAssetPathPrefix? assetPathPrefix = null;
-        if (pathPrefix is not null)
-        {
-            try
-            {
-                assetPathPrefix = new UnityAssetPathPrefix(pathPrefix);
-            }
-            catch (ArgumentException exception)
-            {
-                error = ExecutionError.InvalidArgument($"Option '--pathPrefix' is invalid. {exception.Message}");
-                return false;
-            }
-        }
-
         try
         {
-            query = new AssetSearchLookupQuery(typeId, assetPathPrefix, nameContains);
+            query = new AssetSearchLookupQuery(typeId, pathPrefix, nameContains);
             return true;
         }
         catch (ArgumentException exception) when (exception.ParamName == "NameContains")

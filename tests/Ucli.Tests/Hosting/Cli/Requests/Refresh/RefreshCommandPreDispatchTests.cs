@@ -14,7 +14,7 @@ public sealed class RefreshCommandPreDispatchTests
         string? timeout)
     {
         var service = new RecordingRefreshService((_, _, _, _) => throw new InvalidOperationException("Service should not be called."));
-        var command = new RefreshCommand(service, CommandResultTestWriter.Create(), new RecordingLifecycleExecutionCliInvocationFactory());
+        var command = new RefreshCommand(service, CommandResultTestWriter.Create(), new RecordingLifecycleExecutionStartInvocationFactory());
 
         var result = await CommandResultCapture.ExecuteAsync(() => command.RefreshAsync(
             mode: mode,

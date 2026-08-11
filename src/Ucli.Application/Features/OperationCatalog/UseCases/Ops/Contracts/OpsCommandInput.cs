@@ -12,7 +12,7 @@ namespace MackySoft.Ucli.Application.Features.OperationCatalog.UseCases.Ops.Cont
 /// <param name="MaxPolicy"> The optional maximum operation-policy filter. </param>
 /// <param name="FailFast"> Whether live source fallback should fail immediately instead of waiting for Unity readiness. </param>
 internal sealed record OpsCommandInput (
-    string? ProjectPath,
+    AbsolutePath? ProjectPath,
     UnityExecutionMode? Mode,
     int? TimeoutMilliseconds,
     ReadIndexMode? ReadIndexMode,

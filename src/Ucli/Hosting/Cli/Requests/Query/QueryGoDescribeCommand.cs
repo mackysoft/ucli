@@ -45,15 +45,15 @@ internal sealed class QueryGoDescribeCommand
     /// <returns> The exit code contained in the emitted command result. </returns>
     [Command(UcliCommandNames.DescribeSubcommand)]
     public async Task<int> DescribeAsync (
-        string? projectPath = null,
+        [AbsolutePathArgumentParser] AbsolutePath? projectPath = null,
         string? mode = null,
         string? timeout = null,
         string? readIndexMode = null,
         bool failFast = false,
         string? globalObjectId = null,
-        string? scene = null,
-        string? hierarchyPath = null,
-        string? prefab = null,
+        [SceneAssetPathArgumentParser] SceneAssetPath? scene = null,
+        [UnityHierarchyPathArgumentParser] UnityHierarchyPath? hierarchyPath = null,
+        [PrefabAssetPathArgumentParser] PrefabAssetPath? prefab = null,
         int? depth = null,
         bool fullDepth = false,
         CancellationToken cancellationToken = default)
@@ -95,9 +95,9 @@ internal sealed class QueryGoDescribeCommand
 
     private static bool TryCreateTarget (
         string? globalObjectId,
-        string? scene,
-        string? hierarchyPath,
-        string? prefab,
+        SceneAssetPath? scene,
+        UnityHierarchyPath? hierarchyPath,
+        PrefabAssetPath? prefab,
         out GameObjectReferenceArgs? target,
         out ExecutionError? error)
     {
@@ -106,23 +106,10 @@ internal sealed class QueryGoDescribeCommand
         {
             return false;
         }
-        if (!QueryOptionValueNormalizer.TryNormalizeOptional(scene, "scene", out var normalizedScene, out error))
-        {
-            return false;
-        }
-        if (!QueryOptionValueNormalizer.TryNormalizeOptional(hierarchyPath, "hierarchyPath", out var normalizedHierarchyPath, out error))
-        {
-            return false;
-        }
-        if (!QueryOptionValueNormalizer.TryNormalizeOptional(prefab, "prefab", out var normalizedPrefab, out error))
-        {
-            return false;
-        }
-
         var selectorCount = 0;
         selectorCount += normalizedGlobalObjectId is null ? 0 : 1;
-        selectorCount += normalizedScene is null ? 0 : 1;
-        selectorCount += normalizedPrefab is null ? 0 : 1;
+        selectorCount += scene is null ? 0 : 1;
+        selectorCount += prefab is null ? 0 : 1;
         if (selectorCount != 1)
         {
             error = ExecutionError.InvalidArgument(
@@ -132,7 +119,7 @@ internal sealed class QueryGoDescribeCommand
 
         if (normalizedGlobalObjectId is not null)
         {
-            if (normalizedHierarchyPath is not null)
+            if (hierarchyPath is not null)
             {
                 error = ExecutionError.InvalidArgument(
                     "'--hierarchyPath' is supported only with '--scene' or '--prefab'.");
@@ -150,41 +137,16 @@ internal sealed class QueryGoDescribeCommand
             return true;
         }
 
-        if (normalizedHierarchyPath is null)
+        if (hierarchyPath is null)
         {
             error = ExecutionError.InvalidArgument(
                 "Hierarchy targets require either '--scene --hierarchyPath' or '--prefab --hierarchyPath'.");
             return false;
         }
 
-        if (!UnityHierarchyPath.TryParse(normalizedHierarchyPath, out var typedHierarchyPath))
-        {
-            error = ExecutionError.InvalidArgument(
-                "Selector '--hierarchyPath' must contain non-empty slash-separated object names.");
-            return false;
-        }
-
-        SceneAssetPath? typedScene = null;
-        if (normalizedScene is not null
-            && !SceneAssetPath.TryParse(normalizedScene, out typedScene))
-        {
-            error = ExecutionError.InvalidArgument(
-                "Selector '--scene' must be a normalized .unity path below 'Assets/'.");
-            return false;
-        }
-
-        PrefabAssetPath? typedPrefab = null;
-        if (normalizedPrefab is not null
-            && !PrefabAssetPath.TryParse(normalizedPrefab, out typedPrefab))
-        {
-            error = ExecutionError.InvalidArgument(
-                "Selector '--prefab' must be a normalized .prefab path below 'Assets/'.");
-            return false;
-        }
-
-        target = typedScene is not null
-            ? new SceneHierarchyReferenceArgs(typedScene, typedHierarchyPath)
-            : new PrefabHierarchyReferenceArgs(typedPrefab!, typedHierarchyPath);
+        target = scene is not null
+            ? new SceneHierarchyReferenceArgs(scene, hierarchyPath)
+            : new PrefabHierarchyReferenceArgs(prefab!, hierarchyPath);
         return true;
     }
 }

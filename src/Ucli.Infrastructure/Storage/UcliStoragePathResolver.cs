@@ -649,6 +649,202 @@ public static class UcliStoragePathResolver
             UcliStoragePathNames.ScreenshotRawStagingFileName);
     }
 
+    /// <summary> Resolves the project-scoped GameView recording artifact directory. </summary>
+    public static AbsolutePath ResolveGameViewRecordingArtifactsDirectory (
+        AbsolutePath storageRoot,
+        ProjectFingerprint projectFingerprint)
+    {
+        return ResolveUnderPath(
+            ResolveArtifactsDirectory(storageRoot, projectFingerprint),
+            UcliStoragePathNames.GameViewRecordingsDirectoryName);
+    }
+
+    /// <summary> Resolves the project-scoped directory containing runtime recording admission locks. </summary>
+    public static AbsolutePath ResolveGameViewRecordingAdmissionLocksDirectory (
+        AbsolutePath storageRoot,
+        ProjectFingerprint projectFingerprint)
+    {
+        return ResolveUnderPath(
+            ResolveProjectDirectory(storageRoot, projectFingerprint),
+            UcliStoragePathNames.GameViewRecordingAdmissionLocksDirectoryName);
+    }
+
+    /// <summary> Resolves the GameView recording admission lock for one Unity runtime. </summary>
+    public static AbsolutePath ResolveGameViewRecordingAdmissionLockPath (
+        AbsolutePath storageRoot,
+        ProjectFingerprint projectFingerprint,
+        Guid runtimeId)
+    {
+        return ResolveUnderPath(
+            ResolveGameViewRecordingAdmissionLocksDirectory(storageRoot, projectFingerprint),
+            StoragePathSegmentCodec.EncodeGuid(runtimeId, nameof(runtimeId))
+            + UcliStoragePathNames.GameViewRecordingAdmissionLockFileExtension);
+    }
+
+    /// <summary> Resolves one recording-scoped immutable artifact directory. </summary>
+    public static AbsolutePath ResolveGameViewRecordingArtifactDirectory (
+        AbsolutePath storageRoot,
+        ProjectFingerprint projectFingerprint,
+        Guid recordingId)
+    {
+        return ResolveUnderPath(
+            ResolveGameViewRecordingArtifactsDirectory(storageRoot, projectFingerprint),
+            StoragePathSegmentCodec.EncodeGuid(recordingId, nameof(recordingId)));
+    }
+
+    /// <summary> Resolves the normalized request artifact path for one recording. </summary>
+    public static AbsolutePath ResolveGameViewRecordingRequestArtifactPath (
+        AbsolutePath storageRoot,
+        ProjectFingerprint projectFingerprint,
+        Guid recordingId)
+    {
+        return ResolveUnderPath(
+            ResolveGameViewRecordingArtifactDirectory(storageRoot, projectFingerprint, recordingId),
+            UcliStoragePathNames.GameViewRecordingRequestFileName);
+    }
+
+    /// <summary> Resolves the manifest artifact path for one recording. </summary>
+    public static AbsolutePath ResolveGameViewRecordingManifestArtifactPath (
+        AbsolutePath storageRoot,
+        ProjectFingerprint projectFingerprint,
+        Guid recordingId)
+    {
+        return ResolveUnderPath(
+            ResolveGameViewRecordingArtifactDirectory(storageRoot, projectFingerprint, recordingId),
+            UcliStoragePathNames.GameViewRecordingManifestFileName);
+    }
+
+    /// <summary> Resolves the finalized video artifact path for one recording. </summary>
+    public static AbsolutePath ResolveGameViewRecordingVideoArtifactPath (
+        AbsolutePath storageRoot,
+        ProjectFingerprint projectFingerprint,
+        Guid recordingId)
+    {
+        return ResolveUnderPath(
+            ResolveGameViewRecordingArtifactDirectory(storageRoot, projectFingerprint, recordingId),
+            UcliStoragePathNames.GameViewRecordingVideoFileName);
+    }
+
+    /// <summary> Resolves the cleanup artifact path for one recording. </summary>
+    public static AbsolutePath ResolveGameViewRecordingCleanupArtifactPath (
+        AbsolutePath storageRoot,
+        ProjectFingerprint projectFingerprint,
+        Guid recordingId)
+    {
+        return ResolveUnderPath(
+            ResolveGameViewRecordingArtifactDirectory(storageRoot, projectFingerprint, recordingId),
+            UcliStoragePathNames.GameViewRecordingCleanupFileName);
+    }
+
+    /// <summary> Resolves the terminal artifact path for one recording. </summary>
+    public static AbsolutePath ResolveGameViewRecordingTerminalArtifactPath (
+        AbsolutePath storageRoot,
+        ProjectFingerprint projectFingerprint,
+        Guid recordingId)
+    {
+        return ResolveUnderPath(
+            ResolveGameViewRecordingArtifactDirectory(storageRoot, projectFingerprint, recordingId),
+            UcliStoragePathNames.GameViewRecordingTerminalFileName);
+    }
+
+    /// <summary> Resolves the diagnostics artifact directory for one recording. </summary>
+    public static AbsolutePath ResolveGameViewRecordingDiagnosticsArtifactDirectory (
+        AbsolutePath storageRoot,
+        ProjectFingerprint projectFingerprint,
+        Guid recordingId)
+    {
+        return ResolveUnderPath(
+            ResolveGameViewRecordingArtifactDirectory(storageRoot, projectFingerprint, recordingId),
+            UcliStoragePathNames.GameViewRecordingDiagnosticsDirectoryName);
+    }
+
+    /// <summary> Resolves the recovered partial-output artifact path for one recording. </summary>
+    public static AbsolutePath ResolveGameViewRecordingPartialOutputArtifactPath (
+        AbsolutePath storageRoot,
+        ProjectFingerprint projectFingerprint,
+        Guid recordingId)
+    {
+        return ResolveUnderPath(
+            ResolveGameViewRecordingDiagnosticsArtifactDirectory(storageRoot, projectFingerprint, recordingId),
+            UcliStoragePathNames.GameViewRecordingPartialOutputFileName);
+    }
+
+    /// <summary> Resolves the project-scoped GameView recording work directory. </summary>
+    public static AbsolutePath ResolveGameViewRecordingWorkDirectory (
+        AbsolutePath storageRoot,
+        ProjectFingerprint projectFingerprint)
+    {
+        return ResolveUnderPath(
+            ResolveWorkDirectory(storageRoot, projectFingerprint),
+            UcliStoragePathNames.GameViewRecordingsDirectoryName);
+    }
+
+    /// <summary> Resolves the durable work scope for one recording. </summary>
+    public static AbsolutePath ResolveGameViewRecordingExecutionWorkDirectory (
+        AbsolutePath storageRoot,
+        ProjectFingerprint projectFingerprint,
+        Guid recordingId)
+    {
+        return ResolveUnderPath(
+            ResolveGameViewRecordingWorkDirectory(storageRoot, projectFingerprint),
+            StoragePathSegmentCodec.EncodeGuid(recordingId, nameof(recordingId)));
+    }
+
+    /// <summary> Resolves the durable execution-state path for one recording. </summary>
+    public static AbsolutePath ResolveGameViewRecordingExecutionStatePath (
+        AbsolutePath storageRoot,
+        ProjectFingerprint projectFingerprint,
+        Guid recordingId)
+    {
+        return ResolveUnderPath(
+            ResolveGameViewRecordingExecutionWorkDirectory(storageRoot, projectFingerprint, recordingId),
+            UcliStoragePathNames.GameViewRecordingExecutionStateFileName);
+    }
+
+    /// <summary> Resolves the execution-state mutation lock path for one recording. </summary>
+    public static AbsolutePath ResolveGameViewRecordingExecutionStateLockPath (
+        AbsolutePath storageRoot,
+        ProjectFingerprint projectFingerprint,
+        Guid recordingId)
+    {
+        return ResolveUnderPath(
+            ResolveGameViewRecordingExecutionWorkDirectory(storageRoot, projectFingerprint, recordingId),
+            UcliStoragePathNames.GameViewRecordingExecutionStateLockFileName);
+    }
+
+    /// <summary> Resolves the terminal-publication ownership lock path for one recording. </summary>
+    public static AbsolutePath ResolveGameViewRecordingTerminalPublicationLockPath (
+        AbsolutePath storageRoot,
+        ProjectFingerprint projectFingerprint,
+        Guid recordingId)
+    {
+        return ResolveUnderPath(
+            ResolveGameViewRecordingExecutionWorkDirectory(storageRoot, projectFingerprint, recordingId),
+            UcliStoragePathNames.GameViewRecordingTerminalPublicationLockFileName);
+    }
+
+    /// <summary> Resolves the provider-private work directory for one recording. </summary>
+    public static AbsolutePath ResolveGameViewRecordingProviderWorkDirectory (
+        AbsolutePath storageRoot,
+        ProjectFingerprint projectFingerprint,
+        Guid recordingId)
+    {
+        return ResolveUnderPath(
+            ResolveGameViewRecordingExecutionWorkDirectory(storageRoot, projectFingerprint, recordingId),
+            UcliStoragePathNames.GameViewRecordingProviderWorkDirectoryName);
+    }
+
+    /// <summary> Resolves the provider-private MP4 staging output path for one recording. </summary>
+    public static AbsolutePath ResolveGameViewRecordingProviderOutputPath (
+        AbsolutePath storageRoot,
+        ProjectFingerprint projectFingerprint,
+        Guid recordingId)
+    {
+        return ResolveUnderPath(
+            ResolveGameViewRecordingProviderWorkDirectory(storageRoot, projectFingerprint, recordingId),
+            UcliStoragePathNames.GameViewRecordingProviderOutputFileName);
+    }
+
     /// <summary> Resolves the guarded mutation read-postcondition file path. </summary>
     public static AbsolutePath ResolveMutationReadPostconditionPath (
         AbsolutePath storageRoot,

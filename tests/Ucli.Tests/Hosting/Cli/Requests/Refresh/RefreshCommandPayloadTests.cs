@@ -12,7 +12,7 @@ public sealed class RefreshCommandPayloadTests
     public async Task Refresh_WithSuccessResult_WritesDedicatedLifecyclePayload ()
     {
         var service = new RecordingRefreshService((_, _, _, _) => ValueTask.FromResult(CreateSuccessResult()));
-        var command = new RefreshCommand(service, CommandResultTestWriter.Create(), new RecordingLifecycleExecutionCliInvocationFactory());
+        var command = new RefreshCommand(service, CommandResultTestWriter.Create(), new RecordingLifecycleExecutionStartInvocationFactory());
 
         var result = await CommandResultCapture.ExecuteAsync(() => command.RefreshAsync(
             cancellationToken: CancellationToken.None));
@@ -28,10 +28,10 @@ public sealed class RefreshCommandPayloadTests
     public async Task Refresh_WhenServiceReturnsTypedFailure_WritesApplicationStateAndExecutionReference ()
     {
         var service = new RecordingRefreshService((_, _, _, _) => ValueTask.FromResult(CreateFailureResult()));
-        var command = new RefreshCommand(service, CommandResultTestWriter.Create(), new RecordingLifecycleExecutionCliInvocationFactory());
+        var command = new RefreshCommand(service, CommandResultTestWriter.Create(), new RecordingLifecycleExecutionStartInvocationFactory());
 
         var result = await CommandResultCapture.ExecuteAsync(() => command.RefreshAsync(
-            projectPath: "/repo/UnityProject",
+            projectPath: AbsolutePath.Parse(ProjectPathTestValues.RepositoryUnityProject),
             cancellationToken: CancellationToken.None));
 
         Assert.Equal((int)CliExitCode.ToolError, result.ExitCode);
@@ -72,7 +72,7 @@ public sealed class RefreshCommandPayloadTests
     {
         var service = new RecordingRefreshService((_, _, _, _) =>
             ValueTask.FromResult(CreatePublicationFailureResult()));
-        var command = new RefreshCommand(service, CommandResultTestWriter.Create(), new RecordingLifecycleExecutionCliInvocationFactory());
+        var command = new RefreshCommand(service, CommandResultTestWriter.Create(), new RecordingLifecycleExecutionStartInvocationFactory());
 
         var result = await CommandResultCapture.ExecuteAsync(() =>
             command.RefreshAsync(cancellationToken: CancellationToken.None));
@@ -104,10 +104,10 @@ public sealed class RefreshCommandPayloadTests
         var readPostcondition = ReadPostconditionTestFactory.CreateAssetSearch();
         var service = new RecordingRefreshService((_, _, _, _) => ValueTask.FromResult(
             CreateSuccessResult(readPostcondition)));
-        var command = new RefreshCommand(service, CommandResultTestWriter.Create(), new RecordingLifecycleExecutionCliInvocationFactory());
+        var command = new RefreshCommand(service, CommandResultTestWriter.Create(), new RecordingLifecycleExecutionStartInvocationFactory());
 
         var result = await CommandResultCapture.ExecuteAsync(() => command.RefreshAsync(
-            projectPath: "/repo/UnityProject",
+            projectPath: AbsolutePath.Parse(ProjectPathTestValues.RepositoryUnityProject),
             cancellationToken: CancellationToken.None));
 
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);

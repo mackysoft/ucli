@@ -16,10 +16,11 @@ internal static class UcliServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
 
         services.AddUcliHostingServices();
-        services.AddUcliApplicationServices();
+        services.AddUcliApplicationServices(TimeProvider.System);
         services.AddUcliSharedServices();
         services.AddUcliUnityIntegrationServices();
         services.AddUcliAssuranceFeatureServices();
+        services.AddUcliRecordingFeatureServices();
         services.AddUcliScreenshotFeatureServices();
         services.AddUcliInitFeatureServices();
         services.AddUcliOperationCatalogFeatureServices();
