@@ -19,7 +19,7 @@ public sealed class GameViewRecordingCommandResultFactoryTests
 
         var output = await WriteAsync(commandResult);
 
-        using var json = StdoutJsonParser.ParseSinglePrettyPrintedObject(output.StdOut);
+        using var json = JsonAssert.ParseMultilineObject(output.StdOut);
         CommandResultAssert.HasSuccessEnvelope(
             json.RootElement,
             UcliCommandNames.RecordingStart);
@@ -40,7 +40,7 @@ public sealed class GameViewRecordingCommandResultFactoryTests
 
         var output = await WriteAsync(commandResult);
 
-        using var json = StdoutJsonParser.ParseSinglePrettyPrintedObject(output.StdOut);
+        using var json = JsonAssert.ParseMultilineObject(output.StdOut);
         var payload = json.RootElement.GetProperty("payload");
         JsonAssert.For(payload)
             .HasString("payloadKind", "detailed")
@@ -63,7 +63,7 @@ public sealed class GameViewRecordingCommandResultFactoryTests
 
         Assert.Equal((int)CliExitCode.ToolError, commandResult.ExitCode);
         Assert.Equal(CommandResult.Canceled(UcliCommandNames.RecordingStart, "Canceled.").ExitCode, commandResult.ExitCode);
-        using var json = StdoutJsonParser.ParseSinglePrettyPrintedObject(output.StdOut);
+        using var json = JsonAssert.ParseMultilineObject(output.StdOut);
         CommandResultAssert.HasSingleError(json.RootElement, ExecutionErrorCodes.Canceled);
         JsonAssert.For(json.RootElement.GetProperty("payload"))
             .HasString("payloadKind", "detailed")
@@ -82,7 +82,7 @@ public sealed class GameViewRecordingCommandResultFactoryTests
 
         var output = await WriteAsync(commandResult);
 
-        using var json = StdoutJsonParser.ParseSinglePrettyPrintedObject(output.StdOut);
+        using var json = JsonAssert.ParseMultilineObject(output.StdOut);
         CommandResultAssert.HasSuccessEnvelope(
             json.RootElement,
             UcliCommandNames.RecordingStop);
@@ -106,7 +106,7 @@ public sealed class GameViewRecordingCommandResultFactoryTests
 
         var output = await WriteAsync(commandResult);
 
-        using var json = StdoutJsonParser.ParseSinglePrettyPrintedObject(output.StdOut);
+        using var json = JsonAssert.ParseMultilineObject(output.StdOut);
         CommandResultAssert.HasSuccessEnvelope(
             json.RootElement,
             UcliCommandNames.RecordingStatus);

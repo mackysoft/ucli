@@ -30,7 +30,7 @@ public sealed class GameViewRecordingRequestInputContractTests
             UcliContractConstants.CliOption.ProjectPath,
             unityProjectPath);
 
-        using var output = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        using var output = JsonAssert.ParseMultilineObject(result.StdOut);
         Assert.Equal((int)CliExitCode.ToolError, result.ExitCode);
         CommandResultAssert.HasSingleError(output.RootElement, GameViewRecordingErrorCodes.Unavailable);
     }
