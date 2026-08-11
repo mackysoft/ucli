@@ -153,7 +153,7 @@ public sealed class GameViewRecordingServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Start_WhenTheInitialDispatchDeadlineExpiresAfterDurableRegistration_PublishesTheIndeterminateTerminalResultWithoutDispatching ()
+    public async Task Start_WhenTheInitialDispatchDeadlineExpiresAfterDurableRegistration_ReturnsTheRecoveryCheckpointWithoutDispatching ()
     {
         var timeProvider = new ManualTimeProvider(StartedAtUtc);
         using var harness = new ServiceHarness(
@@ -165,10 +165,12 @@ public sealed class GameViewRecordingServiceTests
 
         var result = await harness.StartAsync(RecordingId, detach: true);
 
-        var terminal = Assert.IsType<GameViewRecordingTerminalPayload>(result.Payload);
-        Assert.Equal(GameViewRecordingState.Indeterminate, terminal.Progress.State);
+        Assert.False(result.IsSuccess);
+        Assert.Equal(GameViewRecordingErrorCodes.MonitoringTimeout, result.Error!.Code);
+        var recovery = Assert.IsType<GameViewRecordingRecoveryPayload>(result.ExecutionCheckpoint);
+        Assert.Equal(GameViewRecordingState.Finalizing, recovery.Progress.State);
         Assert.Contains(
-            terminal.Diagnostics,
+            recovery.Diagnostics,
             diagnostic => diagnostic.Code == GameViewRecordingErrorCodes.DispatchDeadlineExceeded);
         Assert.Equal(0, harness.Executor.StartCount);
         var durable = await harness.ExecutionStore.ReadAsync(
@@ -176,15 +178,10 @@ public sealed class GameViewRecordingServiceTests
             RecordingId,
             CancellationToken.None);
         Assert.NotNull(durable);
-        Assert.True(durable.Payload.TryGetTerminal(out var durableTerminal));
+        var durableRecovery = Assert.IsType<GameViewRecordingRecoveryPayload>(durable.Payload);
         Assert.Contains(
-            durableTerminal.Diagnostics,
+            durableRecovery.Diagnostics,
             diagnostic => diagnostic.Code == GameViewRecordingErrorCodes.DispatchDeadlineExceeded);
-
-        var other = await harness.StartAsync(OtherRecordingId, detach: true);
-
-        Assert.True(other.IsSuccess);
-        Assert.Equal(1, harness.Executor.StartCount);
     }
 
     [Fact]
@@ -318,6 +315,37 @@ public sealed class GameViewRecordingServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Start_WhenProjectResolutionConsumesTheDeadline_DoesNotStartRecordingIpc ()
+    {
+        var timeProvider = new ManualTimeProvider(StartedAtUtc);
+        using var harness = new ServiceHarness(
+            timeProvider,
+            projectContextResolverFactory: context => new AdvancingProjectContextResolver(
+                context,
+                timeProvider,
+                TimeSpan.FromSeconds(2)));
+
+        var result = await harness.Service.StartAsync(
+            new GameViewRecordingStartInput(
+                ProjectPath: null,
+                RequestJson,
+                RecordingId,
+                Detach: true,
+                TimeoutMilliseconds: 1_000),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ExecutionErrorCodes.IpcTimeout, result.Error!.Code);
+        Assert.Equal(0, harness.Executor.CapabilityCount);
+        Assert.Equal(0, harness.Executor.StartCount);
+        Assert.Null(await harness.ExecutionStore.ReadAsync(
+            harness.Project,
+            RecordingId,
+            CancellationToken.None));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Start_WhenARegisteredStartIsRejected_ReturnsTheDurableExecutionCheckpoint ()
     {
         using var harness = new ServiceHarness();
@@ -389,6 +417,46 @@ public sealed class GameViewRecordingServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Start_RetryWhenProjectResolutionConsumesDeadline_ReturnsDurableCheckpointWithoutOpeningArtifactsOrIpc ()
+    {
+        var timeProvider = new ManualTimeProvider(StartedAtUtc);
+        AdvancingProjectContextResolver? resolver = null;
+        CountingArtifactStore? artifactStore = null;
+        using var harness = new ServiceHarness(
+            timeProvider,
+            projectContextResolverFactory: context => resolver = new AdvancingProjectContextResolver(
+                context,
+                timeProvider,
+                TimeSpan.FromSeconds(2))
+            {
+                IsAdvancing = false,
+            },
+            decorateArtifactStore: store => artifactStore = new CountingArtifactStore(store));
+        Assert.True((await harness.StartAsync(RecordingId, detach: true)).IsSuccess);
+        var durable = Assert.IsType<GameViewRecordingStoredExecution>(
+            await harness.ExecutionStore.ReadAsync(harness.Project, RecordingId, CancellationToken.None));
+        var capabilityCount = harness.Executor.CapabilityCount;
+        resolver!.IsAdvancing = true;
+
+        var result = await harness.Service.StartAsync(
+            new GameViewRecordingStartInput(
+                ProjectPath: null,
+                RequestJson,
+                RecordingId,
+                Detach: true,
+                TimeoutMilliseconds: 1_000),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(GameViewRecordingErrorCodes.MonitoringTimeout, result.Error!.Code);
+        Assert.Equal(durable.Payload.ExecutionReference, result.ExecutionCheckpoint!.ExecutionReference);
+        Assert.Equal(capabilityCount, harness.Executor.CapabilityCount);
+        Assert.Equal(0, artifactStore!.OpenCount);
+        Assert.Equal(1, harness.Executor.StartCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Start_AdmissionDistinguishesIdReuseFromAnotherActiveRecording ()
     {
         using var harness = new ServiceHarness();
@@ -411,7 +479,7 @@ public sealed class GameViewRecordingServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Status_WhenRuntimeObservationFails_ReturnsDurableSelectionWithUnobservedAdmission ()
+    public async Task Status_WhenRuntimeObservationTimesOut_ReturnsIpcTimeoutAndDurableCheckpoint ()
     {
         using var harness = new ServiceHarness();
         var empty = await harness.Service.GetStatusAsync(
@@ -431,12 +499,9 @@ public sealed class GameViewRecordingServiceTests
             new GameViewRecordingStatusInput(null, RecordingId: null, TimeoutMilliseconds: 5_000),
             CancellationToken.None);
 
-        var payload = Assert.IsType<GameViewRecordingStatusPayload>(result.Payload);
-        Assert.Equal(
-            GameViewRecordingRuntimeAdmissionState.Unobserved,
-            payload.Capability.RuntimeAdmission.State);
-        var selected = Assert.IsType<SelectedGameViewRecordingSelection>(payload.RecordingSelection);
-        Assert.Equal(RecordingId, selected.Recording.ExecutionReference.Id);
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ExecutionErrorCodes.IpcTimeout, result.Error!.Code);
+        Assert.IsType<GameViewRecordingActivePayload>(result.ExecutionCheckpoint);
     }
 
     [Fact]
@@ -606,7 +671,7 @@ public sealed class GameViewRecordingServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Stop_BeforeTheTerminalPublisherWritesRecovery_ReturnsAnErrorWithTheActiveCheckpoint ()
+    public async Task Stop_WhileTerminalPublicationLeaseIsOwned_ReturnsTheDurableRecoveryCheckpoint ()
     {
         DelayedTerminalPublicationLeaseStore? delayedStore = null;
         using var harness = new ServiceHarness(decorateExecutionStore: inner =>
@@ -621,15 +686,18 @@ public sealed class GameViewRecordingServiceTests
             new GameViewRecordingStatusInput(null, RecordingId, TimeoutMilliseconds: 5_000),
             CancellationToken.None).AsTask();
         await delayedStore!.FirstLeaseAcquired.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.IsType<GameViewRecordingRecoveryPayload>((await harness.ExecutionStore.ReadAsync(
+            harness.Project,
+            RecordingId,
+            CancellationToken.None))!.Payload);
         try
         {
             var concurrent = await harness.Service.StopAsync(
                 new GameViewRecordingStopInput(null, RecordingId, TimeoutMilliseconds: 250),
                 CancellationToken.None);
 
-            Assert.False(concurrent.IsSuccess);
-            Assert.Equal(ExecutionErrorCodes.IpcTimeout, concurrent.Error!.Code);
-            Assert.IsType<GameViewRecordingActivePayload>(concurrent.ExecutionCheckpoint);
+            Assert.True(concurrent.IsSuccess);
+            Assert.IsType<GameViewRecordingRecoveryPayload>(concurrent.Payload);
             Assert.Equal(0, harness.TerminalFinalizer.FinalizationCount);
             Assert.Equal(0, harness.Executor.StopCount);
         }
@@ -676,6 +744,38 @@ public sealed class GameViewRecordingServiceTests
         var result = await canceledStatus.WaitAsync(TimeSpan.FromSeconds(5));
 
         AssertTerminalStatus(terminalStatus);
+        Assert.Equal(ExecutionErrorCodes.Canceled, result.Error!.Code);
+        Assert.IsType<GameViewRecordingTerminalPayload>(result.ExecutionCheckpoint);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Status_WhenCallerCancelsDuringTerminalFinalization_PassesANonCancelableTokenToTheFinalizer ()
+    {
+        using var harness = new ServiceHarness();
+        Assert.True((await harness.StartAsync(RecordingId, detach: true)).IsSuccess);
+        harness.Executor.ReturnTerminalStatus = true;
+        var finalizationStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseFinalization = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        harness.TerminalFinalizer.BeforeFinalizeAsync = async (_, cancellationToken) =>
+        {
+            Assert.False(cancellationToken.CanBeCanceled);
+            finalizationStarted.SetResult();
+            await releaseFinalization.Task.WaitAsync(cancellationToken);
+        };
+        using var callerCancellation = new CancellationTokenSource();
+
+        var status = harness.Service.GetStatusAsync(
+            new GameViewRecordingStatusInput(null, RecordingId, TimeoutMilliseconds: 5_000),
+            callerCancellation.Token).AsTask();
+        await finalizationStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        callerCancellation.Cancel();
+        releaseFinalization.SetResult();
+        var result = await status.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.False(result.IsSuccess);
         Assert.Equal(ExecutionErrorCodes.Canceled, result.Error!.Code);
         Assert.IsType<GameViewRecordingTerminalPayload>(result.ExecutionCheckpoint);
     }
@@ -753,7 +853,9 @@ public sealed class GameViewRecordingServiceTests
 
         public ServiceHarness (
             TimeProvider? timeProvider = null,
-            Func<IGameViewRecordingExecutionStore, IGameViewRecordingExecutionStore>? decorateExecutionStore = null)
+            Func<IGameViewRecordingExecutionStore, IGameViewRecordingExecutionStore>? decorateExecutionStore = null,
+            Func<ProjectContext, IProjectContextResolver>? projectContextResolverFactory = null,
+            Func<IGameViewRecordingArtifactStore, IGameViewRecordingArtifactStore>? decorateArtifactStore = null)
         {
             scope = TestDirectories.CreateTempScope(
                 "game-view-recording-service",
@@ -776,12 +878,12 @@ public sealed class GameViewRecordingServiceTests
             TerminalFinalizer = new SuccessfulTerminalFinalizer();
             ProcessIdentityObserver = new RecordingProcessIdentityObserver();
             Service = new GameViewRecordingService(
-                new FixedProjectContextResolver(context),
+                projectContextResolverFactory?.Invoke(context) ?? new FixedProjectContextResolver(context),
                 new GameViewRecordingCapabilityResolver(
                     new ResolvedRecorderPackageResolver(),
                     Executor),
                 Executor,
-                artifactStore,
+                decorateArtifactStore?.Invoke(artifactStore) ?? artifactStore,
                 serviceExecutionStore,
                 TerminalFinalizer,
                 ProcessIdentityObserver,
@@ -1054,6 +1156,62 @@ public sealed class GameViewRecordingServiceTests
             ValueTask.FromResult(ProjectContextResolutionResult.Success(context));
     }
 
+    private sealed class AdvancingProjectContextResolver : IProjectContextResolver
+    {
+        private readonly ProjectContext context;
+        private readonly ManualTimeProvider timeProvider;
+        private readonly TimeSpan elapsed;
+
+        public AdvancingProjectContextResolver (
+            ProjectContext context,
+            ManualTimeProvider timeProvider,
+            TimeSpan elapsed)
+        {
+            this.context = context;
+            this.timeProvider = timeProvider;
+            this.elapsed = elapsed;
+        }
+
+        public bool IsAdvancing { get; set; } = true;
+
+        public ValueTask<ProjectContextResolutionResult> ResolveAsync (
+            AbsolutePath? projectPath,
+            CancellationToken cancellationToken = default)
+        {
+            if (IsAdvancing)
+            {
+                timeProvider.Advance(elapsed);
+            }
+            return ValueTask.FromResult(ProjectContextResolutionResult.Success(context));
+        }
+    }
+
+    private sealed class CountingArtifactStore : IGameViewRecordingArtifactStore
+    {
+        private readonly IGameViewRecordingArtifactStore inner;
+
+        public CountingArtifactStore (IGameViewRecordingArtifactStore inner)
+        {
+            this.inner = inner;
+        }
+
+        public int OpenCount { get; private set; }
+
+        public GameViewRecordingArtifactPreparationResult Prepare (
+            ResolvedUnityProjectContext unityProject,
+            Guid recordingId,
+            IGameViewRecordingAdmissionLease admissionLease) =>
+            inner.Prepare(unityProject, recordingId, admissionLease);
+
+        public GameViewRecordingArtifactOpenResult Open (
+            ResolvedUnityProjectContext unityProject,
+            Guid recordingId)
+        {
+            OpenCount++;
+            return inner.Open(unityProject, recordingId);
+        }
+    }
+
     private sealed class ResolvedRecorderPackageResolver : IGameViewRecorderPackageResolver
     {
         public ValueTask<GameViewRecorderPackageResolution> ResolveAsync (
@@ -1144,6 +1302,8 @@ public sealed class GameViewRecordingServiceTests
 
         public int StartCount { get; private set; }
 
+        public int CapabilityCount { get; private set; }
+
         public int StopCount { get; private set; }
 
         public List<IpcGameViewRecordingStatusRequest> StatusRequests { get; } = [];
@@ -1157,6 +1317,11 @@ public sealed class GameViewRecordingServiceTests
             UnityRequestPayload payload,
             CancellationToken cancellationToken = default)
         {
+            if (payload is UnityRequestPayload.RecordingCapability)
+            {
+                CapabilityCount++;
+            }
+
             if (payload is UnityRequestPayload.RecordingCapability
                 && BeforeCapabilityResponseAsync is not null)
             {
@@ -1303,6 +1468,7 @@ public sealed class GameViewRecordingServiceTests
             IGameViewRecordingArtifactLease artifactLease,
             GameViewRecordingStoredExecution stored,
             IpcGameViewRecordingTerminalSnapshot terminalSnapshot,
+            Func<bool> canStartNextStage,
             CancellationToken cancellationToken = default)
         {
             var attempt = Interlocked.Increment(ref finalizationCount);

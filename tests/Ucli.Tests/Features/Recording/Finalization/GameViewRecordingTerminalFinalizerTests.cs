@@ -107,6 +107,7 @@ public sealed class GameViewRecordingTerminalFinalizerTests
             lease,
             stored,
             terminalSnapshot,
+            static () => true,
             CancellationToken.None);
 
         var success = Assert.IsType<GameViewRecordingTerminalFinalizationSuccess>(result);
@@ -245,6 +246,7 @@ public sealed class GameViewRecordingTerminalFinalizerTests
                 lease,
                 stored,
                 terminalSnapshot,
+                static () => true,
                 CancellationToken.None));
 
         var durableCheckpoint = Assert.IsType<GameViewRecordingStoredExecution>(
@@ -254,6 +256,7 @@ public sealed class GameViewRecordingTerminalFinalizerTests
             lease,
             durableCheckpoint,
             terminalSnapshot,
+            static () => true,
             CancellationToken.None);
 
         var resumedSuccess = Assert.IsType<GameViewRecordingTerminalFinalizationSuccess>(resumed);
@@ -280,6 +283,7 @@ public sealed class GameViewRecordingTerminalFinalizerTests
             lease,
             completedCheckpoint,
             terminalSnapshot,
+            static () => true,
             CancellationToken.None);
         Assert.IsType<GameViewRecordingTerminalFinalizationSuccess>(replay);
     }
@@ -340,6 +344,7 @@ public sealed class GameViewRecordingTerminalFinalizerTests
                 lease,
                 stored,
                 terminalSnapshot,
+                static () => true,
                 CancellationToken.None);
 
         var success = Assert.IsType<GameViewRecordingTerminalFinalizationSuccess>(result);
@@ -359,7 +364,50 @@ public sealed class GameViewRecordingTerminalFinalizerTests
 
     [Fact]
     [Trait("Size", "Medium")]
-    public async Task StatusAsync_WhenTerminalPublicationFails_ReturnsTheFinalizerRecoveryCheckpoint ()
+    public async Task FinalizeAsync_WhenPartialRecoveryStageCannotStart_LeavesTheDurableRecoveryCheckpoint ()
+    {
+        using var scope = TestDirectories.CreateTempScope("game-view-recording-finalizer", "partial-stage-deadline");
+        var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(
+            scope,
+            ProjectFingerprintTestFactory.Create("game-view-recording-partial-stage-deadline"),
+            unityVersion: "6000.3.11f1");
+        var context = new ProjectContext(project, UcliConfig.CreateDefault(), ConfigSource.Default);
+        var artifactStore = new FileGameViewRecordingArtifactStore(
+            new ImmutableArtifactFilePublisher(static () => CompletedAtUtc.AddSeconds(1)),
+            new GameViewRecordingMp4Validator());
+        var executionStore = new FileGameViewRecordingExecutionStore();
+        using var admissionLease = await AcquireAdmissionLeaseAsync(executionStore, project);
+        var lease = Assert.IsAssignableFrom<IGameViewRecordingArtifactLease>(
+            artifactStore.Prepare(project, RecordingId, admissionLease).Lease);
+        var request = CreateEffectiveRequest();
+        var requestRef = Assert.IsType<PathArtifactRef>(
+            (await lease.PublishRequestAsync(request, knownArtifact: null, CancellationToken.None)).Artifact);
+        var terminalSnapshot = CreateNonCompletedSnapshot(GameViewRecordingState.Indeterminate, request);
+        var stored = CreateTerminalRecoveryStored(project, request, requestRef, terminalSnapshot);
+        await executionStore.WriteAsync(project, lease.ExecutionStatePath, stored, CancellationToken.None);
+        var providerOutputPath = ResolveProviderOutputPath(project);
+        await File.WriteAllBytesAsync(providerOutputPath.Value, [0x01, 0x02], CancellationToken.None);
+
+        var result = await new GameViewRecordingTerminalFinalizer(executionStore).FinalizeAsync(
+            context,
+            lease,
+            stored,
+            terminalSnapshot,
+            static () => false,
+            CancellationToken.None);
+
+        Assert.IsType<GameViewRecordingTerminalFinalizationFailure>(result);
+        Assert.True(File.Exists(providerOutputPath.Value));
+        var durable = await executionStore.ReadAsync(project, RecordingId, CancellationToken.None);
+        Assert.IsType<GameViewRecordingRecoveryPayload>(durable!.Payload);
+        Assert.DoesNotContain(
+            durable.Payload.ArtifactRefs,
+            static artifact => artifact.Kind == GameViewRecordingArtifactKinds.PartialOutput);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task StatusAsync_WhenTerminalPublicationFails_ReturnsTheLatestDurableRecoveryCheckpoint ()
     {
         using var scope = TestDirectories.CreateTempScope(
             "game-view-recording-finalizer",
@@ -420,10 +468,7 @@ public sealed class GameViewRecordingTerminalFinalizerTests
 
         Assert.False(result.IsSuccess);
         Assert.Equal(GameViewRecordingErrorCodes.FinalizationFailed, result.Error!.Code);
-        Assert.Same(terminalFinalizer.RecoveryPayload, result.ExecutionCheckpoint);
-        Assert.Contains(
-            result.ExecutionCheckpoint!.ArtifactRefs,
-            static artifact => artifact.Kind == GameViewRecordingArtifactKinds.PartialOutput);
+        Assert.IsType<GameViewRecordingRecoveryPayload>(result.ExecutionCheckpoint);
     }
 
     private static GameViewRecordingStoredExecution CreateTerminalRecoveryStored (
@@ -885,6 +930,7 @@ public sealed class GameViewRecordingTerminalFinalizerTests
             IGameViewRecordingArtifactLease artifactLease,
             GameViewRecordingStoredExecution stored,
             IpcGameViewRecordingTerminalSnapshot terminalSnapshot,
+            Func<bool> canStartNextStage,
             CancellationToken cancellationToken = default)
         {
             var recovery = Assert.IsType<GameViewRecordingRecoveryPayload>(stored.Payload);

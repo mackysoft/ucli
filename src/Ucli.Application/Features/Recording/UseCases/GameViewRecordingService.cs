@@ -70,6 +70,8 @@ internal sealed class GameViewRecordingService : IGameViewRecordingService
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(input);
+        var deadlineObservedAtUtc = timeProvider.GetUtcNow().ToUniversalTime();
+        var deadlineObservedTimestamp = timeProvider.GetTimestamp();
         cancellationToken.ThrowIfCancellationRequested();
         if (input.RecordingId == Guid.Empty)
         {
@@ -104,7 +106,11 @@ internal sealed class GameViewRecordingService : IGameViewRecordingService
             return GameViewRecordingStartServiceResult.Failure(timeoutResult.Error!);
         }
 
-        var deadline = ExecutionDeadline.Start(timeoutResult.Timeout!.Value, timeProvider);
+        var deadline = ExecutionDeadline.StartFromObservation(
+            timeoutResult.Timeout!.Value,
+            deadlineObservedAtUtc,
+            deadlineObservedTimestamp,
+            timeProvider);
         if (input.RecordingId.HasValue)
         {
             GameViewRecordingStoredExecution? existing;
@@ -288,6 +294,11 @@ internal sealed class GameViewRecordingService : IGameViewRecordingService
                 .ConfigureAwait(false);
             if (admittedExisting is null)
             {
+                if (!deadline.TryGetRemainingTimeout(out _))
+                {
+                    return StartAdmissionTimeout();
+                }
+
                 var preparation = artifactStore.Prepare(
                     context.UnityProject,
                     recordingId,
@@ -425,12 +436,16 @@ internal sealed class GameViewRecordingService : IGameViewRecordingService
                             lease,
                             stored,
                             StartDispatchRequestLimit,
+                            deadline,
                             cancellationToken)
                         .ConfigureAwait(false);
                     return finalized is RecordingRefreshFailure finalizationFailure
                         ? GameViewRecordingStartServiceResult.Failure(
                             finalizationFailure.Error,
                             finalizationFailure.Stored.Payload)
+                        : !finalized.Stored.Payload.IsTerminal
+                            && !deadline.TryGetRemainingTimeout(out _)
+                            ? MonitoringTimeout(finalized.Stored.Payload)
                         : GameViewRecordingStartServiceResult.Success(finalized.Stored.Payload);
                 }
 
@@ -488,6 +503,42 @@ internal sealed class GameViewRecordingService : IGameViewRecordingService
                     return GameViewRecordingStartServiceResult.Success(stored.Payload);
                 }
 
+                if (!deadline.TryGetRemainingTimeout(out var remaining))
+                {
+                    return MonitoringTimeout(stored.Payload);
+                }
+
+                if (!TryGetStartDispatchTimeout(stored, out var dispatchRemaining))
+                {
+                    if (mayHavePriorDispatch)
+                    {
+                        return await ObserveExistingStartAsync(
+                                context,
+                                stored,
+                                detach,
+                                deadline,
+                                cancellationToken)
+                            .ConfigureAwait(false);
+                    }
+
+                    var finalized = await FinalizeDispatchDeadlineExceededAsync(
+                            context,
+                            lease,
+                            stored,
+                            StartDispatchRequestLimit,
+                            deadline,
+                            cancellationToken)
+                        .ConfigureAwait(false);
+                    return finalized is RecordingRefreshFailure finalizationFailure
+                        ? GameViewRecordingStartServiceResult.Failure(
+                            finalizationFailure.Error,
+                            finalizationFailure.Stored.Payload)
+                        : GameViewRecordingStartServiceResult.Success(finalized.Stored.Payload);
+                }
+
+                startTimeout = CapStartDispatchTimeout(
+                    remaining < dispatchRemaining ? remaining : dispatchRemaining);
+
                 var startRequest = new IpcGameViewRecordingStartRequest(
                     stored.RecordingId,
                     stored.RequestDigest,
@@ -513,7 +564,7 @@ internal sealed class GameViewRecordingService : IGameViewRecordingService
 
                     return GameViewRecordingStartServiceResult.Failure(
                         executionError,
-                        stored.Payload);
+                        (await ReadLatestAsync(context, stored).ConfigureAwait(false)).Payload);
                 }
 
                 if (startExecution.Response!.Errors.Count != 0)
@@ -532,6 +583,7 @@ internal sealed class GameViewRecordingService : IGameViewRecordingService
                                 lease,
                                 stored,
                                 startTimeout,
+                                deadline,
                                 cancellationToken)
                             .ConfigureAwait(false);
                         return finalized is RecordingRefreshFailure finalizationFailure
@@ -552,7 +604,7 @@ internal sealed class GameViewRecordingService : IGameViewRecordingService
                     {
                         return GameViewRecordingStartServiceResult.Failure(
                             failure,
-                            stored.Payload);
+                            (await ReadLatestAsync(context, stored).ConfigureAwait(false)).Payload);
                     }
                 }
                 else
@@ -566,7 +618,7 @@ internal sealed class GameViewRecordingService : IGameViewRecordingService
                     {
                         return GameViewRecordingStartServiceResult.Failure(
                             InvalidRuntimePayload(payloadError.Message, validationError),
-                            stored.Payload);
+                            (await ReadLatestAsync(context, stored).ConfigureAwait(false)).Payload);
                     }
 
                     continuation = StartDispatchContinuation.Accepted(response.Recording);
@@ -598,16 +650,22 @@ internal sealed class GameViewRecordingService : IGameViewRecordingService
                     stored,
                     acceptedSnapshot,
                     startTimeout,
+                    deadline,
                     cancellationToken)
                 .ConfigureAwait(false);
             if (applied is RecordingRefreshFailure applicationFailure)
             {
                 return GameViewRecordingStartServiceResult.Failure(
                     applicationFailure.Error,
-                    applicationFailure.Stored.Payload);
+                    (await ReadLatestAsync(context, applicationFailure.Stored).ConfigureAwait(false)).Payload);
             }
 
             stored = applied.Stored;
+            if (!stored.Payload.IsTerminal
+                && !deadline.TryGetRemainingTimeout(out _))
+            {
+                return MonitoringTimeout(stored.Payload);
+            }
             if (detach || stored.Payload.IsTerminal)
             {
                 return GameViewRecordingStartServiceResult.Success(stored.Payload);
@@ -631,6 +689,8 @@ internal sealed class GameViewRecordingService : IGameViewRecordingService
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(input);
+        var deadlineObservedAtUtc = timeProvider.GetUtcNow().ToUniversalTime();
+        var deadlineObservedTimestamp = timeProvider.GetTimestamp();
         cancellationToken.ThrowIfCancellationRequested();
         if (input.RecordingId == Guid.Empty)
         {
@@ -655,14 +715,23 @@ internal sealed class GameViewRecordingService : IGameViewRecordingService
             return GameViewRecordingStatusServiceResult.Failure(timeoutResult.Error!);
         }
 
-        var deadline = ExecutionDeadline.Start(timeoutResult.Timeout!.Value, timeProvider);
+        var deadline = ExecutionDeadline.StartFromObservation(
+            timeoutResult.Timeout!.Value,
+            deadlineObservedAtUtc,
+            deadlineObservedTimestamp,
+            timeProvider);
+        if (!deadline.TryGetRemainingTimeout(out var capabilityTimeout))
+        {
+            return await StatusTimeoutAsync(context, input.RecordingId).ConfigureAwait(false);
+        }
+
         GameViewRecordingCapabilityResolution capabilityResolution;
         try
         {
             capabilityResolution = await capabilityResolver.ResolveAsync(
                     context,
                     UcliCommandIds.RecordingStatus,
-                    timeoutResult.Timeout.Value,
+                    capabilityTimeout,
                     cancellationToken)
                 .ConfigureAwait(false);
         }
@@ -699,6 +768,11 @@ internal sealed class GameViewRecordingService : IGameViewRecordingService
         }
 
         var capability = capabilityResolution.Capability;
+        if (!deadline.TryGetRemainingTimeout(out _))
+        {
+            return await StatusTimeoutAsync(context, input.RecordingId).ConfigureAwait(false);
+        }
+
         if (stored is null)
         {
             if (input.RecordingId.HasValue)
@@ -712,9 +786,13 @@ internal sealed class GameViewRecordingService : IGameViewRecordingService
                 new NoGameViewRecordingSelection()));
         }
 
-        if (!stored.Payload.IsTerminal
-            && deadline.TryGetRemainingTimeout(out var remaining))
+        if (!stored.Payload.IsTerminal)
         {
+            if (!deadline.TryGetRemainingTimeout(out var remaining))
+            {
+                return await StatusTimeoutAsync(context, stored.RecordingId).ConfigureAwait(false);
+            }
+
             var opened = artifactStore.Open(context.UnityProject, stored.RecordingId);
             if (!opened.IsSuccess)
             {
@@ -731,6 +809,7 @@ internal sealed class GameViewRecordingService : IGameViewRecordingService
                         opened.Lease!,
                         stored,
                         CapTimeout(remaining),
+                        deadline,
                         cancellationToken)
                     .ConfigureAwait(false);
             }
@@ -743,7 +822,7 @@ internal sealed class GameViewRecordingService : IGameViewRecordingService
             {
                 return GameViewRecordingStatusServiceResult.Failure(
                     publicationFailure.Error,
-                    stored.Payload);
+                    (await ReadLatestAsync(context, stored)).Payload);
             }
             if (refreshed is RecordingRuntimeObservationFailure observationFailure)
             {
@@ -752,8 +831,22 @@ internal sealed class GameViewRecordingService : IGameViewRecordingService
                     return await CallerWaitCanceledAsync<GameViewRecordingStatusPayload>(context, stored).ConfigureAwait(false);
                 }
 
+                if (observationFailure.Error.Code == ExecutionErrorCodes.IpcTimeout)
+                {
+                    return await StatusFailureAsync(
+                            context,
+                            stored,
+                            observationFailure.Error)
+                        .ConfigureAwait(false);
+                }
+
                 capability = DegradeRuntimeObservation(capability, observationFailure.Error);
             }
+        }
+
+        if (!deadline.TryGetRemainingTimeout(out _))
+        {
+            return await StatusTimeoutAsync(context, stored.RecordingId).ConfigureAwait(false);
         }
 
         return GameViewRecordingStatusServiceResult.Success(new GameViewRecordingStatusPayload(
@@ -767,6 +860,8 @@ internal sealed class GameViewRecordingService : IGameViewRecordingService
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(input);
+        var deadlineObservedAtUtc = timeProvider.GetUtcNow().ToUniversalTime();
+        var deadlineObservedTimestamp = timeProvider.GetTimestamp();
         cancellationToken.ThrowIfCancellationRequested();
         if (input.RecordingId == Guid.Empty)
         {
@@ -782,6 +877,20 @@ internal sealed class GameViewRecordingService : IGameViewRecordingService
         }
 
         var context = contextResult.Context!;
+        var timeoutResult = IpcCommandTimeoutResolver.ResolveNormalized(
+            input.TimeoutMilliseconds,
+            UcliCommandIds.RecordingStop,
+            context.Config);
+        if (!timeoutResult.IsSuccess)
+        {
+            return GameViewRecordingStopServiceResult.Failure(timeoutResult.Error!);
+        }
+
+        var deadline = ExecutionDeadline.StartFromObservation(
+            timeoutResult.Timeout!.Value,
+            deadlineObservedAtUtc,
+            deadlineObservedTimestamp,
+            timeProvider);
         GameViewRecordingStoredExecution? stored;
         try
         {
@@ -805,20 +914,13 @@ internal sealed class GameViewRecordingService : IGameViewRecordingService
         {
             return NotFound<GameViewRecordingStopResultPayload>(input.RecordingId);
         }
+        if (!deadline.TryGetRemainingTimeout(out _))
+        {
+            return await StopTimeoutAsync(context, stored).ConfigureAwait(false);
+        }
         if (stored.Payload.TryGetTerminal(out var terminalPayload))
         {
             return GameViewRecordingStopServiceResult.Success(terminalPayload);
-        }
-
-        var timeoutResult = IpcCommandTimeoutResolver.ResolveNormalized(
-            input.TimeoutMilliseconds,
-            UcliCommandIds.RecordingStop,
-            context.Config);
-        if (!timeoutResult.IsSuccess)
-        {
-            return GameViewRecordingStopServiceResult.Failure(
-                timeoutResult.Error!,
-                stored.Payload);
         }
 
         var opened = artifactStore.Open(context.UnityProject, stored.RecordingId);
@@ -827,10 +929,9 @@ internal sealed class GameViewRecordingService : IGameViewRecordingService
             return GameViewRecordingStopServiceResult.Failure(opened.Error!, stored.Payload);
         }
 
-        var deadline = ExecutionDeadline.Start(timeoutResult.Timeout!.Value, timeProvider);
         if (!deadline.TryGetRemainingTimeout(out var statusTimeout))
         {
-            return StopTimeout(stored.Payload);
+            return await StopTimeoutAsync(context, stored).ConfigureAwait(false);
         }
 
         RecordingRefreshResult refreshed;
@@ -841,6 +942,7 @@ internal sealed class GameViewRecordingService : IGameViewRecordingService
                     opened.Lease!,
                     stored,
                     CapTimeout(statusTimeout),
+                    deadline,
                     cancellationToken)
                 .ConfigureAwait(false);
         }
@@ -857,9 +959,7 @@ internal sealed class GameViewRecordingService : IGameViewRecordingService
                 return await CallerWaitCanceledAsync<GameViewRecordingStopResultPayload>(context, stored).ConfigureAwait(false);
             }
 
-            return GameViewRecordingStopServiceResult.Failure(
-                refreshFailure.Error,
-                stored.Payload);
+            return await StopFailureAsync(context, stored, refreshFailure.Error).ConfigureAwait(false);
         }
         if (stored.Payload.TryGetTerminal(out terminalPayload))
         {
@@ -875,7 +975,7 @@ internal sealed class GameViewRecordingService : IGameViewRecordingService
         }
         if (!deadline.TryGetRemainingTimeout(out var stopTimeout))
         {
-            return StopTimeout(stored.Payload);
+            return await StopTimeoutAsync(context, stored).ConfigureAwait(false);
         }
 
         UnityRequestExecutionResult execution;
@@ -910,9 +1010,7 @@ internal sealed class GameViewRecordingService : IGameViewRecordingService
                 return await CallerWaitCanceledAsync<GameViewRecordingStopResultPayload>(context, stored).ConfigureAwait(false);
             }
 
-            return GameViewRecordingStopServiceResult.Failure(
-                executionError,
-                stored.Payload);
+            return await StopFailureAsync(context, stored, executionError).ConfigureAwait(false);
         }
         if (execution.Response!.Errors.Count != 0)
         {
@@ -922,9 +1020,7 @@ internal sealed class GameViewRecordingService : IGameViewRecordingService
                 return await CallerWaitCanceledAsync<GameViewRecordingStopResultPayload>(context, stored).ConfigureAwait(false);
             }
 
-            return GameViewRecordingStopServiceResult.Failure(
-                executionError,
-                stored.Payload);
+            return await StopFailureAsync(context, stored, executionError).ConfigureAwait(false);
         }
         string? validationError = null;
         if (!IpcPayloadCodec.TryDeserialize(
@@ -933,9 +1029,11 @@ internal sealed class GameViewRecordingService : IGameViewRecordingService
                 out var payloadError)
             || !TryValidateSnapshot(stored, response.Recording, out validationError))
         {
-            return GameViewRecordingStopServiceResult.Failure(
-                InvalidRuntimePayload(payloadError.Message, validationError),
-                stored.Payload);
+            return await StopFailureAsync(
+                    context,
+                    stored,
+                    InvalidRuntimePayload(payloadError.Message, validationError))
+                .ConfigureAwait(false);
         }
 
         RecordingRefreshResult applied;
@@ -947,6 +1045,7 @@ internal sealed class GameViewRecordingService : IGameViewRecordingService
                     stored,
                     response.Recording,
                     stopTimeout,
+                    deadline,
                     cancellationToken)
                 .ConfigureAwait(false);
         }
@@ -956,9 +1055,16 @@ internal sealed class GameViewRecordingService : IGameViewRecordingService
         }
         if (applied is RecordingRefreshFailure applicationFailure)
         {
-            return GameViewRecordingStopServiceResult.Failure(
-                applicationFailure.Error,
-                applicationFailure.Stored.Payload);
+            return await StopFailureAsync(
+                    context,
+                    applicationFailure.Stored,
+                    applicationFailure.Error)
+                .ConfigureAwait(false);
+        }
+
+        if (!deadline.TryGetRemainingTimeout(out _))
+        {
+            return await StopTimeoutAsync(context, applied.Stored).ConfigureAwait(false);
         }
 
         return applied.Stored.Payload.Lifecycle == ExecutionLifecycle.Active
@@ -990,6 +1096,11 @@ internal sealed class GameViewRecordingService : IGameViewRecordingService
                 || existing.RuntimeSnapshot.State == GameViewRecordingState.Preparing)
             && TryGetStartDispatchTimeout(existing, out _))
         {
+            if (!deadline.TryGetRemainingTimeout(out _))
+            {
+                return await MonitoringTimeoutAsync(context, existing).ConfigureAwait(false);
+            }
+
             var opened = artifactStore.Open(context.UnityProject, existing.RecordingId);
             if (!opened.IsSuccess)
             {
@@ -1033,6 +1144,11 @@ internal sealed class GameViewRecordingService : IGameViewRecordingService
                 return GameViewRecordingStartServiceResult.Success(existing.Payload);
             }
 
+            if (!deadline.TryGetRemainingTimeout(out _))
+            {
+                return await MonitoringTimeoutAsync(context, existing).ConfigureAwait(false);
+            }
+
             var opened = artifactStore.Open(context.UnityProject, existing.RecordingId);
             if (!opened.IsSuccess)
             {
@@ -1050,6 +1166,7 @@ internal sealed class GameViewRecordingService : IGameViewRecordingService
                     opened.Lease!,
                     existing,
                     CapTimeout(timeout),
+                    deadline,
                     cancellationToken)
                 .ConfigureAwait(false);
             var stored = refreshed.Stored;
@@ -1057,7 +1174,7 @@ internal sealed class GameViewRecordingService : IGameViewRecordingService
             {
                 return GameViewRecordingStartServiceResult.Failure(
                     publicationFailure.Error,
-                    stored.Payload);
+                    (await ReadLatestAsync(context, stored).ConfigureAwait(false)).Payload);
             }
             if (refreshed is RecordingRuntimeObservationFailure
                 {
@@ -1066,7 +1183,7 @@ internal sealed class GameViewRecordingService : IGameViewRecordingService
             {
                 return GameViewRecordingStartServiceResult.Failure(
                     cancellationFailure.Error,
-                    stored.Payload);
+                    (await ReadLatestAsync(context, stored).ConfigureAwait(false)).Payload);
             }
             if (detach || stored.Payload.IsTerminal)
             {
@@ -1115,6 +1232,7 @@ internal sealed class GameViewRecordingService : IGameViewRecordingService
                     lease,
                     stored,
                     CapTimeout(remaining),
+                    deadline,
                     cancellationToken)
                 .ConfigureAwait(false);
             stored = refreshed.Stored;
@@ -1122,7 +1240,7 @@ internal sealed class GameViewRecordingService : IGameViewRecordingService
             {
                 return GameViewRecordingStartServiceResult.Failure(
                     publicationFailure.Error,
-                    stored.Payload);
+                    (await ReadLatestAsync(context, stored).ConfigureAwait(false)).Payload);
             }
             if (refreshed is RecordingRuntimeObservationFailure
                 {
@@ -1141,6 +1259,7 @@ internal sealed class GameViewRecordingService : IGameViewRecordingService
         IGameViewRecordingArtifactLease lease,
         GameViewRecordingStoredExecution stored,
         TimeSpan timeout,
+        ExecutionDeadline deadline,
         CancellationToken cancellationToken)
     {
         if (stored.RuntimeSnapshot is { } knownTerminal
@@ -1152,6 +1271,7 @@ internal sealed class GameViewRecordingService : IGameViewRecordingService
                     stored,
                     knownTerminal,
                     timeout,
+                    deadline,
                     cancellationToken)
                 .ConfigureAwait(false);
         }
@@ -1180,6 +1300,7 @@ internal sealed class GameViewRecordingService : IGameViewRecordingService
                     stored,
                     timeout,
                     CreateRuntimeError(execution.FailureInfo!),
+                    deadline,
                     cancellationToken)
                 .ConfigureAwait(false);
         }
@@ -1191,6 +1312,7 @@ internal sealed class GameViewRecordingService : IGameViewRecordingService
                     stored,
                     timeout,
                     CreateRuntimeError(execution.Response.Errors[0]),
+                    deadline,
                     cancellationToken)
                 .ConfigureAwait(false);
         }
@@ -1205,6 +1327,7 @@ internal sealed class GameViewRecordingService : IGameViewRecordingService
                     stored,
                     timeout,
                     InvalidRuntimePayload(payloadError.Message, validationError: null),
+                    deadline,
                     cancellationToken)
                 .ConfigureAwait(false);
         }
@@ -1218,6 +1341,7 @@ internal sealed class GameViewRecordingService : IGameViewRecordingService
                         lease,
                         stored,
                         timeout,
+                        deadline,
                         cancellationToken)
                     .ConfigureAwait(false);
             }
@@ -1230,6 +1354,7 @@ internal sealed class GameViewRecordingService : IGameViewRecordingService
                     ExecutionError.InternalError(
                         "Unity no longer reports the registered GameView recording.",
                         GameViewRecordingErrorCodes.Interrupted),
+                    deadline,
                     cancellationToken)
                 .ConfigureAwait(false);
         }
@@ -1241,6 +1366,7 @@ internal sealed class GameViewRecordingService : IGameViewRecordingService
                     stored,
                     timeout,
                     InvalidRuntimePayload(payloadError.Message, validationError),
+                    deadline,
                     cancellationToken)
                 .ConfigureAwait(false);
         }
@@ -1251,6 +1377,7 @@ internal sealed class GameViewRecordingService : IGameViewRecordingService
                 stored,
                 selected.Recording,
                 timeout,
+                deadline,
                 cancellationToken)
             .ConfigureAwait(false);
     }
@@ -1260,6 +1387,7 @@ internal sealed class GameViewRecordingService : IGameViewRecordingService
         IGameViewRecordingArtifactLease lease,
         GameViewRecordingStoredExecution stored,
         TimeSpan terminalPublicationWaitTimeout,
+        ExecutionDeadline deadline,
         CancellationToken cancellationToken) =>
         await ApplySnapshotAsync(
                 context,
@@ -1267,6 +1395,7 @@ internal sealed class GameViewRecordingService : IGameViewRecordingService
                 stored,
                 CreateDispatchDeadlineExceededSnapshot(stored),
                 terminalPublicationWaitTimeout,
+                deadline,
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -1318,6 +1447,7 @@ internal sealed class GameViewRecordingService : IGameViewRecordingService
         GameViewRecordingStoredExecution stored,
         TimeSpan timeout,
         ExecutionError observationError,
+        ExecutionDeadline deadline,
         CancellationToken cancellationToken)
     {
         if (observationError.Kind == ExecutionErrorKind.Canceled
@@ -1367,6 +1497,7 @@ internal sealed class GameViewRecordingService : IGameViewRecordingService
                 stored,
                 snapshot,
                 timeout,
+                deadline,
                 cancellationToken)
             .ConfigureAwait(false);
     }
@@ -1377,6 +1508,7 @@ internal sealed class GameViewRecordingService : IGameViewRecordingService
         GameViewRecordingStoredExecution stored,
         IpcGameViewRecordingSnapshot snapshot,
         TimeSpan terminalPublicationWaitTimeout,
+        ExecutionDeadline deadline,
         CancellationToken cancellationToken)
     {
         if (!snapshot.TryGetTerminal(out var terminalSnapshot))
@@ -1393,29 +1525,8 @@ internal sealed class GameViewRecordingService : IGameViewRecordingService
             return RecordingRefreshResult.Success(observationExchange.Current);
         }
 
-        using var publicationLease = await executionStore.TryAcquireTerminalPublicationLeaseAsync(
-                context.UnityProject,
-                stored.RecordingId,
-                terminalPublicationWaitTimeout,
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (publicationLease is null)
-        {
-            var durable = await executionStore.ReadAsync(
-                    context.UnityProject,
-                    stored.RecordingId,
-                    cancellationToken)
-                .ConfigureAwait(false);
-            return ResolveTerminalPublicationCheckpoint(durable ?? stored);
-        }
-
-        var current = await executionStore.ReadAsync(
-                context.UnityProject,
-                stored.RecordingId,
-                cancellationToken)
-            .ConfigureAwait(false)
-            ?? throw new InvalidOperationException(
-                "Recording execution state disappeared before terminal publication.");
+        // A terminal runtime fact must be recoverable before a publisher can own its artifact stages.
+        var current = stored;
         while (!current.Payload.IsTerminal)
         {
             if (!TryValidateSnapshot(current, terminalSnapshot, out _))
@@ -1432,7 +1543,7 @@ internal sealed class GameViewRecordingService : IGameViewRecordingService
                     lease.ExecutionStatePath,
                     current,
                     observed,
-                    cancellationToken)
+                    CancellationToken.None)
                 .ConfigureAwait(false);
             current = observationExchange.Current;
             if (observationExchange.Exchanged)
@@ -1445,12 +1556,48 @@ internal sealed class GameViewRecordingService : IGameViewRecordingService
             return RecordingRefreshResult.Success(current);
         }
 
+        if (!deadline.TryGetRemainingTimeout(out var remaining))
+        {
+            return RecordingRefreshResult.Success(current);
+        }
+
+        using var publicationLease = await executionStore.TryAcquireTerminalPublicationLeaseAsync(
+                context.UnityProject,
+                stored.RecordingId,
+                CapTimeout(remaining < terminalPublicationWaitTimeout
+                    ? remaining
+                    : terminalPublicationWaitTimeout),
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (publicationLease is null)
+        {
+            var durable = await executionStore.ReadAsync(
+                    context.UnityProject,
+                    stored.RecordingId,
+                    CancellationToken.None)
+                .ConfigureAwait(false);
+            return ResolveTerminalPublicationCheckpoint(durable ?? current);
+        }
+
+        if (cancellationToken.IsCancellationRequested)
+        {
+            return RecordingRefreshResult.RuntimeObservationFailure(
+                current,
+                CallerCancellationError());
+        }
+
+        if (!deadline.TryGetRemainingTimeout(out _))
+        {
+            return RecordingRefreshResult.Success(current);
+        }
+
         var finalization = await terminalFinalizer.FinalizeAsync(
                 context,
                 lease,
                 current,
                 terminalSnapshot,
-                cancellationToken)
+                () => deadline.TryGetRemainingTimeout(out _),
+                CancellationToken.None)
             .ConfigureAwait(false);
         if (finalization is GameViewRecordingTerminalFinalizationFailure finalizationFailure)
         {
@@ -1460,7 +1607,9 @@ internal sealed class GameViewRecordingService : IGameViewRecordingService
                 finalizationFailure.RecoveryPayload);
             return RecordingRefreshResult.TerminalPublicationFailure(
                 recovery,
-                finalizationFailure.Error);
+                deadline.IsExpired
+                    ? CreateTerminalPublicationPendingError()
+                    : finalizationFailure.Error);
         }
 
         var finalizationSuccess = finalization as GameViewRecordingTerminalFinalizationSuccess
@@ -1469,7 +1618,7 @@ internal sealed class GameViewRecordingService : IGameViewRecordingService
         var latest = await executionStore.ReadAsync(
                 context.UnityProject,
                 current.RecordingId,
-                cancellationToken)
+                CancellationToken.None)
             .ConfigureAwait(false)
             ?? throw new InvalidOperationException(
                 "Recording execution state disappeared during terminal publication.");
@@ -1484,9 +1633,13 @@ internal sealed class GameViewRecordingService : IGameViewRecordingService
                 lease.ExecutionStatePath,
                 latest,
                 terminal,
-                cancellationToken)
+                CancellationToken.None)
             .ConfigureAwait(false);
-        return ResolveTerminalPublicationCheckpoint(terminalExchange.Current);
+        return cancellationToken.IsCancellationRequested
+            ? RecordingRefreshResult.RuntimeObservationFailure(
+                terminalExchange.Current,
+                CallerCancellationError())
+            : ResolveTerminalPublicationCheckpoint(terminalExchange.Current);
     }
 
     private static GameViewRecordingRequestNormalizationResult Normalize (
@@ -1710,6 +1863,11 @@ internal sealed class GameViewRecordingService : IGameViewRecordingService
                 ? ExecutionError.Timeout(failure.Message, failure.Code)
                 : ExecutionError.InternalError(failure.Message, failure.Code);
 
+    private static ExecutionError CallerCancellationError () =>
+        ExecutionError.Canceled(
+            "Waiting for the GameView recording was canceled; the returned execution checkpoint, when present, reports the latest durable state.",
+            ExecutionErrorCodes.Canceled);
+
     private static ExecutionError InvalidRuntimePayload (
         string? codecError,
         string? validationError)
@@ -1760,6 +1918,14 @@ internal sealed class GameViewRecordingService : IGameViewRecordingService
                 GameViewRecordingErrorCodes.MonitoringTimeout),
             payload);
 
+    private async ValueTask<GameViewRecordingStartServiceResult> MonitoringTimeoutAsync (
+        ProjectContext context,
+        GameViewRecordingStoredExecution known)
+    {
+        var latest = await ReadLatestAsync(context, known).ConfigureAwait(false);
+        return MonitoringTimeout(latest.Payload);
+    }
+
     private static GameViewRecordingStartServiceResult StartAdmissionTimeout () =>
         GameViewRecordingStartServiceResult.Failure(
             ExecutionError.Timeout(
@@ -1773,6 +1939,69 @@ internal sealed class GameViewRecordingService : IGameViewRecordingService
                 "GameView recording stop could not complete within the caller's deadline.",
                 ExecutionErrorCodes.IpcTimeout),
             payload);
+
+    private async ValueTask<GameViewRecordingStatusServiceResult> StatusTimeoutAsync (
+        ProjectContext context,
+        Guid? recordingId)
+    {
+        if (!recordingId.HasValue)
+        {
+            return GameViewRecordingStatusServiceResult.Failure(
+                ExecutionError.Timeout(
+                    "GameView recording status could not complete within the caller's deadline.",
+                    ExecutionErrorCodes.IpcTimeout));
+        }
+
+        var latest = await executionStore.ReadAsync(
+                context.UnityProject,
+                recordingId.Value,
+                CancellationToken.None)
+            .ConfigureAwait(false);
+        return GameViewRecordingStatusServiceResult.Failure(
+            ExecutionError.Timeout(
+                "GameView recording status could not complete within the caller's deadline.",
+                ExecutionErrorCodes.IpcTimeout),
+            latest?.Payload);
+    }
+
+    private async ValueTask<GameViewRecordingStopServiceResult> StopTimeoutAsync (
+        ProjectContext context,
+        GameViewRecordingStoredExecution known) =>
+        await StopFailureAsync(
+                context,
+                known,
+                ExecutionError.Timeout(
+                    "GameView recording stop could not complete within the caller's deadline.",
+                    ExecutionErrorCodes.IpcTimeout))
+            .ConfigureAwait(false);
+
+    private async ValueTask<GameViewRecordingStatusServiceResult> StatusFailureAsync (
+        ProjectContext context,
+        GameViewRecordingStoredExecution known,
+        ExecutionError error)
+    {
+        var latest = await ReadLatestAsync(context, known).ConfigureAwait(false);
+        return GameViewRecordingStatusServiceResult.Failure(error, latest.Payload);
+    }
+
+    private async ValueTask<GameViewRecordingStopServiceResult> StopFailureAsync (
+        ProjectContext context,
+        GameViewRecordingStoredExecution known,
+        ExecutionError error)
+    {
+        var latest = await ReadLatestAsync(context, known).ConfigureAwait(false);
+        return GameViewRecordingStopServiceResult.Failure(error, latest.Payload);
+    }
+
+    private async ValueTask<GameViewRecordingStoredExecution> ReadLatestAsync (
+        ProjectContext context,
+        GameViewRecordingStoredExecution known) =>
+        await executionStore.ReadAsync(
+                context.UnityProject,
+                known.RecordingId,
+                CancellationToken.None)
+            .ConfigureAwait(false)
+        ?? known;
 
     private static GameViewRecordingStopServiceResult TerminalPublicationPending (
         GameViewRecordingExecutionPayload payload) =>
@@ -1822,9 +2051,7 @@ internal sealed class GameViewRecordingService : IGameViewRecordingService
         GameViewRecordingExecutionPayload? payload)
         where TPayload : GameViewRecordingPayload =>
         GameViewRecordingServiceResult<TPayload>.Failure(
-            ExecutionError.Canceled(
-                "Waiting for the GameView recording was canceled; the returned execution checkpoint, when present, reports the latest durable state.",
-                ExecutionErrorCodes.Canceled),
+            CallerCancellationError(),
             payload);
 
     private abstract record RecordingRefreshResult

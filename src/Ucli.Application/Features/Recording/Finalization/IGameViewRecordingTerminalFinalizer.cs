@@ -15,6 +15,7 @@ internal interface IGameViewRecordingTerminalFinalizer
         IGameViewRecordingArtifactLease artifactLease,
         GameViewRecordingStoredExecution stored,
         IpcGameViewRecordingTerminalSnapshot terminalSnapshot,
+        Func<bool> canStartNextStage,
         CancellationToken cancellationToken = default);
 }
 

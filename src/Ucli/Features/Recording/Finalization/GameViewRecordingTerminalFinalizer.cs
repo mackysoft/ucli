@@ -38,12 +38,14 @@ internal sealed class GameViewRecordingTerminalFinalizer : IGameViewRecordingTer
         IGameViewRecordingArtifactLease artifactLease,
         GameViewRecordingStoredExecution stored,
         IpcGameViewRecordingTerminalSnapshot terminalSnapshot,
+        Func<bool> canStartNextStage,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(artifactLease);
         ArgumentNullException.ThrowIfNull(stored);
         ArgumentNullException.ThrowIfNull(terminalSnapshot);
+        ArgumentNullException.ThrowIfNull(canStartNextStage);
 
         var validationError = ValidateInputs(stored, terminalSnapshot);
         if (validationError is not null)
@@ -86,6 +88,11 @@ internal sealed class GameViewRecordingTerminalFinalizer : IGameViewRecordingTer
             }
             else
             {
+                if (!canStartNextStage())
+                {
+                    return Failure(checkpoint, TerminalPublicationDeadlineExceeded());
+                }
+
                 var videoResult = await artifactLease.PublishVideoAsync(
                         effectiveRequest,
                         terminalSnapshot.EncodedFrameCount,
@@ -117,6 +124,7 @@ internal sealed class GameViewRecordingTerminalFinalizer : IGameViewRecordingTer
                             checkpoint,
                             artifacts,
                             diagnostics,
+                            canStartNextStage,
                             cancellationToken)
                         .ConfigureAwait(false);
                     checkpoint = partialResult.Checkpoint;
@@ -150,6 +158,7 @@ internal sealed class GameViewRecordingTerminalFinalizer : IGameViewRecordingTer
                     checkpoint,
                     artifacts,
                     diagnostics,
+                    canStartNextStage,
                     cancellationToken)
                 .ConfigureAwait(false);
             checkpoint = partialResult.Checkpoint;
@@ -185,6 +194,11 @@ internal sealed class GameViewRecordingTerminalFinalizer : IGameViewRecordingTer
             cleanup.Disposition,
             GetStartedAtUtc(terminalSnapshot),
             terminalSnapshot.CompletedAtUtc);
+
+        if (!canStartNextStage())
+        {
+            return Failure(checkpoint, TerminalPublicationDeadlineExceeded());
+        }
 
         var cleanupResult = await artifactLease.PublishCleanupAsync(
                 cleanup,
@@ -250,6 +264,11 @@ internal sealed class GameViewRecordingTerminalFinalizer : IGameViewRecordingTer
                     $"The recording manifest facts are inconsistent. {exception.Message}"));
         }
 
+        if (!canStartNextStage())
+        {
+            return Failure(checkpoint, TerminalPublicationDeadlineExceeded());
+        }
+
         var manifestResult = await artifactLease.PublishManifestAsync(
                 manifest,
                 artifacts.Get(GameViewRecordingArtifactKinds.Manifest),
@@ -285,6 +304,11 @@ internal sealed class GameViewRecordingTerminalFinalizer : IGameViewRecordingTer
             stored.RequestRef,
             terminalRecordRefs,
             diagnostics);
+        if (!canStartNextStage())
+        {
+            return Failure(checkpoint, TerminalPublicationDeadlineExceeded());
+        }
+
         var terminalResult = await artifactLease.PublishTerminalRecordAsync(
                 terminalRecord,
                 artifacts.Get(GameViewRecordingArtifactKinds.TerminalRecord),
@@ -321,8 +345,16 @@ internal sealed class GameViewRecordingTerminalFinalizer : IGameViewRecordingTer
         GameViewRecordingStoredExecution checkpoint,
         ArtifactSet artifacts,
         IReadOnlyList<GameViewRecordingDiagnostic> diagnostics,
+        Func<bool> canStartNextStage,
         CancellationToken cancellationToken)
     {
+        if (!canStartNextStage())
+        {
+            return new PartialRecoveryAttempt(
+                checkpoint,
+                TerminalPublicationDeadlineExceeded());
+        }
+
         var result = await artifactLease.RecoverPartialOutputAsync(
                 artifacts.Get(GameViewRecordingArtifactKinds.PartialOutput),
                 cancellationToken)
@@ -374,7 +406,7 @@ internal sealed class GameViewRecordingTerminalFinalizer : IGameViewRecordingTer
                 context.UnityProject,
                 artifactLease.ExecutionStatePath,
                 checkpoint,
-                cancellationToken)
+                CancellationToken.None)
             .ConfigureAwait(false);
         return checkpoint;
     }
@@ -723,6 +755,11 @@ internal sealed class GameViewRecordingTerminalFinalizer : IGameViewRecordingTer
         ExecutionError.InternalError(
             message,
             GameViewRecordingErrorCodes.FinalizationFailed);
+
+    private static ExecutionError TerminalPublicationDeadlineExceeded () =>
+        ExecutionError.Timeout(
+            "GameView recording terminal publication reached the caller deadline before its next artifact stage could start.",
+            ExecutionErrorCodes.IpcTimeout);
 
     private sealed record PartialRecoveryAttempt (
         GameViewRecordingStoredExecution Checkpoint,
