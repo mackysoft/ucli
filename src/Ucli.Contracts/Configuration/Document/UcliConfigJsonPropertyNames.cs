@@ -23,4 +23,7 @@ internal static class UcliConfigJsonPropertyNames
 
     /// <summary> Gets the IPC timeout override-map property name. </summary>
     public const string IpcTimeoutMillisecondsByCommand = "ipcTimeoutMillisecondsByCommand";
+
+    /// <summary> Gets the project Program Preset registration map property name. </summary>
+    public const string ProgramPresets = "programPresets";
 }

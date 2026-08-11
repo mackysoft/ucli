@@ -21,4 +21,6 @@ internal sealed record UcliConfigDocument (
     string[] OperationAllowlist,
     int? IpcDefaultTimeoutMilliseconds,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    Dictionary<string, int?>? IpcTimeoutMillisecondsByCommand);
+    Dictionary<string, int?>? IpcTimeoutMillisecondsByCommand,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    Dictionary<string, UcliProgramPresetDocument>? ProgramPresets = null);

@@ -41,6 +41,10 @@ using MackySoft.Ucli.Application.Features.Play.Common;
 using MackySoft.Ucli.Application.Features.Play.UseCases.Enter;
 using MackySoft.Ucli.Application.Features.Play.UseCases.Exit;
 using MackySoft.Ucli.Application.Features.Play.UseCases.Status;
+using MackySoft.Ucli.Application.Features.Programs.Parsing;
+using MackySoft.Ucli.Application.Features.Programs.Presets;
+using MackySoft.Ucli.Application.Features.Programs.Resolution;
+using MackySoft.Ucli.Application.Features.Programs.Validate;
 using MackySoft.Ucli.Application.Features.Requests.Call.UseCases.Call;
 using MackySoft.Ucli.Application.Features.Requests.Plan.UseCases.Plan;
 using MackySoft.Ucli.Application.Features.Requests.Query.UseCases.Query;
@@ -92,6 +96,7 @@ public static class UcliApplicationServiceCollectionExtensions
         services.AddUcliApplicationDaemonServices();
         services.AddUcliApplicationInitServices();
         services.AddUcliApplicationPlayServices();
+        services.AddUcliApplicationProgramServices();
         services.AddUcliApplicationScreenshotServices();
         services.AddUcliApplicationStatusServices();
         services.AddUcliApplicationTestingServices();
@@ -169,6 +174,15 @@ public static class UcliApplicationServiceCollectionExtensions
         services.AddSingleton<IOpsListResultMapper, OpsListResultMapper>();
         services.AddSingleton<IOpsDescribeResultMapper, OpsDescribeResultMapper>();
         services.AddSingleton<IOpsService, OpsService>();
+        return services;
+    }
+
+    private static IServiceCollection AddUcliApplicationProgramServices (this IServiceCollection services)
+    {
+        services.AddSingleton<IProgramJsonParser, ProgramJsonParser>();
+        services.AddSingleton<IProgramDefinitionResolver, ProgramDefinitionResolver>();
+        services.AddSingleton<IProgramPresetCatalog, ProgramPresetCatalog>();
+        services.AddSingleton<IProgramValidationService, ProgramValidationService>();
         return services;
     }
 

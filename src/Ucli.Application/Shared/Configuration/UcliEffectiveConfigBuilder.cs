@@ -12,6 +12,9 @@ internal sealed class UcliEffectiveConfigBuilder
     private const string InvalidRegexPatternCode = "config.semantic.invalidRegexPattern";
     private const string InvalidTimeoutCode = "config.semantic.invalidTimeout";
     private const string UnsupportedTimeoutCommandCode = "config.semantic.unsupportedTimeoutCommand";
+    private const string InvalidProgramPresetIdCode = "config.semantic.invalidProgramPresetId";
+    private const string InvalidProgramPresetDescriptionCode = "config.semantic.invalidProgramPresetDescription";
+    private const string InvalidProgramPresetPathCode = "config.semantic.invalidProgramPresetPath";
 
     /// <summary> Builds effective config values from raw config JSON values. </summary>
     /// <param name="document"> The raw config JSON values. </param>
@@ -79,6 +82,7 @@ internal sealed class UcliEffectiveConfigBuilder
             document.OperationAllowlist,
             sourcePath,
             diagnostics);
+        var programPresets = BuildProgramPresets(document.ProgramPresets, sourcePath, diagnostics);
 
         if (diagnostics.Count > 0)
         {
@@ -94,6 +98,7 @@ internal sealed class UcliEffectiveConfigBuilder
         {
             IpcDefaultTimeoutMilliseconds = ipcDefaultTimeoutMilliseconds,
             IpcTimeoutMillisecondsByCommand = ipcTimeoutMillisecondsByCommand,
+            ProgramPresets = programPresets,
         };
         return UcliConfigBuildResult.Success(config);
     }
@@ -127,6 +132,44 @@ internal sealed class UcliEffectiveConfigBuilder
             EmptyAllowlistPatternCode,
             InvalidRegexPatternCode,
             diagnostics);
+    }
+
+    private static Dictionary<string, ProgramPresetRegistration> BuildProgramPresets (
+        IReadOnlyDictionary<string, UcliProgramPresetDocument>? source,
+        string sourcePath,
+        List<UcliConfigDiagnostic> diagnostics)
+    {
+        var presets = new Dictionary<string, ProgramPresetRegistration>(StringComparer.Ordinal);
+        if (source is null)
+        {
+            return presets;
+        }
+
+        foreach (var entry in source.OrderBy(static value => value.Key, StringComparer.Ordinal))
+        {
+            var idPath = $"{UcliConfigJsonPropertyNames.ProgramPresets}.{entry.Key}";
+            if (!UcliProgramPresetValidator.IsValidId(entry.Key))
+            {
+                AddDiagnostic(diagnostics, CreateDiagnostic(InvalidProgramPresetIdCode, idPath, sourcePath, "Config Program Preset ID is invalid."));
+                continue;
+            }
+
+            if (!UcliProgramPresetValidator.IsValidDescription(entry.Value.Description))
+            {
+                AddDiagnostic(diagnostics, CreateDiagnostic(InvalidProgramPresetDescriptionCode, $"{idPath}.description", sourcePath, "Config Program Preset description must contain 1 through 1024 characters."));
+                continue;
+            }
+
+            if (!UcliProgramPresetValidator.IsValidProgramPath(entry.Value.ProgramPath))
+            {
+                AddDiagnostic(diagnostics, CreateDiagnostic(InvalidProgramPresetPathCode, $"{idPath}.programPath", sourcePath, "Config Program Preset programPath must be a relative .json path without dot segments."));
+                continue;
+            }
+
+            presets.Add(entry.Key, new ProgramPresetRegistration(entry.Value.Description, entry.Value.ProgramPath));
+        }
+
+        return presets;
     }
 
     private static UcliConfigDiagnostic CreateUnsupportedLiteralDiagnostic (

@@ -15,4 +15,5 @@ internal readonly record struct UcliConfigJsonRawDocument (
     string? ReadIndexDefaultMode,
     string[] OperationAllowlist,
     int? IpcDefaultTimeoutMilliseconds,
-    Dictionary<string, int?>? IpcTimeoutMillisecondsByCommand);
+    Dictionary<string, int?>? IpcTimeoutMillisecondsByCommand,
+    Dictionary<string, UcliProgramPresetDocument>? ProgramPresets);
