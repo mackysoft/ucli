@@ -63,6 +63,9 @@ public static class UcliPrimitiveOperationNames
     /// <summary> Gets the primitive operation name for <c>ucli.project.save</c>. </summary>
     public const string ProjectSave = "ucli.project.save";
 
+    /// <summary> Gets the primitive operation name for <c>ucli.project.missingScripts.check</c>. </summary>
+    public const string ProjectMissingScriptsCheck = "ucli.project.missingScripts.check";
+
     /// <summary> Gets the primitive operation name for <c>ucli.scene.open</c>. </summary>
     public const string SceneOpen = "ucli.scene.open";
 
