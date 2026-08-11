@@ -1,6 +1,7 @@
 using System.Buffers;
 using System.Text;
 using System.Text.Json;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Validation.Parsing;
 using MackySoft.Ucli.Contracts.Ipc;
 
@@ -148,12 +149,18 @@ internal sealed class ProgramJsonParser : IProgramJsonParser
         if (hasRequestPath)
         {
             var requestPath = ReadRequiredString(element, "requestPath", path, diagnostics);
+            RootRelativePath? typedRequestPath = null;
             if (requestPath is not null && string.IsNullOrWhiteSpace(requestPath))
             {
                 Add(diagnostics, InvalidValueCode, $"{path}/requestPath", "Program requestPath must not be empty.");
             }
 
-            return diagnostics.Count == 0 ? new CallProgramStep(timeout, null, requestPath) : null;
+            if (requestPath is not null && !RootRelativePath.TryParse(requestPath, out typedRequestPath, out _))
+            {
+                Add(diagnostics, InvalidValueCode, $"{path}/requestPath", "Program requestPath must be a non-empty relative path within the reference root.");
+            }
+
+            return diagnostics.Count == 0 ? new ReferencedCallProgramStep(timeout, typedRequestPath!) : null;
         }
 
         if (inlineSteps.ValueKind != JsonValueKind.Array)
@@ -170,7 +177,7 @@ internal sealed class ProgramJsonParser : IProgramJsonParser
             return null;
         }
 
-        return new CallProgramStep(timeout, requestResult.Request, null);
+        return new InlineCallProgramStep(timeout, requestResult.Request!);
     }
 
     private static JsonDocument CreateInlineRequestDocument (JsonElement steps)

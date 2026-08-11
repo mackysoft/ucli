@@ -1,6 +1,7 @@
 namespace MackySoft.Ucli.Tests;
 
 using System.Text.Json;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Contracts.Configuration;
 
@@ -52,8 +53,8 @@ public sealed class UcliConfigStoreTests
             },
             ProgramPresets = new Dictionary<string, ProgramPresetRegistration>(StringComparer.Ordinal)
             {
-                ["zeta"] = new ProgramPresetRegistration("Compiles the project.", "programs/zeta.json"),
-                ["alpha"] = new ProgramPresetRegistration("Checks project readiness.", "programs/alpha.json"),
+                ["zeta"] = new ProgramPresetRegistration("Compiles the project.", RootRelativePath.Parse("programs/zeta.json")),
+                ["alpha"] = new ProgramPresetRegistration("Checks project readiness.", RootRelativePath.Parse("programs/alpha.json")),
             },
         };
 

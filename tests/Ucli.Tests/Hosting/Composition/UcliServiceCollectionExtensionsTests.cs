@@ -1,8 +1,13 @@
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Contracts;
 using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Source;
+using MackySoft.Ucli.Application.Features.Programs.Presets;
+using MackySoft.Ucli.Application.Features.Programs.Resolution;
+using MackySoft.Ucli.Application.Features.Recording.UseCases;
+using MackySoft.Ucli.Application.Shared.Execution.Process;
 using MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Assets;
 using MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Scenes;
 using MackySoft.Ucli.Hosting.Composition.Common;
+using MackySoft.Ucli.Infrastructure.Artifacts;
 using MackySoft.Ucli.UnityIntegration.Indexing.Core;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -72,6 +77,12 @@ public sealed class UcliServiceCollectionExtensionsTests
         Assert.NotNull(serviceProvider.GetRequiredService<ISceneTreeLiteSourceRefreshService>());
         Assert.NotNull(serviceProvider.GetRequiredService<ISceneTreeLiteDirtySourceProbeService>());
         Assert.NotNull(serviceProvider.GetRequiredService<IPersistedOpsCatalogPersistenceArtifactsReader>());
+        Assert.NotNull(serviceProvider.GetRequiredService<IProgramDefinitionResolver>());
+        Assert.NotNull(serviceProvider.GetRequiredService<IProgramPresetCatalog>());
+        Assert.NotNull(serviceProvider.GetRequiredService<IGameViewRecordingService>());
+        Assert.Same(TimeProvider.System, serviceProvider.GetRequiredService<TimeProvider>());
+        Assert.NotNull(serviceProvider.GetRequiredService<ImmutableArtifactFilePublisher>());
+        Assert.NotNull(serviceProvider.GetRequiredService<IProcessIdentityObserver>());
     }
 
 }

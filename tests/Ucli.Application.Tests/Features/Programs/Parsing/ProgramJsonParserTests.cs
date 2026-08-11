@@ -30,10 +30,9 @@ public sealed class ProgramJsonParserTests
 
         Assert.True(result.IsSuccess);
         var program = Assert.IsType<ProgramDefinition>(result.Program);
-        var call = Assert.IsType<CallProgramStep>(Assert.Single(program.Steps));
+        var call = Assert.IsType<InlineCallProgramStep>(Assert.Single(program.Steps));
         Assert.Equal(1000, call.TimeoutMilliseconds);
-        Assert.NotNull(call.InlineRequest);
-        Assert.Null(call.RequestPath);
+        Assert.NotNull(call.Request);
     }
 
     [Fact]

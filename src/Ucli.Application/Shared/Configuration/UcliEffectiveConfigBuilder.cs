@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Text;
 
@@ -166,7 +167,7 @@ internal sealed class UcliEffectiveConfigBuilder
                 continue;
             }
 
-            presets.Add(entry.Key, new ProgramPresetRegistration(entry.Value.Description, entry.Value.ProgramPath));
+            presets.Add(entry.Key, new ProgramPresetRegistration(entry.Value.Description, RootRelativePath.Parse(entry.Value.ProgramPath)));
         }
 
         return presets;

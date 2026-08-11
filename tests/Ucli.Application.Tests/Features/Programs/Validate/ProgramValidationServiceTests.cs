@@ -1,4 +1,5 @@
 using System.Text.Json;
+using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Application.Features.Programs.Parsing;
 using MackySoft.Ucli.Application.Features.Programs.Resolution;
 using MackySoft.Ucli.Application.Features.Programs.Validate;
@@ -14,12 +15,7 @@ public sealed class ProgramValidationServiceTests
         var expected = CreateResolutionResult();
         var resolver = new RecordingDefinitionResolver(expected);
         var service = new ProgramValidationService(resolver);
-        var input = new ProgramDefinitionResolutionInput(
-            "{\"steps\":[{\"command\":\"ready\"}]}",
-            ProgramRootSource.Stdin,
-            RootPath: null,
-            PresetId: null,
-            ReferenceRootPath: null);
+        var input = new StdinProgramDefinitionResolutionInput("{\"steps\":[{\"command\":\"ready\"}]}");
 
         var actual = await service.ValidateAsync(input);
 
@@ -32,17 +28,17 @@ public sealed class ProgramValidationServiceTests
         using var document = JsonDocument.Parse("{\"steps\":[{\"command\":\"ready\"}]}");
         var program = new ProgramDefinition([new ReadyProgramStep(null)], document.RootElement.Clone());
         var manifest = new ProgramSourceManifest(
-            Digest: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            Digest: Sha256Digest.Parse("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
             RootSource: ProgramRootSource.Stdin,
             RootPath: null,
             PresetId: null,
-            ProgramDigest: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            ProgramDigest: Sha256Digest.Parse("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"),
             Sources: Array.Empty<ProgramSourceManifestEntry>());
         return ProgramDefinitionResolutionResult.Success(new ResolvedProgramDefinition(
             program,
             Array.Empty<ResolvedProgramSource>(),
             manifest,
-            "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"));
+            Sha256Digest.Parse("cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc")));
     }
 
     private sealed class RecordingDefinitionResolver (ProgramDefinitionResolutionResult result) : IProgramDefinitionResolver

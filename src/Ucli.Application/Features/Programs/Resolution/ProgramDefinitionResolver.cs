@@ -1,9 +1,13 @@
 using System.Buffers;
-using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using MackySoft.FileSystem;
 using MackySoft.Json.Canonicalization;
 using MackySoft.Ucli.Application.Features.Programs.Parsing;
+using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
+using MackySoft.Ucli.Application.Features.Requests.Shared.Validation.Parsing;
+using MackySoft.Ucli.Contracts.Cryptography;
+using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Features.Programs.Resolution;
 
@@ -42,47 +46,36 @@ internal sealed class ProgramDefinitionResolver : IProgramDefinitionResolver
         var sources = new List<ResolvedProgramSource>();
         for (var index = 0; index < program.Steps.Count; index++)
         {
-            if (program.Steps[index] is not CallProgramStep { RequestPath: not null } call)
+            if (program.Steps[index] is not ReferencedCallProgramStep call)
             {
                 continue;
             }
 
             var instancePath = $"/steps/{index}/requestPath";
-            var resolvedPath = ResolveReferencePath(input.ReferenceRootPath, call.RequestPath, instancePath, diagnostics);
-            if (resolvedPath is null)
+            if (input.ReferenceRoot is null)
             {
+                diagnostics.Add(new ProgramDiagnostic(ReferenceBoundaryCode, instancePath, "Program requestPath is not allowed for standard input."));
                 continue;
             }
 
-            var readResult = await fileReader.ReadAsync(resolvedPath, cancellationToken).ConfigureAwait(false);
-            if (!readResult.IsSuccess)
+            var result = await fileReader.ReadAsync(
+                    ContainedPath.Create(input.ReferenceRoot, call.RequestPath),
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (result is not ProgramDefinitionFileReadSuccess read)
             {
-                diagnostics.Add(new ProgramDiagnostic(ReferenceUnavailableCode, instancePath, readResult.Error!));
+                diagnostics.Add(CreateReadDiagnostic(result, instancePath));
                 continue;
             }
 
-            var requestResult = ParseRequest(readResult.Content!, instancePath);
-            if (requestResult is not null)
+            var source = ParseSource(read.Content, call.RequestPath, instancePath);
+            if (source.Source is null)
             {
-                diagnostics.Add(requestResult);
+                diagnostics.Add(source.Diagnostic!);
                 continue;
             }
 
-            try
-            {
-                using var document = JsonDocument.Parse(readResult.Content!);
-                var canonical = Rfc8785JsonCanonicalizer.Canonicalize(document.RootElement);
-                sources.Add(new ResolvedProgramSource(
-                    instancePath,
-                    NormalizeRelativePath(call.RequestPath),
-                    ComputeSha256(canonical),
-                    readResult.Content!.Length,
-                    Encoding.UTF8.GetString(readResult.Content!)));
-            }
-            catch (Exception exception) when (exception is JsonException or JsonCanonicalizationException)
-            {
-                diagnostics.Add(new ProgramDiagnostic(ReferenceInvalidCode, instancePath, $"Referenced request JSON is invalid. {exception.Message}"));
-            }
+            sources.Add(source.Source);
         }
 
         if (diagnostics.Count > 0)
@@ -92,24 +85,23 @@ internal sealed class ProgramDefinitionResolver : IProgramDefinitionResolver
 
         try
         {
-            var canonicalProgram = Rfc8785JsonCanonicalizer.Canonicalize(program.RootDocument);
-            var programDigest = ComputeSha256(canonicalProgram);
+            var programDigest = Sha256Digest.Compute(Rfc8785JsonCanonicalizer.Canonicalize(program.RootDocument));
             var manifestEntries = sources.Select(static source => new ProgramSourceManifestEntry(
                 source.InstancePath,
                 "request",
                 source.Path,
                 source.DocumentDigest,
                 source.ByteLength)).ToArray();
-            var manifestWithoutDigest = WriteManifest(input, programDigest, manifestEntries, includeDigest: false);
+            var manifestWithoutDigest = WriteManifest(input, programDigest, manifestEntries);
             var manifest = new ProgramSourceManifest(
-                ComputeSha256(Rfc8785JsonCanonicalizer.Canonicalize(manifestWithoutDigest)),
+                Sha256Digest.Compute(Rfc8785JsonCanonicalizer.Canonicalize(manifestWithoutDigest)),
                 input.RootSource,
-                input.RootPath is null ? null : NormalizePath(input.RootPath),
+                input.RootPath,
                 input.PresetId,
                 programDigest,
                 manifestEntries);
-            var definitionIdentity = WriteDefinitionIdentity(program.RootDocument, sources);
-            var definitionDigest = ComputeSha256(Rfc8785JsonCanonicalizer.Canonicalize(definitionIdentity));
+            var definitionDigest = Sha256Digest.Compute(
+                Rfc8785JsonCanonicalizer.Canonicalize(WriteDefinitionIdentity(program.RootDocument, sources)));
             return ProgramDefinitionResolutionResult.Success(new ResolvedProgramDefinition(program, sources, manifest, definitionDigest));
         }
         catch (JsonCanonicalizationException exception)
@@ -120,81 +112,80 @@ internal sealed class ProgramDefinitionResolver : IProgramDefinitionResolver
         }
     }
 
-    private static ProgramDiagnostic? ParseRequest (byte[] utf8Json, string instancePath)
+    private static ProgramDiagnostic CreateReadDiagnostic (ProgramDefinitionFileReadResult result, string instancePath)
+    {
+        return result switch
+        {
+            ProgramDefinitionFileReadOutsideBoundary => new ProgramDiagnostic(ReferenceBoundaryCode, instancePath, "Program requestPath resolves outside the reference root after symbolic-link resolution."),
+            ProgramDefinitionFileReadChangedDuringRead => new ProgramDiagnostic(ReferenceUnavailableCode, instancePath, "Referenced request file changed while it was being read."),
+            ProgramDefinitionFileReadUnavailable unavailable => new ProgramDiagnostic(ReferenceUnavailableCode, instancePath, unavailable.Message),
+            _ => throw new InvalidOperationException($"Unknown Program definition file read result: {result.GetType().Name}."),
+        };
+    }
+
+    private static ParsedSource ParseSource (byte[] utf8Json, RootRelativePath path, string instancePath)
     {
         try
         {
             using var requestDocument = JsonDocument.Parse(utf8Json);
             if (requestDocument.RootElement.ValueKind != JsonValueKind.Object)
             {
-                return new ProgramDiagnostic(ReferenceInvalidCode, instancePath, "Referenced request JSON root must be an object.");
+                return ParsedSource.Failure(new ProgramDiagnostic(ReferenceInvalidCode, instancePath, "Referenced request JSON root must be an object."));
             }
 
-            var buffer = new ArrayBufferWriter<byte>();
-            using (var writer = new Utf8JsonWriter(buffer))
+            var parsedRequest = ParseRequest(requestDocument.RootElement);
+            if (!parsedRequest.IsSuccess)
             {
-                writer.WriteStartObject();
-                writer.WriteNumber("protocolVersion", Contracts.Ipc.IpcProtocol.CurrentVersion);
-                foreach (var property in requestDocument.RootElement.EnumerateObject())
-                {
-                    writer.WritePropertyName(property.Name);
-                    property.Value.WriteTo(writer);
-                }
-
-                writer.WriteEndObject();
+                return ParsedSource.Failure(new ProgramDiagnostic(ReferenceInvalidCode, instancePath, parsedRequest.Error!.Message));
             }
 
-            var parsed = new Requests.Shared.Validation.Parsing.ValidateRequestJsonParser().Parse(Encoding.UTF8.GetString(buffer.WrittenSpan));
-            return parsed.IsSuccess
-                ? null
-                : new ProgramDiagnostic(ReferenceInvalidCode, instancePath, parsed.Error!.Message);
+            var canonical = Rfc8785JsonCanonicalizer.Canonicalize(requestDocument.RootElement);
+            return ParsedSource.Success(new ResolvedProgramSource(
+                instancePath,
+                path,
+                Sha256Digest.Compute(canonical),
+                utf8Json.Length,
+                Encoding.UTF8.GetString(canonical),
+                parsedRequest.Request!));
         }
-        catch (JsonException exception)
+        catch (Exception exception) when (exception is JsonException or JsonCanonicalizationException)
         {
-            return new ProgramDiagnostic(ReferenceInvalidCode, instancePath, $"Referenced request JSON is invalid. {exception.Message}");
+            return ParsedSource.Failure(new ProgramDiagnostic(ReferenceInvalidCode, instancePath, $"Referenced request JSON is invalid. {exception.Message}"));
         }
     }
 
-    private static string? ResolveReferencePath (string? root, string referencePath, string instancePath, List<ProgramDiagnostic> diagnostics)
-    {
-        if (root is null)
-        {
-            diagnostics.Add(new ProgramDiagnostic(ReferenceBoundaryCode, instancePath, "Program requestPath is not allowed for standard input."));
-            return null;
-        }
-
-        if (Path.IsPathRooted(referencePath) || referencePath.Split('/', StringSplitOptions.None).Any(static segment => segment is "." or ".." or ""))
-        {
-            diagnostics.Add(new ProgramDiagnostic(ReferenceBoundaryCode, instancePath, "Program requestPath must be a non-empty relative path within the reference root."));
-            return null;
-        }
-
-        var rootFullPath = Path.GetFullPath(root);
-        var candidate = Path.GetFullPath(Path.Combine(rootFullPath, referencePath.Replace('/', Path.DirectorySeparatorChar)));
-        if (!ProgramReferencePathResolver.TryResolveWithinRoot(rootFullPath, candidate, out var resolvedCandidate))
-        {
-            diagnostics.Add(new ProgramDiagnostic(ReferenceBoundaryCode, instancePath, "Program requestPath resolves outside the reference root after symbolic-link resolution."));
-            return null;
-        }
-
-        return resolvedCandidate;
-    }
-
-    private static JsonElement WriteManifest (ProgramDefinitionResolutionInput input, string programDigest, IReadOnlyList<ProgramSourceManifestEntry> sources, bool includeDigest)
+    private static ValidateRequestJsonParseResult ParseRequest (JsonElement request)
     {
         var buffer = new ArrayBufferWriter<byte>();
         using (var writer = new Utf8JsonWriter(buffer))
         {
             writer.WriteStartObject();
-            if (includeDigest)
+            writer.WriteNumber("protocolVersion", IpcProtocol.CurrentVersion);
+            foreach (var property in request.EnumerateObject())
             {
-                writer.WriteString("digest", string.Empty);
+                writer.WritePropertyName(property.Name);
+                property.Value.WriteTo(writer);
             }
 
+            writer.WriteEndObject();
+        }
+
+        return new ValidateRequestJsonParser().Parse(Encoding.UTF8.GetString(buffer.WrittenSpan));
+    }
+
+    private static JsonElement WriteManifest (
+        ProgramDefinitionResolutionInput input,
+        Sha256Digest programDigest,
+        IReadOnlyList<ProgramSourceManifestEntry> sources)
+    {
+        var buffer = new ArrayBufferWriter<byte>();
+        using (var writer = new Utf8JsonWriter(buffer))
+        {
+            writer.WriteStartObject();
             writer.WriteString("rootSource", input.RootSource.ToString().ToLowerInvariant());
-            writer.WriteString("rootPath", input.RootPath is null ? null : NormalizePath(input.RootPath));
+            writer.WriteString("rootPath", input.RootPath?.Value?.Replace('\\', '/'));
             writer.WriteString("presetId", input.PresetId);
-            writer.WriteString("programDigest", programDigest);
+            writer.WriteString("programDigest", programDigest.ToString());
             writer.WritePropertyName("sources");
             writer.WriteStartArray();
             foreach (var source in sources)
@@ -202,8 +193,8 @@ internal sealed class ProgramDefinitionResolver : IProgramDefinitionResolver
                 writer.WriteStartObject();
                 writer.WriteString("instancePath", source.InstancePath);
                 writer.WriteString("role", source.Role);
-                writer.WriteString("path", source.Path);
-                writer.WriteString("documentDigest", source.DocumentDigest);
+                writer.WriteString("path", source.Path.Value);
+                writer.WriteString("documentDigest", source.DocumentDigest.ToString());
                 writer.WriteNumber("byteLength", source.ByteLength);
                 writer.WriteEndObject();
             }
@@ -231,8 +222,8 @@ internal sealed class ProgramDefinitionResolver : IProgramDefinitionResolver
                 writer.WriteStartObject();
                 writer.WriteString("instancePath", source.InstancePath);
                 writer.WriteString("role", "request");
-                writer.WriteString("path", source.Path);
-                writer.WriteString("documentDigest", source.DocumentDigest);
+                writer.WriteString("path", source.Path.Value);
+                writer.WriteString("documentDigest", source.DocumentDigest.ToString());
                 writer.WriteEndObject();
             }
 
@@ -244,9 +235,10 @@ internal sealed class ProgramDefinitionResolver : IProgramDefinitionResolver
         return document.RootElement.Clone();
     }
 
-    private static string ComputeSha256 (byte[] content) => Convert.ToHexString(SHA256.HashData(content)).ToLowerInvariant();
+    private sealed record ParsedSource (ResolvedProgramSource? Source, ProgramDiagnostic? Diagnostic)
+    {
+        public static ParsedSource Success (ResolvedProgramSource source) => new(source, null);
 
-    private static string NormalizeRelativePath (string path) => path.Replace('\\', '/');
-
-    private static string NormalizePath (string path) => Path.GetFullPath(path).Replace('\\', '/');
+        public static ParsedSource Failure (ProgramDiagnostic diagnostic) => new(null, diagnostic);
+    }
 }

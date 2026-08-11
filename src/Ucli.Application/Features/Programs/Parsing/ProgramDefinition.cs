@@ -1,4 +1,5 @@
 using System.Text.Json;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 
 namespace MackySoft.Ucli.Application.Features.Programs.Parsing;
@@ -12,10 +13,17 @@ internal sealed record ProgramDefinition (
 internal abstract record ProgramStep (int? TimeoutMilliseconds);
 
 /// <summary> Invokes exactly one request represented inline or by a referenced request document. </summary>
-internal sealed record CallProgramStep (
+internal abstract record CallProgramStep (int? TimeoutMilliseconds) : ProgramStep(TimeoutMilliseconds);
+
+/// <summary> Invokes a request defined directly in the Program document. </summary>
+internal sealed record InlineCallProgramStep (
     int? TimeoutMilliseconds,
-    ValidateRequest? InlineRequest,
-    string? RequestPath) : ProgramStep(TimeoutMilliseconds);
+    ValidateRequest Request) : CallProgramStep(TimeoutMilliseconds);
+
+/// <summary> Invokes a request read from a path relative to the Program reference root. </summary>
+internal sealed record ReferencedCallProgramStep (
+    int? TimeoutMilliseconds,
+    RootRelativePath RequestPath) : CallProgramStep(TimeoutMilliseconds);
 
 /// <summary> Observes that the project is ready. </summary>
 internal sealed record ReadyProgramStep (int? TimeoutMilliseconds) : ProgramStep(TimeoutMilliseconds);

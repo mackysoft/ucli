@@ -83,7 +83,7 @@ internal sealed class UcliConfigCompiler
             .OrderBy(static entry => entry.Key, StringComparer.Ordinal)
             .ToDictionary(
             static entry => entry.Key,
-            static entry => new UcliProgramPresetDocument(entry.Value.Description, entry.Value.ProgramPath),
+            static entry => new UcliProgramPresetDocument(entry.Value.Description, entry.Value.ProgramPath.Value),
             StringComparer.Ordinal);
 
         return UcliConfigDocumentBuildResult.Success(new UcliConfigDocument(
@@ -158,7 +158,7 @@ internal sealed class UcliConfigCompiler
                 AddDiagnostic(diagnostics, CreateDiagnostic("config.save.invalidProgramPresetDescription", $"{path}.description", sourcePath, "Config Program Preset description must contain 1 through 1024 characters."));
             }
 
-            if (entry.Value is null || !UcliProgramPresetValidator.IsValidProgramPath(entry.Value.ProgramPath))
+            if (entry.Value is null || !UcliProgramPresetValidator.IsValidProgramPath(entry.Value.ProgramPath.Value))
             {
                 AddDiagnostic(diagnostics, CreateDiagnostic("config.save.invalidProgramPresetPath", $"{path}.programPath", sourcePath, "Config Program Preset programPath must be a relative slash-separated .json path without dot segments."));
             }

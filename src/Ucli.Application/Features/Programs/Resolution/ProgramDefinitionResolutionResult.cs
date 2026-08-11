@@ -1,4 +1,7 @@
 using MackySoft.Ucli.Application.Features.Programs.Parsing;
+using MackySoft.FileSystem;
+using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
+using MackySoft.Ucli.Contracts.Cryptography;
 
 namespace MackySoft.Ucli.Application.Features.Programs.Resolution;
 
@@ -30,29 +33,30 @@ internal sealed record ResolvedProgramDefinition (
     ProgramDefinition Program,
     IReadOnlyList<ResolvedProgramSource> Sources,
     ProgramSourceManifest SourceManifest,
-    string DefinitionDigest);
+    Sha256Digest DefinitionDigest);
 
 /// <summary> Represents one resolved request source. </summary>
 internal sealed record ResolvedProgramSource (
     string InstancePath,
-    string Path,
-    string DocumentDigest,
+    RootRelativePath Path,
+    Sha256Digest DocumentDigest,
     int ByteLength,
-    string DocumentJson);
+    string CanonicalDocumentJson,
+    ValidateRequest Request);
 
 /// <summary> Represents the Program source manifest fixed alongside a resolved definition. </summary>
 internal sealed record ProgramSourceManifest (
-    string Digest,
+    Sha256Digest Digest,
     ProgramRootSource RootSource,
-    string? RootPath,
+    AbsolutePath? RootPath,
     string? PresetId,
-    string ProgramDigest,
+    Sha256Digest ProgramDigest,
     IReadOnlyList<ProgramSourceManifestEntry> Sources);
 
 /// <summary> Represents one request document recorded by a Program source manifest. </summary>
 internal sealed record ProgramSourceManifestEntry (
     string InstancePath,
     string Role,
-    string Path,
-    string DocumentDigest,
+    RootRelativePath Path,
+    Sha256Digest DocumentDigest,
     int ByteLength);

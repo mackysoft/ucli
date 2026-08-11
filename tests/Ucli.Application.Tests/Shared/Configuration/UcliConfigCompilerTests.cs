@@ -213,7 +213,7 @@ public sealed class UcliConfigCompilerTests
         var config = CreateConfigWithProgramPresets(
             new Dictionary<string, ProgramPresetRegistration>(StringComparer.Ordinal)
             {
-                ["Invalid"] = new ProgramPresetRegistration(new string('a', 1025), "../smoke.txt"),
+                ["Invalid"] = new ProgramPresetRegistration(new string('a', 1025), RootRelativePath.Parse("smoke.json")),
             });
 
         var result = UcliConfigCompiler.CreateDefault().CreateDocument(config, "config.json");
@@ -221,7 +221,6 @@ public sealed class UcliConfigCompilerTests
         Assert.False(result.IsSuccess);
         Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.Code == "config.save.invalidProgramPresetId");
         Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.Code == "config.save.invalidProgramPresetDescription");
-        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.Code == "config.save.invalidProgramPresetPath");
     }
 
     [Fact]
@@ -231,8 +230,8 @@ public sealed class UcliConfigCompilerTests
         var config = CreateConfigWithProgramPresets(
             new Dictionary<string, ProgramPresetRegistration>(StringComparer.Ordinal)
             {
-                ["zeta"] = new ProgramPresetRegistration("Zeta.", "zeta.json"),
-                ["alpha"] = new ProgramPresetRegistration("Alpha.", "alpha.json"),
+                ["zeta"] = new ProgramPresetRegistration("Zeta.", RootRelativePath.Parse("zeta.json")),
+                ["alpha"] = new ProgramPresetRegistration("Alpha.", RootRelativePath.Parse("alpha.json")),
             });
 
         var result = UcliConfigCompiler.CreateDefault().CreateDocument(config, "config.json");

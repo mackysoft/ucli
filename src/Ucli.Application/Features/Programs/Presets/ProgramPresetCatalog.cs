@@ -1,4 +1,3 @@
-using System.Text;
 using MackySoft.Ucli.Application.Features.Programs.Parsing;
 using MackySoft.Ucli.Application.Features.Programs.Resolution;
 using MackySoft.Ucli.Application.Shared.Configuration;
@@ -38,38 +37,41 @@ internal sealed class ProgramPresetCatalog : IProgramPresetCatalog
             return new ProgramPresetResolutionResult(null, [new ProgramDiagnostic(UnknownPresetCode, null, $"Program Preset '{id}' is not registered.")]);
         }
 
-        var configRoot = Path.GetFullPath(configDirectoryPath);
-        var programPath = Path.GetFullPath(Path.Combine(configRoot, registration.ProgramPath.Replace('/', Path.DirectorySeparatorChar)));
-        if (!ProgramReferencePathResolver.TryResolveWithinRoot(configRoot, programPath, out var resolvedProgramPath))
+        var configRoot = AbsolutePath.Parse(configDirectoryPath);
+        var receiptResult = await ProgramDefinitionRootFileReceipt.ReadAsync(
+                fileReader,
+                ContainedPath.Create(configRoot, registration.ProgramPath),
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (receiptResult is ProgramDefinitionRootFileReceiptReadFailure { ReadResult: ProgramDefinitionFileReadOutsideBoundary })
         {
             return new ProgramPresetResolutionResult(null, [new ProgramDiagnostic(InvalidPresetPathCode, null, "Program Preset path resolves outside .ucli after symbolic-link resolution.")]);
         }
 
-        var file = await fileReader.ReadAsync(resolvedProgramPath, cancellationToken).ConfigureAwait(false);
-        if (!file.IsSuccess)
+        if (receiptResult is not ProgramDefinitionRootFileReceiptSuccess receiptSuccess)
         {
-            return new ProgramPresetResolutionResult(null, [new ProgramDiagnostic(PresetReadFailedCode, null, file.Error!)]);
+            var message = CreateReceiptFailureMessage(receiptResult);
+            return new ProgramPresetResolutionResult(null, [new ProgramDiagnostic(PresetReadFailedCode, null, message)]);
         }
 
-        string json;
-        try
-        {
-            json = new UTF8Encoding(false, true).GetString(file.Content!);
-        }
-        catch (DecoderFallbackException exception)
-        {
-            return new ProgramPresetResolutionResult(null, [new ProgramDiagnostic(PresetReadFailedCode, null, $"Program Preset is not strict UTF-8. {exception.Message}")]);
-        }
-
-        var definitionResult = await definitionResolver.ResolveAsync(new ProgramDefinitionResolutionInput(
-            json,
-            ProgramRootSource.Preset,
-            RootPath: null,
-            PresetId: id,
-            ReferenceRootPath: Path.GetDirectoryName(resolvedProgramPath)), cancellationToken).ConfigureAwait(false);
+        var definitionResult = await definitionResolver.ResolveAsync(new PresetProgramDefinitionResolutionInput(
+            id,
+            receiptSuccess.Receipt), cancellationToken).ConfigureAwait(false);
         return definitionResult.IsSuccess
             ? new ProgramPresetResolutionResult(new ProgramPresetResolution(id, registration.Description, definitionResult.Definition!), Array.Empty<ProgramDiagnostic>())
             : new ProgramPresetResolutionResult(null, definitionResult.Diagnostics);
+    }
+
+    private static string CreateReceiptFailureMessage (ProgramDefinitionRootFileReceiptResult result)
+    {
+        return result switch
+        {
+            ProgramDefinitionRootFileReceiptReadFailure { ReadResult: ProgramDefinitionFileReadUnavailable unavailable } => unavailable.Message,
+            ProgramDefinitionRootFileReceiptReadFailure { ReadResult: ProgramDefinitionFileReadChangedDuringRead } => "Program Preset file changed while it was being read.",
+            ProgramDefinitionRootFileReceiptInvalidUtf8 invalidUtf8 => $"Program Preset is not strict UTF-8. {invalidUtf8.Message}",
+            ProgramDefinitionRootFileReceiptInvalidParent => "Program Preset file has no reference parent directory.",
+            _ => throw new InvalidOperationException($"Unknown Program Preset receipt result: {result.GetType().Name}."),
+        };
     }
 
     public async ValueTask<ProgramPresetListResult> ListAsync (
