@@ -51,7 +51,7 @@ public sealed class SupervisorRequestDispatcherEnsureRunningTests
     [Trait("Size", "Small")]
     public async Task HandleConnection_WhenUtcClockMovesBackward_CapsExecutionWithRemainingSnapshot ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new WallClockSkewFakeTimeProvider();
         var startOperation = new RecordingDaemonStartOperation();
         var dispatcher = CreateDispatcher(startOperation, timeProvider);
         var runtimeContext = CreateRuntimeContext();
@@ -125,7 +125,7 @@ public sealed class SupervisorRequestDispatcherEnsureRunningTests
     [Trait("Size", "Small")]
     public async Task HandleConnection_WhenUtcClockMovesPastDeadline_ReturnsStructuredTimeoutWithoutDispatch ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new WallClockSkewFakeTimeProvider();
         var startOperation = new RecordingDaemonStartOperation();
         var dispatcher = CreateDispatcher(startOperation, timeProvider);
         var runtimeContext = CreateRuntimeContext();
@@ -272,7 +272,7 @@ public sealed class SupervisorRequestDispatcherEnsureRunningTests
 
     private sealed class DeadlineObservationTransitionTimeProvider : TimeProvider
     {
-        private readonly ManualTimeProvider inner = new();
+        private readonly WallClockSkewFakeTimeProvider inner = new();
 
         private readonly TimeSpan monotonicAdvance;
 

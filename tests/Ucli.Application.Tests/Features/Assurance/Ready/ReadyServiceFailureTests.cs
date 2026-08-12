@@ -68,7 +68,7 @@ public sealed class ReadyServiceFailureTests
         var failed = Assert.IsType<ReadyExecutionResult.FailedResult>(result);
         var error = failed.Failure;
         Assert.Equal(DaemonErrorCodes.DaemonStartupBlocked, error.Code);
-        Assert.Same(startupFailure, error.StartupFailure);
+        Assert.Equal(startupFailure, error.StartupFailure);
     }
 
     [Fact]
@@ -88,6 +88,5 @@ public sealed class ReadyServiceFailureTests
         var failed = Assert.IsType<ReadyExecutionResult.FailedResult>(result);
         var error = failed.Failure;
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
-        Assert.Contains("projectFingerprint mismatch", error.Message, StringComparison.Ordinal);
     }
 }

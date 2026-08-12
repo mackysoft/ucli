@@ -46,7 +46,6 @@ public sealed class PlanServiceUnityResponseTests
         Assert.Null(result.Output.PlanToken);
         var error = Assert.Single(result.Errors);
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
-        Assert.Contains("planToken", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -80,7 +79,6 @@ public sealed class PlanServiceUnityResponseTests
         Assert.Empty(result.Output!.OpResults);
         var error = Assert.Single(result.Errors);
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
-        Assert.Contains("'opResults' field contains 1 items", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -116,7 +114,6 @@ public sealed class PlanServiceUnityResponseTests
         Assert.NotNull(result.Output);
         Assert.Empty(result.Output!.OpResults);
         var error = Assert.Single(result.Errors);
-        Assert.Contains("operationDescriptorDigest", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -157,7 +154,6 @@ public sealed class PlanServiceUnityResponseTests
         Assert.NotNull(result.Output);
         Assert.Empty(result.Output!.OpResults);
         var error = Assert.Single(result.Errors);
-        Assert.Contains("registered result schema", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]

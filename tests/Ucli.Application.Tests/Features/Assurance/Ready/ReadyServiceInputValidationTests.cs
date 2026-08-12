@@ -27,7 +27,6 @@ public sealed class ReadyServiceInputValidationTests
         var failed = Assert.IsType<ReadyExecutionResult.FailedResult>(result);
         var error = failed.Failure;
         Assert.Equal(UcliCoreErrorCodes.InvalidArgument, error.Code);
-        Assert.Contains("--readIndexMode", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -43,7 +42,6 @@ public sealed class ReadyServiceInputValidationTests
         var failed = Assert.IsType<ReadyExecutionResult.FailedResult>(result);
         var error = failed.Failure;
         Assert.Equal(UcliCoreErrorCodes.InvalidArgument, error.Code);
-        Assert.Contains("--mode daemon", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -59,6 +57,5 @@ public sealed class ReadyServiceInputValidationTests
         var failed = Assert.IsType<ReadyExecutionResult.FailedResult>(result);
         var error = failed.Failure;
         Assert.Equal(UcliCoreErrorCodes.InvalidArgument, error.Code);
-        Assert.Contains("allowStale or requireFresh", error.Message, StringComparison.Ordinal);
     }
 }

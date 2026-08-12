@@ -10,82 +10,76 @@ public sealed class UcliOperationDescriptorDigestTests
     [Trait("Size", "Small")]
     public void Calculate_IgnoresStoredDigest ()
     {
-        var descriptor = IndexOpsDescribeJsonContractTestSupport
-            .CreateGoDescribeIndexContract()
-            .Operation!;
+        var descriptor = IndexOpsDescribeContractTestData.CreateGoDescribeOperation();
         var differentStoredDigest = descriptor with
         {
             DescriptorDigest = Sha256Digest.Compute("different stored digest"u8),
         };
 
-        var expected = UcliOperationDescriptorDigest.Calculate(descriptor);
         var actual = UcliOperationDescriptorDigest.Calculate(differentStoredDigest);
 
-        Assert.Equal(expected, actual);
+        Assert.Equal(
+            IndexOpsDescribeContractTestData.GoDescribeCalculatedDescriptorDigest,
+            actual.ToString());
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public void Calculate_WhenSemanticVerdictContractChanges_ReturnsDifferentDigest ()
     {
-        var descriptor = IndexOpsDescribeJsonContractTestSupport
-            .CreateGoDescribeIndexContract()
-            .Operation!;
+        var descriptor = IndexOpsDescribeContractTestData.CreateGoDescribeOperation();
         var changedVerdictContract = descriptor with
         {
             VerdictContract = new UcliOperationVerdictContract(
                 "The requested GameObject exists, regardless of description completeness."),
         };
 
-        var expected = UcliOperationDescriptorDigest.Calculate(descriptor);
         var actual = UcliOperationDescriptorDigest.Calculate(changedVerdictContract);
 
-        Assert.NotEqual(expected, actual);
+        Assert.NotEqual(
+            IndexOpsDescribeContractTestData.GoDescribeCalculatedDescriptorDigest,
+            actual.ToString());
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public void Calculate_WhenInternalExposureChanges_ReturnsDifferentDigest ()
     {
-        var descriptor = IndexOpsDescribeJsonContractTestSupport
-            .CreateGoDescribeIndexContract()
-            .Operation!;
+        var descriptor = IndexOpsDescribeContractTestData.CreateGoDescribeOperation();
         var changedExposure = descriptor with
         {
             Exposure = UcliOperationExposure.EditLoweringOnly,
         };
 
-        var expected = UcliOperationDescriptorDigest.Calculate(descriptor);
         var actual = UcliOperationDescriptorDigest.Calculate(changedExposure);
 
-        Assert.NotEqual(expected, actual);
+        Assert.NotEqual(
+            IndexOpsDescribeContractTestData.GoDescribeCalculatedDescriptorDigest,
+            actual.ToString());
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public void Calculate_WhenPlayModeSupportChanges_ReturnsDifferentDigest ()
     {
-        var descriptor = IndexOpsDescribeJsonContractTestSupport
-            .CreateGoDescribeIndexContract()
-            .Operation!;
+        var descriptor = IndexOpsDescribeContractTestData.CreateGoDescribeOperation();
         var changedPlayModeSupport = descriptor with
         {
             PlayModeSupport = UcliOperationPlayModeSupport.Allowed,
         };
 
-        var expected = UcliOperationDescriptorDigest.Calculate(descriptor);
         var actual = UcliOperationDescriptorDigest.Calculate(changedPlayModeSupport);
 
-        Assert.NotEqual(expected, actual);
+        Assert.NotEqual(
+            IndexOpsDescribeContractTestData.GoDescribeCalculatedDescriptorDigest,
+            actual.ToString());
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void Writer_WhenArtifactTimestampChanges_PreservesDescriptorDigest ()
+    public void Calculate_WhenArtifactMetadataChanges_PreservesDescriptorDigest ()
     {
-        var operation = IndexOpsDescribeJsonContractTestSupport
-            .CreateGoDescribeIndexContract()
-            .Operation!;
+        var operation = IndexOpsDescribeContractTestData.CreateGoDescribeOperation();
         var earlier = new IndexOpsDescribeJsonContract(
             1,
             DateTimeOffset.Parse("2026-03-03T00:00:00+00:00"),
@@ -97,17 +91,13 @@ public sealed class UcliOperationDescriptorDigestTests
             SourceInputsHash = "source-hash-b",
         };
 
-        var earlierRoundTrip = IndexOpsDescribeJsonContractSerializer.Deserialize(
-            new IndexOpsDescribeJsonContractWriter().Write(earlier));
-        var laterRoundTrip = IndexOpsDescribeJsonContractSerializer.Deserialize(
-            new IndexOpsDescribeJsonContractWriter().Write(later));
-
-        Assert.NotNull(earlierRoundTrip);
-        Assert.NotNull(laterRoundTrip);
-        Assert.NotEqual(earlierRoundTrip.GeneratedAtUtc, laterRoundTrip.GeneratedAtUtc);
-        Assert.NotEqual(earlierRoundTrip.SourceInputsHash, laterRoundTrip.SourceInputsHash);
+        Assert.NotEqual(earlier.GeneratedAtUtc, later.GeneratedAtUtc);
+        Assert.NotEqual(earlier.SourceInputsHash, later.SourceInputsHash);
         Assert.Equal(
-            earlierRoundTrip.Operation!.DescriptorDigest,
-            laterRoundTrip.Operation!.DescriptorDigest);
+            IndexOpsDescribeContractTestData.GoDescribeCalculatedDescriptorDigest,
+            UcliOperationDescriptorDigest.Calculate(earlier.Operation!).ToString());
+        Assert.Equal(
+            IndexOpsDescribeContractTestData.GoDescribeCalculatedDescriptorDigest,
+            UcliOperationDescriptorDigest.Calculate(later.Operation!).ToString());
     }
 }

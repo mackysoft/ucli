@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Ipc;
 using NUnit.Framework;
@@ -143,37 +142,42 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(error.Kind, Is.EqualTo(IpcGuiBootstrapParseErrorKind.InvalidRequiredValue));
         }
 
-        private static IReadOnlyList<string> CreateDaemonBootstrapArgs ()
+        private static string[] CreateDaemonBootstrapArgs ()
         {
-            var args = new List<string>
+            return new[]
             {
                 "Unity",
                 "-batchmode",
+                "-ucliBootstrapTarget",
+                "daemon",
+                "-ucliRepositoryRoot",
+                "/repo",
+                "-ucliProjectFingerprint",
+                "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "-ucliSessionPath",
+                "/repo/.ucli/session.json",
+                "-ucliSessionGenerationId",
+                "11111111-1111-1111-1111-111111111111",
+                "-ucliSessionIssuedAtUtc",
+                "2026-03-09T00:00:00.0000000+00:00",
+                "-ucliEndpointTransportKind",
+                "unixDomainSocket",
+                "-ucliEndpointAddress",
+                "/tmp/ucli.sock",
             };
-            IpcBatchmodeBootstrapArgumentsCodec.AppendTokens(
-                args,
-                new IpcDaemonBootstrapArguments(
-                    RepositoryRoot: "/repo",
-                    ProjectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint"),
-                    SessionPath: "/repo/.ucli/session.json",
-                    SessionGenerationId: System.Guid.Parse("11111111-1111-1111-1111-111111111111"),
-                    SessionIssuedAtUtc: new System.DateTimeOffset(2026, 03, 09, 0, 0, 0, System.TimeSpan.Zero),
-                    Endpoint: new IpcEndpoint(IpcTransportKind.UnixDomainSocket, "/tmp/ucli.sock")));
-            return args;
         }
 
-        private static IReadOnlyList<string> CreateOneshotBootstrapArgs ()
+        private static string[] CreateOneshotBootstrapArgs ()
         {
-            var args = new List<string>
+            return new[]
             {
                 "Unity",
                 "-batchmode",
+                "-ucliBootstrapTarget",
+                "oneshot",
+                "-ucliOneshotBootstrapId",
+                "386052a2-f938-414b-930b-47b687844237",
             };
-            IpcBatchmodeBootstrapArgumentsCodec.AppendTokens(
-                args,
-                new IpcOneshotBootstrapArguments(
-                    System.Guid.Parse("386052a2-f938-414b-930b-47b687844237")));
-            return args;
         }
     }
 }

@@ -53,7 +53,7 @@ public sealed class SupervisorStabilityVerifierTests
     [Trait("Size", "Small")]
     public async Task EnsureStable_WhenPingIgnoresCancellation_ReturnsAtDeadlineAndRejectsLateSuccess ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var pingStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var pingCancellationObserved = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var pingCompletion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -92,7 +92,6 @@ public sealed class SupervisorStabilityVerifierTests
         try
         {
             await pingStarted.Task.WaitAsync(SignalWaitTimeout);
-            await timeProvider.WaitForTimerDueWithinAsync(timeout).WaitAsync(SignalWaitTimeout);
             timeProvider.Advance(timeout);
 
             var result = await verificationTask.WaitAsync(SignalWaitTimeout);
@@ -116,11 +115,13 @@ public sealed class SupervisorStabilityVerifierTests
     [Trait("Size", "Small")]
     public async Task EnsureStable_WhenSuccessfulPingsCompleteWithinBudget_UsesCommandTimeoutBudget ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
+        using var pingAttempts = new SemaphoreSlim(0);
         var pingClient = new RecordingDaemonPingClient((_, timeout, _, cancellationToken) =>
         {
             cancellationToken.ThrowIfCancellationRequested();
             Assert.Equal(TimeSpan.FromSeconds(1), timeout);
+            pingAttempts.Release();
             return ValueTask.CompletedTask;
         });
         var verifier = new SupervisorStabilityVerifier(
@@ -140,10 +141,7 @@ public sealed class SupervisorStabilityVerifierTests
             .AsTask();
         for (var i = 0; i < 8 && !verificationTask.IsCompleted; i++)
         {
-            await ManualTimeTaskDriver.WaitForTimerDueWithinOrCompletionAsync(
-                timeProvider,
-                verificationTask,
-                TimeSpan.FromMilliseconds(700));
+            await pingAttempts.WaitAsync(SignalWaitTimeout);
             timeProvider.Advance(TimeSpan.FromMilliseconds(700));
         }
 

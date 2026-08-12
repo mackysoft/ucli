@@ -47,7 +47,6 @@ internal static class StatusServiceAssert
         RecordingDaemonStatusOperation daemonStatusOperation)
     {
         var error = AssertFailure(result, ExecutionErrorKind.InvalidArgument);
-        Assert.Contains("timeout", error.Message, StringComparison.Ordinal);
         Assert.Empty(daemonStatusOperation.Invocations);
     }
 

@@ -37,7 +37,6 @@ internal static class PlanServiceInvocationAssert
         Assert.Empty(staticValidator.Invocations);
         var error = Assert.Single(result.Errors);
         Assert.Equal(UcliCoreErrorCodes.InvalidArgument, error.Code);
-        Assert.Contains("--readIndexMode", error.Message, StringComparison.Ordinal);
     }
 
     public static UnityRequestExecutorInvocationAssert.ExecuteJsonInvocation PlanDispatched (

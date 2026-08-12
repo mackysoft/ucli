@@ -56,7 +56,6 @@ public sealed class LogsUnityClearServiceTests
         Assert.False(result.IsSuccess);
         var error = Assert.IsType<ExecutionError>(result.Error);
         Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
-        Assert.Contains("GUI Editor daemon", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]

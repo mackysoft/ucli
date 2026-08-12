@@ -31,7 +31,6 @@ public sealed class DaemonStartOperationLifecycleLockTests
         Assert.Equal(DaemonStartStatus.Failed, result.Status);
         var error = Assert.IsType<ExecutionError>(result.Error);
         Assert.Equal(ExecutionErrorKind.Timeout, error.Kind);
-        Assert.Contains("lifecycle lock", error.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

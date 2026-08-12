@@ -56,6 +56,6 @@ public sealed class LifecycleExecutionWaitFailureTests
                 establishedReference);
 
         Assert.Equal(expected, actual.ApplicationState);
-        Assert.Same(establishedReference, actual.ExecutionReference);
+        Assert.Equal(establishedReference, actual.ExecutionReference);
     }
 }

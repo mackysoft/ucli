@@ -1,9 +1,9 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Compensation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Contracts.Editor;
 using MackySoft.Ucli.Tests.Helpers.Daemon;
 using static MackySoft.Ucli.Tests.Daemon.DaemonLaunchServiceTestSupport;
-using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Tests.Daemon;
 
@@ -14,7 +14,7 @@ public sealed class DaemonLaunchServiceDeadlineTests
     public async Task Launch_WhenSessionInitializationIgnoresCancellation_ReturnsAtDeadlineAndCleansLateSession ()
     {
         var timeout = TimeSpan.FromMilliseconds(100);
-        var timeProvider = new ManualTimeProvider(new DateTimeOffset(2026, 07, 14, 0, 0, 1, TimeSpan.Zero));
+        var timeProvider = new FakeTimeProvider(new DateTimeOffset(2026, 07, 14, 0, 0, 1, TimeSpan.Zero));
         var compensationOperationOwner = new DaemonCompensationOperationOwner();
         var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(
             ProjectFingerprintTestFactory.Create("fingerprint-late-session-initialization"));
@@ -58,8 +58,6 @@ public sealed class DaemonLaunchServiceDeadlineTests
                 cancellationToken: CancellationToken.None)
             .AsTask();
         await initializationStarted.Task.WaitAsync(AsyncWaitTimeout);
-        await timeProvider.WaitForTimerDueWithinAsync(timeout).WaitAsync(AsyncWaitTimeout);
-
         timeProvider.Advance(timeout);
         var result = await launchTask.WaitAsync(AsyncWaitTimeout);
 
@@ -82,7 +80,7 @@ public sealed class DaemonLaunchServiceDeadlineTests
     public async Task Launch_WhenBatchmodeProcessLaunchIgnoresCancellation_ReturnsAtDeadlineAndCleansLateProcess ()
     {
         var timeout = TimeSpan.FromMilliseconds(100);
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var compensationOperationOwner = new DaemonCompensationOperationOwner();
         var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(
             ProjectFingerprintTestFactory.Create("fingerprint-late-batchmode-process-launch"));
@@ -131,8 +129,6 @@ public sealed class DaemonLaunchServiceDeadlineTests
                 cancellationToken: CancellationToken.None)
             .AsTask();
         await launchStarted.Task.WaitAsync(AsyncWaitTimeout);
-        await timeProvider.WaitForTimerDueWithinAsync(timeout).WaitAsync(AsyncWaitTimeout);
-
         timeProvider.Advance(timeout);
         var result = await launchTask.WaitAsync(AsyncWaitTimeout);
 
@@ -156,7 +152,7 @@ public sealed class DaemonLaunchServiceDeadlineTests
     public async Task Launch_WhenProcessIdentityPersistenceIgnoresCancellation_ReturnsAtDeadlineAndCleansLateSession ()
     {
         var timeout = TimeSpan.FromMilliseconds(100);
-        var timeProvider = new ManualTimeProvider(new DateTimeOffset(2026, 07, 14, 0, 0, 2, TimeSpan.Zero));
+        var timeProvider = new FakeTimeProvider(new DateTimeOffset(2026, 07, 14, 0, 0, 2, TimeSpan.Zero));
         var compensationOperationOwner = new DaemonCompensationOperationOwner();
         var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(
             ProjectFingerprintTestFactory.Create("fingerprint-late-process-identity-write"));
@@ -212,8 +208,6 @@ public sealed class DaemonLaunchServiceDeadlineTests
                 cancellationToken: CancellationToken.None)
             .AsTask();
         await persistenceStarted.Task.WaitAsync(AsyncWaitTimeout);
-        await timeProvider.WaitForTimerDueWithinAsync(timeout).WaitAsync(AsyncWaitTimeout);
-
         timeProvider.Advance(timeout);
         var result = await launchTask.WaitAsync(AsyncWaitTimeout);
 
@@ -237,7 +231,7 @@ public sealed class DaemonLaunchServiceDeadlineTests
     public async Task Launch_WhenGuiProcessLaunchIgnoresCancellation_ReturnsAtDeadlineAndCleansLateProcess ()
     {
         var timeout = TimeSpan.FromMilliseconds(100);
-        var timeProvider = new ManualTimeProvider(new DateTimeOffset(2026, 07, 14, 0, 0, 3, TimeSpan.Zero));
+        var timeProvider = new FakeTimeProvider(new DateTimeOffset(2026, 07, 14, 0, 0, 3, TimeSpan.Zero));
         var compensationOperationOwner = new DaemonCompensationOperationOwner();
         var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(
             ProjectFingerprintTestFactory.Create("fingerprint-late-gui-process-launch"));
@@ -280,8 +274,6 @@ public sealed class DaemonLaunchServiceDeadlineTests
                 cancellationToken: CancellationToken.None)
             .AsTask();
         await launchStarted.Task.WaitAsync(AsyncWaitTimeout);
-        await timeProvider.WaitForTimerDueWithinAsync(timeout).WaitAsync(AsyncWaitTimeout);
-
         timeProvider.Advance(timeout);
         var result = await launchTask.WaitAsync(AsyncWaitTimeout);
 
@@ -359,7 +351,7 @@ public sealed class DaemonLaunchServiceDeadlineTests
     public async Task Launch_WhenLaunchingProgressIgnoresCancellation_ReturnsAtDeadlineWithoutStartingProcess ()
     {
         var timeout = TimeSpan.FromMilliseconds(100);
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(
             ProjectFingerprintTestFactory.Create("fingerprint-late-launching-progress"));
         var initializedSession = DaemonSessionTestFactory.Create(
@@ -412,8 +404,6 @@ public sealed class DaemonLaunchServiceDeadlineTests
                 cancellationToken: CancellationToken.None)
             .AsTask();
         await launchingProgressStarted.Task.WaitAsync(AsyncWaitTimeout);
-        await timeProvider.WaitForTimerDueWithinAsync(timeout).WaitAsync(AsyncWaitTimeout);
-
         timeProvider.Advance(timeout);
         var result = await launchTask.WaitAsync(AsyncWaitTimeout);
 
@@ -498,10 +488,6 @@ public sealed class DaemonLaunchServiceDeadlineTests
         try
         {
             await cleanupStarted.Task.WaitAsync(AsyncWaitTimeout);
-            await timeProvider
-                .WaitForTimerDueWithinAsync(DaemonTimeouts.LaunchCompensationTimeout)
-                .WaitAsync(AsyncWaitTimeout);
-
             timeProvider.Advance(DaemonTimeouts.LaunchCompensationTimeout);
             var result = await launchTask.WaitAsync(AsyncWaitTimeout);
 
@@ -536,7 +522,7 @@ public sealed class DaemonLaunchServiceDeadlineTests
 
     private sealed class AdvanceOnTimestampReadTimeProvider : TimeProvider
     {
-        private readonly ManualTimeProvider inner;
+        private readonly FakeTimeProvider inner;
 
         private readonly TimeSpan advanceBy;
 
@@ -549,7 +535,7 @@ public sealed class DaemonLaunchServiceDeadlineTests
             TimeSpan advanceBy,
             int advanceOnTimestampRead)
         {
-            inner = new ManualTimeProvider(startUtc);
+            inner = new FakeTimeProvider(startUtc);
             this.advanceBy = advanceBy;
             this.advanceOnTimestampRead = advanceOnTimestampRead;
         }
@@ -577,11 +563,6 @@ public sealed class DaemonLaunchServiceDeadlineTests
         public void Advance (TimeSpan elapsed)
         {
             inner.Advance(elapsed);
-        }
-
-        public Task WaitForTimerDueWithinAsync (TimeSpan maximumDelay)
-        {
-            return inner.WaitForTimerDueWithinAsync(maximumDelay);
         }
 
         public override ITimer CreateTimer (

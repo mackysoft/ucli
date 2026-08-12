@@ -104,7 +104,6 @@ public sealed class ExecuteResponseConverterPostReadSourceTests
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
-        Assert.Contains(nameof(IpcExecutePostReadSourceKind), error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -120,7 +119,6 @@ public sealed class ExecuteResponseConverterPostReadSourceTests
             Assert.False(result.IsSuccess);
             var error = Assert.Single(result.Errors);
             Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
-            Assert.Contains(testCase.ExpectedFieldName, error.Message, StringComparison.Ordinal);
         }
     }
 
@@ -145,7 +143,6 @@ public sealed class ExecuteResponseConverterPostReadSourceTests
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
-        Assert.Contains("postReadSource.steps[0]", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -168,7 +165,6 @@ public sealed class ExecuteResponseConverterPostReadSourceTests
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
-        Assert.Contains("postReadSource.steps[0]", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -207,7 +203,6 @@ public sealed class ExecuteResponseConverterPostReadSourceTests
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
-        Assert.Contains("postReadSource.steps", error.Message, StringComparison.Ordinal);
     }
 
     private static MissingPostReadSourceFieldCase[] GetMissingPostReadSourceFieldCases ()

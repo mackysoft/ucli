@@ -1,7 +1,6 @@
 namespace MackySoft.Ucli.Tests.Daemon;
 
 using MackySoft.FileSystem;
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
@@ -234,7 +233,7 @@ public sealed class DaemonGuiRebootstrapClientAcceptedTests
     [Trait("Size", "Small")]
     public async Task RequestRebootstrapAsync_WhenManifestReadIgnoresCancellation_ReturnsAtDeadline ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var readStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var readCompletion = new TaskCompletionSource<GuiSupervisorManifestJsonContract?>(TaskCreationOptions.RunContinuationsAsynchronously);
         var manifest = CreateManifest();
@@ -263,9 +262,6 @@ public sealed class DaemonGuiRebootstrapClientAcceptedTests
 
         try
         {
-            await timeProvider
-                .WaitForTimerDueWithinAsync(timeout)
-                .WaitAsync(TimeSpan.FromSeconds(1));
             timeProvider.Advance(timeout);
             var result = await resultTask.WaitAsync(TimeSpan.FromSeconds(1));
 
@@ -283,7 +279,7 @@ public sealed class DaemonGuiRebootstrapClientAcceptedTests
     [Trait("Size", "Small")]
     public async Task RequestRebootstrapAsync_WhenTransportIgnoresCancellation_ReturnsAtSharedDeadline ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var sendStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var sendCompletion = new TaskCompletionSource<IpcResponse>(TaskCreationOptions.RunContinuationsAsynchronously);
         var manifest = CreateManifest();
@@ -312,7 +308,6 @@ public sealed class DaemonGuiRebootstrapClientAcceptedTests
 
         try
         {
-            await timeProvider.WaitForTimerDueWithinAsync(timeout).WaitAsync(TimeSpan.FromSeconds(1));
             timeProvider.Advance(timeout);
             var result = await resultTask.WaitAsync(TimeSpan.FromSeconds(1));
 

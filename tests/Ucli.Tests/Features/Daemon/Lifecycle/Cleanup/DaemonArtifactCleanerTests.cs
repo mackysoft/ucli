@@ -679,7 +679,7 @@ public sealed class DaemonArtifactCleanerTests
             sessionStore,
             lifecycleStore,
             launchAttemptStore);
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var cleanupTask = cleaner.CleanupIfSessionMissingAsync(
                 ResolvedUnityProjectContextTestFactory.CreateWithPaths(
                     unityProjectRoot: Path.Combine(scope.FullPath, "UnityProject"),
@@ -692,7 +692,6 @@ public sealed class DaemonArtifactCleanerTests
         try
         {
             await readStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
-            await timeProvider.WaitForTimerDueWithinAsync(TimeSpan.FromMilliseconds(100));
             timeProvider.Advance(TimeSpan.FromMilliseconds(100));
 
             var result = await cleanupTask.WaitAsync(TimeSpan.FromSeconds(5));

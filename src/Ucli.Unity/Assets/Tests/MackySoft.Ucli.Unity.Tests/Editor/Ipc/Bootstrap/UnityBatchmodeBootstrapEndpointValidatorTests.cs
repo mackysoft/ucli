@@ -1,12 +1,14 @@
 using System;
 using System.IO;
+using System.Runtime.InteropServices;
+using System.Security.Cryptography;
+using System.Text;
 using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.Authorization;
 using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Infrastructure.Execution;
-using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.Infrastructure.Project;
 using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Unity.Ipc;
@@ -109,8 +111,37 @@ namespace MackySoft.Ucli.Unity.Tests
             var projectRoot = UnityProjectPathResolver.ResolveProjectRootPath();
             var storageRoot = UcliStoragePathResolver.ResolveStorageRoot(projectRoot);
             var projectFingerprint = UnityProjectFingerprintCalculator.Create(storageRoot, projectRoot);
-            var endpoint = UcliIpcEndpointResolver.ResolveDaemonEndpoint(storageRoot, projectFingerprint);
-            return new ExpectedEndpointContext(storageRoot.Value, projectFingerprint, endpoint.Contract);
+            var endpoint = CreateExpectedDaemonEndpoint(storageRoot, projectFingerprint);
+            return new ExpectedEndpointContext(storageRoot.Value, projectFingerprint, endpoint);
+        }
+
+        private static IpcEndpoint CreateExpectedDaemonEndpoint (
+            AbsolutePath storageRoot,
+            ProjectFingerprint projectFingerprint)
+        {
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                return new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-" + projectFingerprint);
+            }
+
+            var preferredAddress = Path.Combine(
+                UcliStoragePathResolver.ResolveProjectDirectory(storageRoot, projectFingerprint).Value,
+                "ipc.sock");
+            if (Encoding.UTF8.GetByteCount(preferredAddress) <= 102)
+            {
+                return new IpcEndpoint(IpcTransportKind.UnixDomainSocket, preferredAddress);
+            }
+
+            var identityBytes = Encoding.UTF8.GetBytes(storageRoot.Value + "\n" + projectFingerprint);
+            using var sha256 = SHA256.Create();
+            var identityHash = BitConverter.ToString(sha256.ComputeHash(identityBytes))
+                .Replace("-", string.Empty)
+                .ToLowerInvariant();
+            var fallbackAddress = Path.Combine(
+                Path.GetTempPath(),
+                "ucli-d-" + identityHash.Substring(0, 32),
+                "ipc.sock");
+            return new IpcEndpoint(IpcTransportKind.UnixDomainSocket, fallbackAddress);
         }
 
         private static IpcEndpoint CreateForeignEndpoint (IpcTransportKind transportKind)

@@ -7,9 +7,9 @@ public sealed class BuildRunCliOutputPayloadContractTests
 {
     [Fact]
     [Trait("Size", "Medium")]
-    public void BuildReportFailureGolden_FixesVerifierFailureContract ()
+    public void BuildReportFailure_UsesVerifierFailureContract ()
     {
-        using var document = BuildRunCliOutputContractTestSupport.ReadGoldenDocument("build-report-failed.json");
+        using var document = BuildRunCliOutputContractTestSupport.CreateDocument("build-report-failed");
         var root = document.RootElement;
         var payload = root.GetProperty("payload");
 
@@ -36,9 +36,9 @@ public sealed class BuildRunCliOutputPayloadContractTests
 
     [Fact]
     [Trait("Size", "Medium")]
-    public void DirtySceneFailureGolden_FixesDirtyStateContract ()
+    public void DirtySceneFailure_UsesDirtyStateContract ()
     {
-        using var document = BuildRunCliOutputContractTestSupport.ReadGoldenDocument("dirty-scene.json");
+        using var document = BuildRunCliOutputContractTestSupport.CreateDocument("dirty-scene");
         var root = document.RootElement;
         var payload = root.GetProperty("payload");
         var dirtyState = payload.GetProperty("dirtyState");
@@ -59,12 +59,13 @@ public sealed class BuildRunCliOutputPayloadContractTests
     }
 
     [Theory]
-    [InlineData("success.json")]
-    [InlineData("build-report-failed.json")]
+    [InlineData("success")]
+    [InlineData("build-report-failed")]
     [Trait("Size", "Medium")]
-    public void BuildRunPayloadGoldens_UseArtifactRelativeReportPaths (string fileName)
+    public void BuildRunPayloads_UseArtifactRelativeReportPaths (string caseName)
     {
-        var payload = BuildRunCliOutputContractTestSupport.ReadGoldenPayload(fileName);
+        using var document = BuildRunCliOutputContractTestSupport.CreateDocument(caseName);
+        var payload = document.RootElement.GetProperty("payload");
         var reports = payload.GetProperty("reports");
 
         foreach (var report in reports.EnumerateObject())

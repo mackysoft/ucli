@@ -1,10 +1,10 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Contracts.Editor;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Tests.Helpers.Daemon;
 using MackySoft.Ucli.Tests.Helpers.Ipc;
-using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Tests.Supervisor;
 
@@ -199,7 +199,7 @@ public sealed class SupervisorClientEnsureRunningTests
     [Trait("Size", "Small")]
     public async Task EnsureRunning_WhenFailureTerminalArrivesAfterCommandTimeoutWithinGrace_PreservesMetadata ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var diagnosis = DaemonDiagnosisTestFactory.CreateGuiEndpointNotRegistered();
         var startup = SupervisorClientTestSupport.CreateStartupObservation();
         var requestObserved = new TaskCompletionSource<IpcRequestEnvelope>(
@@ -229,7 +229,6 @@ public sealed class SupervisorClientEnsureRunningTests
                 cancellationToken: CancellationToken.None)
             .AsTask();
         var request = await requestObserved.Task.WaitAsync(SignalWaitTimeout);
-        await timeProvider.WaitForTimerDueWithinAsync(terminalTimeout).WaitAsync(SignalWaitTimeout);
         timeProvider.Advance(commandTimeout.Add(TimeSpan.FromMilliseconds(500)));
         terminalResponseSource.TrySetResult(
             SupervisorClientTestSupport.CreateEnsureRunningFailureResponse(request, diagnosis, startup));
@@ -247,7 +246,7 @@ public sealed class SupervisorClientEnsureRunningTests
     [Trait("Size", "Small")]
     public async Task EnsureRunning_WhenSingleTerminalResponseNeverCompletes_ReturnsTimeoutAfterFiniteGrace ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var requestObserved = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var terminalResponseSource = new TaskCompletionSource<IpcResponse>(
             TaskCreationOptions.RunContinuationsAsynchronously);
@@ -276,8 +275,6 @@ public sealed class SupervisorClientEnsureRunningTests
                 cancellationToken: CancellationToken.None)
             .AsTask();
         await requestObserved.Task.WaitAsync(SignalWaitTimeout);
-        await timeProvider.WaitForTimerDueWithinAsync(terminalTimeout).WaitAsync(SignalWaitTimeout);
-
         try
         {
             timeProvider.Advance(terminalTimeout);

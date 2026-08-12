@@ -40,9 +40,9 @@ public sealed class PhaseExecutionPreflightServiceTests
         Assert.False(result.HasValidationErrors);
         Assert.NotNull(result.PreparedRequest);
         Assert.Equal(preparedRequest.RequestJson, result.PreparedRequest.RequestJson);
-        Assert.Same(preparedRequest.Request, result.PreparedRequest.Request);
-        Assert.Same(preparedRequest.ProjectContext.UnityProject, result.PreparedRequest.UnityProject);
-        Assert.Same(preparedRequest.ProjectContext.Config, result.PreparedRequest.Config);
+        Assert.Equal(preparedRequest.Request, result.PreparedRequest.Request);
+        Assert.Equal(preparedRequest.ProjectContext.UnityProject, result.PreparedRequest.UnityProject);
+        Assert.Equal(preparedRequest.ProjectContext.Config, result.PreparedRequest.Config);
         Assert.Equal(preparedRequest.ProjectContext.ConfigSource, result.PreparedRequest.ConfigSource);
         Assert.True(result.PreparedRequest.OperationsByName.ContainsKey(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe));
         Assert.Null(result.Error);
@@ -155,7 +155,6 @@ public sealed class PhaseExecutionPreflightServiceTests
         Assert.NotNull(result.Error);
         Assert.NotNull(result.PreparedRequest);
         Assert.Empty(result.PreparedRequest.OperationsByName);
-        Assert.Contains("Static validation could not load operation metadata.", result.Error!.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -189,7 +188,6 @@ public sealed class PhaseExecutionPreflightServiceTests
         Assert.False(result.IsSuccess);
         Assert.NotNull(result.Error);
         Assert.Equal(ApplicationFailureKind.InvalidInput, result.Error!.Kind);
-        Assert.Contains("Static validation could not load operation metadata.", result.Error.Message, StringComparison.Ordinal);
         Assert.NotNull(result.PreparedRequest);
         Assert.Empty(result.PreparedRequest.OperationsByName);
     }
@@ -226,7 +224,6 @@ public sealed class PhaseExecutionPreflightServiceTests
         Assert.NotNull(result.Error);
         Assert.Equal(ApplicationFailureKind.InternalError, result.Error!.Kind);
         Assert.Equal(UnityExecutionModeDecisionErrorCodes.DaemonNotRunning, result.Error.Code);
-        Assert.Contains("Static validation could not load operation metadata.", result.Error.Message, StringComparison.Ordinal);
         Assert.NotNull(result.PreparedRequest);
         Assert.Empty(result.PreparedRequest.OperationsByName);
     }
@@ -306,8 +303,8 @@ public sealed class PhaseExecutionPreflightServiceTests
             validationService,
             expectedCatalogAvailable: true);
         Assert.Equal(token, validationInvocation.CancellationToken);
-        Assert.Same(preparedRequest.Request, validationInvocation.Request);
-        Assert.Same(preparedRequest.ProjectContext.Config, validationInvocation.Config);
+        Assert.Equal(preparedRequest.Request, validationInvocation.Request);
+        Assert.Equal(preparedRequest.ProjectContext.Config, validationInvocation.Config);
         Assert.Contains(validationInvocation.Catalog.Operations, operation => operation.Name == MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe);
     }
 

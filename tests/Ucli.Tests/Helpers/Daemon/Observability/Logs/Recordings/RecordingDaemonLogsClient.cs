@@ -8,12 +8,19 @@ internal sealed class RecordingDaemonLogsClient : IDaemonLogsClient
     private readonly Queue<DaemonLogsClientReadResult> responses;
     private readonly List<Invocation> invocations = [];
 
+    private readonly SemaphoreSlim readSignals = new(0);
+
     public RecordingDaemonLogsClient (IEnumerable<DaemonLogsClientReadResult> responses)
     {
         this.responses = new Queue<DaemonLogsClientReadResult>(responses);
     }
 
     public IReadOnlyList<Invocation> Invocations => invocations;
+
+    internal Task WaitForReadAsync (TimeSpan timeout)
+    {
+        return readSignals.WaitAsync(timeout);
+    }
 
     public ValueTask<DaemonLogsClientReadResult> ReadAsync (
         ResolvedUnityProjectContext unityProject,
@@ -23,6 +30,7 @@ internal sealed class RecordingDaemonLogsClient : IDaemonLogsClient
     {
         cancellationToken.ThrowIfCancellationRequested();
         invocations.Add(new Invocation(unityProject, query, timeout, cancellationToken));
+        readSignals.Release();
 
         if (responses.Count == 0)
         {

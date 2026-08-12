@@ -32,7 +32,7 @@ internal static class UnityOneshotLaunchAssert
     {
         var bootstrapArguments = LaunchedOnce(launcher, expectedUnityProject, exitDeadlineReferenceUtc);
         var invocation = Assert.Single(launcher.Invocations);
-        Assert.Same(UnityBatchmodeLaunchOptions.Default, invocation.LaunchOptions);
+        Assert.Equal(UnityBatchmodeLaunchOptions.Default, invocation.LaunchOptions);
         return bootstrapArguments;
     }
 

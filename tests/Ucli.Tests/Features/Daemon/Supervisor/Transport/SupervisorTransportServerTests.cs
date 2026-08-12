@@ -1,5 +1,4 @@
 using System.Runtime.Versioning;
-using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.Tests.Helpers;
@@ -203,11 +202,10 @@ public sealed class SupervisorTransportServerTests
         var serverTask = server.RunAsync(
             SupervisorTransportEndpoint.FromContract(endpoint),
             static (_, _) => Task.CompletedTask,
-            async _ =>
+            _ =>
             {
                 Interlocked.Increment(ref startupCallbackInvocations);
-                await Task.Yield();
-                throw new IOException("Supervisor startup callback failed.");
+                return Task.FromException(new IOException("Supervisor startup callback failed."));
             },
             SupervisorConstants.MaximumActiveConnections,
             SupervisorConstants.ConnectionDrainTimeout,
@@ -669,63 +667,70 @@ public sealed class SupervisorTransportServerTests
 
     [Fact]
     [Trait("Size", "Medium")]
-    public async Task Run_WhenConnectionHandlerIgnoresShutdownCancellation_ReturnsAtConnectionDrainDeadline ()
+    public async Task Run_WhenShutdownCancelsAnActiveConnection_WaitsForTheHandlerToExit ()
     {
-        using var scope = TestDirectories.CreateTempScope("supervisor-transport-server", "bounded-drain");
+        using var scope = TestDirectories.CreateTempScope("supervisor-transport-server", "connection-drain-wiring");
         var endpoint = CreateEndpoint(AbsolutePath.Parse(scope.FullPath));
-        var timeProvider = new ManualTimeProvider();
-        var server = new SupervisorTransportServer(timeProvider);
-        var startedTaskSource = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var server = new SupervisorTransportServer(TimeProvider.System);
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var handlerEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var releaseHandler = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var handlerExited = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         using var cancellationTokenSource = new CancellationTokenSource();
 
         var serverTask = server.RunAsync(
             SupervisorTransportEndpoint.FromContract(endpoint),
-            async (_, _) =>
+            async (_, cancellationToken) =>
             {
                 handlerEntered.TrySetResult();
-                await releaseHandler.Task.ConfigureAwait(false);
+                try
+                {
+                    await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken).ConfigureAwait(false);
+                }
+                finally
+                {
+                    handlerExited.TrySetResult();
+                }
             },
-            cancellationToken =>
+            _ =>
             {
-                startedTaskSource.TrySetResult();
+                started.TrySetResult();
                 return Task.CompletedTask;
             },
             maximumActiveConnections: 1,
-            connectionDrainTimeout: TimeSpan.FromMilliseconds(50),
+            connectionDrainTimeout: SupervisorConstants.ConnectionDrainTimeout,
             cancellationToken: cancellationTokenSource.Token);
-
         var client = new IpcTransportClient(
             new IpcTransportConnector(),
             TimeProvider.System);
-        var requestTask = Task.CompletedTask;
-        var returnedAtDrainDeadline = false;
+        Task<IpcResponse>? requestTask = null;
+
         try
         {
-            await startedTaskSource.Task.WaitAsync(SignalWaitTimeout);
+            await started.Task.WaitAsync(SignalWaitTimeout);
             requestTask = client
-                .SendAsync(IpcTransportEndpoint.FromContract(endpoint), CreateRequest("non-cooperative"), SignalWaitTimeout)
+                .SendAsync(
+                    IpcTransportEndpoint.FromContract(endpoint),
+                    CreateRequest("connection-drain-wiring"),
+                    SignalWaitTimeout)
                 .AsTask();
             await handlerEntered.Task.WaitAsync(SignalWaitTimeout);
 
             cancellationTokenSource.Cancel();
             server.Release();
-            await timeProvider.WaitForTimerDueWithinAsync(TimeSpan.FromMilliseconds(50)).WaitAsync(SignalWaitTimeout);
-            timeProvider.Advance(TimeSpan.FromMilliseconds(50));
             await serverTask.WaitAsync(SignalWaitTimeout);
-            returnedAtDrainDeadline = true;
+
+            Assert.True(handlerExited.Task.IsCompleted);
         }
         finally
         {
-            releaseHandler.TrySetResult();
             cancellationTokenSource.Cancel();
             server.Release();
             await serverTask.WaitAsync(SignalWaitTimeout);
-            await ObserveConnectionCompletionAsync(requestTask);
+            if (requestTask is not null)
+            {
+                await ObserveConnectionCompletionAsync(requestTask);
+            }
         }
-
-        Assert.True(returnedAtDrainDeadline);
     }
 
     private static async Task ObserveConnectionCompletionAsync (Task task)

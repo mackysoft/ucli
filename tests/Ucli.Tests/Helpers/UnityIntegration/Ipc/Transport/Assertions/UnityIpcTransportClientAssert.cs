@@ -12,7 +12,7 @@ internal static class UnityIpcTransportClientAssert
         CancellationToken expectedCancellationToken)
     {
         Assert.Equal(expectedEndpoint, Assert.Single(transportClient.Endpoints));
-        Assert.Same(expectedRequest, Assert.Single(transportClient.Requests));
+        AssertRequestEquivalent(expectedRequest, Assert.Single(transportClient.Requests));
         Assert.Equal(expectedTimeout, Assert.Single(transportClient.Timeouts));
         Assert.Equal(expectedCancellationToken, Assert.Single(transportClient.CancellationTokens));
     }
@@ -25,7 +25,7 @@ internal static class UnityIpcTransportClientAssert
         CancellationToken expectedCancellationToken)
     {
         Assert.Equal(expectedEndpoint, Assert.Single(transportClient.Endpoints));
-        Assert.Same(expectedRequest, Assert.Single(transportClient.StreamingRequests));
+        AssertRequestEquivalent(expectedRequest, Assert.Single(transportClient.StreamingRequests));
         Assert.Equal(expectedTimeout, Assert.Single(transportClient.Timeouts));
         Assert.Equal(expectedCancellationToken, Assert.Single(transportClient.CancellationTokens));
     }
@@ -50,5 +50,21 @@ internal static class UnityIpcTransportClientAssert
         var request = Assert.Single(transportClient.StreamingRequests);
         Assert.Equal(TextVocabulary.GetText(expectedMethod), request.Method);
         return request;
+    }
+
+    private static void AssertRequestEquivalent (
+        IpcRequestEnvelope expected,
+        IpcRequestEnvelope actual)
+    {
+        Assert.Equal(expected.ProtocolVersion, actual.ProtocolVersion);
+        Assert.Equal(expected.RequestId, actual.RequestId);
+        Assert.Equal(expected.SessionToken, actual.SessionToken);
+        Assert.Equal(expected.Method, actual.Method);
+        Assert.Equal(expected.Payload.GetRawText(), actual.Payload.GetRawText());
+        Assert.Equal(expected.ResponseMode, actual.ResponseMode);
+        Assert.Equal(expected.RequestDeadlineUtc, actual.RequestDeadlineUtc);
+        Assert.Equal(
+            expected.RequestDeadlineRemainingMilliseconds,
+            actual.RequestDeadlineRemainingMilliseconds);
     }
 }

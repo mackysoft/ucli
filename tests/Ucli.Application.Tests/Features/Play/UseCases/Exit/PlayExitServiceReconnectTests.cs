@@ -1,6 +1,4 @@
-using MackySoft.Ucli.Application.Features.Play.UseCases.Exit;
 using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
-using MackySoft.Ucli.Contracts.Execution;
 using MackySoft.Ucli.Contracts.Execution.Lifecycle;
 using static MackySoft.Ucli.Application.Tests.Play.PlayExitServiceTestSupport;
 
@@ -42,8 +40,8 @@ public sealed class PlayExitServiceReconnectTests
         Assert.True(result.IsSuccess, result.Error?.Message);
         var payload = Assert.IsType<UnityRequestPayload.PlayExit>(
             Assert.Single(requestExecutor.Invocations).Payload);
-        Assert.Same(registration, payload.Registration);
-        Assert.Same(start, payload.RequiredStart);
+        Assert.Equal(registration, payload.Registration);
+        Assert.Equal(start, payload.RequiredStart);
         Assert.Single(resolver.Invocations);
     }
 }

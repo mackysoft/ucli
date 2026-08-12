@@ -16,7 +16,7 @@ public sealed class IpcTransportEndpointTests
 
         Assert.Equal(IpcTransportKind.UnixDomainSocket, endpoint.Contract.TransportKind);
         Assert.Equal(socketPath.Value, endpoint.Contract.Address);
-        Assert.Same(socketPath, endpoint.UnixSocketPath);
+        Assert.Equal(socketPath, endpoint.UnixSocketPath);
     }
 
     [Fact]

@@ -2,11 +2,9 @@ using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Tests.Daemon;
 
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Compensation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Startup;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
-using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Shared.Unity.ProjectLock;
 using MackySoft.Ucli.Tests.Helpers.Unity;
 
@@ -28,7 +26,7 @@ internal static class DaemonStartupReadinessProbeTestSupport
     public static async Task<DaemonStartupReadinessProbeResult> WaitUntilStartupDeadlineAsync (
         DaemonStartupReadinessProbe probe,
         RecordingDaemonPingInfoClient pingClient,
-        ManualTimeProvider timeProvider,
+        FakeTimeProvider timeProvider,
         string description,
         ProjectFingerprint projectFingerprint)
     {
@@ -40,7 +38,6 @@ internal static class DaemonStartupReadinessProbeTestSupport
             .AsTask();
 
         await pingClient.WaitForFirstInvocationAsync(description, TimeSpan.FromSeconds(5));
-        await timeProvider.WaitForTimerDueWithinAsync(timeout);
         timeProvider.Advance(timeout);
         return await resultTask.WaitAsync(TimeSpan.FromSeconds(5));
     }

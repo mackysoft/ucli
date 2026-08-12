@@ -112,7 +112,7 @@ public sealed class GameViewRecordingServiceTests
     [Trait("Size", "Small")]
     public async Task Start_WhenDispatchDeadlineElapsedAndUnityDoesNotReportTheRecording_PublishesTheDurableTerminalResult ()
     {
-        var timeProvider = new ManualTimeProvider(StartedAtUtc);
+        var timeProvider = new FakeTimeProvider(StartedAtUtc);
         using var harness = new ServiceHarness(timeProvider);
         harness.Executor.LoseNextStartResponse = true;
 
@@ -155,7 +155,7 @@ public sealed class GameViewRecordingServiceTests
     [Trait("Size", "Small")]
     public async Task Start_WhenTheInitialDispatchDeadlineExpiresAfterDurableRegistration_ReturnsTheRecoveryCheckpointWithoutDispatching ()
     {
-        var timeProvider = new ManualTimeProvider(StartedAtUtc);
+        var timeProvider = new FakeTimeProvider(StartedAtUtc);
         using var harness = new ServiceHarness(
             timeProvider,
             executionStore => new AdvancingRegistrationExecutionStore(
@@ -287,7 +287,7 @@ public sealed class GameViewRecordingServiceTests
     [Trait("Size", "Small")]
     public async Task Start_WhenTheDeadlineExpiresBeforeRegistration_ReturnsAGeneralTimeout ()
     {
-        var timeProvider = new ManualTimeProvider(StartedAtUtc);
+        var timeProvider = new FakeTimeProvider(StartedAtUtc);
         using var harness = new ServiceHarness(timeProvider);
         harness.Executor.BeforeCapabilityResponseAsync = _ =>
         {
@@ -317,7 +317,7 @@ public sealed class GameViewRecordingServiceTests
     [Trait("Size", "Small")]
     public async Task Start_WhenProjectResolutionConsumesTheDeadline_DoesNotStartRecordingIpc ()
     {
-        var timeProvider = new ManualTimeProvider(StartedAtUtc);
+        var timeProvider = new FakeTimeProvider(StartedAtUtc);
         using var harness = new ServiceHarness(
             timeProvider,
             projectContextResolverFactory: context => new AdvancingProjectContextResolver(
@@ -372,8 +372,22 @@ public sealed class GameViewRecordingServiceTests
     [Trait("Size", "Small")]
     public async Task Start_WhenMonitoringDeadlineExpires_ReturnsTheContinuingRecordingReference ()
     {
-        var timeProvider = new ManualTimeProvider(StartedAtUtc);
+        var timeProvider = new FakeTimeProvider(StartedAtUtc);
         using var harness = new ServiceHarness(timeProvider);
+        var observationStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseObservation = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        Assert.IsType<GameViewRecordingActivePayload>(
+            (await harness.StartAsync(RecordingId, detach: true)).Payload);
+        harness.Executor.StatusSnapshotFactory = async (request, cancellationToken) =>
+        {
+            observationStarted.TrySetResult();
+            await releaseObservation.Task.WaitAsync(cancellationToken);
+            return request.KnownRecording
+                ?? throw new InvalidOperationException(
+                    "The durable recording observation was expected.");
+        };
 
         var execution = harness.Service.StartAsync(
             new GameViewRecordingStartInput(
@@ -383,8 +397,9 @@ public sealed class GameViewRecordingServiceTests
                 Detach: false,
                 TimeoutMilliseconds: 1_000),
             CancellationToken.None).AsTask();
-        await timeProvider.WaitForTimerDueWithinAsync(TimeSpan.FromSeconds(1));
+        await observationStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
         timeProvider.Advance(TimeSpan.FromSeconds(1));
+        releaseObservation.SetResult();
         var result = await execution.WaitAsync(TimeSpan.FromSeconds(5));
 
         Assert.False(result.IsSuccess);
@@ -419,7 +434,7 @@ public sealed class GameViewRecordingServiceTests
     [Trait("Size", "Small")]
     public async Task Start_RetryWhenProjectResolutionConsumesDeadline_ReturnsDurableCheckpointWithoutOpeningArtifactsOrIpc ()
     {
-        var timeProvider = new ManualTimeProvider(StartedAtUtc);
+        var timeProvider = new FakeTimeProvider(StartedAtUtc);
         AdvancingProjectContextResolver? resolver = null;
         CountingArtifactStore? artifactStore = null;
         using var harness = new ServiceHarness(
@@ -930,13 +945,13 @@ public sealed class GameViewRecordingServiceTests
     private sealed class AdvancingRegistrationExecutionStore : IGameViewRecordingExecutionStore
     {
         private readonly IGameViewRecordingExecutionStore inner;
-        private readonly ManualTimeProvider timeProvider;
+        private readonly FakeTimeProvider timeProvider;
         private readonly TimeSpan elapsed;
         private int hasAdvanced;
 
         public AdvancingRegistrationExecutionStore (
             IGameViewRecordingExecutionStore inner,
-            ManualTimeProvider timeProvider,
+            FakeTimeProvider timeProvider,
             TimeSpan elapsed)
         {
             this.inner = inner ?? throw new ArgumentNullException(nameof(inner));
@@ -1159,12 +1174,12 @@ public sealed class GameViewRecordingServiceTests
     private sealed class AdvancingProjectContextResolver : IProjectContextResolver
     {
         private readonly ProjectContext context;
-        private readonly ManualTimeProvider timeProvider;
+        private readonly FakeTimeProvider timeProvider;
         private readonly TimeSpan elapsed;
 
         public AdvancingProjectContextResolver (
             ProjectContext context,
-            ManualTimeProvider timeProvider,
+            FakeTimeProvider timeProvider,
             TimeSpan elapsed)
         {
             this.context = context;

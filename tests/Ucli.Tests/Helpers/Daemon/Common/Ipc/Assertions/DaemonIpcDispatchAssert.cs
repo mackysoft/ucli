@@ -66,7 +66,7 @@ internal static class DaemonIpcDispatchAssert
         string expectedSessionToken)
     {
         var request = Assert.Single(transportClient.StreamingRequests);
-        Assert.Same(request, Assert.Single(transportClient.Requests));
+        AssertRequestEquivalent(request, Assert.Single(transportClient.Requests));
         Assert.Equal(TextVocabulary.GetText(expectedMethod), request.Method);
         Assert.Equal(expectedSessionToken, request.SessionToken);
         Assert.Equal(TextVocabulary.GetText(IpcResponseMode.Stream), request.ResponseMode);
@@ -87,7 +87,7 @@ internal static class DaemonIpcDispatchAssert
         UnityIpcMethod expectedMethod)
     {
         var request = Assert.Single(transportClient.StreamingRequests);
-        Assert.Same(request, Assert.Single(transportClient.Requests));
+        AssertRequestEquivalent(request, Assert.Single(transportClient.Requests));
         Assert.Equal(TextVocabulary.GetText(expectedMethod), request.Method);
         Assert.Equal(TextVocabulary.GetText(IpcResponseMode.Stream), request.ResponseMode);
         return request;
@@ -102,6 +102,22 @@ internal static class DaemonIpcDispatchAssert
         var requests = IpcRequestAssert.Methods(transportClient, expectedMethod, expectedMethod);
         IpcRequestAssert.SessionTokens(requests, firstSessionToken, recoveredSessionToken);
         return requests;
+    }
+
+    private static void AssertRequestEquivalent (
+        IpcRequestEnvelope expected,
+        IpcRequestEnvelope actual)
+    {
+        Assert.Equal(expected.ProtocolVersion, actual.ProtocolVersion);
+        Assert.Equal(expected.RequestId, actual.RequestId);
+        Assert.Equal(expected.SessionToken, actual.SessionToken);
+        Assert.Equal(expected.Method, actual.Method);
+        Assert.Equal(expected.Payload.GetRawText(), actual.Payload.GetRawText());
+        Assert.Equal(expected.ResponseMode, actual.ResponseMode);
+        Assert.Equal(expected.RequestDeadlineUtc, actual.RequestDeadlineUtc);
+        Assert.Equal(
+            expected.RequestDeadlineRemainingMilliseconds,
+            actual.RequestDeadlineRemainingMilliseconds);
     }
 
     public static IReadOnlyList<IpcRequestEnvelope> RecoveredStreamingDispatchesWithReloadedSessionToken (
