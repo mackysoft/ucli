@@ -10,6 +10,7 @@ using MackySoft.Ucli.Contracts.Execution.Lifecycle;
 using MackySoft.Ucli.Contracts.Projects;
 using MackySoft.Ucli.Infrastructure.Execution.Lifecycle;
 using MackySoft.Ucli.Unity.Ipc;
+using MackySoft.Ucli.Unity.Runtime;
 using NUnit.Framework;
 using static MackySoft.Ucli.Unity.Tests.LifecycleExecutionHandlerTestSupport;
 
@@ -45,7 +46,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 sourceScope.CreateExecutionStore(ProjectFingerprint),
                 startedAtUtc,
                 startedAtUtc.AddMinutes(5));
-            var boundary = new LifecycleExecutionAttemptBoundary(
+            var boundary = CreateBoundary(
                 emptyScope.CreateExecutionStore(ProjectFingerprint));
 
             var result = await boundary.ResolveInvocationAsync(
@@ -79,8 +80,10 @@ namespace MackySoft.Ucli.Unity.Tests
                 established.StartedGeneration,
                 established.DeadlineUtc,
                 established.StartedAtUtc);
+            var timeSource = new SystemLifecycleExecutionTimeSource();
             var boundary = new LifecycleExecutionAttemptBoundary(
-                executionStore);
+                executionStore,
+                timeSource);
 
             var result = await boundary.ResolveInvocationAsync(
                 LifecycleExecutionKind.Refresh,
@@ -110,8 +113,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 LifecycleExecutionKind.Refresh,
                 start.LifecycleExecutionRef.Id,
                 CancellationToken.None);
-            var boundary = new LifecycleExecutionAttemptBoundary(
-                executionStore);
+            var boundary = CreateBoundary(executionStore);
 
             var result = await boundary.ResolveInvocationAsync(
                 LifecycleExecutionKind.Refresh,
@@ -141,8 +143,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 LifecycleExecutionKind.Refresh,
                 start.LifecycleExecutionRef.Id,
                 CancellationToken.None);
-            var boundary = new LifecycleExecutionAttemptBoundary(
-                executionStore);
+            var boundary = CreateBoundary(executionStore);
 
             var result = await boundary.ResolveRecoveryAsync(
                 LifecycleExecutionKind.Refresh,
@@ -175,8 +176,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 LifecycleExecutionKind.Refresh,
                 start.LifecycleExecutionRef.Id,
                 CancellationToken.None);
-            var boundary = new LifecycleExecutionAttemptBoundary(
-                executionStore);
+            var boundary = CreateBoundary(executionStore);
 
             var result = await boundary.ResolveInvocationAsync(
                 LifecycleExecutionKind.Refresh,
@@ -197,13 +197,17 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             using var scope = TemporaryStorageScope.Create();
             var executionStore = scope.CreateExecutionStore(ProjectFingerprint);
-            var startedAtUtc = DateTimeOffset.UtcNow.AddMinutes(-1);
+            var baseUtc = new DateTimeOffset(
+                2026, 8, 12, 0, 0, 0, TimeSpan.Zero);
             var start = await RegisterAsync(
                 executionStore,
-                startedAtUtc,
-                DateTimeOffset.UtcNow.AddSeconds(1));
+                baseUtc,
+                baseUtc.AddSeconds(1));
+            var timeSource = new ManualLifecycleExecutionTimeSource(
+                baseUtc);
             var boundary = new LifecycleExecutionAttemptBoundary(
-                executionStore);
+                executionStore,
+                timeSource);
             var initial = await boundary.ResolveRecoveryAsync(
                 LifecycleExecutionKind.Refresh,
                 start.LifecycleExecutionRef.Id,
@@ -211,7 +215,7 @@ namespace MackySoft.Ucli.Unity.Tests
             using var open = AssertType<
                 LifecycleExecutionAttemptResolution.Open>(initial);
 
-            await Task.Delay(TimeSpan.FromMilliseconds(1100));
+            timeSource.Advance(TimeSpan.FromSeconds(1));
             Assert.That(
                 open.DeadlineCancellationToken.IsCancellationRequested,
                 Is.True);
@@ -246,8 +250,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 executionStore,
                 startedAtUtc,
                 startedAtUtc.AddMinutes(5));
-            var boundary = new LifecycleExecutionAttemptBoundary(
-                executionStore);
+            var boundary = CreateBoundary(executionStore);
             var initial = await boundary.ResolveRecoveryAsync(
                 LifecycleExecutionKind.Refresh,
                 start.LifecycleExecutionRef.Id,
@@ -284,8 +287,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 executionStore,
                 startedAtUtc,
                 startedAtUtc.AddMinutes(5));
-            var boundary = new LifecycleExecutionAttemptBoundary(
-                executionStore);
+            var boundary = CreateBoundary(executionStore);
             var initial = await boundary.ResolveRecoveryAsync(
                 LifecycleExecutionKind.Refresh,
                 start.LifecycleExecutionRef.Id,
@@ -322,6 +324,14 @@ namespace MackySoft.Ucli.Unity.Tests
                 CancellationToken.None);
             Assert.That(result.IsSuccess, Is.True);
             return result.Binding;
+        }
+
+        private static LifecycleExecutionAttemptBoundary CreateBoundary (
+            FileLifecycleExecutionStore executionStore)
+        {
+            return new LifecycleExecutionAttemptBoundary(
+                executionStore,
+                new SystemLifecycleExecutionTimeSource());
         }
 
         private static async Task PublishTerminalStateAsync (

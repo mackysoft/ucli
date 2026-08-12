@@ -126,7 +126,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     executionStore,
                     new FilePlayEnterLifecycleExecutionCheckpointStore(
                         executionStore),
-                    NoOpDaemonLogger.Instance);
+                    NoOpDaemonLogger.Instance,
+                    new SystemLifecycleExecutionTimeSource());
 
                 var outcome = await handler.ExecuteAsync(start);
 
@@ -613,7 +614,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 checkpointStore
                     ?? new FilePlayEnterLifecycleExecutionCheckpointStore(
                         executionStore),
-                daemonLogger);
+                daemonLogger,
+                new SystemLifecycleExecutionTimeSource());
             return new PlayEnterHandlerFixture(
                 new PlayEnterUnityIpcMethodHandler(
                     executionHandler,

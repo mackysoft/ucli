@@ -29,6 +29,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private readonly IPlayExitLifecycleExecutionProvider provider;
         private readonly FileLifecycleExecutionStore executionStore;
+        private readonly ILifecycleExecutionTimeSource timeSource;
         private readonly LifecycleExecutionAttemptBoundary attemptBoundary;
         private readonly FilePlayExitLifecycleExecutionCheckpointStore checkpointStore;
         private readonly LifecycleExecutionSideEffectAdmissionCoordinator
@@ -41,13 +42,16 @@ namespace MackySoft.Ucli.Unity.Ipc
             IPlayExitLifecycleExecutionProvider provider,
             FileLifecycleExecutionStore executionStore,
             FilePlayExitLifecycleExecutionCheckpointStore checkpointStore,
-            IDaemonLogger daemonLogger)
+            IDaemonLogger daemonLogger,
+            ILifecycleExecutionTimeSource timeSource)
         {
             this.provider = provider
                 ?? throw new ArgumentNullException(nameof(provider));
             this.executionStore = executionStore
                 ?? throw new ArgumentNullException(nameof(executionStore));
-            attemptBoundary = new(this.executionStore);
+            this.timeSource = timeSource
+                ?? throw new ArgumentNullException(nameof(timeSource));
+            attemptBoundary = new(this.executionStore, this.timeSource);
             this.checkpointStore = checkpointStore
                 ?? throw new ArgumentNullException(nameof(checkpointStore));
             sideEffectAdmission =
@@ -786,7 +790,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             return execution;
         }
 
-        private static TerminalCandidate
+        private TerminalCandidate
             CreateTerminalCandidate (
                 LifecycleExecutionStartBinding start,
                 PlayExitTransitionExecutionResult result,
@@ -809,7 +813,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     instancePath: null);
             var candidate = new TerminalCandidate(
                 start.LifecycleExecutionRef.Id,
-                DateTimeOffset.UtcNow,
+                timeSource.UtcNow,
                 terminalReason,
                 applicationState,
                 terminalGeneration,
@@ -818,12 +822,12 @@ namespace MackySoft.Ucli.Unity.Ipc
             return ResolveTerminalCandidate(start, candidate);
         }
 
-        private static TerminalCandidate
+        private TerminalCandidate
             ResolveTerminalCandidate (
                 LifecycleExecutionStartBinding start,
                 TerminalCandidate candidate)
         {
-            var fixedAtUtc = DateTimeOffset.UtcNow;
+            var fixedAtUtc = timeSource.UtcNow;
             var terminalFacts =
                 LifecycleExecutionTerminalFactsPolicy.ResolveTerminalFacts(
                     start,
@@ -897,7 +901,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 start,
                 new TerminalCandidate(
                     start.LifecycleExecutionRef.Id,
-                    DateTimeOffset.UtcNow,
+                    timeSource.UtcNow,
                     terminalReason,
                     applicationState,
                     terminalGeneration,

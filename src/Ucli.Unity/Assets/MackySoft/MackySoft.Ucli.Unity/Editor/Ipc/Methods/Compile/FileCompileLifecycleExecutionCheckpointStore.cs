@@ -140,12 +140,19 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         public ValueTask<CompileLifecycleExecutionCheckpoint>
             MarkProviderReturnedAsync (
-                CompileLifecycleExecutionCheckpoint checkpoint,
-                CancellationToken cancellationToken)
+            CompileLifecycleExecutionCheckpoint checkpoint,
+            DateTimeOffset providerReturnedAtUtc,
+            CancellationToken cancellationToken)
         {
             if (checkpoint == null)
             {
                 throw new ArgumentNullException(nameof(checkpoint));
+            }
+            if (providerReturnedAtUtc.Offset != TimeSpan.Zero)
+            {
+                throw new ArgumentException(
+                    "Compile provider return time must use the UTC offset.",
+                    nameof(providerReturnedAtUtc));
             }
 
             return persistence.MutateAsync(
@@ -174,7 +181,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
                     return Copy(
                         current,
-                        providerReturnedAtUtc: DateTimeOffset.UtcNow);
+                        providerReturnedAtUtc: providerReturnedAtUtc);
                 },
                 cancellationToken);
         }

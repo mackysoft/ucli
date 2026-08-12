@@ -767,9 +767,12 @@ namespace MackySoft.Ucli.Unity.Ipc
                 var mutationLaneControl = state.ServiceProvider?.GetService<IUnityMutationLaneControl>();
                 var controlPlaneRequestLifetime = state.ServiceProvider?
                     .GetService<IUnityControlPlaneRequestLifetime>();
+                var recoveryCoordinator = state.ServiceProvider?
+                    .GetService<UnityLifecycleExecutionRecoveryCoordinator>();
                 var managedResourceReleaseTask = ReleaseManagedResourcesAfterExecutionRetirementAsync(
                     mutationLaneControl,
                     controlPlaneRequestLifetime,
+                    recoveryCoordinator,
                     () =>
                     {
                         state.ReleaseManagedResourcesOnce(() =>
@@ -1042,6 +1045,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 state.DaemonLogger,
                 state.MutationLaneControl,
                 state.ControlPlaneRequestLifetime,
+                state.ServiceProvider.GetService<UnityLifecycleExecutionRecoveryCoordinator>(),
                 cleanupContext: null,
                 deleteSession,
                 () => state.ReleaseManagedResourcesOnce(() =>
@@ -1141,6 +1145,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 daemonLogger,
                 serviceProvider?.GetService<IUnityMutationLaneControl>(),
                 serviceProvider?.GetService<IUnityControlPlaneRequestLifetime>(),
+                serviceProvider?.GetService<UnityLifecycleExecutionRecoveryCoordinator>(),
                 cleanupContext: "after failed startup",
                 deleteSession: true,
                 () =>
@@ -1168,6 +1173,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             IDaemonLogger daemonLogger,
             IUnityMutationLaneControl mutationLaneControl,
             IUnityControlPlaneRequestLifetime controlPlaneRequestLifetime,
+            UnityLifecycleExecutionRecoveryCoordinator recoveryCoordinator,
             string cleanupContext,
             bool deleteSession,
             Action releaseManagedResources)
@@ -1215,6 +1221,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             var managedResourceReleaseTask = ReleaseManagedResourcesAfterExecutionRetirementAsync(
                 mutationLaneControl,
                 controlPlaneRequestLifetime,
+                recoveryCoordinator,
                 releaseManagedResources);
             bool managedResourcesReleasedInForeground;
             try
@@ -1253,6 +1260,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         private static async Task ReleaseManagedResourcesAfterExecutionRetirementAsync (
             IUnityMutationLaneControl mutationLaneControl,
             IUnityControlPlaneRequestLifetime controlPlaneRequestLifetime,
+            UnityLifecycleExecutionRecoveryCoordinator recoveryCoordinator,
             Action releaseManagedResources)
         {
             var mutationRetirement = mutationLaneControl?.WaitForRetirementAsync()
@@ -1260,6 +1268,11 @@ namespace MackySoft.Ucli.Unity.Ipc
             var controlPlaneRetirement = controlPlaneRequestLifetime?.WaitForRetirementAsync()
                 ?? Task.CompletedTask;
             await Task.WhenAll(mutationRetirement, controlPlaneRetirement);
+
+            if (recoveryCoordinator != null)
+            {
+                await recoveryCoordinator.StopAsync();
+            }
 
             releaseManagedResources();
         }

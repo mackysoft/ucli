@@ -103,11 +103,14 @@ namespace MackySoft.Ucli.Unity.Ipc
         {
             private readonly LifecycleExecutionDeadlineScope deadlineScope;
 
-            public Open (StoredLifecycleExecution execution)
+            public Open (
+                StoredLifecycleExecution execution,
+                ILifecycleExecutionTimeSource timeSource)
             {
                 Execution = RequireOpen(execution);
                 deadlineScope = new LifecycleExecutionDeadlineScope(
                     Execution.Start.DeadlineUtc,
+                    timeSource,
                     CancellationToken.None);
             }
 

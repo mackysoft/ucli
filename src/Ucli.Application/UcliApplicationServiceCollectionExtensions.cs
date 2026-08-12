@@ -43,6 +43,7 @@ using MackySoft.Ucli.Application.Features.Play.UseCases.Enter;
 using MackySoft.Ucli.Application.Features.Play.UseCases.Exit;
 using MackySoft.Ucli.Application.Features.Play.UseCases.Status;
 using MackySoft.Ucli.Application.Features.Programs.Parsing;
+using MackySoft.Ucli.Application.Features.Programs.Persistence;
 using MackySoft.Ucli.Application.Features.Programs.Presets;
 using MackySoft.Ucli.Application.Features.Programs.Resolution;
 using MackySoft.Ucli.Application.Features.Programs.Validate;
@@ -196,6 +197,7 @@ public static class UcliApplicationServiceCollectionExtensions
         services.AddSingleton<IProgramDefinitionResolver, ProgramDefinitionResolver>();
         services.AddSingleton<IProgramPresetCatalog, ProgramPresetCatalog>();
         services.AddSingleton<IProgramValidationService, ProgramValidationService>();
+        services.AddSingleton<ProgramRunPersistenceService>();
         return services;
     }
 

@@ -67,7 +67,7 @@ internal sealed class ProgramPresetCatalog : IProgramPresetCatalog
         return result switch
         {
             ProgramDefinitionRootFileReceiptReadFailure { ReadResult: ProgramDefinitionFileReadUnavailable unavailable } => unavailable.Message,
-            ProgramDefinitionRootFileReceiptReadFailure { ReadResult: ProgramDefinitionFileReadChangedDuringRead } => "Program Preset file changed while it was being read.",
+            ProgramDefinitionRootFileReceiptReadFailure { ReadResult: ProgramDefinitionFileReadChangedDuringRead } => "Program Preset path or file changed while it was being resolved or read.",
             ProgramDefinitionRootFileReceiptInvalidUtf8 invalidUtf8 => $"Program Preset is not strict UTF-8. {invalidUtf8.Message}",
             ProgramDefinitionRootFileReceiptInvalidParent => "Program Preset file has no reference parent directory.",
             _ => throw new InvalidOperationException($"Unknown Program Preset receipt result: {result.GetType().Name}."),

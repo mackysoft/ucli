@@ -33,6 +33,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         private readonly IRefreshLifecycleExecutionProvider provider;
         private readonly IDaemonLogger daemonLogger;
         private readonly FileLifecycleExecutionStore executionStore;
+        private readonly ILifecycleExecutionTimeSource timeSource;
         private readonly LifecycleExecutionAttemptBoundary attemptBoundary;
         private readonly FileRefreshLifecycleExecutionCheckpointStore checkpointStore;
         private readonly LifecycleExecutionSideEffectAdmissionCoordinator
@@ -45,7 +46,8 @@ namespace MackySoft.Ucli.Unity.Ipc
             IRefreshLifecycleExecutionProvider provider,
             IDaemonLogger daemonLogger,
             FileLifecycleExecutionStore executionStore,
-            FileRefreshLifecycleExecutionCheckpointStore checkpointStore)
+            FileRefreshLifecycleExecutionCheckpointStore checkpointStore,
+            ILifecycleExecutionTimeSource timeSource)
         {
             this.provider = provider
                 ?? throw new ArgumentNullException(nameof(provider));
@@ -53,7 +55,9 @@ namespace MackySoft.Ucli.Unity.Ipc
                 ?? throw new ArgumentNullException(nameof(daemonLogger));
             this.executionStore = executionStore
                 ?? throw new ArgumentNullException(nameof(executionStore));
-            attemptBoundary = new(this.executionStore);
+            this.timeSource = timeSource
+                ?? throw new ArgumentNullException(nameof(timeSource));
+            attemptBoundary = new(this.executionStore, this.timeSource);
             this.checkpointStore = checkpointStore
                 ?? throw new ArgumentNullException(nameof(checkpointStore));
             sideEffectAdmission =
@@ -457,7 +461,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                             .MarkDispatchPreparedAsync(
                                 checkpoint,
                                 new RefreshLifecycleDispatchCandidate(
-                                    DateTimeOffset.UtcNow,
+                                    timeSource.UtcNow,
                                     checkpoint.Before.State.Generations
                                         .DomainReloadGeneration),
                                 CancellationToken.None);
@@ -837,7 +841,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             RefreshLifecycleExecutionCheckpoint checkpoint,
             UnityEditorRuntimeObservation afterSnapshot)
         {
-            var completedAtUtc = DateTimeOffset.UtcNow;
+            var completedAtUtc = timeSource.UtcNow;
             var lifecycle = CreateObservation(afterSnapshot);
             var result = new RefreshLifecycleResult(
                 new RefreshLifecycleResult.RefreshEvidence(
@@ -882,7 +886,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 LifecycleExecutionTerminalReason.DeadlineExceeded,
                 applicationState,
                 snapshot?.State.Generations,
-                DateTimeOffset.UtcNow);
+                timeSource.UtcNow);
         }
 
         private TerminalCandidate
@@ -900,7 +904,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 LifecycleExecutionTerminalReason.ActionFailed,
                 applicationState,
                 snapshot.State.Generations,
-                DateTimeOffset.UtcNow);
+                timeSource.UtcNow);
         }
 
         private TerminalCandidate
@@ -932,15 +936,15 @@ namespace MackySoft.Ucli.Unity.Ipc
                 canAttributeGeneration
                     ? snapshot?.State.Generations
                     : null,
-                DateTimeOffset.UtcNow);
+                timeSource.UtcNow);
         }
 
-        private static TerminalCandidate
+        private TerminalCandidate
             ResolveTerminalCandidate (
                 LifecycleExecutionStartBinding start,
                 TerminalCandidate candidate)
         {
-            var fixedAtUtc = DateTimeOffset.UtcNow;
+            var fixedAtUtc = timeSource.UtcNow;
             var terminalFacts =
                 LifecycleExecutionTerminalFactsPolicy.ResolveTerminalFacts(
                     start,

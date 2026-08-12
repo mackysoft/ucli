@@ -67,7 +67,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     executionStore,
                     new FilePlayExitLifecycleExecutionCheckpointStore(
                         executionStore),
-                    NoOpDaemonLogger.Instance);
+                    NoOpDaemonLogger.Instance,
+                    new SystemLifecycleExecutionTimeSource());
 
                 var outcome = await handler.ExecuteAsync(start);
 
@@ -529,7 +530,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     provider,
                     executionStore,
                     checkpointStore,
-                    NoOpDaemonLogger.Instance);
+                    NoOpDaemonLogger.Instance,
+                    new SystemLifecycleExecutionTimeSource());
                 var current = await executionStore.ReadAsync(
                     LifecycleExecutionKind.PlayExit,
                     start.LifecycleExecutionRef.Id,
@@ -709,7 +711,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 checkpointStore
                     ?? new FilePlayExitLifecycleExecutionCheckpointStore(
                         executionStore),
-                NoOpDaemonLogger.Instance);
+                NoOpDaemonLogger.Instance,
+                new SystemLifecycleExecutionTimeSource());
             return new PlayExitHandlerFixture(
                 new PlayExitUnityIpcMethodHandler(
                     executionHandler,
