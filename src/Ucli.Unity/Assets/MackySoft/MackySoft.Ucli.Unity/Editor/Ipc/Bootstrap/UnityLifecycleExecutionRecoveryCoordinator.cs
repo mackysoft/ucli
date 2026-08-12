@@ -41,12 +41,16 @@ namespace MackySoft.Ucli.Unity.Ipc
         private readonly CancellationTokenSource lifetimeCancellationSource =
             new CancellationTokenSource();
         private readonly CancellationToken lifetimeCancellationToken;
-        private readonly object trackingGate = new object();
+        private readonly object lifecycleGate = new object();
         private readonly HashSet<(LifecycleExecutionKind Kind, Guid ExecutionId)>
             trackedExecutions =
                 new HashSet<(LifecycleExecutionKind Kind, Guid ExecutionId)>();
-        private int started;
-        private int disposed;
+        private readonly TaskCompletionSource<bool> quiescenceSource =
+            new TaskCompletionSource<bool>(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+        private CoordinatorState state = CoordinatorState.Accepting;
+        private bool started;
+        private int activeOperationCount;
 
         public UnityLifecycleExecutionRecoveryCoordinator (
             FileLifecycleExecutionStore executionStore,
@@ -135,18 +139,19 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         public void Start ()
         {
-            if (Volatile.Read(ref disposed) != 0)
+            lock (lifecycleGate)
             {
-                return;
-            }
-            if (Interlocked.Exchange(ref started, 1) != 0)
-            {
-                return;
+                if (state != CoordinatorState.Accepting || started)
+                {
+                    return;
+                }
+
+                started = true;
+                activeOperationCount++;
             }
 
-            var recoveryTask = RecoverAllAsync();
-            ObserveBackgroundFailure(
-                recoveryTask,
+            _ = RunOwnedOperationAsync(
+                RecoverAllAsync(),
                 "Lifecycle Execution bootstrap recovery failed.");
         }
 
@@ -174,9 +179,9 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             var key = (Kind: kind, ExecutionId: executionId);
-            lock (trackingGate)
+            lock (lifecycleGate)
             {
-                if (disposed != 0)
+                if (state != CoordinatorState.Accepting)
                 {
                     return;
                 }
@@ -184,14 +189,14 @@ namespace MackySoft.Ucli.Unity.Ipc
                 {
                     return;
                 }
+
+                activeOperationCount++;
             }
 
-            var trackingTask = TrackUntilTerminalAsync(
-                key.Kind,
-                key.ExecutionId);
-            ObserveBackgroundFailure(
-                trackingTask,
-                $"Lifecycle Execution deadline tracking failed for '{kind}/{executionId:D}'.");
+            _ = RunOwnedOperationAsync(
+                TrackUntilTerminalAsync(key.Kind, key.ExecutionId),
+                $"Lifecycle Execution deadline tracking failed for '{kind}/{executionId:D}'.",
+                key);
         }
 
         internal async Task RecoverAllAsync ()
@@ -347,15 +352,56 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
         }
 
+        /// <summary>
+        /// Stops recovery admission and completes after every admitted recovery and tracking operation terminates.
+        /// </summary>
+        internal Task StopAsync ()
+        {
+            var cancelLifetime = false;
+            Task stopTask;
+            lock (lifecycleGate)
+            {
+                if (state == CoordinatorState.Accepting)
+                {
+                    state = CoordinatorState.Stopping;
+                    cancelLifetime = true;
+                    CompleteQuiescenceIfReady();
+                }
+
+                stopTask = quiescenceSource.Task;
+            }
+
+            if (cancelLifetime)
+            {
+                lifetimeCancellationSource.Cancel();
+            }
+
+            return stopTask;
+        }
+
         /// <inheritdoc />
         public void Dispose ()
         {
-            if (Interlocked.Exchange(ref disposed, 1) != 0)
+            lock (lifecycleGate)
             {
-                return;
+                if (state == CoordinatorState.Disposed)
+                {
+                    return;
+                }
+                if (state == CoordinatorState.Accepting && activeOperationCount == 0)
+                {
+                    state = CoordinatorState.Stopping;
+                    CompleteQuiescenceIfReady();
+                }
+                if (state != CoordinatorState.Quiescent)
+                {
+                    throw new InvalidOperationException(
+                        "Unity Lifecycle Execution recovery must complete StopAsync before disposal.");
+                }
+
+                state = CoordinatorState.Disposed;
             }
 
-            lifetimeCancellationSource.Cancel();
             lifetimeCancellationSource.Dispose();
         }
 
@@ -364,85 +410,83 @@ namespace MackySoft.Ucli.Unity.Ipc
             Guid executionId)
         {
             var key = (Kind: kind, ExecutionId: executionId);
-            try
+            while (true)
             {
-                while (true)
+                lifetimeCancellationToken.ThrowIfCancellationRequested();
+                try
                 {
-                    lifetimeCancellationToken.ThrowIfCancellationRequested();
+                    var execution = await executionStore.ReadAsync(
+                            key.Kind,
+                            key.ExecutionId,
+                            lifetimeCancellationToken)
+                        .ConfigureAwait(false);
+                    if (execution == null)
+                    {
+                        return;
+                    }
+                    if (execution.IsTerminal)
+                    {
+                        NotifyTerminalIfOwned(
+                            execution,
+                            key.Kind,
+                            key.ExecutionId);
+                        return;
+                    }
+
+                    var remaining = execution.Start.DeadlineUtc - GetUtcNow();
+                    if (remaining > TimeSpan.Zero)
+                    {
+                        await delayAsync(
+                                remaining < MaximumTrackingDelay
+                                    ? remaining
+                                    : MaximumTrackingDelay,
+                                lifetimeCancellationToken)
+                            .ConfigureAwait(false);
+                        continue;
+                    }
+
                     try
                     {
-                        var execution = await executionStore.ReadAsync(
-                                key.Kind,
-                                key.ExecutionId,
+                        await DispatchRecoveryAsync(
+                                handlers[key.Kind],
+                                execution.Start,
+                                LifecycleExecutionTerminalReason.DeadlineExceeded,
+                                CanAttributeCurrentProviderObservation(
+                                    execution.Start),
                                 lifetimeCancellationToken)
                             .ConfigureAwait(false);
-                        if (execution == null)
-                        {
-                            return;
-                        }
-                        if (execution.IsTerminal)
-                        {
-                            NotifyTerminalIfOwned(
-                                execution,
-                                key.Kind,
-                                key.ExecutionId);
-                            return;
-                        }
+                    }
+                    catch (OperationCanceledException) when (
+                        lifetimeCancellationToken.IsCancellationRequested)
+                    {
+                        throw;
+                    }
+                    catch (Exception exception)
+                    {
+                        daemonLogger.Exception(
+                            DaemonLogCategories.Lifecycle,
+                            $"Lifecycle Execution deadline recovery failed for '{key.Kind}/{key.ExecutionId:D}' and will be retried.",
+                            exception);
+                    }
 
-                        var remaining = execution.Start.DeadlineUtc - GetUtcNow();
-                        if (remaining > TimeSpan.Zero)
-                        {
-                            await delayAsync(
-                                    remaining < MaximumTrackingDelay
-                                        ? remaining
-                                        : MaximumTrackingDelay,
-                                    lifetimeCancellationToken)
-                                .ConfigureAwait(false);
-                            continue;
-                        }
-
-                        try
-                        {
-                            await DispatchRecoveryAsync(
-                                    handlers[key.Kind],
-                                    execution.Start,
-                                    LifecycleExecutionTerminalReason.DeadlineExceeded,
-                                    CanAttributeCurrentProviderObservation(
-                                        execution.Start),
-                                    lifetimeCancellationToken)
-                                .ConfigureAwait(false);
-                        }
-                        catch (OperationCanceledException) when (
-                            lifetimeCancellationToken.IsCancellationRequested)
-                        {
-                            throw;
-                        }
-                        catch (Exception exception)
-                        {
-                            daemonLogger.Exception(
-                                DaemonLogCategories.Lifecycle,
-                                $"Lifecycle Execution deadline recovery failed for '{key.Kind}/{key.ExecutionId:D}' and will be retried.",
-                                exception);
-                        }
-
-                        lifetimeCancellationToken.ThrowIfCancellationRequested();
-                        var recovered = await executionStore.ReadAsync(
-                                key.Kind,
-                                key.ExecutionId,
-                                lifetimeCancellationToken)
-                            .ConfigureAwait(false);
-                        if (recovered == null)
-                        {
-                            return;
-                        }
-                        if (recovered.IsTerminal)
-                        {
-                            NotifyTerminalIfOwned(
-                                recovered,
-                                key.Kind,
-                                key.ExecutionId);
-                            return;
-                        }
+                    lifetimeCancellationToken.ThrowIfCancellationRequested();
+                    var recovered = await executionStore.ReadAsync(
+                            key.Kind,
+                            key.ExecutionId,
+                            lifetimeCancellationToken)
+                        .ConfigureAwait(false);
+                    if (recovered == null)
+                    {
+                        return;
+                    }
+                    if (recovered.IsTerminal)
+                    {
+                        NotifyTerminalIfOwned(
+                            recovered,
+                            key.Kind,
+                            key.ExecutionId);
+                        return;
+                    }
                     }
                     catch (OperationCanceledException) when (
                         lifetimeCancellationToken.IsCancellationRequested)
@@ -461,14 +505,6 @@ namespace MackySoft.Ucli.Unity.Ipc
                             TerminalRecoveryRetryDelay,
                             lifetimeCancellationToken)
                         .ConfigureAwait(false);
-                }
-            }
-            finally
-            {
-                lock (trackingGate)
-                {
-                    trackedExecutions.Remove(key);
-                }
             }
         }
 
@@ -535,25 +571,55 @@ namespace MackySoft.Ucli.Unity.Ipc
             return utcNow;
         }
 
-        private void ObserveBackgroundFailure (
-            Task task,
-            string message)
+        private async Task RunOwnedOperationAsync (
+            Task operation,
+            string message,
+            (LifecycleExecutionKind Kind, Guid ExecutionId)? trackedKey = null)
         {
-            _ = task.ContinueWith(
-                completedTask =>
+            try
+            {
+                await operation.ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (
+                lifetimeCancellationToken.IsCancellationRequested)
+            {
+            }
+            catch (Exception exception)
+            {
+                daemonLogger.Exception(
+                    DaemonLogCategories.Lifecycle,
+                    message,
+                    exception);
+            }
+            finally
+            {
+                lock (lifecycleGate)
                 {
-                    if (completedTask.Exception != null)
+                    activeOperationCount--;
+                    if (trackedKey.HasValue)
                     {
-                        daemonLogger.Exception(
-                            DaemonLogCategories.Lifecycle,
-                            message,
-                            completedTask.Exception.GetBaseException());
+                        trackedExecutions.Remove(trackedKey.Value);
                     }
-                },
-                CancellationToken.None,
-                TaskContinuationOptions.OnlyOnFaulted
-                    | TaskContinuationOptions.ExecuteSynchronously,
-                TaskScheduler.Default);
+                    CompleteQuiescenceIfReady();
+                }
+            }
+        }
+
+        private void CompleteQuiescenceIfReady ()
+        {
+            if (state == CoordinatorState.Stopping && activeOperationCount == 0)
+            {
+                state = CoordinatorState.Quiescent;
+                quiescenceSource.TrySetResult(true);
+            }
+        }
+
+        private enum CoordinatorState
+        {
+            Accepting,
+            Stopping,
+            Quiescent,
+            Disposed,
         }
 
         private static IReadOnlyDictionary<LifecycleExecutionKind, ILifecycleExecutionRecoveryHandler>
