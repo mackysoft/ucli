@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Runtime.ExceptionServices;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
@@ -21,6 +22,9 @@ namespace MackySoft.Ucli.Unity.Tests
 {
     public sealed class UnityLifecycleExecutionRecoveryCoordinatorTests
     {
+        private readonly List<RecoveryCoordinatorTestScope> testScopes =
+            new List<RecoveryCoordinatorTestScope>();
+
         private static readonly ProjectFingerprint ProjectFingerprint =
             ProjectFingerprintTestFactory.Create(
                 "lifecycle-recovery-coordinator");
@@ -30,11 +34,42 @@ namespace MackySoft.Ucli.Unity.Tests
             ProjectFingerprint,
             "2023.2.22f1");
 
+        [TearDown]
+        public async Task TearDownAsync ()
+        {
+            Exception cleanupException = null;
+            for (var index = testScopes.Count - 1; index >= 0; index--)
+            {
+                try
+                {
+                    await testScopes[index].DisposeAsync();
+                }
+                catch (Exception exception)
+                {
+                    cleanupException ??= exception;
+                }
+            }
+
+            testScopes.Clear();
+            if (cleanupException != null)
+            {
+                ExceptionDispatchInfo.Capture(cleanupException).Throw();
+            }
+        }
+
+        private RecoveryCoordinatorTestScope CreateScope ()
+        {
+            var scope = new RecoveryCoordinatorTestScope(
+                TemporaryStorageScope.Create());
+            testScopes.Add(scope);
+            return scope;
+        }
+
         [Test]
         [Category("Size.Small")]
         public async Task RecoverAllAsync_WhenRegisteredUnityProcessExited_ReportsUnityExitedAndRetracksOpenExecution ()
         {
-            using (var scope = TemporaryStorageScope.Create())
+            var scope = CreateScope();
             {
                 var executionStore =
                     scope.CreateExecutionStore(ProjectFingerprint);
@@ -58,7 +93,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 var delayObserved =
                     new TaskCompletionSource<bool>(
                         TaskCreationOptions.RunContinuationsAsynchronously);
-                using var coordinator =
+                var coordinator =
                     new UnityLifecycleExecutionRecoveryCoordinator(
                         executionStore,
                         new UnityLifecycleExecutionHostContext(
@@ -85,6 +120,7 @@ namespace MackySoft.Ucli.Unity.Tests
                                 Timeout.InfiniteTimeSpan,
                                 cancellationToken);
                         });
+                scope.Track(coordinator);
 
                 await coordinator.RecoverAllAsync();
                 var trackingTask = await Task.WhenAny(
@@ -95,8 +131,9 @@ namespace MackySoft.Ucli.Unity.Tests
                 Assert.That(
                     handler.Requests[0].RejectionReason,
                     Is.EqualTo(
-                        LifecycleExecutionTerminalReason.UnityExited));
+                            LifecycleExecutionTerminalReason.UnityExited));
                 Assert.That(trackingTask, Is.SameAs(delayObserved.Task));
+                await coordinator.StopAsync();
             }
         }
 
@@ -104,7 +141,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public async Task RecoverAllAsync_WhenRejectedHostIsPastDeadline_UsesDeadlineWithoutAttributingCurrentProvider ()
         {
-            using (var scope = TemporaryStorageScope.Create())
+            var scope = CreateScope();
             {
                 var executionStore =
                     scope.CreateExecutionStore(ProjectFingerprint);
@@ -127,7 +164,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     throwOnFirstAttempt: false);
                 var mainThreadExecutor =
                     new ImmediateMainThreadRequestExecutor();
-                using var coordinator =
+                var coordinator =
                     new UnityLifecycleExecutionRecoveryCoordinator(
                         executionStore,
                         new UnityLifecycleExecutionHostContext(
@@ -145,6 +182,7 @@ namespace MackySoft.Ucli.Unity.Tests
                         static (_, cancellationToken) => Task.Delay(
                             Timeout.InfiniteTimeSpan,
                             cancellationToken));
+                scope.Track(coordinator);
 
                 await coordinator.RecoverAllAsync();
                 var publishedTask = await Task.WhenAny(
@@ -165,6 +203,7 @@ namespace MackySoft.Ucli.Unity.Tests
                             && !request
                                 .CanAttributeCurrentProviderObservation));
                 Assert.That(mainThreadExecutor.ExecuteCount, Is.EqualTo(2));
+                await coordinator.StopAsync();
             }
         }
 
@@ -172,7 +211,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public async Task RecoverAllAsync_WhenRegisteredProcessCannotBeObserved_KeepsExecutionRecoverableWithoutDispatch ()
         {
-            using (var scope = TemporaryStorageScope.Create())
+            var scope = CreateScope();
             {
                 var executionStore =
                     scope.CreateExecutionStore(ProjectFingerprint);
@@ -196,7 +235,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 var delayObserved =
                     new TaskCompletionSource<bool>(
                         TaskCreationOptions.RunContinuationsAsynchronously);
-                using var coordinator =
+                var coordinator =
                     new UnityLifecycleExecutionRecoveryCoordinator(
                         executionStore,
                         new UnityLifecycleExecutionHostContext(
@@ -224,6 +263,7 @@ namespace MackySoft.Ucli.Unity.Tests
                                 Timeout.InfiniteTimeSpan,
                                 cancellationToken);
                         });
+                scope.Track(coordinator);
 
                 await coordinator.RecoverAllAsync();
                 var trackingTask = await Task.WhenAny(
@@ -238,6 +278,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 Assert.That(handler.Requests, Is.Empty);
                 Assert.That(stored, Is.Not.Null);
                 Assert.That(stored.IsTerminal, Is.False);
+                await coordinator.StopAsync();
                 Assert.That(
                     stored.CurrentReference,
                     Is.EqualTo(start.LifecycleExecutionRef));
@@ -248,7 +289,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public async Task RecoverAllAsync_WhenOneExecutionRecoveryFails_LogsAndContinuesWithLaterExecutions ()
         {
-            using (var scope = TemporaryStorageScope.Create())
+            var scope = CreateScope();
             {
                 var executionStore =
                     scope.CreateExecutionStore(ProjectFingerprint);
@@ -278,7 +319,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 var mainThreadExecutor =
                     new ImmediateMainThreadRequestExecutor();
                 var daemonLogger = new RecordingDaemonLogger();
-                using var coordinator =
+                var coordinator =
                     new UnityLifecycleExecutionRecoveryCoordinator(
                         executionStore,
                         new UnityLifecycleExecutionHostContext(
@@ -296,6 +337,7 @@ namespace MackySoft.Ucli.Unity.Tests
                         static (_, cancellationToken) => Task.Delay(
                             Timeout.InfiniteTimeSpan,
                             cancellationToken));
+                scope.Track(coordinator);
 
                 await coordinator.RecoverAllAsync();
 
@@ -315,6 +357,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 Assert.That(
                     daemonLogger.Exceptions[0].Exception,
                     Is.TypeOf<InvalidOperationException>());
+                await coordinator.StopAsync();
             }
         }
 
@@ -322,7 +365,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public async Task RecoverAllAsync_WhenOneStoreRecordIsCorrupt_LogsAndRecoversOtherEntries ()
         {
-            using (var scope = TemporaryStorageScope.Create())
+            var scope = CreateScope();
             {
                 var executionStore =
                     scope.CreateExecutionStore(ProjectFingerprint);
@@ -363,7 +406,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 var mainThreadExecutor =
                     new ImmediateMainThreadRequestExecutor();
                 var daemonLogger = new RecordingDaemonLogger();
-                using var coordinator =
+                var coordinator =
                     new UnityLifecycleExecutionRecoveryCoordinator(
                         executionStore,
                         new UnityLifecycleExecutionHostContext(
@@ -381,6 +424,7 @@ namespace MackySoft.Ucli.Unity.Tests
                         static (_, cancellationToken) => Task.Delay(
                             Timeout.InfiniteTimeSpan,
                             cancellationToken));
+                scope.Track(coordinator);
 
                 await coordinator.RecoverAllAsync();
 
@@ -396,6 +440,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 Assert.That(
                     daemonLogger.Exceptions[0].Exception,
                     Is.TypeOf<IOException>());
+                await coordinator.StopAsync();
             }
         }
 
@@ -403,7 +448,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public async Task RecoverAllAsync_WhenEndpointGenerationAdvances_UsesCompileHandlerWithoutReissuingSideEffectAndPublishesTerminal ()
         {
-            using (var scope = TemporaryStorageScope.Create())
+            var scope = CreateScope();
             {
                 var executionStore =
                     scope.CreateExecutionStore(ProjectFingerprint);
@@ -475,7 +520,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 var recoveryLease = new DaemonLifecycleRecoveryLease(
                     firstEndpointGenerationId,
                     observedUtc.AddMinutes(1));
-                using var coordinator =
+                var coordinator =
                     new UnityLifecycleExecutionRecoveryCoordinator(
                         executionStore,
                         new UnityLifecycleExecutionHostContext(
@@ -493,6 +538,7 @@ namespace MackySoft.Ucli.Unity.Tests
                         static (_, cancellationToken) => Task.Delay(
                             Timeout.InfiniteTimeSpan,
                             cancellationToken));
+                scope.Track(coordinator);
 
                 await coordinator.RecoverAllAsync();
 
@@ -511,6 +557,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     Is.EqualTo((
                         LifecycleExecutionKind.Compile,
                         executionId)));
+                await coordinator.StopAsync();
             }
         }
 
@@ -522,7 +569,7 @@ namespace MackySoft.Ucli.Unity.Tests
         public async Task Track_WhenCalledTwice_WaitsOnceAndDispatchesOwningTypedDeadlineOnMainThread (
             LifecycleExecutionKind kind)
         {
-            using (var scope = TemporaryStorageScope.Create())
+            var scope = CreateScope();
             {
                 var executionStore =
                     scope.CreateExecutionStore(ProjectFingerprint);
@@ -553,7 +600,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     new TaskCompletionSource<bool>(
                         TaskCreationOptions.RunContinuationsAsynchronously);
                 var delayInvocationCount = 0;
-                using var coordinator =
+                var coordinator =
                     new UnityLifecycleExecutionRecoveryCoordinator(
                         executionStore,
                         new UnityLifecycleExecutionHostContext(
@@ -583,6 +630,7 @@ namespace MackySoft.Ucli.Unity.Tests
                             delayObserved.TrySetResult(delay);
                             return releaseDelay.Task;
                         });
+                scope.Track(coordinator);
 
                 coordinator.Track(
                     kind,
@@ -614,6 +662,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     Is.EqualTo(
                         LifecycleExecutionTerminalReason.DeadlineExceeded));
                 Assert.That(mainThreadExecutor.ExecuteCount, Is.EqualTo(1));
+                await coordinator.StopAsync();
             }
         }
 
@@ -623,7 +672,7 @@ namespace MackySoft.Ucli.Unity.Tests
         public async Task TrackUntilTerminalAsync_WhenDeadlineRecoveryRemainsOpen_RetriesUntilTerminal (
             bool throwOnFirstAttempt)
         {
-            using (var scope = TemporaryStorageScope.Create())
+            var scope = CreateScope();
             {
                 var executionStore =
                     scope.CreateExecutionStore(ProjectFingerprint);
@@ -658,7 +707,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     new TaskCompletionSource<bool>(
                         TaskCreationOptions.RunContinuationsAsynchronously);
                 var delayInvocationCount = 0;
-                using var coordinator =
+                var coordinator =
                     new UnityLifecycleExecutionRecoveryCoordinator(
                         executionStore,
                         new UnityLifecycleExecutionHostContext(
@@ -685,6 +734,7 @@ namespace MackySoft.Ucli.Unity.Tests
                                 Timeout.InfiniteTimeSpan,
                                 cancellationToken);
                         });
+                scope.Track(coordinator);
 
                 coordinator.Track(definition.Kind, executionId);
                 var retryObservedTask = await Task.WhenAny(
@@ -734,6 +784,7 @@ namespace MackySoft.Ucli.Unity.Tests
                         executionId,
                         CancellationToken.None)).IsTerminal,
                     Is.True);
+                await coordinator.StopAsync();
             }
         }
 
@@ -743,7 +794,7 @@ namespace MackySoft.Ucli.Unity.Tests
         public async Task TrackUntilTerminalAsync_WhenExecutionIsTerminal_NotifiesOnlyOwningHostWithoutDelayOrDispatch (
             bool ownedByCurrentHost)
         {
-            using (var scope = TemporaryStorageScope.Create())
+            var scope = CreateScope();
             {
                 var executionStore =
                     scope.CreateExecutionStore(ProjectFingerprint);
@@ -774,7 +825,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 var delayCount = 0;
                 var terminalObserver =
                     new RecordingLifecycleExecutionTerminalObserver();
-                using var coordinator =
+                var coordinator =
                     new UnityLifecycleExecutionRecoveryCoordinator(
                         executionStore,
                         new UnityLifecycleExecutionHostContext(
@@ -796,6 +847,7 @@ namespace MackySoft.Ucli.Unity.Tests
                             Interlocked.Increment(ref delayCount);
                             return Task.CompletedTask;
                         });
+                scope.Track(coordinator);
 
                 await coordinator.TrackUntilTerminalAsync(
                     LifecycleExecutionKind.Refresh,
@@ -818,14 +870,15 @@ namespace MackySoft.Ucli.Unity.Tests
                         terminalObserver.TerminalObserved.IsCompleted,
                         Is.False);
                 }
+                await coordinator.StopAsync();
             }
         }
 
         [Test]
         [Category("Size.Small")]
-        public async Task Dispose_WhileDeadlineIsPending_PreventsTypedRecoveryDispatch ()
+        public async Task StopAsync_WhileDeadlineIsPending_PreventsTypedRecoveryDispatch ()
         {
-            using (var scope = TemporaryStorageScope.Create())
+            var scope = CreateScope();
             {
                 var executionStore =
                     scope.CreateExecutionStore(ProjectFingerprint);
@@ -854,7 +907,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 var cancellationObserved =
                     new TaskCompletionSource<bool>(
                         TaskCreationOptions.RunContinuationsAsynchronously);
-                using var coordinator =
+                var coordinator =
                     new UnityLifecycleExecutionRecoveryCoordinator(
                         executionStore,
                         new UnityLifecycleExecutionHostContext(
@@ -878,6 +931,7 @@ namespace MackySoft.Ucli.Unity.Tests
                                 Timeout.InfiniteTimeSpan,
                                 cancellationToken);
                         });
+                scope.Track(coordinator);
                 coordinator.Track(
                     LifecycleExecutionKind.Refresh,
                     executionId);
@@ -886,7 +940,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     Task.Delay(TimeSpan.FromSeconds(2)));
                 Assert.That(enteredTask, Is.SameAs(delayObserved.Task));
 
-                coordinator.Dispose();
+                var stopTask = coordinator.StopAsync();
+                var repeatedStopTask = coordinator.StopAsync();
 
                 var canceledTask = await Task.WhenAny(
                     cancellationObserved.Task,
@@ -894,9 +949,236 @@ namespace MackySoft.Ucli.Unity.Tests
                 Assert.That(
                     canceledTask,
                     Is.SameAs(cancellationObserved.Task));
+                await stopTask;
+                await repeatedStopTask;
                 Assert.That(handler.Requests, Is.Empty);
                 Assert.That(mainThreadExecutor.ExecuteCount, Is.EqualTo(0));
             }
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public async Task StopAsync_WhenRecoveryHandlerIsStillRunning_WaitsBeforeStorageScopeIsDisposed ()
+        {
+            var scope = CreateScope();
+            UnityLifecycleExecutionRecoveryCoordinator coordinator = null;
+            try
+            {
+                var executionStore = scope.CreateExecutionStore(ProjectFingerprint);
+                var definition = new LifecycleExecutionDefinition(
+                    LifecycleExecutionKind.Refresh);
+                var executionId = Guid.NewGuid();
+                var observedUtc = DateTimeOffset.UtcNow;
+                _ = await RegisterAsync(
+                    executionStore,
+                    definition,
+                    executionId,
+                    new ProcessIdentity(42, 123),
+                    Guid.NewGuid(),
+                    Guid.NewGuid(),
+                    new UnityEditorGenerationSnapshot(1, 1, 1, 1),
+                    observedUtc.AddMinutes(-1),
+                    observedUtc.AddMinutes(-2));
+                var handler = new GatedRecoveryHandler(
+                    executionStore,
+                    executionId);
+                coordinator = new UnityLifecycleExecutionRecoveryCoordinator(
+                    executionStore,
+                    new UnityLifecycleExecutionHostContext(
+                        new ProcessIdentity(42, 123),
+                        Guid.NewGuid(),
+                        Guid.NewGuid(),
+                        recoveryLease: null),
+                    Project,
+                    new ILifecycleExecutionRecoveryHandler[] { handler },
+                    new ImmediateMainThreadRequestExecutor(),
+                    NoOpDaemonLogger.Instance,
+                    NoOpLifecycleExecutionTerminalObserver.Instance,
+                    _ => ProcessIdentityObservation.Same,
+                    () => observedUtc,
+                    static (_, cancellationToken) => Task.Delay(
+                        Timeout.InfiniteTimeSpan,
+                        cancellationToken));
+                scope.Track(coordinator);
+
+                coordinator.Start();
+                var startedTask = await Task.WhenAny(
+                    handler.RecoveryStarted,
+                    Task.Delay(TimeSpan.FromSeconds(2)));
+                Assert.That(startedTask, Is.SameAs(handler.RecoveryStarted));
+
+                var stopTask = coordinator.StopAsync();
+                Assert.That(stopTask.IsCompleted, Is.False);
+                Assert.That(Directory.Exists(scope.RootPath), Is.True);
+
+                handler.CompleteRecovery();
+                await handler.StoreAccessCompleted;
+                await stopTask;
+                await scope.DisposeAsync();
+
+                Assert.That(Directory.Exists(scope.RootPath), Is.False);
+            }
+            finally
+            {
+                await scope.DisposeAsync();
+            }
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public async Task StopAsync_WhenTrackRacesAdmission_LeavesNoWorkerAfterQuiescence ()
+        {
+            var scope = CreateScope();
+            {
+                var executionStore = scope.CreateExecutionStore(ProjectFingerprint);
+                var definition = new LifecycleExecutionDefinition(
+                    LifecycleExecutionKind.Refresh);
+                var executionId = Guid.NewGuid();
+                var observedUtc = DateTimeOffset.UtcNow;
+                _ = await RegisterAsync(
+                    executionStore,
+                    definition,
+                    executionId,
+                    new ProcessIdentity(42, 123),
+                    Guid.NewGuid(),
+                    Guid.NewGuid(),
+                    new UnityEditorGenerationSnapshot(1, 1, 1, 1),
+                    observedUtc.AddMinutes(1),
+                    observedUtc);
+                var afterStopExecutionId = Guid.NewGuid();
+                _ = await RegisterAsync(
+                    executionStore,
+                    definition,
+                    afterStopExecutionId,
+                    new ProcessIdentity(42, 123),
+                    Guid.NewGuid(),
+                    Guid.NewGuid(),
+                    new UnityEditorGenerationSnapshot(1, 1, 1, 1),
+                    observedUtc.AddMinutes(1),
+                    observedUtc);
+                var delayEntered = new TaskCompletionSource<bool>(
+                    TaskCreationOptions.RunContinuationsAsynchronously);
+                var delayCancellationObserved = new TaskCompletionSource<bool>(
+                    TaskCreationOptions.RunContinuationsAsynchronously);
+                var delayInvocationCount = 0;
+                var coordinator = new UnityLifecycleExecutionRecoveryCoordinator(
+                    executionStore,
+                    new UnityLifecycleExecutionHostContext(
+                        new ProcessIdentity(42, 123),
+                        Guid.NewGuid(),
+                        Guid.NewGuid(),
+                        recoveryLease: null),
+                    Project,
+                    new ILifecycleExecutionRecoveryHandler[]
+                    {
+                        new RecordingRecoveryHandler(LifecycleExecutionKind.Refresh),
+                    },
+                    new ImmediateMainThreadRequestExecutor(),
+                    NoOpDaemonLogger.Instance,
+                    NoOpLifecycleExecutionTerminalObserver.Instance,
+                    _ => ProcessIdentityObservation.Same,
+                    () => observedUtc,
+                    (delay, cancellationToken) =>
+                    {
+                        Interlocked.Increment(ref delayInvocationCount);
+                        delayEntered.TrySetResult(true);
+                        _ = cancellationToken.Register(
+                            () => delayCancellationObserved.TrySetResult(true));
+                        return Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+                    });
+                scope.Track(coordinator);
+
+                var callerStart = new TaskCompletionSource<bool>(
+                    TaskCreationOptions.RunContinuationsAsynchronously);
+                var trackCaller = Task.Run(async () =>
+                {
+                    await callerStart.Task;
+                    coordinator.Track(definition.Kind, executionId);
+                });
+                var stopCaller = Task.Run(async () =>
+                {
+                    await callerStart.Task;
+                    return coordinator.StopAsync();
+                });
+                callerStart.TrySetResult(true);
+                await trackCaller;
+                var stopTask = await stopCaller;
+                coordinator.Track(definition.Kind, afterStopExecutionId);
+                await stopTask;
+
+                var admittedTrackCount = Volatile.Read(ref delayInvocationCount);
+                Assert.That(admittedTrackCount, Is.LessThanOrEqualTo(1));
+                if (admittedTrackCount == 1)
+                {
+                    Assert.That(delayEntered.Task.IsCompleted, Is.True);
+                    Assert.That(delayCancellationObserved.Task.IsCompleted, Is.True);
+                }
+
+                Assert.That(delayInvocationCount, Is.EqualTo(admittedTrackCount));
+            }
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public async Task StopAsync_WhenOwnedTrackingOperationFaults_ObservesFaultAndAllowsStorageCleanup ()
+        {
+            var scope = CreateScope();
+            var executionStore = scope.CreateExecutionStore(ProjectFingerprint);
+            var definition = new LifecycleExecutionDefinition(
+                LifecycleExecutionKind.Refresh);
+            var executionId = Guid.NewGuid();
+            var observedUtc = DateTimeOffset.UtcNow;
+            _ = await RegisterAsync(
+                executionStore,
+                definition,
+                executionId,
+                new ProcessIdentity(42, 123),
+                Guid.NewGuid(),
+                Guid.NewGuid(),
+                new UnityEditorGenerationSnapshot(1, 1, 1, 1),
+                observedUtc.AddMinutes(1),
+                observedUtc);
+            var daemonLogger = new ThrowingOnceDaemonLogger();
+            var delayInvocationCount = 0;
+            var coordinator = new UnityLifecycleExecutionRecoveryCoordinator(
+                executionStore,
+                new UnityLifecycleExecutionHostContext(
+                    new ProcessIdentity(42, 123),
+                    Guid.NewGuid(),
+                    Guid.NewGuid(),
+                    recoveryLease: null),
+                Project,
+                new ILifecycleExecutionRecoveryHandler[]
+                {
+                    new RecordingRecoveryHandler(LifecycleExecutionKind.Refresh),
+                },
+                new ImmediateMainThreadRequestExecutor(),
+                daemonLogger,
+                NoOpLifecycleExecutionTerminalObserver.Instance,
+                _ => ProcessIdentityObservation.Same,
+                () => observedUtc,
+                (_, _) =>
+                {
+                    Interlocked.Increment(ref delayInvocationCount);
+                    return Task.FromException(new IOException("Tracking delay failed."));
+                });
+            scope.Track(coordinator);
+
+            coordinator.Track(definition.Kind, executionId);
+            var observedTask = await Task.WhenAny(
+                daemonLogger.Recorded,
+                Task.Delay(TimeSpan.FromSeconds(2)));
+            Assert.That(observedTask, Is.SameAs(daemonLogger.Recorded));
+
+            await coordinator.StopAsync();
+            Assert.That(delayInvocationCount, Is.EqualTo(1));
+            Assert.That(daemonLogger.RecordedExceptions, Has.Count.EqualTo(1));
+            Assert.That(
+                daemonLogger.RecordedExceptions[0],
+                Is.TypeOf<InvalidOperationException>());
+
+            await scope.DisposeAsync();
+            Assert.That(Directory.Exists(scope.RootPath), Is.False);
         }
 
         private static RefreshLifecycleExecutionTerminalRecord
@@ -1003,6 +1285,80 @@ namespace MackySoft.Ucli.Unity.Tests
                     before.ObservedAtUtc,
                     before.ActionRequired,
                     before.PrimaryDiagnostic));
+        }
+
+        private sealed class RecoveryCoordinatorTestScope
+        {
+            private readonly TemporaryStorageScope storageScope;
+            private readonly List<UnityLifecycleExecutionRecoveryCoordinator>
+                coordinators = new List<UnityLifecycleExecutionRecoveryCoordinator>();
+            private bool disposed;
+
+            public RecoveryCoordinatorTestScope (
+                TemporaryStorageScope storageScope)
+            {
+                this.storageScope = storageScope
+                    ?? throw new ArgumentNullException(nameof(storageScope));
+            }
+
+            public string RootPath => storageScope.RootPath;
+
+            public FileLifecycleExecutionStore CreateExecutionStore (
+                ProjectFingerprint projectFingerprint)
+            {
+                return storageScope.CreateExecutionStore(projectFingerprint);
+            }
+
+            public void Track (
+                UnityLifecycleExecutionRecoveryCoordinator coordinator)
+            {
+                if (coordinator == null)
+                {
+                    throw new ArgumentNullException(nameof(coordinator));
+                }
+
+                coordinators.Add(coordinator);
+            }
+
+            public async Task DisposeAsync ()
+            {
+                if (disposed)
+                {
+                    return;
+                }
+
+                disposed = true;
+                Exception cleanupException = null;
+                for (var index = coordinators.Count - 1; index >= 0; index--)
+                {
+                    try
+                    {
+                        await coordinators[index].StopAsync();
+                        coordinators[index].Dispose();
+                    }
+                    catch (Exception exception)
+                    {
+                        cleanupException ??= exception;
+                    }
+                }
+
+                if (cleanupException == null)
+                {
+                    try
+                    {
+                        storageScope.Dispose();
+                    }
+                    catch (Exception exception)
+                    {
+                        cleanupException = exception;
+                    }
+                }
+
+                if (cleanupException != null)
+                {
+                    ExceptionDispatchInfo.Capture(cleanupException).Throw();
+                }
+            }
         }
 
         private sealed class RecoveryCompileLifecycleExecutionProvider :
@@ -1130,6 +1486,59 @@ namespace MackySoft.Ucli.Unity.Tests
                 Requests.Add(request);
                 requestObserved.TrySetResult(request);
                 return default;
+            }
+        }
+
+        private sealed class GatedRecoveryHandler :
+            ILifecycleExecutionRecoveryHandler
+        {
+            private readonly FileLifecycleExecutionStore executionStore;
+            private readonly Guid executionId;
+            private readonly TaskCompletionSource<bool> recoveryStarted =
+                new TaskCompletionSource<bool>(
+                    TaskCreationOptions.RunContinuationsAsynchronously);
+            private readonly TaskCompletionSource<bool> recoveryCompletion =
+                new TaskCompletionSource<bool>(
+                    TaskCreationOptions.RunContinuationsAsynchronously);
+            private readonly TaskCompletionSource<bool> storeAccessCompleted =
+                new TaskCompletionSource<bool>(
+                    TaskCreationOptions.RunContinuationsAsynchronously);
+
+            public GatedRecoveryHandler (
+                FileLifecycleExecutionStore executionStore,
+                Guid executionId)
+            {
+                this.executionStore = executionStore;
+                this.executionId = executionId;
+            }
+
+            public LifecycleExecutionKind Kind => LifecycleExecutionKind.Refresh;
+
+            public Task RecoveryStarted => recoveryStarted.Task;
+
+            public Task StoreAccessCompleted => storeAccessCompleted.Task;
+
+            public ValueTask RecoverAsync (
+                LifecycleExecutionRecoveryRequest request,
+                CancellationToken cancellationToken)
+            {
+                recoveryStarted.TrySetResult(true);
+                return new ValueTask(CompleteAfterGateAsync());
+            }
+
+            public void CompleteRecovery ()
+            {
+                recoveryCompletion.TrySetResult(true);
+            }
+
+            private async Task CompleteAfterGateAsync ()
+            {
+                await recoveryCompletion.Task;
+                _ = await executionStore.ReadAsync(
+                    Kind,
+                    executionId,
+                    CancellationToken.None);
+                storeAccessCompleted.TrySetResult(true);
             }
         }
 
@@ -1274,6 +1683,54 @@ namespace MackySoft.Ucli.Unity.Tests
                 Exception exception)
             {
                 Exceptions.Add(new ExceptionLog(message, exception));
+            }
+        }
+
+        private sealed class ThrowingOnceDaemonLogger : IDaemonLogger
+        {
+            private readonly TaskCompletionSource<bool> recorded =
+                new TaskCompletionSource<bool>(
+                    TaskCreationOptions.RunContinuationsAsynchronously);
+            private int exceptionCallCount;
+
+            public List<Exception> RecordedExceptions { get; } =
+                new List<Exception>();
+
+            public Task Recorded => recorded.Task;
+
+            public void Info (
+                string category,
+                string message,
+                string raw = null)
+            {
+            }
+
+            public void Warning (
+                string category,
+                string message,
+                string raw = null)
+            {
+            }
+
+            public void Error (
+                string category,
+                string message,
+                string raw = null)
+            {
+            }
+
+            public void Exception (
+                string category,
+                string message,
+                Exception exception)
+            {
+                if (Interlocked.Increment(ref exceptionCallCount) == 1)
+                {
+                    throw new InvalidOperationException("Logger fault injection.");
+                }
+
+                RecordedExceptions.Add(exception);
+                recorded.TrySetResult(true);
             }
         }
 

@@ -58,6 +58,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 IUnityIpcServer server = null;
                 IUnityControlPlaneRequestLifetime controlPlaneRequestLifetime = null;
                 IUnityMutationLaneControl mutationLaneControl = null;
+                UnityLifecycleExecutionRecoveryCoordinator recoveryCoordinator = null;
                 var generationRetiredSafely = false;
                 try
                 {
@@ -85,9 +86,9 @@ namespace MackySoft.Ucli.Unity.Ipc
                             "IPC listener terminated before daemon endpoint ownership could become active.");
                     }
 
-                    serviceProvider
-                        .GetRequiredService<UnityLifecycleExecutionRecoveryCoordinator>()
-                        .Start();
+                    recoveryCoordinator = serviceProvider
+                        .GetRequiredService<UnityLifecycleExecutionRecoveryCoordinator>();
+                    recoveryCoordinator.Start();
                     daemonLogger.Info(
                         DaemonLogCategories.Lifecycle,
                         $"uCLI daemon started. repoRoot={bootstrapContext.RepositoryRoot.Value}, fingerprint={bootstrapContext.ProjectFingerprint}, endpoint={bootstrapContext.EndpointBinding.Endpoint.Address}");
@@ -159,6 +160,11 @@ namespace MackySoft.Ucli.Unity.Ipc
 
                     if (server == null || generationRetiredSafely)
                     {
+                        if (recoveryCoordinator != null)
+                        {
+                            await recoveryCoordinator.StopAsync();
+                        }
+
                         if (serviceProvider is IDisposable disposableServiceProvider)
                         {
                             disposableServiceProvider.Dispose();
