@@ -59,7 +59,9 @@ public sealed class CompileServiceFailureTests
         var failed = Assert.IsType<CompileExecutionResult.FailedResult>(result);
         Assert.Equal(ExecutionId, failed.LifecycleExecutionRef!.Id);
         Assert.Equal(ExecutionApplicationState.Unknown, failed.ApplicationState);
-        Assert.Contains("Unity compile payload is invalid.", failed.Failure.Message);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, failed.Failure.Code);
+        Assert.Equal(ApplicationFailureKind.InternalError, failed.Failure.Kind);
+        Assert.Null(failed.Failure.InstancePath);
     }
 
     [Fact]
@@ -105,7 +107,7 @@ public sealed class CompileServiceFailureTests
 
         var failed = Assert.IsType<CompileExecutionResult.FailedResult>(result);
         Assert.Equal(LifecycleExecutionErrorCodes.UnityExited, failed.Failure.Code);
-        Assert.Same(terminalReference, failed.LifecycleExecutionRef);
+        Assert.Equal(terminalReference, failed.LifecycleExecutionRef);
         Assert.Single(terminalizer.Invocations);
     }
 }

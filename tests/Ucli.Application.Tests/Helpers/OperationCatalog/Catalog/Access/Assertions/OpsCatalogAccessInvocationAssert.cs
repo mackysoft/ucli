@@ -39,7 +39,7 @@ internal static class OpsCatalogAccessInvocationAssert
         CancellationToken expectedCancellationToken)
     {
         var invocation = Assert.Single(persistedReader.ReadDescribeInvocations);
-        Assert.Same(expectedContext.Context.UnityProject, invocation.UnityProject);
+        Assert.Equal(expectedContext.Context.UnityProject, invocation.UnityProject);
         Assert.Equal(expectedOperationName, invocation.CatalogEntry.Name);
         Assert.Equal(expectedCancellationToken, invocation.CancellationToken);
         return invocation;
@@ -51,8 +51,8 @@ internal static class OpsCatalogAccessInvocationAssert
         CancellationToken expectedCancellationToken)
     {
         var invocation = Assert.Single(sourceRefreshService.RefreshInvocations);
-        Assert.Same(expectedContext.Context.UnityProject, invocation.Project);
-        Assert.Same(expectedContext.Context.Config, invocation.Config);
+        Assert.Equal(expectedContext.Context.UnityProject, invocation.Project);
+        Assert.Equal(expectedContext.Context.Config, invocation.Config);
         Assert.Equal(expectedContext.Mode, invocation.Mode);
         Assert.Equal(expectedContext.Timeout, invocation.Timeout);
         Assert.Equal(expectedContext.FailFast, invocation.FailFast);

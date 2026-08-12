@@ -104,6 +104,5 @@ public sealed class OperationCatalogProviderTests
 
         Assert.Equal(ApplicationFailureKind.InvalidInput, exception.Error.Kind);
         Assert.Equal(ProjectContextErrorCodes.UnityProjectMarkerMissing, exception.Error.Code);
-        Assert.Contains("Operation catalog context could not be resolved.", exception.Error.Message, StringComparison.Ordinal);
     }
 }

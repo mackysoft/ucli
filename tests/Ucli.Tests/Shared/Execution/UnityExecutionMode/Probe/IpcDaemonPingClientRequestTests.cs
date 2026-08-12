@@ -92,17 +92,22 @@ public sealed class IpcDaemonPingClientRequestTests
     public async Task PingAndRead_WhenReplacementPublicationIsDelayed_RetriesOnceWithSameRequestId ()
     {
         var unityProject = CreateFingerprintMatchedProject();
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var unityIpcClient = CreateSuccessfulPingTransportClient();
-        unityIpcClient.EnqueueResponse(request => CreateResponse(
-            request,
-            IpcResponseStatus.Error,
-            [
-                new IpcError(
-                    IpcSessionErrorCodes.SessionTokenInvalid,
-                    "The session token was replaced.",
-                    InstancePath: null),
-            ]));
+        var transportStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        unityIpcClient.EnqueueResponse(request =>
+        {
+            transportStarted.TrySetResult();
+            return CreateResponse(
+                request,
+                IpcResponseStatus.Error,
+                [
+                    new IpcError(
+                        IpcSessionErrorCodes.SessionTokenInvalid,
+                        "The session token was replaced.",
+                        InstancePath: null),
+                ]);
+        });
         var rejectedSession = DaemonSessionTestFactory.CreateForToken(
             "first-token",
             endpointTransportKind: IpcTransportKind.UnixDomainSocket,
@@ -128,14 +133,11 @@ public sealed class IpcDaemonPingClientRequestTests
         var pingTask = pingClient.PingAndReadAsync(
                 unityProject,
                 DefaultTimeout,
-                validateProjectFingerprint: true,
-                CancellationToken.None)
+            validateProjectFingerprint: true,
+            CancellationToken.None)
             .AsTask();
-        await ManualTimeTaskDriver.AdvanceUntilCompletedAsync(
-            timeProvider,
-            pingTask,
-            DefaultTimeout,
-            TimeSpan.FromMilliseconds(100));
+        await transportStarted.Task.WaitAsync(AsyncWaitTimeout);
+        timeProvider.Advance(TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds));
 
         _ = await pingTask;
 
@@ -284,17 +286,22 @@ public sealed class IpcDaemonPingClientRequestTests
     public async Task PingAndRead_WhenReplacementPublicationExhaustsRequestDeadline_ThrowsTimeoutException ()
     {
         var unityProject = CreateFingerprintMatchedProject();
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var unityIpcClient = CreateSuccessfulPingTransportClient();
-        unityIpcClient.EnqueueResponse(request => CreateResponse(
-            request,
-            IpcResponseStatus.Error,
-            [
-                new IpcError(
-                    IpcSessionErrorCodes.SessionTokenInvalid,
-                    "The session token was replaced.",
-                    InstancePath: null),
-            ]));
+        var transportStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        unityIpcClient.EnqueueResponse(request =>
+        {
+            transportStarted.TrySetResult();
+            return CreateResponse(
+                request,
+                IpcResponseStatus.Error,
+                [
+                    new IpcError(
+                        IpcSessionErrorCodes.SessionTokenInvalid,
+                        "The session token was replaced.",
+                        InstancePath: null),
+                ]);
+        });
         var rejectedSession = DaemonSessionTestFactory.CreateForToken(
             "first-token",
             endpointTransportKind: IpcTransportKind.UnixDomainSocket,
@@ -309,11 +316,10 @@ public sealed class IpcDaemonPingClientRequestTests
         var pingTask = pingClient.PingAndReadAsync(
                 unityProject,
                 timeout,
-                validateProjectFingerprint: true,
-                CancellationToken.None)
+            validateProjectFingerprint: true,
+            CancellationToken.None)
             .AsTask();
-        var retryDelay = TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds);
-        await timeProvider.WaitForTimerDueWithinAsync(retryDelay).WaitAsync(AsyncWaitTimeout);
+        await transportStarted.Task.WaitAsync(AsyncWaitTimeout);
         timeProvider.Advance(timeout);
 
         _ = await Assert.ThrowsAsync<TimeoutException>(() => pingTask).WaitAsync(AsyncWaitTimeout);
@@ -326,17 +332,22 @@ public sealed class IpcDaemonPingClientRequestTests
     public async Task PingAndRead_WhenCanceledDuringReplacementPublicationWait_StopsWithoutResend ()
     {
         var unityProject = CreateFingerprintMatchedProject();
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var unityIpcClient = CreateSuccessfulPingTransportClient();
-        unityIpcClient.EnqueueResponse(request => CreateResponse(
-            request,
-            IpcResponseStatus.Error,
-            [
-                new IpcError(
-                    IpcSessionErrorCodes.SessionTokenInvalid,
-                    "The session token was replaced.",
-                    InstancePath: null),
-            ]));
+        var transportStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        unityIpcClient.EnqueueResponse(request =>
+        {
+            transportStarted.TrySetResult();
+            return CreateResponse(
+                request,
+                IpcResponseStatus.Error,
+                [
+                    new IpcError(
+                        IpcSessionErrorCodes.SessionTokenInvalid,
+                        "The session token was replaced.",
+                        InstancePath: null),
+                ]);
+        });
         var rejectedSession = DaemonSessionTestFactory.CreateForToken(
             "first-token",
             endpointTransportKind: IpcTransportKind.UnixDomainSocket,
@@ -351,10 +362,10 @@ public sealed class IpcDaemonPingClientRequestTests
         var pingTask = pingClient.PingAndReadAsync(
                 unityProject,
                 DefaultTimeout,
-                validateProjectFingerprint: true,
-                cancellationTokenSource.Token)
+            validateProjectFingerprint: true,
+            cancellationTokenSource.Token)
             .AsTask();
-        await timeProvider.WaitForTimerDueWithinAsync(TimeSpan.FromMilliseconds(100));
+        await transportStarted.Task.WaitAsync(AsyncWaitTimeout);
 
         cancellationTokenSource.Cancel();
 
@@ -366,7 +377,7 @@ public sealed class IpcDaemonPingClientRequestTests
     [Trait("Size", "Small")]
     public async Task PingAndRead_WhenInitialSessionResolutionIgnoresCancellation_TimesOutWithoutWaitingForResolution ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var unityIpcClient = CreateSuccessfulPingTransportClient();
         var sessionStore = new NonCooperativeBlockingDaemonSessionStore(
             blockOnCall: 1,
@@ -388,10 +399,6 @@ public sealed class IpcDaemonPingClientRequestTests
         try
         {
             await sessionStore.Blocked.WaitAsync(TimeSpan.FromSeconds(1));
-            await timeProvider
-                .WaitForTimerDueWithinAsync(timeout)
-                .WaitAsync(TimeSpan.FromSeconds(1));
-
             timeProvider.Advance(timeout);
 
             var completedTask = await Task.WhenAny(pingTask, Task.Delay(TimeSpan.FromSeconds(1)));
@@ -410,7 +417,7 @@ public sealed class IpcDaemonPingClientRequestTests
     [Trait("Size", "Small")]
     public async Task PingAndRead_WhenReplacementSessionReadIgnoresCancellation_ThrowsTimeoutWithoutWaitingForRead ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var unityIpcClient = CreateSuccessfulPingTransportClient();
         unityIpcClient.EnqueueResponse(request => CreateResponse(
             request,
@@ -444,10 +451,6 @@ public sealed class IpcDaemonPingClientRequestTests
         try
         {
             await sessionStore.Blocked.WaitAsync(TimeSpan.FromSeconds(1));
-            await timeProvider
-                .WaitForTimerDueWithinAsync(timeout)
-                .WaitAsync(TimeSpan.FromSeconds(1));
-
             timeProvider.Advance(timeout);
 
             var completedTask = await Task.WhenAny(pingTask, Task.Delay(TimeSpan.FromSeconds(1)));

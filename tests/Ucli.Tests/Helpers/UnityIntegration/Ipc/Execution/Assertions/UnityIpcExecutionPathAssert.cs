@@ -99,7 +99,17 @@ internal static class UnityIpcExecutionPathAssert
         UnityIpcMethod expectedMethod)
     {
         var request = Assert.Single(daemonTransportClient.StreamingRequests);
-        Assert.Same(request, Assert.Single(daemonTransportClient.Requests));
+        var dispatchedRequest = Assert.Single(daemonTransportClient.Requests);
+        Assert.Equal(request.ProtocolVersion, dispatchedRequest.ProtocolVersion);
+        Assert.Equal(request.RequestId, dispatchedRequest.RequestId);
+        Assert.Equal(request.SessionToken, dispatchedRequest.SessionToken);
+        Assert.Equal(request.Method, dispatchedRequest.Method);
+        Assert.Equal(request.Payload.GetRawText(), dispatchedRequest.Payload.GetRawText());
+        Assert.Equal(request.ResponseMode, dispatchedRequest.ResponseMode);
+        Assert.Equal(request.RequestDeadlineUtc, dispatchedRequest.RequestDeadlineUtc);
+        Assert.Equal(
+            request.RequestDeadlineRemainingMilliseconds,
+            dispatchedRequest.RequestDeadlineRemainingMilliseconds);
         Assert.Equal(TextVocabulary.GetText(expectedMethod), request.Method);
         OneshotExecutionWasNotStarted(oneshotTransportClient, launcher);
         return request;

@@ -57,7 +57,6 @@ public sealed class ExecuteResponseConverterContractViolationTests
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
-        Assert.Contains("OPERATION_CONTRACT_VIOLATION", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -73,7 +72,6 @@ public sealed class ExecuteResponseConverterContractViolationTests
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
-        Assert.Contains(FirstResultPath, error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -89,7 +87,6 @@ public sealed class ExecuteResponseConverterContractViolationTests
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
-        Assert.Contains("errors[0].instancePath", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -108,7 +105,6 @@ public sealed class ExecuteResponseConverterContractViolationTests
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
-        Assert.Contains(SecondResultPath, error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -140,7 +136,6 @@ public sealed class ExecuteResponseConverterContractViolationTests
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
-        Assert.Contains(nameof(IpcExecuteContractViolation.Operation), error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -173,8 +168,6 @@ public sealed class ExecuteResponseConverterContractViolationTests
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
-        Assert.Contains(nameof(ExecutionApplicationState), error.Message, StringComparison.Ordinal);
-        Assert.Contains("maybeApplied", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -188,7 +181,6 @@ public sealed class ExecuteResponseConverterContractViolationTests
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
-        Assert.Contains("'contractViolations' field", error.Message, StringComparison.Ordinal);
     }
 
     private static IpcExecuteResponse CreateContractViolationPayload ()

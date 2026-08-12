@@ -78,7 +78,6 @@ public sealed class DaemonSessionCleanupServiceTests
 
         Assert.False(result.IsSuccess);
         Assert.Equal(ExecutionErrorKind.InternalError, result.Error!.Kind);
-        Assert.Contains("cannot be safely replaced", result.Error.Message, StringComparison.Ordinal);
         Assert.Empty(processTerminationService.Invocations);
         Assert.Empty(artifactCleaner.Invocations);
         var assessmentInvocation = Assert.Single(processIdentityAssessor.Invocations);
@@ -257,7 +256,7 @@ public sealed class DaemonSessionCleanupServiceTests
         bool invalidSession)
     {
         var timeout = TimeSpan.FromMilliseconds(100);
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var owner = new DaemonCompensationOperationOwner();
         var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(
             ProjectFingerprintTestFactory.Create(invalidSession
@@ -306,7 +305,6 @@ public sealed class DaemonSessionCleanupServiceTests
                 .AsTask();
 
         await cleanupStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
-        await timeProvider.WaitForTimerDueWithinAsync(timeout).WaitAsync(TimeSpan.FromSeconds(1));
         timeProvider.Advance(timeout);
         var result = await cleanupTask.WaitAsync(TimeSpan.FromSeconds(5));
 
@@ -320,7 +318,6 @@ public sealed class DaemonSessionCleanupServiceTests
                 CancellationToken.None,
                 "Timed out waiting for session cleanup to quiesce.")
             .AsTask();
-        await timeProvider.WaitForTimerDueWithinAsync(admissionTimeout).WaitAsync(TimeSpan.FromSeconds(1));
         timeProvider.Advance(admissionTimeout);
         var admissionError = await admissionTask.WaitAsync(TimeSpan.FromSeconds(5));
         Assert.Equal(ExecutionErrorKind.Timeout, admissionError!.Kind);

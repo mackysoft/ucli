@@ -21,7 +21,7 @@ public sealed class PlayStatusServiceSessionGateTests
         var result = await service.ExecuteAsync(new PlayStatusCommandInput(AbsolutePath.Parse(ProjectPathTestValues.TemporaryUnityProject), null), CancellationToken.None);
 
         Assert.False(result.IsSuccess);
-        Assert.Same(expectedError, result.Error);
+        Assert.Equal(expectedError, result.Error);
     }
 
     [Fact]
@@ -75,6 +75,6 @@ public sealed class PlayStatusServiceSessionGateTests
         var result = await service.ExecuteAsync(new PlayStatusCommandInput(null, null), CancellationToken.None);
 
         Assert.False(result.IsSuccess);
-        Assert.Same(expectedError, result.Error);
+        Assert.Equal(expectedError, result.Error);
     }
 }

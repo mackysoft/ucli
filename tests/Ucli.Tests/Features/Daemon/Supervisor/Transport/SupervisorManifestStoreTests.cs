@@ -18,7 +18,7 @@ public sealed class SupervisorManifestStoreTests
     public async Task ReadOrNull_WhenReadIgnoresCancellation_ReturnsAtDeadline ()
     {
         using var scope = TestDirectories.CreateTempScope("supervisor-manifest-store", "noncooperative-read-timeout");
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var readStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var readCompletion = new TaskCompletionSource<ReadOnlyMemory<byte>?>(TaskCreationOptions.RunContinuationsAsynchronously);
         var cancellationCallbackStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -44,10 +44,6 @@ public sealed class SupervisorManifestStoreTests
 
         var readTask = store.ReadOrNullAsync(AbsolutePath.Parse(scope.FullPath), timeout, CancellationToken.None).AsTask();
         await readStarted.Task.WaitAsync(AsyncTestTimeout);
-        await timeProvider
-            .WaitForTimerDueWithinAsync(timeout)
-            .WaitAsync(AsyncTestTimeout);
-
         Task? advanceTask = null;
         try
         {

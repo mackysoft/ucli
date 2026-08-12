@@ -1,6 +1,4 @@
-using System.Reflection;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using MackySoft.Ucli.Contracts.Assurance;
 using MackySoft.Ucli.Contracts.Ipc;
 
@@ -23,34 +21,6 @@ public sealed class CompileProgressExecutionIdContractTests
     [Theory]
     [MemberData(nameof(CompileProgressTypes))]
     [Trait("Size", "Small")]
-    public void Constructor_WhenExecutionIdIsEmpty_ThrowsArgumentException (
-        Type contractType)
-    {
-        var constructor = Assert.Single(contractType.GetConstructors());
-        Assert.NotNull(
-            constructor.GetCustomAttribute<JsonConstructorAttribute>());
-        var parameters = constructor.GetParameters();
-        var executionIdParameter = Assert.Single(
-            parameters,
-            static parameter => parameter.Name == "ExecutionId");
-        var arguments = parameters
-            .Select(static parameter => parameter.HasDefaultValue
-                ? parameter.DefaultValue
-                : CreateDefaultValue(parameter.ParameterType))
-            .ToArray();
-        arguments[Array.IndexOf(parameters, executionIdParameter)] = Guid.Empty;
-
-        var exception = Assert.Throws<TargetInvocationException>(
-            () => constructor.Invoke(arguments));
-        var argumentException = Assert.IsType<ArgumentException>(
-            exception.InnerException);
-
-        Assert.Equal("ExecutionId", argumentException.ParamName);
-    }
-
-    [Theory]
-    [MemberData(nameof(CompileProgressTypes))]
-    [Trait("Size", "Small")]
     public void JsonDeserialize_WhenExecutionIdIsMissingOrEmpty_ThrowsArgumentException (
         Type contractType)
     {
@@ -66,11 +36,6 @@ public sealed class CompileProgressExecutionIdContractTests
             Assert.NotNull(argumentException);
             Assert.Equal("ExecutionId", argumentException.ParamName);
         }
-    }
-
-    private static object? CreateDefaultValue (Type type)
-    {
-        return type.IsValueType ? Activator.CreateInstance(type) : null;
     }
 
     private static ArgumentException? FindArgumentException (

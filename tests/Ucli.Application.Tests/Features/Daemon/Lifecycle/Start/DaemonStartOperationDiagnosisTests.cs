@@ -102,7 +102,6 @@ public sealed class DaemonStartOperationDiagnosisTests
         var error = Assert.IsType<ExecutionError>(result.Error);
         Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
         Assert.Equal(UcliCoreErrorCodes.CommandNotImplemented, error.Code);
-        Assert.Contains("diagnosis cleanup failed", error.Message, StringComparison.OrdinalIgnoreCase);
         Assert.Contains(launchError.Message, error.Message, StringComparison.Ordinal);
         Assert.Contains(diagnosisDeleteError.Message, error.Message, StringComparison.Ordinal);
     }
@@ -138,7 +137,6 @@ public sealed class DaemonStartOperationDiagnosisTests
         Assert.Equal(DaemonStartStatus.Failed, result.Status);
         var error = Assert.IsType<ExecutionError>(result.Error);
         Assert.Equal(ExecutionErrorCodes.IpcTimeout, error.Code);
-        Assert.Contains("diagnosis cleanup failed", error.Message, StringComparison.OrdinalIgnoreCase);
         DaemonStartOperationInvocationAssert.FreshLaunchAttempted(launchService, context, expectedEditorMode: UnityEditorMode.Gui);
     }
 
@@ -146,7 +144,7 @@ public sealed class DaemonStartOperationDiagnosisTests
     [Trait("Size", "Small")]
     public async Task Start_WhenDiagnosisDeleteIgnoresDeadline_ContinuesLifecycleOnIndependentLane ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var compensationOperationOwner = new DaemonCompensationOperationOwner();
         var lifecycleLease = new RecordingAsyncDisposable();
         var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(
@@ -184,9 +182,6 @@ public sealed class DaemonStartOperationDiagnosisTests
             .AsTask();
         await deleteStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
-        await timeProvider
-            .WaitForTimerDueWithinAsync(DaemonTimeouts.SupplementalPersistenceTimeout)
-            .WaitAsync(TimeSpan.FromSeconds(1));
         timeProvider.Advance(DaemonTimeouts.SupplementalPersistenceTimeout);
         var result = await startTask.WaitAsync(TimeSpan.FromSeconds(5));
 

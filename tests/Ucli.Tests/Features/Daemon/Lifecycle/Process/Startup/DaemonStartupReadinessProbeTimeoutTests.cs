@@ -4,9 +4,7 @@ namespace MackySoft.Ucli.Tests.Daemon;
 
 using System.Net.Sockets;
 using MackySoft.FileSystem;
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Shared.Foundation;
-using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Shared.Unity.ProjectLock;
 using MackySoft.Ucli.Tests.Helpers.Ipc;
 using MackySoft.Ucli.Tests.Helpers.Process;
@@ -21,7 +19,7 @@ public sealed class DaemonStartupReadinessProbeTimeoutTests
     [Trait("Size", "Small")]
     public async Task WaitUntilReady_WhenPingIgnoresCancellation_ReturnsAtDeadlineAndRejectsLateSuccess ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var pingStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var pingCancellationObserved = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var pingCompletion = new TaskCompletionSource<UnityEditorObservation>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -58,7 +56,6 @@ public sealed class DaemonStartupReadinessProbeTimeoutTests
         try
         {
             await pingStarted.Task.WaitAsync(SignalWaitTimeout);
-            await timeProvider.WaitForTimerDueWithinAsync(timeout).WaitAsync(SignalWaitTimeout);
             timeProvider.Advance(timeout);
 
             var result = await resultTask.WaitAsync(SignalWaitTimeout);
@@ -82,7 +79,7 @@ public sealed class DaemonStartupReadinessProbeTimeoutTests
     [Trait("Size", "Small")]
     public async Task WaitUntilReady_WhenProjectLockPreflightIgnoresCancellation_ReturnsAtDeadline ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var preflightStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var preflightCompletion = new TaskCompletionSource<UnityProjectLockPreflightResult>(TaskCreationOptions.RunContinuationsAsynchronously);
         var preflightService = new RecordingUnityProjectLockPreflightService
@@ -109,7 +106,6 @@ public sealed class DaemonStartupReadinessProbeTimeoutTests
 
         try
         {
-            await timeProvider.WaitForTimerDueWithinAsync(timeout).WaitAsync(TimeSpan.FromSeconds(1));
             timeProvider.Advance(timeout);
             var result = await resultTask.WaitAsync(TimeSpan.FromSeconds(1));
 
@@ -127,7 +123,7 @@ public sealed class DaemonStartupReadinessProbeTimeoutTests
     [Trait("Size", "Small")]
     public async Task WaitUntilReady_WhenStartupLogReadIgnoresCancellation_ReturnsAtDeadline ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var logReadStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var logReadCompletion = new TaskCompletionSource<UnityLogReadResult>(TaskCreationOptions.RunContinuationsAsynchronously);
         var pingClient = new RecordingDaemonPingInfoClient(
@@ -152,7 +148,6 @@ public sealed class DaemonStartupReadinessProbeTimeoutTests
 
         try
         {
-            await timeProvider.WaitForTimerDueWithinAsync(timeout).WaitAsync(TimeSpan.FromSeconds(1));
             timeProvider.Advance(timeout);
             var result = await resultTask.WaitAsync(TimeSpan.FromSeconds(1));
 
@@ -192,7 +187,7 @@ public sealed class DaemonStartupReadinessProbeTimeoutTests
                     sizeBytes: 32));
             },
         };
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var probe = CreateProbe(pingClient, logReader);
         var timeout = TimeSpan.FromMilliseconds(20);
 
@@ -205,7 +200,6 @@ public sealed class DaemonStartupReadinessProbeTimeoutTests
             "not-running daemon startup probe",
             TimeSpan.FromSeconds(5));
         await logReadStarted.Task.WaitAsync(TimeSpan.FromSeconds(1));
-        await timeProvider.WaitForTimerDueWithinAsync(timeout).WaitAsync(TimeSpan.FromSeconds(1));
         timeProvider.Advance(timeout);
         var result = await resultTask.WaitAsync(TimeSpan.FromSeconds(5));
 
@@ -225,7 +219,7 @@ public sealed class DaemonStartupReadinessProbeTimeoutTests
                 ValueTask.FromException<UnityEditorObservation>(new TimeoutException("probe timeout")),
         };
         var logReader = new UnexpectedUnityLogReader("Probe timeout should not inspect the Unity log.");
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var probe = CreateProbe(pingClient, logReader);
 
         var result = await WaitUntilStartupDeadlineAsync(

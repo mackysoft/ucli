@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Compensation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Contracts.Editor;
@@ -5,7 +6,6 @@ using MackySoft.Ucli.Contracts.Editor;
 namespace MackySoft.Ucli.Tests.Daemon;
 
 using MackySoft.Ucli.Application.Shared.Foundation;
-using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Tests.Helpers.Daemon;
 using static MackySoft.Ucli.Tests.Daemon.DaemonLaunchServiceTestSupport;
 
@@ -381,7 +381,7 @@ public sealed class DaemonLaunchServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Launch_WhenDiagnosisPersistenceDoesNotComplete_StartsCompensationAndReturnsAfterSupplementalDeadlines ()
+    public async Task Launch_WhenDiagnosisPersistenceIgnoresCancellation_ReturnsBoundedFailureAndRetainsOwnership ()
     {
         var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(
             ProjectFingerprintTestFactory.Create("fingerprint-session-update-blocked-diagnosis"));
@@ -409,17 +409,24 @@ public sealed class DaemonLaunchServiceTests
         };
         var diagnosisWriteStarted = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
-        var diagnosisNeverCompletes = new TaskCompletionSource<DaemonDiagnosisStoreOperationResult>(
+        var diagnosisCancellationObserved = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var diagnosisCompletion = new TaskCompletionSource<DaemonDiagnosisStoreOperationResult>(
             TaskCreationOptions.RunContinuationsAsynchronously);
         var diagnosisStore = new RecordingDaemonDiagnosisStore
         {
-            WriteAsyncHandler = (_, _, _, _) =>
+            WriteAsyncHandler = (_, _, _, cancellationToken) =>
             {
+                _ = cancellationToken.Register(() =>
+                {
+                    diagnosisCancellationObserved.TrySetResult();
+                });
                 diagnosisWriteStarted.TrySetResult();
-                return new ValueTask<DaemonDiagnosisStoreOperationResult>(diagnosisNeverCompletes.Task);
+                return new ValueTask<DaemonDiagnosisStoreOperationResult>(diagnosisCompletion.Task);
             },
         };
-        var timeProvider = new ManualTimeProvider(processStartedAtUtc);
+        var timeProvider = new FakeTimeProvider(processStartedAtUtc);
+        var compensationOperationOwner = new DaemonCompensationOperationOwner();
         var service = CreateService(
             launchSessionService,
             launcher,
@@ -427,7 +434,8 @@ public sealed class DaemonLaunchServiceTests
             compensationService,
             timeProvider,
             diagnosisStore,
-            launchAttemptStore: new RecordingDaemonLaunchAttemptStore());
+            launchAttemptStore: new RecordingDaemonLaunchAttemptStore(),
+            compensationOperationOwner: compensationOperationOwner);
 
         var launchTask = service.LaunchAsync(
                 context,
@@ -436,25 +444,53 @@ public sealed class DaemonLaunchServiceTests
                 DaemonStartupBlockedProcessPolicy.Auto,
                 cancellationToken: CancellationToken.None)
             .AsTask();
+        await compensationStarted.Task.WaitAsync(TimeSpan.FromSeconds(1));
+        await diagnosisWriteStarted.Task.WaitAsync(TimeSpan.FromSeconds(1));
 
-        await compensationStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
-        await diagnosisWriteStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
-        for (var index = 0; index < 2; index++)
+        try
         {
-            await timeProvider
-                .WaitForTimerDueWithinAsync(DaemonTimeouts.SupplementalPersistenceTimeout)
-                .WaitAsync(TimeSpan.FromSeconds(1));
+            timeProvider.AutoAdvanceAmount = DaemonTimeouts.SupplementalPersistenceTimeout;
             timeProvider.Advance(DaemonTimeouts.SupplementalPersistenceTimeout);
+
+            await diagnosisCancellationObserved.Task.WaitAsync(TimeSpan.FromSeconds(1));
+            var result = await launchTask.WaitAsync(TimeSpan.FromSeconds(1));
+            timeProvider.AutoAdvanceAmount = TimeSpan.Zero;
+
+            Assert.Equal(DaemonStartStatus.Failed, result.Status);
+            Assert.False(diagnosisCompletion.Task.IsCompleted);
+            DaemonLaunchInvocationAssert.LaunchCompensationAttempted(
+                compensationService,
+                context,
+                processId: 2323,
+                processStartedAtUtc: processStartedAtUtc);
+
+            var followingPersistenceStarted = new TaskCompletionSource(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+            var followingPersistenceTask = compensationOperationOwner.ExecuteAsync(
+                    context,
+                    DaemonOperationLane.SupplementalPersistence,
+                    ExecutionDeadline.Start(TimeSpan.FromSeconds(1), timeProvider),
+                    CancellationToken.None,
+                    "Timed out before the following persistence operation could begin.",
+                    "Timed out while running the following persistence operation.",
+                    (_, _) =>
+                    {
+                        followingPersistenceStarted.TrySetResult();
+                        return ValueTask.FromResult(DaemonDiagnosisStoreOperationResult.Success());
+                    })
+                .AsTask();
+            Assert.False(followingPersistenceStarted.Task.IsCompleted);
+
+            diagnosisCompletion.TrySetResult(DaemonDiagnosisStoreOperationResult.Success());
+            await followingPersistenceStarted.Task.WaitAsync(TimeSpan.FromSeconds(1));
+            var followingPersistenceResult = await followingPersistenceTask.WaitAsync(TimeSpan.FromSeconds(1));
+            Assert.True(followingPersistenceResult.IsSuccess);
         }
-
-        var result = await launchTask.WaitAsync(TimeSpan.FromSeconds(5));
-
-        Assert.Equal(DaemonStartStatus.Failed, result.Status);
-        DaemonLaunchInvocationAssert.LaunchCompensationAttempted(
-            compensationService,
-            context,
-            processId: 2323,
-            processStartedAtUtc: processStartedAtUtc);
+        finally
+        {
+            timeProvider.AutoAdvanceAmount = TimeSpan.Zero;
+            diagnosisCompletion.TrySetResult(DaemonDiagnosisStoreOperationResult.Success());
+        }
     }
 
 }

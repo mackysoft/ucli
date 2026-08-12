@@ -1,6 +1,5 @@
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Contracts;
 using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
-using MackySoft.Ucli.Contracts.Execution;
 using MackySoft.Ucli.Contracts.Execution.Lifecycle;
 using static MackySoft.Ucli.Application.Tests.Features.Assurance.Compile.CompileServiceTestSupport;
 
@@ -59,8 +58,8 @@ public sealed class CompileServiceReconnectTests
         Assert.IsType<CompileExecutionResult.CompletedResult>(result);
         var payload = Assert.IsType<UnityRequestPayload.Compile>(
             Assert.Single(requestExecutor.Invocations).Payload);
-        Assert.Same(registration, payload.Registration);
-        Assert.Same(start, payload.RequiredStart);
+        Assert.Equal(registration, payload.Registration);
+        Assert.Equal(start, payload.RequiredStart);
         Assert.Equal(2, resolver.Invocations.Count);
     }
 }

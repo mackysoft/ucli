@@ -284,7 +284,7 @@ public sealed class AssuranceCodeOutputContractTests
         {
             var list = Assert.IsAssignableFrom<IList<UcliCode>>(values);
             Assert.Throws<NotSupportedException>(() => list[0] = replacementClaim);
-            Assert.Same(claim, values[0]);
+            Assert.Equal(claim, values[0]);
         });
         Assert.All(verifierEffects, values =>
         {

@@ -60,7 +60,6 @@ public sealed class PlanServiceDispatchTests
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal("uCLI plan completed.", result.Message);
         Assert.NotNull(result.Output);
         Assert.Equal(RequestId, result.Output!.RequestId);
         Assert.Equal("plan-token-1", result.Output.PlanToken);

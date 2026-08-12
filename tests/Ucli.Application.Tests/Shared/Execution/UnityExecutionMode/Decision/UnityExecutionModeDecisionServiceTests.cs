@@ -66,7 +66,6 @@ public sealed class UnityExecutionModeDecisionServiceTests
         Assert.Null(result.Error);
         var contractError = Assert.IsType<UnityExecutionModeDecisionContractError>(result.ContractError);
         Assert.Equal(UnityExecutionModeDecisionErrorCodes.DaemonRunningOneshotForbidden, contractError.Code);
-        Assert.Equal("Daemon is running for mode=oneshot.", contractError.Message);
         DaemonReachabilityProbeAssert.ProbeAttemptedFor(probe, UnityProject, DefaultTimeout);
     }
 

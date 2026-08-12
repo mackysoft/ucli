@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Text.Json;
 using System.Threading;
 using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -48,15 +49,16 @@ namespace MackySoft.Ucli.Unity.Tests
                     projectFingerprint);
                 Assert.That(File.Exists(diagnosisPath.Value), Is.True);
 
-                var json = File.ReadAllText(diagnosisPath.Value);
-                var contract = DaemonDiagnosisJsonContractSerializer.Deserialize(json);
-                Assert.That(contract, Is.Not.Null);
-                Assert.That(contract!.Reason, Is.EqualTo(DaemonDiagnosisReason.ListenerTerminated));
-                Assert.That(contract.Message, Is.EqualTo("listener terminated"));
-                Assert.That(contract.ReportedBy, Is.EqualTo(DaemonDiagnosisReportedBy.Unity));
-                Assert.That(contract.IsInferred, Is.False);
-                Assert.That(contract.ProcessId, Is.EqualTo(Process.GetCurrentProcess().Id));
-                Assert.That(contract.SessionIssuedAtUtc, Is.EqualTo(bootstrapContext.SessionIssuedAtUtc));
+                using var document = JsonDocument.Parse(File.ReadAllText(diagnosisPath.Value));
+                var root = document.RootElement;
+                Assert.That(root.GetProperty("reason").GetString(), Is.EqualTo("listenerTerminated"));
+                Assert.That(root.GetProperty("message").GetString(), Is.EqualTo("listener terminated"));
+                Assert.That(root.GetProperty("reportedBy").GetString(), Is.EqualTo("unity"));
+                Assert.That(root.GetProperty("isInferred").GetBoolean(), Is.False);
+                Assert.That(root.GetProperty("processId").GetInt32(), Is.EqualTo(Process.GetCurrentProcess().Id));
+                Assert.That(
+                    root.GetProperty("sessionIssuedAtUtc").GetDateTimeOffset(),
+                    Is.EqualTo(bootstrapContext.SessionIssuedAtUtc));
             }
             finally
             {

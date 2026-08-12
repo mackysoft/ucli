@@ -329,7 +329,7 @@ public sealed class IpcTransportClientStreamingTests
         var resumedStream = new DuplexMemoryStream(await CreateModelBytesAsync(
             IpcTransportClientTestSupport.CreateTerminalFrame(resumedRequest)));
         var connector = new SequencedConnector(firstStream, singleStream, resumedStream);
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var client = new IpcTransportClient(connector, timeProvider);
         var endpoint = IpcTransportEndpoint.FromNamedPipeAddress("stream-admission-test");
         var callbackStartedSource = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -366,7 +366,6 @@ public sealed class IpcTransportClientStreamingTests
         try
         {
             await callbackStartedSource.Task.WaitAsync(IpcTransportClientTestSupport.WaitTimeout);
-            await timeProvider.WaitForTimerDueWithinAsync(IpcTransportClientTestSupport.DefaultTimeout).WaitAsync(IpcTransportClientTestSupport.WaitTimeout);
             timeProvider.Advance(IpcTransportClientTestSupport.DefaultTimeout);
 
             await Assert.ThrowsAsync<TimeoutException>(async () => await firstSendTask).WaitAsync(IpcTransportClientTestSupport.WaitTimeout);

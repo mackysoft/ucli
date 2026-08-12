@@ -13,7 +13,7 @@ internal static class SceneTreeLiteSourceRefreshAssert
         string expectedRetryFailureMessage)
     {
         Assert.True(result.IsSuccess);
-        Assert.Same(expectedSnapshot, result.Snapshot);
+        SceneTreeLiteSourceSnapshotAssert.Equal(expectedSnapshot, result.Snapshot);
         Assert.Empty(artifactWriter.SceneTreeLiteInvocations);
         Assert.NotNull(result.FallbackReason);
         Assert.Contains(expectedFallbackReason, result.FallbackReason!, StringComparison.Ordinal);
@@ -30,7 +30,7 @@ internal static class SceneTreeLiteSourceRefreshAssert
         string expectedFallbackReason)
     {
         Assert.True(result.IsSuccess);
-        Assert.Same(expectedSnapshot, result.Snapshot);
+        SceneTreeLiteSourceSnapshotAssert.Equal(expectedSnapshot, result.Snapshot);
         Assert.Equal(expectedFallbackReason, result.FallbackReason);
         SceneTreeLiteSnapshotReaderAssert.ReadRequested(reader, UnityExecutionMode.Auto, expectedFailFast: false);
         Assert.Empty(sourceHashProvider.Invocations);
@@ -44,7 +44,7 @@ internal static class SceneTreeLiteSourceRefreshAssert
         SceneTreeLiteSourceSnapshot expectedSnapshot)
     {
         Assert.True(result.IsSuccess);
-        Assert.Same(expectedSnapshot, result.Snapshot);
+        SceneTreeLiteSourceSnapshotAssert.Equal(expectedSnapshot, result.Snapshot);
         SceneTreeLiteSnapshotReaderAssert.ReadRequested(reader, UnityExecutionMode.Auto, expectedFailFast: false);
         Assert.Empty(artifactWriter.SceneTreeLiteInvocations);
         Assert.NotNull(result.FallbackReason);

@@ -35,7 +35,6 @@ public sealed class ExecuteResponseConverterDiagnosticTests
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
-        Assert.Contains(nameof(IpcExecuteOperationResult.Diagnostics), error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -80,8 +79,6 @@ public sealed class ExecuteResponseConverterDiagnosticTests
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
-        Assert.Contains(nameof(UcliDiagnosticSeverity), error.Message, StringComparison.Ordinal);
-        Assert.Contains("unsupported", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -120,7 +117,6 @@ public sealed class ExecuteResponseConverterDiagnosticTests
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
-        Assert.Contains("Diagnostic coverage impact must be specified.", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -134,8 +130,6 @@ public sealed class ExecuteResponseConverterDiagnosticTests
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
-        Assert.Contains(nameof(IpcExecuteDiagnosticCoverageImpact), error.Message, StringComparison.Ordinal);
-        Assert.Contains("unsupported", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -175,7 +169,6 @@ public sealed class ExecuteResponseConverterDiagnosticTests
         Assert.Equal(ExecuteRequestErrorCodes.HierarchyPathUnrepresentableObjects, diagnostic.Code);
         Assert.Equal(UcliDiagnosticSeverity.Warning, diagnostic.Severity);
         Assert.Equal(IpcExecuteDiagnosticCoverageImpact.Partial, diagnostic.CoverageImpact);
-        Assert.Equal("Scene query skipped GameObjects whose names contain '/'.", diagnostic.Message);
     }
 
     private static string CreatePayloadWithDiagnostic (

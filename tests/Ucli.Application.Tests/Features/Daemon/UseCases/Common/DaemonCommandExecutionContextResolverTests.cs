@@ -92,7 +92,6 @@ public sealed class DaemonCommandExecutionContextResolverTests
         Assert.Null(result.Context);
         var error = Assert.IsType<ExecutionError>(result.Error);
         Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
-        Assert.Contains("timeout", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]

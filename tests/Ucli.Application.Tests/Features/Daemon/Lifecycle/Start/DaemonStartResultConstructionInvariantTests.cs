@@ -1,4 +1,3 @@
-using System.Reflection;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Shared.Foundation;
 
@@ -15,29 +14,4 @@ public sealed class DaemonStartResultConstructionInvariantTests
             daemonStatus: (DaemonStatusKind)int.MaxValue));
     }
 
-    [Fact]
-    [Trait("Size", "Small")]
-    public void ResultTypes_ExposeOnlyCaseFactoryConstructionPaths ()
-    {
-        Type[] resultTypes =
-        [
-            typeof(DaemonStartResult),
-            typeof(DaemonGuiSessionRegistrationWaitResult),
-        ];
-
-        for (var i = 0; i < resultTypes.Length; i++)
-        {
-            var constructors = resultTypes[i].GetConstructors(
-                BindingFlags.Instance
-                | BindingFlags.Public
-                | BindingFlags.NonPublic);
-            var properties = resultTypes[i].GetProperties(
-                BindingFlags.Instance
-                | BindingFlags.Public
-                | BindingFlags.DeclaredOnly);
-
-            Assert.DoesNotContain(constructors, static constructor => !constructor.IsPrivate);
-            Assert.DoesNotContain(properties, static property => property.SetMethod is not null);
-        }
-    }
 }

@@ -17,7 +17,7 @@ public sealed class TestProfileInitServiceTests
 
         var result = await service.ExecuteAsync(new TestProfileInitCommandInput(OutputPath: outputPath, Force: true), CancellationToken.None);
 
-        Assert.Same(expectedResult, result);
+        Assert.Equal(expectedResult, result);
         TestProfileTemplateStoreAssert.DefaultProfileWritten(
             templateStore,
             expectedOutputPath: outputPath,
@@ -33,7 +33,7 @@ public sealed class TestProfileInitServiceTests
 
         var result = await service.ExecuteAsync(new TestProfileInitCommandInput(OutputPath: null, Force: false), CancellationToken.None);
 
-        Assert.Same(expectedResult, result);
+        Assert.Equal(expectedResult, result);
     }
 
 }
