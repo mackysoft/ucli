@@ -1,5 +1,6 @@
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Contracts;
 using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Source;
+using MackySoft.Ucli.Application.Features.Programs.Persistence;
 using MackySoft.Ucli.Application.Features.Programs.Presets;
 using MackySoft.Ucli.Application.Features.Programs.Resolution;
 using MackySoft.Ucli.Application.Features.Recording.UseCases;
@@ -79,6 +80,8 @@ public sealed class UcliServiceCollectionExtensionsTests
         Assert.NotNull(serviceProvider.GetRequiredService<IPersistedOpsCatalogPersistenceArtifactsReader>());
         Assert.NotNull(serviceProvider.GetRequiredService<IProgramDefinitionResolver>());
         Assert.NotNull(serviceProvider.GetRequiredService<IProgramPresetCatalog>());
+        Assert.NotNull(serviceProvider.GetRequiredService<ProgramRunPersistenceService>());
+        Assert.NotNull(serviceProvider.GetRequiredService<IProgramRunStoreFactory>());
         Assert.NotNull(serviceProvider.GetRequiredService<IGameViewRecordingService>());
         Assert.Same(TimeProvider.System, serviceProvider.GetRequiredService<TimeProvider>());
         Assert.NotNull(serviceProvider.GetRequiredService<ImmutableArtifactFilePublisher>());
