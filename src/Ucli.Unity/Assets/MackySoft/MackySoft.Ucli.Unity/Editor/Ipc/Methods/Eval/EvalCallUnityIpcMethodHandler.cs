@@ -40,29 +40,35 @@ namespace MackySoft.Ucli.Unity.Ipc
         public async ValueTask<IpcResponse> HandleAsync (ValidatedUnityIpcRequest request, IpcRequestCancellation cancellation)
         {
             if (!UnityIpcRequestCodec.TryDecodeEvalCallRequest(request, out var payload, out var error)) return error!;
-            if (!EvalConfigResolver.IsEnabled(tokenEnvironment)) return CreateError(request, UcliCoreErrorCodes.InvalidArgument, "C# eval is disabled by config evalEnabled=false.", null, ExecutionApplicationState.NotApplied);
+            var config = await EvalConfigResolver.ResolveAsync(tokenEnvironment, cancellation.Token);
+            if (config != EvalConfigResolution.Enabled)
+            {
+                return CreateConfigError(request, config, ExecutionApplicationState.NotApplied);
+            }
             if (!payload!.AllowDangerous || string.IsNullOrWhiteSpace(payload.PlanToken)) return CreateError(request, UcliCoreErrorCodes.InvalidArgument, "C# eval plan token is required.", null, ExecutionApplicationState.NotApplied);
             var ready = await readinessGate.EnsureExecutionReadyAsync(true, cancellation.Token, payload.AllowPlayMode);
             if (!ready.IsReady) return CreateError(request, ready.Error!.Code, ready.Error.Message, null, ExecutionApplicationState.NotApplied);
             var compilation = compilationService.CompileAndValidate(payload.Source, payload.SourceKind, payload.AllowDangerous, payload.AllowPlayMode, cancellation.Token);
             if (!compilation.IsSuccess) return CreateError(request, UcliCoreErrorCodes.InvalidArgument, "C# eval call source is invalid.", CreatePartial(compilation), ExecutionApplicationState.NotApplied);
-            if (!TryValidatePlanToken(payload.PlanToken, compilation, payload.AllowDangerous, payload.AllowPlayMode, out var decodedToken, out _, out var tokenError)) return CreateError(request, UcliCoreErrorCodes.InvalidArgument, tokenError!, CreatePartial(compilation), ExecutionApplicationState.NotApplied);
+            var tokenValidation = await ValidatePlanTokenAsync(payload.PlanToken, compilation, payload.AllowDangerous, payload.AllowPlayMode, cancellation.Token);
+            if (!tokenValidation.IsValid) return CreateError(request, tokenValidation.ErrorCode!, tokenValidation.Error!, CreatePartial(compilation), ExecutionApplicationState.NotApplied);
             if (!compilationService.TryEmitAssembly(compilation.Compilation, cancellation.Token, out var bytes, out _, out var emitError)) return CreateError(request, UcliCoreErrorCodes.InvalidArgument, emitError, CreatePartial(compilation), ExecutionApplicationState.NotApplied);
             // Emission may take long enough for the Editor generation or eval configuration to change.
             // Admission must use the snapshot that was revalidated after emission, never a stale plan snapshot.
-            if (!TryValidatePlanToken(payload.PlanToken, compilation, payload.AllowDangerous, payload.AllowPlayMode, out decodedToken, out var tokenSnapshot, out tokenError)) return CreateError(request, UcliCoreErrorCodes.InvalidArgument, tokenError!, CreatePartial(compilation), ExecutionApplicationState.NotApplied);
+            tokenValidation = await ValidatePlanTokenAsync(payload.PlanToken, compilation, payload.AllowDangerous, payload.AllowPlayMode, cancellation.Token);
+            if (!tokenValidation.IsValid) return CreateError(request, tokenValidation.ErrorCode!, tokenValidation.Error!, CreatePartial(compilation), ExecutionApplicationState.NotApplied);
             var admission = await admissionJournal.TryAdmitEvalCallAsync(
-                tokenSnapshot!.RepositoryRoot,
-                tokenSnapshot.ProjectFingerprint,
+                tokenValidation.Snapshot!.RepositoryRoot,
+                tokenValidation.Snapshot.ProjectFingerprint,
                 new EvalCallAdmission(
-                    decodedToken!.Payload.Nonce.ToString(),
+                    tokenValidation.DecodedToken!.Payload.Nonce.ToString(),
                     MackySoft.Ucli.Contracts.Cryptography.Sha256Digest.Compute(System.Text.Encoding.UTF8.GetBytes(payload.PlanToken)),
                     request.RequestId,
                     compilation.SourceDigest,
                     compilation.ExecutionDigest,
-                    tokenSnapshot.DomainReloadGeneration,
-                    decodedToken.Payload.IssuedAtUtc,
-                    decodedToken.Payload.ExpiresAtUtc),
+                    tokenValidation.Snapshot.DomainReloadGeneration,
+                    tokenValidation.DecodedToken.Payload.IssuedAtUtc,
+                    tokenValidation.DecodedToken.Payload.ExpiresAtUtc),
                 cancellation.Token);
             if (!admission.IsAdmitted)
             {
@@ -150,12 +156,13 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             // A completed entry point is not safely reportable as applied when its Editor generation
             // (or the validated eval configuration) changed while it was running.
-            if (!TryValidatePlanToken(payload.PlanToken, compilation, payload.AllowDangerous, payload.AllowPlayMode, out _, out _, out tokenError))
+            tokenValidation = await ValidatePlanTokenAsync(payload.PlanToken, compilation, payload.AllowDangerous, payload.AllowPlayMode, cancellation.Token);
+            if (!tokenValidation.IsValid)
             {
                 return CreateError(
                     request,
-                    UcliCoreErrorCodes.InvalidArgument,
-                    tokenError!,
+                    tokenValidation.ErrorCode!,
+                    tokenValidation.Error!,
                     CreatePartial(compilation, stopwatch.ElapsedMilliseconds, context.Logs, returnValue, touched),
                     ExecutionApplicationState.Indeterminate,
                     admission.ReadPostcondition);
@@ -199,55 +206,79 @@ namespace MackySoft.Ucli.Unity.Ipc
                 new IpcEvalErrorResponse(project, CsEvalPhase.Call, applicationState, partial, readPostcondition));
         }
 
-        private bool TryValidatePlanToken (string token, CsEvalCompilationResult compilation, bool allowDangerous, bool allowPlayMode, out PlanTokenDecodedToken? decoded, out PlanTokenEnvironmentSnapshot? snapshot, out string? error)
+        private IpcResponse CreateConfigError (ValidatedUnityIpcRequest request, EvalConfigResolution config, ExecutionApplicationState applicationState)
         {
-            decoded = null;
-            snapshot = null;
-            error = null;
-            if (!PlanTokenCompactCodec.TryDecodeToken(token, out decoded))
+            return config switch
             {
-                error = "C# eval plan token is invalid.";
-                return false;
+                EvalConfigResolution.Invalid => CreateError(request, UcliCoreErrorCodes.InvalidArgument, "C# eval configuration is invalid.", null, applicationState),
+                EvalConfigResolution.Unavailable => CreateError(request, UcliCoreErrorCodes.InternalError, "C# eval configuration could not be loaded.", null, applicationState),
+                _ => CreateError(request, UcliCoreErrorCodes.InvalidArgument, "C# eval is disabled by config evalEnabled=false.", null, applicationState),
+            };
+        }
+
+        private async ValueTask<EvalPlanTokenValidation> ValidatePlanTokenAsync (string token, CsEvalCompilationResult compilation, bool allowDangerous, bool allowPlayMode, System.Threading.CancellationToken cancellationToken)
+        {
+            if (!PlanTokenCompactCodec.TryDecodeToken(token, out var decoded))
+            {
+                return EvalPlanTokenValidation.Failure(UcliCoreErrorCodes.InvalidArgument, "C# eval plan token is invalid.");
             }
 
-            snapshot = tokenEnvironment.Capture();
-            if (!PlanTokenKeyStore.TryLoadOrCreate(snapshot, out var key, out error)) return false;
+            var snapshot = tokenEnvironment.Capture();
+            if (!PlanTokenKeyStore.TryLoadOrCreate(snapshot, out var key, out var keyError))
+            {
+                return EvalPlanTokenValidation.Failure(UcliCoreErrorCodes.InvalidArgument, keyError!);
+            }
             if (!PlanTokenCompactCodec.VerifySignature(decoded, key)
                 || decoded.Payload.ProjectFingerprint != snapshot.ProjectFingerprint
                 || decoded.Payload.RequestDigest != compilation.SourceDigest
                 || decoded.Payload.CompiledExecutionDigest != compilation.ExecutionDigest)
             {
-                error = "C# eval plan token does not match the current request.";
-                return false;
+                return EvalPlanTokenValidation.Failure(UcliCoreErrorCodes.InvalidArgument, "C# eval plan token does not match the current request.");
             }
 
             if (tokenEnvironment.UtcNow > decoded.Payload.ExpiresAtUtc)
             {
-                error = "C# eval plan token has expired.";
-                return false;
+                return EvalPlanTokenValidation.Failure(UcliCoreErrorCodes.InvalidArgument, "C# eval plan token has expired.");
             }
 
             var claims = decoded.Payload.EvalClaims;
+            var config = await EvalConfigResolver.ResolveAsync(tokenEnvironment, cancellationToken);
+            if (config != EvalConfigResolution.Enabled)
+            {
+                return config switch
+                {
+                    EvalConfigResolution.Invalid => EvalPlanTokenValidation.Failure(UcliCoreErrorCodes.InvalidArgument, "C# eval configuration is invalid."),
+                    EvalConfigResolution.Unavailable => EvalPlanTokenValidation.Failure(UcliCoreErrorCodes.InternalError, "C# eval configuration could not be loaded."),
+                    _ => EvalPlanTokenValidation.Failure(UcliCoreErrorCodes.InvalidArgument, "C# eval plan token does not match the current eval configuration or request flags."),
+                };
+            }
+
             if (claims is null
                 || !claims.EvalEnabled
-                || !EvalConfigResolver.IsEnabled(tokenEnvironment)
                 || claims.SourceKind != compilation.SourceKind
                 || claims.AllowDangerous != allowDangerous
                 || claims.AllowPlayMode != allowPlayMode)
             {
-                error = "C# eval plan token does not match the current eval configuration or request flags.";
-                return false;
+                return EvalPlanTokenValidation.Failure(UcliCoreErrorCodes.InvalidArgument, "C# eval plan token does not match the current eval configuration or request flags.");
             }
 
             var generation = MackySoft.Ucli.Contracts.Cryptography.Sha256Digest.Compute(
                 System.Text.Encoding.UTF8.GetBytes(snapshot.DomainReloadGeneration.ToString(System.Globalization.CultureInfo.InvariantCulture)));
             if (decoded.Payload.StateFingerprint != generation)
             {
-                error = "C# eval plan token was issued for a previous Editor generation.";
-                return false;
+                return EvalPlanTokenValidation.Failure(UcliCoreErrorCodes.InvalidArgument, "C# eval plan token was issued for a previous Editor generation.");
             }
 
-            return true;
+            return EvalPlanTokenValidation.Success(decoded, snapshot);
+        }
+
+        private sealed record EvalPlanTokenValidation (PlanTokenDecodedToken? DecodedToken, PlanTokenEnvironmentSnapshot? Snapshot, UcliCode? ErrorCode, string? Error)
+        {
+            public bool IsValid => ErrorCode is null;
+
+            public static EvalPlanTokenValidation Success (PlanTokenDecodedToken decodedToken, PlanTokenEnvironmentSnapshot snapshot) => new(decodedToken, snapshot, null, null);
+
+            public static EvalPlanTokenValidation Failure (UcliCode errorCode, string error) => new(null, null, errorCode, error);
         }
     }
 }

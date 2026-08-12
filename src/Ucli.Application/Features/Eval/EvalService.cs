@@ -1,5 +1,7 @@
 using MackySoft.Ucli.Application.Shared.Context;
+using MackySoft.Ucli.Application.Shared.Execution.ReadPostcondition;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Contracts.Execution;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Projects;
 
@@ -17,10 +19,16 @@ internal sealed class EvalService : IEvalService
     private readonly IProjectContextResolver projectContextResolver;
     private readonly IUnityEvalClient unityEvalClient;
 
-    public EvalService (IProjectContextResolver projectContextResolver, IUnityEvalClient unityEvalClient)
+    private readonly IMutationReadPostconditionStore mutationReadPostconditionStore;
+
+    public EvalService (
+        IProjectContextResolver projectContextResolver,
+        IUnityEvalClient unityEvalClient,
+        IMutationReadPostconditionStore mutationReadPostconditionStore)
     {
         this.projectContextResolver = projectContextResolver ?? throw new ArgumentNullException(nameof(projectContextResolver));
         this.unityEvalClient = unityEvalClient ?? throw new ArgumentNullException(nameof(unityEvalClient));
+        this.mutationReadPostconditionStore = mutationReadPostconditionStore ?? throw new ArgumentNullException(nameof(mutationReadPostconditionStore));
     }
 
     public async ValueTask<EvalServiceResult> ExecuteAsync (Guid requestId, EvalCommandInput input, CancellationToken cancellationToken = default)
@@ -67,8 +75,32 @@ internal sealed class EvalService : IEvalService
                 input.FailFast,
                 cancellationToken)
             .ConfigureAwait(false);
-        return EvalServiceResult.FromUnityResult(requestId, project, result);
+        var serviceResult = EvalServiceResult.FromUnityResult(requestId, project, result);
+        if (!RequiresUnobservedCallInvalidation(serviceResult))
+        {
+            return serviceResult;
+        }
+
+        // The caller may have canceled only the wait. Persist this fence even then because
+        // eval.call was already transmitted and its effects cannot be observed safely.
+        var invalidation = await mutationReadPostconditionStore.InvalidateAfterUnobservedEvalCallAsync(
+                context.UnityProject.RepositoryRoot,
+                context.UnityProject.ProjectFingerprint,
+                CancellationToken.None)
+            .ConfigureAwait(false);
+        return invalidation.IsSuccess
+            ? serviceResult
+            : serviceResult with { Error = invalidation.Error };
     }
+
+    private static bool RequiresUnobservedCallInvalidation (EvalServiceResult result) =>
+        result.CallWasSent
+        && result.Call is null
+        && result.ErrorResponse?.ReadPostcondition is null
+        && (result.ErrorResponse?.ApplicationState ?? ExecutionApplicationState.Indeterminate)
+            is ExecutionApplicationState.Applied
+                or ExecutionApplicationState.Indeterminate
+                or ExecutionApplicationState.Unknown;
 }
 
 internal sealed record EvalCommandInput (AbsolutePath? ProjectPath, UnityExecutionMode? Mode, int? TimeoutMilliseconds, bool AllowDangerous, bool AllowPlayMode, bool FailFast, string Source, CsEvalSourceKind SourceKind);

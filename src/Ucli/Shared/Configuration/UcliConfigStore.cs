@@ -2,6 +2,7 @@ using System.Text.Json;
 using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Infrastructure.Configuration;
 using MackySoft.Ucli.Infrastructure.Storage;
 
 namespace MackySoft.Ucli.Shared.Configuration;
@@ -9,8 +10,6 @@ namespace MackySoft.Ucli.Shared.Configuration;
 /// <summary> Provides filesystem-backed access to <c>.ucli/config.json</c>. </summary>
 internal sealed class UcliConfigStore : IUcliConfigStore
 {
-    private const string InvalidJsonCode = "config.json.invalid";
-
     private static readonly JsonSerializerOptions SerializerOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -20,12 +19,15 @@ internal sealed class UcliConfigStore : IUcliConfigStore
 
     private readonly UcliConfigCompiler compiler;
 
+    private readonly UcliConfigFileLoader loader;
+
     /// <summary> Initializes a new instance of the <see cref="UcliConfigStore" /> class. </summary>
     /// <param name="compiler"> The config compiler dependency. </param>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="compiler" /> is <see langword="null" />. </exception>
     public UcliConfigStore (UcliConfigCompiler compiler)
     {
         this.compiler = compiler ?? throw new ArgumentNullException(nameof(compiler));
+        loader = new UcliConfigFileLoader();
     }
 
     /// <summary> Resolves the absolute path to <c>.ucli/config.json</c> for a storage root. </summary>
@@ -50,46 +52,24 @@ internal sealed class UcliConfigStore : IUcliConfigStore
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var configPath = GetConfigPath(storageRoot);
-
-        if (!File.Exists(configPath.Value))
-        {
-            return UcliConfigLoadResult.Success(UcliConfig.CreateDefault(), ConfigSource.Default);
-        }
-
-        string json;
-        try
-        {
-            json = await File.ReadAllTextAsync(configPath.Value, cancellationToken).ConfigureAwait(false);
-        }
-        catch (Exception ex) when (IsIoFailure(ex))
+        var result = await loader.LoadAsync(storageRoot, cancellationToken).ConfigureAwait(false);
+        if (result.State == UcliConfigFileLoadState.Unavailable)
         {
             return UcliConfigLoadResult.Failure(ExecutionError.InternalError(
-                $"Failed to read config file: {configPath}. {ex.Message}"));
+                $"Failed to read config file: {result.ConfigPath}. {result.UnavailableMessage}"));
         }
 
-        try
+        if (result.State == UcliConfigFileLoadState.Invalid)
         {
-            using var jsonDocument = JsonDocument.Parse(json);
-            var compileResult = compiler.Compile(jsonDocument.RootElement, configPath.Value);
-            if (!compileResult.IsSuccess)
-            {
-                return UcliConfigLoadResult.Failure(compileResult.Diagnostics);
-            }
+            return UcliConfigLoadResult.Failure(UcliConfigContractDiagnosticMapper.Map(result.Diagnostics));
+        }
 
-            return UcliConfigLoadResult.Success(compileResult.Config!, ConfigSource.File);
-        }
-        catch (JsonException ex)
-        {
-            return UcliConfigLoadResult.Failure(
-            [
-                UcliConfigDiagnostic.Create(
-                    InvalidJsonCode,
-                    propertyPath: null,
-                    sourcePath: configPath.Value,
-                    $"Config JSON is invalid: {ex.Message}"),
-            ]);
-        }
+        var buildResult = compiler.Build(result.Snapshot!);
+        return buildResult.IsSuccess
+            ? UcliConfigLoadResult.Success(
+                buildResult.Config!,
+                result.State == UcliConfigFileLoadState.Default ? ConfigSource.Default : ConfigSource.File)
+            : UcliConfigLoadResult.Failure(buildResult.Diagnostics);
     }
 
     /// <summary> Saves configuration values to <c>.ucli/config.json</c>. </summary>

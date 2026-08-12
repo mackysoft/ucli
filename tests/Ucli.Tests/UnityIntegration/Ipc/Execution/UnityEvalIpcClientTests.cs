@@ -214,7 +214,7 @@ public sealed class UnityEvalIpcClientTests
     private static UnityProjectIdentity ProjectIdentity (ResolvedUnityProjectContext project) => new(
         project.UnityProjectRoot.ToString(),
         project.ProjectFingerprint,
-        "2023.2.22f1");
+        project.UnityVersion);
 
     private static ExecutionReadPostcondition CreateCallReadPostcondition () => new(
     [

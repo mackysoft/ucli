@@ -115,6 +115,26 @@ public sealed class IpcEvalContractSerializationTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void EvalErrorResponse_RejectsReadPostconditionsBeforeCallEntry ()
+    {
+        var readPostcondition = new ExecutionReadPostcondition([]);
+
+        Assert.Throws<ArgumentException>(() => new IpcEvalErrorResponse(
+            Project,
+            CsEvalPhase.Plan,
+            ExecutionApplicationState.NotApplied,
+            eval: null,
+            readPostcondition));
+        Assert.Throws<ArgumentException>(() => new IpcEvalErrorResponse(
+            Project,
+            CsEvalPhase.Call,
+            ExecutionApplicationState.NotApplied,
+            eval: null,
+            readPostcondition));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void EvalCallResults_RejectLogsThatAreNotContiguousOneBasedSequences ()
     {
         var invalidLogs = new[]

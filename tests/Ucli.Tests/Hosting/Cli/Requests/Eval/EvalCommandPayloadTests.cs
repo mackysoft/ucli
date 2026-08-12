@@ -1,4 +1,6 @@
 using System.Text.Json;
+using MackySoft.Ucli.Application.Features.Eval;
+using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Execution;
 using MackySoft.Ucli.Hosting.Cli.Requests;
 using MackySoft.Ucli.Hosting.Cli.Requests.Eval.Input;
@@ -48,5 +50,32 @@ public sealed class EvalCommandPayloadTests
             .HasProperty("plan", plan => plan
                 .HasString("eval.sourceKind", "snippet"));
         Assert.False(payload.TryGetProperty("opResults", out _));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Eval_WhenPlanFails_ReportsTheClosedPlanFailurePayloadWithoutCallEvidence ()
+    {
+        var project = new UnityProjectIdentity(
+            "/workspace/UnityProject",
+            ProjectFingerprintTestFactory.Create("project-fingerprint"),
+            "6000.1.4f1");
+        var service = new RecordingEvalService((id, _, _) => ValueTask.FromResult(
+            EvalServiceResult.Failure(id, project, ExecutionError.Timeout("eval.plan timed out."))));
+        var sourceReader = new RecordingEvalSourceInputReader((_, _, _) => ValueTask.FromResult(EvalSourceInputReadResult.Success(EvalSource)));
+        var command = new EvalCommand(service, sourceReader, CommandResultTestWriter.Create());
+
+        var result = await CommandResultCapture.ExecuteAsync(() => command.EvalAsync(
+            source: EvalSource,
+            cancellationToken: CancellationToken.None));
+
+        using var outputJson = JsonDocument.Parse(result.StdOut);
+        var payload = outputJson.RootElement.GetProperty("payload");
+        JsonAssert.For(payload)
+            .HasString("payloadKind", "detailed")
+            .HasString("phase", "plan")
+            .HasString("applicationState", TextVocabulary.GetText(ExecutionApplicationState.NotApplied));
+        Assert.False(payload.TryGetProperty("plan", out _));
+        Assert.False(payload.TryGetProperty("readPostcondition", out _));
     }
 }

@@ -35,6 +35,18 @@ internal sealed class MutationReadPostconditionStore : IMutationReadPostconditio
             : MutationReadPostconditionStoreOperationResult.Failure(ToExecutionError(result.Failure!));
     }
 
+    /// <inheritdoc />
+    public async ValueTask<MutationReadPostconditionStoreOperationResult> InvalidateAfterUnobservedEvalCallAsync (
+        AbsolutePath storageRoot,
+        ProjectFingerprint projectFingerprint,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await journal.InvalidateAfterUnobservedEvalCallAsync(storageRoot, projectFingerprint, cancellationToken).ConfigureAwait(false);
+        return result.IsSuccess
+            ? MutationReadPostconditionStoreOperationResult.Success()
+            : MutationReadPostconditionStoreOperationResult.Failure(ToExecutionError(result.Failure!));
+    }
+
     private static ExecutionError ToExecutionError (MutationReadPostconditionJournalFailure failure)
     {
         return failure.Kind == MutationReadPostconditionJournalFailureKind.InvalidDocument

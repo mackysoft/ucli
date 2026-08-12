@@ -1,41 +1,40 @@
 using System;
-using System.IO;
-using System.Text.Json;
-using MackySoft.Ucli.Contracts.Storage;
-using MackySoft.Ucli.Infrastructure.Storage;
+using System.Threading;
+using System.Threading.Tasks;
+using MackySoft.Ucli.Infrastructure.Configuration;
 using MackySoft.Ucli.Unity.Execution.PlanToken;
 
 #nullable enable
 
 namespace MackySoft.Ucli.Unity.Execution.CsEval
 {
-    /// <summary> Reads the fail-closed eval enablement flag directly from project configuration. </summary>
+    /// <summary> Resolves fail-closed eval enablement from the canonical project configuration. </summary>
     internal static class EvalConfigResolver
     {
-        public static bool IsEnabled (IPlanTokenEnvironment environment)
+        public static async ValueTask<EvalConfigResolution> ResolveAsync (IPlanTokenEnvironment environment, CancellationToken cancellationToken)
         {
             if (environment == null)
             {
                 throw new ArgumentNullException(nameof(environment));
             }
 
-            try
+            var load = await new UcliConfigFileLoader().LoadAsync(environment.Capture().RepositoryRoot, cancellationToken);
+            return load.State switch
             {
-                var configPath = UcliStoragePathResolver.ResolveConfigPath(environment.Capture().RepositoryRoot);
-                if (!File.Exists(configPath.Value))
-                {
-                    return false;
-                }
-
-                using var document = JsonDocument.Parse(File.ReadAllText(configPath.Value));
-                return document.RootElement.ValueKind == JsonValueKind.Object
-                    && document.RootElement.TryGetProperty("evalEnabled", out var enabled)
-                    && enabled.ValueKind == JsonValueKind.True;
-            }
-            catch
-            {
-                return false;
-            }
+                UcliConfigFileLoadState.Default or UcliConfigFileLoadState.File when load.Snapshot!.EvalEnabled => EvalConfigResolution.Enabled,
+                UcliConfigFileLoadState.Default or UcliConfigFileLoadState.File => EvalConfigResolution.Disabled,
+                UcliConfigFileLoadState.Invalid => EvalConfigResolution.Invalid,
+                UcliConfigFileLoadState.Unavailable => EvalConfigResolution.Unavailable,
+                _ => throw new InvalidOperationException("Config loader returned an unsupported state."),
+            };
         }
+    }
+
+    internal enum EvalConfigResolution
+    {
+        Enabled = 0,
+        Disabled = 1,
+        Invalid = 2,
+        Unavailable = 3,
     }
 }

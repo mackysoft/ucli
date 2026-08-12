@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts;
@@ -7,12 +8,13 @@ using MackySoft.Ucli.Contracts.Editor;
 using MackySoft.Ucli.Contracts.Execution;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Projects;
-using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.Infrastructure.Project;
 using MackySoft.Ucli.Infrastructure.Execution.ReadPostcondition;
 using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Unity.Execution.CsEval;
 using MackySoft.Ucli.Unity.Execution.PlanToken;
 using MackySoft.Ucli.Unity.Ipc;
+using TextVocabulary = MackySoft.Text.Vocabularies.Vocabulary;
 using NUnit.Framework;
 
 #nullable enable
@@ -89,6 +91,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 CreateRequest(UnityIpcMethod.EvalPlan, new IpcEvalPlanRequest("context.DeclareNoChanges();", CsEvalSourceKind.Snippet, true, false)));
 
             Assert.That(response.Status, Is.EqualTo(IpcResponseStatus.Error));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
             Assert.That(readinessGate.CallCount, Is.Zero);
         }
 
@@ -104,6 +107,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 CreateRequest(UnityIpcMethod.EvalPlan, new IpcEvalPlanRequest("context.DeclareNoChanges();", CsEvalSourceKind.Snippet, true, false)));
 
             Assert.That(response.Status, Is.EqualTo(IpcResponseStatus.Error));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
             Assert.That(readinessGate.CallCount, Is.Zero);
         }
 
@@ -119,6 +123,26 @@ namespace MackySoft.Ucli.Unity.Tests
                 CreateRequest(UnityIpcMethod.EvalPlan, new IpcEvalPlanRequest("context.DeclareNoChanges();", CsEvalSourceKind.Snippet, true, false)));
 
             Assert.That(response.Status, Is.EqualTo(IpcResponseStatus.Error));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
+            Assert.That(readinessGate.CallCount, Is.Zero);
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public async Task Plan_WhenConfigCannotBeRead_ReturnsInternalErrorBeforeReadiness ()
+        {
+            using var scope = new EvalTestScope();
+            scope.MakeConfigUnavailable();
+            var readinessGate = new StubUnityEditorReadinessGate();
+
+            var response = await UnityIpcMethodHandlerTestInvoker.HandleAsync(
+                new EvalPlanUnityIpcMethodHandler(CreateCompilationService(), readinessGate, scope.Project, scope.CreateEnvironment()),
+                CreateRequest(UnityIpcMethod.EvalPlan, new IpcEvalPlanRequest("context.DeclareNoChanges();", CsEvalSourceKind.Snippet, true, false)));
+
+            Assert.That(response.Status, Is.EqualTo(IpcResponseStatus.Error));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(UcliCoreErrorCodes.InternalError));
+            Assert.That(IpcPayloadCodec.TryDeserializeStrict(response.Payload, out IpcEvalErrorResponse error, out var decodeError), Is.True, decodeError.Message);
+            Assert.That(error.ApplicationState, Is.EqualTo(ExecutionApplicationState.NotApplied));
             Assert.That(readinessGate.CallCount, Is.Zero);
         }
 
@@ -169,6 +193,26 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
+        public async Task Call_WhenConfigBecomesInvalidAfterPlan_DoesNotInvokeEntryPoint ()
+        {
+            using var scope = new EvalTestScope();
+            var environment = scope.CreateEnvironment();
+            const string source = "throw new System.InvalidOperationException(\"must not execute\");";
+            var plan = await CreateSuccessfulPlanAsync(scope, environment, source, allowPlayMode: false);
+            scope.SetConfigJson("{\"schemaVersion\":1,\"operationPolicy\":\"safe\",\"planTokenMode\":\"optional\",\"operationAllowlist\":[\"^ucli\\\\.\"],\"evalEnabled\":true,\"unknown\":true}");
+
+            var response = await UnityIpcMethodHandlerTestInvoker.HandleAsync(
+                CreateCallHandler(scope, environment),
+                CreateRequest(UnityIpcMethod.EvalCall, new IpcEvalCallRequest(source, CsEvalSourceKind.Snippet, true, false, plan.PlanToken!)));
+
+            Assert.That(response.Status, Is.EqualTo(IpcResponseStatus.Error));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
+            Assert.That(IpcPayloadCodec.TryDeserializeStrict(response.Payload, out IpcEvalErrorResponse error, out var decodeError), Is.True, decodeError.Message);
+            Assert.That(error.ApplicationState, Is.EqualTo(ExecutionApplicationState.NotApplied));
+        }
+
+        [Test]
+        [Category("Size.Small")]
         public async Task Call_WhenEditorGenerationChangedAfterPlan_DoesNotInvokeEntryPoint ()
         {
             using var scope = new EvalTestScope();
@@ -200,6 +244,23 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(response.Status, Is.EqualTo(IpcResponseStatus.Error));
             Assert.That(IpcPayloadCodec.TryDeserializeStrict(response.Payload, out IpcEvalErrorResponse error, out var decodeError), Is.True, decodeError.Message);
             Assert.That(error.ApplicationState, Is.EqualTo(ExecutionApplicationState.NotApplied));
+            Assert.That(readinessGate.CallCount, Is.Zero);
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void Plan_WhenRequestIsCanceled_DoesNotEnterReadiness ()
+        {
+            using var scope = new EvalTestScope();
+            using var cancellation = new CancellationTokenSource();
+            var readinessGate = new StubUnityEditorReadinessGate();
+            cancellation.Cancel();
+
+            var exception = Assert.CatchAsync(async () => await UnityIpcMethodHandlerTestInvoker.HandleAsync(
+                new EvalPlanUnityIpcMethodHandler(CreateCompilationService(), readinessGate, scope.Project, scope.CreateEnvironment()),
+                CreateRequest(UnityIpcMethod.EvalPlan, new IpcEvalPlanRequest("context.DeclareNoChanges();", CsEvalSourceKind.Snippet, true, false)),
+                cancellation.Token));
+            Assert.That(exception, Is.InstanceOf<OperationCanceledException>());
             Assert.That(readinessGate.CallCount, Is.Zero);
         }
 
@@ -308,13 +369,22 @@ namespace MackySoft.Ucli.Unity.Tests
             public UnityProjectIdentity Project { get; }
             public PlanTokenEnvironmentSnapshot Snapshot { get; }
 
-            private FixedPlanTokenEnvironment CreateEnvironment () => new FixedPlanTokenEnvironment(Snapshot);
+            internal FixedPlanTokenEnvironment CreateEnvironment () => new FixedPlanTokenEnvironment(Snapshot);
 
             public void SetEvalEnabled (bool evalEnabled)
             {
-                File.WriteAllText(
-                    UcliStoragePathResolver.ResolveConfigPath(AbsolutePath.Parse(RepositoryRoot)).Value,
-                    CreateConfigJson(evalEnabled));
+                SetConfigJson(CreateConfigJson(evalEnabled));
+            }
+
+            public void SetConfigJson (string configJson) => File.WriteAllText(
+                UcliStoragePathResolver.ResolveConfigPath(AbsolutePath.Parse(RepositoryRoot)).Value,
+                configJson);
+
+            public void MakeConfigUnavailable ()
+            {
+                var configPath = UcliStoragePathResolver.ResolveConfigPath(AbsolutePath.Parse(RepositoryRoot)).Value;
+                File.Delete(configPath);
+                Directory.CreateDirectory(configPath);
             }
 
             private static string CreateConfigJson (bool evalEnabled) =>
@@ -328,7 +398,7 @@ namespace MackySoft.Ucli.Unity.Tests
             }
         }
 
-        private sealed class FixedPlanTokenEnvironment : IPlanTokenEnvironment
+        internal sealed class FixedPlanTokenEnvironment : IPlanTokenEnvironment
         {
             private PlanTokenEnvironmentSnapshot snapshot;
 

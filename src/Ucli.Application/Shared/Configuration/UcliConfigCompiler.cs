@@ -50,13 +50,19 @@ internal sealed class UcliConfigCompiler
         JsonElement root,
         string sourcePath)
     {
-        var schemaResult = schemaValidator.Validate(root, sourcePath);
-        if (!schemaResult.IsSuccess)
+        var compilationResult = schemaValidator.Compile(root, sourcePath);
+        if (!compilationResult.IsSuccess)
         {
-            return UcliConfigBuildResult.Failure(schemaResult.Diagnostics);
+            return UcliConfigBuildResult.Failure(UcliConfigContractDiagnosticMapper.Map(compilationResult.Diagnostics));
         }
 
-        return effectiveConfigBuilder.Build(schemaResult.Document!.Value, sourcePath);
+        return effectiveConfigBuilder.Build(compilationResult.Snapshot!);
+    }
+
+    /// <summary> Maps one snapshot already validated by the shared compiler. </summary>
+    public UcliConfigBuildResult Build (UcliConfigContractSnapshot snapshot)
+    {
+        return effectiveConfigBuilder.Build(snapshot);
     }
 
     /// <summary> Builds a serializable config document from typed config values. </summary>

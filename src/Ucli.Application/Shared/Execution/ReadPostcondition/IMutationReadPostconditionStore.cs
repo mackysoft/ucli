@@ -17,4 +17,10 @@ internal interface IMutationReadPostconditionStore
         ProjectFingerprint projectFingerprint,
         ExecutionReadPostcondition readPostcondition,
         CancellationToken cancellationToken = default);
+
+    /// <summary> Persists broad read fences after an eval call was sent but its response was not recovered. </summary>
+    ValueTask<MutationReadPostconditionStoreOperationResult> InvalidateAfterUnobservedEvalCallAsync (
+        AbsolutePath storageRoot,
+        ProjectFingerprint projectFingerprint,
+        CancellationToken cancellationToken = default);
 }

@@ -207,7 +207,24 @@ public sealed record IpcEvalErrorResponse
         Project = project ?? throw new ArgumentNullException(nameof(project));
         if (!TextVocabulary.IsDefined(phase)) throw new ArgumentOutOfRangeException(nameof(phase));
         if (!TextVocabulary.IsDefined(applicationState) || applicationState == ExecutionApplicationState.PartiallyApplied) throw new ArgumentOutOfRangeException(nameof(applicationState));
-        if (phase == CsEvalPhase.Plan && applicationState != ExecutionApplicationState.NotApplied) throw new ArgumentException("eval.plan failures are not applied.", nameof(applicationState));
+        if (phase == CsEvalPhase.Plan && applicationState != ExecutionApplicationState.NotApplied)
+        {
+            throw new ArgumentException("eval.plan failures are not applied.", nameof(applicationState));
+        }
+
+        if (phase == CsEvalPhase.Plan && readPostcondition is not null)
+        {
+            throw new ArgumentException("eval.plan failures cannot include a read postcondition.", nameof(readPostcondition));
+        }
+
+        if (phase == CsEvalPhase.Call
+            && applicationState == ExecutionApplicationState.NotApplied
+            && readPostcondition is not null)
+        {
+            throw new ArgumentException(
+                "A proven pre-entry eval.call failure cannot include a read postcondition.",
+                nameof(readPostcondition));
+        }
         Phase = phase;
         ApplicationState = applicationState;
         Eval = eval;

@@ -31,7 +31,11 @@ namespace MackySoft.Ucli.Unity.Ipc
         public async ValueTask<IpcResponse> HandleAsync (ValidatedUnityIpcRequest request, IpcRequestCancellation cancellation)
         {
             if (!UnityIpcRequestCodec.TryDecodeEvalPlanRequest(request, out var payload, out var error)) return error!;
-            if (!EvalConfigResolver.IsEnabled(tokenEnvironment)) return CreateError(request, UcliCoreErrorCodes.InvalidArgument, "C# eval is disabled by config evalEnabled=false.", null);
+            var config = await EvalConfigResolver.ResolveAsync(tokenEnvironment, cancellation.Token);
+            if (config != EvalConfigResolution.Enabled)
+            {
+                return CreateConfigError(request, config);
+            }
             if (!payload!.AllowDangerous) return CreateError(request, UcliCoreErrorCodes.InvalidArgument, "C# eval requires allowDangerous=true.", null);
             var ready = await readinessGate.EnsureExecutionReadyAsync(true, cancellation.Token, payload.AllowPlayMode);
             if (!ready.IsReady) return CreateError(request, ready.Error!.Code, ready.Error.Message, null);
@@ -54,6 +58,16 @@ namespace MackySoft.Ucli.Unity.Ipc
                 message,
                 null,
                 new IpcEvalErrorResponse(project, CsEvalPhase.Plan, ExecutionApplicationState.NotApplied, partial, null));
+        }
+
+        private IpcResponse CreateConfigError (ValidatedUnityIpcRequest request, EvalConfigResolution config)
+        {
+            return config switch
+            {
+                EvalConfigResolution.Invalid => CreateError(request, UcliCoreErrorCodes.InvalidArgument, "C# eval configuration is invalid.", null),
+                EvalConfigResolution.Unavailable => CreateError(request, UcliCoreErrorCodes.InternalError, "C# eval configuration could not be loaded.", null),
+                _ => CreateError(request, UcliCoreErrorCodes.InvalidArgument, "C# eval is disabled by config evalEnabled=false.", null),
+            };
         }
 
         private bool TryIssuePlanToken (CsEvalCompilationResult compilation, bool allowPlayMode, out string? token, out string? error)

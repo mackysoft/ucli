@@ -354,13 +354,7 @@ Use `ucli plan` and `ucli call --planToken` only when a review step or CI gate m
 
 Use `ucli eval` when a local operator intentionally needs to run ad hoc C# inside the Unity Editor process without hand-writing a JSON request. It uses the dedicated `eval.plan` and `eval.call` protocol, returns `payload.plan` and `payload.eval` without `opResults`, and requires both `evalEnabled:true` and `--allowDangerous`.
 
-Enable evaluation in `<repoRoot>/.ucli/config.json` before running it:
-
-```json
-{
-  "evalEnabled": true
-}
-```
+Run `ucli init` first if the project does not already have a configuration. Then, in the existing valid `<repoRoot>/.ucli/config.json` object that it creates, add or change `evalEnabled` to `true` before running evaluation.
 
 ```bash
 ucli eval --allowDangerous \

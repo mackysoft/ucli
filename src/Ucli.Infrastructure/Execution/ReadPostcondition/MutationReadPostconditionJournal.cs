@@ -75,6 +75,43 @@ public sealed class MutationReadPostconditionJournal
         }
     }
 
+    /// <summary> Persists broad read fences after an eval call was sent but its response was not recovered. </summary>
+    public async ValueTask<MutationReadPostconditionJournalWriteResult> InvalidateAfterUnobservedEvalCallAsync (
+        AbsolutePath storageRoot,
+        ProjectFingerprint projectFingerprint,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var documentPath = UcliStoragePathResolver.ResolveMutationReadPostconditionPath(storageRoot, projectFingerprint);
+        var lockPath = UcliStoragePathResolver.ResolveMutationReadPostconditionLockPath(storageRoot, projectFingerprint);
+        try
+        {
+            using var writeLock = await FileExclusiveLock.AcquireAsync(lockPath, LockAcquireTimeout, cancellationToken).ConfigureAwait(false);
+            var readDocument = await TryReadDocumentAsync(documentPath, cancellationToken).ConfigureAwait(false);
+            if (readDocument.Failure is not null)
+            {
+                return MutationReadPostconditionJournalWriteResult.Failed(readDocument.Failure);
+            }
+
+            var document = readDocument.Document ?? JournalDocument.Empty;
+            var broadReadPostcondition = CreateBroadReadPostcondition(DateTimeOffset.MaxValue);
+            var writeDocument = document with
+            {
+                Requirements = MergeRequirements(document.Requirements.Concat(broadReadPostcondition.Requirements)),
+            };
+            await WriteDocumentAsync(documentPath, writeDocument, cancellationToken).ConfigureAwait(false);
+            return MutationReadPostconditionJournalWriteResult.Success();
+        }
+        catch (Exception exception) when (IsStorageFailure(exception))
+        {
+            return MutationReadPostconditionJournalWriteResult.Failed(StorageFailure(documentPath, exception));
+        }
+        catch (ArgumentException exception)
+        {
+            return MutationReadPostconditionJournalWriteResult.Failed(InvalidDocumentFailure(documentPath, exception));
+        }
+    }
+
     /// <summary> Consumes a verified eval plan token and publishes all broad read fences as one atomic update. </summary>
     public async ValueTask<EvalCallAdmissionResult> TryAdmitEvalCallAsync (
         AbsolutePath storageRoot,
@@ -165,9 +202,11 @@ public sealed class MutationReadPostconditionJournal
         await FileUtilities.WriteAllTextAtomicallyAsync(documentPath, json, cancellationToken).ConfigureAwait(false);
     }
 
-    private static ExecutionReadPostcondition? ToReadPostcondition (JournalDocument document)
+    private static ExecutionReadPostcondition? ToReadPostcondition (JournalDocument? document)
     {
-        return document.Requirements.Count == 0 ? null : new ExecutionReadPostcondition(document.Requirements);
+        return document is null || document.Requirements.Count == 0
+            ? null
+            : new ExecutionReadPostcondition(document.Requirements);
     }
 
     private static DateTimeOffset CalculateFenceUtc (IReadOnlyList<ExecutionReadPostconditionRequirement> requirements, DateTimeOffset utcNow)

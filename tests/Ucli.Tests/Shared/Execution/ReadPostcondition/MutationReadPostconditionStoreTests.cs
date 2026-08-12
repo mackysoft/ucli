@@ -59,6 +59,28 @@ public sealed class MutationReadPostconditionStoreTests
 
     [Fact]
     [Trait("Size", "Medium")]
+    public async Task InvalidateAfterUnobservedEvalCall_PersistsPermanentBroadFences ()
+    {
+        using var scope = TestDirectories.CreateTempScope("mutation-read-postcondition-journal", "unobserved-eval-call");
+        var storageRoot = AbsolutePath.Parse(scope.FullPath);
+        var fingerprint = ProjectFingerprintTestFactory.Create("fingerprint-1");
+        var journal = new MutationReadPostconditionJournal();
+
+        var result = await journal.InvalidateAfterUnobservedEvalCallAsync(storageRoot, fingerprint, CancellationToken.None);
+        var read = await journal.ReadOrNullAsync(storageRoot, fingerprint, CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        var requirements = Assert.IsType<ExecutionReadPostcondition>(read.ReadPostcondition).Requirements;
+        Assert.Equal(3, requirements.Count);
+        Assert.All(requirements, static requirement =>
+            Assert.Equal(DateTimeOffset.MaxValue, requirement.MinSafeGeneratedAtUtc));
+        Assert.Contains(requirements, static requirement => requirement.Surface == ExecutionReadPostconditionSurface.AssetSearch && requirement.ScenePath is null);
+        Assert.Contains(requirements, static requirement => requirement.Surface == ExecutionReadPostconditionSurface.GuidPath && requirement.ScenePath is null);
+        Assert.Contains(requirements, static requirement => requirement.Surface == ExecutionReadPostconditionSurface.SceneTreeLite && requirement.ScenePath is null);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
     public async Task TryAdmitEvalCall_WhenCalledConcurrently_AdmitsOnlyOneCall ()
     {
         using var scope = TestDirectories.CreateTempScope("mutation-read-postcondition-journal", "concurrent-admit");
