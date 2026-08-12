@@ -24,9 +24,10 @@ public sealed class UcliConfigContractCompilerTests
         var result = new UcliConfigContractCompiler().Compile(document.RootElement, "config.json");
 
         Assert.True(result.IsSuccess);
-        Assert.True(result.Snapshot!.EvalEnabled);
-        Assert.Equal(3000, result.Snapshot.IpcDefaultTimeoutMilliseconds);
-        Assert.Equal(60000, result.Snapshot.IpcTimeoutMillisecondsByCommand["eval"]);
+        var snapshot = Assert.IsType<UcliConfigContractSnapshot>(result.Snapshot);
+        Assert.True(snapshot.EvalEnabled);
+        Assert.Equal(3000, snapshot.IpcDefaultTimeoutMilliseconds);
+        Assert.Equal(60000, snapshot.IpcTimeoutMillisecondsByCommand!["eval"]);
     }
 
     [Fact]
