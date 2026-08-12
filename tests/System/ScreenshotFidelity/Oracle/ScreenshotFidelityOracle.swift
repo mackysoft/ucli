@@ -163,7 +163,13 @@ private struct SelfCheckResult: Codable {
     let passed: Bool
     let identicalImageAccepted: Bool
     let changedImageRejected: Bool
+    let pngStructureAndDecodedPixelsValidated: Bool
     let checkedAtUtc: String
+}
+
+private struct PngInspection {
+    let width: Int
+    let height: Int
 }
 
 private struct ResolvedWindow {
@@ -275,9 +281,10 @@ private func runSelfCheck(outputPath: String) throws {
         leftRect: rect,
         right: baseline,
         rightRect: rect)
-    let identicalImageAccepted = fullImageFailures(
-        metrics: identicalMetrics,
-        comparisonName: "self-check identical image").isEmpty
+    let identicalImageAccepted = identicalMetrics.comparedPixelCount == 10_000
+        && identicalMetrics.meanAbsoluteRgbChannelErrorNormalized == 0
+        && identicalMetrics.percentile95AbsoluteRgbChannelErrorNormalized == 0
+        && identicalMetrics.maximumAbsoluteRgbChannelErrorNormalized == 0
 
     var changedPixels = baseline.pixels
     changedPixels[(50 * baseline.width + 50) * 4] = 255
@@ -291,15 +298,16 @@ private func runSelfCheck(outputPath: String) throws {
         leftRect: rect,
         right: changed,
         rightRect: rect)
-    let changedImageRejected = !fullImageFailures(
-        metrics: changedMetrics,
-        comparisonName: "self-check changed image").isEmpty
-    let passed = identicalImageAccepted && changedImageRejected
+    let changedImageRejected = changedMetrics.maximumAbsoluteRgbChannelErrorNormalized!
+        > maximumAbsoluteRgbChannelErrorNormalized
+    let pngStructureAndDecodedPixelsValidated = try verifyPngStructureAndDecodedPixels()
+    let passed = identicalImageAccepted && changedImageRejected && pngStructureAndDecodedPixelsValidated
     try writeJson(
         SelfCheckResult(
             passed: passed,
             identicalImageAccepted: identicalImageAccepted,
             changedImageRejected: changedImageRejected,
+            pngStructureAndDecodedPixelsValidated: pngStructureAndDecodedPixelsValidated,
             checkedAtUtc: iso8601Now()),
         path: outputPath)
     if !passed {
@@ -471,6 +479,7 @@ private func analyze(
             "--expected-width and --expected-height must be specified together.")
     }
 
+    let artifactPng = try inspectPng(path: artifactPath)
     let artifact = try PixelImage.load(
         path: artifactPath,
         destinationColorSpaceName: comparisonColorSpaceName)
@@ -479,14 +488,17 @@ private func analyze(
         y: 0,
         width: artifact.width,
         height: artifact.height)
+    let expectedArtifactByteCount = try checkedMultiply(artifact.width, artifact.height, 4)
     let artifactAlphaOpaque = stride(from: 3, to: artifact.pixels.count, by: 4)
         .allSatisfy { artifact.pixels[$0] == 255 }
     var failures: [String] = []
+    if artifactPng.width != artifact.width
+        || artifactPng.height != artifact.height
+        || artifact.pixels.count != expectedArtifactByteCount {
+        failures.append("The decoded screenshot artifact does not match its PNG RGBA dimensions and byte count.")
+    }
     if !artifactAlphaOpaque {
         failures.append("Screenshot artifact contains non-opaque pixels.")
-    }
-    if try !pngContainsSrgbChunk(path: artifactPath) {
-        failures.append("Screenshot artifact PNG does not contain an sRGB chunk before IDAT.")
     }
 
     var reference: PixelImage?
@@ -839,41 +851,177 @@ private func syntheticImage(
         sourceColorSpace: "synthetic-sRGB")
 }
 
-private func pngContainsSrgbChunk(path: String) throws -> Bool {
-    let data = try Data(contentsOf: URL(fileURLWithPath: path))
+private func inspectPng(path: String) throws -> PngInspection {
+    try inspectPng(data: Data(contentsOf: URL(fileURLWithPath: path)), source: path)
+}
+
+private func inspectPng(data: Data, source: String) throws -> PngInspection {
     let signature: [UInt8] = [137, 80, 78, 71, 13, 10, 26, 10]
     guard data.count >= signature.count,
           Array(data.prefix(signature.count)) == signature else {
-        throw OracleError.failed("Artifact does not have a PNG signature: \(path)")
+        throw OracleError.failed("Artifact does not have a PNG signature: \(source)")
     }
 
     var offset = signature.count
-    while offset + 12 <= data.count {
+    var chunkIndex = 0
+    var ihdrCount = 0
+    var srgbCount = 0
+    var idatCount = 0
+    var idatSequenceEnded = false
+    var width = 0
+    var height = 0
+    while offset < data.count {
+        guard data.count - offset >= 12 else {
+            throw OracleError.failed("Artifact PNG chunk header is truncated: \(source)")
+        }
+
         let length = Int(readUInt32BigEndian(data, offset: offset))
         let typeStart = offset + 4
         let typeEnd = typeStart + 4
         guard typeEnd <= data.count,
               let type = String(data: data[typeStart..<typeEnd], encoding: .ascii) else {
-            throw OracleError.failed("Artifact PNG chunk header is invalid.")
+            throw OracleError.failed("Artifact PNG chunk header is invalid: \(source)")
         }
 
-        if type == "sRGB" {
-            return true
+        guard length <= data.count - offset - 12 else {
+            throw OracleError.failed("Artifact PNG chunk data is truncated: \(source)")
         }
 
-        if type == "IDAT" || type == "IEND" {
-            return false
+        let dataStart = offset + 8
+        let crcOffset = dataStart + length
+        let expectedCrc = readUInt32BigEndian(data, offset: crcOffset)
+        let actualCrc = pngCrc32(data[typeStart..<crcOffset])
+        guard actualCrc == expectedCrc else {
+            throw OracleError.failed("Artifact PNG chunk CRC is invalid: \(source)")
         }
 
-        let nextOffset = offset + 12 + length
-        guard nextOffset > offset, nextOffset <= data.count else {
-            throw OracleError.failed("Artifact PNG chunk length is invalid.")
+        guard chunkIndex != 0 || type == "IHDR" else {
+            throw OracleError.failed("Artifact PNG IHDR must be the first chunk: \(source)")
         }
 
-        offset = nextOffset
+        if type == "IHDR" {
+            ihdrCount += 1
+            guard ihdrCount == 1, length == 13 else {
+                throw OracleError.failed("Artifact PNG IHDR must appear exactly once with a 13-byte payload: \(source)")
+            }
+
+            let declaredWidth = readUInt32BigEndian(data, offset: dataStart)
+            let declaredHeight = readUInt32BigEndian(data, offset: dataStart + 4)
+            guard declaredWidth > 0, declaredHeight > 0 else {
+                throw OracleError.failed("Artifact PNG IHDR dimensions must be positive: \(source)")
+            }
+
+            guard data[dataStart + 8] == 8,
+                  data[dataStart + 9] == 6,
+                  data[dataStart + 10] == 0,
+                  data[dataStart + 11] == 0,
+                  data[dataStart + 12] == 0 else {
+                throw OracleError.failed(
+                    "Artifact PNG IHDR must declare 8-bit RGBA, standard compression and filtering, and no interlace: \(source)")
+            }
+
+            width = Int(declaredWidth)
+            height = Int(declaredHeight)
+        } else if type == "sRGB" {
+            srgbCount += 1
+            guard srgbCount == 1, idatCount == 0, length == 1, data[dataStart] <= 3 else {
+                throw OracleError.failed("Artifact PNG must contain exactly one valid sRGB chunk before IDAT: \(source)")
+            }
+        } else if type == "IDAT" {
+            guard !idatSequenceEnded else {
+                throw OracleError.failed("Artifact PNG IDAT chunks must be consecutive: \(source)")
+            }
+
+            idatCount += 1
+        } else {
+            if idatCount != 0 {
+                idatSequenceEnded = true
+            }
+
+            if type == "IEND" {
+                guard length == 0 else {
+                    throw OracleError.failed("Artifact PNG IEND must have an empty payload: \(source)")
+                }
+
+                guard crcOffset + 4 == data.count else {
+                    throw OracleError.failed("Artifact PNG has data after IEND: \(source)")
+                }
+
+                guard ihdrCount == 1, srgbCount == 1, idatCount > 0 else {
+                    throw OracleError.failed("Artifact PNG is missing required IHDR, sRGB, or IDAT chunks: \(source)")
+                }
+
+                return PngInspection(width: width, height: height)
+            }
+        }
+
+        offset = crcOffset + 4
+        chunkIndex += 1
     }
 
-    return false
+    throw OracleError.failed("Artifact PNG is missing a terminal IEND chunk: \(source)")
+}
+
+private func pngCrc32(_ bytes: Data.SubSequence) -> UInt32 {
+    var crc: UInt32 = .max
+    for value in bytes {
+        crc ^= UInt32(value)
+        for _ in 0..<8 {
+            crc = (crc & 1) == 0 ? crc >> 1 : (crc >> 1) ^ 0xEDB88320
+        }
+    }
+
+    return ~crc
+}
+
+private func verifyPngStructureAndDecodedPixels() throws -> Bool {
+    let validFixture = "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAAXNSR0IArs4c6QAAABpJREFUeJxj4BKR+69hZPOfwS0g6n9KXsV/ADLaBwnQtcZpAAAAAElFTkSuQmCC"
+    let rejectedFixtures = [
+        ("invalid IHDR CRC", "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0lAAAAAXNSR0IArs4c6QAAABpJREFUeJxj4BKR+69hZPOfwS0g6n9KXsV/ADLaBwnQtcZpAAAAAElFTkSuQmCC"),
+        ("RGB instead of RGBA", "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAAXNSR0IArs4c6QAAABpJREFUeJxj4BKR+69hZPOfwS0g6n9KXsV/ADLaBwnQtcZpAAAAAElFTkSuQmCC"),
+        ("interlaced", "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAAEFsT2yAAAAAXNSR0IArs4c6QAAABpJREFUeJxj4BKR+69hZPOfwS0g6n9KXsV/ADLaBwnQtcZpAAAAAElFTkSuQmCC"),
+        ("sRGB after IDAT", "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAGklEQVR4nGPgEpH7r2Fk85/BLSDqf0pexX8AMtoHCdC1xmkAAAABc1JHQgCuzhzpAAAAAElFTkSuQmCC"),
+        ("missing IDAT", "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAAXNSR0IArs4c6QAAAABJRU5ErkJggg=="),
+        ("data after IEND", "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAAXNSR0IArs4c6QAAABpJREFUeJxj4BKR+69hZPOfwS0g6n9KXsV/ADLaBwnQtcZpAAAAAElFTkSuQmCCAA=="),
+        ("missing sRGB", "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAGklEQVR4nGPgEpH7r2Fk85/BLSDqf0pexX8AMtoHCdC1xmkAAAAASUVORK5CYII="),
+        ("zero width", "iVBORw0KGgoAAAANSUhEUgAAAAAAAAACCAYAAAB2Q90ZAAAAAXNSR0IArs4c6QAAABpJREFUeJxj4BKR+69hZPOfwS0g6n9KXsV/ADLaBwnQtcZpAAAAAElFTkSuQmCC"),
+        ("zero height", "iVBORw0KGgoAAAANSUhEUgAAAAIAAAAACAYAAAA/fqwvAAAAAXNSR0IArs4c6QAAABpJREFUeJxj4BKR+69hZPOfwS0g6n9KXsV/ADLaBwnQtcZpAAAAAElFTkSuQmCC"),
+        ("missing IEND", "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAAXNSR0IArs4c6QAAABpJREFUeJxj4BKR+69hZPOfwS0g6n9KXsV/ADLaBwnQtcZp"),
+        ("non-consecutive IDAT", "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAAXNSR0IArs4c6QAAAA1JREFUeJxj4BKR+69hZPOfwWcAV5UAAAADdEVYdGsAdssE85AAAAANSURBVC0g6n9KXsV/ADLaBwnvrFJFAAAAAElFTkSuQmCC"),
+    ]
+    guard let validData = Data(base64Encoded: validFixture) else {
+        throw OracleError.failed("The PNG self-check fixture could not be decoded.")
+    }
+
+    do {
+        _ = try inspectPng(data: validData, source: "known self-check PNG")
+    } catch {
+        return false
+    }
+
+    for (name, encoded) in rejectedFixtures {
+        guard let data = Data(base64Encoded: encoded) else {
+            throw OracleError.failed("A PNG self-check fixture could not be decoded.")
+        }
+
+        do {
+            _ = try inspectPng(data: data, source: "corrupt self-check PNG (\(name))")
+            return false
+        } catch {
+        }
+    }
+
+    let path = URL(fileURLWithPath: NSTemporaryDirectory())
+        .appendingPathComponent("ucli-screenshot-fidelity-self-check-\(UUID().uuidString).png")
+    defer { try? FileManager.default.removeItem(at: path) }
+    try validData.write(to: path)
+    let inspection = try inspectPng(path: path.path)
+    let decoded = try PixelImage.load(path: path.path)
+    let expectedByteCount = try checkedMultiply(decoded.width, decoded.height, 4)
+    return inspection.width == decoded.width
+        && inspection.height == decoded.height
+        && decoded.pixels.count == expectedByteCount
+        && decoded.pixels == [10, 20, 30, 255, 40, 50, 60, 255, 70, 80, 90, 255, 100, 110, 120, 255]
 }
 
 private func readUInt32BigEndian(_ data: Data, offset: Int) -> UInt32 {
