@@ -34,6 +34,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private readonly ICompileLifecycleExecutionProvider provider;
         private readonly FileLifecycleExecutionStore executionStore;
+        private readonly ILifecycleExecutionTimeSource timeSource;
         private readonly LifecycleExecutionAttemptBoundary attemptBoundary;
         private readonly FileCompileLifecycleExecutionCheckpointStore checkpointStore;
         private readonly LifecycleExecutionSideEffectAdmissionCoordinator
@@ -46,13 +47,16 @@ namespace MackySoft.Ucli.Unity.Ipc
             ICompileLifecycleExecutionProvider provider,
             IDaemonLogger daemonLogger,
             FileLifecycleExecutionStore executionStore,
-            FileCompileLifecycleExecutionCheckpointStore checkpointStore)
+            FileCompileLifecycleExecutionCheckpointStore checkpointStore,
+            ILifecycleExecutionTimeSource timeSource)
         {
             this.provider = provider
                 ?? throw new ArgumentNullException(nameof(provider));
             this.executionStore = executionStore
                 ?? throw new ArgumentNullException(nameof(executionStore));
-            attemptBoundary = new(this.executionStore);
+            this.timeSource = timeSource
+                ?? throw new ArgumentNullException(nameof(timeSource));
+            attemptBoundary = new(this.executionStore, this.timeSource);
             this.checkpointStore = checkpointStore
                 ?? throw new ArgumentNullException(nameof(checkpointStore));
             sideEffectAdmission =
@@ -385,7 +389,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 var beforeObservation = CreateObservation(beforeSnapshot);
                 var pendingResult = CreatePendingResult(
                     beforeSnapshot,
-                    DateTimeOffset.UtcNow);
+                    timeSource.UtcNow);
                 checkpoint = await checkpointStore.WritePreparedAsync(
                     executionId,
                     beforeObservation,
@@ -443,7 +447,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                         checkpoint = await checkpointStore
                             .MarkDispatchPreparedAsync(
                                 checkpoint,
-                                DateTimeOffset.UtcNow,
+                                timeSource.UtcNow,
                                 CancellationToken.None);
                         executionCancellationToken
                             .ThrowIfCancellationRequested();
@@ -463,6 +467,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     }
                     checkpoint = await checkpointStore.MarkProviderReturnedAsync(
                         checkpoint,
+                        timeSource.UtcNow,
                         CancellationToken.None);
                     var afterSnapshot = await AwaitWithCancellationAsync(
                         settleTask,
@@ -813,7 +818,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 checkpoint.CurrentResult,
                 afterSnapshot,
                 checkpoint.Diagnostics);
-            var completedAtUtc = DateTimeOffset.UtcNow;
+            var completedAtUtc = timeSource.UtcNow;
             var result = CreateFinalResult(
                 checkpoint.CurrentResult,
                 afterSnapshot,
@@ -879,7 +884,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     currentReference,
                 checkpoint?.SideEffectAdmitted == true),
                 snapshot?.State.Generations,
-                DateTimeOffset.UtcNow,
+                timeSource.UtcNow,
                 Verdict: null);
         }
 
@@ -892,7 +897,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             var result = checkpoint?.SideEffectAdmitted == true
                 ? CreateObservedPartialResult(checkpoint, snapshot)
                 : checkpoint?.CurrentResult
-                    ?? CreatePendingResult(snapshot, DateTimeOffset.UtcNow);
+                    ?? CreatePendingResult(snapshot, timeSource.UtcNow);
             return new TerminalCandidate(
                 executionId,
                 result,
@@ -901,7 +906,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     ? ExecutionApplicationState.Indeterminate
                     : ExecutionApplicationState.NotApplied,
                 snapshot.State.Generations,
-                DateTimeOffset.UtcNow,
+                timeSource.UtcNow,
                 Verdict: null);
         }
 
@@ -937,16 +942,16 @@ namespace MackySoft.Ucli.Unity.Ipc
                 canAttributeGeneration
                     ? snapshot?.State.Generations
                     : null,
-                DateTimeOffset.UtcNow,
+                timeSource.UtcNow,
                 Verdict: null);
         }
 
-        private static TerminalCandidate
+        private TerminalCandidate
             ResolveTerminalCandidate (
                 LifecycleExecutionStartBinding start,
                 TerminalCandidate candidate)
         {
-            var fixedAtUtc = DateTimeOffset.UtcNow;
+            var fixedAtUtc = timeSource.UtcNow;
             var terminalFacts =
                 LifecycleExecutionTerminalFactsPolicy.ResolveTerminalFacts(
                     start,

@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -118,23 +119,28 @@ namespace MackySoft.Ucli.Unity.Tests
                     provider,
                     NoOpDaemonLogger.Instance,
                     executionStore,
-                    checkpointStore);
+                    checkpointStore,
+                    new SystemLifecycleExecutionTimeSource());
 
                 var executionTask = handler.ExecuteAsync(start).AsTask();
                 await TestAwaiter.WaitUntilAsync(
                     () => provider.RefreshRequestCount == 1,
                     "compile refresh dispatch",
                     TimeSpan.FromSeconds(5));
-                _ = await TestAwaiter.WaitAsync(
+                await TestAwaiter.WaitAsync(
                     WaitForProviderReturnAsync(
                         checkpointStore,
                         start.LifecycleExecutionRef.Id),
                     "compile refresh provider return",
                     TimeSpan.FromSeconds(5));
+                await TestAwaiter.WaitAsync(
+                    provider.WaitForNextUpdateRegistrationAsync(1),
+                    "first no-compilation update observation",
+                    TimeSpan.FromSeconds(5));
                 provider.Advance(CreateReimportingSnapshot());
-                await TestAwaiter.WaitUntilAsync(
-                    () => provider.UpdateWaitCount >= 2,
-                    "post-refresh observation",
+                await TestAwaiter.WaitAsync(
+                    provider.WaitForNextUpdateRegistrationAsync(2),
+                    "post-refresh update observation",
                     TimeSpan.FromSeconds(5));
                 var refreshing = await executionStore.ReadAsync(
                     LifecycleExecutionKind.Compile,
@@ -150,9 +156,9 @@ namespace MackySoft.Ucli.Unity.Tests
                     refreshing.CurrentReference.Lifecycle,
                     Is.EqualTo(ExecutionLifecycle.Active));
                 provider.Advance(CreateReadySnapshot());
-                await TestAwaiter.WaitUntilAsync(
-                    () => provider.UpdateWaitCount >= 3,
-                    "first stable no-compilation observation",
+                await TestAwaiter.WaitAsync(
+                    provider.WaitForNextUpdateRegistrationAsync(3),
+                    "first stable no-compilation update observation",
                     TimeSpan.FromSeconds(5));
                 provider.Advance(CreateReadySnapshot());
                 var outcome = await TestAwaiter.WaitAsync(
@@ -182,18 +188,23 @@ namespace MackySoft.Ucli.Unity.Tests
                     provider,
                     NoOpDaemonLogger.Instance,
                     executionStore,
-                    checkpointStore);
+                    checkpointStore,
+                    new SystemLifecycleExecutionTimeSource());
 
                 var executionTask = handler.ExecuteAsync(start).AsTask();
                 await TestAwaiter.WaitUntilAsync(
                     () => provider.RefreshRequestCount == 1,
                     "compile refresh dispatch",
                     TimeSpan.FromSeconds(5));
-                _ = await TestAwaiter.WaitAsync(
+                await TestAwaiter.WaitAsync(
                     WaitForProviderReturnAsync(
                         checkpointStore,
                         start.LifecycleExecutionRef.Id),
                     "compile refresh provider return",
+                    TimeSpan.FromSeconds(5));
+                await TestAwaiter.WaitAsync(
+                    provider.WaitForNextUpdateRegistrationAsync(1),
+                    "first compile update observation",
                     TimeSpan.FromSeconds(5));
                 provider.StartCompilation(batchId: 2);
                 provider.Advance(CreateCompilingSnapshot());
@@ -212,9 +223,16 @@ namespace MackySoft.Ucli.Unity.Tests
                 provider.Advance(CreateReadySnapshot(
                     generations:
                         new UnityEditorGenerationSnapshot(2, 2, 4, 4)));
-                await TestAwaiter.WaitUntilAsync(
-                    () => provider.UpdateWaitCount >= 3,
-                    "second stable compile observation",
+                await TestAwaiter.WaitAsync(
+                    provider.WaitForNextUpdateRegistrationAsync(2),
+                    "second stable compile update observation",
+                    TimeSpan.FromSeconds(5));
+                provider.Advance(CreateReadySnapshot(
+                    generations:
+                        new UnityEditorGenerationSnapshot(2, 2, 4, 4)));
+                await TestAwaiter.WaitAsync(
+                    provider.WaitForNextUpdateRegistrationAsync(3),
+                    "third stable compile update observation",
                     TimeSpan.FromSeconds(5));
                 provider.Advance(CreateReadySnapshot(
                     generations:
@@ -275,7 +293,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     provider,
                     NoOpDaemonLogger.Instance,
                     executionStore,
-                    checkpointStore);
+                    checkpointStore,
+                    new SystemLifecycleExecutionTimeSource());
 
                 var outcome = await handler.ExecuteAsync(start);
 
@@ -309,7 +328,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     NoOpDaemonLogger.Instance,
                     executionStore,
                     new FileCompileLifecycleExecutionCheckpointStore(
-                        executionStore));
+                        executionStore),
+                    new SystemLifecycleExecutionTimeSource());
                 var handler = new CompileUnityIpcMethodHandler(
                     executionHandler,
                     NoOpDaemonLogger.Instance);
@@ -376,6 +396,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 var providerReturned =
                     await checkpointStore.MarkProviderReturnedAsync(
                     admitted,
+                    DateTimeOffset.UtcNow,
                     CancellationToken.None);
                 var primaryDiagnostic = new UnityEditorPrimaryDiagnostic(
                     UnityEditorPrimaryDiagnosticKind.Compiler,
@@ -411,7 +432,8 @@ namespace MackySoft.Ucli.Unity.Tests
                         terminalObservation),
                     NoOpDaemonLogger.Instance,
                     executionStore,
-                    checkpointStore);
+                    checkpointStore,
+                    new SystemLifecycleExecutionTimeSource());
 
                 await handler.RecoverAsync(
                     new LifecycleExecutionRecoveryRequest(
@@ -495,6 +517,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     CancellationToken.None);
                 _ = await checkpointStore.MarkProviderReturnedAsync(
                     admitted,
+                    DateTimeOffset.UtcNow,
                     CancellationToken.None);
                 var provider =
                     new RecordingCompileLifecycleExecutionProvider(
@@ -503,7 +526,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     provider,
                     NoOpDaemonLogger.Instance,
                     executionStore,
-                    checkpointStore);
+                    checkpointStore,
+                    new SystemLifecycleExecutionTimeSource());
 
                 await handler.RecoverAsync(
                     new LifecycleExecutionRecoveryRequest(
@@ -703,6 +727,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     CancellationToken.None);
                 _ = await checkpointStore.MarkProviderReturnedAsync(
                     admitted,
+                    DateTimeOffset.UtcNow,
                     CancellationToken.None);
                 var mutationLane = new ImmediateUnityMutationLaneControl();
                 var handler = CreateHandler(
@@ -814,6 +839,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 reloadedDiagnostics.CompleteBatch(batchId);
                 _ = await reloadedCheckpointStore.MarkProviderReturnedAsync(
                     admitted,
+                    DateTimeOffset.UtcNow,
                     CancellationToken.None);
                 var after = CreateReadySnapshot(
                     generations:
@@ -824,7 +850,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     provider,
                     NoOpDaemonLogger.Instance,
                     executionStore,
-                    reloadedCheckpointStore);
+                    reloadedCheckpointStore,
+                    new SystemLifecycleExecutionTimeSource());
                 var current = await executionStore.ReadAsync(
                     LifecycleExecutionKind.Compile,
                     start.LifecycleExecutionRef.Id,
@@ -1043,6 +1070,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     CancellationToken.None);
                 _ = await checkpointStore.MarkProviderReturnedAsync(
                     admitted,
+                    DateTimeOffset.UtcNow,
                     CancellationToken.None);
                 checkpointStore.CreateDiagnosticsSink(
                         start.LifecycleExecutionRef.Id)
@@ -1054,7 +1082,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     new RecordingCompileLifecycleExecutionProvider(after),
                     NoOpDaemonLogger.Instance,
                     executionStore,
-                    checkpointStore);
+                    checkpointStore,
+                    new SystemLifecycleExecutionTimeSource());
 
                 IOException observedException = null;
                 try
@@ -1340,7 +1369,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 executionStore,
                 checkpointStore
                     ?? new FileCompileLifecycleExecutionCheckpointStore(
-                        executionStore));
+                        executionStore),
+                new SystemLifecycleExecutionTimeSource());
             return new CompileHandlerFixture(
                 new CompileUnityIpcMethodHandler(
                     executionHandler,
@@ -1516,6 +1546,8 @@ namespace MackySoft.Ucli.Unity.Tests
 
             private UnityEditorRuntimeObservation observation;
             private TaskCompletionSource<bool> nextUpdate = CreateUpdateSource();
+            private readonly Dictionary<int, TaskCompletionSource<bool>>
+                updateWaitRegistrations = new();
             private ICompileLifecycleExecutionDiagnosticsSink diagnosticsSink;
             private int refreshRequestCount;
             private int updateWaitCount;
@@ -1534,17 +1566,6 @@ namespace MackySoft.Ucli.Unity.Tests
                     lock (gate)
                     {
                         return refreshRequestCount;
-                    }
-                }
-            }
-
-            public int UpdateWaitCount
-            {
-                get
-                {
-                    lock (gate)
-                    {
-                        return updateWaitCount;
                     }
                 }
             }
@@ -1599,7 +1620,38 @@ namespace MackySoft.Ucli.Unity.Tests
                 lock (gate)
                 {
                     updateWaitCount++;
+                    if (updateWaitRegistrations.TryGetValue(
+                            updateWaitCount,
+                            out var registration))
+                    {
+                        registration.TrySetResult(true);
+                    }
                     return nextUpdate.Task;
+                }
+            }
+
+            public Task WaitForNextUpdateRegistrationAsync (int count)
+            {
+                if (count <= 0)
+                {
+                    throw new ArgumentOutOfRangeException(nameof(count));
+                }
+
+                lock (gate)
+                {
+                    if (updateWaitCount >= count)
+                    {
+                        return Task.CompletedTask;
+                    }
+                    if (!updateWaitRegistrations.TryGetValue(
+                            count,
+                            out var registration))
+                    {
+                        registration = CreateUpdateSource();
+                        updateWaitRegistrations.Add(count, registration);
+                    }
+
+                    return registration.Task;
                 }
             }
 

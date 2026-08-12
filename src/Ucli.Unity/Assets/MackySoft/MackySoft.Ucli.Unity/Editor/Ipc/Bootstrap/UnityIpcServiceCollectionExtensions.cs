@@ -99,6 +99,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             services.AddSingleton<UnityProjectMutationAuditProbe>();
             services.AddSingleton<PlayEnterTransitionRunner>();
             services.AddSingleton<PlayExitTransitionRunner>();
+            services.AddSingleton<ILifecycleExecutionTimeSource, SystemLifecycleExecutionTimeSource>();
             services.AddSingleton<FileRefreshLifecycleExecutionCheckpointStore>();
             services.AddSingleton<FileCompileLifecycleExecutionCheckpointStore>();
             services.AddSingleton<FilePlayEnterLifecycleExecutionCheckpointStore>();

@@ -8,34 +8,24 @@ namespace MackySoft.Ucli.Unity.Runtime
     /// </summary>
     internal sealed class LifecycleExecutionDeadlineScope : IDisposable
     {
-        private readonly CancellationTokenSource deadlineCancellationTokenSource;
+        private readonly ILifecycleExecutionDeadline deadlineNotification;
         private readonly CancellationTokenSource executionCancellationTokenSource;
 
         public LifecycleExecutionDeadlineScope (
             DateTimeOffset deadlineUtc,
+            ILifecycleExecutionTimeSource timeSource,
             CancellationToken continuationCancellationToken)
         {
-            if (deadlineUtc.Offset != TimeSpan.Zero)
+            if (timeSource == null)
             {
-                throw new ArgumentException(
-                    "Lifecycle Execution deadline must use the UTC offset.",
-                    nameof(deadlineUtc));
+                throw new ArgumentNullException(nameof(timeSource));
             }
 
-            deadlineCancellationTokenSource = new CancellationTokenSource();
-            var remaining = deadlineUtc - DateTimeOffset.UtcNow;
-            if (remaining <= TimeSpan.Zero)
-            {
-                deadlineCancellationTokenSource.Cancel();
-            }
-            else
-            {
-                deadlineCancellationTokenSource.CancelAfter(remaining);
-            }
+            deadlineNotification = timeSource.CreateDeadlineNotification(deadlineUtc);
 
             executionCancellationTokenSource =
                 CancellationTokenSource.CreateLinkedTokenSource(
-                    deadlineCancellationTokenSource.Token,
+                    deadlineNotification.Token,
                     continuationCancellationToken);
         }
 
@@ -43,12 +33,12 @@ namespace MackySoft.Ucli.Unity.Runtime
             executionCancellationTokenSource.Token;
 
         public bool IsDeadlineExceeded =>
-            deadlineCancellationTokenSource.IsCancellationRequested;
+            deadlineNotification.IsCancellationRequested;
 
         public void Dispose ()
         {
             executionCancellationTokenSource.Dispose();
-            deadlineCancellationTokenSource.Dispose();
+            deadlineNotification.Dispose();
         }
     }
 }
