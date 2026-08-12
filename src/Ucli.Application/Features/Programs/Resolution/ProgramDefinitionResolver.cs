@@ -117,7 +117,7 @@ internal sealed class ProgramDefinitionResolver : IProgramDefinitionResolver
         return result switch
         {
             ProgramDefinitionFileReadOutsideBoundary => new ProgramDiagnostic(ReferenceBoundaryCode, instancePath, "Program requestPath resolves outside the reference root after symbolic-link resolution."),
-            ProgramDefinitionFileReadChangedDuringRead => new ProgramDiagnostic(ReferenceUnavailableCode, instancePath, "Referenced request file changed while it was being read."),
+            ProgramDefinitionFileReadChangedDuringRead => new ProgramDiagnostic(ReferenceUnavailableCode, instancePath, "Program definition path or file changed while it was being resolved or read."),
             ProgramDefinitionFileReadUnavailable unavailable => new ProgramDiagnostic(ReferenceUnavailableCode, instancePath, unavailable.Message),
             _ => throw new InvalidOperationException($"Unknown Program definition file read result: {result.GetType().Name}."),
         };
