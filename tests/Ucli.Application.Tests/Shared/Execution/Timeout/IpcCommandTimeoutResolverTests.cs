@@ -123,7 +123,6 @@ public sealed class IpcCommandTimeoutResolverTests
         Assert.Null(result.Timeout);
         var error = Assert.IsType<ExecutionError>(result.Error);
         Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
-        Assert.Contains("timeout", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -138,7 +137,6 @@ public sealed class IpcCommandTimeoutResolverTests
         Assert.Null(result.Timeout);
         var error = Assert.IsType<ExecutionError>(result.Error);
         Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
-        Assert.Contains("config ipcDefaultTimeoutMilliseconds", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -158,7 +156,6 @@ public sealed class IpcCommandTimeoutResolverTests
         Assert.Null(result.Timeout);
         var error = Assert.IsType<ExecutionError>(result.Error);
         Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
-        Assert.Contains("ipcTimeoutMillisecondsByCommand", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]

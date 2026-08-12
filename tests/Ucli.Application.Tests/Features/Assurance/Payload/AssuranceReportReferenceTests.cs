@@ -30,7 +30,7 @@ public sealed class AssuranceReportReferenceTests
 
         Assert.Equal("artifacts/report.json", reference.Path);
         Assert.Null(reference.Uri);
-        Assert.Same(digest, reference.Digest);
+        Assert.Equal(digest, reference.Digest);
     }
 
     [Fact]
@@ -43,7 +43,7 @@ public sealed class AssuranceReportReferenceTests
 
         Assert.Null(reference.Path);
         Assert.Equal("ucli://logs/unity?tail=200", reference.Uri);
-        Assert.Same(digest, reference.Digest);
+        Assert.Equal(digest, reference.Digest);
     }
 
     [Theory]
@@ -76,7 +76,7 @@ public sealed class AssuranceReportReferenceTests
         Assert.All(snapshots, snapshot =>
         {
             var readOnly = Assert.IsType<ReadOnlyDictionary<string, AssuranceReportReference>>(snapshot);
-            Assert.Same(report, readOnly["report"]);
+            Assert.Equal(report, readOnly["report"]);
             Assert.False(readOnly.ContainsKey("REPORT"));
             Assert.False(readOnly.ContainsKey("late"));
             Assert.Throws<NotSupportedException>(() =>

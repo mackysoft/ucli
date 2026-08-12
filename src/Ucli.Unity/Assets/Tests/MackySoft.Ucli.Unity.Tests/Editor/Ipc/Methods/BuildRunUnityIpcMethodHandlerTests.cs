@@ -893,11 +893,11 @@ namespace MackySoft.Ucli.Unity.Tests
 
                 Assert.That(response.Status, Is.EqualTo(IpcResponseStatus.Ok));
                 Assert.That(streamWriter.ProgressFrames, Has.Count.EqualTo(5));
-                Assert.That(streamWriter.ProgressFrames[0].Event, Is.EqualTo(BuildRunProgressEventNames.ReadinessCompleted));
-                Assert.That(streamWriter.ProgressFrames[1].Event, Is.EqualTo(BuildRunProgressEventNames.RunnerResolved));
-                Assert.That(streamWriter.ProgressFrames[2].Event, Is.EqualTo(BuildRunProgressEventNames.RunnerStarted));
-                Assert.That(streamWriter.ProgressFrames[3].Event, Is.EqualTo(BuildRunProgressEventNames.LogEntry));
-                Assert.That(streamWriter.ProgressFrames[4].Event, Is.EqualTo(BuildRunProgressEventNames.RunnerCompleted));
+                Assert.That(streamWriter.ProgressFrames[0].Event, Is.EqualTo("build.readiness.completed"));
+                Assert.That(streamWriter.ProgressFrames[1].Event, Is.EqualTo("build.runner.resolved"));
+                Assert.That(streamWriter.ProgressFrames[2].Event, Is.EqualTo("build.runner.started"));
+                Assert.That(streamWriter.ProgressFrames[3].Event, Is.EqualTo("build.log.entry"));
+                Assert.That(streamWriter.ProgressFrames[4].Event, Is.EqualTo("build.runner.completed"));
 
                 Assert.That(IpcPayloadCodec.TryDeserialize(streamWriter.ProgressFrames[4].Payload, out BuildProgressEntry runnerCompleted, out _), Is.True);
                 Assert.That(runnerCompleted.RunId, Is.EqualTo(RunId));
@@ -1080,14 +1080,14 @@ namespace MackySoft.Ucli.Unity.Tests
 
                 Assert.That(response.Status, Is.EqualTo(IpcResponseStatus.Ok));
                 Assert.That(streamWriter.ProgressFrames, Has.Count.EqualTo(5));
-                Assert.That(streamWriter.ProgressFrames[3].Event, Is.EqualTo(BuildRunProgressEventNames.LogEntry));
-                Assert.That(streamWriter.ProgressFrames[4].Event, Is.EqualTo(BuildRunProgressEventNames.RunnerCompleted));
+                Assert.That(streamWriter.ProgressFrames[3].Event, Is.EqualTo("build.log.entry"));
+                Assert.That(streamWriter.ProgressFrames[4].Event, Is.EqualTo("build.runner.completed"));
                 Assert.That(IpcPayloadCodec.TryDeserialize(streamWriter.ProgressFrames[3].Payload, out BuildLogEntry logEntry, out _), Is.True);
                 Assert.That(logEntry.Message, Is.Not.EqualTo(oversizedMessage));
                 Assert.That(logEntry.Message, Does.EndWith("[truncated for build progress stream]"));
                 Assert.That(
                     Encoding.UTF8.GetByteCount(logEntry.Message),
-                    Is.LessThanOrEqualTo(BuildLogEntryLimits.MaxMessageUtf8Bytes));
+                    Is.LessThanOrEqualTo(64 * 1024));
             }
         }
 
@@ -1151,11 +1151,11 @@ namespace MackySoft.Ucli.Unity.Tests
                 Assert.That(executeMethodContext, Is.Not.Null);
                 Assert.That(UcliBuildRunnerContext.Current, Is.Null);
                 Assert.That(streamWriter.ProgressFrames, Has.Count.EqualTo(5));
-                Assert.That(streamWriter.ProgressFrames[0].Event, Is.EqualTo(BuildRunProgressEventNames.ReadinessCompleted));
-                Assert.That(streamWriter.ProgressFrames[1].Event, Is.EqualTo(BuildRunProgressEventNames.RunnerResolved));
-                Assert.That(streamWriter.ProgressFrames[2].Event, Is.EqualTo(BuildRunProgressEventNames.RunnerStarted));
-                Assert.That(streamWriter.ProgressFrames[3].Event, Is.EqualTo(BuildRunProgressEventNames.LogEntry));
-                Assert.That(streamWriter.ProgressFrames[4].Event, Is.EqualTo(BuildRunProgressEventNames.RunnerCompleted));
+                Assert.That(streamWriter.ProgressFrames[0].Event, Is.EqualTo("build.readiness.completed"));
+                Assert.That(streamWriter.ProgressFrames[1].Event, Is.EqualTo("build.runner.resolved"));
+                Assert.That(streamWriter.ProgressFrames[2].Event, Is.EqualTo("build.runner.started"));
+                Assert.That(streamWriter.ProgressFrames[3].Event, Is.EqualTo("build.log.entry"));
+                Assert.That(streamWriter.ProgressFrames[4].Event, Is.EqualTo("build.runner.completed"));
 
                 Assert.That(IpcPayloadCodec.TryDeserialize(streamWriter.ProgressFrames[1].Payload, out BuildProgressEntry runnerResolved, out _), Is.True);
                 Assert.That(runnerResolved.Phase, Is.EqualTo(BuildRunProgressPhase.RunnerResolution));

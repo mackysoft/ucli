@@ -442,7 +442,7 @@ public sealed class DaemonCompensationOperationOwnerTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenCallerCancelsBeforeDeadline_RequestsOwnedCancellationAtDeadline ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var owner = new DaemonCompensationOperationOwner();
         var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(
             ProjectFingerprintTestFactory.Create("fingerprint-compensation-caller-cancellation-deadline"));
@@ -483,7 +483,6 @@ public sealed class DaemonCompensationOperationOwnerTests
         Assert.False(ownedCancellationObserved.Task.IsCompleted);
         Assert.True(owner.TryTransferLifecycleLease(context, lifecycleLease));
 
-        await timeProvider.WaitForTimerDueWithinAsync(timeout).WaitAsync(TimeSpan.FromSeconds(5));
         timeProvider.Advance(timeout);
         await ownedCancellationObserved.Task.WaitAsync(TimeSpan.FromSeconds(5));
         var quiescenceError = await owner.WaitForQuiescenceAsync(

@@ -181,7 +181,7 @@ public sealed class UnityDaemonIpcClientRecoverableDispatchTests
     [Trait("Size", "Small")]
     public async Task SendAsync_WhenDurableReplayHasPreWriteFailure_DoesNotExtendEndpointAvailabilityWindow ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var firstInterruption = new IpcResponseReadInterruptedException(
             new EndOfStreamException("durable response interruption before endpoint deadline"));
         var transportClient = new RecordingIpcTransportClient(_ => CreateResponse(Guid.NewGuid()));
@@ -221,8 +221,6 @@ public sealed class UnityDaemonIpcClientRecoverableDispatchTests
                 CancellationToken.None)
             .AsTask();
         var retryDelay = TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds);
-        await timeProvider.WaitForTimerDueWithinAsync(retryDelay).WaitAsync(TimeSpan.FromSeconds(1));
-
         Assert.False(sendTask.IsCompleted);
         timeProvider.Advance(retryDelay);
         var result = await sendTask.WaitAsync(TimeSpan.FromSeconds(1));
@@ -283,7 +281,7 @@ public sealed class UnityDaemonIpcClientRecoverableDispatchTests
     [Trait("Size", "Small")]
     public async Task SendAsync_WhenSuccessorWaitExhaustsCompletionDeadline_ReturnsTransportTimeout ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var executionTimeout = TimeSpan.FromSeconds(5);
         var completionTimeout =
             executionTimeout
@@ -316,11 +314,7 @@ public sealed class UnityDaemonIpcClientRecoverableDispatchTests
                 CancellationToken.None)
             .AsTask();
 
-        await ManualTimeTaskDriver.AdvanceUntilCompletedAsync(
-            timeProvider,
-            sendTask,
-            completionTimeout,
-            TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds));
+        timeProvider.Advance(completionTimeout);
         var result = await sendTask;
 
         Assert.False(result.IsSuccess);
@@ -369,7 +363,7 @@ public sealed class UnityDaemonIpcClientRecoverableDispatchTests
     [Trait("Size", "Small")]
     public async Task SendAsync_WhenReplaySessionTokenIsRejectedWithoutSuccessor_ReturnsTransportUnavailable ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var interruption = new IpcResponseReadInterruptedException(
             new EndOfStreamException("response interruption before rejected replay token"));
         var transportClient = new RecordingIpcTransportClient(_ => CreateResponse(Guid.NewGuid()));
@@ -401,11 +395,7 @@ public sealed class UnityDaemonIpcClientRecoverableDispatchTests
                 CancellationToken.None)
             .AsTask();
 
-        await ManualTimeTaskDriver.AdvanceUntilCompletedAsync(
-            timeProvider,
-            sendTask,
-            DaemonTimeouts.SessionPublicationRetryTimeout,
-            TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds));
+        timeProvider.Advance(DaemonTimeouts.SessionPublicationRetryTimeout);
         var result = await sendTask;
 
         Assert.False(result.IsSuccess);
@@ -422,7 +412,7 @@ public sealed class UnityDaemonIpcClientRecoverableDispatchTests
     [Trait("Size", "Small")]
     public async Task SendAsync_WhenRecoverablePlayResponseIsInterrupted_PreservesCompletionDeadlineAcrossRetry ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var executionTimeout = TimeSpan.FromSeconds(5);
         var completionTimeout =
             executionTimeout
@@ -456,7 +446,6 @@ public sealed class UnityDaemonIpcClientRecoverableDispatchTests
             .AsTask();
 
         var retryDelay = TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds);
-        await timeProvider.WaitForTimerDueWithinAsync(retryDelay).WaitAsync(TimeSpan.FromSeconds(1));
         timeProvider.Advance(retryDelay);
         var result = await sendTask;
 
@@ -541,11 +530,21 @@ public sealed class UnityDaemonIpcClientRecoverableDispatchTests
     [Trait("Size", "Small")]
     public async Task SendAsync_WhenRotatedSessionTokenAttemptLosesRecoverableResponse_RetriesSameRequest ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var transportClient = new RecordingIpcTransportClient(_ => CreateResponse(Guid.NewGuid()));
-        transportClient.EnqueueResponse(CreateSessionTokenInvalidResponse());
-        transportClient.EnqueueResponse(static _ => throw new IpcResponseReadInterruptedException(
-            new EndOfStreamException("lost response after session token rotation")));
+        var tokenRejected = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var responseInterrupted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        transportClient.EnqueueResponse(_ =>
+        {
+            tokenRejected.TrySetResult();
+            return CreateSessionTokenInvalidResponse();
+        });
+        transportClient.EnqueueResponse(_ =>
+        {
+            responseInterrupted.TrySetResult();
+            throw new IpcResponseReadInterruptedException(
+                new EndOfStreamException("lost response after session token rotation"));
+        });
         transportClient.EnqueueResponse(CreateResponse(Guid.NewGuid()));
         var sessionStore = new QueuedDaemonSessionStore(
             CreateSessionReadResult("daemon-token-1"),
@@ -565,11 +564,9 @@ public sealed class UnityDaemonIpcClientRecoverableDispatchTests
                 CancellationToken.None)
             .AsTask();
 
-        await ManualTimeTaskDriver.AdvanceUntilCompletedAsync(
-            timeProvider,
-            sendTask,
-            TimeSpan.FromSeconds(1),
-            TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds));
+        await tokenRejected.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await responseInterrupted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        timeProvider.Advance(TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds));
         var result = await sendTask;
 
         Assert.True(result.IsSuccess);
@@ -723,10 +720,26 @@ public sealed class UnityDaemonIpcClientRecoverableDispatchTests
     [Trait("Size", "Small")]
     public async Task SendAsync_WhenLifecycleDispatchConnectionRefusalOutlivesEndpointAbsenceGrace_ReturnsEditorUnavailable ()
     {
-        var timeProvider = new ManualTimeProvider();
-        var transportClient = new RecordingIpcTransportClient(_ => throw new IpcConnectException(
-            "IPC connection was refused before the request was sent.",
-            new SocketException((int)SocketError.ConnectionRefused)));
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
+        var firstDispatch = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var secondDispatch = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var dispatchCount = 0;
+        var transportClient = new RecordingIpcTransportClient(_ =>
+        {
+            switch (Interlocked.Increment(ref dispatchCount))
+            {
+                case 1:
+                    firstDispatch.TrySetResult();
+                    break;
+                case 2:
+                    secondDispatch.TrySetResult();
+                    break;
+            }
+
+            throw new IpcConnectException(
+                "IPC connection was refused before the request was sent.",
+                new SocketException((int)SocketError.ConnectionRefused));
+        });
         var sessionStore = new QueuedDaemonSessionStore(
             CreateSessionReadResult("daemon-token"));
         var client = new UnityDaemonIpcClient(
@@ -743,12 +756,10 @@ public sealed class UnityDaemonIpcClientRecoverableDispatchTests
                 ExecutionDeadline.Start(TimeSpan.FromSeconds(5), timeProvider),
                 CancellationToken.None)
             .AsTask();
-        Assert.False(sendTask.IsCompleted);
-
         var retryDelay = TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds);
-        await timeProvider.WaitForTimerDueWithinAsync(retryDelay).WaitAsync(TimeSpan.FromSeconds(1));
+        await firstDispatch.Task.WaitAsync(TimeSpan.FromSeconds(5));
         timeProvider.Advance(retryDelay);
-        await timeProvider.WaitForTimerDueWithinAsync(retryDelay).WaitAsync(TimeSpan.FromSeconds(1));
+        await secondDispatch.Task.WaitAsync(TimeSpan.FromSeconds(5));
         timeProvider.Advance(DaemonTimeouts.ProbeAttemptTimeoutCap - retryDelay);
 
         var result = await sendTask.WaitAsync(TimeSpan.FromSeconds(1));
@@ -766,7 +777,7 @@ public sealed class UnityDaemonIpcClientRecoverableDispatchTests
     [Trait("Size", "Small")]
     public async Task SendAsync_WhenSessionTokenRecoveryPublishesDifferentHost_RejectsRecoveredSession ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var transportClient = new RecordingIpcTransportClient(_ => CreateResponse(Guid.NewGuid()));
         transportClient.EnqueueResponse(CreateSessionTokenInvalidResponse());
         transportClient.EnqueueResponse(CreateResponse(Guid.NewGuid()));
@@ -800,7 +811,6 @@ public sealed class UnityDaemonIpcClientRecoverableDispatchTests
         Assert.False(sendTask.IsCompleted);
 
         var retryDelay = TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds);
-        await timeProvider.WaitForTimerDueWithinAsync(retryDelay).WaitAsync(TimeSpan.FromSeconds(1));
         timeProvider.Advance(retryDelay);
         var result = await sendTask;
 

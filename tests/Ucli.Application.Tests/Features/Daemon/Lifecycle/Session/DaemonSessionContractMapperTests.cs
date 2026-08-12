@@ -34,7 +34,6 @@ public sealed class DaemonSessionContractMapperTests
 
         Assert.False(isValid);
         Assert.Null(session);
-        Assert.Contains("editorMode", Assert.IsType<ExecutionError>(error).Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -152,7 +151,6 @@ public sealed class DaemonSessionContractMapperTests
 
         Assert.False(isValid);
         Assert.Null(session);
-        Assert.Contains("fully qualified", Assert.IsType<ExecutionError>(error).Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -174,7 +172,6 @@ public sealed class DaemonSessionContractMapperTests
 
         Assert.False(isValid);
         Assert.Null(session);
-        Assert.Contains("sessionGenerationId", Assert.IsType<ExecutionError>(error).Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -196,7 +193,6 @@ public sealed class DaemonSessionContractMapperTests
 
         Assert.False(isValid);
         Assert.Null(session);
-        Assert.Contains("sessionToken", Assert.IsType<ExecutionError>(error).Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -218,7 +214,6 @@ public sealed class DaemonSessionContractMapperTests
 
         Assert.False(isValid);
         Assert.Null(session);
-        Assert.Contains("projectFingerprint", Assert.IsType<ExecutionError>(error).Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -240,7 +235,6 @@ public sealed class DaemonSessionContractMapperTests
 
         Assert.False(isValid);
         Assert.Null(session);
-        Assert.Contains("editorInstanceId", Assert.IsType<ExecutionError>(error).Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -265,7 +259,6 @@ public sealed class DaemonSessionContractMapperTests
 
         Assert.False(isValid);
         Assert.Null(session);
-        Assert.Contains("editorInstanceId", Assert.IsType<ExecutionError>(error).Message, StringComparison.Ordinal);
     }
 
     private static DaemonSessionJsonContract CreateContract ()

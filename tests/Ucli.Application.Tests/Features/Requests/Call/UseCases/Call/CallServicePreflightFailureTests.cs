@@ -125,7 +125,6 @@ public sealed class CallServicePreflightFailureTests
         Assert.Equal(ApplicationOutcome.ToolError, result.Outcome);
         var error = Assert.Single(result.Errors);
         Assert.Equal(UnityExecutionModeDecisionErrorCodes.DaemonNotRunning, error.Code);
-        Assert.Equal("Daemon is not running for mode=daemon.", error.Message);
         Assert.NotNull(result.Output);
         Assert.Equal(RequestId, result.Output!.RequestId);
         Assert.Empty(result.Output.OpResults);

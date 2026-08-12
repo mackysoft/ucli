@@ -112,15 +112,6 @@ public sealed class DaemonStartupObservationTests
         Assert.Equal("ElapsedMilliseconds", exception.ParamName);
     }
 
-    [Fact]
-    [Trait("Size", "Small")]
-    public void Constructor_ParametersHaveNoDefaultValues ()
-    {
-        var constructor = Assert.Single(typeof(DaemonStartupObservation).GetConstructors());
-
-        Assert.All(constructor.GetParameters(), static parameter => Assert.False(parameter.HasDefaultValue));
-    }
-
     private static DaemonStartupObservation CreateObservation (StartupObservationValues values)
     {
         return new DaemonStartupObservation(

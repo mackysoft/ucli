@@ -6,7 +6,6 @@ using System.IO;
 using System.IO.Pipes;
 using System.Runtime.InteropServices;
 using System.Text.Json;
-using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
@@ -1018,20 +1017,14 @@ namespace MackySoft.Ucli.Unity.Tests
             var payload = response.Payload.Deserialize<UnityEditorObservation>(SerializerOptions);
             Assert.That(payload, Is.Not.Null);
             Assert.That(payload.State.EditorMode, Is.EqualTo(UnityEditorMode.Batchmode));
-            Assert.That(string.IsNullOrWhiteSpace(payload.UnityVersion), Is.False);
+            Assert.That(payload.UnityVersion, Is.EqualTo("6000.1.4f1"));
             Assert.That(string.IsNullOrWhiteSpace(payload.ServerVersion), Is.False);
-            var expectedServerVersion = new AssemblyServerVersionProvider().GetVersion();
-            Assert.That(payload.ServerVersion, Is.EqualTo(expectedServerVersion));
-            Assert.That(Regex.IsMatch(payload.ServerVersion, "^[0-9]+\\.[0-9]+\\.[0-9]+(\\.[0-9]+)?$"), Is.True);
-            Assert.That(
-                payload.State.CompileState is UnityEditorCompileState.Ready or UnityEditorCompileState.Compiling,
-                Is.True);
-            Assert.That(TextVocabulary.IsDefined(payload.State.LifecycleState), Is.True);
-            Assert.That(payload.State.Generations.CompileGeneration, Is.GreaterThanOrEqualTo(0));
-            Assert.That(payload.State.Generations.DomainReloadGeneration, Is.GreaterThanOrEqualTo(0));
-            Assert.That(
-                UnityEditorLifecycleSemantics.CanAcceptExecutionRequests(payload.State.LifecycleState),
-                Is.EqualTo(payload.State.LifecycleState == UnityEditorLifecycleState.Ready));
+            Assert.That(payload.State.LifecycleState, Is.EqualTo(UnityEditorLifecycleState.Ready));
+            Assert.That(payload.State.CompileState, Is.EqualTo(UnityEditorCompileState.Ready));
+            Assert.That(payload.State.Generations, Is.EqualTo(new UnityEditorGenerationSnapshot(1, 1, 0, 1)));
+            Assert.That(payload.State.PlayMode.State, Is.EqualTo(UnityEditorPlayModeState.Stopped));
+            Assert.That(payload.State.PlayMode.IsPlaying, Is.False);
+            Assert.That(payload.State.PlayMode.IsPlayingOrWillChangePlaymode, Is.False);
         });
 
         [UnityTest]

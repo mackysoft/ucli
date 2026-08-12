@@ -156,7 +156,8 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
     [Trait("Size", "Small")]
     public async Task WaitForSession_WhenResponseRecoveryFindsDifferentProcess_DoesNotAttachSuccessor ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
+        var firstPingObserved = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var unityProject = DaemonCommandExecutionContextTestFactory.Create(1000).Context.UnityProject;
         var observedSession = CreateGuiSession(
             unityProject.ProjectFingerprint,
@@ -171,7 +172,10 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
             DaemonSessionReadResultTestFactory.Found(mismatchedSuccessor));
         var pingClient = new RecordingDaemonPingInfoClient(
             new ResponseInterruptedTestException(),
-            CreatePingResponse(unityProject.ProjectFingerprint, UnityEditorMode.Gui));
+            CreatePingResponse(unityProject.ProjectFingerprint, UnityEditorMode.Gui))
+        {
+            OnPingAndRead = () => firstPingObserved.TrySetResult(),
+        };
         var awaiter = CreateAwaiter(
             sessionStore,
             pingClient,
@@ -185,7 +189,7 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
                 CancellationToken.None)
             .AsTask();
         var retryDelay = TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds);
-        await timeProvider.WaitForTimerDueWithinAsync(retryDelay).WaitAsync(SignalWaitTimeout);
+        await firstPingObserved.Task.WaitAsync(SignalWaitTimeout);
         timeProvider.Advance(WaitTimeout);
         var result = await resultTask.WaitAsync(SignalWaitTimeout);
 
@@ -199,7 +203,7 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
     [Trait("Size", "Small")]
     public async Task WaitForSession_WhenSessionReadIgnoresCancellation_ReturnsAtDeadline ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var readStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var readFinished = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var readCompletion = new TaskCompletionSource<DaemonSessionReadResult>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -236,7 +240,6 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
         try
         {
             await readStarted.Task.WaitAsync(SignalWaitTimeout);
-            await timeProvider.WaitForTimerDueWithinAsync(WaitTimeout).WaitAsync(SignalWaitTimeout);
             timeProvider.Advance(WaitTimeout);
             var result = await resultTask.WaitAsync(SignalWaitTimeout);
             await readCancellationObserved.Task.WaitAsync(SignalWaitTimeout);
@@ -256,7 +259,7 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
     [Trait("Size", "Small")]
     public async Task WaitForSession_WhenPingIgnoresCancellation_ReturnsAtDeadlineAndRejectsLateSuccess ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var pingStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var pingCancellationObserved = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var pingCompletion = new TaskCompletionSource<UnityEditorObservation>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -294,7 +297,6 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
         try
         {
             await pingStarted.Task.WaitAsync(SignalWaitTimeout);
-            await timeProvider.WaitForTimerDueWithinAsync(WaitTimeout).WaitAsync(SignalWaitTimeout);
             timeProvider.Advance(WaitTimeout);
 
             var result = await resultTask.WaitAsync(SignalWaitTimeout);
@@ -347,7 +349,7 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
         string storedProjectFingerprint,
         UnityEditorMode storedEditorMode)
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var firstRead = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var unityProject = DaemonCommandExecutionContextTestFactory.Create(1000).Context.UnityProject;
         var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResultTestFactory.Found(CreateGuiSession(
@@ -366,7 +368,6 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
             ExecutionDeadline.Start(WaitTimeout, timeProvider),
             expectedProcessStartedAtUtc: DefaultExpectedProcessStartedAtUtc).AsTask();
         await firstRead.Task.WaitAsync(SignalWaitTimeout);
-        await timeProvider.WaitForTimerDueWithinAsync(WaitTimeout).WaitAsync(SignalWaitTimeout);
         timeProvider.Advance(WaitTimeout);
 
         var result = await resultTask.WaitAsync(TimeSpan.FromSeconds(5));
@@ -466,7 +467,7 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
     [Trait("Size", "Small")]
     public async Task WaitForSession_WhenPingTimesOut_RereadsSessionBeforeNextPing ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var firstPingObserved = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var unityProject = DaemonCommandExecutionContextTestFactory.Create(5000).Context.UnityProject;
         var firstSession = CreateGuiSession(
@@ -498,7 +499,6 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
             expectedProcessStartedAtUtc: DefaultExpectedProcessStartedAtUtc).AsTask();
         await firstPingObserved.Task.WaitAsync(TimeSpan.FromSeconds(5));
         var retryDelay = TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds);
-        await timeProvider.WaitForTimerDueWithinAsync(retryDelay).WaitAsync(SignalWaitTimeout);
         timeProvider.Advance(retryDelay);
 
         var result = await resultTask.WaitAsync(TimeSpan.FromSeconds(5));
@@ -516,13 +516,17 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
     [Trait("Size", "Small")]
     public async Task WaitForSession_WhenDaemonReportsRequestTimeout_RetriesWithNewRequestId ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
+        var firstPingObserved = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var unityProject = DaemonCommandExecutionContextTestFactory.Create(5000).Context.UnityProject;
         var session = CreateGuiSession(unityProject.ProjectFingerprint, processId: 4321);
         var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResultTestFactory.Found(session));
         var pingClient = new RecordingDaemonPingInfoClient(
             new RequestTimeoutTestException(),
-            CreatePingResponse(unityProject.ProjectFingerprint, UnityEditorMode.Gui));
+            CreatePingResponse(unityProject.ProjectFingerprint, UnityEditorMode.Gui))
+        {
+            OnPingAndRead = () => firstPingObserved.TrySetResult(),
+        };
         var classifier = new DelegatingDaemonReachabilityClassifier(
             isNotRunning: static _ => false,
             isSessionTokenInvalid: static _ => false,
@@ -537,11 +541,8 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
                 expectedProcessStartedAtUtc: DefaultExpectedProcessStartedAtUtc)
             .AsTask();
 
-        await ManualTimeTaskDriver.AdvanceUntilCompletedAsync(
-            timeProvider,
-            resultTask,
-            TimeSpan.FromSeconds(5),
-            TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds));
+        await firstPingObserved.Task.WaitAsync(SignalWaitTimeout);
+        timeProvider.Advance(TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds));
         var result = await resultTask;
 
         Assert.True(result.IsSuccess);
@@ -600,14 +601,13 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
 
         Assert.False(result.IsSuccess);
         Assert.Equal(ExecutionErrorKind.InternalError, result.Error!.Kind);
-        Assert.Contains("unexpected", result.Error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public async Task WaitForSession_WhenFirstReadIsInvalidSession_RetriesUntilMatchingSessionAppears ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var firstRead = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var firstInvalidSessionReturned = false;
         var unityProject = DaemonCommandExecutionContextTestFactory.Create(1000).Context.UnityProject;
@@ -636,7 +636,6 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
             expectedProcessStartedAtUtc: DefaultExpectedProcessStartedAtUtc).AsTask();
         await firstRead.Task.WaitAsync(TimeSpan.FromSeconds(5));
         var retryDelay = TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds);
-        await timeProvider.WaitForTimerDueWithinAsync(retryDelay).WaitAsync(SignalWaitTimeout);
         timeProvider.Advance(retryDelay);
 
         var result = await resultTask.WaitAsync(TimeSpan.FromSeconds(5));

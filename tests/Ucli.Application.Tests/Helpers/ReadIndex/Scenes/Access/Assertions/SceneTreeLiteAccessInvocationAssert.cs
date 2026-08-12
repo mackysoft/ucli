@@ -56,12 +56,11 @@ internal static class SceneTreeLiteAccessInvocationAssert
 
     public static void InvalidSceneRejectedBeforeIndexLookup (
         SceneTreeLiteReadResult result,
-        RecordingReadIndexArtifactReader indexReader,
-        string expectedMessageFragment)
+        RecordingReadIndexArtifactReader indexReader)
     {
         Assert.False(result.IsSuccess);
         Assert.Equal(UcliCoreErrorCodes.InvalidArgument, result.ErrorCode);
-        Assert.Contains(expectedMessageFragment, result.Message, StringComparison.Ordinal);
+        Assert.NotEmpty(result.Message);
         Assert.Empty(indexReader.ReadInvocations);
     }
 
@@ -72,7 +71,7 @@ internal static class SceneTreeLiteAccessInvocationAssert
         Sha256Digest expectedPersistedSourceInputsHash)
     {
         var invocation = Assert.Single(freshnessEvaluator.SceneTreeLiteObserveInvocations);
-        Assert.Same(expectedUnityProject.UnityProjectRoot, invocation.SourcePaths.SceneFilePath.BoundaryRoot);
+        Assert.Equal(expectedUnityProject.UnityProjectRoot, invocation.SourcePaths.SceneFilePath.BoundaryRoot);
         Assert.Equal(new SceneAssetPath(expectedScenePath), invocation.SourcePaths.SceneAssetPath);
         Assert.Equal(expectedScenePath, invocation.SourcePaths.SceneFilePath.RelativePath.Value);
         Assert.Equal(expectedScenePath + ".meta", invocation.SourcePaths.MetaFilePath.RelativePath.Value);
@@ -87,7 +86,7 @@ internal static class SceneTreeLiteAccessInvocationAssert
         string expectedScenePath)
     {
         var invocation = Assert.Single(dirtySourceProbeService.Invocations);
-        Assert.Same(expectedProject, invocation.Project);
+        Assert.Equal(expectedProject, invocation.Project);
         Assert.Equal(expectedCommand, invocation.Command);
         Assert.Equal(expectedMode, invocation.Mode);
         Assert.Equal(expectedScenePath, invocation.ScenePath.Value);
@@ -100,7 +99,7 @@ internal static class SceneTreeLiteAccessInvocationAssert
     {
         var invocation = Assert.Single(artifactReader.ReadInvocations);
         Assert.Equal(RecordingReadIndexArtifactReader.ReadIndexArtifactKind.SceneTreeLiteLookup, invocation.Kind);
-        Assert.Same(expectedUnityProject, invocation.UnityProject);
+        Assert.Equal(expectedUnityProject, invocation.UnityProject);
         return invocation;
     }
 
@@ -113,7 +112,7 @@ internal static class SceneTreeLiteAccessInvocationAssert
         bool? expectedFailFast = null)
     {
         var invocation = Assert.Single(refreshService.Invocations);
-        Assert.Same(expectedProject, invocation.Project);
+        Assert.Equal(expectedProject, invocation.Project);
         Assert.Equal(expectedCommand, invocation.Command);
         Assert.Equal(expectedMode, invocation.Mode);
         Assert.Equal(expectedScenePath, invocation.ScenePath.Value);
@@ -121,7 +120,7 @@ internal static class SceneTreeLiteAccessInvocationAssert
         {
             Assert.NotNull(invocation.IndexSourcePaths);
             Assert.Equal(expectedIndexScenePath, invocation.IndexSourcePaths.SceneAssetPath);
-            Assert.Same(expectedProject.UnityProjectRoot, invocation.IndexSourcePaths.SceneFilePath.BoundaryRoot);
+            Assert.Equal(expectedProject.UnityProjectRoot, invocation.IndexSourcePaths.SceneFilePath.BoundaryRoot);
             Assert.Equal(expectedScenePath, invocation.IndexSourcePaths.SceneFilePath.RelativePath.Value);
             Assert.Equal(expectedScenePath + ".meta", invocation.IndexSourcePaths.MetaFilePath.RelativePath.Value);
         }

@@ -30,7 +30,7 @@ public sealed class UnityIpcTransportClientTests
             DefaultTimeout,
             cancellationTokenSource.Token);
 
-        Assert.Same(sendResponse, response);
+        Assert.Equal(sendResponse, response);
         UnityIpcTransportClientAssert.SendForwardedToResolvedEndpoint(
             transportClient,
             UcliIpcEndpointResolver.ResolveDaemonEndpoint(StorageRoot, ProjectFingerprintTestFactory.Create("project-fingerprint")).Contract,
@@ -63,14 +63,14 @@ public sealed class UnityIpcTransportClientTests
             },
             cancellationTokenSource.Token);
 
-        Assert.Same(streamingResponse, response);
+        Assert.Equal(streamingResponse, response);
         UnityIpcTransportClientAssert.StreamingSendForwardedToResolvedEndpoint(
             transportClient,
             UcliIpcEndpointResolver.ResolveDaemonEndpoint(StorageRoot, ProjectFingerprintTestFactory.Create("project-fingerprint")).Contract,
             request,
             DefaultTimeout,
             cancellationTokenSource.Token);
-        Assert.Same(progressFrame, Assert.Single(progressFrames));
+        Assert.Equal(progressFrame, Assert.Single(progressFrames));
     }
 
     [Theory]

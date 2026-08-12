@@ -78,17 +78,14 @@ namespace MackySoft.Ucli.Unity.Tests
                 Assert.That(preconditionInput.SceneSource, Is.EqualTo(BuildProfileSceneSource.UnityBuildProfile));
                 Assert.That(preconditionInput.ScenePaths, Is.EqualTo(new[] { new SceneAssetPath(requestedScenePath) }));
 
-                Assert.That(BuildPipelineOutputLayoutPolicy.TryResolve(
+                var expectedOutputLayout = GetExpectedOutputLayout(
                     stableBuildTarget,
-                    stableBuildTarget == BuildTargetStableName.Android
-                        && EditorUserBuildSettings.buildAppBundle,
-                    out var expectedOutputLayoutDefinition), Is.True);
-                var expectedDefinition = expectedOutputLayoutDefinition
-                    ?? throw new AssertionException("Expected the build target to have an output layout.");
+                    EditorUserBuildSettings.buildAppBundle);
                 var expectedOutputLocation = Path.GetFullPath(Path.Combine(
                     outputScope.OutputPath,
-                    expectedDefinition.RunnerOutputPath.Value));
-                Assert.That(result.OutputLayout!.Shape, Is.EqualTo(expectedDefinition.Shape));
+                    "player",
+                    expectedOutputLayout.FileName));
+                Assert.That(result.OutputLayout!.Shape, Is.EqualTo(expectedOutputLayout.Shape));
                 Assert.That(
                     result.OutputLayout.LocationPath.Value,
                     Is.EqualTo(expectedOutputLocation));
@@ -232,6 +229,24 @@ namespace MackySoft.Ucli.Unity.Tests
                 RunnerEnvironmentVariableValues: new Dictionary<string, string>(StringComparer.Ordinal),
                 RunnerEnvironmentSecretValues: new Dictionary<string, string>(StringComparer.Ordinal));
             return (BuildRunExecutionRequest.UnityBuildProfile)BuildRunExecutionRequest.Create(wireRequest);
+        }
+
+        private static (IpcBuildOutputLayoutShape Shape, string FileName) GetExpectedOutputLayout (
+            BuildTargetStableName buildTarget,
+            bool androidAppBundle)
+        {
+            return buildTarget switch
+            {
+                BuildTargetStableName.StandaloneOsx => (IpcBuildOutputLayoutShape.AppBundle, "Player.app"),
+                BuildTargetStableName.StandaloneWindows => (IpcBuildOutputLayoutShape.File, "Player.exe"),
+                BuildTargetStableName.StandaloneWindows64 => (IpcBuildOutputLayoutShape.File, "Player.exe"),
+                BuildTargetStableName.StandaloneLinux64 => (IpcBuildOutputLayoutShape.File, "Player"),
+                BuildTargetStableName.Android => (IpcBuildOutputLayoutShape.File, androidAppBundle ? "Player.aab" : "Player.apk"),
+                BuildTargetStableName.Ios => (IpcBuildOutputLayoutShape.Directory, "Player"),
+                BuildTargetStableName.Tvos => (IpcBuildOutputLayoutShape.Directory, "Player"),
+                BuildTargetStableName.Webgl => (IpcBuildOutputLayoutShape.Directory, "Player"),
+                _ => throw new AssertionException($"Unsupported uCLI build target: {buildTarget}."),
+            };
         }
 
         private static BuildProfile CreateBuildProfileAsset (

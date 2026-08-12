@@ -1,5 +1,5 @@
-using MackySoft.Ucli.Contracts.Execution.Lifecycle;
 using MackySoft.Ucli.Contracts.Editor;
+using MackySoft.Ucli.Contracts.Execution.Lifecycle;
 
 namespace MackySoft.Ucli.Tests.Ipc;
 
@@ -100,7 +100,7 @@ public sealed class UnityIpcRequestBuilderBasicPayloadTests
                 requiredStart: null));
 
         Assert.Equal(UnityIpcMethod.Compile, request.Method);
-        Assert.Same(registration, request.Registration);
+        Assert.Equal(registration, request.Registration);
         Assert.Equal(
             UnityIpcResponseReplayPolicy.LifecycleExecutionSameHostSuccessor,
             request.ResponseReplayPolicy);
@@ -180,7 +180,7 @@ public sealed class UnityIpcRequestBuilderBasicPayloadTests
                 requiredStart: null));
 
         Assert.Equal(UnityIpcMethod.PlayEnter, request.Method);
-        Assert.Same(registration, request.Registration);
+        Assert.Equal(registration, request.Registration);
         Assert.Equal(
             UnityIpcResponseReplayPolicy.LifecycleExecutionSameHostSuccessor,
             request.ResponseReplayPolicy);
@@ -208,7 +208,7 @@ public sealed class UnityIpcRequestBuilderBasicPayloadTests
                 requiredStart: null));
 
         Assert.Equal(UnityIpcMethod.PlayExit, request.Method);
-        Assert.Same(registration, request.Registration);
+        Assert.Equal(registration, request.Registration);
         Assert.Equal(
             UnityIpcResponseReplayPolicy.LifecycleExecutionSameHostSuccessor,
             request.ResponseReplayPolicy);

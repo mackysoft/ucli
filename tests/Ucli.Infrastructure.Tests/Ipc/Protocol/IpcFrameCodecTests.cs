@@ -10,34 +10,35 @@ public sealed class IpcFrameCodecTests
 {
     [Fact]
     [Trait("Size", "Small")]
-    public async Task WriteModelAsync_And_ReadModelAsync_RoundTripsPayload ()
+    public async Task WriteModelAsync_WritesLittleEndianLengthAndUtf8JsonPayload ()
     {
         var source = new TestEnvelope("hello", 42);
         await using var stream = new MemoryStream();
 
         await IpcFrameCodec.WriteModelAsync(stream, source, IpcJsonSerializerOptions.Default);
-        stream.Position = 0;
 
-        var actual = await IpcFrameCodec.ReadModelAsync<TestEnvelope>(stream, IpcJsonSerializerOptions.Default);
-
-        Assert.Equal(source, actual);
+        var payload = Encoding.UTF8.GetBytes("""{"message":"hello","count":42}""");
+        var expectedFrame = new byte[sizeof(int) + payload.Length];
+        BinaryPrimitives.WriteInt32LittleEndian(expectedFrame, payload.Length);
+        payload.CopyTo(expectedFrame.AsSpan(sizeof(int)));
+        Assert.Equal(expectedFrame, stream.ToArray());
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public async Task TryReadModelAsync_WithValidFrame_ReturnsSuccess ()
     {
-        var source = new TestEnvelope("hello", 42);
-        await using var stream = new MemoryStream();
-
-        await IpcFrameCodec.WriteModelAsync(stream, source, IpcJsonSerializerOptions.Default);
-        stream.Position = 0;
+        var payload = Encoding.UTF8.GetBytes("""{"message":"hello","count":42}""");
+        var frame = new byte[sizeof(int) + payload.Length];
+        BinaryPrimitives.WriteInt32LittleEndian(frame, payload.Length);
+        payload.CopyTo(frame.AsSpan(sizeof(int)));
+        await using var stream = new MemoryStream(frame, writable: false);
 
         var result = await IpcFrameCodec.TryReadModelAsync<TestEnvelope>(stream, IpcJsonSerializerOptions.Default);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(IpcFrameReadErrorKind.None, result.ErrorKind);
-        Assert.Equal(source, result.Value);
+        Assert.Equal(new TestEnvelope("hello", 42), result.Value);
     }
 
     [Fact]

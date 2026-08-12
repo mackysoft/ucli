@@ -9,11 +9,9 @@ internal static class OpsServiceInvocationAssert
         OpsListServiceResult result,
         RecordingOpsCatalogAccessService catalogAccessService,
         RecordingOpsListResultMapper listResultMapper,
-        string expectedMessage,
         UcliCode expectedErrorCode)
     {
         var failed = Assert.IsType<OpsListServiceResult.Failed>(result);
-        Assert.Equal(expectedMessage, failed.Error.Message);
         Assert.Equal(expectedErrorCode, failed.Error.Code);
         CatalogListReadAndMappingSkipped(catalogAccessService, listResultMapper);
     }
@@ -42,7 +40,7 @@ internal static class OpsServiceInvocationAssert
         OpsPreflightContext expectedContext)
     {
         var invocation = Assert.Single(catalogAccessService.ListReadInvocations);
-        Assert.Same(expectedContext, invocation.Context);
+        Assert.Equal(expectedContext, invocation.Context);
     }
 
     public static void CatalogDescribeReadFromPreflight (
@@ -51,7 +49,7 @@ internal static class OpsServiceInvocationAssert
         string expectedOperationName)
     {
         var invocation = Assert.Single(catalogAccessService.DescribeInvocations);
-        Assert.Same(expectedContext, invocation.Context);
+        Assert.Equal(expectedContext, invocation.Context);
         Assert.Equal(expectedOperationName, invocation.OperationName);
     }
 
@@ -61,7 +59,7 @@ internal static class OpsServiceInvocationAssert
         params string[] expectedOperationNames)
     {
         var invocation = Assert.Single(listResultMapper.Invocations);
-        Assert.Same(expectedOutput, invocation.Output);
+        Assert.Equal(expectedOutput, invocation.Output);
         Assert.Equal(expectedOperationNames, invocation.Operations.Select(static operation => operation.Name).ToArray());
         return invocation;
     }
@@ -71,7 +69,7 @@ internal static class OpsServiceInvocationAssert
         OpsDescribeReadOutput expectedOutput)
     {
         var invocation = Assert.Single(describeResultMapper.Invocations);
-        Assert.Same(expectedOutput, invocation.Output);
+        Assert.Equal(expectedOutput, invocation.Output);
     }
 
     private static void CatalogListReadAndMappingSkipped (

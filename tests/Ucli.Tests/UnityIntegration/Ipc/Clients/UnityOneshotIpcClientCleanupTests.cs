@@ -149,16 +149,17 @@ public sealed class UnityOneshotIpcClientCleanupTests
     {
         using var scope = TestDirectories.CreateTempScope("unity-oneshot-ipc-client", "startup-timeout-shutdown");
         var unityProject = ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(scope.FullPath);
-        var timeProvider = new ManualTimeProvider(DateTimeOffset.UtcNow);
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UtcNow);
         var cleanupTimeout = TimeSpan.FromMilliseconds(20);
         var requestTimeout = TimeSpan.FromMilliseconds(25);
         var processHandle = new StubUnityBatchmodeProcessHandle();
         var launcher = new RecordingUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
+        var startupPingStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var transportClient = new RecordingUnityIpcTransportClient(request =>
         {
             return IpcRequestAssert.ParseMethod(request) switch
             {
-                UnityIpcMethod.Ping => throw new TimeoutException("startup ping timed out"),
+                UnityIpcMethod.Ping => ThrowStartupPingTimeout(),
                 UnityIpcMethod.Shutdown => CreateShutdownResponse(request.RequestId),
                 _ => throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}"),
             };
@@ -179,10 +180,7 @@ public sealed class UnityOneshotIpcClientCleanupTests
             CreateDispatchRequest(),
             ExecutionDeadline.Start(requestTimeout, timeProvider),
             CancellationToken.None).AsTask();
-        await ManualTimeTaskDriver.WaitForTimerDueWithinOrCompletionAsync(
-            timeProvider,
-            resultTask,
-            requestTimeout);
+        await startupPingStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
         timeProvider.Advance(requestTimeout);
         var result = await resultTask.WaitAsync(TimeSpan.FromSeconds(5));
 
@@ -196,6 +194,12 @@ public sealed class UnityOneshotIpcClientCleanupTests
         Assert.Equal(DaemonDiagnosisReason.StartupFailed, startupFailure.Diagnosis!.Reason);
         AssertCleanupShutdownsUseLaunchSession(launcher, transportClient, unityProject, launchDeadlineReferenceUtc);
         UnityBatchmodeProcessHandleAssert.WaitedForExitWithoutTermination(processHandle);
+
+        IpcResponse ThrowStartupPingTimeout ()
+        {
+            startupPingStarted.TrySetResult();
+            throw new TimeoutException("startup ping timed out");
+        }
     }
 
     [Fact]

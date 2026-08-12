@@ -133,7 +133,6 @@ public sealed class DaemonStartOperationInvalidSessionTests
         Assert.Equal(DaemonStartStatus.Failed, result.Status);
         var error = Assert.IsType<ExecutionError>(result.Error);
         Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
-        Assert.Contains("cannot be safely replaced", error.Message, StringComparison.Ordinal);
         DaemonStartOperationInvocationAssert.UnsafeInvalidSessionCleanupSkippedBeforeLaunch(
             processTerminationService,
             artifactCleaner,

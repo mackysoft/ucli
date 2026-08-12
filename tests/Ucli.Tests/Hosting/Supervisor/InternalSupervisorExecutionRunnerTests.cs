@@ -107,7 +107,7 @@ public sealed class InternalSupervisorExecutionRunnerTests
     public async Task RunAsync_WhenIdleGenerationIsLast_ReleasesWorktreeRegistration ()
     {
         using var scope = TestDirectories.CreateTempScope("supervisor-host", "idle-registration-release");
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var processManager = new RecordingSupervisorProcessManager
         {
             ReleaseHandler = (storageRoot, _) =>
@@ -130,7 +130,6 @@ public sealed class InternalSupervisorExecutionRunnerTests
         var hostTask = host.RunAsync(AbsolutePath.Parse(scope.FullPath), CancellationToken.None);
 
         await WaitForFileExistsAsync(manifestPath, AsyncTestTimeout);
-        await timeProvider.WaitForTimerDueWithinAsync(TimeSpan.FromSeconds(1)).WaitAsync(AsyncTestTimeout);
         timeProvider.Advance(SupervisorConstants.IdleShutdownDelay);
 
         var exitCode = await hostTask.WaitAsync(AsyncTestTimeout);
@@ -147,7 +146,7 @@ public sealed class InternalSupervisorExecutionRunnerTests
     public async Task RunAsync_WhenManifestGenerationChangesBeforeIdleCleanup_PreservesRegistration ()
     {
         using var scope = TestDirectories.CreateTempScope("supervisor-host", "idle-generation-mismatch");
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var processManager = new RecordingSupervisorProcessManager();
         using var serviceProvider = BuildServiceProvider(timeProvider, processManager, manifestStore: null);
         var host = serviceProvider.GetRequiredService<SupervisorHost>();
@@ -167,7 +166,6 @@ public sealed class InternalSupervisorExecutionRunnerTests
             publishedManifest.TransportEndpoint,
             publishedManifest.IssuedAtUtc.AddTicks(1));
         await manifestStore.WriteAsync(AbsolutePath.Parse(scope.FullPath), replacementManifest, CancellationToken.None);
-        await timeProvider.WaitForTimerDueWithinAsync(TimeSpan.FromSeconds(1)).WaitAsync(AsyncTestTimeout);
         timeProvider.Advance(SupervisorConstants.IdleShutdownDelay);
 
         var exitCode = await hostTask.WaitAsync(AsyncTestTimeout);
@@ -184,7 +182,7 @@ public sealed class InternalSupervisorExecutionRunnerTests
     public async Task RunAsync_WhenSuccessorPublishesAfterIdleCleanup_DoesNotReleaseSuccessorRegistration ()
     {
         using var scope = TestDirectories.CreateTempScope("supervisor-host", "successor-after-idle-cleanup");
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var processManager = new RecordingSupervisorProcessManager();
         using var firstServiceProvider = BuildServiceProvider(timeProvider, processManager, manifestStore: null);
         using var successorServiceProvider = BuildServiceProvider(timeProvider, processManager, manifestStore: null);
@@ -205,14 +203,12 @@ public sealed class InternalSupervisorExecutionRunnerTests
                 AbsolutePath.Parse(scope.FullPath),
                 AsyncTestTimeout,
                 CancellationToken.None);
-            await timeProvider.WaitForTimerDueWithinAsync(TimeSpan.FromSeconds(1)).WaitAsync(AsyncTestTimeout);
             timeProvider.Advance(SupervisorConstants.IdleShutdownDelay);
             await WaitForFileMissingAsync(manifestPath, AsyncTestTimeout);
             Assert.False(firstHostTask.IsCompleted);
 
             successorHostTask = successorHost.RunAsync(AbsolutePath.Parse(scope.FullPath), successorCancellation.Token);
             await WaitForFileExistsAsync(manifestPath, AsyncTestTimeout);
-            await timeProvider.WaitForTimerDueWithinAsync(TimeSpan.FromMilliseconds(50)).WaitAsync(AsyncTestTimeout);
             await bootstrapLock.DisposeAsync();
             bootstrapLock = null;
             timeProvider.Advance(TimeSpan.FromMilliseconds(50));

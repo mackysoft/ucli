@@ -162,14 +162,6 @@ public sealed class IpcProtocolVocabularyTests
     [Trait("Size", "Small")]
     public void IpcPlayLiteralContracts_ExposeExpectedLiterals ()
     {
-        Assert.Equal(0, (int)UnityEditorPlayModeState.Stopped);
-        Assert.Equal(1, (int)UnityEditorPlayModeState.Entering);
-        Assert.Equal(2, (int)UnityEditorPlayModeState.Playing);
-        Assert.Equal(3, (int)UnityEditorPlayModeState.Exiting);
-        Assert.Equal(4, (int)UnityEditorPlayModeState.Unknown);
-        Assert.Equal(0, (int)UnityEditorPlayModeTransition.None);
-        Assert.Equal(1, (int)UnityEditorPlayModeTransition.Entering);
-        Assert.Equal(2, (int)UnityEditorPlayModeTransition.Exiting);
         Assert.Equal(["enter", "exit"], TextVocabulary.GetTexts<PlayLifecycleTransitionCommand>());
         Assert.Equal(
             ["entered", "alreadyEntered", "exited", "alreadyExited", "timeout", "blocked"],

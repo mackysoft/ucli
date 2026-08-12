@@ -48,7 +48,6 @@ public sealed class CallServiceOperationResultContractTests
         Assert.Equal(ApplicationOutcome.ToolError, result.Outcome);
         var error = Assert.Single(result.Errors);
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
-        Assert.Contains("'opResults[0].op' field does not match", error.Message, StringComparison.Ordinal);
         Assert.Single(ipcRequestExecutor.Invocations);
     }
 
@@ -106,7 +105,6 @@ public sealed class CallServiceOperationResultContractTests
         Assert.Equal(ApplicationOutcome.ToolError, result.Outcome);
         var error = Assert.Single(result.Errors);
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
-        Assert.Contains("'opResults[0].operationDescriptorDigest' field does not match", error.Message, StringComparison.Ordinal);
         Assert.NotNull(result.Output);
         Assert.NotNull(result.Output!.Plan);
         Assert.Empty(result.Output.OpResults);

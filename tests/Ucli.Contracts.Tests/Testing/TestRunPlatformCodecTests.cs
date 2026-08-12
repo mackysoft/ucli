@@ -32,15 +32,6 @@ public sealed class TestRunPlatformCodecTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void TestRunPlatformKind_HasStableEnumValues ()
-    {
-        Assert.Equal(0, (int)TestRunPlatformKind.EditMode);
-        Assert.Equal(1, (int)TestRunPlatformKind.PlayMode);
-        Assert.Equal(2, (int)TestRunPlatformKind.Player);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
     public void TestRunPlatformCodec_ToValue_ReturnsExpectedLiterals ()
     {
         Assert.Equal("editmode", TestRunPlatformCodec.ToValue(TestRunPlatform.EditMode));

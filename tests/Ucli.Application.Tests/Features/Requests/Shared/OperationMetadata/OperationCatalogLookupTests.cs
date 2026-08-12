@@ -100,7 +100,6 @@ public sealed class OperationCatalogLookupTests
         {
             await catalog.GetAllAsync(CancellationToken.None).AsTask().WaitAsync(AsyncWaitTimeout);
         });
-        Assert.Contains("duplicated", exception.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

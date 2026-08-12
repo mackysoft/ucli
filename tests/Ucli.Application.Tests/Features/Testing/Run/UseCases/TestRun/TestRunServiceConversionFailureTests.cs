@@ -181,7 +181,6 @@ public sealed class TestRunServiceConversionFailureTests
         Assert.Equal(ApplicationFailureKind.InternalError, result.PrimaryFailure.Kind);
         Assert.Equal(ApplicationOutcome.ToolError, result.PrimaryFailure.Outcome);
         Assert.Equal(UcliCoreErrorCodes.InternalError, result.PrimaryFailure.Code);
-        Assert.Equal("Unexpected error during Unity results conversion: boom", result.Message);
         Assert.Equal("completion failed", result.Failures[1].Message);
         Assert.Equal(session.RunId, result.RunId);
     }

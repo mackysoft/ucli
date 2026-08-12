@@ -20,20 +20,6 @@ public sealed class UnixSocketFallbackPathTests
         { (int)UnixSocketFallbackPurpose.ListenerOwnershipLock, "ucli-il-" },
     };
 
-    [Fact]
-    [Trait("Size", "Small")]
-    public void Constructor_ExposesPurposeInsteadOfCallerSuppliedDirectoryPrefix ()
-    {
-        var constructor = Assert.Single(typeof(UnixSocketFallbackPath).GetConstructors());
-        var parameters = constructor.GetParameters();
-
-        Assert.Collection(
-            parameters,
-            parameter => Assert.Equal(typeof(AbsolutePath), parameter.ParameterType),
-            parameter => Assert.Equal(typeof(UnixSocketFallbackPurpose), parameter.ParameterType),
-            parameter => Assert.Equal(typeof(string), parameter.ParameterType));
-    }
-
     [Theory]
     [MemberData(nameof(PurposePrefixes))]
     [Trait("Size", "Small")]

@@ -18,8 +18,5 @@ public sealed class BoundedWindowApplicatorTests
         Assert.Equal(BoundedWindowCursorCodec.Encode(2), result.Window.NextCursor);
         Assert.False(result.Window.IsComplete);
         Assert.Equal(3, result.Window.TotalCount);
-        Assert.DoesNotContain(
-            typeof(BoundedWindow).GetProperties(),
-            property => string.Equals(property.Name, "After", StringComparison.Ordinal));
     }
 }

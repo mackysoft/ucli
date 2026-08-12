@@ -33,7 +33,7 @@ public sealed class AssetLookupSourceRefreshServiceTests
             cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        Assert.Same(lookupSnapshot, result.Snapshot);
+        AssetLookupSnapshotAssert.Equal(lookupSnapshot, result.Snapshot);
         Assert.Equal("readIndex stale.", result.FallbackReason);
         AssetLookupSnapshotReaderAssert.ReadRequested(reader, expectedFailFast: true);
         ReadIndexArtifactWriterAssert.AssetLookupWritten(
@@ -70,7 +70,7 @@ public sealed class AssetLookupSourceRefreshServiceTests
             cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        Assert.Same(stableLookupSnapshot, result.Snapshot);
+        AssetLookupSnapshotAssert.Equal(stableLookupSnapshot, result.Snapshot);
         Assert.Equal("readIndex stale.", result.FallbackReason);
         ReadIndexArtifactWriterAssert.AssetLookupWrittenWithInputSnapshot(
             store,

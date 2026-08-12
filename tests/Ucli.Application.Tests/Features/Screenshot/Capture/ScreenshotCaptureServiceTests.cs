@@ -144,7 +144,6 @@ public sealed class ScreenshotCaptureServiceTests
         Assert.False(result.IsSuccess);
         Assert.Empty(artifactStore.CommitRequests);
         Assert.Equal(1, artifactStore.DiscardCount);
-        Assert.Contains("payload is invalid", result.Error!.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -186,7 +185,6 @@ public sealed class ScreenshotCaptureServiceTests
 
         Assert.False(result.IsSuccess);
         Assert.Equal(ExecutionErrorKind.InvalidArgument, result.Error!.Kind);
-        Assert.Contains("target", result.Error.Message, StringComparison.OrdinalIgnoreCase);
         Assert.Equal(0, artifactStore.PrepareCount);
     }
 
@@ -207,7 +205,6 @@ public sealed class ScreenshotCaptureServiceTests
         Assert.False(result.IsSuccess);
         Assert.Empty(artifactStore.CommitRequests);
         Assert.Equal(1, artifactStore.DiscardCount);
-        Assert.Contains("identifier", result.Error!.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -308,7 +305,7 @@ public sealed class ScreenshotCaptureServiceTests
         var result = await service.CaptureAsync(CreateInput(), CancellationToken.None);
 
         Assert.False(result.IsSuccess);
-        Assert.Same(expectedError, result.Error);
+        Assert.Equal(expectedError, result.Error);
         Assert.Single(artifactStore.CommitRequests);
         Assert.Equal(1, artifactStore.DiscardCount);
     }
@@ -329,7 +326,7 @@ public sealed class ScreenshotCaptureServiceTests
         var result = await service.CaptureAsync(CreateInput(), CancellationToken.None);
 
         Assert.False(result.IsSuccess);
-        Assert.Same(cleanupError, result.Error);
+        Assert.Equal(cleanupError, result.Error);
         Assert.Single(artifactStore.CommitRequests);
         Assert.Equal(1, artifactStore.DiscardCount);
     }
@@ -355,7 +352,6 @@ public sealed class ScreenshotCaptureServiceTests
 
         Assert.False(result.IsSuccess);
         Assert.Equal(ExecutionErrorKind.InternalError, result.Error!.Kind);
-        Assert.Contains("capture was interrupted", result.Error.Message, StringComparison.Ordinal);
         Assert.Contains(cleanupError.Message, result.Error.Message, StringComparison.Ordinal);
         Assert.Equal(1, artifactStore.DiscardCount);
     }

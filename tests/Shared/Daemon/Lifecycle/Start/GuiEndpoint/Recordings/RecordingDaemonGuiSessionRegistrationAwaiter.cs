@@ -23,7 +23,7 @@ internal sealed class RecordingDaemonGuiSessionRegistrationAwaiter : IDaemonGuiS
     public IReadOnlyList<Invocation> Invocations => invocations;
 
     public void AdvanceTimeOnFirstWait (
-        ManualTimeProvider timeProvider,
+        FakeTimeProvider timeProvider,
         TimeSpan elapsed)
     {
         ArgumentNullException.ThrowIfNull(timeProvider);

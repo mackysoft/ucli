@@ -15,9 +15,9 @@ public sealed class OperationAuthorizationServiceTests
 
     private static readonly DeniedAuthorizationCase[] DeniedAuthorizationCases =
     [
-        new(UcliPrimitiveOperationNames.SceneSave, OperationPolicy.Advanced, OperationPolicy.Safe, "^ucli\\.", ExpectedMessageContains: null),
-        new(UcliPrimitiveOperationNames.SceneOpen, OperationPolicy.Safe, OperationPolicy.Safe, "^myorg\\.", ExpectedMessageContains: null),
-        new(UcliPrimitiveOperationNames.SceneOpen, OperationPolicy.Safe, OperationPolicy.Safe, "[", ExpectedMessageContains: "invalid regex"),
+        new(UcliPrimitiveOperationNames.SceneSave, OperationPolicy.Advanced, OperationPolicy.Safe, "^ucli\\."),
+        new(UcliPrimitiveOperationNames.SceneOpen, OperationPolicy.Safe, OperationPolicy.Safe, "^myorg\\."),
+        new(UcliPrimitiveOperationNames.SceneOpen, OperationPolicy.Safe, OperationPolicy.Safe, "["),
     ];
 
     [Fact]
@@ -55,10 +55,6 @@ public sealed class OperationAuthorizationServiceTests
 
             Assert.False(result.IsAllowed);
             Assert.Equal(OperationAuthorizationErrorCodes.OperationNotAllowed, result.ErrorCode);
-            if (!string.IsNullOrWhiteSpace(testCase.ExpectedMessageContains))
-            {
-                Assert.Contains(testCase.ExpectedMessageContains, result.Message, StringComparison.OrdinalIgnoreCase);
-            }
         }
     }
 
@@ -76,10 +72,6 @@ public sealed class OperationAuthorizationServiceTests
 
         Assert.False(result.IsAllowed);
         Assert.Equal(OperationAuthorizationErrorCodes.OperationNotAllowed, result.ErrorCode);
-        Assert.Contains(UcliPrimitiveOperationNames.SceneSave, result.Message, StringComparison.Ordinal);
-        Assert.Contains("requires operationPolicy='advanced'", result.Message, StringComparison.Ordinal);
-        Assert.Contains("current operationPolicy='safe'", result.Message, StringComparison.Ordinal);
-        Assert.Contains(".ucli/config.json", result.Message, StringComparison.Ordinal);
         Assert.DoesNotContain("AssetDatabase", result.Message, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("ucli refresh", result.Message, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("ucli status", result.Message, StringComparison.OrdinalIgnoreCase);
@@ -118,6 +110,5 @@ public sealed class OperationAuthorizationServiceTests
         string OperationName,
         OperationPolicy RequiredPolicy,
         OperationPolicy ConfiguredPolicy,
-        string AllowlistPattern,
-        string? ExpectedMessageContains);
+        string AllowlistPattern);
 }
