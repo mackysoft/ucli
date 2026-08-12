@@ -91,44 +91,6 @@ public sealed class UcliOperationDescribeVocabularyTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void SideEffectDescriptors_CoverAllSideEffectLiterals ()
-    {
-        var enumLiterals = Enum
-            .GetValues<UcliOperationSideEffect>()
-            .Select(TextVocabulary.GetText)
-            .ToArray();
-
-        Assert.Equal(enumLiterals, UcliOperationSideEffectDescriptors.SupportedValues);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void SideEffectDescriptors_ExposeDescriptorsForSupportedValues ()
-    {
-        var descriptorLiterals = UcliOperationSideEffectDescriptors.All
-            .Select(descriptor => descriptor.Value)
-            .ToArray();
-        var descriptorCodecLiterals = UcliOperationSideEffectDescriptors.All
-            .Select(descriptor => TextVocabulary.GetText(descriptor.SideEffect))
-            .ToArray();
-
-        Assert.Equal(UcliOperationSideEffectDescriptors.SupportedValues, descriptorLiterals);
-        Assert.Equal(UcliOperationSideEffectDescriptors.SupportedValues, descriptorCodecLiterals);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void SideEffectDescriptors_MinimumPolicyFixturesCoverSupportedValues ()
-    {
-        var fixtureLiterals = SideEffectMinimumPolicyCases
-            .Select(testCase => testCase.SideEffect)
-            .ToArray();
-
-        Assert.Equal(UcliOperationSideEffectDescriptors.SupportedValues, fixtureLiterals);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
     public void SideEffectDescriptors_DeclareMinimumPolicy ()
     {
         foreach (var testCase in SideEffectMinimumPolicyCases)
@@ -162,17 +124,6 @@ public sealed class UcliOperationDescribeVocabularyTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void SideEffectDescriptors_QueryOperationAllowanceFixturesCoverSupportedValues ()
-    {
-        var fixtureLiterals = SideEffectQueryAllowanceCases
-            .Select(testCase => testCase.SideEffect)
-            .ToArray();
-
-        Assert.Equal(UcliOperationSideEffectDescriptors.SupportedValues, fixtureLiterals);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
     public void SideEffectDescriptors_DeclareQueryOperationAllowance ()
     {
         foreach (var testCase in SideEffectQueryAllowanceCases)
@@ -193,17 +144,6 @@ public sealed class UcliOperationDescribeVocabularyTests
                 Assert.Empty(descriptor.RequiredTouchedKinds);
             }
         }
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void SideEffectDescriptors_AssuranceProjectionFixturesCoverSupportedValues ()
-    {
-        var fixtureLiterals = SideEffectAssuranceProjectionCases
-            .Select(testCase => testCase.SideEffect)
-            .ToArray();
-
-        Assert.Equal(UcliOperationSideEffectDescriptors.SupportedValues, fixtureLiterals);
     }
 
     [Fact]

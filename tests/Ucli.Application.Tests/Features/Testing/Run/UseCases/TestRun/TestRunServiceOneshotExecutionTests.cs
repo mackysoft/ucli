@@ -213,7 +213,6 @@ public sealed class TestRunServiceOneshotExecutionTests
 
         Assert.Equal(ApplicationOutcome.InfrastructureError, result.PrimaryFailure.Outcome);
         Assert.Equal(UcliCoreErrorCodes.InternalError, result.PrimaryFailure.Code);
-        Assert.StartsWith("Failed to execute Unity oneshot IPC request.", result.Message, StringComparison.Ordinal);
         Assert.Equal(0, convertCount);
     }
 

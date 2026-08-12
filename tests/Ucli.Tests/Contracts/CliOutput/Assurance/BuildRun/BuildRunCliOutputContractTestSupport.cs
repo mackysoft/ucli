@@ -1,37 +1,20 @@
 using System.Text.Json;
+using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 
 namespace MackySoft.Ucli.Tests;
 
 internal static class BuildRunCliOutputContractTestSupport
 {
-    public const string GoldenDirectory = "build-run";
-
-    public static BuildRunGoldenCase[] GoldenCases { get; } =
-    [
-        new("success.json", "success"),
-        new("build-report-failed.json", "build-report-failed"),
-        new("invalid-profile.json", "invalid-profile"),
-        new("unsupported-buildTarget.json", "unsupported-buildTarget"),
-        new("dirty-scene.json", "dirty-scene"),
-        new("buildTarget-module-missing.json", "buildTarget-module-missing"),
-        new("artifact-write-failed.json", "artifact-write-failed"),
-        new("output-manifest-failed.json", "output-manifest-failed"),
-    ];
-
     public static CommandResult CreateCommandResult (string caseName)
     {
         return BuildRunCliOutputFixtureFactory.CreateCommandResult(caseName);
     }
 
-    public static JsonDocument ReadGoldenDocument (string fileName)
+    public static JsonDocument CreateDocument (string caseName)
     {
-        return CliOutputGoldenFiles.ReadJsonDocument(GoldenDirectory, fileName);
-    }
-
-    public static JsonElement ReadGoldenPayload (string fileName)
-    {
-        using var document = ReadGoldenDocument(fileName);
-        return document.RootElement.GetProperty("payload").Clone();
+        var result = CreateCommandResult(caseName);
+        var json = new CommandResultJsonContractWriter().Write(result);
+        return JsonDocument.Parse(json);
     }
 
     public static string GetClaimStatus (
@@ -62,8 +45,4 @@ internal static class BuildRunCliOutputContractTestSupport
         return value is (>= 'A' and <= 'Z')
             or (>= 'a' and <= 'z');
     }
-
-    internal readonly record struct BuildRunGoldenCase (
-        string FileName,
-        string CaseName);
 }

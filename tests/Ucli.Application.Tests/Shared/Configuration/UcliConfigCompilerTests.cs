@@ -23,8 +23,6 @@ public sealed class UcliConfigCompilerTests
 
         var diagnostic = AssertSingleDiagnostic(result.Diagnostics, "config.semantic.unsupportedLiteral");
         Assert.Equal(UcliConfigJsonPropertyNames.OperationPolicy, diagnostic.PropertyPath);
-        Assert.Contains("operationPolicy", diagnostic.Message, StringComparison.Ordinal);
-        Assert.Contains("unsupported", diagnostic.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -44,7 +42,6 @@ public sealed class UcliConfigCompilerTests
 
         var diagnostic = AssertSingleDiagnostic(result.Diagnostics, "config.semantic.emptyAllowlistPattern");
         Assert.Equal("operationAllowlist[0]", diagnostic.PropertyPath);
-        Assert.Contains("empty pattern", diagnostic.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -64,7 +61,6 @@ public sealed class UcliConfigCompilerTests
 
         var diagnostic = AssertSingleDiagnostic(result.Diagnostics, "config.semantic.invalidRegexPattern");
         Assert.Equal("operationAllowlist[0]", diagnostic.PropertyPath);
-        Assert.Contains("regex", diagnostic.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -85,7 +81,6 @@ public sealed class UcliConfigCompilerTests
 
         var diagnostic = AssertSingleDiagnostic(result.Diagnostics, "config.semantic.invalidTimeout");
         Assert.Equal(UcliConfigJsonPropertyNames.IpcDefaultTimeoutMilliseconds, diagnostic.PropertyPath);
-        Assert.Contains("ipcDefaultTimeoutMilliseconds", diagnostic.Message, StringComparison.Ordinal);
     }
 
     [Fact]

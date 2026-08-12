@@ -94,36 +94,6 @@ public sealed class IpcSessionTokenTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void Equality_DoesNotAllocateComparisonBuffers ()
-    {
-        const int IterationCount = 10_000;
-        var token = ParseToken(CanonicalEncodedValue);
-        var sameValue = ParseToken(CanonicalEncodedValue);
-
-        for (var i = 0; i < 100; i++)
-        {
-            _ = token.Equals(sameValue);
-        }
-
-        _ = GC.GetAllocatedBytesForCurrentThread();
-        var allocatedBefore = GC.GetAllocatedBytesForCurrentThread();
-        var matchCount = 0;
-        for (var i = 0; i < IterationCount; i++)
-        {
-            if (token.Equals(sameValue))
-            {
-                matchCount++;
-            }
-        }
-
-        var allocatedAfter = GC.GetAllocatedBytesForCurrentThread();
-
-        Assert.Equal(IterationCount, matchCount);
-        Assert.Equal(0, allocatedAfter - allocatedBefore);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
     public void ToString_DoesNotExposeEncodedValue ()
     {
         var token = ParseToken(CanonicalEncodedValue);

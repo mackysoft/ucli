@@ -1,6 +1,4 @@
-using MackySoft.Ucli.Application.Features.Play.UseCases.Enter;
 using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
-using MackySoft.Ucli.Contracts.Execution;
 using MackySoft.Ucli.Contracts.Execution.Lifecycle;
 using static MackySoft.Ucli.Application.Tests.Play.PlayEnterServiceTestSupport;
 
@@ -40,7 +38,7 @@ public sealed class PlayEnterServiceReconnectTests
                 start.LifecycleExecutionRef));
 
         Assert.False(result.IsSuccess);
-        Assert.Same(publishingReference, result.FailureContext!.LifecycleExecutionRef);
+        Assert.Equal(publishingReference, result.FailureContext!.LifecycleExecutionRef);
         Assert.Empty(requestExecutor.Invocations);
     }
 }

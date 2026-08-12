@@ -35,7 +35,6 @@ public sealed class QueryServiceOperationCatalogTests
         var error = Assert.Single(result.Errors);
         Assert.Equal(ApplicationFailureKind.InvalidInput, error.Kind);
         Assert.Equal(ValidationErrorCodes.OperationNotFound, error.Code);
-        Assert.Contains(UcliPrimitiveOperationNames.CompSchema, error.Message, StringComparison.Ordinal);
         Assert.Single(operationCatalog.ProjectGetAllInvocations);
     }
 

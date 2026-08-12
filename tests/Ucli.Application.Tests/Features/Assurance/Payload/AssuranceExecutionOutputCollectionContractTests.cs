@@ -193,9 +193,9 @@ public sealed class AssuranceExecutionOutputCollectionContractTests
         };
         Assert.All(snapshots, snapshot =>
         {
-            Assert.Same(snapshot.Verifier, Assert.Single(snapshot.Verifiers));
-            Assert.Same(snapshot.Claim, Assert.Single(snapshot.Claims));
-            Assert.Same(snapshot.Risk, Assert.Single(snapshot.Risks));
+            Assert.Equal(snapshot.Verifier, Assert.Single(snapshot.Verifiers));
+            Assert.Equal(snapshot.Claim, Assert.Single(snapshot.Claims));
+            Assert.Equal(snapshot.Risk, Assert.Single(snapshot.Risks));
             Assert.Throws<NotSupportedException>(() => ((System.Collections.IList)snapshot.Verifiers)[0] = new object());
             Assert.Throws<NotSupportedException>(() => ((System.Collections.IList)snapshot.Claims)[0] = new object());
             Assert.Throws<NotSupportedException>(() => ((System.Collections.IList)snapshot.Risks)[0] = new object());

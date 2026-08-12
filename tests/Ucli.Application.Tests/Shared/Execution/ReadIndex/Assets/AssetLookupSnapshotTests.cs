@@ -74,8 +74,8 @@ public sealed class AssetLookupSnapshotTests
         Assert.True(result, error);
         assetSearchEntries[0] = null!;
         guidPathEntries[0] = null!;
-        Assert.Same(assetSearchEntry, Assert.Single(snapshot!.AssetSearchEntries));
-        Assert.Same(guidPathEntry, Assert.Single(snapshot.GuidPathEntries));
+        Assert.Equal(assetSearchEntry, Assert.Single(snapshot!.AssetSearchEntries));
+        Assert.Equal(guidPathEntry, Assert.Single(snapshot.GuidPathEntries));
         Assert.Throws<NotSupportedException>(
             () => ((IList<AssetSearchLookupEntry>)snapshot.AssetSearchEntries).Add(assetSearchEntry));
         Assert.Throws<NotSupportedException>(

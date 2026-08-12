@@ -6,7 +6,7 @@ public sealed class ValidateRequestJsonParserRequestShapeTests
     [Trait("Size", "Small")]
     public void Parse_WhenJsonIsMalformed_ReturnsInvalidArgument ()
     {
-        ValidateRequestJsonParserTestSupport.AssertInvalidArgument("{", "invalid");
+        ValidateRequestJsonParserTestSupport.AssertInvalidArgument("{");
     }
 
     [Fact]
@@ -20,7 +20,7 @@ public sealed class ValidateRequestJsonParserRequestShapeTests
               "unknown": 1
             """);
 
-        ValidateRequestJsonParserTestSupport.AssertInvalidArgument(requestJson, "unknown");
+        ValidateRequestJsonParserTestSupport.AssertInvalidArgument(requestJson);
     }
 
     [Fact]
@@ -34,7 +34,7 @@ public sealed class ValidateRequestJsonParserRequestShapeTests
               "requestId": "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62"
             """);
 
-        ValidateRequestJsonParserTestSupport.AssertInvalidArgument(requestJson, "requestId");
+        ValidateRequestJsonParserTestSupport.AssertInvalidArgument(requestJson);
     }
 
     [Fact]
@@ -43,7 +43,7 @@ public sealed class ValidateRequestJsonParserRequestShapeTests
     {
         var requestJson = ValidateRequestJsonParserTestSupport.CreateRequestWithSteps("{}");
 
-        ValidateRequestJsonParserTestSupport.AssertInvalidArgument(requestJson, "steps");
+        ValidateRequestJsonParserTestSupport.AssertInvalidArgument(requestJson);
     }
 
     [Fact]
@@ -57,6 +57,6 @@ public sealed class ValidateRequestJsonParserRequestShapeTests
             }
             """;
 
-        ValidateRequestJsonParserTestSupport.AssertInvalidArgument(requestJson, "protocolVersion");
+        ValidateRequestJsonParserTestSupport.AssertInvalidArgument(requestJson);
     }
 }

@@ -19,7 +19,7 @@ public sealed class UnityOneshotIpcClientStartupReadinessTests
             "unity-oneshot-ipc-client",
             "start-admission-wait");
         var startedAtUtc = DateTimeOffset.UnixEpoch;
-        var timeProvider = new ManualTimeProvider(startedAtUtc);
+        var timeProvider = new FakeTimeProvider(startedAtUtc);
         var unityProject =
             ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(
                 scope.FullPath);
@@ -27,15 +27,14 @@ public sealed class UnityOneshotIpcClientStartupReadinessTests
         var launcher = new RecordingUnityBatchmodeProcessLauncher(
             UnityBatchmodeProcessLaunchResult.Success(processHandle));
         var pingAttempt = 0;
+        var firstPingCompleted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var transportClient = new RecordingUnityIpcTransportClient(request =>
         {
             return IpcRequestAssert.ParseMethod(request) switch
             {
                 UnityIpcMethod.Ping => CreatePingResponse(
                     request.RequestId,
-                    lifecycleState: ++pingAttempt == 1
-                        ? UnityEditorLifecycleState.Busy
-                        : UnityEditorLifecycleState.Ready),
+                    lifecycleState: GetLifecycleState()),
                 UnityIpcMethod.Refresh =>
                     CreateSuccessResponse(request.RequestId),
                 _ => throw new Xunit.Sdk.XunitException(
@@ -60,11 +59,8 @@ public sealed class UnityOneshotIpcClientStartupReadinessTests
                 TimeSpan.FromSeconds(30),
                 timeProvider),
             CancellationToken.None).AsTask();
-        await ManualTimeTaskDriver.AdvanceUntilCompletedAsync(
-            timeProvider,
-            resultTask,
-            TimeSpan.FromSeconds(30),
-            MaximumStartupRetryDelay);
+        await firstPingCompleted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        timeProvider.Advance(MaximumStartupRetryDelay);
         var result = await resultTask;
 
         Assert.True(result.IsSuccess);
@@ -95,6 +91,17 @@ public sealed class UnityOneshotIpcClientStartupReadinessTests
         Assert.Equal(
             startedAtUtc.AddSeconds(33),
             bootstrap.ExitDeadlineUtc);
+
+        UnityEditorLifecycleState GetLifecycleState ()
+        {
+            if (++pingAttempt == 1)
+            {
+                firstPingCompleted.TrySetResult();
+                return UnityEditorLifecycleState.Busy;
+            }
+
+            return UnityEditorLifecycleState.Ready;
+        }
     }
 
     [Fact]
@@ -184,20 +191,19 @@ public sealed class UnityOneshotIpcClientStartupReadinessTests
             "unity-oneshot-ipc-client",
             "refresh-start-deadline");
         var startedAtUtc = DateTimeOffset.UnixEpoch;
-        var timeProvider = new ManualTimeProvider(startedAtUtc);
+        var timeProvider = new FakeTimeProvider(startedAtUtc);
         var unityProject =
             ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(
                 scope.FullPath);
         var launcher = new RecordingUnityBatchmodeProcessLauncher(
             UnityBatchmodeProcessLaunchResult.Success(
                 new StubUnityBatchmodeProcessHandle()));
+        var startupPingCompleted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var transportClient = new RecordingUnityIpcTransportClient(request =>
         {
             return IpcRequestAssert.ParseMethod(request) switch
             {
-                UnityIpcMethod.Ping => CreatePingResponse(
-                    request.RequestId,
-                    lifecycleState: UnityEditorLifecycleState.Busy),
+                UnityIpcMethod.Ping => CreateBusyPingResponse(request),
                 UnityIpcMethod.Shutdown =>
                     CreateShutdownResponse(request.RequestId),
                 _ => throw new Xunit.Sdk.XunitException(
@@ -222,11 +228,9 @@ public sealed class UnityOneshotIpcClientStartupReadinessTests
                 startAdmissionTimeout,
                 timeProvider),
             CancellationToken.None).AsTask();
-        await ManualTimeTaskDriver.AdvanceUntilCompletedAsync(
-            timeProvider,
-            resultTask,
-            TimeSpan.FromSeconds(5),
-            MaximumStartupRetryDelay);
+        await startupPingCompleted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        timeProvider.Advance(
+            startAdmissionTimeout + LifecycleExecutionTiming.ResponseDeliveryGrace);
         var result = await resultTask;
 
         Assert.False(result.IsSuccess);
@@ -246,6 +250,14 @@ public sealed class UnityOneshotIpcClientStartupReadinessTests
             + startAdmissionTimeout
             + LifecycleExecutionTiming.ResponseDeliveryGrace,
             bootstrap.ExitDeadlineUtc);
+
+        IpcResponse CreateBusyPingResponse (IpcRequestEnvelope request)
+        {
+            startupPingCompleted.TrySetResult();
+            return CreatePingResponse(
+                request.RequestId,
+                lifecycleState: UnityEditorLifecycleState.Busy);
+        }
     }
 
     [Fact]
@@ -294,17 +306,18 @@ public sealed class UnityOneshotIpcClientStartupReadinessTests
             "unity-oneshot-ipc-client",
             $"startup-retry-{TextVocabulary.GetText(lifecycleState)}");
         var unityProject = ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(scope.FullPath);
-        var timeProvider = new ManualTimeProvider(DateTimeOffset.UtcNow);
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UtcNow);
         var processHandle = new StubUnityBatchmodeProcessHandle();
         var launcher = new RecordingUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
         var pingAttempt = 0;
+        var firstPingCompleted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var transportClient = new RecordingUnityIpcTransportClient(request =>
         {
             return IpcRequestAssert.ParseMethod(request) switch
             {
                 UnityIpcMethod.Ping => CreatePingResponse(
                     request.RequestId,
-                    lifecycleState: ++pingAttempt == 1 ? lifecycleState : UnityEditorLifecycleState.Ready),
+                    lifecycleState: GetLifecycleState()),
                 UnityIpcMethod.OpsRead => CreateSuccessResponse(request.RequestId),
                 _ => throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}"),
             };
@@ -321,11 +334,8 @@ public sealed class UnityOneshotIpcClientStartupReadinessTests
             CreateDispatchRequest(),
             ExecutionDeadline.Start(TimeSpan.FromSeconds(30), timeProvider),
             CancellationToken.None).AsTask();
-        await ManualTimeTaskDriver.AdvanceUntilCompletedAsync(
-            timeProvider,
-            resultTask,
-            TimeSpan.FromSeconds(30),
-            MaximumStartupRetryDelay);
+        await firstPingCompleted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        timeProvider.Advance(MaximumStartupRetryDelay);
         var result = await resultTask;
 
         Assert.True(result.IsSuccess);
@@ -339,6 +349,17 @@ public sealed class UnityOneshotIpcClientStartupReadinessTests
         Assert.True(
             startupProbeRequests[1].RequestDeadlineRemainingMilliseconds
             < startupProbeRequests[0].RequestDeadlineRemainingMilliseconds);
+
+        UnityEditorLifecycleState GetLifecycleState ()
+        {
+            if (++pingAttempt == 1)
+            {
+                firstPingCompleted.TrySetResult();
+                return lifecycleState;
+            }
+
+            return UnityEditorLifecycleState.Ready;
+        }
     }
 
     [Theory]
@@ -520,15 +541,16 @@ public sealed class UnityOneshotIpcClientStartupReadinessTests
     {
         using var scope = TestDirectories.CreateTempScope("unity-oneshot-ipc-client", "startup-timeout-retry");
         var unityProject = ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(scope.FullPath);
-        var timeProvider = new ManualTimeProvider(DateTimeOffset.UtcNow);
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UtcNow);
         var processHandle = new StubUnityBatchmodeProcessHandle();
         var launcher = new RecordingUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
         var pingAttempt = 0;
+        var firstPingCompleted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var transportClient = new RecordingUnityIpcTransportClient(request =>
         {
             return IpcRequestAssert.ParseMethod(request) switch
             {
-                UnityIpcMethod.Ping when ++pingAttempt == 1 => throw new TimeoutException("startup ping timed out"),
+                UnityIpcMethod.Ping when ++pingAttempt == 1 => ThrowStartupPingTimeout(),
                 UnityIpcMethod.Ping => CreatePingResponse(request.RequestId),
                 UnityIpcMethod.OpsRead => CreateSuccessResponse(request.RequestId),
                 _ => throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}"),
@@ -546,11 +568,8 @@ public sealed class UnityOneshotIpcClientStartupReadinessTests
             CreateDispatchRequest(),
             ExecutionDeadline.Start(TimeSpan.FromSeconds(30), timeProvider),
             CancellationToken.None).AsTask();
-        await ManualTimeTaskDriver.AdvanceUntilCompletedAsync(
-            timeProvider,
-            resultTask,
-            TimeSpan.FromSeconds(30),
-            MaximumStartupRetryDelay);
+        await firstPingCompleted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        timeProvider.Advance(MaximumStartupRetryDelay);
         var result = await resultTask;
 
         Assert.True(result.IsSuccess);
@@ -565,6 +584,12 @@ public sealed class UnityOneshotIpcClientStartupReadinessTests
             startupProbeRequests[1].RequestDeadlineRemainingMilliseconds
             < startupProbeRequests[0].RequestDeadlineRemainingMilliseconds);
         UnityBatchmodeProcessHandleAssert.WasNotTerminated(processHandle);
+
+        IpcResponse ThrowStartupPingTimeout ()
+        {
+            firstPingCompleted.TrySetResult();
+            throw new TimeoutException("startup ping timed out");
+        }
     }
 
     [Fact]
@@ -573,17 +598,16 @@ public sealed class UnityOneshotIpcClientStartupReadinessTests
     {
         using var scope = TestDirectories.CreateTempScope("unity-oneshot-ipc-client", "startup-connect-retry");
         var unityProject = ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(scope.FullPath);
-        var timeProvider = new ManualTimeProvider(DateTimeOffset.UtcNow);
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UtcNow);
         var processHandle = new StubUnityBatchmodeProcessHandle();
         var launcher = new RecordingUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
         var pingAttempt = 0;
+        var firstPingCompleted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var transportClient = new RecordingUnityIpcTransportClient(request =>
         {
             return IpcRequestAssert.ParseMethod(request) switch
             {
-                UnityIpcMethod.Ping when ++pingAttempt == 1 => throw new IpcConnectException(
-                    "IPC connection failed before the request was sent.",
-                    new IOException("Named pipe connection failed.")),
+                UnityIpcMethod.Ping when ++pingAttempt == 1 => ThrowStartupConnectFailure(),
                 UnityIpcMethod.Ping => CreatePingResponse(request.RequestId),
                 UnityIpcMethod.OpsRead => CreateSuccessResponse(request.RequestId),
                 _ => throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}"),
@@ -601,11 +625,8 @@ public sealed class UnityOneshotIpcClientStartupReadinessTests
             CreateDispatchRequest(),
             ExecutionDeadline.Start(TimeSpan.FromSeconds(30), timeProvider),
             CancellationToken.None).AsTask();
-        await ManualTimeTaskDriver.AdvanceUntilCompletedAsync(
-            timeProvider,
-            resultTask,
-            TimeSpan.FromSeconds(30),
-            MaximumStartupRetryDelay);
+        await firstPingCompleted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        timeProvider.Advance(MaximumStartupRetryDelay);
         var result = await resultTask;
 
         Assert.True(result.IsSuccess);
@@ -620,6 +641,14 @@ public sealed class UnityOneshotIpcClientStartupReadinessTests
             startupProbeRequests[1].RequestDeadlineRemainingMilliseconds
             < startupProbeRequests[0].RequestDeadlineRemainingMilliseconds);
         UnityBatchmodeProcessHandleAssert.WasNotTerminated(processHandle);
+
+        IpcResponse ThrowStartupConnectFailure ()
+        {
+            firstPingCompleted.TrySetResult();
+            throw new IpcConnectException(
+                "IPC connection failed before the request was sent.",
+                new IOException("Named pipe connection failed."));
+        }
     }
 
     [Fact]
@@ -628,16 +657,16 @@ public sealed class UnityOneshotIpcClientStartupReadinessTests
     {
         using var scope = TestDirectories.CreateTempScope("unity-oneshot-ipc-client", "startup-response-read-interrupted");
         var unityProject = ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(scope.FullPath);
-        var timeProvider = new ManualTimeProvider(DateTimeOffset.UtcNow);
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UtcNow);
         var processHandle = new StubUnityBatchmodeProcessHandle();
         var launcher = new RecordingUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
         var pingAttempt = 0;
+        var firstPingCompleted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var transportClient = new RecordingUnityIpcTransportClient(request =>
         {
             return IpcRequestAssert.ParseMethod(request) switch
             {
-                UnityIpcMethod.Ping when ++pingAttempt == 1 => throw new IpcResponseReadInterruptedException(
-                    new IOException("Pipe is broken.")),
+                UnityIpcMethod.Ping when ++pingAttempt == 1 => ThrowStartupResponseInterruption(),
                 UnityIpcMethod.Ping => CreatePingResponse(request.RequestId),
                 UnityIpcMethod.OpsRead => CreateSuccessResponse(request.RequestId),
                 _ => throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}"),
@@ -655,11 +684,8 @@ public sealed class UnityOneshotIpcClientStartupReadinessTests
             CreateDispatchRequest(),
             ExecutionDeadline.Start(TimeSpan.FromSeconds(30), timeProvider),
             CancellationToken.None).AsTask();
-        await ManualTimeTaskDriver.AdvanceUntilCompletedAsync(
-            timeProvider,
-            resultTask,
-            TimeSpan.FromSeconds(30),
-            MaximumStartupRetryDelay);
+        await firstPingCompleted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        timeProvider.Advance(MaximumStartupRetryDelay);
         var result = await resultTask;
 
         Assert.True(result.IsSuccess);
@@ -674,6 +700,13 @@ public sealed class UnityOneshotIpcClientStartupReadinessTests
             startupProbeRequests[1].RequestDeadlineRemainingMilliseconds
             < startupProbeRequests[0].RequestDeadlineRemainingMilliseconds);
         UnityBatchmodeProcessHandleAssert.WasNotTerminated(processHandle);
+
+        IpcResponse ThrowStartupResponseInterruption ()
+        {
+            firstPingCompleted.TrySetResult();
+            throw new IpcResponseReadInterruptedException(
+                new IOException("Pipe is broken."));
+        }
     }
 
     private static IpcLifecycleExecutionStartRequest ReadStartRequest (

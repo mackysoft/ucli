@@ -9,7 +9,6 @@ using MackySoft.Ucli.Contracts.Editor;
 namespace MackySoft.Ucli.Tests.Daemon;
 
 using System.Net.Sockets;
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Tests.Helpers.Daemon;
@@ -137,7 +136,7 @@ public sealed class DaemonStatusOperationTests
                 IpcSessionErrorCodes.SessionTokenInvalid),
             replacementFailure);
         var diagnosisStore = new RecordingDaemonDiagnosisStore();
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var operation = new DaemonStatusOperation(
             daemonSessionStore: sessionStore,
             daemonDiagnosisStore: diagnosisStore,
@@ -150,7 +149,8 @@ public sealed class DaemonStatusOperationTests
         var result = await GetStatusAfterEndpointAvailabilityWindowAsync(
             operation,
             context,
-            timeProvider);
+            timeProvider,
+            pingInfoClient);
 
         Assert.Null(result.Error);
         Assert.True(result.IsSuccess);
@@ -172,14 +172,15 @@ public sealed class DaemonStatusOperationTests
             DaemonSessionReadResultTestFactory.Found(session),
             DaemonSessionReadResult.Missing());
         var diagnosisStore = new RecordingDaemonDiagnosisStore();
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
+        var pingInfoClient = new RecordingDaemonPingInfoClient(new TimeoutException("probe timeout"));
         var operation = new DaemonStatusOperation(
             daemonSessionStore: sessionStore,
             daemonDiagnosisStore: diagnosisStore,
             launchAttemptStore: new RecordingDaemonLaunchAttemptStore(),
             daemonSessionProbe: CreateSessionProbe(
                 sessionStore,
-                new RecordingDaemonPingInfoClient(new TimeoutException("probe timeout"))),
+                pingInfoClient),
             reachabilityClassifier: new DaemonReachabilityClassifier(),
             daemonSessionDiagnosisResolver: new DaemonSessionDiagnosisResolver(diagnosisStore),
             timeProvider: timeProvider);
@@ -187,7 +188,8 @@ public sealed class DaemonStatusOperationTests
         var result = await GetStatusAfterEndpointAvailabilityWindowAsync(
             operation,
             context,
-            timeProvider);
+            timeProvider,
+            pingInfoClient);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(DaemonStatusKind.Stale, result.Status);
@@ -214,14 +216,15 @@ public sealed class DaemonStatusOperationTests
         {
             ReadResult = DaemonDiagnosisReadResult.Success(persistedDiagnosis),
         };
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
+        var pingInfoClient = new RecordingDaemonPingInfoClient(new TimeoutException("probe timeout"));
         var operation = new DaemonStatusOperation(
             daemonSessionStore: sessionStore,
             daemonDiagnosisStore: diagnosisStore,
             launchAttemptStore: new RecordingDaemonLaunchAttemptStore(),
             daemonSessionProbe: CreateSessionProbe(
                 sessionStore,
-                new RecordingDaemonPingInfoClient(new TimeoutException("probe timeout"))),
+                pingInfoClient),
             reachabilityClassifier: new DaemonReachabilityClassifier(),
             daemonSessionDiagnosisResolver: new DaemonSessionDiagnosisResolver(diagnosisStore),
             timeProvider: timeProvider);
@@ -229,7 +232,8 @@ public sealed class DaemonStatusOperationTests
         var result = await GetStatusAfterEndpointAvailabilityWindowAsync(
             operation,
             context,
-            timeProvider);
+            timeProvider,
+            pingInfoClient);
 
         DaemonStatusOperationAssert.StaleSessionReturnedWithoutDiagnosisWrite(
             result,
@@ -251,15 +255,16 @@ public sealed class DaemonStatusOperationTests
         {
             ReadResult = DaemonDiagnosisReadResult.Success(diagnosis),
         };
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
+        var pingInfoClient = new RecordingDaemonPingInfoClient(
+            IpcConnectExceptionTestFactory.FromSocketError(SocketError.ConnectionRefused));
         var operation = new DaemonStatusOperation(
             daemonSessionStore: sessionStore,
             daemonDiagnosisStore: diagnosisStore,
             launchAttemptStore: new RecordingDaemonLaunchAttemptStore(),
             daemonSessionProbe: CreateSessionProbe(
                 sessionStore,
-                new RecordingDaemonPingInfoClient(
-                    IpcConnectExceptionTestFactory.FromSocketError(SocketError.ConnectionRefused))),
+                pingInfoClient),
             reachabilityClassifier: new DaemonReachabilityClassifier(),
             daemonSessionDiagnosisResolver: new DaemonSessionDiagnosisResolver(diagnosisStore),
             timeProvider: timeProvider);
@@ -267,7 +272,8 @@ public sealed class DaemonStatusOperationTests
         var result = await GetStatusAfterEndpointAvailabilityWindowAsync(
             operation,
             context,
-            timeProvider);
+            timeProvider,
+            pingInfoClient);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(DaemonStatusKind.Stale, result.Status);
@@ -726,7 +732,8 @@ public sealed class DaemonStatusOperationTests
     private static async Task<DaemonStatusResult> GetStatusAfterEndpointAvailabilityWindowAsync (
         DaemonStatusOperation operation,
         ResolvedUnityProjectContext context,
-        ManualTimeProvider timeProvider)
+        FakeTimeProvider timeProvider,
+        RecordingDaemonPingInfoClient pingClient)
     {
         var retryDelay = TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds);
         var requestTimeout = DaemonTimeouts.ProbeAttemptTimeoutCap + TimeSpan.FromSeconds(1);
@@ -735,14 +742,10 @@ public sealed class DaemonStatusOperationTests
                 requestTimeout,
                 CancellationToken.None)
             .AsTask();
-        var endpointAvailabilityWindow = Task.Delay(
-            DaemonTimeouts.ProbeAttemptTimeoutCap,
-            timeProvider);
-        await ManualTimeTaskDriver.AdvanceUntilCompletedAsync(
-            timeProvider,
-            endpointAvailabilityWindow,
-            DaemonTimeouts.ProbeAttemptTimeoutCap,
-            retryDelay);
+        await pingClient.WaitForFirstInvocationAsync(
+            "daemon status endpoint availability",
+            TimeSpan.FromSeconds(5));
+        timeProvider.Advance(DaemonTimeouts.ProbeAttemptTimeoutCap);
         return await resultTask.WaitAsync(TimeSpan.FromSeconds(5));
     }
 

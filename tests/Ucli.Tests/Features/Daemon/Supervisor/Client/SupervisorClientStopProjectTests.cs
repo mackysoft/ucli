@@ -55,7 +55,7 @@ public sealed class SupervisorClientStopProjectTests
     [Trait("Size", "Small")]
     public async Task StopProject_WhenTerminalNeverCompletes_ReturnsAtFiniteGraceDeadline ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var requestObserved = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var cancellationObserved = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var terminalResponseSource = new TaskCompletionSource<IpcResponse>(
@@ -82,8 +82,6 @@ public sealed class SupervisorClientStopProjectTests
                 CancellationToken.None)
             .AsTask();
         await requestObserved.Task.WaitAsync(SignalWaitTimeout);
-        await timeProvider.WaitForTimerDueWithinAsync(terminalTimeout).WaitAsync(SignalWaitTimeout);
-
         try
         {
             timeProvider.Advance(terminalTimeout);

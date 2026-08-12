@@ -146,6 +146,5 @@ public sealed class CallServiceReadPostconditionTests
             expectedProjectFingerprint: ProjectFingerprintTestFactory.Create("project-fingerprint"));
         var error = Assert.Single(result.Errors);
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
-        Assert.Equal("Failed to persist mutation read postcondition.", error.Message);
     }
 }

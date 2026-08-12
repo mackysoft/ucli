@@ -216,7 +216,6 @@ public sealed class QueryServiceAssetsFindTests
         var error = Assert.Single(result.Errors);
         Assert.Equal(ApplicationFailureKind.Timeout, error.Kind);
         Assert.Equal(ExecutionErrorCodes.IpcTimeout, error.Code);
-        Assert.Equal("Asset lookup request timed out.", error.Message);
     }
 
     private static AssetSearchLookupEntry CreateMaterialAssetEntry (

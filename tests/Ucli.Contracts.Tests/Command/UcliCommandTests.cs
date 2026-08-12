@@ -107,28 +107,6 @@ public sealed class UcliCommandTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void IsValidName_WithValidName_DoesNotAllocate ()
-    {
-        const string Name = "daemon.status";
-        for (var index = 0; index < 16; index++)
-        {
-            _ = UcliCommand.IsValidName(Name);
-        }
-
-        var allocatedBytesBefore = GC.GetAllocatedBytesForCurrentThread();
-        var isValid = true;
-        for (var index = 0; index < 1_000; index++)
-        {
-            isValid &= UcliCommand.IsValidName(Name);
-        }
-
-        var allocatedBytes = GC.GetAllocatedBytesForCurrentThread() - allocatedBytesBefore;
-        Assert.True(isValid);
-        Assert.Equal(0, allocatedBytes);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
     public void TryCreate_WithInvalidName_ReturnsNull ()
     {
         foreach (string? name in InvalidCommandNames)

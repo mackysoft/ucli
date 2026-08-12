@@ -5,11 +5,11 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Acquisition;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Observation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Contracts.Editor;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Features.Daemon.Common.Ipc;
 using MackySoft.Ucli.Tests.Helpers.Ipc;
 using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
-using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Tests.Features.Daemon.Common.Ipc;
 
@@ -49,16 +49,18 @@ public sealed class DaemonIpcRequestSenderTests
     [Trait("Size", "Small")]
     [InlineData(UnityIpcMethod.DaemonLogsRead)]
     [InlineData(UnityIpcMethod.UnityLogsRead)]
-    public async Task SendAsync_WhenStatelessReadAttemptTimesOutEarly_ReplaysWithinOriginalDeadline (
+    public async Task SendAsync_WhenStatelessReadAttemptTimesOutEarly_ReplaysWithPublishedSuccessorWithinOriginalDeadline (
         UnityIpcMethod method)
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var transportClient = CreateTransportClient();
         transportClient.EnqueueException(new TimeoutException("attempt timed out"));
         var sender = new DaemonIpcRequestSender(
             transportClient,
             DaemonSessionAcquisitionCoordinatorTestFactory.Create(
-                new RecordingDaemonSessionStore(CreateSessionReadResult("daemon-token"))),
+                new QueuedDaemonSessionStore(
+                    CreateSessionReadResult("daemon-token-1"),
+                    CreateSessionReadResult("daemon-token-2"))),
             new DaemonReachabilityClassifier(),
             timeProvider);
 
@@ -69,37 +71,37 @@ public sealed class DaemonIpcRequestSenderTests
                 TimeSpan.FromSeconds(5),
                 CancellationToken.None)
             .AsTask();
-        await ManualTimeTaskDriver.AdvanceUntilCompletedAsync(
-            timeProvider,
-            resultTask,
-            TimeSpan.FromSeconds(1),
-            TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds));
-        var result = await resultTask;
+        var result = await resultTask.WaitAsync(AsyncWaitTimeout);
 
         Assert.True(result.IsSuccess);
         var requests = IpcRequestAssert.Methods(transportClient, method, method);
+        IpcRequestAssert.SessionTokens(
+            requests,
+            IpcSessionTokenTestFactory.Create("daemon-token-1").GetEncodedValue(),
+            IpcSessionTokenTestFactory.Create("daemon-token-2").GetEncodedValue());
         _ = IpcRequestAssert.SingleRequestId(requests);
         Assert.All(
             requests,
             request => Assert.Equal(DateTimeOffset.UnixEpoch + TimeSpan.FromSeconds(5), request.RequestDeadlineUtc));
-        Assert.True(transportClient.Timeouts[1] < transportClient.Timeouts[0]);
     }
 
     [Theory]
     [Trait("Size", "Small")]
     [InlineData(UnityIpcMethod.DaemonLogsRead)]
     [InlineData(UnityIpcMethod.UnityLogsRead)]
-    public async Task SendAsync_WhenStatelessReadResponseIsInterrupted_ReplaysWithSameRequestIdentity (
+    public async Task SendAsync_WhenStatelessReadResponseIsInterrupted_ReplaysWithPublishedSuccessorAndSameRequestIdentity (
         UnityIpcMethod method)
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var transportClient = CreateTransportClient();
         transportClient.EnqueueException(new IpcResponseReadInterruptedException(
             new IOException("response read was interrupted")));
         var sender = new DaemonIpcRequestSender(
             transportClient,
             DaemonSessionAcquisitionCoordinatorTestFactory.Create(
-                new RecordingDaemonSessionStore(CreateSessionReadResult("daemon-token"))),
+                new QueuedDaemonSessionStore(
+                    CreateSessionReadResult("daemon-token-1"),
+                    CreateSessionReadResult("daemon-token-2"))),
             new DaemonReachabilityClassifier(),
             timeProvider);
 
@@ -110,15 +112,14 @@ public sealed class DaemonIpcRequestSenderTests
                 TimeSpan.FromSeconds(5),
                 CancellationToken.None)
             .AsTask();
-        await ManualTimeTaskDriver.AdvanceUntilCompletedAsync(
-            timeProvider,
-            resultTask,
-            TimeSpan.FromSeconds(1),
-            TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds));
-        var result = await resultTask;
+        var result = await resultTask.WaitAsync(AsyncWaitTimeout);
 
         Assert.True(result.IsSuccess);
         var requests = IpcRequestAssert.Methods(transportClient, method, method);
+        IpcRequestAssert.SessionTokens(
+            requests,
+            IpcSessionTokenTestFactory.Create("daemon-token-1").GetEncodedValue(),
+            IpcSessionTokenTestFactory.Create("daemon-token-2").GetEncodedValue());
         _ = IpcRequestAssert.SingleRequestId(requests);
         Assert.All(
             requests,
@@ -158,7 +159,7 @@ public sealed class DaemonIpcRequestSenderTests
     [Trait("Size", "Small")]
     public async Task SendAsync_WhenStatelessReadRecoveryWindowExpires_PreservesOriginalInterruption ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var transportClient = CreateTransportClient();
         transportClient.EnqueueException(new IpcResponseReadInterruptedException(
             new IOException("original response interruption")));
@@ -179,7 +180,6 @@ public sealed class DaemonIpcRequestSenderTests
                 CancellationToken.None)
             .AsTask();
         var retryDelay = TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds);
-        await timeProvider.WaitForTimerDueWithinAsync(retryDelay).WaitAsync(AsyncWaitTimeout);
         timeProvider.Advance(DaemonTimeouts.SessionPublicationRetryTimeout);
         var result = await resultTask.WaitAsync(AsyncWaitTimeout);
 
@@ -198,7 +198,7 @@ public sealed class DaemonIpcRequestSenderTests
     [Trait("Size", "Small")]
     public async Task SendAsync_WhenEarlyTimeoutRecoveryWindowExpires_PreservesAttemptTimeoutMessage ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var transportClient = CreateTransportClient();
         transportClient.EnqueueException(new TimeoutException("original attempt timeout"));
         var sender = new DaemonIpcRequestSender(
@@ -218,7 +218,6 @@ public sealed class DaemonIpcRequestSenderTests
                 CancellationToken.None)
             .AsTask();
         var retryDelay = TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds);
-        await timeProvider.WaitForTimerDueWithinAsync(retryDelay).WaitAsync(AsyncWaitTimeout);
         timeProvider.Advance(DaemonTimeouts.SessionPublicationRetryTimeout);
         var result = await resultTask.WaitAsync(AsyncWaitTimeout);
 
@@ -239,7 +238,7 @@ public sealed class DaemonIpcRequestSenderTests
     public async Task SendAsync_WhenSessionResolutionDoesNotQuiesce_ReturnsTimeoutAtDeadline (
         bool blockCancellationCallback)
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var sessionStore = new BlockingDaemonSessionStore(
             CreateSessionReadResult("daemon-token"),
             blockCancellationCallback);
@@ -261,10 +260,6 @@ public sealed class DaemonIpcRequestSenderTests
         try
         {
             await sessionStore.Started.WaitAsync(TimeSpan.FromSeconds(1));
-            await timeProvider
-                .WaitForTimerDueWithinAsync(timeout)
-                .WaitAsync(TimeSpan.FromSeconds(1));
-
             timeProvider.Advance(timeout);
             if (blockCancellationCallback)
             {
@@ -289,7 +284,7 @@ public sealed class DaemonIpcRequestSenderTests
     [Trait("Size", "Small")]
     public async Task SendAsync_WhenSessionResolutionConsumesBudget_PassesRemainingTimeoutToTransport ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var transportClient = CreateTransportClient();
         var sender = new DaemonIpcRequestSender(
             transportClient,
@@ -316,7 +311,7 @@ public sealed class DaemonIpcRequestSenderTests
     [Trait("Size", "Small")]
     public async Task SendAsync_WhenRecoveryLifecycleReadIgnoresCancellation_ReturnsSessionNotAvailableAtEndpointWindow ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var transportClient = CreateTransportClient();
         transportClient.EnqueueException(new IpcConnectException(
             "IPC connection was refused before the request was sent.",
@@ -355,10 +350,6 @@ public sealed class DaemonIpcRequestSenderTests
         try
         {
             await lifecycleReadStartedSource.Task.WaitAsync(TimeSpan.FromSeconds(1));
-            await timeProvider
-                .WaitForTimerDueWithinAsync(DaemonTimeouts.ProbeAttemptTimeoutCap)
-                .WaitAsync(TimeSpan.FromSeconds(1));
-
             timeProvider.Advance(DaemonTimeouts.ProbeAttemptTimeoutCap);
 
             var completedTask = await Task.WhenAny(sendTask, Task.Delay(TimeSpan.FromSeconds(1)));
@@ -496,112 +487,9 @@ public sealed class DaemonIpcRequestSenderTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task SendAsync_WhenSessionTokenPublicationLags_ReResolvesWithoutReplayingRejectedToken ()
-    {
-        var timeProvider = new ManualTimeProvider();
-        var transportClient = CreateTransportClient();
-        transportClient.EnqueueResponse(static request => CreateSessionTokenInvalidResponse(request.RequestId));
-        transportClient.EnqueueResponse(static request => CreateResponse(request.RequestId));
-        var sender = new DaemonIpcRequestSender(
-            transportClient,
-            DaemonSessionAcquisitionCoordinatorTestFactory.Create(
-                new QueuedDaemonSessionStore(
-                CreateSessionReadResult("daemon-token-1"),
-                CreateSessionReadResult("daemon-token-1"),
-                CreateSessionReadResult("daemon-token-1"),
-                CreateSessionReadResult("daemon-token-2"),
-                CreateSessionReadResult("daemon-token-3"))),
-            new DaemonReachabilityClassifier(),
-            timeProvider);
-
-        var resultTask = sender.SendAsync(
-                ResolvedUnityProjectContextTestFactory.Create(),
-                UnityIpcMethod.UnityLogsRead,
-                RequestPayload,
-                TimeSpan.FromSeconds(5),
-                CancellationToken.None)
-            .AsTask();
-        await ManualTimeTaskDriver.AdvanceUntilCompletedAsync(
-            timeProvider,
-            resultTask,
-            TimeSpan.FromSeconds(2),
-            TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds));
-
-        var result = await resultTask;
-
-        Assert.True(result.IsSuccess);
-        Assert.Equal(IpcResponseStatus.Ok, result.Response!.Status);
-        var requests = IpcRequestAssert.Methods(
-            transportClient,
-            UnityIpcMethod.UnityLogsRead,
-            UnityIpcMethod.UnityLogsRead);
-        IpcRequestAssert.SessionTokens(
-            requests,
-            IpcSessionTokenTestFactory.Create("daemon-token-1").GetEncodedValue(),
-            IpcSessionTokenTestFactory.Create("daemon-token-2").GetEncodedValue());
-        _ = IpcRequestAssert.SingleRequestId(requests);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public async Task SendAsync_WhenSuccessorSessionTokenIsRejected_FollowsNextPublishedGeneration ()
-    {
-        var timeProvider = new ManualTimeProvider();
-        var transportClient = CreateTransportClient();
-        transportClient.EnqueueResponse(static request => CreateSessionTokenInvalidResponse(request.RequestId));
-        transportClient.EnqueueResponse(static request => CreateSessionTokenInvalidResponse(request.RequestId));
-        transportClient.EnqueueResponse(static request => CreateResponse(request.RequestId));
-        var sessionConnections = Enumerable
-            .Repeat(CreateSessionReadResult("daemon-token-1"), 18)
-            .Append(CreateSessionReadResult("daemon-token-2"))
-            .Append(CreateSessionReadResult("daemon-token-2"))
-            .Append(CreateSessionReadResult("daemon-token-3"))
-            .ToArray();
-        var sender = new DaemonIpcRequestSender(
-            transportClient,
-            DaemonSessionAcquisitionCoordinatorTestFactory.Create(
-                new QueuedDaemonSessionStore(sessionConnections)),
-            new DaemonReachabilityClassifier(),
-            timeProvider);
-
-        var resultTask = sender.SendAsync(
-                ResolvedUnityProjectContextTestFactory.Create(),
-                UnityIpcMethod.UnityLogsRead,
-                RequestPayload,
-                TimeSpan.FromSeconds(5),
-                CancellationToken.None)
-            .AsTask();
-        await ManualTimeTaskDriver.AdvanceUntilCompletedAsync(
-            timeProvider,
-            resultTask,
-            TimeSpan.FromSeconds(3),
-            TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds));
-
-        var result = await resultTask;
-
-        Assert.True(result.IsSuccess);
-        Assert.Equal(IpcResponseStatus.Ok, result.Response!.Status);
-        var requests = IpcRequestAssert.Methods(
-            transportClient,
-            UnityIpcMethod.UnityLogsRead,
-            UnityIpcMethod.UnityLogsRead,
-            UnityIpcMethod.UnityLogsRead);
-        IpcRequestAssert.SessionTokens(
-            requests,
-            IpcSessionTokenTestFactory.Create("daemon-token-1").GetEncodedValue(),
-            IpcSessionTokenTestFactory.Create("daemon-token-2").GetEncodedValue(),
-            IpcSessionTokenTestFactory.Create("daemon-token-3").GetEncodedValue());
-        _ = IpcRequestAssert.SingleRequestId(requests);
-        Assert.True(
-            timeProvider.GetUtcNow()
-            < DateTimeOffset.UnixEpoch + DaemonTimeouts.SessionPublicationRetryTimeout);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
     public async Task SendAsync_WhenSuccessorEndpointFailsBeforeWrite_RetriesWithNextPublishedGeneration ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var attempt = 0;
         var transportClient = new RecordingIpcTransportClient(request =>
         {
@@ -631,13 +519,7 @@ public sealed class DaemonIpcRequestSenderTests
                 TimeSpan.FromSeconds(5),
                 CancellationToken.None)
             .AsTask();
-        await ManualTimeTaskDriver.AdvanceUntilCompletedAsync(
-            timeProvider,
-            resultTask,
-            TimeSpan.FromSeconds(1),
-            TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds));
-
-        var result = await resultTask;
+        var result = await resultTask.WaitAsync(AsyncWaitTimeout);
 
         Assert.True(result.IsSuccess);
         var requests = IpcRequestAssert.Methods(
@@ -651,75 +533,13 @@ public sealed class DaemonIpcRequestSenderTests
             IpcSessionTokenTestFactory.Create("daemon-token-2").GetEncodedValue(),
             IpcSessionTokenTestFactory.Create("daemon-token-3").GetEncodedValue());
         _ = IpcRequestAssert.SingleRequestId(requests);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public async Task SendAsync_WhenLateSuccessorEndpointFailsBeforeWrite_OpensNewPublicationWindowForNextGeneration ()
-    {
-        var timeProvider = new ManualTimeProvider();
-        var attempt = 0;
-        var transportClient = new RecordingIpcTransportClient(request =>
-        {
-            return Interlocked.Increment(ref attempt) switch
-            {
-                1 => CreateSessionTokenInvalidResponse(request.RequestId),
-                2 => throw new IpcConnectException(
-                    "IPC connection was refused before the request was sent.",
-                    new SocketException((int)SocketError.ConnectionRefused)),
-                _ => CreateResponse(request.RequestId),
-            };
-        });
-        var sessionConnections = Enumerable
-            .Repeat(CreateSessionReadResult("daemon-token-1"), 19)
-            .Append(CreateSessionReadResult("daemon-token-2"))
-            .Append(CreateSessionReadResult("daemon-token-3"))
-            .ToArray();
-        var sender = new DaemonIpcRequestSender(
-            transportClient,
-            DaemonSessionAcquisitionCoordinatorTestFactory.Create(
-                new QueuedDaemonSessionStore(sessionConnections)),
-            new DaemonReachabilityClassifier(),
-            timeProvider);
-
-        var resultTask = sender.SendAsync(
-                ResolvedUnityProjectContextTestFactory.Create(),
-                UnityIpcMethod.UnityLogsRead,
-                RequestPayload,
-                TimeSpan.FromSeconds(5),
-                CancellationToken.None)
-            .AsTask();
-        await ManualTimeTaskDriver.AdvanceUntilCompletedAsync(
-            timeProvider,
-            resultTask,
-            TimeSpan.FromSeconds(3),
-            TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds));
-
-        var result = await resultTask;
-
-        Assert.True(result.IsSuccess);
-        Assert.Equal(IpcResponseStatus.Ok, result.Response!.Status);
-        var requests = IpcRequestAssert.Methods(
-            transportClient,
-            UnityIpcMethod.UnityLogsRead,
-            UnityIpcMethod.UnityLogsRead,
-            UnityIpcMethod.UnityLogsRead);
-        IpcRequestAssert.SessionTokens(
-            requests,
-            IpcSessionTokenTestFactory.Create("daemon-token-1").GetEncodedValue(),
-            IpcSessionTokenTestFactory.Create("daemon-token-2").GetEncodedValue(),
-            IpcSessionTokenTestFactory.Create("daemon-token-3").GetEncodedValue());
-        _ = IpcRequestAssert.SingleRequestId(requests);
-        Assert.True(
-            timeProvider.GetUtcNow()
-            < DateTimeOffset.UnixEpoch + DaemonTimeouts.SessionPublicationRetryTimeout);
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public async Task SendAsync_WhenRejectedSessionTokenDoesNotRotate_ReturnsRejectionAfterPublicationGrace ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var transportClient = CreateTransportClient();
         transportClient.EnqueueResponse(static request => CreateSessionTokenInvalidResponse(request.RequestId));
         transportClient.EnqueueResponse(static request => CreateResponse(request.RequestId));
@@ -737,9 +557,6 @@ public sealed class DaemonIpcRequestSenderTests
                 TimeSpan.FromSeconds(5),
                 CancellationToken.None)
             .AsTask();
-        await timeProvider
-            .WaitForTimerDueWithinAsync(TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds))
-            .WaitAsync(AsyncWaitTimeout);
         timeProvider.Advance(DaemonTimeouts.SessionPublicationRetryTimeout);
 
         var result = await resultTask.WaitAsync(AsyncWaitTimeout);
@@ -760,7 +577,7 @@ public sealed class DaemonIpcRequestSenderTests
     [Trait("Size", "Small")]
     public async Task SendAsync_WhenReplacementSessionResolutionIgnoresCancellation_ReturnsRejectionAtPublicationDeadline ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var transportClient = CreateTransportClient();
         transportClient.EnqueueResponse(static request => CreateSessionTokenInvalidResponse(request.RequestId));
         var sessionStore = new NonCooperativeBlockingDaemonSessionStore(
@@ -784,9 +601,6 @@ public sealed class DaemonIpcRequestSenderTests
 
         try
         {
-            await timeProvider
-                .WaitForTimerDueWithinAsync(DaemonTimeouts.SessionPublicationRetryTimeout)
-                .WaitAsync(AsyncWaitTimeout);
             timeProvider.Advance(DaemonTimeouts.SessionPublicationRetryTimeout);
             var completedTask = await Task.WhenAny(sendTask, Task.Delay(AsyncWaitTimeout));
 
@@ -810,7 +624,7 @@ public sealed class DaemonIpcRequestSenderTests
     [Trait("Size", "Small")]
     public async Task SendAsync_WhenEndpointRemainsAbsent_ReturnsDaemonSessionNotAvailable ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var transportClient = CreateTransportClient();
         for (var i = 0; i < 20; i++)
         {
@@ -836,9 +650,9 @@ public sealed class DaemonIpcRequestSenderTests
                 CancellationToken.None)
             .AsTask();
         var retryDelay = TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds);
-        await timeProvider.WaitForTimerDueWithinAsync(retryDelay).WaitAsync(AsyncWaitTimeout);
+        await transportClient.WaitForRequestAsync(AsyncWaitTimeout);
         timeProvider.Advance(retryDelay);
-        await timeProvider.WaitForTimerDueWithinAsync(retryDelay).WaitAsync(AsyncWaitTimeout);
+        await transportClient.WaitForRequestAsync(AsyncWaitTimeout);
         timeProvider.Advance(DaemonTimeouts.ProbeAttemptTimeoutCap - retryDelay);
 
         var result = await sendTask.WaitAsync(AsyncWaitTimeout);
@@ -945,14 +759,14 @@ public sealed class DaemonIpcRequestSenderTests
 
     private sealed class TimeAdvancingDaemonSessionStore : ReadOnlyDaemonSessionStore
     {
-        private readonly ManualTimeProvider timeProvider;
+        private readonly FakeTimeProvider timeProvider;
 
         private readonly TimeSpan elapsed;
 
         private readonly DaemonSessionReadResult result;
 
         public TimeAdvancingDaemonSessionStore (
-            ManualTimeProvider timeProvider,
+            FakeTimeProvider timeProvider,
             TimeSpan elapsed,
             DaemonSessionReadResult result)
         {

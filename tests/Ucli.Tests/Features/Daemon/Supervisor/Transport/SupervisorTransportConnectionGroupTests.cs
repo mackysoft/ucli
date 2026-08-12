@@ -6,6 +6,47 @@ public sealed class SupervisorTransportConnectionGroupTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Drain_WhenHandlerDoesNotComplete_ReturnsAtDeadline ()
+    {
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
+        var group = new SupervisorTransportConnectionGroup(
+            static stream => stream.Dispose(),
+            static _ => { },
+            timeProvider);
+        using var stream = new MemoryStream();
+        var handlerStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseHandler = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        Assert.True(group.TryStart(
+            stream,
+            async (_, _) =>
+            {
+                handlerStarted.TrySetResult();
+                await releaseHandler.Task.ConfigureAwait(false);
+            },
+            maximumActiveConnections: 1,
+            CancellationToken.None));
+
+        try
+        {
+            await handlerStarted.Task.WaitAsync(SignalWaitTimeout);
+            var drainTask = group.DrainAsync(TimeSpan.FromMilliseconds(50));
+            Assert.False(drainTask.IsCompleted);
+
+            timeProvider.Advance(TimeSpan.FromMilliseconds(50));
+
+            await drainTask.WaitAsync(SignalWaitTimeout);
+        }
+        finally
+        {
+            releaseHandler.TrySetResult();
+            group.Release();
+            await group.DrainAsync(SignalWaitTimeout);
+        }
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task HandlerCompletion_WhenTransportCleanupBlocks_KeepsAdmissionSlotUntilCleanupCompletes ()
     {
         var fatalException = new TaskCompletionSource<Exception>(TaskCreationOptions.RunContinuationsAsynchronously);

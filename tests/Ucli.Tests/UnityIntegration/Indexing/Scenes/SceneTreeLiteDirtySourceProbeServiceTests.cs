@@ -1,9 +1,9 @@
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Projects;
 using MackySoft.Ucli.Tests.Helpers.Indexing.Scenes;
 using MackySoft.Ucli.UnityIntegration.Indexing.Scenes;
-using MackySoft.Ucli.Contracts.Projects;
 
 namespace MackySoft.Ucli.Tests.Scenes;
 
@@ -51,7 +51,7 @@ public sealed class SceneTreeLiteDirtySourceProbeServiceTests
             CancellationToken.None);
 
         Assert.True(result.HasDirtySource);
-        Assert.Same(snapshot, result.Snapshot);
+        SceneTreeLiteSourceSnapshotAssert.Equal(snapshot, result.Snapshot);
         Assert.Equal("Dirty loaded scene is open in Unity daemon.", result.FallbackReason);
         SceneTreeLiteSnapshotReaderAssert.LoadedSceneProbeRequested(
             reader,

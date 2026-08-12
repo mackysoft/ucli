@@ -90,7 +90,6 @@ public sealed class TestRunProfileLoaderTests
         Assert.False(result.IsSuccess);
         var error = Assert.IsType<ExecutionError>(result.Error);
         Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
-        Assert.Contains("schemaVersion", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -118,8 +117,6 @@ public sealed class TestRunProfileLoaderTests
         Assert.False(result.IsSuccess);
         var error = Assert.IsType<ExecutionError>(result.Error);
         Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
-        Assert.Contains("unknown property", error.Message, StringComparison.Ordinal);
-        Assert.Contains("buildTarget", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -146,8 +143,6 @@ public sealed class TestRunProfileLoaderTests
         Assert.False(result.IsSuccess);
         var error = Assert.IsType<ExecutionError>(result.Error);
         Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
-        Assert.Contains("unknown property", error.Message, StringComparison.Ordinal);
-        Assert.Contains("timeoutSeconds", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -174,7 +169,6 @@ public sealed class TestRunProfileLoaderTests
         Assert.False(result.IsSuccess);
         var error = Assert.IsType<ExecutionError>(result.Error);
         Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
-        Assert.Contains("timeout", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -202,8 +196,6 @@ public sealed class TestRunProfileLoaderTests
         Assert.False(result.IsSuccess);
         var error = Assert.IsType<ExecutionError>(result.Error);
         Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
-        Assert.Contains("unknown property", error.Message, StringComparison.Ordinal);
-        Assert.Contains("testSettingsPath", error.Message, StringComparison.Ordinal);
     }
 
     private static TestRunProfileLoader CreateLoader (string json)

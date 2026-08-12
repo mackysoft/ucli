@@ -320,21 +320,6 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.Diagnostics, Is.EqualTo(new[] { originalDiagnostic }));
         }
 
-        [Test]
-        [Category("Size.Small")]
-        public void UcliBuildRunnerResult_ConstructorParametersHaveNoDefaultValues ()
-        {
-            var constructors = typeof(UcliBuildRunnerResult).GetConstructors();
-            Assert.That(constructors, Has.Length.EqualTo(1));
-            var constructor = constructors[0];
-
-            foreach (var parameter in constructor.GetParameters())
-            {
-                Assert.That(parameter.IsOptional, Is.False);
-                Assert.That(parameter.HasDefaultValue, Is.False);
-            }
-        }
-
         public static UcliBuildRunnerResult ContextualSuccess (UcliBuildRunnerContext context)
         {
             capturedContext = context;

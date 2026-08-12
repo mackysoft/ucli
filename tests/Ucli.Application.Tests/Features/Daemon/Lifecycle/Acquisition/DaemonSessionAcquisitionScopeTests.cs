@@ -1,8 +1,7 @@
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Observation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Acquisition;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Observation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Foundation;
-using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Tests.Features.Daemon.Lifecycle.Acquisition;
@@ -11,6 +10,8 @@ public sealed class DaemonSessionAcquisitionScopeTests
 {
     private static readonly TimeSpan RetryDelay = TimeSpan.FromMilliseconds(
         DaemonTimeouts.StartupProbeRetryDelayMilliseconds);
+
+    private static readonly TimeSpan SignalWaitTimeout = TimeSpan.FromSeconds(5);
 
     [Fact]
     [Trait("Size", "Small")]
@@ -26,10 +27,15 @@ public sealed class DaemonSessionAcquisitionScopeTests
             unityProject.ProjectFingerprint,
             "replacement-token",
             "22222222-2222-2222-2222-222222222222");
-        var sessionStore = new QueuedDaemonSessionStore(
-            DaemonSessionReadResultTestFactory.Found(failedSession),
-            DaemonSessionReadResultTestFactory.Found(replacementSession));
-        var timeProvider = new ManualTimeProvider();
+        var readPhase = new ReadPhaseSignal();
+        var sessionStore = new RecordingDaemonSessionStore
+        {
+            OnRead = readPhase.Record,
+            ReadHandler = invocations => invocations.Count == 1
+                ? DaemonSessionReadResultTestFactory.Found(failedSession)
+                : DaemonSessionReadResultTestFactory.Found(replacementSession),
+        };
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var scope = DaemonSessionAcquisitionCoordinatorTestFactory
             .Create(sessionStore)
             .CreateScope(ExecutionDeadline.Start(TimeSpan.FromSeconds(5), timeProvider));
@@ -39,7 +45,7 @@ public sealed class DaemonSessionAcquisitionScopeTests
                 failedSession,
                 CancellationToken.None)
             .AsTask();
-        await timeProvider.WaitForTimerDueWithinAsync(RetryDelay);
+        await readPhase.WaitForCountAsync(1);
 
         Assert.False(resolutionTask.IsCompleted);
         timeProvider.Advance(RetryDelay);
@@ -67,12 +73,18 @@ public sealed class DaemonSessionAcquisitionScopeTests
             unityProject.ProjectFingerprint,
             "accepted-token",
             "33333333-3333-3333-3333-333333333333");
-        var sessionStore = new QueuedDaemonSessionStore(
-            DaemonSessionReadResultTestFactory.Found(secondRejectedSession),
-            DaemonSessionReadResultTestFactory.Found(firstRejectedSession),
-            DaemonSessionReadResultTestFactory.Found(firstRejectedSession),
-            DaemonSessionReadResultTestFactory.Found(acceptedSession));
-        var timeProvider = new ManualTimeProvider();
+        var readPhase = new ReadPhaseSignal();
+        var sessionStore = new RecordingDaemonSessionStore
+        {
+            OnRead = readPhase.Record,
+            ReadHandler = invocations => invocations.Count switch
+            {
+                1 => DaemonSessionReadResultTestFactory.Found(secondRejectedSession),
+                2 or 3 => DaemonSessionReadResultTestFactory.Found(firstRejectedSession),
+                _ => DaemonSessionReadResultTestFactory.Found(acceptedSession),
+            },
+        };
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var scope = DaemonSessionAcquisitionCoordinatorTestFactory
             .Create(sessionStore)
             .CreateScope(ExecutionDeadline.Start(TimeSpan.FromSeconds(5), timeProvider));
@@ -88,11 +100,12 @@ public sealed class DaemonSessionAcquisitionScopeTests
                 secondRejectedSession,
                 CancellationToken.None)
             .AsTask();
-        await ManualTimeTaskDriver.AdvanceUntilCompletedAsync(
+        await AdvanceRetryDelaysUntilCompletedAsync(
             timeProvider,
             secondReplacementTask,
             TimeSpan.FromSeconds(1),
-            RetryDelay);
+            readPhase,
+            firstCompletedRetryPhaseCount: 2);
         var secondReplacement = await secondReplacementTask;
 
         Assert.Equal(DaemonSessionAcquisitionKind.Success, secondReplacement.Kind);
@@ -124,9 +137,9 @@ public sealed class DaemonSessionAcquisitionScopeTests
             CancellationToken.None);
 
         Assert.Equal(DaemonSessionAcquisitionKind.SessionReadFailure, result.Kind);
-        Assert.Same(readFailure, result.ReadFailure);
+        Assert.Equal(readFailure, result.ReadFailure);
         Assert.Equal(DaemonSessionReadFailureKind.IoFailure, result.ReadFailure!.FailureKind);
-        Assert.Same(artifactIdentity, result.ReadFailure.ArtifactIdentity);
+        Assert.Equal(artifactIdentity, result.ReadFailure.ArtifactIdentity);
     }
 
     [Fact]
@@ -185,11 +198,13 @@ public sealed class DaemonSessionAcquisitionScopeTests
                 ? DaemonSessionReadResult.Missing()
                 : DaemonSessionReadResultTestFactory.Found(recoveredSession),
         };
-        var timeProvider = new ManualTimeProvider();
+        var retryPhase = new ReadPhaseSignal();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var lifecycleStore = new RecordingDaemonLifecycleStore
         {
             ReadResult = DaemonLifecycleObservationReadResult.Success(
                 CreateRecoveringObservation(failedSession, timeProvider.GetUtcNow())),
+            OnRead = retryPhase.Record,
         };
         var coordinator = new DaemonSessionAcquisitionCoordinator(
             sessionStore,
@@ -199,17 +214,17 @@ public sealed class DaemonSessionAcquisitionScopeTests
                     DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess)));
         var scope = coordinator.CreateScope(
             ExecutionDeadline.Start(TimeSpan.FromSeconds(5), timeProvider));
-
         var resolutionTask = scope.ResolveAfterPreWriteFailureAsync(
                 unityProject,
                 failedSession,
                 CancellationToken.None)
             .AsTask();
-        await ManualTimeTaskDriver.AdvanceUntilCompletedAsync(
+        await AdvanceRetryDelaysUntilCompletedAsync(
             timeProvider,
             resolutionTask,
             TimeSpan.FromSeconds(1),
-            RetryDelay);
+            retryPhase,
+            firstCompletedRetryPhaseCount: 1);
         var result = await resolutionTask;
 
         Assert.Equal(DaemonSessionAcquisitionKind.Success, result.Kind);
@@ -231,7 +246,7 @@ public sealed class DaemonSessionAcquisitionScopeTests
         var sessionStore = new NonCooperativeBlockingDaemonSessionStore(
             blockOnCall: 1,
             DaemonSessionReadResult.Missing());
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var requestDeadline = ExecutionDeadline.Start(TimeSpan.FromSeconds(5), timeProvider);
         var scope = DaemonSessionAcquisitionCoordinatorTestFactory
             .Create(sessionStore)
@@ -243,10 +258,6 @@ public sealed class DaemonSessionAcquisitionScopeTests
                 CancellationToken.None)
             .AsTask();
         await sessionStore.Blocked.WaitAsync(TimeSpan.FromSeconds(1));
-        await timeProvider
-            .WaitForTimerDueWithinAsync(DaemonTimeouts.ProbeAttemptTimeoutCap)
-            .WaitAsync(TimeSpan.FromSeconds(1));
-
         try
         {
             timeProvider.Advance(DaemonTimeouts.ProbeAttemptTimeoutCap);
@@ -276,7 +287,9 @@ public sealed class DaemonSessionAcquisitionScopeTests
             "11111111-1111-1111-1111-111111111111");
         var sessionStore = new RecordingDaemonSessionStore(
             DaemonSessionReadResultTestFactory.Found(failedSession));
-        var timeProvider = new ManualTimeProvider();
+        var readPhase = new ReadPhaseSignal();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
+        sessionStore.OnRead = readPhase.Record;
         var scope = DaemonSessionAcquisitionCoordinatorTestFactory
             .Create(sessionStore)
             .CreateScope(ExecutionDeadline.Start(TimeSpan.FromSeconds(5), timeProvider));
@@ -286,7 +299,7 @@ public sealed class DaemonSessionAcquisitionScopeTests
                 failedSession,
                 CancellationToken.None)
             .AsTask();
-        await timeProvider.WaitForTimerDueWithinAsync(RetryDelay);
+        await readPhase.WaitForCountAsync(1);
 
         Assert.False(resolutionTask.IsCompleted);
         Assert.Single(sessionStore.ReadInvocations);
@@ -310,7 +323,9 @@ public sealed class DaemonSessionAcquisitionScopeTests
             "11111111-1111-1111-1111-111111111111");
         var sessionStore = new RecordingDaemonSessionStore(
             DaemonSessionReadResultTestFactory.Found(interruptedSession));
-        var timeProvider = new ManualTimeProvider();
+        var readPhase = new ReadPhaseSignal();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
+        sessionStore.OnRead = readPhase.Record;
         var scope = DaemonSessionAcquisitionCoordinatorTestFactory
             .Create(sessionStore)
             .CreateScope(ExecutionDeadline.Start(TimeSpan.FromSeconds(5), timeProvider));
@@ -320,7 +335,7 @@ public sealed class DaemonSessionAcquisitionScopeTests
                 interruptedSession,
                 CancellationToken.None)
             .AsTask();
-        await timeProvider.WaitForTimerDueWithinAsync(RetryDelay);
+        await readPhase.WaitForCountAsync(1);
 
         Assert.False(resolutionTask.IsCompleted);
         timeProvider.Advance(RetryDelay);
@@ -345,11 +360,18 @@ public sealed class DaemonSessionAcquisitionScopeTests
             unityProject.ProjectFingerprint,
             "interrupted-token",
             "22222222-2222-2222-2222-222222222222");
-        var sessionStore = new QueuedDaemonSessionStore(
-            DaemonSessionReadResultTestFactory.Found(interruptedSession),
-            DaemonSessionReadResultTestFactory.Found(rejectedSession),
-            DaemonSessionReadResultTestFactory.Found(interruptedSession));
-        var timeProvider = new ManualTimeProvider();
+        var readPhase = new ReadPhaseSignal();
+        var sessionStore = new RecordingDaemonSessionStore
+        {
+            OnRead = readPhase.Record,
+            ReadHandler = invocations => invocations.Count switch
+            {
+                1 => DaemonSessionReadResultTestFactory.Found(interruptedSession),
+                2 => DaemonSessionReadResultTestFactory.Found(rejectedSession),
+                _ => DaemonSessionReadResultTestFactory.Found(interruptedSession),
+            },
+        };
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var scope = DaemonSessionAcquisitionCoordinatorTestFactory
             .Create(sessionStore)
             .CreateScope(ExecutionDeadline.Start(TimeSpan.FromSeconds(5), timeProvider));
@@ -364,120 +386,13 @@ public sealed class DaemonSessionAcquisitionScopeTests
                 interruptedSession,
                 CancellationToken.None)
             .AsTask();
-        await timeProvider.WaitForTimerDueWithinAsync(RetryDelay);
+        await readPhase.WaitForCountAsync(2);
         timeProvider.Advance(RetryDelay);
         var result = await responseRecoveryTask;
 
         Assert.Equal(DaemonSessionAcquisitionKind.Success, result.Kind);
         Assert.Equal(interruptedSession, result.Session);
         Assert.NotEqual(rejectedSession, result.Session);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public async Task ResolveReplacement_WhenRecoveryLeaseOutlivesPublicationWindow_ReturnsSessionPublishedDuringLease ()
-    {
-        var unityProject = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(
-            ProjectFingerprintTestFactory.Create("fingerprint-session-long-recovery"));
-        var rejectedSession = CreateGuiSession(
-            unityProject.ProjectFingerprint,
-            "rejected-token",
-            "11111111-1111-1111-1111-111111111111");
-        var successorSession = CreateGuiSession(
-            unityProject.ProjectFingerprint,
-            "successor-token",
-            "22222222-2222-2222-2222-222222222222");
-        var timeProvider = new ManualTimeProvider();
-        var leaseDuration = DaemonTimeouts.SessionPublicationRetryTimeout + TimeSpan.FromMilliseconds(500);
-        var leaseExpiresAtUtc = timeProvider.GetUtcNow() + leaseDuration;
-        var sessionStore = new RecordingDaemonSessionStore
-        {
-            ReadHandler = _ => timeProvider.GetUtcNow() < leaseExpiresAtUtc
-                ? DaemonSessionReadResultTestFactory.Found(rejectedSession)
-                : DaemonSessionReadResultTestFactory.Found(successorSession),
-        };
-        var lifecycleStore = new RecordingDaemonLifecycleStore
-        {
-            ReadResult = DaemonLifecycleObservationReadResult.Success(
-                CreateRecoveringObservation(
-                    rejectedSession,
-                    timeProvider.GetUtcNow(),
-                    leaseExpiresAtUtc)),
-        };
-        var coordinator = new DaemonSessionAcquisitionCoordinator(
-            sessionStore,
-            new DaemonSessionRecoveryWaiter(
-                lifecycleStore,
-                new RecordingDaemonProcessIdentityAssessor(
-                    DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess)));
-        var scope = coordinator.CreateScope(
-            ExecutionDeadline.Start(TimeSpan.FromSeconds(10), timeProvider));
-
-        var resolutionTask = scope.ResolveReplacementAsync(
-                unityProject,
-                rejectedSession,
-                CancellationToken.None)
-            .AsTask();
-        await ManualTimeTaskDriver.AdvanceUntilCompletedAsync(
-            timeProvider,
-            resolutionTask,
-            TimeSpan.FromSeconds(4),
-            RetryDelay);
-        var result = await resolutionTask;
-
-        Assert.Equal(DaemonSessionAcquisitionKind.Success, result.Kind);
-        Assert.Equal(successorSession, result.Session);
-        Assert.Equal(leaseExpiresAtUtc, timeProvider.GetUtcNow());
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public async Task ResolveReplacement_WhenRecoveryLeaseExpiresWithoutSuccessor_StopsAfterOneFreshPublicationWindow ()
-    {
-        var unityProject = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(
-            ProjectFingerprintTestFactory.Create("fingerprint-session-recovery-lease-expired"));
-        var rejectedSession = CreateGuiSession(
-            unityProject.ProjectFingerprint,
-            "rejected-token",
-            "11111111-1111-1111-1111-111111111111");
-        var timeProvider = new ManualTimeProvider();
-        var leaseDuration = DaemonTimeouts.SessionPublicationRetryTimeout + TimeSpan.FromMilliseconds(500);
-        var leaseExpiresAtUtc = timeProvider.GetUtcNow() + leaseDuration;
-        var lifecycleStore = new RecordingDaemonLifecycleStore
-        {
-            ReadResult = DaemonLifecycleObservationReadResult.Success(
-                CreateRecoveringObservation(
-                    rejectedSession,
-                    timeProvider.GetUtcNow(),
-                    leaseExpiresAtUtc)),
-        };
-        var coordinator = new DaemonSessionAcquisitionCoordinator(
-            new RecordingDaemonSessionStore(
-                DaemonSessionReadResultTestFactory.Found(rejectedSession)),
-            new DaemonSessionRecoveryWaiter(
-                lifecycleStore,
-                new RecordingDaemonProcessIdentityAssessor(
-                    DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess)));
-        var requestDeadline = ExecutionDeadline.Start(TimeSpan.FromSeconds(10), timeProvider);
-        var scope = coordinator.CreateScope(requestDeadline);
-
-        var resolutionTask = scope.ResolveReplacementAsync(
-                unityProject,
-                rejectedSession,
-                CancellationToken.None)
-            .AsTask();
-        await ManualTimeTaskDriver.AdvanceUntilCompletedAsync(
-            timeProvider,
-            resolutionTask,
-            TimeSpan.FromSeconds(6),
-            RetryDelay);
-        var result = await resolutionTask;
-
-        Assert.Equal(DaemonSessionAcquisitionKind.PublicationWindowExpired, result.Kind);
-        Assert.False(requestDeadline.IsExpired);
-        Assert.Equal(
-            leaseExpiresAtUtc + DaemonTimeouts.SessionPublicationRetryTimeout,
-            timeProvider.GetUtcNow());
     }
 
     [Fact]
@@ -490,11 +405,16 @@ public sealed class DaemonSessionAcquisitionScopeTests
             unityProject.ProjectFingerprint,
             "rejected-token",
             "11111111-1111-1111-1111-111111111111");
-        var timeProvider = new ManualTimeProvider();
+        var readPhase = new ReadPhaseSignal();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
+        var sessionStore = new RecordingDaemonSessionStore(
+            DaemonSessionReadResultTestFactory.Found(rejectedSession))
+        {
+            OnRead = readPhase.Record,
+        };
         var requestTimeout = TimeSpan.FromMilliseconds(150);
         var scope = DaemonSessionAcquisitionCoordinatorTestFactory
-            .Create(new RecordingDaemonSessionStore(
-                DaemonSessionReadResultTestFactory.Found(rejectedSession)))
+            .Create(sessionStore)
             .CreateScope(ExecutionDeadline.Start(requestTimeout, timeProvider));
 
         var resolutionTask = scope.ResolveReplacementAsync(
@@ -502,12 +422,102 @@ public sealed class DaemonSessionAcquisitionScopeTests
                 rejectedSession,
                 CancellationToken.None)
             .AsTask();
-        await timeProvider.WaitForTimerDueWithinAsync(RetryDelay).WaitAsync(TimeSpan.FromSeconds(5));
+        await readPhase.WaitForCountAsync(1);
         timeProvider.Advance(requestTimeout);
         var result = await resolutionTask.WaitAsync(TimeSpan.FromSeconds(5));
 
         Assert.Equal(DaemonSessionAcquisitionKind.RequestDeadlineExpired, result.Kind);
         Assert.Equal(DateTimeOffset.UnixEpoch + requestTimeout, timeProvider.GetUtcNow());
+    }
+
+    private static async Task AdvanceRetryDelaysUntilCompletedAsync (
+        FakeTimeProvider timeProvider,
+        Task operationTask,
+        TimeSpan waitTimeout,
+        ReadPhaseSignal retryPhase,
+        int firstCompletedRetryPhaseCount)
+    {
+        await retryPhase.WaitForCountAsync(firstCompletedRetryPhaseCount, waitTimeout);
+        var maximumAdvanceCount = (int)Math.Ceiling(waitTimeout.Ticks / (double)RetryDelay.Ticks) + 1;
+        var completedRetryPhaseCount = firstCompletedRetryPhaseCount;
+        for (var advanceCount = 0;
+             advanceCount < maximumAdvanceCount && !operationTask.IsCompleted;
+            advanceCount++)
+        {
+            var nextRetryPhaseTask = retryPhase.WaitForCount(completedRetryPhaseCount + 1);
+            timeProvider.Advance(RetryDelay);
+            var completedTask = await Task.WhenAny(operationTask, nextRetryPhaseTask)
+                .WaitAsync(waitTimeout);
+            if (ReferenceEquals(completedTask, operationTask))
+            {
+                break;
+            }
+
+            completedRetryPhaseCount++;
+        }
+
+        await operationTask.WaitAsync(waitTimeout);
+    }
+
+    private sealed class ReadPhaseSignal
+    {
+        private readonly object syncObject = new();
+        private readonly Dictionary<int, TaskCompletionSource> waits = [];
+
+        private int readCount;
+
+        public void Record ()
+        {
+            List<TaskCompletionSource>? completedWaits = null;
+            lock (syncObject)
+            {
+                readCount++;
+                foreach (var (expectedCount, wait) in waits)
+                {
+                    if (expectedCount <= readCount)
+                    {
+                        (completedWaits ??= []).Add(wait);
+                    }
+                }
+
+                foreach (var wait in completedWaits ?? [])
+                {
+                    waits.Remove(waits.First(pair => pair.Value == wait).Key);
+                }
+            }
+
+            foreach (var wait in completedWaits ?? [])
+            {
+                wait.TrySetResult();
+            }
+        }
+
+        public Task WaitForCountAsync (int expectedCount, TimeSpan? timeout = null)
+        {
+            return WaitForCount(expectedCount).WaitAsync(timeout ?? SignalWaitTimeout);
+        }
+
+        public Task WaitForCount (int expectedCount)
+        {
+            Task waitTask;
+            lock (syncObject)
+            {
+                if (readCount >= expectedCount)
+                {
+                    return Task.CompletedTask;
+                }
+
+                if (!waits.TryGetValue(expectedCount, out var wait))
+                {
+                    wait = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                    waits.Add(expectedCount, wait);
+                }
+
+                waitTask = wait.Task;
+            }
+
+            return waitTask;
+        }
     }
 
     private static DaemonSession CreateSession (

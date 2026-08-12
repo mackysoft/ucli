@@ -42,7 +42,6 @@ public sealed class OpsServiceTests
             result,
             catalogAccessService,
             listResultMapper,
-            "invalid readIndexMode",
             UcliCoreErrorCodes.InvalidArgument);
     }
 
@@ -127,7 +126,7 @@ public sealed class OpsServiceTests
 
         var result = await service.GetAllAsync(new OpsCommandInput(AbsolutePath.Parse(ProjectPathTestValues.RepositoryRoot), NormalizeMode("auto"), NormalizeTimeout("1000"), NormalizeReadIndexMode("allowStale"), null, null, null, true));
 
-        Assert.Same(expectedResult, result);
+        Assert.Equal(expectedResult, result);
         OpsServiceInvocationAssert.PreflightRequestedFailFast(preflightService);
         OpsServiceInvocationAssert.CatalogListReadFromPreflight(catalogAccessService, preflightContext);
         OpsServiceInvocationAssert.ListMappedFrom(
@@ -179,7 +178,7 @@ public sealed class OpsServiceTests
                 ReadIndexMode: NormalizeReadIndexMode("allowStale"),
                 FailFast: true));
 
-        Assert.Same(expectedResult, result);
+        Assert.Equal(expectedResult, result);
         OpsServiceInvocationAssert.PreflightRequestedFailFast(preflightService);
         OpsServiceInvocationAssert.CatalogDescribeReadFromPreflight(
             catalogAccessService,

@@ -9,7 +9,7 @@ public sealed class DaemonGuiEditorAttachServiceTimeoutBudgetTests
     [Trait("Size", "Small")]
     public async Task TryAttachExistingGuiEditor_WhenMarkerReadIgnoresCancellation_ReturnsAtDeadline ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var readStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var readCompletion = new TaskCompletionSource<UnityEditorInstanceMarkerReadResult>(TaskCreationOptions.RunContinuationsAsynchronously);
         var markerReader = new RecordingUnityEditorInstanceMarkerReader
@@ -42,7 +42,6 @@ public sealed class DaemonGuiEditorAttachServiceTimeoutBudgetTests
 
         try
         {
-            await timeProvider.WaitForTimerDueWithinAsync(timeout).WaitAsync(TimeSpan.FromSeconds(1));
             timeProvider.Advance(timeout);
             var result = await resultTask.WaitAsync(TimeSpan.FromSeconds(1));
 
@@ -60,7 +59,7 @@ public sealed class DaemonGuiEditorAttachServiceTimeoutBudgetTests
     [Trait("Size", "Small")]
     public async Task TryAttachExistingGuiEditor_WhenProcessProbeIgnoresCancellation_ReturnsAtDeadline ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var probeStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var probeCompletion = new TaskCompletionSource<UnityGuiEditorProcessProbeResult>(TaskCreationOptions.RunContinuationsAsynchronously);
         var marker = DaemonGuiEditorAttachServiceTestSupport.CreateMarker();
@@ -96,7 +95,6 @@ public sealed class DaemonGuiEditorAttachServiceTimeoutBudgetTests
 
         try
         {
-            await timeProvider.WaitForTimerDueWithinAsync(timeout).WaitAsync(TimeSpan.FromSeconds(1));
             timeProvider.Advance(timeout);
             var result = await resultTask.WaitAsync(TimeSpan.FromSeconds(1));
 
@@ -157,7 +155,7 @@ public sealed class DaemonGuiEditorAttachServiceTimeoutBudgetTests
     [Trait("Size", "Small")]
     public async Task TryAttachExistingGuiEditor_WhenRebootstrapPathConsumesTime_PassesRemainingTimeouts ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var marker = DaemonGuiEditorAttachServiceTestSupport.CreateMarker();
         var markerReader = new RecordingUnityEditorInstanceMarkerReader
         {
@@ -169,8 +167,10 @@ public sealed class DaemonGuiEditorAttachServiceTimeoutBudgetTests
             Result = UnityGuiEditorProcessProbeResult.Matching(DaemonGuiEditorAttachServiceTestSupport.ProbeProcessStartedAtUtc),
             OnProbe = () => timeProvider.Advance(TimeSpan.FromMilliseconds(100)),
         };
-        var awaiter = new RecordingDaemonGuiSessionRegistrationAwaiter();
-        awaiter.AdvanceTimeOnFirstWait(timeProvider, TimeSpan.FromMilliseconds(200));
+        var awaiter = new RecordingDaemonGuiSessionRegistrationAwaiter
+        {
+            OnWaitForSession = () => timeProvider.Advance(TimeSpan.FromMilliseconds(200)),
+        };
         awaiter.Results.Enqueue(DaemonGuiSessionRegistrationWaitResult.Failure(ExecutionError.Timeout("session missing")));
         awaiter.Results.Enqueue(DaemonGuiSessionRegistrationWaitResult.Success(
             DaemonGuiEditorAttachServiceTestSupport.CreateGuiSession(),
@@ -208,7 +208,9 @@ public sealed class DaemonGuiEditorAttachServiceTimeoutBudgetTests
             marker.ProcessId,
             DaemonGuiEditorAttachServiceTestSupport.ProbeProcessStartedAtUtc,
             TimeSpan.FromMilliseconds(600));
-        Assert.Same(deadline, Assert.Single(rebootstrapClient.Invocations).Deadline);
-        Assert.Same(deadline, awaiter.Invocations[1].Deadline);
+        Assert.Equal(deadline.Timeout, Assert.Single(rebootstrapClient.Invocations).Deadline.Timeout);
+        Assert.Equal(deadline.UtcDeadline, Assert.Single(rebootstrapClient.Invocations).Deadline.UtcDeadline);
+        Assert.Equal(deadline.Timeout, awaiter.Invocations[1].Deadline.Timeout);
+        Assert.Equal(deadline.UtcDeadline, awaiter.Invocations[1].Deadline.UtcDeadline);
     }
 }

@@ -52,7 +52,14 @@ internal static class ReadIndexArtifactWriterAssert
     {
         var invocation = Assert.Single(artifactWriter.AssetLookupInvocations);
         Assert.Equal(expectedGeneratedAtUtc, invocation.GeneratedAtUtc);
-        Assert.Same(expectedInputSnapshot, invocation.InputSnapshot);
+        Assert.Equal(expectedInputSnapshot.ScriptAssembliesHash, invocation.InputSnapshot.ScriptAssembliesHash);
+        Assert.Equal(expectedInputSnapshot.PackagesManifestHash, invocation.InputSnapshot.PackagesManifestHash);
+        Assert.Equal(expectedInputSnapshot.PackagesLockHash, invocation.InputSnapshot.PackagesLockHash);
+        Assert.Equal(expectedInputSnapshot.AssemblyDefinitionHash, invocation.InputSnapshot.AssemblyDefinitionHash);
+        Assert.Equal(expectedInputSnapshot.AssetsContentHash, invocation.InputSnapshot.AssetsContentHash);
+        Assert.Equal(expectedInputSnapshot.AssetSearchHash, invocation.InputSnapshot.AssetSearchHash);
+        Assert.Equal(expectedInputSnapshot.GuidPathHash, invocation.InputSnapshot.GuidPathHash);
+        Assert.Equal(expectedInputSnapshot.CombinedHash, invocation.InputSnapshot.CombinedHash);
         return invocation;
     }
 

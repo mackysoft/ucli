@@ -2,7 +2,6 @@ namespace MackySoft.Ucli.Tests.Daemon;
 
 using System.Net.Sockets;
 using MackySoft.FileSystem;
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Shared.Unity.ProjectLock;
 using MackySoft.Ucli.Tests.Helpers.Ipc;
@@ -16,7 +15,7 @@ public sealed class DaemonStartupReadinessProbeProcessLockTests
     [Trait("Size", "Small")]
     public async Task WaitUntilReady_WhenPostExitLockCleanupIgnoresCancellation_ReturnsProcessExitAtDeadline ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var cleanupStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var cleanupCompletion = new TaskCompletionSource<UnityProjectLockPreflightResult>(TaskCreationOptions.RunContinuationsAsynchronously);
         var preflightService = new RecordingUnityProjectLockPreflightService
@@ -43,7 +42,6 @@ public sealed class DaemonStartupReadinessProbeProcessLockTests
 
         try
         {
-            await timeProvider.WaitForTimerDueWithinAsync(timeout).WaitAsync(TimeSpan.FromSeconds(1));
             timeProvider.Advance(timeout);
             var result = await resultTask.WaitAsync(TimeSpan.FromSeconds(1));
 

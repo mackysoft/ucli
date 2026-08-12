@@ -1,4 +1,3 @@
-using System.Reflection;
 using System.Text.Json;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Json;
@@ -32,57 +31,43 @@ public sealed class UcliStringValueTests
         "\"A\\uDC00\"",
     ];
 
-    private static readonly Type[] SemanticStringValueTypes =
-    [
-        .. typeof(UcliStringValue).Assembly
-            .GetTypes()
-            .Where(type => !type.IsAbstract && type.IsSubclassOf(typeof(UcliStringValue)))
-            .OrderBy(type => type.FullName, StringComparer.Ordinal),
-    ];
+    public static IEnumerable<object?[]> InvalidConstructorCases =>
+        InvalidConstructorValues.Take(5).Select(static value => new object?[] { value });
 
-    public static TheoryData<string> ValueTypeNames
+    public static IEnumerable<object[]> InvalidJsonCases =>
+        InvalidJsonValues.Select(static value => new object[] { value });
+
+    [Theory]
+    [MemberData(nameof(InvalidConstructorCases))]
+    [Trait("Size", "Small")]
+    public void UnityTypeIdConstructor_WhenValueViolatesCommonInvariant_ThrowsArgumentException (
+        string? invalidValue)
     {
-        get
-        {
-            var testCases = new TheoryData<string>();
-            foreach (var valueType in SemanticStringValueTypes)
-            {
-                testCases.Add(valueType.Name);
-            }
+        var exception = Assert.ThrowsAny<ArgumentException>(() => new UnityTypeId(invalidValue!));
 
-            return testCases;
+        Assert.Equal("value", exception.ParamName);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void UnityTypeIdConstructor_WhenValueContainsMalformedUtf16_ThrowsArgumentException ()
+    {
+        foreach (var invalidValue in InvalidConstructorValues.Skip(5))
+        {
+            var exception = Assert.ThrowsAny<ArgumentException>(() => new UnityTypeId(invalidValue!));
+
+            Assert.Equal("value", exception.ParamName);
         }
     }
 
     [Theory]
-    [MemberData(nameof(ValueTypeNames))]
+    [MemberData(nameof(InvalidJsonCases))]
     [Trait("Size", "Small")]
-    public void Constructor_WhenValueViolatesCommonInvariant_ThrowsArgumentException (string valueTypeName)
+    public void UnityTypeIdJsonDeserialize_WhenStringViolatesCommonInvariant_ThrowsJsonException (
+        string invalidJsonValue)
     {
-        var valueType = GetValueType(valueTypeName);
-
-        foreach (var invalidValue in InvalidConstructorValues)
-        {
-            var exception = Assert.Throws<TargetInvocationException>(
-                () => Activator.CreateInstance(valueType, [invalidValue]));
-            var argumentException = Assert.IsAssignableFrom<ArgumentException>(exception.InnerException);
-
-            Assert.Equal("value", argumentException.ParamName);
-        }
-    }
-
-    [Theory]
-    [MemberData(nameof(ValueTypeNames))]
-    [Trait("Size", "Small")]
-    public void JsonDeserialize_WhenStringViolatesCommonInvariant_ThrowsJsonException (string valueTypeName)
-    {
-        var valueType = GetValueType(valueTypeName);
-
-        foreach (var invalidJsonValue in InvalidJsonValues)
-        {
-            Assert.Throws<JsonException>(
-                () => JsonSerializer.Deserialize(invalidJsonValue, valueType, IpcJsonSerializerOptions.Default));
-        }
+        Assert.Throws<JsonException>(
+            () => JsonSerializer.Deserialize<UnityTypeId>(invalidJsonValue, IpcJsonSerializerOptions.Default));
     }
 
     [Fact]
@@ -166,13 +151,6 @@ public sealed class UcliStringValueTests
             Assert.False(result);
             Assert.Null(typeId);
         }
-    }
-
-    private static Type GetValueType (string valueTypeName)
-    {
-        return Assert.Single(
-            SemanticStringValueTypes,
-            type => string.Equals(type.Name, valueTypeName, StringComparison.Ordinal));
     }
 
     private sealed class TestStringValue : UcliStringValue

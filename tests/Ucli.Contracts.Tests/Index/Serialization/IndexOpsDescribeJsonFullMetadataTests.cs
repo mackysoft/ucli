@@ -10,25 +10,26 @@ public sealed class IndexOpsDescribeJsonFullMetadataTests
     [Trait("Size", "Small")]
     public void Writer_EmitsProductMetadataAlongsideUnchangedGeneratedContracts ()
     {
-        var contract = IndexOpsDescribeJsonContractTestSupport.CreateCsEvalIndexContract();
+        var contract = IndexOpsDescribeJsonContractTestSupport.CreateCodeOperationIndexContract();
 
         var json = new IndexOpsDescribeJsonContractWriter().Write(contract);
 
         using var document = JsonDocument.Parse(json);
         var operation = document.RootElement.GetProperty("operation");
-        var expectedOperation = contract.Operation!;
-        Assert.Equal(UcliPrimitiveOperationNames.CsEval, operation.GetProperty("name").GetString());
+        Assert.Equal(IndexOpsDescribeContractTestData.CodeOperationName, operation.GetProperty("name").GetString());
         Assert.Equal("mutation", operation.GetProperty("kind").GetString());
         Assert.Equal("dangerous", operation.GetProperty("policy").GetString());
         Assert.Equal(
-            expectedOperation.DescriptorDigest!.ToString(),
+            IndexOpsDescribeContractTestData.CodeOperationDescriptorDigest,
             operation.GetProperty("descriptorDigest").GetString());
-        Assert.Equal(expectedOperation.Description, operation.GetProperty("description").GetString());
+        Assert.Equal(IndexOpsDescribeContractTestData.CodeOperationDescription, operation.GetProperty("description").GetString());
         AssertGeneratedContractEquals(
-            expectedOperation.ArgsContract!.Value,
+            IndexOpsDescribeContractTestData.ArgsContractDigest,
+            "args",
             operation.GetProperty("argsContract"));
         AssertGeneratedContractEquals(
-            expectedOperation.ResultContract!.Value,
+            IndexOpsDescribeContractTestData.ResultContractDigest,
+            "result",
             operation.GetProperty("resultContract"));
         Assert.Equal(JsonValueKind.Null, operation.GetProperty("verdictContract").ValueKind);
 
@@ -41,7 +42,7 @@ public sealed class IndexOpsDescribeJsonFullMetadataTests
         var codeContract = operation.GetProperty("codeContract");
         Assert.Equal("csharp", codeContract.GetProperty("language").GetString());
         Assert.Equal(
-            "public static object? | Task | Task<T> | ValueTask | ValueTask<T> Run(UcliCsEvalContext context)",
+            "public static object? Run(ExampleContext context)",
             codeContract.GetProperty("entryPoint").GetProperty("signature").GetString());
         Assert.Equal(
             ["compilationUnit", "snippet"],
@@ -51,17 +52,20 @@ public sealed class IndexOpsDescribeJsonFullMetadataTests
     }
 
     private static void AssertGeneratedContractEquals (
-        UcliOperationJsonContract expected,
+        string expectedContractDigest,
+        string expectedTitle,
         JsonElement actual)
     {
         Assert.Equal(
-            expected.ContractDigest.ToString(),
+            expectedContractDigest,
             actual.GetProperty("contractDigest").GetString());
         Assert.True(JsonNode.DeepEquals(
-            JsonNode.Parse(expected.TypeMetadata.GetRawText()),
+            JsonNode.Parse(
+                "{\"contractDigest\":\"" + expectedContractDigest + "\",\"title\":\"" + expectedTitle + "\"}"),
             JsonNode.Parse(actual.GetProperty("typeMetadata").GetRawText())));
         Assert.True(JsonNode.DeepEquals(
-            JsonNode.Parse(expected.Schema.GetRawText()),
+            JsonNode.Parse(
+                "{\"x-contract-digest\":\"" + expectedContractDigest + "\",\"type\":\"object\",\"properties\":{}}"),
             JsonNode.Parse(actual.GetProperty("schema").GetRawText())));
     }
 }

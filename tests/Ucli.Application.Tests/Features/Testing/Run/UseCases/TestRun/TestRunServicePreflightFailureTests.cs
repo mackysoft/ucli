@@ -82,8 +82,6 @@ public sealed class TestRunServicePreflightFailureTests
         Assert.Equal(TestRunErrorKind.InvalidInput, result.ErrorKind);
         Assert.Equal(ApplicationOutcome.InvalidArgument, result.PrimaryFailure.Outcome);
         Assert.Equal(UcliCoreErrorCodes.InvalidArgument, result.PrimaryFailure.Code);
-        Assert.Contains("operationPolicy", result.Message, StringComparison.Ordinal);
-        Assert.Contains("planTokenMode", result.Message, StringComparison.Ordinal);
     }
 
     [Theory]

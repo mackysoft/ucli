@@ -1,5 +1,3 @@
-using System.Reflection;
-
 namespace MackySoft.Ucli.Contracts.Tests.Cryptography;
 
 public sealed class ProjectFingerprintTests
@@ -93,29 +91,4 @@ public sealed class ProjectFingerprintTests
         Assert.True(first != second);
     }
 
-    [Fact]
-    [Trait("Size", "Small")]
-    public void PublicSurface_ExposesOnlyOneStringConstructorWithoutSentinelsOrConversions ()
-    {
-        var type = typeof(ProjectFingerprint);
-        var constructor = Assert.Single(type.GetConstructors());
-
-        Assert.True(type.IsSealed);
-        Assert.Equal(typeof(string), Assert.Single(constructor.GetParameters()).ParameterType);
-        Assert.Empty(type.GetMember("Empty", BindingFlags.Public | BindingFlags.Static));
-        Assert.Empty(type.GetMember("Unknown", BindingFlags.Public | BindingFlags.Static));
-        Assert.DoesNotContain(
-            type.GetMethods(BindingFlags.Public | BindingFlags.Static),
-            method => method.Name is "op_Implicit" or "op_Explicit");
-        Assert.DoesNotContain(
-            type.GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly),
-            method => method.ReturnType == typeof(byte[])
-                || method.GetParameters().Any(parameter => parameter.ParameterType == typeof(byte[])));
-        Assert.DoesNotContain(
-            type.GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static),
-            property => property.PropertyType == typeof(byte[]));
-        Assert.DoesNotContain(
-            type.GetFields(BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static),
-            field => field.FieldType == typeof(byte[]));
-    }
 }

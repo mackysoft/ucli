@@ -14,7 +14,7 @@ public sealed class DaemonExistingSessionGateServiceFailureTests
     [Trait("Size", "Small")]
     public async Task TryHandleExistingSession_WhenPingIgnoresCancellation_ReturnsAtDeadlineAndRejectsLateSuccess ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var pingStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var pingCancellationObserved = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var pingCompletion = new TaskCompletionSource<UnityEditorObservation>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -52,7 +52,6 @@ public sealed class DaemonExistingSessionGateServiceFailureTests
         try
         {
             await pingStarted.Task.WaitAsync(SignalWaitTimeout);
-            await timeProvider.WaitForTimerDueWithinAsync(timeout).WaitAsync(SignalWaitTimeout);
             timeProvider.Advance(timeout);
 
             var result = await resultTask.WaitAsync(SignalWaitTimeout);
@@ -77,7 +76,7 @@ public sealed class DaemonExistingSessionGateServiceFailureTests
     [Trait("Size", "Small")]
     public async Task TryHandleExistingSession_WhenReplacementSessionReadIgnoresCancellation_ReturnsAtDeadline ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var timeout = TimeSpan.FromMilliseconds(500);
         var session = DaemonSessionTestFactory.Create(processId: 4023);
         var sessionStore = new NonCooperativeBlockingDaemonSessionStore(
@@ -105,7 +104,6 @@ public sealed class DaemonExistingSessionGateServiceFailureTests
         await sessionStore.Blocked.WaitAsync(SignalWaitTimeout);
         try
         {
-            await timeProvider.WaitForTimerDueWithinAsync(timeout).WaitAsync(SignalWaitTimeout);
             timeProvider.Advance(timeout);
             var result = await resultTask.WaitAsync(SignalWaitTimeout);
 
@@ -123,7 +121,7 @@ public sealed class DaemonExistingSessionGateServiceFailureTests
     [Trait("Size", "Small")]
     public async Task TryHandleExistingSession_WhenLifecycleReadIgnoresCancellation_ReturnsAtDeadline ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var timeout = TimeSpan.FromMilliseconds(500);
         var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(
             ProjectFingerprintTestFactory.Create("fingerprint-existing-lifecycle-read-timeout"));
@@ -157,7 +155,6 @@ public sealed class DaemonExistingSessionGateServiceFailureTests
         await readStarted.Task.WaitAsync(SignalWaitTimeout);
         try
         {
-            await timeProvider.WaitForTimerDueWithinAsync(timeout).WaitAsync(SignalWaitTimeout);
             timeProvider.Advance(timeout);
             var result = await resultTask.WaitAsync(SignalWaitTimeout);
 

@@ -21,7 +21,7 @@ public sealed class UnityOneshotIpcClientStartRecordRecoveryTests
         var unityProject =
             ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(
                 scope.FullPath);
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var executionTimeout = TimeSpan.FromSeconds(5);
         var completionTimeout =
             executionTimeout
@@ -32,6 +32,7 @@ public sealed class UnityOneshotIpcClientStartRecordRecoveryTests
             UnityBatchmodeProcessLaunchResult.Success(processHandle));
         var pingAttempt = 0;
         LifecycleExecutionStartBinding? persistedStart = null;
+        var startPersisted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var transportClient = new RecordingUnityIpcTransportClient(
             async (request, _) =>
             {
@@ -46,6 +47,7 @@ public sealed class UnityOneshotIpcClientStartRecordRecoveryTests
                         persistedStart =
                             await LifecycleExecutionIpcTestResponseFactory
                                 .PersistStartAsync(unityProject, request);
+                        startPersisted.TrySetResult();
                         throw new IpcResponseReadInterruptedException(
                             new EndOfStreamException(
                                 "Lifecycle Start response was lost."));
@@ -73,11 +75,8 @@ public sealed class UnityOneshotIpcClientStartRecordRecoveryTests
                     timeProvider),
                 CancellationToken.None)
             .AsTask();
-        await ManualTimeTaskDriver.AdvanceUntilCompletedAsync(
-            timeProvider,
-            sendTask,
-            completionTimeout,
-            TimeSpan.FromMilliseconds(50));
+        await startPersisted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        timeProvider.Advance(completionTimeout);
         var result = await sendTask;
 
         Assert.False(result.IsSuccess);

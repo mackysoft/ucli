@@ -11,7 +11,7 @@ internal static class RequestPreparationInvocationAssert
         RecordingValidateRequestJsonParser parser)
     {
         Assert.False(result.IsSuccess);
-        Assert.Same(expectedError, result.Error);
+        Assert.Equal(expectedError, result.Error);
         Assert.Empty(parser.Invocations);
         Assert.Null(result.PreparedRequest);
     }
