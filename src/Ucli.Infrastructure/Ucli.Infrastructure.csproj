@@ -14,7 +14,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="MackySoft.FileSystem" Version="[0.1.0]" />
+    <PackageReference Include="MackySoft.FileSystem" Version="[0.2.1]" />
     <PackageReference Include="MackySoft.Text.Vocabularies.Json" Version="[0.1.0]" />
   </ItemGroup>
 

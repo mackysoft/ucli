@@ -44,15 +44,17 @@ unity_recorder_version_range="$({
     "${recorder_compatibility_metadata_source}"
 } | head -n 1)"
 filesystem_package_id="MackySoft.FileSystem"
-filesystem_package_version="0.1.0"
+filesystem_package_version="0.2.1"
 canonicalization_package_id="MackySoft.Json.Canonicalization"
+canonicalization_package_version="0.1.0"
 json_schema_package_id="MackySoft.JsonSchema.Generation"
 json_schema_package_version="0.3.1"
-foundation_package_ids=(
-  "${filesystem_package_id}"
-  "${canonicalization_package_id}"
-  "MackySoft.Text.Vocabularies"
-  "MackySoft.Text.Vocabularies.Json"
+text_package_version="0.1.0"
+foundation_package_specs=(
+  "${filesystem_package_id}|${filesystem_package_version}"
+  "${canonicalization_package_id}|${canonicalization_package_version}"
+  "MackySoft.Text.Vocabularies|${text_package_version}"
+  "MackySoft.Text.Vocabularies.Json|${text_package_version}"
 )
 ucli_dependency_package_ids=(
   "MackySoft.Ucli.Contracts"
@@ -365,14 +367,15 @@ for schema_validation_package_id in "${schema_validation_package_ids[@]}"; do
   fi
 done
 
-for foundation_package_id in "${foundation_package_ids[@]}"; do
+for foundation_package_spec in "${foundation_package_specs[@]}"; do
+  IFS='|' read -r foundation_package_id expected_foundation_package_version <<< "${foundation_package_spec}"
   foundation_package_version="$(
     sed -nE "s#.*<package id=\"${foundation_package_id}\" version=\"([^\"]+)\".*#\\1#p" \
       "${unity_packages_config}" |
       head -n 1
   )"
-  if [[ "${foundation_package_version}" != "${filesystem_package_version}" ]]; then
-    echo "${foundation_package_id} must use exact version ${filesystem_package_version}. Actual: ${foundation_package_version}" >&2
+  if [[ "${foundation_package_version}" != "${expected_foundation_package_version}" ]]; then
+    echo "${foundation_package_id} must use exact version ${expected_foundation_package_version}. Actual: ${foundation_package_version}" >&2
     exit 1
   fi
 done
@@ -665,8 +668,9 @@ if [[ ! -f "${restored_editor_asmdef}" ]] \
   exit 1
 fi
 
-for foundation_package_id in "${foundation_package_ids[@]}"; do
-  foundation_package_root="${restore_packages_directory}/${foundation_package_id}.${filesystem_package_version}"
+for foundation_package_spec in "${foundation_package_specs[@]}"; do
+  IFS='|' read -r foundation_package_id expected_foundation_package_version <<< "${foundation_package_spec}"
+  foundation_package_root="${restore_packages_directory}/${foundation_package_id}.${expected_foundation_package_version}"
   foundation_runtime_assembly="${foundation_package_root}/lib/netstandard2.1/${foundation_package_id}.dll"
   if [[ ! -f "${foundation_runtime_assembly}" ]]; then
     echo "Restored Unity dependency layout is missing: ${foundation_runtime_assembly}" >&2

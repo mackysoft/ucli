@@ -105,17 +105,22 @@ else
 fi
 
 filesystem_package_id="MackySoft.FileSystem"
-filesystem_package_version="0.1.0"
+filesystem_package_version="0.2.1"
+canonicalization_package_id="MackySoft.Json.Canonicalization"
+canonicalization_package_version="0.1.0"
 json_schema_package_id="MackySoft.JsonSchema.Generation"
 json_schema_package_version="0.3.1"
+text_package_version="0.1.0"
 contracts_package_id="MackySoft.Ucli.Contracts"
 infrastructure_package_id="MackySoft.Ucli.Infrastructure"
 contracts_csproj="${repository_root}/src/Ucli.Contracts/Ucli.Contracts.csproj"
 infrastructure_csproj="${repository_root}/src/Ucli.Infrastructure/Ucli.Infrastructure.csproj"
-external_foundation_package_ids=(
-  "MackySoft.Json.Canonicalization"
-  "MackySoft.Text.Vocabularies"
-  "MackySoft.Text.Vocabularies.Json"
+external_foundation_package_specs=(
+  "${filesystem_package_id}|${filesystem_package_version}"
+  "${canonicalization_package_id}|${canonicalization_package_version}"
+  "${json_schema_package_id}|${json_schema_package_version}"
+  "MackySoft.Text.Vocabularies|${text_package_version}"
+  "MackySoft.Text.Vocabularies.Json|${text_package_version}"
 )
 unity_packages_config="${repository_root}/src/Ucli.Unity/Assets/packages.config"
 repository_local_package_source="${repository_root}/src/Ucli.Unity/Packages/nuget-local-source"
@@ -137,15 +142,8 @@ read_package_version() {
   sed -nE "s#.*<package id=\"${package_id}\" version=\"([^\"]+)\".*#\\1#p" "${unity_packages_config}" | head -n 1
 }
 
-configured_filesystem_package_version="$(read_package_version "${filesystem_package_id}")"
-configured_json_schema_package_version="$(read_package_version "${json_schema_package_id}")"
 contracts_package_version="$(read_package_version "${contracts_package_id}")"
 infrastructure_package_version="$(read_package_version "${infrastructure_package_id}")"
-
-if [[ -z "${configured_filesystem_package_version}" ]]; then
-  echo "ERROR: Failed to resolve ${filesystem_package_id} version from ${unity_packages_config}" >&2
-  exit 1
-fi
 
 if [[ -z "${contracts_package_version}" ]]; then
   echo "ERROR: Failed to resolve ${contracts_package_id} version from ${unity_packages_config}" >&2
@@ -157,20 +155,11 @@ if [[ -z "${infrastructure_package_version}" ]]; then
   exit 1
 fi
 
-if [[ "${configured_filesystem_package_version}" != "${filesystem_package_version}" ]]; then
-  echo "ERROR: ${filesystem_package_id} must use fixed version ${filesystem_package_version}. Actual: ${configured_filesystem_package_version}" >&2
-  exit 1
-fi
-
-if [[ "${configured_json_schema_package_version}" != "${json_schema_package_version}" ]]; then
-  echo "ERROR: ${json_schema_package_id} must use fixed version ${json_schema_package_version}. Actual: ${configured_json_schema_package_version}" >&2
-  exit 1
-fi
-
-for package_id in "${external_foundation_package_ids[@]}"; do
+for package_spec in "${external_foundation_package_specs[@]}"; do
+  IFS='|' read -r package_id expected_package_version <<< "${package_spec}"
   package_version="$(read_package_version "${package_id}")"
-  if [[ "${package_version}" != "${filesystem_package_version}" ]]; then
-    echo "ERROR: ${package_id} must use fixed external version ${filesystem_package_version}. Actual: ${package_version}" >&2
+  if [[ "${package_version}" != "${expected_package_version}" ]]; then
+    echo "ERROR: ${package_id} must use fixed external version ${expected_package_version}. Actual: ${package_version}" >&2
     exit 1
   fi
 done
@@ -377,4 +366,4 @@ else
   echo "[8/9] Skip prune step (use --prune to enable)"
 fi
 
-echo "[9/9] Completed local package refresh for shared packages ${shared_package_version}, external foundation packages ${filesystem_package_version}, and ${json_schema_package_id} ${json_schema_package_version}"
+echo "[9/9] Completed local package refresh for shared packages ${shared_package_version} and fixed external foundation packages."

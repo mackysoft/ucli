@@ -87,8 +87,8 @@ bash scripts/code-quality.sh verify --include "<TARGET_PATH>" ["<TARGET_PATH>"..
 
 ## パッケージ復元とリリース
 
-- uCLI は `MackySoft.FileSystem` の standalone NuGet パッケージの生成、版管理、公開を所有せず、固定版 `0.1.0` を外部依存として利用する。CLI tool の成果物には runtime dependency assembly が含まれ得るが、Unity plugin は assembly を内包せず exact dependency を宣言する。
-- GitHub Actions の新規 runner と uCLI のリリースワークフローは `MackySoft.FileSystem` を生成しないため、実行前に固定版 `0.1.0` が nuget.org で取得可能であることを前提とする。
+- uCLI は `MackySoft.FileSystem` の standalone NuGet パッケージの生成、版管理、公開を所有せず、固定版 `0.2.1` を外部依存として利用する。CLI tool の成果物には runtime dependency assembly が含まれるが、Unity plugin は assembly を内包せず exact dependency を宣言する。
+- GitHub Actions の新規 runner と uCLI のリリースワークフローは `MackySoft.FileSystem` を生成しないため、実行前に固定版 `0.2.1` が nuget.org で取得可能であることを前提とする。
 - `Ucli.Contracts`、`Ucli.Infrastructure`、または Unity 側の NuGet 依存を変更した場合は、`scripts/update-local-shared-packages.sh` で uCLI 内部のローカルパッケージを再生成して復元する。
 
 ```bash
