@@ -27,6 +27,7 @@
     <PackageReference Include="MackySoft.AgentSkills.Hosting" Version="1.0.0" />
     <PackageReference Include="MackySoft.Json.Canonicalization" Version="[0.1.0]" GeneratePathProperty="true" />
     <PackageReference Include="MackySoft.FileSystem" Version="[0.2.1]" GeneratePathProperty="true" />
+    <PackageReference Include="MackySoft.FileSystem.Physical" Version="[0.2.1]" GeneratePathProperty="true" />
     <PackageReference Include="MackySoft.Text.Vocabularies" Version="[0.1.0]" GeneratePathProperty="true" />
     <PackageReference Include="MackySoft.Text.Vocabularies.Json" Version="[0.1.0]" GeneratePathProperty="true" />
     <PackageReference Include="MackySoft.JsonSchema.Generation" Version="[0.3.1]" GeneratePathProperty="true" />
@@ -70,6 +71,11 @@
     </None>
 
     <None Include="$(PkgMackySoft_FileSystem)/LICENSE" Link="third-party/MackySoft.FileSystem/0.2.1/LICENSE">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </None>
+
+    <None Include="$(PkgMackySoft_FileSystem_Physical)/LICENSE" Link="third-party/MackySoft.FileSystem.Physical/0.2.1/LICENSE">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </None>

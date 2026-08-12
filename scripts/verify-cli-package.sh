@@ -33,6 +33,8 @@ fi
 
 filesystem_package_id="MackySoft.FileSystem"
 filesystem_package_version="0.2.1"
+physical_filesystem_package_id="MackySoft.FileSystem.Physical"
+physical_filesystem_package_version="0.2.1"
 canonicalization_package_id="MackySoft.Json.Canonicalization"
 canonicalization_package_version="0.1.0"
 json_schema_package_id="MackySoft.JsonSchema.Generation"
@@ -131,6 +133,7 @@ cat > "${tool_nuget_config}" <<EOF
       <package pattern="JsonSchema.Net" />
       <package pattern="MackySoft.AgentSkills*" />
       <package pattern="MackySoft.FileSystem" />
+      <package pattern="MackySoft.FileSystem.Physical" />
       <package pattern="MackySoft.Json.Canonicalization" />
       <package pattern="MackySoft.JsonSchema.Generation" />
       <package pattern="MackySoft.Text.Vocabularies" />
@@ -152,6 +155,7 @@ cat > "${provider_restore_project}" <<EOF
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="${filesystem_package_id}" Version="[${filesystem_package_version}]" />
+    <PackageReference Include="${physical_filesystem_package_id}" Version="[${physical_filesystem_package_version}]" />
     <PackageReference Include="MackySoft.Text.Vocabularies" Version="[${text_package_version}]" />
     <PackageReference Include="MackySoft.Text.Vocabularies.Json" Version="[${text_package_version}]" />
     <PackageReference Include="${canonicalization_package_id}" Version="[${canonicalization_package_version}]" />
@@ -199,6 +203,7 @@ fi
 
 package_entries="$(unzip -Z1 "${package_path}")"
 filesystem_license_entry="tools/net8.0/any/third-party/${filesystem_package_id}/${filesystem_package_version}/LICENSE"
+physical_filesystem_license_entry="tools/net8.0/any/third-party/${physical_filesystem_package_id}/${physical_filesystem_package_version}/LICENSE"
 json_schema_license_entry="tools/net8.0/any/third-party/${json_schema_package_id}/${json_schema_package_version}/LICENSE"
 required_package_entries=(
   "README.md"
@@ -206,6 +211,8 @@ required_package_entries=(
   "tools/net8.0/any/DotnetToolSettings.xml"
   "tools/net8.0/any/${filesystem_package_id}.dll"
   "${filesystem_license_entry}"
+  "tools/net8.0/any/${physical_filesystem_package_id}.dll"
+  "${physical_filesystem_license_entry}"
   "tools/net8.0/any/MackySoft.Text.Vocabularies.dll"
   "tools/net8.0/any/MackySoft.Text.Vocabularies.Json.dll"
   "tools/net8.0/any/${canonicalization_package_id}.dll"
@@ -248,6 +255,10 @@ for package_id in "${foundation_package_ids[@]}"; do
     exit 1
   fi
 done
+if grep -Ei "(^|/)${physical_filesystem_package_id//./[.]}.+nupkg$" <<< "${package_entries}" >/dev/null; then
+  echo "CLI package must not embed the standalone ${physical_filesystem_package_id} provider package." >&2
+  exit 1
+fi
 if grep -Ei "(^|/)${json_schema_package_id//./[.]}.+nupkg$" <<< "${package_entries}" >/dev/null; then
   echo "CLI package must not embed the standalone ${json_schema_package_id} provider package." >&2
   exit 1
@@ -275,6 +286,10 @@ for dependency_spec in "${foundation_dependency_specs[@]}"; do
     exit 1
   fi
 done
+if ! grep -F "\"${physical_filesystem_package_id}/${physical_filesystem_package_version}\"" <<< "${dependency_manifest}" >/dev/null; then
+  echo "CLI package dependency manifest does not reference ${physical_filesystem_package_id} ${physical_filesystem_package_version}." >&2
+  exit 1
+fi
 if ! grep -F "\"${json_schema_package_id}/${json_schema_package_version}\"" <<< "${dependency_manifest}" >/dev/null; then
   echo "CLI package dependency manifest does not reference ${json_schema_package_id} ${json_schema_package_version}." >&2
   exit 1
@@ -297,6 +312,11 @@ cli_notice="$(
 if ! grep -F "${filesystem_package_id} ${filesystem_package_version}" <<< "${cli_notice}" >/dev/null \
   || ! grep -F "third-party/${filesystem_package_id}/${filesystem_package_version}/LICENSE" <<< "${cli_notice}" >/dev/null; then
   echo "CLI package third-party notice does not identify the filesystem provider license." >&2
+  exit 1
+fi
+if ! grep -F "${physical_filesystem_package_id} ${physical_filesystem_package_version}" <<< "${cli_notice}" >/dev/null \
+  || ! grep -F "third-party/${physical_filesystem_package_id}/${physical_filesystem_package_version}/LICENSE" <<< "${cli_notice}" >/dev/null; then
+  echo "CLI package third-party notice does not identify the physical filesystem provider license." >&2
   exit 1
 fi
 for package_id in "${text_package_ids[@]}"; do
@@ -341,6 +361,14 @@ for package_id in "${foundation_package_ids[@]}"; do
     exit 1
   fi
 done
+if [[ -z "$(find "${tool_path}" -type f -name "${physical_filesystem_package_id}.dll" -print -quit)" ]]; then
+  echo "Installed CLI is missing ${physical_filesystem_package_id}.dll." >&2
+  exit 1
+fi
+if find "${tool_path}" -type f -iname "${physical_filesystem_package_id}.*.nupkg" -print -quit | grep -q .; then
+  echo "Installed CLI contains the standalone ${physical_filesystem_package_id} provider package." >&2
+  exit 1
+fi
 if [[ -z "$(find "${tool_path}" -type f -name "${json_schema_package_id}.dll" -print -quit)" ]]; then
   echo "Installed CLI is missing ${json_schema_package_id}.dll." >&2
   exit 1
@@ -368,6 +396,10 @@ if [[ -z "${installed_notice}" ]]; then
 fi
 if [[ -z "$(find "${tool_path}" -type f -path "*/third-party/${filesystem_package_id}/${filesystem_package_version}/LICENSE" -print -quit)" ]]; then
   echo "Installed CLI is missing the filesystem provider license." >&2
+  exit 1
+fi
+if [[ -z "$(find "${tool_path}" -type f -path "*/third-party/${physical_filesystem_package_id}/${physical_filesystem_package_version}/LICENSE" -print -quit)" ]]; then
+  echo "Installed CLI is missing the physical filesystem provider license." >&2
   exit 1
 fi
 for package_id in "${text_package_ids[@]}"; do
