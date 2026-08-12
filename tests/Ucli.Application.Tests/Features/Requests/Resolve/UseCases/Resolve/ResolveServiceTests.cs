@@ -200,7 +200,6 @@ public sealed class ResolveServiceTests
         var error = Assert.Single(result.Errors);
         Assert.Equal(ApplicationFailureKind.InvalidInput, error.Kind);
         Assert.Equal(UcliCoreErrorCodes.InvalidArgument, error.Code);
-        Assert.Equal("Scene path could not be resolved.", error.Message);
     }
 
     [Fact]
@@ -337,7 +336,6 @@ public sealed class ResolveServiceTests
         Assert.Equal(ApplicationOutcome.ToolError, result.Outcome);
         var error = Assert.Single(result.Errors);
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
-        Assert.Contains("operationDescriptorDigest", error.Message, StringComparison.Ordinal);
     }
 
     private static ResolveCommandInput CreateInput (

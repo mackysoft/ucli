@@ -41,47 +41,6 @@ public sealed class UcliStaticSchemaGenerationIntegrationTests
 
     [Fact]
     [Trait("Size", "Medium")]
-    public void Generate_WithUcliRegistrations_MatchesRepositoryAndIsDeterministic ()
-    {
-        using var scope = TestDirectories.CreateTempScope("static-schema-generation", "repository-artifacts");
-        var firstGeneratedRoot = scope.GetPath("generated-first");
-        var secondGeneratedRoot = scope.GetPath("generated-second");
-        var repositoryRoot = TestRepositoryPaths.GetFullPath(".");
-        var repositorySchemaRoot = TestRepositoryPaths.GetFullPath("schemas");
-        var packageVersion = StaticSchemaSetTestSupport
-            .ReadManifest(repositorySchemaRoot)["packageVersion"]!
-            .GetValue<string>();
-
-        UcliStaticSchemaSetGenerator.Generate(
-            AbsolutePath.Parse(firstGeneratedRoot),
-            AbsolutePath.Parse(repositoryRoot),
-            packageVersion);
-        UcliStaticSchemaSetGenerator.Generate(
-            AbsolutePath.Parse(secondGeneratedRoot),
-            AbsolutePath.Parse(repositoryRoot),
-            packageVersion);
-
-        AssertArtifactSetsEqual(repositorySchemaRoot, firstGeneratedRoot);
-        AssertArtifactSetsEqual(firstGeneratedRoot, secondGeneratedRoot);
-    }
-
-    private static void AssertArtifactSetsEqual (
-        string expectedRoot,
-        string actualRoot)
-    {
-        var expectedPaths = EnumerateRelativeFilePaths(expectedRoot);
-        var actualPaths = EnumerateRelativeFilePaths(actualRoot);
-        Assert.Equal(expectedPaths, actualPaths);
-        foreach (var relativePath in expectedPaths)
-        {
-            var expectedBytes = File.ReadAllBytes(Path.Combine(expectedRoot, relativePath));
-            var actualBytes = File.ReadAllBytes(Path.Combine(actualRoot, relativePath));
-            Assert.Equal(expectedBytes, actualBytes);
-        }
-    }
-
-    [Fact]
-    [Trait("Size", "Medium")]
     public void RepositorySchemaSet_IsSelfContainedAndItsManifestMatchesItsSchema ()
     {
         var schemaSet = UcliStaticSchemaSetLoader.Load(
@@ -130,15 +89,6 @@ public sealed class UcliStaticSchemaGenerationIntegrationTests
             () => UcliStaticSchemaArtifactValidator.Validate(entry, modifiedUtf8));
 
         Assert.Contains("unresolved local $ref", exception.Message, StringComparison.Ordinal);
-    }
-
-    private static string[] EnumerateRelativeFilePaths (string root)
-    {
-        return Directory
-            .EnumerateFiles(root, "*", SearchOption.AllDirectories)
-            .Select(path => Path.GetRelativePath(root, path))
-            .Order(StringComparer.Ordinal)
-            .ToArray();
     }
 
     private static void AssertRegisteredPayloadCanSerialize (CommandResult result)

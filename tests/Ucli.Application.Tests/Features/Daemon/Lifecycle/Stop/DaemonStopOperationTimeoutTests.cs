@@ -12,7 +12,7 @@ public sealed class DaemonStopOperationTimeoutTests
     [Trait("Size", "Small")]
     public async Task Stop_WhenSessionReadIgnoresCancellation_ReturnsAtDeadline ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var readStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var readFinished = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var readCompletion = new TaskCompletionSource<DaemonSessionReadResult>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -58,7 +58,6 @@ public sealed class DaemonStopOperationTimeoutTests
         try
         {
             await readStarted.Task.WaitAsync(SignalWaitTimeout);
-            await timeProvider.WaitForTimerDueWithinAsync(timeout).WaitAsync(SignalWaitTimeout);
             timeProvider.Advance(timeout);
             var result = await resultTask.WaitAsync(SignalWaitTimeout);
             await readCancellationObserved.Task.WaitAsync(SignalWaitTimeout);

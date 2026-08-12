@@ -1,5 +1,5 @@
-using MackySoft.FileSystem;
 using System.Text;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Tests.Helpers.Daemon;
 using MackySoft.Ucli.Tests.Helpers.Ipc;
@@ -13,7 +13,7 @@ public sealed class SupervisorBootstrapperLaunchRecoveryTests
     public async Task EnsureReady_WhenManifestAppearsDuringLaunchGrace_DoesNotRelaunch ()
     {
         using var scope = TestDirectories.CreateTempScope("supervisor-bootstrapper", "delayed-manifest");
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var manifestPublicationTime = DateTimeOffset.UnixEpoch + SupervisorConstants.BootstrapPollDelay;
         var launchCount = 0;
         var manifest = SupervisorBootstrapperTestSupport.CreateManifest();
@@ -51,11 +51,7 @@ public sealed class SupervisorBootstrapperLaunchRecoveryTests
                 CancellationToken.None)
             .AsTask();
         await launchStarted.Task.WaitAsync(SupervisorBootstrapperTestSupport.SignalWaitTimeout);
-        await ManualTimeTaskDriver.AdvanceUntilCompletedAsync(
-            timeProvider,
-            resultTask,
-            SupervisorConstants.BootstrapPollDelay + SupervisorConstants.BootstrapPollDelay,
-            SupervisorConstants.BootstrapPollDelay);
+        timeProvider.Advance(SupervisorConstants.BootstrapPollDelay);
 
         var result = await resultTask.WaitAsync(SupervisorBootstrapperTestSupport.SignalWaitTimeout);
 
@@ -71,7 +67,7 @@ public sealed class SupervisorBootstrapperLaunchRecoveryTests
     public async Task EnsureReady_WhenInitialLaunchDoesNotPublishManifest_RelaunchesAndSucceeds ()
     {
         using var scope = TestDirectories.CreateTempScope("supervisor-bootstrapper", "relaunch-success");
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var launchCount = 0;
         var events = new List<string>();
         var firstLaunchLease = new RecordingSupervisorProcessLaunchLease
@@ -108,11 +104,14 @@ public sealed class SupervisorBootstrapperLaunchRecoveryTests
             writeAllBytesAtomically: static (_, _, _) => ValueTask.CompletedTask,
             deleteIfExists: static _ => { });
         var transportClient = CreatePingTransport(manifest);
+        var firstLaunchStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var secondLaunchStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var processManager = new RecordingSupervisorProcessManager
         {
             LaunchHandler = (_, _) =>
             {
                 launchCount++;
+                (launchCount == 1 ? firstLaunchStarted : secondLaunchStarted).TrySetResult();
                 events.Add($"launch:{launchCount}");
                 var lease = launchCount == 1
                     ? firstLaunchLease
@@ -133,20 +132,10 @@ public sealed class SupervisorBootstrapperLaunchRecoveryTests
                 TimeSpan.FromSeconds(60),
                 CancellationToken.None)
             .AsTask();
-        for (var i = 0; i < 10 && !resultTask.IsCompleted; i++)
-        {
-            await ManualTimeTaskDriver.WaitForTimerDueWithinOrCompletionAsync(
-                timeProvider,
-                resultTask,
-                SupervisorConstants.ManifestPublicationTimeout);
-            if (!resultTask.IsCompleted)
-            {
-                timeProvider.Advance(
-                    launchCount < 2
-                        ? SupervisorConstants.ManifestPublicationTimeout
-                        : SupervisorConstants.BootstrapPollDelay);
-            }
-        }
+        await firstLaunchStarted.Task.WaitAsync(SupervisorBootstrapperTestSupport.SignalWaitTimeout);
+        timeProvider.Advance(SupervisorConstants.ManifestPublicationTimeout);
+        await secondLaunchStarted.Task.WaitAsync(SupervisorBootstrapperTestSupport.SignalWaitTimeout);
+        timeProvider.Advance(SupervisorConstants.BootstrapPollDelay);
 
         var result = await resultTask.WaitAsync(SupervisorBootstrapperTestSupport.SignalWaitTimeout);
 
@@ -165,8 +154,9 @@ public sealed class SupervisorBootstrapperLaunchRecoveryTests
     public async Task EnsureReady_WhenLaunchNeverPublishesManifest_ReturnsInternalErrorAfterLaunchGrace ()
     {
         using var scope = TestDirectories.CreateTempScope("supervisor-bootstrapper", "launch-no-manifest");
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var launchCount = 0;
+        using var manifestReads = new SemaphoreSlim(0);
         var launchLeases = new[]
         {
             new RecordingSupervisorProcessLaunchLease(),
@@ -174,7 +164,11 @@ public sealed class SupervisorBootstrapperLaunchRecoveryTests
         };
         var manifestStore = new SupervisorManifestStore(
             timeProvider,
-            readAllBytesOrNull: static (path, cancellationToken) => ValueTask.FromResult<ReadOnlyMemory<byte>?>(null),
+            readAllBytesOrNull: (path, cancellationToken) =>
+            {
+                manifestReads.Release();
+                return ValueTask.FromResult<ReadOnlyMemory<byte>?>(null);
+            },
             writeAllBytesAtomically: static (_, _, _) => ValueTask.CompletedTask,
             deleteIfExists: static _ => { });
         var transportClient = new StubIpcTransportClient
@@ -203,15 +197,16 @@ public sealed class SupervisorBootstrapperLaunchRecoveryTests
                 TimeSpan.FromSeconds(60),
                 CancellationToken.None)
             .AsTask();
+        await manifestReads.WaitAsync(SupervisorBootstrapperTestSupport.SignalWaitTimeout);
         for (var i = 0; i < 10 && !resultTask.IsCompleted; i++)
         {
-            await ManualTimeTaskDriver.WaitForTimerDueWithinOrCompletionAsync(
-                timeProvider,
-                resultTask,
-                SupervisorConstants.ManifestPublicationTimeout);
             if (!resultTask.IsCompleted)
             {
                 timeProvider.Advance(SupervisorConstants.ManifestPublicationTimeout);
+                if (!resultTask.IsCompleted)
+                {
+                    await manifestReads.WaitAsync(SupervisorBootstrapperTestSupport.SignalWaitTimeout);
+                }
             }
         }
 
@@ -231,8 +226,9 @@ public sealed class SupervisorBootstrapperLaunchRecoveryTests
     public async Task EnsureReady_WhenPreviousLaunchRollbackFails_DoesNotCreateAnotherGeneration ()
     {
         using var scope = TestDirectories.CreateTempScope("supervisor-bootstrapper", "rollback-failure");
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var rollbackAttemptCount = 0;
+        var launchStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var launchLease = new RecordingSupervisorProcessLaunchLease
         {
             RollbackHandler = () =>
@@ -248,6 +244,7 @@ public sealed class SupervisorBootstrapperLaunchRecoveryTests
         {
             LaunchHandler = (_, _) => ValueTask.FromResult(
                 SupervisorProcessLaunchResult.Success(launchLease)),
+            LaunchStarted = launchStarted,
         };
         var bootstrapper = new SupervisorBootstrapper(
             SupervisorManifestStoreTestSupport.CreateFileBacked(timeProvider),
@@ -262,14 +259,8 @@ public sealed class SupervisorBootstrapperLaunchRecoveryTests
                 TimeSpan.FromSeconds(30),
                 CancellationToken.None)
             .AsTask();
-        await ManualTimeTaskDriver.WaitForTimerDueWithinOrCompletionAsync(
-            timeProvider,
-            resultTask,
-            SupervisorConstants.ManifestPublicationTimeout);
-        if (!resultTask.IsCompleted)
-        {
-            timeProvider.Advance(SupervisorConstants.ManifestPublicationTimeout);
-        }
+        await launchStarted.Task.WaitAsync(SupervisorBootstrapperTestSupport.SignalWaitTimeout);
+        timeProvider.Advance(SupervisorConstants.ManifestPublicationTimeout);
 
         var result = await resultTask.WaitAsync(SupervisorBootstrapperTestSupport.SignalWaitTimeout);
 

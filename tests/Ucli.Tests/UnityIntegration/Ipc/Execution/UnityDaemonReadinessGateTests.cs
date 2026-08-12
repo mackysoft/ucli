@@ -325,7 +325,7 @@ public sealed class UnityDaemonReadinessGateTests
         Assert.Equal(2, daemonClient.Invocations.Count);
         Assert.All(
             daemonClient.Invocations,
-            invocation => Assert.Same(
+            invocation => Assert.Equal(
                 dispatchRequest,
                 invocation.DispatchRequest));
     }

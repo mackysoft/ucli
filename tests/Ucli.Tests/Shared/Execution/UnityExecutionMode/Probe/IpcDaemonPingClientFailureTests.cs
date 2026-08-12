@@ -63,17 +63,22 @@ public sealed class IpcDaemonPingClientFailureTests
     [Trait("Size", "Small")]
     public async Task Ping_WhenReplacementPublicationWindowFindsNoSession_PreservesReachableDaemonResponseFailure ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var unityIpcClient = CreateSuccessfulPingTransportClient();
-        unityIpcClient.EnqueueResponse(request => CreateResponse(
-            request,
-            IpcResponseStatus.Error,
-            [
-                new IpcError(
-                    IpcSessionErrorCodes.SessionTokenInvalid,
-                    "The session token was replaced.",
-                    InstancePath: null),
-            ]));
+        var transportStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        unityIpcClient.EnqueueResponse(request =>
+        {
+            transportStarted.TrySetResult();
+            return CreateResponse(
+                request,
+                IpcResponseStatus.Error,
+                [
+                    new IpcError(
+                        IpcSessionErrorCodes.SessionTokenInvalid,
+                        "The session token was replaced.",
+                        InstancePath: null),
+                ]);
+        });
         var rejectedSession = DaemonSessionTestFactory.CreateForToken("first-token");
         var sessionStore = new RecordingDaemonSessionStore
         {
@@ -91,8 +96,7 @@ public sealed class IpcDaemonPingClientFailureTests
                 DefaultTimeout,
                 cancellationToken: CancellationToken.None)
             .AsTask();
-        var retryDelay = TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds);
-        await timeProvider.WaitForTimerDueWithinAsync(retryDelay).WaitAsync(AsyncWaitTimeout);
+        await transportStarted.Task.WaitAsync(AsyncWaitTimeout);
         timeProvider.Advance(DaemonTimeouts.SessionPublicationRetryTimeout);
 
         var exception = await Assert.ThrowsAsync<DaemonPingResponseException>(() => pingTask).WaitAsync(AsyncWaitTimeout);
@@ -108,10 +112,15 @@ public sealed class IpcDaemonPingClientFailureTests
     [Trait("Size", "Small")]
     public async Task Ping_WhenResponseInterruptionOutlivesEndpointWindow_PreservesInterruptionFailure ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var interruption = new IpcResponseReadInterruptedException(
             new IOException("The daemon closed the response stream."));
-        var unityIpcClient = new RecordingIpcTransportClient(_ => throw interruption);
+        var transportStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var unityIpcClient = new RecordingIpcTransportClient(_ =>
+        {
+            transportStarted.TrySetResult();
+            throw interruption;
+        });
         var session = DaemonSessionTestFactory.CreateForToken("resolved-token");
         var sessionStore = new RecordingDaemonSessionStore
         {
@@ -129,8 +138,7 @@ public sealed class IpcDaemonPingClientFailureTests
                 DefaultTimeout,
                 cancellationToken: CancellationToken.None)
             .AsTask();
-        var retryDelay = TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds);
-        await timeProvider.WaitForTimerDueWithinAsync(retryDelay).WaitAsync(AsyncWaitTimeout);
+        await transportStarted.Task.WaitAsync(AsyncWaitTimeout);
         timeProvider.Advance(DaemonTimeouts.ProbeAttemptTimeoutCap);
 
         var exception = await Assert.ThrowsAsync<IpcResponseReadInterruptedException>(() => pingTask).WaitAsync(AsyncWaitTimeout);

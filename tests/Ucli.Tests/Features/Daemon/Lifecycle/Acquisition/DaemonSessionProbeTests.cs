@@ -40,70 +40,9 @@ public sealed class DaemonSessionProbeTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Probe_WhenReplacementPublicationIsDelayed_PingsReplacementOnceWithSameRequestId ()
-    {
-        var timeProvider = new ManualTimeProvider();
-        var unityProject = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(
-            ProjectFingerprintTestFactory.Create("fingerprint-session-probe-rotation"));
-        var observedSession = DaemonSessionTestFactory.Create(
-            projectFingerprint: unityProject.ProjectFingerprint,
-            sessionToken: "observed-token");
-        var replacementSession = DaemonSessionTestFactory.Create(
-            projectFingerprint: unityProject.ProjectFingerprint,
-            sessionToken: "replacement-token",
-            issuedAtUtc: observedSession.IssuedAtUtc.AddSeconds(1),
-            sessionGenerationId: Guid.Parse("33333333-3333-3333-3333-333333333333"));
-        var sessionStore = new RecordingDaemonSessionStore
-        {
-            ReadHandler = invocations => invocations.Count switch
-            {
-                1 => DaemonSessionReadResultTestFactory.Found(observedSession),
-                2 => DaemonSessionReadResult.Missing(),
-                _ => DaemonSessionReadResultTestFactory.Found(replacementSession),
-            },
-        };
-        var replacementPing = UnityEditorObservationTestFactory.Create(
-            projectFingerprint: unityProject.ProjectFingerprint);
-        var pingInfoClient = new RecordingDaemonPingInfoClient(
-            new DaemonPingResponseException(
-                "Session token rotated.",
-                IpcSessionErrorCodes.SessionTokenInvalid),
-            replacementPing);
-        var probe = new DaemonSessionProbe(
-            DaemonSessionAcquisitionCoordinatorTestFactory.Create(sessionStore),
-            pingInfoClient,
-            new DaemonReachabilityClassifier());
-
-        var probeTask = probe.ProbeAsync(
-                unityProject,
-                observedSession,
-                ExecutionDeadline.Start(TimeSpan.FromSeconds(5), timeProvider),
-                CancellationToken.None)
-            .AsTask();
-        await AdvanceNextPublicationRetryAsync(timeProvider);
-        await AdvanceNextPublicationRetryAsync(timeProvider);
-
-        var result = await probeTask;
-
-        Assert.True(result.IsSuccess);
-        Assert.Equal(replacementSession, result.Session);
-        Assert.Same(replacementPing, result.PingResponse);
-        Assert.Equal(3, sessionStore.ReadInvocations.Count);
-        Assert.Collection(
-            pingInfoClient.Invocations,
-            invocation => Assert.Equal(observedSession, invocation.Session),
-            invocation => Assert.Equal(replacementSession, invocation.Session));
-        var requestId = pingInfoClient.Invocations[0].RequestId;
-        Assert.NotNull(requestId);
-        Assert.NotEqual(Guid.Empty, requestId.Value);
-        Assert.Equal(requestId, pingInfoClient.Invocations[1].RequestId);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
     public async Task Probe_WhenReplacementPublicationExhaustsRequestDeadline_ReturnsTimeoutWithoutSecondPing ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var unityProject = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(
             ProjectFingerprintTestFactory.Create("fingerprint-session-probe-publication-timeout"));
         var observedSession = DaemonSessionTestFactory.Create(
@@ -126,8 +65,6 @@ public sealed class DaemonSessionProbeTests
                 ExecutionDeadline.Start(timeout, timeProvider),
                 CancellationToken.None)
             .AsTask();
-        await timeProvider.WaitForTimerDueWithinAsync(
-                TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds)).WaitAsync(TimeSpan.FromSeconds(5));
         timeProvider.Advance(timeout);
         var result = await probeTask.WaitAsync(TimeSpan.FromSeconds(5));
 
@@ -139,9 +76,72 @@ public sealed class DaemonSessionProbeTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Probe_WhenReplacementPublicationIsDelayed_PreservesRequestIdentityForSuccessorPing ()
+    {
+        var unityProject = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(
+            ProjectFingerprintTestFactory.Create("fingerprint-session-probe-delayed-publication"));
+        var observedSession = DaemonSessionTestFactory.Create(
+            projectFingerprint: unityProject.ProjectFingerprint,
+            sessionToken: "observed-token");
+        var replacementSession = DaemonSessionTestFactory.Create(
+            projectFingerprint: unityProject.ProjectFingerprint,
+            sessionToken: "replacement-token",
+            issuedAtUtc: observedSession.IssuedAtUtc.AddSeconds(1),
+            sessionGenerationId: Guid.Parse("33333333-3333-3333-3333-333333333333"));
+        var replacementPing = UnityEditorObservationTestFactory.Create(
+            projectFingerprint: unityProject.ProjectFingerprint);
+        var replacementReadStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var replacementPublished = new TaskCompletionSource<DaemonSessionReadResult>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var sessionStore = new RecordingDaemonSessionStore
+        {
+            ReadAsyncHandler = async (_, _, cancellationToken) =>
+            {
+                replacementReadStarted.TrySetResult();
+                return await replacementPublished.Task.WaitAsync(cancellationToken);
+            },
+        };
+        var pingInfoClient = new RecordingDaemonPingInfoClient(
+            new DaemonPingResponseException(
+                "Session token rotated.",
+                IpcSessionErrorCodes.SessionTokenInvalid),
+            replacementPing);
+        var probe = new DaemonSessionProbe(
+            DaemonSessionAcquisitionCoordinatorTestFactory.Create(sessionStore),
+            pingInfoClient,
+            new DaemonReachabilityClassifier());
+
+        var probeTask = probe.ProbeAsync(
+                unityProject,
+                observedSession,
+                ExecutionDeadline.Start(TimeSpan.FromSeconds(1), TimeProvider.System),
+                CancellationToken.None)
+            .AsTask();
+        await replacementReadStarted.Task.WaitAsync(TimeSpan.FromSeconds(1));
+        Assert.False(probeTask.IsCompleted);
+        replacementPublished.TrySetResult(DaemonSessionReadResultTestFactory.Found(replacementSession));
+
+        var result = await probeTask.WaitAsync(TimeSpan.FromSeconds(1));
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(replacementSession, result.Session);
+        Assert.Equal(replacementPing, result.PingResponse);
+        Assert.Collection(
+            pingInfoClient.Invocations,
+            invocation => Assert.Equal(observedSession, invocation.Session),
+            invocation => Assert.Equal(replacementSession, invocation.Session));
+        var requestIds = pingInfoClient.Invocations.Select(static invocation => invocation.RequestId).ToArray();
+        Assert.NotNull(requestIds[0]);
+        Assert.NotEqual(Guid.Empty, requestIds[0]);
+        Assert.Equal(requestIds[0], requestIds[1]);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Probe_WhenCanceledDuringReplacementPublicationWait_ThrowsWithoutSecondPing ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var unityProject = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(
             ProjectFingerprintTestFactory.Create("fingerprint-session-probe-publication-canceled"));
         var observedSession = DaemonSessionTestFactory.Create(
@@ -164,8 +164,6 @@ public sealed class DaemonSessionProbeTests
                 ExecutionDeadline.Start(TimeSpan.FromSeconds(5), timeProvider),
                 cancellationTokenSource.Token)
             .AsTask();
-        await timeProvider.WaitForTimerDueWithinAsync(TimeSpan.FromMilliseconds(100));
-
         cancellationTokenSource.Cancel();
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => probeTask);
@@ -256,7 +254,7 @@ public sealed class DaemonSessionProbeTests
     [Trait("Size", "Small")]
     public async Task Probe_WhenResponseInterruptionOutlivesEndpointWindow_PreservesInterruptionFailure ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var unityProject = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(
             ProjectFingerprintTestFactory.Create("fingerprint-session-probe-response-interruption"));
         var observedSession = DaemonSessionTestFactory.Create(
@@ -281,7 +279,6 @@ public sealed class DaemonSessionProbeTests
                 CancellationToken.None)
             .AsTask();
         var retryDelay = TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds);
-        await timeProvider.WaitForTimerDueWithinAsync(retryDelay).WaitAsync(TimeSpan.FromSeconds(5));
         timeProvider.Advance(DaemonTimeouts.ProbeAttemptTimeoutCap);
 
         var result = await probeTask.WaitAsync(TimeSpan.FromSeconds(5));
@@ -366,7 +363,7 @@ public sealed class DaemonSessionProbeTests
     [Trait("Size", "Small")]
     public async Task Probe_WhenRefreshedMetadataKeepsRejectedGeneration_DoesNotRetrySameGeneration ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var unityProject = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(
             ProjectFingerprintTestFactory.Create("fingerprint-session-probe-same-token"));
         var observedSession = DaemonSessionTestFactory.Create(
@@ -394,11 +391,7 @@ public sealed class DaemonSessionProbeTests
                 ExecutionDeadline.Start(TimeSpan.FromSeconds(5), timeProvider),
                 CancellationToken.None)
             .AsTask();
-        await ManualTimeTaskDriver.AdvanceUntilCompletedAsync(
-            timeProvider,
-            probeTask,
-            TimeSpan.FromSeconds(3),
-            TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds));
+        timeProvider.Advance(TimeSpan.FromSeconds(3));
 
         var result = await probeTask;
 
@@ -408,10 +401,4 @@ public sealed class DaemonSessionProbeTests
         Assert.Single(pingInfoClient.Invocations);
     }
 
-    private static async Task AdvanceNextPublicationRetryAsync (ManualTimeProvider timeProvider)
-    {
-        var retryDelay = TimeSpan.FromMilliseconds(100);
-        await timeProvider.WaitForTimerDueWithinAsync(retryDelay);
-        timeProvider.Advance(retryDelay);
-    }
 }

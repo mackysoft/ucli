@@ -49,7 +49,7 @@ public sealed class SupervisorRequestDispatcherStopProjectTests
     [Trait("Size", "Small")]
     public async Task HandleConnection_WhenUtcClockMovesBackward_CapsExecutionWithAttemptTimeout ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new WallClockSkewFakeTimeProvider();
         var stopOperation = new RecordingDaemonStopOperation();
         var dispatcher = CreateDispatcher(
             timeProvider: timeProvider,
@@ -86,7 +86,7 @@ public sealed class SupervisorRequestDispatcherStopProjectTests
     [Trait("Size", "Small")]
     public async Task HandleConnection_WhenUtcClockMovesPastDeadline_ReturnsStructuredTimeoutWithoutDispatch ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new WallClockSkewFakeTimeProvider();
         var stopOperation = new RecordingDaemonStopOperation();
         var dispatcher = CreateDispatcher(
             timeProvider: timeProvider,

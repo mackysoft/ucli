@@ -17,7 +17,7 @@ public sealed class LogsStreamPollingExecutorTimeTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenPollingContinues_WaitsUsingInjectedTimeProvider ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var daemonLogsClient = new RecordingDaemonLogsClient([]);
         var executor = new LogsStreamPollingExecutor(CreateResolver(), timeProvider);
         using var cancellationTokenSource = new CancellationTokenSource();
@@ -29,14 +29,14 @@ public sealed class LogsStreamPollingExecutorTimeTests
             untilTimestamp: null,
             cancellationToken: cancellationTokenSource.Token);
 
-        await timeProvider.WaitForTimerDueWithinAsync(PollInterval).WaitAsync(TestTimeout);
+        await daemonLogsClient.WaitForReadAsync(TestTimeout);
         Assert.Single(daemonLogsClient.Invocations);
 
         timeProvider.Advance(PollInterval - TimeSpan.FromTicks(1));
         Assert.Single(daemonLogsClient.Invocations);
 
         timeProvider.Advance(TimeSpan.FromTicks(1));
-        await timeProvider.WaitForTimerDueWithinAsync(PollInterval).WaitAsync(TestTimeout);
+        await daemonLogsClient.WaitForReadAsync(TestTimeout);
         Assert.Equal(2, daemonLogsClient.Invocations.Count);
 
         cancellationTokenSource.Cancel();
@@ -49,7 +49,7 @@ public sealed class LogsStreamPollingExecutorTimeTests
     public async Task Execute_WhenUtcMovesBackward_IdleTimeoutUsesMonotonicElapsedTime ()
     {
         var initialUtc = new DateTimeOffset(2026, 7, 15, 0, 0, 0, TimeSpan.Zero);
-        var timeProvider = new ManualTimeProvider(initialUtc);
+        var timeProvider = new WallClockSkewFakeTimeProvider(initialUtc);
         var daemonLogsClient = new RecordingDaemonLogsClient([]);
         var executor = new LogsStreamPollingExecutor(CreateResolver(), timeProvider);
 
@@ -60,11 +60,11 @@ public sealed class LogsStreamPollingExecutorTimeTests
             untilTimestamp: null,
             cancellationToken: CancellationToken.None);
 
-        await timeProvider.WaitForTimerDueWithinAsync(PollInterval).WaitAsync(TestTimeout);
+        await daemonLogsClient.WaitForReadAsync(TestTimeout);
         timeProvider.ShiftUtc(-TimeSpan.FromDays(1));
 
         timeProvider.Advance(PollInterval);
-        await timeProvider.WaitForTimerDueWithinAsync(PollInterval).WaitAsync(TestTimeout);
+        await daemonLogsClient.WaitForReadAsync(TestTimeout);
         Assert.False(resultTask.IsCompleted);
 
         timeProvider.Advance(PollInterval);
@@ -81,7 +81,7 @@ public sealed class LogsStreamPollingExecutorTimeTests
     {
         var initialUtc = new DateTimeOffset(2026, 7, 15, 0, 0, 0, TimeSpan.Zero);
         var untilTimestamp = initialUtc + TimeSpan.FromHours(1);
-        var timeProvider = new ManualTimeProvider(initialUtc);
+        var timeProvider = new WallClockSkewFakeTimeProvider(initialUtc);
         var startedAtTimestamp = timeProvider.GetTimestamp();
         var daemonLogsClient = new RecordingDaemonLogsClient([]);
         var executor = new LogsStreamPollingExecutor(CreateResolver(), timeProvider);
@@ -93,7 +93,7 @@ public sealed class LogsStreamPollingExecutorTimeTests
             untilTimestamp: untilTimestamp,
             cancellationToken: CancellationToken.None);
 
-        await timeProvider.WaitForTimerDueWithinAsync(PollInterval).WaitAsync(TestTimeout);
+        await daemonLogsClient.WaitForReadAsync(TestTimeout);
         timeProvider.ShiftUtc(TimeSpan.FromHours(2));
         timeProvider.Advance(PollInterval);
 

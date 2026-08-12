@@ -12,7 +12,7 @@ internal static class AssetLookupSourceRefreshAssert
         string expectedRetryFailureMessage)
     {
         Assert.True(result.IsSuccess);
-        Assert.Same(expectedSnapshot, result.Snapshot);
+        AssetLookupSnapshotAssert.Equal(expectedSnapshot, result.Snapshot);
         Assert.Empty(artifactWriter.AssetLookupInvocations);
         Assert.NotNull(result.FallbackReason);
         Assert.Contains(expectedFallbackReason, result.FallbackReason!, StringComparison.Ordinal);
@@ -27,7 +27,7 @@ internal static class AssetLookupSourceRefreshAssert
         string expectedFallbackReason)
     {
         Assert.True(result.IsSuccess);
-        Assert.Same(expectedSnapshot, result.Snapshot);
+        AssetLookupSnapshotAssert.Equal(expectedSnapshot, result.Snapshot);
         Assert.Empty(artifactWriter.AssetLookupInvocations);
         Assert.NotNull(result.FallbackReason);
         Assert.Contains(expectedFallbackReason, result.FallbackReason!, StringComparison.Ordinal);

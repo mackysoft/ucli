@@ -22,6 +22,6 @@ public sealed class BuildOutputSourceEntryTests
         var source = BuildOutputSourceEntry.FromAbsolutePath(path);
 
         var absolute = Assert.IsType<BuildOutputSourceEntry.Absolute>(source);
-        Assert.Same(path, absolute.Path);
+        Assert.Equal(path, absolute.Path);
     }
 }

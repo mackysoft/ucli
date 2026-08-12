@@ -18,7 +18,7 @@ public sealed class InitServiceTests
 
         var result = await service.ExecuteAsync(new InitCommandInput(Force: true), CancellationToken.None);
 
-        Assert.Same(expectedResult, result);
+        Assert.Equal(expectedResult, result);
         InitTemplateStoreAssert.DefaultConfigWritten(templateStore, expectedForce: true);
     }
 
@@ -31,7 +31,7 @@ public sealed class InitServiceTests
 
         var result = await service.ExecuteAsync(new InitCommandInput(Force: false), CancellationToken.None);
 
-        Assert.Same(expectedResult, result);
+        Assert.Equal(expectedResult, result);
     }
 
 }

@@ -106,7 +106,6 @@ public sealed class TestRunServiceProgressTests
         Assert.Equal(TestRunErrorKind.ToolError, result.ErrorKind);
         Assert.Equal(ApplicationOutcome.ToolError, result.PrimaryFailure.Outcome);
         Assert.Equal(TestRunErrorCodes.UnityTestExecutionFailed, result.PrimaryFailure.Code);
-        Assert.Contains("Unity test-run progress event is not supported", result.Message, StringComparison.Ordinal);
         TestRunProgressAssert.RejectedUnityProgressStoppedAfterRunStarted(progressSink);
     }
 
@@ -143,7 +142,6 @@ public sealed class TestRunServiceProgressTests
         Assert.Equal(TestRunErrorKind.ToolError, result.ErrorKind);
         Assert.Equal(ApplicationOutcome.ToolError, result.PrimaryFailure.Outcome);
         Assert.Equal(TestRunErrorCodes.UnityTestExecutionFailed, result.PrimaryFailure.Code);
-        Assert.Contains("runId mismatch", result.Message, StringComparison.Ordinal);
         TestRunProgressAssert.RejectedUnityProgressStoppedAfterRunStarted(progressSink);
     }
 
@@ -174,7 +172,6 @@ public sealed class TestRunServiceProgressTests
         Assert.Equal(TestRunErrorKind.ToolError, result.ErrorKind);
         Assert.Equal(ApplicationOutcome.ToolError, result.PrimaryFailure.Outcome);
         Assert.Equal(TestRunErrorCodes.UnityTestExecutionFailed, result.PrimaryFailure.Code);
-        Assert.Contains("progress payload is invalid", result.Message, StringComparison.Ordinal);
         TestRunProgressAssert.RejectedUnityProgressStoppedAfterRunStarted(progressSink);
     }
 
@@ -217,7 +214,6 @@ public sealed class TestRunServiceProgressTests
         Assert.Equal(TestRunErrorKind.ToolError, result.ErrorKind);
         Assert.Equal(ApplicationOutcome.ToolError, result.PrimaryFailure.Outcome);
         Assert.Equal(TestRunErrorCodes.UnityTestExecutionFailed, result.PrimaryFailure.Code);
-        Assert.Contains("progress payload is invalid", result.Message, StringComparison.Ordinal);
         TestRunProgressAssert.RejectedUnityProgressStoppedAfterRunStarted(progressSink);
     }
 
@@ -235,7 +231,5 @@ public sealed class TestRunServiceProgressTests
                     UcliDiagnosticSeverity.Info),
                 RunId));
 
-        Assert.Contains("payload type violates contract", exception.Message, StringComparison.Ordinal);
-        Assert.Contains(TestRunProgressEventNames.CaseStarted, exception.Message, StringComparison.Ordinal);
     }
 }

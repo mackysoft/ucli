@@ -705,8 +705,12 @@ public sealed class FileLifecycleExecutionStoreTests
         using var secondScope = TestDirectories.CreateTempScope(
             "lifecycle-execution-store",
             "side-effect-admission-second-project");
+        var secondProjectFingerprint = new ProjectFingerprint(
+            "1123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef");
         var firstStore = CreateStore(firstScope);
-        var secondStore = CreateStore(secondScope);
+        var secondStore = new FileLifecycleExecutionStore(
+            AbsolutePath.Parse(secondScope.FullPath),
+            secondProjectFingerprint);
         var definition = new LifecycleExecutionDefinition(
             LifecycleExecutionKind.Refresh);
         var executionId = Guid.NewGuid();
@@ -720,7 +724,10 @@ public sealed class FileLifecycleExecutionStoreTests
             secondStore,
             definition,
             executionId,
-            CreateProject(),
+            new UnityProjectIdentity(
+                "/workspace/SecondUnityProject",
+                secondProjectFingerprint,
+                "6000.1.4f1"),
             CreateHost());
         var firstExpected = await firstStore.ReadAsync(
             definition.Kind,

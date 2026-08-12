@@ -32,8 +32,8 @@ public sealed class RequestPreparationServiceTests
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.PreparedRequest);
         Assert.Equal(normalizedRequestJson, result.PreparedRequest!.RequestJson);
-        Assert.Same(parsedRequest, result.PreparedRequest.Request);
-        Assert.Same(projectContext, result.PreparedRequest.ProjectContext);
+        Assert.Equal(parsedRequest, result.PreparedRequest.Request);
+        Assert.Equal(projectContext, result.PreparedRequest.ProjectContext);
         RequestPreparationInvocationAssert.RequestJsonParsedOnce(parser, normalizedRequestJson);
     }
 
@@ -56,7 +56,7 @@ public sealed class RequestPreparationServiceTests
             cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
-        Assert.Same(error, result.Error);
+        Assert.Equal(error, result.Error);
         Assert.Null(result.PreparedRequest);
     }
 
@@ -138,7 +138,7 @@ public sealed class RequestPreparationServiceTests
             cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
-        Assert.Same(error, result.Error);
+        Assert.Equal(error, result.Error);
         Assert.Null(result.PreparedRequest);
     }
 

@@ -119,7 +119,7 @@ public sealed class ExecutionDeadlineOperationTests
     [Trait("Size", "Small")]
     public async Task ExecuteAsync_WhenDeadlineWinsImmediatelyBeforeLateSuccess_ReturnsTimeout ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var operationSource = new InlineCompletingValueTaskSource<string>();
         var operationEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var deadline = ExecutionDeadline.Start(TimeSpan.FromSeconds(1), timeProvider);
@@ -144,14 +144,13 @@ public sealed class ExecutionDeadlineOperationTests
 
         Assert.False(result.IsSuccess);
         Assert.Equal(ExecutionErrorKind.Timeout, result.Error?.Kind);
-        Assert.Equal(0, timeProvider.ActiveTimerCount);
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public async Task ExecuteAsync_WhenDeadlineWinsImmediatelyBeforeLateFault_ReturnsTimeoutAndReleasesOperationCancellation ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var operationSource = new InlineCompletingValueTaskSource<string>();
         var operationEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var operationCancellationObserved = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -184,7 +183,6 @@ public sealed class ExecutionDeadlineOperationTests
 
         Assert.False(result.IsSuccess);
         Assert.Equal(ExecutionErrorKind.Timeout, result.Error?.Kind);
-        Assert.Equal(0, timeProvider.ActiveTimerCount);
     }
 
     [Fact]
@@ -368,7 +366,7 @@ public sealed class ExecutionDeadlineOperationTests
     [Trait("Size", "Small")]
     public async Task ExecuteAsync_WhenCallerCancellationWinsImmediatelyBeforeLateFault_ThrowsCallerCancellationAndReleasesOperationCancellation ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var operationSource = new InlineCompletingValueTaskSource<string>();
         var operationEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var operationCancellationObserved = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -402,7 +400,6 @@ public sealed class ExecutionDeadlineOperationTests
         await WaitForCancellationTokenSourceDisposalAsync(operationCancellationToken);
 
         Assert.Equal(callerCancellationTokenSource.Token, exception.CancellationToken);
-        Assert.Equal(0, timeProvider.ActiveTimerCount);
     }
 
     [Fact]

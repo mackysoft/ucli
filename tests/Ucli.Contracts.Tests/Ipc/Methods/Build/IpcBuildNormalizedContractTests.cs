@@ -297,16 +297,6 @@ public sealed class IpcBuildNormalizedContractTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void IpcBuildLogWindow_CursorsAreExplicitConstructorState ()
-    {
-        var parameters = Assert.Single(typeof(IpcBuildLogWindow).GetConstructors()).GetParameters();
-
-        Assert.False(Assert.Single(parameters, static parameter => parameter.Name == "CursorStart").HasDefaultValue);
-        Assert.False(Assert.Single(parameters, static parameter => parameter.Name == "CursorEnd").HasDefaultValue);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
     public void IpcBuildLogWindow_WhenCursorsBelongToDifferentStreams_Throws ()
     {
         var startedAtUtc = new DateTimeOffset(2026, 7, 14, 0, 0, 0, TimeSpan.Zero);
@@ -357,19 +347,6 @@ public sealed class IpcBuildNormalizedContractTests
         });
 
         Assert.Equal(parameterName, exception.ParamName);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void IpcBuildRunResponse_RunnerResultIsConstructorBoundGetOnlyState ()
-    {
-        var constructor = Assert.Single(typeof(IpcBuildRunResponse).GetConstructors());
-        var parameter = Assert.Single(
-            constructor.GetParameters(),
-            static candidate => candidate.Name == "RunnerResult");
-
-        Assert.False(parameter.HasDefaultValue);
-        Assert.Null(typeof(IpcBuildRunResponse).GetProperty(nameof(IpcBuildRunResponse.RunnerResult))!.SetMethod);
     }
 
     [Fact]

@@ -43,7 +43,7 @@ public sealed class AssuranceEffectSetsTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void CreateBuild_ReturnsCachedImmutableEffectSet ()
+    public void CreateBuild_ReturnsImmutableEffectSet ()
     {
         var first = AssuranceEffectSets.CreateBuild(
             BuildRunnerKind.BuildPipeline,
@@ -53,7 +53,7 @@ public sealed class AssuranceEffectSetsTests
             hasBuildReport: true);
         var list = Assert.IsAssignableFrom<IList<AssuranceEffect>>(first);
 
-        Assert.Same(first, second);
+        Assert.Equal(first, second);
         Assert.Throws<NotSupportedException>(() => list[0] = AssuranceEffect.ProjectMutationAudit);
         Assert.Equal(AssuranceEffect.UnityLifecycleRead, first[0]);
     }

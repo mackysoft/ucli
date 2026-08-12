@@ -8,7 +8,7 @@ public sealed class SupervisorBootstrapLockProviderTests
     public async Task Acquire_WhenLockRemainsHeld_ExpiresWithInjectedTimeProvider ()
     {
         using var scope = TestDirectories.CreateTempScope("supervisor-bootstrap-lock", "manual-timeout");
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var provider = new SupervisorBootstrapLockProvider(timeProvider);
         await using var heldLock = await provider.AcquireAsync(
             AbsolutePath.Parse(scope.FullPath),
@@ -20,9 +20,6 @@ public sealed class SupervisorBootstrapLockProviderTests
                 TimeSpan.FromMilliseconds(100),
                 CancellationToken.None)
             .AsTask();
-        await timeProvider
-            .WaitForTimerDueWithinAsync(TimeSpan.FromMilliseconds(50))
-            .WaitAsync(TimeSpan.FromSeconds(1));
         timeProvider.Advance(TimeSpan.FromMilliseconds(100));
 
         _ = await Assert.ThrowsAsync<TimeoutException>(

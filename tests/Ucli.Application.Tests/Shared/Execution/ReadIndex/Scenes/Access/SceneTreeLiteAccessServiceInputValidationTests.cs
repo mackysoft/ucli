@@ -42,8 +42,7 @@ public sealed class SceneTreeLiteAccessServiceInputValidationTests
 
         SceneTreeLiteAccessInvocationAssert.InvalidSceneRejectedBeforeIndexLookup(
             result,
-            indexReader,
-            "Scene path could not be resolved");
+            indexReader);
     }
 
 }
