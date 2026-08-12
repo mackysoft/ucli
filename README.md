@@ -1058,7 +1058,7 @@ ucli ops describe game.scene.countGameObjects --projectPath ./UnityProject
 
 ## 📦 Packages
 
-uCLI consumes [`MackySoft.FileSystem`](https://www.nuget.org/packages/MackySoft.FileSystem) `0.1.0` as an independently released, exact-version dependency. The uCLI repository does not own generation, versioning, or publication of the standalone provider package. The CLI tool publication may include the provider assembly in its runtime dependency closure; the Unity plugin does not bundle that assembly and instead declares the exact package dependency.
+uCLI consumes [`MackySoft.FileSystem`](https://www.nuget.org/packages/MackySoft.FileSystem) `0.2.1` as an independently released, exact-version dependency. The uCLI repository does not own generation, versioning, or publication of the standalone provider package. The CLI tool publication includes the provider assembly in its runtime dependency closure; the Unity plugin does not bundle that assembly and instead declares the exact package dependency.
 
 | Package | NuGet | Role |
 | --- | --- | --- |

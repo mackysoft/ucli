@@ -27,13 +27,15 @@ done
 
 package_dir="$(cd "${package_dir}" && pwd)"
 filesystem_package_id="MackySoft.FileSystem"
-filesystem_package_version="0.1.0"
+filesystem_package_version="0.2.1"
 json_schema_package_id="MackySoft.JsonSchema.Generation"
 json_schema_dependency_version_range="[0.3.1]"
+text_package_version="0.1.0"
 
 temp_dir="$(mktemp -d)"
 trap 'rm -rf "${temp_dir}"' EXIT
-foundation_dependency_version_range="[0.1.0]"
+filesystem_dependency_version_range="[${filesystem_package_version}]"
+text_dependency_version_range="[${text_package_version}]"
 package_ids=(
   "MackySoft.Ucli.Contracts"
   "MackySoft.Ucli.Infrastructure"
@@ -128,8 +130,11 @@ for package_id in "${package_ids[@]}"; do
       MackySoft.JsonSchema.Generation)
         required_dependency_version="${json_schema_dependency_version_range}"
         ;;
-      MackySoft.FileSystem|MackySoft.Text.Vocabularies|MackySoft.Text.Vocabularies.Json)
-        required_dependency_version="${foundation_dependency_version_range}"
+      MackySoft.FileSystem)
+        required_dependency_version="${filesystem_dependency_version_range}"
+        ;;
+      MackySoft.Text.Vocabularies|MackySoft.Text.Vocabularies.Json)
+        required_dependency_version="${text_dependency_version_range}"
         ;;
       *)
         required_dependency_version="${expected_version}"
