@@ -1,5 +1,6 @@
 using System.Text.Json;
 using MackySoft.Ucli.Application.Features.Programs.Persistence;
+using MackySoft.Ucli.Application.Shared.Execution.Process;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Execution;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -175,6 +176,42 @@ internal sealed class FileProgramRunStore : IProgramRunStore
         return new ProgramRunStepTerminalPublicationResult(true, artifact, replacement);
     }
 
+    public async ValueTask<ProgramRunTerminalPublicationResult> PublishRunTimeoutTerminalAsync (
+        ProgramRunRecord expected,
+        int stepIndex,
+        ProgramRunTerminalRecord terminalRecord,
+        Func<ArtifactRef, ProgramRunRecord> createReplacement,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(expected);
+        ArgumentNullException.ThrowIfNull(terminalRecord);
+        ArgumentNullException.ThrowIfNull(createReplacement);
+        EnsureRunProject(expected);
+        terminalRecord.Validate();
+        var statePath = ResolveStatePath(expected.RunId);
+        using var stateLock = await FileExclusiveLock.AcquireAsync(ResolveLockPath(expected.RunId), LockTimeout, cancellationToken).ConfigureAwait(false);
+        var current = await ReadRequiredWithoutLockAsync(statePath, expected.RunId, cancellationToken).ConfigureAwait(false);
+        if (current.Version != expected.Version)
+        {
+            var existing = await TryReadIdempotentRunTerminalAsync(current, terminalRecord, cancellationToken).ConfigureAwait(false);
+            if (existing is not null)
+            {
+                return new ProgramRunTerminalPublicationResult(true, existing, current);
+            }
+            throw new InvalidOperationException("Program Run timeout terminal publication expected a stale aggregate version.");
+        }
+        EnsureRunTimeoutTerminalTransition(current, stepIndex, terminalRecord);
+        var definition = await ReadDefinitionSnapshotAsync(current, cancellationToken).ConfigureAwait(false);
+        var candidate = CreateRunTerminalArtifactCandidate(current.RunId, terminalRecord);
+        var replacementTemplate = createReplacement(candidate.Reference) ?? throw new InvalidOperationException("Terminal replacement must be created.");
+        EnsureRunTerminalMatchesReplacement(terminalRecord, replacementTemplate, candidate.Reference, definition, nameof(createReplacement));
+        EnsureReplacementPreservesIdentity(current, replacementTemplate, allowsRunTimeoutPlanningRestoration: true);
+        var artifact = await PublishRunTerminalRecordAsync(candidate, terminalRecord, cancellationToken).ConfigureAwait(false);
+        var replacement = ApplyRunTerminalArtifactReference(replacementTemplate, candidate.Reference, artifact);
+        await WriteWithoutLockAsync(statePath, replacement, cancellationToken).ConfigureAwait(false);
+        return new ProgramRunTerminalPublicationResult(true, artifact, replacement);
+    }
+
     private AbsolutePath ResolveStatePath (Guid runId) => Resolve(runId, "state.json");
 
     private AbsolutePath ResolveLockPath (Guid runId) => Resolve(runId, "state.lock");
@@ -201,6 +238,31 @@ internal sealed class FileProgramRunStore : IProgramRunStore
             || terminal.DefinitionSnapshotRef != run.DefinitionSnapshotRef)
         {
             throw new ArgumentException("Program Run terminal record must identify the expected fixed Run.", nameof(terminal));
+        }
+    }
+
+    private static void EnsureRunTimeoutTerminalTransition (ProgramRunRecord current, int stepIndex, ProgramRunTerminalRecord terminal)
+    {
+        EnsureRunTerminalIdentity(terminal, current);
+        if (terminal.State != ProgramRunState.Failed || terminal.ReasonCode != "PROGRAM_RUN_TIMEOUT"
+            || stepIndex < 0 || stepIndex >= current.Steps.Count
+            || current.Steps[stepIndex].State != ProgramStepState.Planning
+            || current.Steps[stepIndex].ExecutionPortInvoked
+            || terminal.Steps.Count != current.Steps.Count)
+        {
+            throw new ArgumentException("A run-timeout terminal publication must atomically restore one unadmitted planning Step.", nameof(terminal));
+        }
+        var expected = current.Steps[stepIndex];
+        var restored = terminal.Steps[stepIndex];
+        if (restored.State != ProgramStepState.Deferred
+            || restored.PlanningStartedAtUtc != expected.PlanningStartedAtUtc
+            || restored.DeadlineUtc != expected.DeadlineUtc
+            || restored.Execution is not null
+            || restored.ExecutionPortInvoked
+            || restored.StartedAtUtc is not null
+            || restored.ApplicationState != ExecutionApplicationState.NotApplied)
+        {
+            throw new ArgumentException("A run-timeout terminal publication must preserve only the unadmitted planning audit facts.", nameof(terminal));
         }
     }
 
@@ -386,7 +448,12 @@ internal sealed class FileProgramRunStore : IProgramRunStore
             replacementTemplate.SchemaVersion, replacementTemplate.Version, replacementTemplate.RunId, replacementTemplate.DefinitionDigest, replacementTemplate.DefinitionSnapshotRef,
             replacementTemplate.Project, replacementTemplate.FixedContext, replacementTemplate.Host, replacementTemplate.StartedGeneration, replacementTemplate.CurrentEditorGeneration,
             replacementTemplate.DeadlineUtc, replacementTemplate.StartedAtUtc, replacementTemplate.UpdatedAtUtc, replacementTemplate.State, replacementTemplate.Cursor,
-            replacementTemplate.Steps, replacementTemplate.ChildExecutionRefs, replacementTemplate.Cancellation, verifiedReference);
+            replacementTemplate.Steps, replacementTemplate.ChildExecutionRefs, replacementTemplate.Cancellation, verifiedReference)
+        {
+            SupervisorObservation = replacementTemplate.SupervisorObservation,
+            HostObservation = replacementTemplate.HostObservation,
+            TerminalReasonCode = replacementTemplate.TerminalReasonCode,
+        };
     }
 
     private static ProgramRunRecord ApplyStepTerminalArtifactReference (
@@ -401,7 +468,12 @@ internal sealed class FileProgramRunStore : IProgramRunStore
             replacementTemplate.SchemaVersion, replacementTemplate.Version, replacementTemplate.RunId, replacementTemplate.DefinitionDigest, replacementTemplate.DefinitionSnapshotRef,
             replacementTemplate.Project, replacementTemplate.FixedContext, replacementTemplate.Host, replacementTemplate.StartedGeneration, replacementTemplate.CurrentEditorGeneration,
             replacementTemplate.DeadlineUtc, replacementTemplate.StartedAtUtc, replacementTemplate.UpdatedAtUtc, replacementTemplate.State, replacementTemplate.Cursor,
-            steps, replacementTemplate.ChildExecutionRefs, replacementTemplate.Cancellation, replacementTemplate.TerminalRecordRef);
+            steps, replacementTemplate.ChildExecutionRefs, replacementTemplate.Cancellation, replacementTemplate.TerminalRecordRef)
+        {
+            SupervisorObservation = replacementTemplate.SupervisorObservation,
+            HostObservation = replacementTemplate.HostObservation,
+            TerminalReasonCode = replacementTemplate.TerminalReasonCode,
+        };
     }
 
     private static void EnsureVerifiedReferenceMatchesCandidate (ArtifactRef candidate, ArtifactRef verified)
@@ -562,7 +634,10 @@ internal sealed class FileProgramRunStore : IProgramRunStore
         FileSystemAccessBoundary.EnsureSecureFile(statePath);
     }
 
-    private static void EnsureReplacementPreservesIdentity (ProgramRunRecord expected, ProgramRunRecord replacement)
+    private static void EnsureReplacementPreservesIdentity (
+        ProgramRunRecord expected,
+        ProgramRunRecord replacement,
+        bool allowsRunTimeoutPlanningRestoration = false)
     {
         if (expected.RunId != replacement.RunId
             || expected.DefinitionDigest != replacement.DefinitionDigest
@@ -586,6 +661,11 @@ internal sealed class FileProgramRunStore : IProgramRunStore
         {
             throw new ArgumentException("Program Run replacement must follow the durable state machine.", nameof(replacement));
         }
+        if (!ProgramRunStateSemantics.IsTerminal(replacement.State)
+            && replacement.TerminalReasonCode != expected.TerminalReasonCode)
+        {
+            throw new ArgumentException("A nonterminal Program Run replacement cannot introduce or change a terminal reason.", nameof(replacement));
+        }
         if (replacement.Cursor < expected.Cursor)
         {
             throw new ArgumentException("Program Run cursor must be monotonic.", nameof(replacement));
@@ -598,13 +678,34 @@ internal sealed class FileProgramRunStore : IProgramRunStore
         }
         for (var index = 0; index < expected.Steps.Count; index++)
         {
-            EnsureStepReplacementIsAppendOnly(expected.Steps[index], replacement.Steps[index], nameof(replacement));
+            EnsureStepReplacementIsAppendOnly(
+                expected.Steps[index],
+                replacement.Steps[index],
+                allowsRunTimeoutPlanningRestoration,
+                nameof(replacement));
         }
         EnsureCancellationIsAppendOnly(expected.Cancellation, replacement.Cancellation, nameof(replacement));
+        EnsureObservationIsAppendOnly(expected.SupervisorObservation, replacement.SupervisorObservation, nameof(replacement));
+        EnsureObservationIsAppendOnly(expected.HostObservation, replacement.HostObservation, nameof(replacement));
     }
 
-    private static void EnsureStepReplacementIsAppendOnly (ProgramRunStepRecord expected, ProgramRunStepRecord replacement, string parameterName)
+    private static void EnsureStepReplacementIsAppendOnly (
+        ProgramRunStepRecord expected,
+        ProgramRunStepRecord replacement,
+        bool allowsRunTimeoutPlanningRestoration,
+        string parameterName)
     {
+        if (expected.State == ProgramStepState.Planning && replacement.State == ProgramStepState.Deferred)
+        {
+            EnsureUninvokedPlanningRestoration(expected, replacement, allowsRunTimeoutPlanningRestoration, parameterName);
+            return;
+        }
+        if (expected.State == ProgramStepState.Planning && replacement.State == ProgramStepState.Failed
+            && !expected.ExecutionPortInvoked && replacement.ErrorCode == "PROGRAM_STEP_TIMEOUT")
+        {
+            EnsureUninvokedPlanningTimeout(expected, replacement, parameterName);
+            return;
+        }
         if (ProgramRunStateSemantics.IsTerminal(expected.State))
         {
             if (!ProgramRunStepsMatch(expected, replacement))
@@ -623,7 +724,12 @@ internal sealed class FileProgramRunStore : IProgramRunStore
         RequireSameWhenSet(expected.GenerationAfter, replacement.GenerationAfter, parameterName);
         RequireSameWhenSet(expected.RequestPlanRef, replacement.RequestPlanRef, parameterName);
         RequireSameWhenSet(expected.LifecycleExecutionRef, replacement.LifecycleExecutionRef, parameterName);
-        RequireSameWhenSet(expected.RequestExecution, replacement.RequestExecution, parameterName);
+        if (expected.RequestExecution is not null
+            && !HasSameRequestExecutionBoundaryOrNull(expected.RequestExecution, replacement.RequestExecution))
+        {
+            throw new ArgumentException("Program Run replacement cannot remove or replace an established Program Step fact.", parameterName);
+        }
+        RequireSameWhenSet(expected.Execution, replacement.Execution, parameterName);
         RequireSameWhenSet(expected.ResultRef, replacement.ResultRef, parameterName);
         RequireSameWhenSet(expected.StepResultRef, replacement.StepResultRef, parameterName);
         RequireSameWhenSet(expected.ErrorCode, replacement.ErrorCode, parameterName);
@@ -639,6 +745,75 @@ internal sealed class FileProgramRunStore : IProgramRunStore
         }
     }
 
+    private static void EnsureUninvokedPlanningRestoration (
+        ProgramRunStepRecord expected,
+        ProgramRunStepRecord replacement,
+        bool allowsRunTimeoutPlanningRestoration,
+        string parameterName)
+    {
+        if (expected.ExecutionPortInvoked
+            || replacement.ExecutionPortInvoked
+            || replacement.Execution is not null
+            || replacement.StartedAtUtc is not null
+            || replacement.CompletedAtUtc is not null
+            || replacement.ResultRef is not null
+            || replacement.StepResultRef is not null
+            || replacement.ErrorCode is not null
+            || replacement.LifecycleExecutionRef is not null
+            || (allowsRunTimeoutPlanningRestoration
+                ? !HasSameRequestExecutionBoundaryOrNull(expected.RequestExecution, replacement.RequestExecution)
+                : replacement.RequestExecution is not null)
+            || replacement.ArtifactRefs.Count != 0
+            || replacement.ApplicationState != ExecutionApplicationState.NotApplied
+            || replacement.Verdict is not null
+            || (allowsRunTimeoutPlanningRestoration
+                ? replacement.GenerationBefore != expected.GenerationBefore || replacement.GenerationAfter != expected.GenerationAfter
+                : replacement.GenerationBefore is not null || replacement.GenerationAfter is not null)
+            || (allowsRunTimeoutPlanningRestoration
+                ? replacement.PlanningStartedAtUtc != expected.PlanningStartedAtUtc || replacement.DeadlineUtc != expected.DeadlineUtc
+                : replacement.PlanningStartedAtUtc is not null || replacement.DeadlineUtc is not null)
+            || !HasSameArtifactContentOrNull(expected.RequestPlanRef, replacement.RequestPlanRef)
+            || expected.OperationDescriptorRefs.Count != replacement.OperationDescriptorRefs.Count
+            || !expected.OperationDescriptorRefs.Zip(replacement.OperationDescriptorRefs, HasSameArtifactContent).All(static same => same))
+        {
+            throw new ArgumentException("Only an uninvoked Program planning Step may return to Deferred while preserving its plan facts.", parameterName);
+        }
+    }
+
+    private static void EnsureUninvokedPlanningTimeout (ProgramRunStepRecord expected, ProgramRunStepRecord replacement, string parameterName)
+    {
+        if (replacement.ExecutionPortInvoked || replacement.Execution is not null || replacement.StartedAtUtc is not null
+            || replacement.ApplicationState != ExecutionApplicationState.NotApplied || replacement.Verdict is not null
+            || replacement.ErrorCode != "PROGRAM_STEP_TIMEOUT" || replacement.ResultRef is null || replacement.CompletedAtUtc is null
+            || replacement.PlanningStartedAtUtc != expected.PlanningStartedAtUtc || replacement.DeadlineUtc != expected.DeadlineUtc)
+        {
+            throw new ArgumentException("An uninvoked Program planning Step may fail only as a not-applied step timeout.", parameterName);
+        }
+        EnsureEstablishedPlanningFactsPreserved(expected, replacement, parameterName);
+    }
+
+    private static void EnsureEstablishedPlanningFactsPreserved (
+        ProgramRunStepRecord expected,
+        ProgramRunStepRecord replacement,
+        string parameterName)
+    {
+        RequireSameWhenSet(expected.GenerationBefore, replacement.GenerationBefore, parameterName);
+        RequireSameWhenSet(expected.GenerationAfter, replacement.GenerationAfter, parameterName);
+        RequireSameWhenSet(expected.RequestPlanRef, replacement.RequestPlanRef, parameterName);
+        RequireSameWhenSet(expected.LifecycleExecutionRef, replacement.LifecycleExecutionRef, parameterName);
+        if (!HasSameRequestExecutionBoundaryOrNull(expected.RequestExecution, replacement.RequestExecution))
+        {
+            throw new ArgumentException("Program Run replacement cannot remove or replace an established Program Step fact.", parameterName);
+        }
+        RequireSameWhenSet(expected.StepResultRef, replacement.StepResultRef, parameterName);
+        if ((expected.OperationDescriptorRefs.Count > 0 && !expected.OperationDescriptorRefs.SequenceEqual(replacement.OperationDescriptorRefs))
+            || (expected.ArtifactRefs.Count > 0 && !expected.ArtifactRefs.SequenceEqual(replacement.ArtifactRefs))
+            || expected.ChildExecutionRef is not null || replacement.ChildExecutionRef is not null)
+        {
+            throw new ArgumentException("An uninvoked Program planning Step timeout must retain established planning facts.", parameterName);
+        }
+    }
+
     private static void EnsureCancellationIsAppendOnly (ProgramCancellationRecord expected, ProgramCancellationRecord replacement, string parameterName)
     {
         if ((expected.Requested && expected != replacement)
@@ -646,6 +821,17 @@ internal sealed class FileProgramRunStore : IProgramRunStore
             || (!expected.Requested && replacement.ReasonCode is not null && !replacement.Requested))
         {
             throw new ArgumentException("Program Run cancellation facts are append-only.", parameterName);
+        }
+    }
+
+    private static void EnsureObservationIsAppendOnly (
+        ProgramProcessLivenessObservation? expected,
+        ProgramProcessLivenessObservation? replacement,
+        string parameterName)
+    {
+        if (expected is not null && (replacement is null || replacement.ObservedAtUtc < expected.ObservedAtUtc))
+        {
+            throw new ArgumentException("Program process liveness observations must not be removed or move backward in time.", parameterName);
         }
     }
 
@@ -661,7 +847,7 @@ internal sealed class FileProgramRunStore : IProgramRunStore
     private static void RequireSameWhenSet<T> (T? expected, T? replacement, string parameterName)
         where T : class
     {
-        if (expected is not null && expected != replacement)
+        if (expected is not null && !EqualityComparer<T>.Default.Equals(expected, replacement))
         {
             throw new ArgumentException("Program Run replacement cannot remove or replace an established Program Step fact.", parameterName);
         }
@@ -721,9 +907,28 @@ internal sealed class FileProgramRunStore : IProgramRunStore
             : terminal.ChildExecutionRefs.Count != 0 || run.ChildExecutionRefs.Count != 0 ? "childExecutionRefs"
             : terminal.Cancellation != run.Cancellation ? "cancellation"
             : terminal.CurrentEditorGeneration != run.CurrentEditorGeneration ? "generation"
+            : terminal.FinalSupervisorObservation != run.SupervisorObservation ? "supervisorObservation"
+            : terminal.FinalHostObservation != run.HostObservation ? "hostObservation"
+            : !HasExpectedFinalSupervisorSnapshot(terminal, run) ? "supervisorSnapshot"
+            : terminal.ReasonCode != run.TerminalReasonCode ? "reasonCode"
             : terminal.StartedAtUtc != run.StartedAtUtc ? "startedAtUtc"
             : terminal.CompletedAtUtc != run.UpdatedAtUtc ? "completedAtUtc"
             : null;
+    }
+
+    private static bool HasExpectedFinalSupervisorSnapshot (ProgramRunTerminalRecord terminal, ProgramRunRecord run)
+    {
+        var initial = run.FixedContext.Supervisor;
+        var observation = run.SupervisorObservation;
+        var lost = observation?.Status == ProcessIdentityStatus.ExitedOrReplaced;
+        var expected = new ProgramAttachedSupervisorSnapshot(
+            initial.SupervisorId,
+            initial.HostId,
+            initial.OwnerProcess,
+            lost ? ProgramSupervisorConnection.Lost : initial.Connection,
+            lost ? ProgramSupervisorAvailability.Unavailable : initial.Availability,
+            observation?.ObservedAtUtc ?? initial.LastObservedAtUtc).Validate();
+        return terminal.FinalSupervisorSnapshot == expected;
     }
 
     private static bool StepTerminalMatchesAggregate (
@@ -778,7 +983,9 @@ internal sealed class FileProgramRunStore : IProgramRunStore
             : left.OperationDescriptorRefs.Count != right.OperationDescriptorRefs.Count ? "operationDescriptorRefs"
             : !left.OperationDescriptorRefs.Zip(right.OperationDescriptorRefs, HasSameArtifactContent).All(static same => same) ? "operationDescriptorRefs"
             : left.LifecycleExecutionRef != right.LifecycleExecutionRef ? "lifecycleExecutionRef"
-            : left.RequestExecution != right.RequestExecution ? "requestExecution"
+            : !HasSameRequestExecutionBoundaryOrNull(left.RequestExecution, right.RequestExecution) ? "requestExecution"
+            : left.Execution != right.Execution ? "execution"
+            : left.ExecutionPortInvoked != right.ExecutionPortInvoked ? "executionPortInvoked"
             : left.ChildExecutionRef != right.ChildExecutionRef ? "childExecutionRef"
             : !HasSameArtifactContentOrNull(left.ResultRef, right.ResultRef) ? "resultRef"
             : !HasSameArtifactContentOrNull(left.StepResultRef, right.StepResultRef) ? "stepResultRef"
@@ -793,6 +1000,24 @@ internal sealed class FileProgramRunStore : IProgramRunStore
     private static bool HasSameArtifactContentOrNull (ArtifactRef? left, ArtifactRef? right)
     {
         return left is null ? right is null : right is not null && HasSameArtifactContent(left, right);
+    }
+
+    private static bool HasSameRequestExecutionBoundaryOrNull (
+        ProgramRequestExecutionBoundary? left,
+        ProgramRequestExecutionBoundary? right)
+    {
+        return left is null
+            ? right is null
+            : right is not null
+                && left.ExecutionId == right.ExecutionId
+                && left.Project == right.Project
+                && left.Host == right.Host
+                && left.StartedGeneration == right.StartedGeneration
+                && HasSameArtifactContent(left.RequestPlanRef, right.RequestPlanRef)
+                && left.OperationDescriptorRefs.Count == right.OperationDescriptorRefs.Count
+                && left.OperationDescriptorRefs.Zip(right.OperationDescriptorRefs, HasSameArtifactContent).All(static same => same)
+                && left.StartedAtUtc == right.StartedAtUtc
+                && left.DeadlineUtc == right.DeadlineUtc;
     }
 
     private static bool HasSameFixedContext (ProgramRunFixedContext left, ProgramRunFixedContext right)

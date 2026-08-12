@@ -1,5 +1,4 @@
 using MackySoft.Ucli.Contracts.Cryptography;
-using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Editor;
 using MackySoft.Ucli.Contracts.Execution;
 using MackySoft.Ucli.Contracts.Projects;
@@ -65,6 +64,18 @@ internal sealed record ProgramRunTerminalRecord (
     DateTimeOffset StartedAtUtc,
     DateTimeOffset CompletedAtUtc)
 {
+    /// <summary>
+    /// Gets the final attached-supervisor connection and availability snapshot.
+    /// Process liveness, when observed, remains a separate fact.
+    /// </summary>
+    public ProgramAttachedSupervisorSnapshot FinalSupervisorSnapshot { get; init; } = null!;
+
+    /// <summary> Gets the final attached-Supervisor liveness observation known when the Run became terminal. </summary>
+    public ProgramProcessLivenessObservation? FinalSupervisorObservation { get; init; }
+    /// <summary> Gets the final fixed-host liveness observation known when the Run became terminal. </summary>
+    public ProgramProcessLivenessObservation? FinalHostObservation { get; init; }
+    /// <summary> Gets the stable reason that selected this Run terminalization, when one is recorded. </summary>
+    public string? ReasonCode { get; init; }
     public const int CurrentSchemaVersion = 1;
 
     public ProgramRunTerminalRecord Validate ()
@@ -76,6 +87,7 @@ internal sealed record ProgramRunTerminalRecord (
             || StartedAtUtc == default || StartedAtUtc.Offset != TimeSpan.Zero
             || DeadlineUtc == default || DeadlineUtc.Offset != TimeSpan.Zero || DeadlineUtc <= StartedAtUtc
             || CompletedAtUtc == default || CompletedAtUtc.Offset != TimeSpan.Zero || CompletedAtUtc < StartedAtUtc
+            || FinalSupervisorSnapshot is null || (ReasonCode is not null && string.IsNullOrWhiteSpace(ReasonCode))
             || Steps.Any(static step => ProgramRunStateSemantics.IsOngoing(step.State)))
         {
             throw new ArgumentException("Program Run Terminal Record must contain one closed terminal aggregate.");
@@ -86,6 +98,9 @@ internal sealed record ProgramRunTerminalRecord (
             throw new ArgumentException("Program Run Terminal Record must retain the fixed JSON definition snapshot.");
         }
         FixedContext.Validate();
+        FinalSupervisorSnapshot.Validate();
+        FinalSupervisorObservation?.Validate();
+        FinalHostObservation?.Validate();
         Cancellation.Validate();
         foreach (var step in Steps)
         {
