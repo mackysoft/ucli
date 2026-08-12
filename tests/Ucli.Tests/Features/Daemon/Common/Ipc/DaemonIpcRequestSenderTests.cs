@@ -1,6 +1,5 @@
 using System.Net.Sockets;
 using System.Text.Json;
-using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Acquisition;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Observation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
@@ -238,17 +237,18 @@ public sealed class DaemonIpcRequestSenderTests
     public async Task SendAsync_WhenSessionResolutionDoesNotQuiesce_ReturnsTimeoutAtDeadline (
         bool blockCancellationCallback)
     {
-        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
+        var timeout = TimeSpan.FromSeconds(5);
+        var timeProvider = new DeadlineTimerObservingFakeTimeProvider(DateTimeOffset.UnixEpoch, timeout);
+        var transportClient = CreateTransportClient();
         var sessionStore = new BlockingDaemonSessionStore(
             CreateSessionReadResult("daemon-token"),
             blockCancellationCallback);
         var sender = new DaemonIpcRequestSender(
-            new UnexpectedIpcTransportClient("Timed-out session resolution must stop before transport dispatch."),
+            transportClient,
             DaemonSessionAcquisitionCoordinatorTestFactory.Create(
                 sessionStore),
             new DaemonReachabilityClassifier(),
             timeProvider);
-        var timeout = TimeSpan.FromSeconds(5);
         var sendTask = sender.SendAsync(
                 ResolvedUnityProjectContextTestFactory.Create(),
                 UnityIpcMethod.UnityLogsRead,
@@ -259,15 +259,14 @@ public sealed class DaemonIpcRequestSenderTests
 
         try
         {
-            await sessionStore.Started.WaitAsync(TimeSpan.FromSeconds(1));
+            await Task.WhenAll(timeProvider.DeadlineTimerRegistered, sessionStore.ReadReady);
+
             timeProvider.Advance(timeout);
             if (blockCancellationCallback)
             {
-                await sessionStore.CancellationCallbackStarted.WaitAsync(TimeSpan.FromSeconds(1));
+                await sessionStore.CancellationCallbackStarted;
             }
 
-            var completedTask = await Task.WhenAny(sendTask, Task.Delay(TimeSpan.FromSeconds(1)));
-            Assert.Same(sendTask, completedTask);
             var result = await sendTask;
             Assert.False(result.IsSuccess);
             Assert.Equal(ExecutionErrorKind.Timeout, Assert.IsType<ExecutionError>(result.Error).Kind);
@@ -276,8 +275,10 @@ public sealed class DaemonIpcRequestSenderTests
         {
             sessionStore.ReleaseCancellationCallback();
             sessionStore.ReleaseResolution();
-            await ObserveCompletionAsync(sendTask);
+            await sessionStore.Completed;
         }
+
+        Assert.Empty(transportClient.Requests);
     }
 
     [Fact]
@@ -757,6 +758,40 @@ public sealed class DaemonIpcRequestSenderTests
         }
     }
 
+    private sealed class DeadlineTimerObservingFakeTimeProvider : FakeTimeProvider
+    {
+        private readonly TimeSpan deadline;
+
+        private readonly TaskCompletionSource<bool> deadlineTimerRegisteredSource =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public DeadlineTimerObservingFakeTimeProvider (DateTimeOffset startDateTime, TimeSpan deadline)
+            : base(startDateTime)
+        {
+            this.deadline = deadline;
+        }
+
+        public Task DeadlineTimerRegistered => deadlineTimerRegisteredSource.Task;
+
+        public override ITimer CreateTimer (
+            TimerCallback callback,
+            object? state,
+            TimeSpan dueTime,
+            TimeSpan period)
+        {
+            var timer = base.CreateTimer(callback, state, dueTime, period);
+            if (dueTime == deadline && period == Timeout.InfiniteTimeSpan)
+            {
+                if (!deadlineTimerRegisteredSource.TrySetResult(true))
+                {
+                    throw new InvalidOperationException("The deadline boundary test expects exactly one deadline timer.");
+                }
+            }
+
+            return timer;
+        }
+    }
+
     private sealed class TimeAdvancingDaemonSessionStore : ReadOnlyDaemonSessionStore
     {
         private readonly FakeTimeProvider timeProvider;
@@ -792,9 +827,6 @@ public sealed class DaemonIpcRequestSenderTests
 
         private readonly bool blockCancellationCallback;
 
-        private readonly TaskCompletionSource<bool> startedSource =
-            new(TaskCreationOptions.RunContinuationsAsynchronously);
-
         private readonly TaskCompletionSource<bool> cancellationCallbackStartedSource =
             new(TaskCreationOptions.RunContinuationsAsynchronously);
 
@@ -802,6 +834,12 @@ public sealed class DaemonIpcRequestSenderTests
             new(TaskCreationOptions.RunContinuationsAsynchronously);
 
         private readonly TaskCompletionSource<bool> resolutionReleaseSource =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        private readonly TaskCompletionSource<bool> readReadySource =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        private readonly TaskCompletionSource<bool> completedSource =
             new(TaskCreationOptions.RunContinuationsAsynchronously);
 
         public BlockingDaemonSessionStore (
@@ -812,9 +850,11 @@ public sealed class DaemonIpcRequestSenderTests
             this.blockCancellationCallback = blockCancellationCallback;
         }
 
-        public Task Started => startedSource.Task;
-
         public Task CancellationCallbackStarted => cancellationCallbackStartedSource.Task;
+
+        public Task ReadReady => readReadySource.Task;
+
+        public Task Completed => completedSource.Task;
 
         public override async ValueTask<DaemonSessionReadResult> ReadAsync (
             AbsolutePath storageRoot,
@@ -822,16 +862,23 @@ public sealed class DaemonIpcRequestSenderTests
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            startedSource.TrySetResult(true);
-            using var cancellationRegistration = blockCancellationCallback
-                ? cancellationToken.Register(() =>
-                {
-                    cancellationCallbackStartedSource.TrySetResult(true);
-                    cancellationCallbackReleaseSource.Task.GetAwaiter().GetResult();
-                })
-                : default;
-            await resolutionReleaseSource.Task;
-            return result;
+            try
+            {
+                using var cancellationRegistration = blockCancellationCallback
+                    ? cancellationToken.Register(() =>
+                    {
+                        cancellationCallbackStartedSource.TrySetResult(true);
+                        cancellationCallbackReleaseSource.Task.Wait();
+                    })
+                    : default;
+                readReadySource.TrySetResult(true);
+                await resolutionReleaseSource.Task;
+                return result;
+            }
+            finally
+            {
+                completedSource.TrySetResult(true);
+            }
         }
 
         public void ReleaseCancellationCallback ()
