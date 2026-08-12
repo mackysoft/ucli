@@ -99,6 +99,7 @@
             "pathExact": [
               "src/Ucli.Application/Features/Assurance/Build/Profiles/BuildProfileDigestCalculator.cs",
               "src/Ucli.Application/Features/Assurance/Verify/Profiles/VerifyProfileDigestCalculator.cs",
+              "src/Ucli.Application/Features/Programs/Resolution/ProgramDefinitionResolver.cs",
               "src/Ucli.Application/Features/Recording/Requests/GameViewRecordingRequestNormalizer.cs",
               "src/Ucli.Contracts/Execution/Lifecycle/LifecycleExecutionDefinitionDigest.cs",
               "src/Ucli.Contracts/Index/Catalogs/Ops/UcliOperationDescriptorDigest.cs",

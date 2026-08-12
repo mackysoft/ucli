@@ -1,7 +1,7 @@
 namespace MackySoft.Ucli.Tests;
 
 using System.Text.Json;
-using MackySoft.Tests;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Contracts.Configuration;
 
@@ -51,6 +51,11 @@ public sealed class UcliConfigStoreTests
                 [UcliContractConstants.Config.IpcTimeoutCommandCall] = 16000,
                 [UcliContractConstants.Config.IpcTimeoutCommandPlan] = 8000,
             },
+            ProgramPresets = new Dictionary<string, ProgramPresetRegistration>(StringComparer.Ordinal)
+            {
+                ["zeta"] = new ProgramPresetRegistration("Compiles the project.", RootRelativePath.Parse("programs/zeta.json")),
+                ["alpha"] = new ProgramPresetRegistration("Checks project readiness.", RootRelativePath.Parse("programs/alpha.json")),
+            },
         };
 
         var saveResult = await project.Store.SaveAsync(project.UnityProjectPath, config, CancellationToken.None);
@@ -78,6 +83,9 @@ public sealed class UcliConfigStoreTests
             config.IpcTimeoutMillisecondsByCommand[UcliContractConstants.Config.IpcTimeoutCommandPlan],
             loadedConfig.IpcTimeoutMillisecondsByCommand[UcliContractConstants.Config.IpcTimeoutCommandPlan]);
         Assert.Equal(config.OperationAllowlist, loadedConfig.OperationAllowlist);
+        Assert.Equal(["alpha", "zeta"], loadedConfig.ProgramPresets.Keys);
+        Assert.Equal(config.ProgramPresets["alpha"], loadedConfig.ProgramPresets["alpha"]);
+        Assert.Equal(config.ProgramPresets["zeta"], loadedConfig.ProgramPresets["zeta"]);
 
         using var jsonDocument = JsonDocument.Parse(File.ReadAllText(project.ConfigPath.Value));
         JsonAssert.For(jsonDocument.RootElement)
@@ -90,6 +98,13 @@ public sealed class UcliConfigStoreTests
                 .IsNull(UcliContractConstants.Config.IpcTimeoutCommandStatus)
                 .HasInt32(UcliContractConstants.Config.IpcTimeoutCommandCall, 16000)
                 .HasInt32(UcliContractConstants.Config.IpcTimeoutCommandPlan, 8000))
+            .HasProperty("programPresets", programPresets => programPresets
+                .HasProperty("alpha", alpha => alpha
+                    .HasString("description", "Checks project readiness.")
+                    .HasString("programPath", "programs/alpha.json"))
+                .HasProperty("zeta", zeta => zeta
+                    .HasString("description", "Compiles the project.")
+                    .HasString("programPath", "programs/zeta.json")))
             .HasArrayLength("operationAllowlist", 2);
     }
 }

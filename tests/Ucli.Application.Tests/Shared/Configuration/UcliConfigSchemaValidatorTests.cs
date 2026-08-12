@@ -103,6 +103,34 @@ public sealed class UcliConfigSchemaValidatorTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void Validate_WithProgramPreset_ReadsClosedRegistration ()
+    {
+        const string json = """
+        {
+          "schemaVersion": 1,
+          "operationPolicy": "safe",
+          "planTokenMode": "optional",
+          "operationAllowlist": [],
+          "programPresets": {
+            "smoke": {
+              "description": "Runs smoke checks.",
+              "programPath": "programs/smoke.json"
+            }
+          }
+        }
+        """;
+        using var document = JsonDocument.Parse(json);
+
+        var result = new UcliConfigSchemaValidator().Validate(document.RootElement, "config.json");
+
+        Assert.True(result.IsSuccess);
+        var preset = Assert.Single(result.Document!.Value.ProgramPresets!);
+        Assert.Equal("smoke", preset.Key);
+        Assert.Equal("programs/smoke.json", preset.Value.ProgramPath);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void Validate_WithManyUnknownProperties_LimitsDiagnostics ()
     {
         var unknownProperties = string.Join(

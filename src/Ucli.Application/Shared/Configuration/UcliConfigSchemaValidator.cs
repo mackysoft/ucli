@@ -23,6 +23,7 @@ internal sealed class UcliConfigSchemaValidator
         UcliConfigJsonPropertyNames.OperationAllowlist,
         UcliConfigJsonPropertyNames.IpcDefaultTimeoutMilliseconds,
         UcliConfigJsonPropertyNames.IpcTimeoutMillisecondsByCommand,
+        UcliConfigJsonPropertyNames.ProgramPresets,
     };
 
     /// <summary> Validates a config JSON root and reads raw config values when validation succeeds. </summary>
@@ -88,6 +89,11 @@ internal sealed class UcliConfigSchemaValidator
             UcliConfigJsonPropertyNames.IpcTimeoutMillisecondsByCommand,
             sourcePath,
             diagnostics);
+        var programPresets = ReadOptionalProgramPresetDictionary(
+            root,
+            UcliConfigJsonPropertyNames.ProgramPresets,
+            sourcePath,
+            diagnostics);
 
         if (diagnostics.Count > 0)
         {
@@ -101,7 +107,8 @@ internal sealed class UcliConfigSchemaValidator
             ReadIndexDefaultMode: readIndexDefaultMode,
             OperationAllowlist: operationAllowlist!,
             IpcDefaultTimeoutMilliseconds: ipcDefaultTimeoutMilliseconds,
-            IpcTimeoutMillisecondsByCommand: ipcTimeoutMillisecondsByCommand));
+            IpcTimeoutMillisecondsByCommand: ipcTimeoutMillisecondsByCommand,
+            ProgramPresets: programPresets));
     }
 
     private static void AddObjectPropertyDiagnostics (
@@ -320,6 +327,80 @@ internal sealed class UcliConfigSchemaValidator
             }
 
             values[entry.Name] = timeoutValue;
+        }
+
+        return values;
+    }
+
+    private static Dictionary<string, UcliProgramPresetDocument>? ReadOptionalProgramPresetDictionary (
+        JsonElement root,
+        string propertyName,
+        string sourcePath,
+        List<UcliConfigDiagnostic> diagnostics)
+    {
+        if (!root.TryGetProperty(propertyName, out var property))
+        {
+            return null;
+        }
+
+        if (property.ValueKind != JsonValueKind.Object)
+        {
+            AddDiagnostic(diagnostics, CreatePropertyTypeMismatchDiagnostic(propertyName, sourcePath));
+            return null;
+        }
+
+        var values = new Dictionary<string, UcliProgramPresetDocument>(StringComparer.Ordinal);
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var entry in property.EnumerateObject())
+        {
+            var entryPath = $"{propertyName}.{UcliConfigDiagnostic.FormatFragment(entry.Name)}";
+            if (!seen.Add(entry.Name))
+            {
+                if (!AddDiagnostic(diagnostics, CreateDuplicatePropertyDiagnostic(entryPath, sourcePath)))
+                {
+                    break;
+                }
+
+                continue;
+            }
+
+            if (entry.Value.ValueKind != JsonValueKind.Object)
+            {
+                if (!AddDiagnostic(diagnostics, CreateDiagnostic(ObjectPropertyTypeMismatchCode, entryPath, sourcePath, $"Config JSON object property type is invalid: {entryPath}.")))
+                {
+                    break;
+                }
+
+                continue;
+            }
+
+            var registrationProperties = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var registrationProperty in entry.Value.EnumerateObject())
+            {
+                var registrationPath = $"{entryPath}.{UcliConfigDiagnostic.FormatFragment(registrationProperty.Name)}";
+                if (!registrationProperties.Add(registrationProperty.Name))
+                {
+                    AddDiagnostic(diagnostics, CreateDuplicatePropertyDiagnostic(registrationPath, sourcePath));
+                }
+                else if (registrationProperty.Name is not ("description" or "programPath"))
+                {
+                    AddDiagnostic(diagnostics, CreateDiagnostic(UnknownPropertyCode, registrationPath, sourcePath, $"Config contains unknown property: {registrationPath}."));
+                }
+            }
+
+            if (!entry.Value.TryGetProperty("description", out var description) || description.ValueKind != JsonValueKind.String)
+            {
+                AddDiagnostic(diagnostics, CreateDiagnostic(PropertyTypeMismatchCode, $"{entryPath}.description", sourcePath, $"Config JSON property type is invalid: {entryPath}.description."));
+                continue;
+            }
+
+            if (!entry.Value.TryGetProperty("programPath", out var programPath) || programPath.ValueKind != JsonValueKind.String)
+            {
+                AddDiagnostic(diagnostics, CreateDiagnostic(PropertyTypeMismatchCode, $"{entryPath}.programPath", sourcePath, $"Config JSON property type is invalid: {entryPath}.programPath."));
+                continue;
+            }
+
+            values.Add(entry.Name, new UcliProgramPresetDocument(description.GetString() ?? string.Empty, programPath.GetString() ?? string.Empty));
         }
 
         return values;

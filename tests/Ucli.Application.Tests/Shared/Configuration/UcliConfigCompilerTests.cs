@@ -181,6 +181,67 @@ public sealed class UcliConfigCompilerTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void Compile_WithProgramPreset_NormalizesRegistration ()
+    {
+        const string json = """
+        {
+          "schemaVersion": 1,
+          "operationPolicy": "safe",
+          "planTokenMode": "optional",
+          "operationAllowlist": [],
+          "programPresets": {
+            "smoke": {
+              "description": "Runs smoke checks.",
+              "programPath": "programs/smoke.json"
+            }
+          }
+        }
+        """;
+
+        var result = Compile(json);
+
+        Assert.True(result.IsSuccess);
+        var preset = Assert.Single(result.Config!.ProgramPresets);
+        Assert.Equal("smoke", preset.Key);
+        Assert.Equal("Runs smoke checks.", preset.Value.Description);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void CreateDocument_WithInvalidProgramPresets_ReturnsLoadEquivalentDiagnostics ()
+    {
+        var config = CreateConfigWithProgramPresets(
+            new Dictionary<string, ProgramPresetRegistration>(StringComparer.Ordinal)
+            {
+                ["Invalid"] = new ProgramPresetRegistration(new string('a', 1025), RootRelativePath.Parse("smoke.json")),
+            });
+
+        var result = UcliConfigCompiler.CreateDefault().CreateDocument(config, "config.json");
+
+        Assert.False(result.IsSuccess);
+        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.Code == "config.save.invalidProgramPresetId");
+        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.Code == "config.save.invalidProgramPresetDescription");
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void CreateDocument_WithUnorderedProgramPresets_WritesOrdinalAscendingKeys ()
+    {
+        var config = CreateConfigWithProgramPresets(
+            new Dictionary<string, ProgramPresetRegistration>(StringComparer.Ordinal)
+            {
+                ["zeta"] = new ProgramPresetRegistration("Zeta.", RootRelativePath.Parse("zeta.json")),
+                ["alpha"] = new ProgramPresetRegistration("Alpha.", RootRelativePath.Parse("alpha.json")),
+            });
+
+        var result = UcliConfigCompiler.CreateDefault().CreateDocument(config, "config.json");
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(["alpha", "zeta"], result.Document!.ProgramPresets!.Keys);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void CreateDocument_WithValidConfig_ReturnsSerializableDocument ()
     {
         var config = new UcliConfig(
@@ -253,6 +314,21 @@ public sealed class UcliConfigCompilerTests
     {
         using var document = JsonDocument.Parse(json);
         return UcliConfigCompiler.CreateDefault().Compile(document.RootElement, "config.json");
+    }
+
+    private static UcliConfig CreateConfigWithProgramPresets (IReadOnlyDictionary<string, ProgramPresetRegistration> programPresets)
+    {
+        return new UcliConfig(
+            SchemaVersion: UcliConfig.CurrentSchemaVersion,
+            OperationPolicy: OperationPolicy.Safe,
+            PlanTokenMode: PlanTokenMode.Optional,
+            ReadIndexDefaultMode: ReadIndexMode.RequireFresh,
+            OperationAllowlist: [])
+        {
+            IpcDefaultTimeoutMilliseconds = 3000,
+            IpcTimeoutMillisecondsByCommand = IpcTimeoutDefaults.CreateDefaultTimeoutOverrides(),
+            ProgramPresets = programPresets,
+        };
     }
 
     private static UcliConfigDiagnostic AssertSingleDiagnostic (

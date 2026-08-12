@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Application.Features.Programs.Resolution;
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.EnvironmentVariables;
 using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
@@ -5,6 +6,7 @@ using MackySoft.Ucli.Application.Shared.Execution.Process;
 using MackySoft.Ucli.Application.Shared.Git;
 using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Json;
+using MackySoft.Ucli.Features.Programs.Resolution;
 using MackySoft.Ucli.Infrastructure.Artifacts;
 using MackySoft.Ucli.Shared.Configuration;
 using MackySoft.Ucli.Shared.EnvironmentVariables;
@@ -36,6 +38,7 @@ internal static class SharedServiceCollectionExtensions
         services.AddSingleton<UcliEffectiveConfigBuilder>();
         services.AddSingleton<UcliConfigCompiler>();
         services.AddSingleton<IUcliConfigStore, UcliConfigStore>();
+        services.AddSingleton<IProgramDefinitionFileReader, FileProgramDefinitionFileReader>();
         services.AddSingleton<IProjectLifecycleLockProvider, FileSystemProjectLifecycleLockProvider>();
         services.AddSingleton<ILifecycleExecutionReconnectResolver, FileLifecycleExecutionReconnectResolver>();
         services.AddSingleton<ILifecycleExecutionHostExitTerminalizer, FileLifecycleExecutionHostExitTerminalizer>();

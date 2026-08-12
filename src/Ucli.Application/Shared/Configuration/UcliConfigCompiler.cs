@@ -1,6 +1,5 @@
 using System.Text.Json;
 using MackySoft.Ucli.Contracts.Configuration;
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Shared.Configuration;
 
@@ -80,6 +79,12 @@ internal sealed class UcliConfigCompiler
 
         var ipcTimeoutMillisecondsByCommand = IpcTimeoutConfigValidator.CreateSerializableCommandTimeoutOverrides(
             config.IpcTimeoutMillisecondsByCommand);
+        var programPresets = config.ProgramPresets
+            .OrderBy(static entry => entry.Key, StringComparer.Ordinal)
+            .ToDictionary(
+            static entry => entry.Key,
+            static entry => new UcliProgramPresetDocument(entry.Value.Description, entry.Value.ProgramPath.Value),
+            StringComparer.Ordinal);
 
         return UcliConfigDocumentBuildResult.Success(new UcliConfigDocument(
             SchemaVersion: config.SchemaVersion,
@@ -88,7 +93,8 @@ internal sealed class UcliConfigCompiler
             ReadIndexDefaultMode: TextVocabulary.GetText(config.ReadIndexDefaultMode),
             OperationAllowlist: config.OperationAllowlist.ToArray(),
             IpcDefaultTimeoutMilliseconds: config.IpcDefaultTimeoutMilliseconds,
-            IpcTimeoutMillisecondsByCommand: ipcTimeoutMillisecondsByCommand));
+            IpcTimeoutMillisecondsByCommand: ipcTimeoutMillisecondsByCommand,
+            ProgramPresets: programPresets));
     }
 
     private static IReadOnlyList<UcliConfigDiagnostic> ValidateConfigForSave (
@@ -123,8 +129,40 @@ internal sealed class UcliConfigCompiler
             sourcePath);
         AddAllowlistDiagnostics(config.OperationAllowlist, sourcePath, diagnostics);
         AddTimeoutDiagnostics(config, sourcePath, diagnostics);
+        AddProgramPresetDiagnostics(config.ProgramPresets, sourcePath, diagnostics);
 
         return diagnostics;
+    }
+
+    private static void AddProgramPresetDiagnostics (
+        IReadOnlyDictionary<string, ProgramPresetRegistration>? presets,
+        string sourcePath,
+        List<UcliConfigDiagnostic> diagnostics)
+    {
+        if (presets is null)
+        {
+            AddDiagnostic(diagnostics, CreateDiagnostic("config.save.nullProgramPresets", UcliConfigJsonPropertyNames.ProgramPresets, sourcePath, "Config programPresets must not be null."));
+            return;
+        }
+
+        foreach (var entry in presets)
+        {
+            var path = $"{UcliConfigJsonPropertyNames.ProgramPresets}.{entry.Key}";
+            if (!UcliProgramPresetValidator.IsValidId(entry.Key))
+            {
+                AddDiagnostic(diagnostics, CreateDiagnostic("config.save.invalidProgramPresetId", path, sourcePath, "Config Program Preset ID is invalid."));
+            }
+
+            if (entry.Value is null || !UcliProgramPresetValidator.IsValidDescription(entry.Value.Description))
+            {
+                AddDiagnostic(diagnostics, CreateDiagnostic("config.save.invalidProgramPresetDescription", $"{path}.description", sourcePath, "Config Program Preset description must contain 1 through 1024 characters."));
+            }
+
+            if (entry.Value is null || !UcliProgramPresetValidator.IsValidProgramPath(entry.Value.ProgramPath.Value))
+            {
+                AddDiagnostic(diagnostics, CreateDiagnostic("config.save.invalidProgramPresetPath", $"{path}.programPath", sourcePath, "Config Program Preset programPath must be a relative slash-separated .json path without dot segments."));
+            }
+        }
     }
 
     private static void AddAllowlistDiagnostics (
