@@ -98,7 +98,7 @@ internal static class EvalCommandTestData
 
     private static IpcEvalResponse CreatePlan (CsEvalSourceKind sourceKind)
     {
-        var project = new UnityProjectIdentity("/workspace/UnityProject", ProjectFingerprintTestFactory.Create("project-fingerprint"), "6000.1.4f1");
+        var project = new UnityProjectIdentity(Path.GetFullPath("UnityProject"), ProjectFingerprintTestFactory.Create("project-fingerprint"), "6000.1.4f1");
         var compile = new CsEvalPlanCompileResult(succeeded: true, diagnostics: []);
         return new IpcEvalResponse(
             project,

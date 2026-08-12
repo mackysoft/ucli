@@ -1,6 +1,5 @@
 using System.Text.Json;
 using Json.Schema;
-using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Eval;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Execution;
@@ -61,7 +60,7 @@ public sealed class EvalCommandPayloadTests
     public async Task Eval_WhenPlanFails_ReportsTheClosedPlanFailurePayloadWithoutCallEvidence ()
     {
         var project = new UnityProjectIdentity(
-            "/workspace/UnityProject",
+            Path.GetFullPath("UnityProject"),
             ProjectFingerprintTestFactory.Create("project-fingerprint"),
             "6000.1.4f1");
         var service = new RecordingEvalService((id, _, _) => ValueTask.FromResult(
