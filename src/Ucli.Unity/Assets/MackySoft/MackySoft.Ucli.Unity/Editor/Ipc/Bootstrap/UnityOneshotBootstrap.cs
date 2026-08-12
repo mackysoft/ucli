@@ -62,6 +62,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 IUnityIpcServer server = null;
                 IUnityControlPlaneRequestLifetime controlPlaneRequestLifetime = null;
                 IUnityMutationLaneControl mutationLaneControl = null;
+                UnityLifecycleExecutionRecoveryCoordinator recoveryCoordinator = null;
                 var generationRetiredSafely = false;
                 try
                 {
@@ -85,9 +86,9 @@ namespace MackySoft.Ucli.Unity.Ipc
                             "IPC listener terminated before oneshot endpoint ownership could become active.");
                     }
 
-                    serviceProvider
-                        .GetRequiredService<UnityLifecycleExecutionRecoveryCoordinator>()
-                        .Start();
+                    recoveryCoordinator = serviceProvider
+                        .GetRequiredService<UnityLifecycleExecutionRecoveryCoordinator>();
+                    recoveryCoordinator.Start();
                     var completedTask = await Task.WhenAny(requestCompletionTask, serverTerminationTask);
                     if (ReferenceEquals(completedTask, serverTerminationTask))
                     {
@@ -143,6 +144,11 @@ namespace MackySoft.Ucli.Unity.Ipc
 
                     if (server == null || generationRetiredSafely)
                     {
+                        if (recoveryCoordinator != null)
+                        {
+                            await recoveryCoordinator.StopAsync();
+                        }
+
                         if (serviceProvider is IDisposable disposableServiceProvider)
                         {
                             disposableServiceProvider.Dispose();
