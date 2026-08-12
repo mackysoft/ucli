@@ -22,6 +22,17 @@ internal interface IProgramRunStore
         Func<ArtifactRef, ProgramRunRecord> createReplacement,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Atomically publishes a run-timeout terminal record while returning one
+    /// unadmitted planning Step to Deferred with its fixed audit deadline.
+    /// </summary>
+    ValueTask<ProgramRunTerminalPublicationResult> PublishRunTimeoutTerminalAsync (
+        ProgramRunRecord expected,
+        int stepIndex,
+        ProgramRunTerminalRecord terminalRecord,
+        Func<ArtifactRef, ProgramRunRecord> createReplacement,
+        CancellationToken cancellationToken = default);
+
     ValueTask<ProgramRunStepTerminalPublicationResult> PublishStepTerminalAsync (
         ProgramRunRecord expected,
         int stepIndex,

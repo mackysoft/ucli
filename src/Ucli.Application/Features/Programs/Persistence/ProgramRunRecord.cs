@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Application.Shared.Execution.Process;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Editor;
 using MackySoft.Ucli.Contracts.Execution;
@@ -115,6 +116,43 @@ internal sealed record ProgramRunRecord
     public ProgramCancellationRecord Cancellation { get; }
     public ArtifactRef? TerminalRecordRef { get; }
 
+    private ProgramProcessLivenessObservation? supervisorObservation;
+    private ProgramProcessLivenessObservation? hostObservation;
+
+    /// <summary> Gets the latest read-only Supervisor liveness observation, separate from its fixed owner identity. </summary>
+    public ProgramProcessLivenessObservation? SupervisorObservation
+    {
+        get => supervisorObservation;
+        init => supervisorObservation = value?.Validate();
+    }
+
+    /// <summary> Gets the latest read-only fixed-host liveness observation. </summary>
+    public ProgramProcessLivenessObservation? HostObservation
+    {
+        get => hostObservation;
+        init => hostObservation = value?.Validate();
+    }
+
+    private string? terminalReasonCode;
+
+    /// <summary> Gets the stable reason recorded for this terminal Run, when one is recorded. </summary>
+    public string? TerminalReasonCode
+    {
+        get => terminalReasonCode;
+        init
+        {
+            if (value is not null && string.IsNullOrWhiteSpace(value))
+            {
+                throw new ArgumentException("Program Run terminal reason must not be whitespace.", nameof(value));
+            }
+            if (!ProgramRunStateSemantics.IsTerminal(State) && value is not null)
+            {
+                throw new ArgumentException("A nonterminal Program Run cannot record a terminal reason.", nameof(value));
+            }
+            terminalReasonCode = value;
+        }
+    }
+
     public Verdict? Verdict => ProgramRunStateSemantics.AggregateVerdict(State, Steps.Select(static step => step.Verdict));
 
     /// <summary> Gets the application state derived from every admitted Program Step. </summary>
@@ -155,6 +193,8 @@ internal sealed record ProgramRunRecord
 
     private void ValidateState ()
     {
+        SupervisorObservation?.Validate();
+        HostObservation?.Validate();
         if (!TextVocabulary.IsDefined(State))
         {
             throw new ArgumentOutOfRangeException(nameof(State), State, "Program Run state must be defined.");
@@ -163,6 +203,14 @@ internal sealed record ProgramRunRecord
         if (terminal != (TerminalRecordRef is not null))
         {
             throw new ArgumentException("Program Run terminal state and terminal record must be established together.");
+        }
+        if (!terminal && TerminalReasonCode is not null)
+        {
+            throw new ArgumentException("A nonterminal Program Run cannot record a terminal reason.");
+        }
+        if (TerminalReasonCode is not null && string.IsNullOrWhiteSpace(TerminalReasonCode))
+        {
+            throw new ArgumentException("Program Run terminal reason must not be whitespace.");
         }
         if (TerminalRecordRef is not null
             && (TerminalRecordRef.Kind.Value != "programRunTerminalRecord"
@@ -208,10 +256,18 @@ internal sealed record ProgramRunRecord
         {
             return;
         }
+        var preservesUnstartedPlanningBoundary = (step.State == ProgramStepState.Deferred
+                || (ProgramRunStateSemantics.IsTerminal(step.State)
+                    && step.ErrorCode == "PROGRAM_STEP_TIMEOUT"))
+            && step.StartedAtUtc is null
+            && step.PlanningStartedAtUtc is not null
+            && step.ApplicationState == ExecutionApplicationState.NotApplied
+            && boundary.StartedAtUtc == step.PlanningStartedAtUtc;
         if (boundary.Project != Project || boundary.Host != Host || boundary.StartedGeneration != step.GenerationBefore
             || boundary.RequestPlanRef != step.RequestPlanRef
             || !boundary.OperationDescriptorRefs.SequenceEqual(step.OperationDescriptorRefs)
-            || boundary.StartedAtUtc != step.StartedAtUtc || boundary.DeadlineUtc != step.DeadlineUtc
+            || (!preservesUnstartedPlanningBoundary && boundary.StartedAtUtc != step.StartedAtUtc)
+            || boundary.DeadlineUtc != step.DeadlineUtc
             || boundary.DeadlineUtc > DeadlineUtc)
         {
             throw new ArgumentException("Program Request boundary must retain the exact Run, Step generation, plan, descriptor, and deadline facts.");
@@ -249,6 +305,19 @@ internal sealed record ProgramRunRecord
         ExecutionApplicationState.Unknown => 4,
         _ => throw new ArgumentOutOfRangeException(nameof(state), state, "Program Step application state must be defined."),
     };
+}
+
+/// <summary> Captures one read-only liveness observation without changing a Run's fixed identity. </summary>
+internal sealed record ProgramProcessLivenessObservation (ProcessIdentityStatus Status, DateTimeOffset ObservedAtUtc)
+{
+    public ProgramProcessLivenessObservation Validate ()
+    {
+        if (!Enum.IsDefined(Status) || ObservedAtUtc == default || ObservedAtUtc.Offset != TimeSpan.Zero)
+        {
+            throw new ArgumentException("Program process liveness observations require a defined state and UTC observation time.");
+        }
+        return this;
+    }
 }
 
 /// <summary> Represents the persisted cancellation request without performing cancellation. </summary>

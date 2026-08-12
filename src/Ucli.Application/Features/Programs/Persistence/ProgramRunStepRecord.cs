@@ -28,6 +28,16 @@ internal sealed record ProgramRunStepRecord (
     DateTimeOffset? StartedAtUtc,
     DateTimeOffset? CompletedAtUtc)
 {
+    /// <summary>
+    /// Gets the durable logical execution identity allocated before the closed
+    /// execution port is invoked. This is intentionally independent from IPC
+    /// transport identifiers and from any future child execution representation.
+    /// </summary>
+    public ProgramStepExecutionReference? Execution { get; init; }
+
+    /// <summary> Gets whether the closed execution port was admitted after this Step was durably planned. </summary>
+    public bool ExecutionPortInvoked { get; init; }
+
     public ProgramRunStepRecord Validate ()
     {
         if (!TextVocabulary.IsDefined(State)
@@ -50,8 +60,8 @@ internal sealed record ProgramRunStepRecord (
         }
         if (State == ProgramStepState.Deferred
             && (Verdict is not null || ApplicationState != ExecutionApplicationState.NotApplied
-                || GenerationBefore is not null || GenerationAfter is not null || LifecycleExecutionRef is not null || RequestExecution is not null
-                || ResultRef is not null || StepResultRef is not null || ArtifactRefs.Count != 0 || ErrorCode is not null || StartedAtUtc is not null || CompletedAtUtc is not null))
+                || ResultRef is not null || StepResultRef is not null || ArtifactRefs.Count != 0 || ErrorCode is not null || StartedAtUtc is not null || CompletedAtUtc is not null
+                || Execution is not null || ExecutionPortInvoked))
         {
             throw new ArgumentException("Deferred Program Step must not contain execution or result facts.");
         }
@@ -79,11 +89,21 @@ internal sealed record ProgramRunStepRecord (
         if (StartedAtUtc is not null
             && !ProgramRunStateSemantics.IsTerminal(State)
             && LifecycleExecutionRef is null
-            && RequestExecution is null)
+            && RequestExecution is null
+            && Execution is null)
         {
             throw new ArgumentException("A started Program Step must retain its recoverable execution reference.");
         }
         RequestExecution?.Validate();
+        Execution?.Validate();
+        if (Execution is not null && (StartedAtUtc is null || Execution.StartedAtUtc != StartedAtUtc || Execution.DeadlineUtc != DeadlineUtc))
+        {
+            throw new ArgumentException("Program Step execution identity must match its durable start and deadline facts.");
+        }
+        if (ExecutionPortInvoked && Execution is null)
+        {
+            throw new ArgumentException("A Program Step can record an execution port invocation only with its durable execution identity.");
+        }
         return this;
     }
 
@@ -95,6 +115,14 @@ internal sealed record ProgramRunStepRecord (
         }
         if (State == ProgramStepState.Deferred)
         {
+            if (RequestExecution is not null && Command != "call")
+            {
+                throw new ArgumentException("Only a Program call Step may retain a Request execution boundary.");
+            }
+            if (LifecycleExecutionRef is not null && !TryGetLifecycleKind(Command, out _))
+            {
+                throw new ArgumentException("Only a lifecycle Program Step may retain a Lifecycle Execution reference.");
+            }
             return;
         }
         if (Command == "call")
@@ -149,6 +177,20 @@ internal sealed record ProgramRunStepRecord (
                 kind = default;
                 return false;
         }
+    }
+}
+
+/// <summary> Identifies one started Program Step before any execution port can create a side effect. </summary>
+internal sealed record ProgramStepExecutionReference (Guid ExecutionId, DateTimeOffset StartedAtUtc, DateTimeOffset DeadlineUtc)
+{
+    public ProgramStepExecutionReference Validate ()
+    {
+        if (ExecutionId == Guid.Empty || StartedAtUtc == default || StartedAtUtc.Offset != TimeSpan.Zero
+            || DeadlineUtc == default || DeadlineUtc.Offset != TimeSpan.Zero || DeadlineUtc <= StartedAtUtc)
+        {
+            throw new ArgumentException("Program Step execution reference requires a non-empty identity and ordered UTC audit facts.");
+        }
+        return this;
     }
 }
 
