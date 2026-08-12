@@ -20,51 +20,57 @@ This distribution of uCLI includes the following third-party software:
    The provider license is distributed at
    third-party/MackySoft.FileSystem/0.1.0/LICENSE.
 
-5. MackySoft.Text.Vocabularies 0.1.0
+5. MackySoft.FileSystem.Physical 0.2.1
+   Copyright (c) 2026 Hiroya Aramaki.
+   Licensed under the MIT License.
+   The provider license is distributed at
+   third-party/MackySoft.FileSystem.Physical/0.2.1/LICENSE.
+
+6. MackySoft.Text.Vocabularies 0.1.0
    Copyright (c) 2026 Hiroya Aramaki.
    Licensed under the MIT License.
    The provider license is distributed at
    third-party/MackySoft.Text.Vocabularies/0.1.0/LICENSE.
 
-6. MackySoft.Text.Vocabularies.Json 0.1.0
+7. MackySoft.Text.Vocabularies.Json 0.1.0
    Copyright (c) 2026 Hiroya Aramaki.
    Licensed under the MIT License.
    The provider license is distributed at
    third-party/MackySoft.Text.Vocabularies.Json/0.1.0/LICENSE.
 
-7. MackySoft.Json.Canonicalization 0.1.0
+8. MackySoft.Json.Canonicalization 0.1.0
    Product-independent RFC 8785 JSON canonicalization from
    https://github.com/mackysoft/dotnet-foundations.
    This tool redistributes the provider assembly. The provider's complete
    third-party notices and license texts are included under
    third-party/MackySoft.Json.Canonicalization/0.1.0/.
 
-8. MackySoft.JsonSchema.Generation 0.3.1
+9. MackySoft.JsonSchema.Generation 0.3.1
    Product-independent JSON contract modeling and deterministic JSON Schema
    generation from https://github.com/mackysoft/dotnet-foundations.
    Licensed under the MIT License.
    The provider license is distributed at
    third-party/MackySoft.JsonSchema.Generation/0.3.1/LICENSE.
 
-9. JsonSchema.Net 8.0.5
+10. JsonSchema.Net 8.0.5
    Copyright (c) .NET Foundation and Contributors.
    Licensed under the MIT License.
    The license is distributed at
    third-party/JsonSchema.Net/8.0.5/LICENSE.
 
-10. JsonPointer.Net 6.0.1
+11. JsonPointer.Net 6.0.1
     Copyright (c) .NET Foundation and Contributors.
     Licensed under the MIT License.
     The license is distributed at
     third-party/JsonPointer.Net/6.0.1/LICENSE.
 
-11. Json.More.Net 2.2.0
+12. Json.More.Net 2.2.0
     Copyright (c) .NET Foundation and Contributors.
     Licensed under the MIT License.
     The license is distributed at
     third-party/Json.More.Net/2.2.0/LICENSE.
 
-12. Humanizer.Core 2.14.1
+13. Humanizer.Core 2.14.1
     Copyright (c) .NET Foundation and Contributors.
     Licensed under the MIT License.
 
