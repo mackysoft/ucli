@@ -92,6 +92,7 @@ internal sealed class UcliConfigCompiler
             PlanTokenMode: TextVocabulary.GetText(config.PlanTokenMode),
             ReadIndexDefaultMode: TextVocabulary.GetText(config.ReadIndexDefaultMode),
             OperationAllowlist: config.OperationAllowlist.ToArray(),
+            EvalEnabled: config.EvalEnabled,
             IpcDefaultTimeoutMilliseconds: config.IpcDefaultTimeoutMilliseconds,
             IpcTimeoutMillisecondsByCommand: ipcTimeoutMillisecondsByCommand,
             ProgramPresets: programPresets));

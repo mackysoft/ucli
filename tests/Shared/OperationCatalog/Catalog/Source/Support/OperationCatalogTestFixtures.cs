@@ -121,52 +121,6 @@ internal static class OperationCatalogTestFixtures
             });
     }
 
-    public static IndexOpEntryJsonContract CreateCsEvalEntry (string? name = null)
-    {
-        var operationName = name ?? UcliPrimitiveOperationNames.CsEval;
-        var assurance = new UcliOperationAssuranceContract(
-            sideEffects:
-            [
-                UcliOperationSideEffect.ArbitrarySourceExecution,
-                UcliOperationSideEffect.ExternalProcess,
-                UcliOperationSideEffect.FilesystemWrite,
-                UcliOperationSideEffect.DestructiveScope,
-            ],
-            touchedKinds:
-            [
-                UcliTouchedResourceKind.Scene,
-                UcliTouchedResourceKind.Prefab,
-                UcliTouchedResourceKind.Asset,
-                UcliTouchedResourceKind.ProjectSettings,
-            ],
-            planMode: UcliOperationPlanMode.ValidationOnly,
-            planSemantics: "Validate source shape without executing user code.",
-            callSemantics: "Compile and execute caller-provided C# source.",
-            touchedContract: "Touched resources are reported only when declared by the executed source.",
-            readPostconditionContract: "Arbitrary source execution can affect read surfaces outside the public raw contract.",
-            failureSemantics: "Execution failure may leave effects caused by arbitrary source before the failure.",
-            dangerousNotes: ["This operation permits arbitrary source execution."]);
-        var describe = CreateDescribe<CsEvalArgs, CsEvalResult>(
-            operationName,
-            "Executes arbitrary C# source inside the Unity Editor process.",
-            assurance);
-        return WithDescriptorDigest(
-            new IndexOpEntryJsonContract(
-                Name: operationName,
-                Kind: UcliOperationKind.Mutation,
-                Policy: OperationPolicy.Dangerous,
-                ArgsContract: describe.ArgsContract,
-                DescriptorDigest: null,
-                VerdictContract: null,
-                ResultContract: describe.ResultContract,
-                Exposure: null,
-                PlayModeSupport: UcliOperationPlayModeSupport.Allowed)
-            {
-                Description = describe.Description,
-                Assurance = describe.Assurance,
-            });
-    }
-
     private static UcliOperationDescribeContract CreateDescribe<TArgs, TResult> (
         string operationName,
         string description,

@@ -6,7 +6,7 @@ using Microsoft.CodeAnalysis;
 
 namespace MackySoft.Ucli.Unity.Execution.CsEval
 {
-    /// <summary> Defines supported <c>ucli.cs.eval</c> entry point return types. </summary>
+    /// <summary> Defines supported dedicated C# eval entry point return types. </summary>
     internal static class CsEvalEntryPointReturnTypePolicy
     {
         public const string SupportedReturnTypesDisplay = "object, Task, Task<T>, ValueTask, or ValueTask<T>";

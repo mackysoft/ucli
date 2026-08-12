@@ -21,6 +21,7 @@ internal sealed class UcliConfigSchemaValidator
         UcliConfigJsonPropertyNames.PlanTokenMode,
         UcliConfigJsonPropertyNames.ReadIndexDefaultMode,
         UcliConfigJsonPropertyNames.OperationAllowlist,
+        UcliConfigJsonPropertyNames.EvalEnabled,
         UcliConfigJsonPropertyNames.IpcDefaultTimeoutMilliseconds,
         UcliConfigJsonPropertyNames.IpcTimeoutMillisecondsByCommand,
         UcliConfigJsonPropertyNames.ProgramPresets,
@@ -79,6 +80,11 @@ internal sealed class UcliConfigSchemaValidator
             UcliConfigJsonPropertyNames.OperationAllowlist,
             sourcePath,
             diagnostics);
+        var evalEnabled = ReadOptionalBoolean(
+            root,
+            UcliConfigJsonPropertyNames.EvalEnabled,
+            sourcePath,
+            diagnostics);
         var ipcDefaultTimeoutMilliseconds = ReadOptionalNullableInt32(
             root,
             UcliConfigJsonPropertyNames.IpcDefaultTimeoutMilliseconds,
@@ -106,6 +112,7 @@ internal sealed class UcliConfigSchemaValidator
             PlanTokenMode: planTokenMode!,
             ReadIndexDefaultMode: readIndexDefaultMode,
             OperationAllowlist: operationAllowlist!,
+            EvalEnabled: evalEnabled,
             IpcDefaultTimeoutMilliseconds: ipcDefaultTimeoutMilliseconds,
             IpcTimeoutMillisecondsByCommand: ipcTimeoutMillisecondsByCommand,
             ProgramPresets: programPresets));
@@ -204,6 +211,26 @@ internal sealed class UcliConfigSchemaValidator
         }
 
         return property.GetString();
+    }
+
+    private static bool? ReadOptionalBoolean (
+        JsonElement root,
+        string propertyName,
+        string sourcePath,
+        List<UcliConfigDiagnostic> diagnostics)
+    {
+        if (!root.TryGetProperty(propertyName, out var property))
+        {
+            return null;
+        }
+
+        if (property.ValueKind is not (JsonValueKind.True or JsonValueKind.False))
+        {
+            AddDiagnostic(diagnostics, CreatePropertyTypeMismatchDiagnostic(propertyName, sourcePath));
+            return null;
+        }
+
+        return property.GetBoolean();
     }
 
     private static int? ReadOptionalNullableInt32 (

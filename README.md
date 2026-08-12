@@ -350,21 +350,31 @@ This example opens `Assets/Scenes/Main.unity`, selects `Root/Enemies/Spawner`, e
 
 Use `ucli plan` and `ucli call --planToken` only when a review step or CI gate must inspect and approve a plan before mutation.
 
-> **IMPORTANT:** A timeout or disconnect does not prove that nothing was applied. Inspect the JSON result, `opResults`, touched units, Unity logs, and daemon logs before retrying.
+> **IMPORTANT:** A timeout or disconnect after `ucli call` does not prove that no request step was applied. Inspect the JSON result, `opResults`, touched units, Unity logs, and daemon logs before retrying.
 
-Use `ucli eval` when a local operator intentionally needs to run ad hoc C# inside the Unity Editor process without hand-writing a JSON request. It wraps `ucli.cs.eval`, returns the standard JSON envelope with `payload.plan` and `payload.opResults`, and still requires the dangerous-operation guards.
+Use `ucli eval` when a local operator intentionally needs to run ad hoc C# inside the Unity Editor process without hand-writing a JSON request. It uses the dedicated `eval.plan` and `eval.call` protocol, returns `payload.plan` and `payload.eval` without `opResults`, and requires both `evalEnabled:true` and `--allowDangerous`.
+
+Enable evaluation in `<repoRoot>/.ucli/config.json` before running it:
+
+```json
+{
+  "evalEnabled": true
+}
+```
 
 ```bash
 ucli eval --allowDangerous \
-  --source 'return UnityEngine.Application.unityVersion;'
+  --source 'context.DeclareNoChanges(); return UnityEngine.Application.unityVersion;'
 
 ucli eval --mode daemon --allowDangerous \
   --file ./eval.cs
 ```
 
+> **IMPORTANT:** A timeout or disconnect after `eval.call` can leave the evaluation state unknown. Inspect `payload.applicationState`, any returned `payload.eval.touchedResources`, `payload.readPostcondition`, and Unity logs before deciding what to do next. Do not automatically resend the same evaluation after `eval.call` has been sent. `touchedResources` is a declaration from the evaluated code, not proof that it captured every side effect.
+
 ## ⚠️ Dangerous Operations
 
-> **WARNING:** `ucli call` and `ucli eval` block operations whose policy is `dangerous` unless every guard allows them: project policy, operation allowlist, and the explicit `--allowDangerous` flag. Prefer the normal `edit` flow and non-dangerous operations.
+> **WARNING:** `ucli call` admits catalog operations with `policy: "dangerous"` only when the project policy, operation allowlist, and explicit `--allowDangerous` flag allow them. `ucli eval` has separate admission: it requires `evalEnabled:true` and its own `--allowDangerous` flag, and does not use the operation catalog, policy, or allowlist. Prefer the normal `edit` flow and non-dangerous operations.
 
 ## 🏗️ Building Player Artifacts
 
@@ -735,7 +745,7 @@ Common operation groups include:
 | `ucli ops` | List and inspect available operations. |
 | `ucli codes` | List and describe machine-readable code values used in JSON output. |
 | `ucli call` | Apply a request; use `--withPlan` for the normal planned write path. |
-| `ucli eval` | Run ad hoc C# through `ucli.cs.eval` without authoring a JSON request. |
+| `ucli eval` | Run ad hoc C# through the dedicated evaluation protocol without authoring a JSON request. |
 | `ucli plan` | Prepare a separated review gate and receive a `planToken`. |
 | `ucli validate` | Diagnose static request validation without running `plan` or `call`. |
 | `ucli verify` | Return a JSON verification result for Unity-side checks. |
@@ -763,8 +773,8 @@ Common options:
 | `--failFast` | Unity-backed commands | Fail when the Unity editor lifecycle is not ready instead of waiting. |
 | `--withPlan` | `ucli call` | Run a plan pass inside `call` and include it in the result. |
 | `--planToken <token>` | `ucli call` | Apply a request using a token returned by `ucli plan`. |
-| `--allowDangerous` | `ucli call`, `ucli eval` | Allow operations whose catalog policy is `dangerous`. |
-| `--allowPlayMode` | `ucli plan`, `ucli call`, `ucli eval` | Allow guarded Play Mode mutation in a GUI Editor session. |
+| `--allowDangerous` | `ucli call`, `ucli eval` | For `ucli call`, allow catalog operations whose policy is `dangerous`; for `ucli eval`, explicitly allow one evaluation when `evalEnabled:true`. Eval does not use the operation catalog, policy, or allowlist. |
+| `--allowPlayMode` | `ucli plan`, `ucli call`, `ucli eval` | Allow guarded Play Mode execution in a GUI Editor session. |
 
 Use `--mode daemon` when CI must fail specifically because no daemon is running. With `--mode auto`, a missing daemon may start a one-shot Unity process; if startup fails, inspect `payload.startup`, `payload.diagnosis`, and `retryDisposition`.
 

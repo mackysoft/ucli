@@ -45,6 +45,14 @@ internal sealed class UnityIpcRequestBuilder
                 UnityIpcMethod.Ping,
                 IpcPayloadCodec.SerializeToElement(new IpcPingRequest(ping.ClientVersion, ping.FailFast)),
                 UnityBatchmodeLaunchOptions.Default),
+            UnityRequestPayload.EvalPlan evalPlan => new UnityIpcDispatchRequest(
+                UnityIpcMethod.EvalPlan,
+                IpcPayloadCodec.SerializeToElement(evalPlan.Request),
+                UnityBatchmodeLaunchOptions.Default),
+            UnityRequestPayload.EvalCall evalCall => new UnityIpcDispatchRequest(
+                UnityIpcMethod.EvalCall,
+                IpcPayloadCodec.SerializeToElement(evalCall.Request),
+                UnityBatchmodeLaunchOptions.Default),
             UnityRequestPayload.Refresh refresh => UnityIpcDispatchRequest.LifecycleExecution(
                 UnityIpcMethod.Refresh,
                 refresh.Registration,

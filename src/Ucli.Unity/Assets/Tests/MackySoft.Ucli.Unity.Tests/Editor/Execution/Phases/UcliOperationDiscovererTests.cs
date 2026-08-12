@@ -193,50 +193,18 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void BuildCatalog_WhenCsEvalOperationIsDiscovered_IncludesPublicDangerousOperation ()
+        public void BuildCatalog_ExcludesCSharpEvaluationFromOperationCatalog ()
         {
             var operations = UcliOperationDiscoverer.Discover(operationServiceProvider);
-            var metadata = FindMetadata(operations, UcliPrimitiveOperationNames.CsEval);
 
             var snapshot = UcliOperationCatalogSnapshotBuilder.Build(operations);
 
-            Assert.That(snapshot.Registrations, Has.Some.Matches<UcliOperationRegistration>(
-                registration => registration.Metadata.OperationName == UcliPrimitiveOperationNames.CsEval));
             Assert.That(
-                snapshot.Catalog.Operations!.Any(operation => operation.Name == UcliPrimitiveOperationNames.CsEval),
-                Is.True);
-            Assert.That(metadata.Exposure, Is.EqualTo(UcliOperationExposure.Public));
-            Assert.That(metadata.PlayModeSupport, Is.EqualTo(UcliOperationPlayModeSupport.Allowed));
-            Assert.That(metadata.Kind, Is.EqualTo(UcliOperationKind.Mutation));
-            Assert.That(metadata.Policy, Is.EqualTo(OperationPolicy.Dangerous));
-            var describeContract = metadata.DescribeContract;
-            Assert.That(describeContract.ArgsContract, Is.Not.Null);
-            Assert.That(describeContract.ResultContract, Is.Not.Null);
-            var catalogEntry = FindCatalogEntry(snapshot.Catalog.Operations!, UcliPrimitiveOperationNames.CsEval);
-            Assert.That(catalogEntry.PlayModeSupport, Is.EqualTo(UcliOperationPlayModeSupport.Allowed));
-            Assert.That(describeContract.CodeContract, Is.Not.Null);
-            Assert.That(describeContract.CodeContract!.Language, Is.EqualTo(UcliCodeLanguage.CSharp));
-            Assert.That(describeContract.CodeContract.EntryPoint!.MatchRule, Does.Contain("exactly one"));
-            Assert.That(describeContract.CodeContract.SourceForms!.Count, Is.EqualTo(2));
-            Assert.That(describeContract.CodeContract.SourceForms![0].Kind, Is.EqualTo(UcliCodeSourceFormKind.CompilationUnit));
-            Assert.That(describeContract.CodeContract.SourceForms[1].Kind, Is.EqualTo(UcliCodeSourceFormKind.Snippet));
-            Assert.That(describeContract.CodeContract.ApiTypes!.Count, Is.EqualTo(1));
-            Assert.That(describeContract.Assurance, Is.Not.Null);
-            Assert.That(describeContract.Assurance!.PlanSemantics, Does.Contain("without invoking user code"));
-            Assert.That(describeContract.Assurance.CallSemantics, Does.Contain("execute, and await the user C# entry point"));
-            Assert.That(describeContract.Assurance.TouchedContract, Does.Contain("caller-controlled"));
-            Assert.That(describeContract.Assurance.FailureSemantics, Does.Contain("cannot be forcibly stopped"));
-            Assert.That(describeContract.Assurance.DangerousNotes!.Count, Is.EqualTo(2));
-            var apiType = describeContract.CodeContract.ApiTypes[0];
-            Assert.That(apiType.Members!.Count, Is.EqualTo(8));
-            Assert.That(apiType.Members, Has.Some.Matches<UcliCodeApiMemberContract>(member => member.Name == "DeclareNoTouchedResources"));
-            Assert.That(apiType.Members, Has.Some.Matches<UcliCodeApiMemberContract>(member => member.Name == "DeclareTouchedAsset"));
-            Assert.That(apiType.Members, Has.Some.Matches<UcliCodeApiMemberContract>(member => member.Name == "DeclareTouchedPrefab"));
-            Assert.That(apiType.Members, Has.Some.Matches<UcliCodeApiMemberContract>(member => member.Name == "DeclareTouchedProjectSettings"));
-            Assert.That(apiType.Members, Has.Some.Matches<UcliCodeApiMemberContract>(member => member.Name == "DeclareTouchedScene"));
-            Assert.That(apiType.Members, Has.Some.Matches<UcliCodeApiMemberContract>(member => member.Name == "Log"));
-            Assert.That(apiType.Members, Has.Some.Matches<UcliCodeApiMemberContract>(member => member.Name == "LogError"));
-            Assert.That(apiType.Members, Has.Some.Matches<UcliCodeApiMemberContract>(member => member.Name == "LogWarning"));
+                snapshot.Registrations.Any(static registration => registration.Metadata.OperationName == "ucli.cs.eval"),
+                Is.False);
+            Assert.That(
+                snapshot.Catalog.Operations!.Any(static operation => operation.Name == "ucli.cs.eval"),
+                Is.False);
         }
 
         [Test]

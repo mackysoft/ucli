@@ -70,6 +70,12 @@ internal abstract record UnityRequestPayload
         string ClientVersion,
         bool FailFast = false) : UnityRequestPayload;
 
+    /// <summary> Represents one dedicated eval.plan request. </summary>
+    internal sealed record EvalPlan (IpcEvalPlanRequest Request) : UnityRequestPayload;
+
+    /// <summary> Represents one dedicated eval.call request. </summary>
+    internal sealed record EvalCall (IpcEvalCallRequest Request) : UnityRequestPayload;
+
     /// <summary> Represents a durable project-refresh request prepared by application orchestration. </summary>
     internal sealed record Refresh : UnityRequestPayload
     {

@@ -133,6 +133,18 @@ namespace MackySoft.Ucli.Unity.Tests
                         handler.Method == UnityIpcMethod.PlayExit),
                 Is.TypeOf<PlayExitUnityIpcMethodHandler>());
             Assert.That(
+                serviceProvider
+                    .GetServices<IUnityIpcMethodHandler>()
+                    .Single(handler =>
+                        handler.Method == UnityIpcMethod.EvalPlan),
+                Is.TypeOf<EvalPlanUnityIpcMethodHandler>());
+            Assert.That(
+                serviceProvider
+                    .GetServices<IUnityIpcMethodHandler>()
+                    .Single(handler =>
+                        handler.Method == UnityIpcMethod.EvalCall),
+                Is.TypeOf<EvalCallUnityIpcMethodHandler>());
+            Assert.That(
                 serviceProvider.GetRequiredService<
                     ICompileLifecycleExecutionProvider>(),
                 Is.TypeOf<UnityEditorCompileLifecycleExecutionProvider>());

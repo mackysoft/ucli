@@ -31,6 +31,7 @@ using MackySoft.Ucli.Application.Features.Daemon.UseCases.Inventory;
 using MackySoft.Ucli.Application.Features.Daemon.UseCases.Start;
 using MackySoft.Ucli.Application.Features.Daemon.UseCases.Status;
 using MackySoft.Ucli.Application.Features.Daemon.UseCases.Stop;
+using MackySoft.Ucli.Application.Features.Eval;
 using MackySoft.Ucli.Application.Features.Init.UseCases.Init;
 using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Access;
 using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Source;
@@ -151,6 +152,7 @@ public static class UcliApplicationServiceCollectionExtensions
     private static IServiceCollection AddUcliApplicationRequestServices (this IServiceCollection services)
     {
         services.AddSingleton<IRefreshLifecycleExecutionStartInvocationFactory, RefreshLifecycleExecutionStartInvocationFactory>();
+        services.AddSingleton<IEvalService, EvalService>();
         services.AddSingleton<IRequestPreparationService, RequestPreparationService>();
         services.AddSingleton<IRequestStaticValidationPreflightService, RequestStaticValidationPreflightService>();
         services.AddSingleton<IValidateRequestJsonParser, ValidateRequestJsonParser>();

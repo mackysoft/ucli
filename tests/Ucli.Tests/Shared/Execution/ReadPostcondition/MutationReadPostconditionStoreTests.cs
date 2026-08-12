@@ -1,15 +1,130 @@
 using System.Text.Json;
-using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Shared.Foundation;
-using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Infrastructure.Storage;
+using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Execution;
-using MackySoft.Ucli.Contracts.Projects;
+using MackySoft.Ucli.Infrastructure.Execution.ReadPostcondition;
+using MackySoft.Ucli.Infrastructure.Storage;
 
 namespace MackySoft.Ucli.Tests;
 
 public sealed class MutationReadPostconditionStoreTests
 {
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task TryAdmitEvalCall_PersistsConsumedBindingAndThreeBroadFences ()
+    {
+        using var scope = TestDirectories.CreateTempScope("mutation-read-postcondition-journal", "admit");
+        var storageRoot = AbsolutePath.Parse(scope.FullPath);
+        var fingerprint = ProjectFingerprintTestFactory.Create("fingerprint-1");
+        var journal = new MutationReadPostconditionJournal();
+        var startedAtUtc = DateTimeOffset.UtcNow;
+
+        const string planToken = "raw-plan-token";
+        var result = await journal.TryAdmitEvalCallAsync(storageRoot, fingerprint, CreateAdmission("nonce-1", planToken), CancellationToken.None);
+
+        var postcondition = Assert.IsType<ExecutionReadPostcondition>(result.ReadPostcondition);
+        Assert.True(result.IsAdmitted);
+        Assert.False(result.IsReplay);
+        Assert.Equal(3, postcondition.Requirements.Count);
+        Assert.All(postcondition.Requirements, requirement => Assert.True(requirement.MinSafeGeneratedAtUtc >= startedAtUtc));
+        Assert.Contains(postcondition.Requirements, static requirement => requirement.Surface == ExecutionReadPostconditionSurface.AssetSearch && requirement.ScenePath is null);
+        Assert.Contains(postcondition.Requirements, static requirement => requirement.Surface == ExecutionReadPostconditionSurface.GuidPath && requirement.ScenePath is null);
+        Assert.Contains(postcondition.Requirements, static requirement => requirement.Surface == ExecutionReadPostconditionSurface.SceneTreeLite && requirement.ScenePath is null);
+
+        var documentPath = UcliStoragePathResolver.ResolveMutationReadPostconditionPath(storageRoot, fingerprint);
+        using var document = JsonDocument.Parse(File.ReadAllText(documentPath.Value));
+        JsonAssert.For(document.RootElement)
+            .HasInt32("schemaVersion", 2)
+            .HasArrayLength("requirements", 3)
+            .HasArrayLength("consumedEvalCalls", 1);
+        Assert.False(File.ReadAllText(documentPath.Value).Contains(planToken, StringComparison.Ordinal));
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task TryAdmitEvalCall_RejectsReplayAfterJournalIsRecreated ()
+    {
+        using var scope = TestDirectories.CreateTempScope("mutation-read-postcondition-journal", "replay");
+        var storageRoot = AbsolutePath.Parse(scope.FullPath);
+        var fingerprint = ProjectFingerprintTestFactory.Create("fingerprint-1");
+
+        var initial = await new MutationReadPostconditionJournal().TryAdmitEvalCallAsync(storageRoot, fingerprint, CreateAdmission("nonce-1", "token-1"), CancellationToken.None);
+        var replay = await new MutationReadPostconditionJournal().TryAdmitEvalCallAsync(storageRoot, fingerprint, CreateAdmission("nonce-1", "token-1"), CancellationToken.None);
+
+        Assert.True(initial.IsAdmitted);
+        Assert.False(replay.IsAdmitted);
+        Assert.True(replay.IsReplay);
+        Assert.Null(replay.Failure);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task TryAdmitEvalCall_WhenCalledConcurrently_AdmitsOnlyOneCall ()
+    {
+        using var scope = TestDirectories.CreateTempScope("mutation-read-postcondition-journal", "concurrent-admit");
+        var storageRoot = AbsolutePath.Parse(scope.FullPath);
+        var fingerprint = ProjectFingerprintTestFactory.Create("fingerprint-1");
+        var admission = CreateAdmission("nonce-1", "token-1");
+
+        var results = await Task.WhenAll(Enumerable.Range(0, 8).Select(_ => new MutationReadPostconditionJournal().TryAdmitEvalCallAsync(storageRoot, fingerprint, admission, CancellationToken.None).AsTask()));
+
+        Assert.Single(results, static result => result.IsAdmitted);
+        Assert.Equal(7, results.Count(static result => result.IsReplay));
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task TryAdmitEvalCall_UsesNextTickAfterExistingRequirementAndMergesIt ()
+    {
+        using var scope = TestDirectories.CreateTempScope("mutation-read-postcondition-journal", "monotonic-fence");
+        var storageRoot = AbsolutePath.Parse(scope.FullPath);
+        var fingerprint = ProjectFingerprintTestFactory.Create("fingerprint-1");
+        var existingFenceUtc = DateTimeOffset.UtcNow.AddMinutes(10);
+        var journal = new MutationReadPostconditionJournal();
+        await journal.WriteMergedAsync(storageRoot, fingerprint, new ExecutionReadPostcondition([
+            new ExecutionReadPostconditionRequirement(ExecutionReadPostconditionSurface.AssetSearch, existingFenceUtc, null),
+            new ExecutionReadPostconditionRequirement(ExecutionReadPostconditionSurface.SceneTreeLite, existingFenceUtc, new UnityScenePath("Assets/Scenes/Main.unity")),
+        ]), CancellationToken.None);
+
+        var result = await journal.TryAdmitEvalCallAsync(storageRoot, fingerprint, CreateAdmission("nonce-1", "token-1"), CancellationToken.None);
+
+        var expectedFenceUtc = existingFenceUtc.AddTicks(1);
+        Assert.All(Assert.IsType<ExecutionReadPostcondition>(result.ReadPostcondition).Requirements, requirement => Assert.Equal(expectedFenceUtc, requirement.MinSafeGeneratedAtUtc));
+        var read = await journal.ReadOrNullAsync(storageRoot, fingerprint, CancellationToken.None);
+        Assert.Contains(Assert.IsType<ExecutionReadPostcondition>(read.ReadPostcondition).Requirements, requirement => requirement.ScenePath == new UnityScenePath("Assets/Scenes/Main.unity") && requirement.MinSafeGeneratedAtUtc == existingFenceUtc);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task TryAdmitEvalCall_WhenJournalIsMalformed_FailsClosedWithoutReplacingIt ()
+    {
+        using var scope = TestDirectories.CreateTempScope("mutation-read-postcondition-journal", "malformed");
+        var storageRoot = AbsolutePath.Parse(scope.FullPath);
+        var fingerprint = ProjectFingerprintTestFactory.Create("fingerprint-1");
+        var documentPath = UcliStoragePathResolver.ResolveMutationReadPostconditionPath(storageRoot, fingerprint);
+        scope.WriteFile(Path.GetRelativePath(scope.FullPath, documentPath.Value), "{\"schemaVersion\":1}");
+
+        var result = await new MutationReadPostconditionJournal().TryAdmitEvalCallAsync(storageRoot, fingerprint, CreateAdmission("nonce-1", "token-1"), CancellationToken.None);
+
+        Assert.False(result.IsAdmitted);
+        Assert.False(result.IsReplay);
+        Assert.Equal(MutationReadPostconditionJournalFailureKind.InvalidDocument, Assert.IsType<MutationReadPostconditionJournalFailure>(result.Failure).Kind);
+        Assert.Equal("{\"schemaVersion\":1}", File.ReadAllText(documentPath.Value));
+    }
+
+    private static EvalCallAdmission CreateAdmission (string nonce, string tokenText)
+    {
+        return new EvalCallAdmission(
+            nonce,
+            Sha256Digest.Compute(System.Text.Encoding.UTF8.GetBytes(tokenText)),
+            Guid.Parse("10000000-0000-0000-0000-000000000001"),
+            Sha256Digest.Compute(System.Text.Encoding.UTF8.GetBytes("source")),
+            Sha256Digest.Compute(System.Text.Encoding.UTF8.GetBytes("execution")),
+            42,
+            DateTimeOffset.Parse("2026-01-01T00:00:00+00:00"),
+            DateTimeOffset.Parse("2026-01-01T00:05:00+00:00"));
+    }
+
     [Fact]
     [Trait("Size", "Medium")]
     public async Task ReadOrNull_ReturnsNull_WhenFileDoesNotExist ()
@@ -86,8 +201,9 @@ public sealed class MutationReadPostconditionStoreTests
 
         using var jsonDocument = JsonDocument.Parse(File.ReadAllText(documentPath.Value));
         JsonAssert.For(jsonDocument.RootElement)
-            .HasInt32("schemaVersion", 1)
-            .HasArrayLength("requirements", 3);
+            .HasInt32("schemaVersion", 2)
+            .HasArrayLength("requirements", 3)
+            .HasArrayLength("consumedEvalCalls", 0);
     }
 
     [Fact]

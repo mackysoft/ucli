@@ -61,7 +61,6 @@ namespace MackySoft.Ucli.Unity.Execution
             services.AddSingleton<CsEvalCompilationService>();
             services.AddSingleton<CsEvalEntryPointReflectionResolver>();
             services.AddSingleton<CsEvalReturnValueSerializer>();
-            services.AddSingleton<CsEvalOperation>();
             services.AddSingleton<IMissingScriptsAssetAccess, UnityMissingScriptsAssetAccess>();
             services.AddSingleton<IMissingScriptsScanEngine>(serviceProvider => new MissingScriptsScanEngine(
                 serviceProvider.GetRequiredService<IMissingScriptsAssetAccess>()));

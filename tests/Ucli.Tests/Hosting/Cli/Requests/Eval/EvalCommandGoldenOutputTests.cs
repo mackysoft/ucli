@@ -11,23 +11,12 @@ public sealed class EvalCommandGoldenOutputTests
     [Trait("Size", "Medium")]
     public async Task Eval_WithSuccessOutput_MatchesGolden ()
     {
-        var service = new RecordingCallService((_, _) => ValueTask.FromResult(CreateSuccessfulServiceResult()));
+        var service = new RecordingEvalService((id, _, _) => ValueTask.FromResult(CreateSuccessfulServiceResult(id)));
         var sourceReader = new RecordingEvalSourceInputReader((_, _, _) => ValueTask.FromResult(EvalSourceInputReadResult.Success(EvalSource)));
         var command = new EvalCommand(service, sourceReader, CommandResultTestWriter.Create());
 
-        var result = await CommandResultCapture.ExecuteAsync(() => command.EvalAsync(
-            projectPath: AbsolutePath.Parse(ProjectPathTestValues.RepositoryUnityProject),
-            mode: "oneshot",
-            timeout: "1234",
-            allowDangerous: true,
-            allowPlayMode: true,
-            failFast: true,
-            source: EvalSource,
-            file: null,
-            cancellationToken: CancellationToken.None));
+        var result = await CommandResultCapture.ExecuteAsync(() => command.EvalAsync(source: EvalSource, cancellationToken: CancellationToken.None));
 
-        EvalCommandAssert.SucceededWithGolden(
-            result,
-            expectedRequestId: RequestId);
+        JsonGoldenFileAssert.Matches(CliOutputGoldenFiles.GetPath("eval", "success.json"), result.StdOut, CliOutputGoldenFiles.NormalizeRequestIds());
     }
 }

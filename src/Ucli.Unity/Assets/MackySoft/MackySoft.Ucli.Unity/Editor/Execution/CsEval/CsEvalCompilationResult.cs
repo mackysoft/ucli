@@ -2,7 +2,6 @@ using System;
 using Microsoft.CodeAnalysis.CSharp;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Contracts.Operations;
 
 #nullable enable
 
@@ -13,11 +12,11 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
     {
         public CsEvalCompilationResult (
             Sha256Digest sourceDigest,
-            UcliCodeSourceFormKind? sourceKind,
+            CsEvalSourceKind sourceKind,
             string? resolvedEntryPoint,
             CsEvalEntryPointName? entryPointName,
             Sha256Digest executionDigest,
-            CsEvalCompileResult compile,
+            CsEvalPlanCompileResult compile,
             CSharpCompilation compilation,
             bool isSuccess,
             string? failureMessage)
@@ -35,7 +34,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
 
         public Sha256Digest SourceDigest { get; }
 
-        public UcliCodeSourceFormKind? SourceKind { get; }
+        public CsEvalSourceKind SourceKind { get; }
 
         public string? ResolvedEntryPoint { get; }
 
@@ -43,7 +42,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
 
         public Sha256Digest ExecutionDigest { get; }
 
-        public CsEvalCompileResult Compile { get; }
+        public CsEvalPlanCompileResult Compile { get; }
 
         public CSharpCompilation Compilation { get; }
 
@@ -51,18 +50,5 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
 
         public string? FailureMessage { get; }
 
-        public CsEvalResult CreatePlanResult ()
-        {
-            return new CsEvalResult(
-                SourceDigest,
-                SourceKind,
-                ResolvedEntryPoint,
-                ExecutionDigest,
-                Compile,
-                durationMilliseconds: null,
-                logs: null,
-                returnValue: null,
-                touchedResources: null);
-        }
     }
 }

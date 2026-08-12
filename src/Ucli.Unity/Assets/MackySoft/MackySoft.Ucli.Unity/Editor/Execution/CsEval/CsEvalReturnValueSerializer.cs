@@ -6,7 +6,7 @@ using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Unity.Execution.CsEval
 {
-    /// <summary> Converts eval entry point return values to the operation result contract. </summary>
+    /// <summary> Converts eval entry point return values to the dedicated eval return result contract. </summary>
     internal sealed class CsEvalReturnValueSerializer
     {
         public bool TrySerialize (
@@ -16,7 +16,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
         {
             if (value == null)
             {
-                returnValue = new CsEvalReturnValue(CsEvalReturnValueKind.Null, value: null);
+                returnValue = CsEvalReturnValue.Null();
                 errorMessage = string.Empty;
                 return true;
             }
@@ -48,7 +48,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
                     return false;
                 }
 
-                returnValue = new CsEvalReturnValue(CsEvalReturnValueKind.Json, jsonValue);
+                returnValue = CsEvalReturnValue.Json(jsonValue);
                 errorMessage = string.Empty;
                 return true;
             }

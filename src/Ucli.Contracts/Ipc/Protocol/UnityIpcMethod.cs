@@ -13,6 +13,14 @@ public enum UnityIpcMethod
     [VocabularyText("execute")]
     Execute,
 
+    /// <summary> Performs static validation and token issuance for a C# evaluation. </summary>
+    [VocabularyText("eval.plan")]
+    EvalPlan,
+
+    /// <summary> Performs the single execution phase for a planned C# evaluation. </summary>
+    [VocabularyText("eval.call")]
+    EvalCall,
+
     /// <summary> Runs Unity tests. </summary>
     [VocabularyText("test.run")]
     TestRun,

@@ -1,4 +1,3 @@
-using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Text;
 
@@ -98,6 +97,7 @@ internal sealed class UcliEffectiveConfigBuilder
             OperationAllowlist: operationAllowlist)
         {
             IpcDefaultTimeoutMilliseconds = ipcDefaultTimeoutMilliseconds,
+            EvalEnabled = document.EvalEnabled ?? false,
             IpcTimeoutMillisecondsByCommand = ipcTimeoutMillisecondsByCommand,
             ProgramPresets = programPresets,
         };

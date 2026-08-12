@@ -1,5 +1,5 @@
 using System;
-using MackySoft.Ucli.Contracts.Operations;
+using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Unity.Execution.CsEval
 {
@@ -7,7 +7,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
     internal sealed class CsEvalPreparedSource
     {
         public CsEvalPreparedSource (
-            UcliCodeSourceFormKind sourceKind,
+            CsEvalSourceKind sourceKind,
             string compilationSource,
             string wrapperVersion)
         {
@@ -18,7 +18,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
                 : wrapperVersion;
         }
 
-        public UcliCodeSourceFormKind SourceKind { get; }
+        public CsEvalSourceKind SourceKind { get; }
 
         public string CompilationSource { get; }
 

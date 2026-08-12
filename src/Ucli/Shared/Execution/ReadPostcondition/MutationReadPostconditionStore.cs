@@ -1,32 +1,14 @@
-using System.Text.Json;
-using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Shared.Execution.ReadPostcondition;
 using MackySoft.Ucli.Application.Shared.Foundation;
-using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Contracts.Text;
-using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Contracts.Execution;
-using MackySoft.Ucli.Contracts.Projects;
+using MackySoft.Ucli.Infrastructure.Execution.ReadPostcondition;
 
 namespace MackySoft.Ucli.Shared.Execution.ReadPostcondition;
 
 /// <summary> Persists fingerprint-scoped mutation read-postcondition state under <c>.ucli/local</c>. </summary>
 internal sealed class MutationReadPostconditionStore : IMutationReadPostconditionStore
 {
-    private const int SchemaVersion = 1;
-
-    private static readonly TimeSpan WriteLockAcquireTimeout = TimeSpan.FromSeconds(5);
-
-    private static readonly JsonSerializerOptions SerializerOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        PropertyNameCaseInsensitive = true,
-        WriteIndented = true,
-        Converters =
-        {
-            new VocabularyJsonConverterFactory(),
-        },
-    };
+    private readonly MutationReadPostconditionJournal journal = new();
 
     /// <inheritdoc />
     public async ValueTask<MutationReadPostconditionReadResult> ReadOrNullAsync (
@@ -34,54 +16,10 @@ internal sealed class MutationReadPostconditionStore : IMutationReadPostconditio
         ProjectFingerprint projectFingerprint,
         CancellationToken cancellationToken = default)
     {
-        cancellationToken.ThrowIfCancellationRequested();
-
-        var documentPath = UcliStoragePathResolver.ResolveMutationReadPostconditionPath(
-            storageRoot,
-            projectFingerprint);
-
-        string? json;
-        try
-        {
-            json = await FileUtilities.ReadAllTextOrNullAsync(documentPath, cancellationToken).ConfigureAwait(false);
-        }
-        catch (Exception exception) when (IsIoFailure(exception))
-        {
-            return MutationReadPostconditionReadResult.Failure(ExecutionError.InternalError(
-                $"Failed to read mutation read postcondition file: {documentPath}. {exception.Message}"));
-        }
-
-        if (json == null)
-        {
-            return MutationReadPostconditionReadResult.Success(null);
-        }
-
-        IReadOnlyList<ExecutionReadPostconditionRequirement> mergedRequirements;
-        try
-        {
-            var document = JsonSerializer.Deserialize<MutationReadPostconditionDocument>(json, SerializerOptions)
-                ?? throw new JsonException("Mutation read postcondition JSON is null.");
-            ValidateDocument(document, documentPath);
-            mergedRequirements = MergeRequirements(document.Requirements);
-        }
-        catch (JsonException exception)
-        {
-            return MutationReadPostconditionReadResult.Failure(ExecutionError.InvalidArgument(
-                $"Mutation read postcondition is invalid: {documentPath}. {exception.Message}"));
-        }
-        catch (ArgumentException exception)
-        {
-            return MutationReadPostconditionReadResult.Failure(ExecutionError.InvalidArgument(
-                $"Mutation read postcondition is invalid: {documentPath}. {exception.Message}"));
-        }
-        catch (Exception exception)
-        {
-            return MutationReadPostconditionReadResult.Failure(ExecutionError.InternalError(
-                $"Failed to deserialize mutation read postcondition JSON: {documentPath}. {exception.Message}"));
-        }
-
-        return MutationReadPostconditionReadResult.Success(
-            mergedRequirements.Count == 0 ? null : new ExecutionReadPostcondition(mergedRequirements));
+        var result = await journal.ReadOrNullAsync(storageRoot, projectFingerprint, cancellationToken).ConfigureAwait(false);
+        return result.IsSuccess
+            ? MutationReadPostconditionReadResult.Success(result.ReadPostcondition)
+            : MutationReadPostconditionReadResult.Failure(ToExecutionError(result.Failure!));
     }
 
     /// <inheritdoc />
@@ -91,104 +29,16 @@ internal sealed class MutationReadPostconditionStore : IMutationReadPostconditio
         ExecutionReadPostcondition readPostcondition,
         CancellationToken cancellationToken = default)
     {
-        cancellationToken.ThrowIfCancellationRequested();
-        ArgumentNullException.ThrowIfNull(readPostcondition);
-
-        var documentPath = UcliStoragePathResolver.ResolveMutationReadPostconditionPath(
-            storageRoot,
-            projectFingerprint);
-        var writeLockPath = UcliStoragePathResolver.ResolveMutationReadPostconditionLockPath(
-            storageRoot,
-            projectFingerprint);
-
-        try
-        {
-            var mergedRequirements = MergeRequirements(readPostcondition.Requirements);
-            using var writeLock = await FileExclusiveLock.AcquireAsync(
-                    writeLockPath,
-                    WriteLockAcquireTimeout,
-                    cancellationToken)
-                .ConfigureAwait(false);
-            IReadOnlyList<ExecutionReadPostconditionRequirement> existingRequirements = [];
-            var existingReadResult = await ReadOrNullAsync(storageRoot, projectFingerprint, cancellationToken).ConfigureAwait(false);
-            if (!existingReadResult.IsSuccess)
-            {
-                return MutationReadPostconditionStoreOperationResult.Failure(existingReadResult.Error!);
-            }
-
-            if (existingReadResult.ReadPostcondition != null)
-            {
-                existingRequirements = existingReadResult.ReadPostcondition.Requirements;
-            }
-
-            mergedRequirements = MergeRequirements(existingRequirements.Concat(mergedRequirements).ToArray());
-            var document = new MutationReadPostconditionDocument(
-                SchemaVersion,
-                mergedRequirements);
-            var json = JsonSerializer.Serialize(document, SerializerOptions) + Environment.NewLine;
-            await FileUtilities.WriteAllTextAtomicallyAsync(documentPath, json, cancellationToken).ConfigureAwait(false);
-            return MutationReadPostconditionStoreOperationResult.Success();
-        }
-        catch (ArgumentException exception)
-        {
-            return MutationReadPostconditionStoreOperationResult.Failure(ExecutionError.InvalidArgument(
-                $"Mutation read postcondition is invalid: {documentPath}. {exception.Message}"));
-        }
-        catch (Exception exception) when (IsIoFailure(exception) || exception is TimeoutException)
-        {
-            return MutationReadPostconditionStoreOperationResult.Failure(ExecutionError.InternalError(
-                $"Failed to write mutation read postcondition file: {documentPath}. {exception.Message}"));
-        }
+        var result = await journal.WriteMergedAsync(storageRoot, projectFingerprint, readPostcondition, cancellationToken).ConfigureAwait(false);
+        return result.IsSuccess
+            ? MutationReadPostconditionStoreOperationResult.Success()
+            : MutationReadPostconditionStoreOperationResult.Failure(ToExecutionError(result.Failure!));
     }
 
-    private static IReadOnlyList<ExecutionReadPostconditionRequirement> MergeRequirements (
-        IReadOnlyList<ExecutionReadPostconditionRequirement> requirements)
+    private static ExecutionError ToExecutionError (MutationReadPostconditionJournalFailure failure)
     {
-        ArgumentNullException.ThrowIfNull(requirements);
-
-        var merged = new Dictionary<(ExecutionReadPostconditionSurface Surface, UnityScenePath? ScenePath), ExecutionReadPostconditionRequirement>();
-        for (var i = 0; i < requirements.Count; i++)
-        {
-            var requirement = requirements[i];
-            ArgumentNullException.ThrowIfNull(requirement);
-            var key = GetRequirementKey(requirement);
-            if (merged.TryGetValue(key, out var existing)
-                && existing.MinSafeGeneratedAtUtc >= requirement.MinSafeGeneratedAtUtc)
-            {
-                continue;
-            }
-
-            merged[key] = requirement;
-        }
-
-        return merged
-            .OrderBy(static pair => pair.Key.Surface)
-            .ThenBy(static pair => pair.Key.ScenePath?.Value, StringComparer.Ordinal)
-            .Select(static pair => pair.Value)
-            .ToArray();
-    }
-
-    private static void ValidateDocument (
-        MutationReadPostconditionDocument document,
-        AbsolutePath documentPath)
-    {
-        ArgumentNullException.ThrowIfNull(document);
-        if (document.SchemaVersion != SchemaVersion)
-        {
-            throw new ArgumentOutOfRangeException(nameof(document), document.SchemaVersion, $"schemaVersion must be {SchemaVersion}. {documentPath}");
-        }
-
-        ArgumentNullException.ThrowIfNull(document.Requirements);
-    }
-
-    private static (ExecutionReadPostconditionSurface Surface, UnityScenePath? ScenePath) GetRequirementKey (
-        ExecutionReadPostconditionRequirement requirement)
-    {
-        return (requirement.Surface, requirement.ScenePath);
-    }
-
-    private static bool IsIoFailure (Exception exception)
-    {
-        return exception is IOException or UnauthorizedAccessException;
+        return failure.Kind == MutationReadPostconditionJournalFailureKind.InvalidDocument
+            ? ExecutionError.InvalidArgument(failure.Message)
+            : ExecutionError.InternalError(failure.Message);
     }
 }

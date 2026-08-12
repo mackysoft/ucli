@@ -2056,45 +2056,6 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void Normalize_WhenAllowPlayModeIsSpecified_AllowsCsEvalRawOperationStep ()
-        {
-            var request = CreateExecuteRequest(
-                UcliCommandIds.Plan.Name,
-                new
-                {
-                    protocolVersion = IpcProtocol.CurrentVersion,
-                    steps = new[]
-                    {
-                        new
-                        {
-                            kind = "op",
-                            op = UcliPrimitiveOperationNames.CsEval,
-                            args = new
-                            {
-                                source = "context.DeclareNoTouchedResources(); return 1;",
-                            },
-                        },
-                    },
-                }) with
-                {
-                    AllowPlayMode = true,
-                };
-
-            var result = CreateNormalizer().Normalize(request);
-
-            Assert.That(result.IsSuccess, Is.True);
-            var (compiledStep, compiledOperations) = CompileSingleStep(result.Request!, 0, new OperationExecutionContext(), allowPlayMode: true);
-            _ = new ExecuteRequestCompilerAssert(compiledStep, compiledOperations)
-                .HasLoweredOperations(IpcExecuteStepKind.Op, UcliPrimitiveOperationNames.CsEval, UcliPrimitiveOperationNames.CsEval)
-                .HasPostReadSourceStep(
-                    IpcExecutePostReadSourceKind.Operation,
-                    null,
-                    false,
-                IpcExecuteExpectedPostState.Unavailable);
-        }
-
-        [Test]
-        [Category("Size.Small")]
         public void Normalize_WhenOperationRequiresPlayModeWithoutAllowPlayMode_ReturnsInvalidArgument ()
         {
             const string operationName = "game.cheat.required";
@@ -2897,7 +2858,6 @@ namespace MackySoft.Ucli.Unity.Tests
         private static IPhaseOperationRegistry CreateDefaultRegistry ()
         {
             return CreateRegistry(
-                CreatePlayModeOperation(UcliPrimitiveOperationNames.CsEval, UcliOperationPlayModeSupport.Allowed),
                 CreatePlayModeOperation(UcliPrimitiveOperationNames.CompSet, UcliOperationPlayModeSupport.Disallowed));
         }
 

@@ -72,7 +72,7 @@ bash tests/System/ScreenshotFidelity/run-macos.sh \
 
 The Windows lane is fixed to Unity `6000.3.11f1` revision `3000ef702840`, URP `17.3.0`, Direct3D 12, Linear color space, and normal Play Mode. It verifies the supplied Editor version before opening a GUI, then verifies the initialized revision and active render pipeline from the Unity process. The copied Unity 2023 project has no persistent `.mat` files, so the runner advances only the disposable `URPProjectSettings.asset` material version from 9 to 10 to prevent the URP material-upgrade modal. If a persistent material is added, the runner fails before opening Unity so a real headless migration can replace this preparation. `-KeepWorkDirectory` retains the disposable project for diagnosis. An explicit results directory must not already exist.
 
-Both runners build all inputs from a recorded source snapshot. They start the production GUI daemon, invoke the fixture's allowlisted `ucli.cs.eval` entry point, and leave the project's normal Domain Reload and Scene Reload settings unchanged.
+Both runners build all inputs from a recorded source snapshot. They enable the disposable project's `evalEnabled` setting, start the production GUI daemon, invoke `ucli eval --sourceKind compilationUnit --allowDangerous`, and leave the project's normal Domain Reload and Scene Reload settings unchanged.
 
 ## Cases
 

@@ -151,13 +151,13 @@ public sealed class IndexCatalogContractValidatorOpsDescribeSchemaTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void TryCreateOpsDescribeSnapshot_ReturnsFalse_WhenProviderSchemaPatternIsInvalid ()
+    public void TryCreateOpsDescribeSnapshot_ReturnsFalse_WhenProviderSchemaTypeIsInvalid ()
     {
         var operation = IndexCatalogContractValidatorOpsTestSupport.CreateValidOpsEntry();
         var generationResult = UcliOperationJsonContractGenerator.Generate(
-            UcliPrimitiveOperationNames.CsEval,
-            IpcJsonSerializerOptions.PublicRawOperationContracts.GetTypeInfo(typeof(CsEvalArgs)),
-            IpcJsonSerializerOptions.PublicRawOperationContracts.GetTypeInfo(typeof(CsEvalResult)));
+            UcliPrimitiveOperationNames.Resolve,
+            IpcJsonSerializerOptions.PublicRawOperationContracts.GetTypeInfo(typeof(ResolveSelectorArgs)),
+            IpcJsonSerializerOptions.PublicRawOperationContracts.GetTypeInfo(typeof(IpcResolveOperationResult)));
         var resultContract = generationResult.ResultContract!.Value;
         operation = operation with
         {
@@ -165,8 +165,8 @@ public sealed class IndexCatalogContractValidatorOpsDescribeSchemaTests
             {
                 Schema = new UcliJsonObject(ReplaceFirstStringProperty(
                     resultContract.Schema.ToJsonElement(),
-                    "pattern",
-                    "[")),
+                    "type",
+                    "not-a-json-schema-type")),
             },
         };
         operation = IndexCatalogContractValidatorOpsTestSupport.WithDescriptorDigest(operation);

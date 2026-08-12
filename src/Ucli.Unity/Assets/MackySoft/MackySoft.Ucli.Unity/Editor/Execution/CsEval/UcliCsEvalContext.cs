@@ -1,16 +1,16 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Text.Json;
+using System.Threading;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Contracts.Operations;
 
 #nullable enable
 
 namespace MackySoft.Ucli.Unity.Execution.CsEval
 {
-    /// <summary> Execution context passed to <c>ucli.cs.eval</c> entry points. </summary>
-    [UcliCodeDescription("Execution context passed to ucli.cs.eval entry points.")]
+    /// <summary> Execution context passed to dedicated C# eval entry points. </summary>
     public sealed class UcliCsEvalContext
     {
         private const string ProjectSettingsRootPrefix = "ProjectSettings/";
@@ -21,107 +21,95 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
 
         private readonly List<CsEvalLogEntry> logs = new List<CsEvalLogEntry>();
 
-        private readonly List<CsEvalTouchedResourceDeclaration> touchedResources = new List<CsEvalTouchedResourceDeclaration>();
+        private readonly HashSet<string> scenes = new HashSet<string>(StringComparer.Ordinal);
+
+        private readonly HashSet<string> prefabs = new HashSet<string>(StringComparer.Ordinal);
+
+        private readonly HashSet<string> assets = new HashSet<string>(StringComparer.Ordinal);
+
+        private readonly HashSet<string> projectSettings = new HashSet<string>(StringComparer.Ordinal);
 
         private bool declaredNoTouchedResources;
 
         private bool logsTruncated;
 
-        private bool touchedResourcesTruncated;
-
-        /// <summary> Records an informational eval log entry. </summary>
-        /// <param name="message"> The log message text. </param>
-        [UcliCodeDescription("Records an informational eval log entry.")]
-        public void Log ([UcliCodeDescription("Log message text.")] string message)
+        /// <summary> Initializes the context passed to one evaluated entry point. </summary>
+        internal UcliCsEvalContext (CancellationToken cancellationToken = default)
         {
-            AddLog(CsEvalLogLevel.Log, message);
+            CancellationToken = cancellationToken;
         }
 
-        /// <summary> Records a warning eval log entry. </summary>
-        /// <param name="message"> The log message text. </param>
-        [UcliCodeDescription("Records a warning eval log entry.")]
-        public void LogWarning ([UcliCodeDescription("Log message text.")] string message)
-        {
-            AddLog(CsEvalLogLevel.Warning, message);
-        }
+        /// <summary> Gets the cooperative cancellation signal for the current evaluation. </summary>
+        public CancellationToken CancellationToken { get; }
 
-        /// <summary> Records an error eval log entry. </summary>
-        /// <param name="message"> The log message text. </param>
-        [UcliCodeDescription("Records an error eval log entry.")]
-        public void LogError ([UcliCodeDescription("Log message text.")] string message)
+        /// <summary> Records a structured entry using the dedicated evaluation API. </summary>
+        public void Log (UcliCsEvalLogLevel level, string message, object? data = null)
         {
-            AddLog(CsEvalLogLevel.Error, message);
-        }
-
-        /// <summary> Declares that the eval call did not touch Unity resources. </summary>
-        [UcliCodeDescription("Declares that the eval call did not touch Unity resources.")]
-        public void DeclareNoTouchedResources ()
-        {
-            if (touchedResources.Count != 0)
+            JsonElement? serializedData;
+            try
             {
-                throw new InvalidOperationException("DeclareNoTouchedResources cannot be used after declaring touched resources.");
+                serializedData = data is null
+                    ? null
+                    : JsonSerializer.SerializeToElement(data, data.GetType(), IpcJsonSerializerOptions.Default);
+            }
+            catch (Exception exception)
+            {
+                throw new ArgumentException("C# eval log data must be JSON-serializable.", nameof(data), exception);
+            }
+
+            AddLog(level switch
+            {
+                UcliCsEvalLogLevel.Debug => CsEvalLogLevel.Debug,
+                UcliCsEvalLogLevel.Info => CsEvalLogLevel.Info,
+                UcliCsEvalLogLevel.Warning => CsEvalLogLevel.Warning,
+                UcliCsEvalLogLevel.Error => CsEvalLogLevel.Error,
+                _ => throw new ArgumentOutOfRangeException(nameof(level)),
+            }, message, serializedData);
+        }
+
+        /// <summary> Declares one touched scene. </summary>
+        public void TouchScene (string path) => AddTouchedResource(UcliTouchedResourceKind.Scene, NormalizeDeclaredSceneAssetPath(path));
+
+        /// <summary> Declares one touched prefab. </summary>
+        public void TouchPrefab (string path) => AddTouchedResource(UcliTouchedResourceKind.Prefab, NormalizeDeclaredPrefabAssetPath(path));
+
+        /// <summary> Declares one touched asset. </summary>
+        public void TouchAsset (string path)
+        {
+            var normalizedPath = NormalizeDeclaredAssetPath(path);
+            if (IsSceneOrPrefabAssetPath(normalizedPath)) throw new ArgumentException("Scene and prefab assets must be declared with their specific touched-resource APIs.", nameof(path));
+            AddTouchedResource(UcliTouchedResourceKind.Asset, normalizedPath);
+        }
+
+        /// <summary> Declares one touched Project Settings file. </summary>
+        public void TouchProjectSettings (string path) => AddTouchedResource(UcliTouchedResourceKind.ProjectSettings, NormalizeDeclaredPath(path, ProjectSettingsRootPrefix));
+
+        /// <summary> Declares that the evaluation made no changes. </summary>
+        public void DeclareNoChanges ()
+        {
+            if (HasTouchedResources)
+            {
+                throw new InvalidOperationException("DeclareNoChanges cannot be used after declaring touched resources.");
             }
 
             declaredNoTouchedResources = true;
-        }
-
-        /// <summary> Declares that the eval call touched a project asset. </summary>
-        /// <param name="path"> The project-relative asset path. </param>
-        [UcliCodeDescription("Declares that the eval call touched a project asset.")]
-        public void DeclareTouchedAsset ([UcliCodeDescription("Project-relative asset path.")] string path)
-        {
-            var normalizedPath = NormalizeDeclaredAssetPath(path);
-            if (IsSceneOrPrefabAssetPath(normalizedPath))
-            {
-                throw new ArgumentException("Scene and prefab assets must be declared with their specific touched-resource APIs.", nameof(path));
-            }
-
-            AddTouchedResource(
-                UcliTouchedResourceKind.Asset,
-                normalizedPath);
-        }
-
-        /// <summary> Declares that the eval call touched a scene asset. </summary>
-        /// <param name="path"> The project-relative scene asset path. </param>
-        [UcliCodeDescription("Declares that the eval call touched a scene asset.")]
-        public void DeclareTouchedScene ([UcliCodeDescription("Project-relative scene asset path.")] string path)
-        {
-            AddTouchedResource(
-                UcliTouchedResourceKind.Scene,
-                NormalizeDeclaredSceneAssetPath(path));
-        }
-
-        /// <summary> Declares that the eval call touched a prefab asset. </summary>
-        /// <param name="path"> The project-relative prefab asset path. </param>
-        [UcliCodeDescription("Declares that the eval call touched a prefab asset.")]
-        public void DeclareTouchedPrefab ([UcliCodeDescription("Project-relative prefab asset path.")] string path)
-        {
-            AddTouchedResource(
-                UcliTouchedResourceKind.Prefab,
-                NormalizeDeclaredPrefabAssetPath(path));
-        }
-
-        /// <summary> Declares that the eval call touched a ProjectSettings asset. </summary>
-        /// <param name="path"> The project-relative ProjectSettings path. </param>
-        [UcliCodeDescription("Declares that the eval call touched a ProjectSettings asset.")]
-        public void DeclareTouchedProjectSettings ([UcliCodeDescription("Project-relative ProjectSettings path.")] string path)
-        {
-            AddTouchedResource(
-                UcliTouchedResourceKind.ProjectSettings,
-                NormalizeDeclaredPath(path, ProjectSettingsRootPrefix));
         }
 
         internal IReadOnlyList<CsEvalLogEntry> Logs => logs;
 
         internal bool DeclaredNoTouchedResources => declaredNoTouchedResources;
 
-        internal IReadOnlyList<CsEvalTouchedResourceDeclaration> TouchedResources => touchedResources;
-
-        internal bool TouchedResourcesTruncated => touchedResourcesTruncated;
+        internal IReadOnlyCollection<string> Scenes => scenes;
+        internal IReadOnlyCollection<string> Prefabs => prefabs;
+        internal IReadOnlyCollection<string> Assets => assets;
+        internal IReadOnlyCollection<string> ProjectSettings => projectSettings;
+        internal bool HasTouchedResources => scenes.Count != 0 || prefabs.Count != 0 || assets.Count != 0 || projectSettings.Count != 0;
+        internal bool HasImpactDeclaration => declaredNoTouchedResources || HasTouchedResources;
 
         private void AddLog (
             CsEvalLogLevel level,
-            string message)
+            string message,
+            JsonElement? data)
         {
             if (string.IsNullOrWhiteSpace(message))
             {
@@ -134,7 +122,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
                 return;
             }
 
-            logs.Add(new CsEvalLogEntry(level, LimitUtf8(message, CsEvalSafetyLimits.MaxLogMessageBytes)));
+            logs.Add(new CsEvalLogEntry(logs.Count + 1, level, LimitUtf8(message, CsEvalSafetyLimits.MaxLogMessageBytes), data));
         }
 
         private static string NormalizeDeclaredPath (
@@ -208,17 +196,23 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
         {
             if (declaredNoTouchedResources)
             {
-                throw new InvalidOperationException("Touched resources cannot be declared after DeclareNoTouchedResources.");
+                throw new InvalidOperationException("Touched resources cannot be declared after DeclareNoChanges.");
             }
 
-            if (touchedResources.Count >= CsEvalSafetyLimits.MaxTouchedResources)
+            if (scenes.Count + prefabs.Count + assets.Count + projectSettings.Count >= CsEvalSafetyLimits.MaxTouchedResources)
             {
-                touchedResourcesTruncated = true;
                 AddSystemWarning("C# eval touched resource declarations were truncated.");
                 return;
             }
 
-            touchedResources.Add(new CsEvalTouchedResourceDeclaration(kind, path));
+            switch (kind)
+            {
+                case UcliTouchedResourceKind.Scene: scenes.Add(path); break;
+                case UcliTouchedResourceKind.Prefab: prefabs.Add(path); break;
+                case UcliTouchedResourceKind.Asset: assets.Add(path); break;
+                case UcliTouchedResourceKind.ProjectSettings: projectSettings.Add(path); break;
+                default: throw new ArgumentOutOfRangeException(nameof(kind));
+            }
         }
 
         private void AddSystemWarning (string message)
@@ -229,7 +223,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
                 return;
             }
 
-            logs.Add(new CsEvalLogEntry(CsEvalLogLevel.Warning, message));
+            logs.Add(new CsEvalLogEntry(logs.Count + 1, CsEvalLogLevel.Warning, message, null));
         }
 
         private void SetLogsTruncated ()
@@ -240,7 +234,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
             }
 
             logsTruncated = true;
-            var warning = new CsEvalLogEntry(CsEvalLogLevel.Warning, "C# eval logs were truncated.");
+            var warning = new CsEvalLogEntry(logs.Count == 0 ? 1 : logs[^1].Sequence, CsEvalLogLevel.Warning, "C# eval logs were truncated.", null);
             if (logs.Count == 0)
             {
                 logs.Add(warning);

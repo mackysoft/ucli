@@ -26,7 +26,8 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
             Sha256Digest stateFingerprint,
             DateTimeOffset issuedAtUtc,
             DateTimeOffset expiresAtUtc,
-            PlanTokenNonce nonce)
+            PlanTokenNonce nonce,
+            EvalPlanTokenClaims? evalClaims = null)
         {
             issuedAtUtc = ContractArgumentGuard.RequireUtcTimestamp(issuedAtUtc, nameof(issuedAtUtc));
             expiresAtUtc = ContractArgumentGuard.RequireUtcTimestamp(expiresAtUtc, nameof(expiresAtUtc));
@@ -43,6 +44,7 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
             IssuedAtUtc = issuedAtUtc;
             ExpiresAtUtc = expiresAtUtc;
             Nonce = nonce ?? throw new ArgumentNullException(nameof(nonce));
+            EvalClaims = evalClaims;
         }
 
         public ProjectFingerprint ProjectFingerprint { get; }
@@ -58,5 +60,8 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
         public DateTimeOffset ExpiresAtUtc { get; }
 
         public PlanTokenNonce Nonce { get; }
+
+        /// <summary> Gets eval-only request claims, when this token was issued for dedicated C# evaluation. </summary>
+        public EvalPlanTokenClaims? EvalClaims { get; }
     }
 }

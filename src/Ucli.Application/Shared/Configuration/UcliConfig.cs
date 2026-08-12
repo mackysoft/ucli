@@ -21,6 +21,9 @@ internal sealed record UcliConfig (
     /// <summary> Gets the IPC timeout in milliseconds used when CLI options do not override timeout. </summary>
     public int IpcDefaultTimeoutMilliseconds { get; init; } = IpcTimeoutDefaults.GlobalTimeoutMilliseconds;
 
+    /// <summary> Gets whether the dedicated C# evaluation surface is enabled for this project. </summary>
+    public bool EvalEnabled { get; init; }
+
     /// <summary> Gets per-command IPC timeout overrides in milliseconds. <see langword="null" /> values fallback to <see cref="IpcDefaultTimeoutMilliseconds" />. </summary>
     public IReadOnlyDictionary<string, int?> IpcTimeoutMillisecondsByCommand { get; init; } = new Dictionary<string, int?>(StringComparer.Ordinal);
 
@@ -42,6 +45,7 @@ internal sealed record UcliConfig (
             ])
         {
             IpcDefaultTimeoutMilliseconds = IpcTimeoutDefaults.GlobalTimeoutMilliseconds,
+            EvalEnabled = false,
             IpcTimeoutMillisecondsByCommand = IpcTimeoutDefaults.CreateDefaultTimeoutOverrides(),
             ProgramPresets = new Dictionary<string, ProgramPresetRegistration>(StringComparer.Ordinal),
         };

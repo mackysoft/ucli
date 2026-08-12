@@ -123,8 +123,8 @@ public sealed class RequestStaticValidatorOperationArgsSchemaTests
         const string operationName = "ucli.test.invalid-pattern";
         var generationResult = UcliOperationJsonContractGenerator.Generate(
             operationName,
-            IpcJsonSerializerOptions.PublicRawOperationContracts.GetTypeInfo(typeof(CsEvalArgs)),
-            IpcJsonSerializerOptions.PublicRawOperationContracts.GetTypeInfo(typeof(CsEvalResult)));
+            IpcJsonSerializerOptions.PublicRawOperationContracts.GetTypeInfo(typeof(UcliEmptyArgs)),
+            IpcJsonSerializerOptions.PublicRawOperationContracts.GetTypeInfo(typeof(UcliEmptyArgs)));
         UcliOperationDescriptor[] operations =
         [
             new(

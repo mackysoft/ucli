@@ -1,3 +1,5 @@
+using System.Text.Json;
+using MackySoft.Ucli.Contracts.Execution;
 using MackySoft.Ucli.Hosting.Cli.Requests;
 using MackySoft.Ucli.Hosting.Cli.Requests.Eval.Input;
 using MackySoft.Ucli.Tests.Hosting.Cli.Common.Execution;
@@ -9,9 +11,9 @@ public sealed class EvalCommandPayloadTests
 {
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Eval_WithSuccessResult_WritesEvalPayloadWithoutPlanRuntimeFields ()
+    public async Task Eval_WithSuccessResult_WritesDedicatedPayloadWithoutOperationResults ()
     {
-        var service = new RecordingCallService((_, _) => ValueTask.FromResult(CreateSuccessfulServiceResult()));
+        var service = new RecordingEvalService((id, _, _) => ValueTask.FromResult(CreateSuccessfulServiceResult(id)));
         var sourceReader = new RecordingEvalSourceInputReader((_, _, _) => ValueTask.FromResult(EvalSourceInputReadResult.Success(EvalSource)));
         var command = new EvalCommand(service, sourceReader, CommandResultTestWriter.Create());
 
@@ -19,16 +21,14 @@ public sealed class EvalCommandPayloadTests
             source: EvalSource,
             cancellationToken: CancellationToken.None));
 
-        EvalCommandAssert.SucceededWithPayload(
-            result,
-            expectedRequestId: RequestId);
+        EvalCommandAssert.HasDedicatedSuccessPayload(result);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Eval_WhenCallServiceRejectsDangerousOperation_WritesEvalFailure ()
+    public async Task Eval_WhenCallResponseIsIndeterminate_ReportsTheClosedCallFailurePayload ()
     {
-        var service = new RecordingCallService((_, _) => ValueTask.FromResult(CreateDangerousOperationRejectedResult()));
+        var service = new RecordingEvalService((id, _, _) => ValueTask.FromResult(CreateCallFailureServiceResult(id)));
         var sourceReader = new RecordingEvalSourceInputReader((_, _, _) => ValueTask.FromResult(EvalSourceInputReadResult.Success(EvalSource)));
         var command = new EvalCommand(service, sourceReader, CommandResultTestWriter.Create());
 
@@ -36,14 +36,17 @@ public sealed class EvalCommandPayloadTests
             source: EvalSource,
             cancellationToken: CancellationToken.None));
 
-        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
-        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
-        CommandResultAssert.HasInvalidArgumentEnvelope(
-            outputJson.RootElement,
-            UcliCommandNames.Eval);
-        JsonAssert.For(outputJson.RootElement)
-            .HasProperty("errors", 0, error => error
-                .HasString("code", OperationAuthorizationErrorCodes.OperationNotAllowed.Value)
-                .HasString("instancePath", "/steps/0"));
+        Assert.Equal((int)CliExitCode.ToolError, result.ExitCode);
+        using var outputJson = JsonDocument.Parse(result.StdOut);
+        var root = outputJson.RootElement;
+        CommandResultAssert.HasStandardEnvelope(root, UcliCommandNames.Eval, "error", (int)CliExitCode.ToolError);
+        var payload = root.GetProperty("payload");
+        JsonAssert.For(payload)
+            .HasString("payloadKind", "detailed")
+            .HasString("phase", "call")
+            .HasString("applicationState", TextVocabulary.GetText(ExecutionApplicationState.Indeterminate))
+            .HasProperty("plan", plan => plan
+                .HasString("eval.sourceKind", "snippet"));
+        Assert.False(payload.TryGetProperty("opResults", out _));
     }
 }

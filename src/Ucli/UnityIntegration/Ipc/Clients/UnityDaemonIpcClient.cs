@@ -97,6 +97,51 @@ internal sealed class UnityDaemonIpcClient : IUnityIpcClient
             .ConfigureAwait(false);
     }
 
+    /// <summary> Sends exactly once through the daemon endpoint and token fixed by the caller. </summary>
+    internal async ValueTask<UnityRequestExecutionResult> SendExactAsync (
+        UnityIpcDispatchRequest dispatchRequest,
+        ExecutionDeadline deadline,
+        DaemonSession session,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(dispatchRequest);
+        ArgumentNullException.ThrowIfNull(deadline);
+        ArgumentNullException.ThrowIfNull(session);
+        if (!deadline.TryGetRemainingTimeout(out var remainingTimeout)
+            || !deadline.TryGetRemainingMilliseconds(out var remainingMilliseconds))
+        {
+            return UnityRequestExecutionResult.Failure(UnityIpcFailureClassifier.Timeout(
+                "Timed out before exact Unity daemon eval dispatch could begin."));
+        }
+
+        try
+        {
+            var response = await transportClient.SendAsync(
+                    DaemonSessionIpcTransportEndpointAdapter.Adapt(session),
+                    UnityIpcRequestFactory.Create(
+                        session.SessionToken,
+                        dispatchRequest.Method,
+                        dispatchRequest.Payload,
+                        Guid.NewGuid(),
+                        IpcResponseMode.Single,
+                        deadline.UtcDeadline,
+                        remainingMilliseconds),
+                    remainingTimeout,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            return UnityRequestExecutionResult.Success(UnityRequestResponseFactory.Create(response));
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            return UnityRequestExecutionResult.Failure(
+                UnityIpcFailureClassifier.FromDaemonDispatchException(exception, remainingTimeout));
+        }
+    }
+
     /// <inheritdoc />
     public async ValueTask<UnityRequestExecutionResult> SendAsync (
         ResolvedUnityProjectContext unityProject,

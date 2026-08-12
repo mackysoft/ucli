@@ -285,7 +285,7 @@ function Start-Fixture {
     Remove-Item -LiteralPath (Join-Path $script:runDirectory "control.json") -Force -ErrorAction SilentlyContinue
 
     $encodedRunDirectory = $script:runDirectory | ConvertTo-Json -Compress
-    $source = "return MackySoft.Ucli.ScreenshotFidelity.ScreenshotFidelityFixture.Start($encodedRunDirectory);"
+    $source = "public static class ScreenshotFidelityEval { public static object? Run(MackySoft.Ucli.Unity.Execution.CsEval.UcliCsEvalContext context) { var started = MackySoft.Ucli.ScreenshotFidelity.ScreenshotFidelityFixture.Start($encodedRunDirectory); context.DeclareNoChanges(); return started; } }"
     $sourcePath = Join-Path $script:runDirectory "fixture-start.cs"
     [System.IO.File]::WriteAllText(
         $sourcePath,
@@ -297,16 +297,16 @@ function Start-Fixture {
         "--mode", "daemon",
         "--allowDangerous",
         "--allowPlayMode",
+        "--sourceKind", "compilationUnit",
         "--file", $sourcePath,
         "--timeout", "30000"
     )
     $result = Invoke-Ucli -ResultPath $ResultPath -ArgumentList $arguments
-    $opResults = @($result.payload.opResults)
-    if (($opResults.Count -ne 1) -or
-        ($opResults[0].op -ne "ucli.cs.eval") -or
-        ($opResults[0].result.compile.status -ne "succeeded") -or
-        ($opResults[0].result.returnValue.kind -ne "json") -or
-        ($opResults[0].result.returnValue.value -ne $true)) {
+    if (($result.command -ne "eval") -or
+        ($result.payload.applicationState -ne "applied") -or
+        ($result.payload.eval.compile.succeeded -ne $true) -or
+        ($result.payload.eval.returnValue.kind -ne "json") -or
+        ($result.payload.eval.returnValue.value -ne $true)) {
         throw "Screenshot fidelity fixture did not report a successful start. See $ResultPath."
     }
 
@@ -1005,8 +1005,9 @@ try {
     Write-JsonFile -Path (Join-Path $ucliConfigurationDirectory "config.json") -Value ([ordered]@{
         schemaVersion = 1
         operationPolicy = "dangerous"
+        operationAllowlist = @()
         planTokenMode = "optional"
-        operationAllowlist = @("^ucli\.cs\.eval$")
+        evalEnabled = $true
     })
 
     Write-Host "Publishing the current uCLI host and Windows oracle..."

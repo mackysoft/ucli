@@ -276,6 +276,66 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
             .ConfigureAwait(false);
     }
 
+    /// <summary> Sends exactly once through an already acquired oneshot lease without consuming it. </summary>
+    internal async ValueTask<UnityRequestExecutionResult> SendExactAsync (
+        UnityIpcDispatchRequest dispatchRequest,
+        ExecutionDeadline deadline,
+        OneshotHostLease lease,
+        bool failFast,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(dispatchRequest);
+        ArgumentNullException.ThrowIfNull(deadline);
+        ArgumentNullException.ThrowIfNull(lease);
+        var readinessFailure = await WaitUntilReachableAsync(
+                lease.Project,
+                lease.SessionToken,
+                lease.Endpoint,
+                dispatchRequest,
+                failFast,
+                deadline,
+                lease.ProcessHandle,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (readinessFailure is not null)
+        {
+            return UnityRequestExecutionResult.Failure(readinessFailure);
+        }
+
+        if (!deadline.TryGetRemainingTimeout(out var remainingTimeout)
+            || !deadline.TryGetRemainingMilliseconds(out var remainingMilliseconds))
+        {
+            return UnityRequestExecutionResult.Failure(UnityIpcFailureClassifier.OneshotTimeout(deadline.Timeout));
+        }
+
+        try
+        {
+            var response = await transportClient.SendAsync(
+                    lease.Endpoint,
+                    UnityIpcRequestFactory.Create(
+                        lease.SessionToken,
+                        dispatchRequest.Method,
+                        dispatchRequest.Payload,
+                        Guid.NewGuid(),
+                        IpcResponseMode.Single,
+                        deadline.UtcDeadline,
+                        remainingMilliseconds),
+                    remainingTimeout,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            return UnityRequestExecutionResult.Success(UnityRequestResponseFactory.Create(response));
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            return UnityRequestExecutionResult.Failure(
+                UnityIpcFailureClassifier.FromOneshotDispatchException(exception, remainingTimeout));
+        }
+    }
+
     /// <summary> Cleans up a bound lease that never transferred to its durable dispatch owner. </summary>
     internal async ValueTask DisposeBoundLeaseAsync (OneshotHostLease lease)
     {
@@ -1236,16 +1296,16 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
                     continue;
                 }
 
-                        var reachabilityFailure = await WaitUntilReachableAsync(
-                                unityProject,
-                                sessionToken,
-                                endpoint,
-                        dispatchRequest,
-                        failFast: false,
-                        dispatchDeadline,
-                        processHandle,
-                        CancellationToken.None)
-                    .ConfigureAwait(false);
+                var reachabilityFailure = await WaitUntilReachableAsync(
+                        unityProject,
+                        sessionToken,
+                        endpoint,
+                dispatchRequest,
+                failFast: false,
+                dispatchDeadline,
+                processHandle,
+                CancellationToken.None)
+            .ConfigureAwait(false);
                 if (reachabilityFailure != null)
                 {
                     return OneshotPreparedDispatchOutcome.Failed(

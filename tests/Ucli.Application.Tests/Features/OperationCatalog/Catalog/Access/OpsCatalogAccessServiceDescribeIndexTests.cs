@@ -42,15 +42,15 @@ public sealed class OpsCatalogAccessServiceDescribeIndexTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task ReadDescribe_WhenIndexDetailHasDangerousOperation_ReturnsDetailAsProvided ()
+    public async Task ReadDescribe_WhenIndexDetailHasAdvancedOperation_ReturnsDetailAsProvided ()
     {
-        var operation = CreateCsEvalEntry(UcliPrimitiveOperationNames.GoDescribe);
+        var operation = CreateSceneSaveEntry();
         var persistedReader = new RecordingPersistedOpsCatalogReader
         {
             ReadResult = CreatePersistedReadResult(
                 DateTimeOffset.Parse("2026-03-06T00:00:00+00:00"),
                 IndexFreshness.Fresh,
-                [CreateGoDescribeEntry()]),
+                [CreateGoDescribeEntry(), operation]),
             DescribeResult = PersistedOpsDescribeReadResult.Success(CreateValidatedOperation(operation)),
         };
         var sourceRefreshService = new UnexpectedOpsCatalogSourceRefreshService();
@@ -58,7 +58,7 @@ public sealed class OpsCatalogAccessServiceDescribeIndexTests
 
         var result = await service.ReadDescribeAsync(
             CreatePreflightContext(ReadIndexMode.RequireFresh),
-            UcliPrimitiveOperationNames.GoDescribe,
+            UcliPrimitiveOperationNames.SceneSave,
             CancellationToken.None);
 
         var succeeded = Assert.IsType<OpsDescribeReadResult.Succeeded>(result);

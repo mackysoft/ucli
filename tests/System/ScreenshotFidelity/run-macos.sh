@@ -384,6 +384,7 @@ start_fixture() {
     --projectPath "${unity_project}"
     --mode daemon
     --allowDangerous
+    --sourceKind compilationUnit
   )
   case "${play_mode}" in
     true)
@@ -403,12 +404,11 @@ start_fixture() {
   invoke_ucli "${output_path}" "${arguments[@]}"
   assert_command_success "${output_path}"
   jq -e '
-    .payload.opResults
-    | length == 1
-      and .[0].op == "ucli.cs.eval"
-      and .[0].result.compile.status == "succeeded"
-      and .[0].result.returnValue.kind == "json"
-      and .[0].result.returnValue.value == true
+    .command == "eval"
+      and .payload.applicationState == "applied"
+      and .payload.eval.compile.succeeded == true
+      and .payload.eval.returnValue.kind == "json"
+      and .payload.eval.returnValue.value == true
   ' "${output_path}" >/dev/null \
     || fail "Screenshot fidelity fixture did not report a successful start: ${output_path}"
   wait_for_file "${fixture_ready_path}" 60
@@ -574,8 +574,9 @@ jq -n \
   '{
     schemaVersion:1,
     operationPolicy:"dangerous",
+    operationAllowlist:[],
     planTokenMode:"optional",
-    operationAllowlist:["^ucli\\.cs\\.eval$"]
+    evalEnabled:true
   }' > "${test_repository}/.ucli/config.json"
 
 if [[ -f "${game_view_sizes_path}" ]]; then
@@ -615,7 +616,7 @@ daemon_started=true
 
 fixture_start_source="$(jq -nr \
   --arg directory "${run_directory}" \
-  '$directory | @json | "return MackySoft.Ucli.ScreenshotFidelity.ScreenshotFidelityFixture.Start(" + . + ");"')"
+  '$directory | @json | "public static class ScreenshotFidelityEval { public static object? Run(MackySoft.Ucli.Unity.Execution.CsEval.UcliCsEvalContext context) { var started = MackySoft.Ucli.ScreenshotFidelity.ScreenshotFidelityFixture.Start(" + . + "); context.DeclareNoChanges(); return started; } }"')"
 start_fixture "${results_directory}/fixture-start-edit.json" false
 jq -e --arg expected "${unity_color_space_name}" '.colorSpace == $expected' \
   "${run_directory}/unity-environment.json" >/dev/null \

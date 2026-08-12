@@ -13,6 +13,7 @@ public static class IpcJsonSerializerOptions
     {
         Converters =
         {
+            new IpcEvalResponseJsonConverter(),
             new VocabularyJsonConverterFactory(),
             new UcliStringValueJsonConverterFactory(),
         },

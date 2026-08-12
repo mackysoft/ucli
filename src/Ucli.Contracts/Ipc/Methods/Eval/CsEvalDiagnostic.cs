@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using MackySoft.JsonSchema.Generation.Annotations;
+using MackySoft.Ucli.Contracts.Operations;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
@@ -17,11 +18,6 @@ public sealed record CsEvalDiagnostic
         if (!TextVocabulary.IsDefined(severity))
         {
             throw new ArgumentOutOfRangeException(nameof(severity), severity, "C# eval diagnostic severity must be specified.");
-        }
-
-        if (line.HasValue != column.HasValue)
-        {
-            throw new ArgumentException("C# eval diagnostic line and column must either both be specified or both be omitted.");
         }
 
         Severity = severity;
@@ -50,11 +46,15 @@ public sealed record CsEvalDiagnostic
     [Description("Diagnostic message.")]
     public string Message { get; private init; }
 
+    [JsonInclude]
+    [JsonRequired]
+    [UcliInt32Minimum(1)]
     [Description("One-based source line when available.")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public int? Line { get; }
+    public int? Line { get; private init; }
 
+    [JsonInclude]
+    [JsonRequired]
+    [UcliInt32Minimum(1)]
     [Description("One-based source column when available.")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public int? Column { get; }
+    public int? Column { get; private init; }
 }

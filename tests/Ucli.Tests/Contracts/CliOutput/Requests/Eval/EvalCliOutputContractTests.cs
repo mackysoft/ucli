@@ -35,6 +35,8 @@ public sealed class EvalCliOutputContractTests
             UcliContractConstants.CliOption.AllowDangerous,
             UcliContractConstants.CliOption.AllowPlayMode,
             UcliContractConstants.CliOption.FailFast,
+            "--sourceKind",
+            "compilationUnit",
             UcliContractConstants.CliOption.Source,
             "return 1;");
 
@@ -48,6 +50,7 @@ public sealed class EvalCliOutputContractTests
             UcliContractConstants.CliOption.AllowDangerous,
             UcliContractConstants.CliOption.AllowPlayMode,
             UcliContractConstants.CliOption.FailFast,
+            "--sourceKind",
             UcliContractConstants.CliOption.Source);
     }
 

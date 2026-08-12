@@ -7,6 +7,7 @@ using System.Text;
 using System.Text.Json;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Cryptography;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
 
 #nullable enable
@@ -157,6 +158,15 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
                 writer.WriteString("issuedAtUtc", payload.IssuedAtUtc.ToString("O", CultureInfo.InvariantCulture));
                 writer.WriteString("expiresAtUtc", payload.ExpiresAtUtc.ToString("O", CultureInfo.InvariantCulture));
                 writer.WriteString("nonce", payload.Nonce.ToString());
+                if (payload.EvalClaims is not null)
+                {
+                    writer.WriteStartObject("eval");
+                    writer.WriteString("sourceKind", payload.EvalClaims.SourceKind == CsEvalSourceKind.Snippet ? "snippet" : "compilationUnit");
+                    writer.WriteBoolean("evalEnabled", payload.EvalClaims.EvalEnabled);
+                    writer.WriteBoolean("allowDangerous", payload.EvalClaims.AllowDangerous);
+                    writer.WriteBoolean("allowPlayMode", payload.EvalClaims.AllowPlayMode);
+                    writer.WriteEndObject();
+                }
                 writer.WriteEndObject();
                 writer.Flush();
             }
@@ -264,6 +274,35 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
                 var issuedAt = PlanTokenJsonUtilities.TryReadString(root, "issuedAtUtc");
                 var expiresAt = PlanTokenJsonUtilities.TryReadString(root, "expiresAtUtc");
                 var nonce = PlanTokenJsonUtilities.TryReadString(root, "nonce");
+                EvalPlanTokenClaims? evalClaims = null;
+                if (root.TryGetProperty("eval", out var evalElement))
+                {
+                    if (evalElement.ValueKind != JsonValueKind.Object
+                        || !evalElement.TryGetProperty("sourceKind", out var sourceKindElement)
+                        || sourceKindElement.ValueKind != JsonValueKind.String
+                        || !evalElement.TryGetProperty("evalEnabled", out var evalEnabledElement)
+                        || !evalElement.TryGetProperty("allowDangerous", out var allowDangerousElement)
+                        || !evalElement.TryGetProperty("allowPlayMode", out var allowPlayModeElement)
+                        || evalEnabledElement.ValueKind is not JsonValueKind.True and not JsonValueKind.False
+                        || allowDangerousElement.ValueKind is not JsonValueKind.True and not JsonValueKind.False
+                        || allowPlayModeElement.ValueKind is not JsonValueKind.True and not JsonValueKind.False)
+                    {
+                        return false;
+                    }
+
+                    var sourceKindLiteral = sourceKindElement.GetString();
+                    var sourceKind = string.Equals(sourceKindLiteral, "snippet", StringComparison.Ordinal)
+                        ? CsEvalSourceKind.Snippet
+                        : string.Equals(sourceKindLiteral, "compilationUnit", StringComparison.Ordinal)
+                            ? CsEvalSourceKind.CompilationUnit
+                            : 0;
+                    if (sourceKind == 0)
+                    {
+                        return false;
+                    }
+
+                    evalClaims = new EvalPlanTokenClaims(sourceKind, evalEnabledElement.GetBoolean(), allowDangerousElement.GetBoolean(), allowPlayModeElement.GetBoolean());
+                }
 
                 if (version != TokenVersion
                     || !string.Equals(kid, TokenKeyId, StringComparison.Ordinal)
@@ -285,7 +324,8 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
                     stateFingerprint: parsedStateFingerprint,
                     issuedAtUtc: issuedAtUtc,
                     expiresAtUtc: expiresAtUtc,
-                    nonce: parsedNonce);
+                    nonce: parsedNonce,
+                    evalClaims: evalClaims);
                 return true;
             }
             catch

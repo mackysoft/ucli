@@ -72,6 +72,7 @@ internal static class UnityIntegrationServiceCollectionExtensions
         services.AddSingleton<UnityIpcClientSelector>();
         services.AddSingleton<UnityDaemonReadinessGate>();
         services.AddSingleton<UnityIpcRequestExecutor>();
+        services.AddSingleton<IUnityEvalClient, UnityEvalIpcClient>();
         services.AddSingleton<IUnityRequestExecutor>(serviceProvider => serviceProvider.GetRequiredService<UnityIpcRequestExecutor>());
         services.AddSingleton<IUnityStreamingRequestExecutor>(serviceProvider => serviceProvider.GetRequiredService<UnityIpcRequestExecutor>());
         services.AddSingleton<ILifecycleExecutionHostBindingFactory>(serviceProvider => serviceProvider.GetRequiredService<UnityIpcRequestExecutor>());

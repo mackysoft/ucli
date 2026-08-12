@@ -1,0 +1,350 @@
+using System;
+using System.IO;
+using System.Threading.Tasks;
+using MackySoft.FileSystem;
+using MackySoft.Ucli.Contracts;
+using MackySoft.Ucli.Contracts.Editor;
+using MackySoft.Ucli.Contracts.Execution;
+using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Projects;
+using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.Infrastructure.Execution.ReadPostcondition;
+using MackySoft.Ucli.Infrastructure.Storage;
+using MackySoft.Ucli.Unity.Execution.CsEval;
+using MackySoft.Ucli.Unity.Execution.PlanToken;
+using MackySoft.Ucli.Unity.Ipc;
+using NUnit.Framework;
+
+#nullable enable
+
+namespace MackySoft.Ucli.Unity.Tests
+{
+    public sealed class EvalUnityIpcMethodHandlerTests
+    {
+        [Test]
+        [Category("Size.Small")]
+        public async Task PlanThenCall_ExecutesOnlyDuringCall_AndRejectsReplay ()
+        {
+            using var scope = new EvalTestScope();
+            var environment = scope.CreateEnvironment();
+            var planHandler = new EvalPlanUnityIpcMethodHandler(CreateCompilationService(), new StubUnityEditorReadinessGate(), scope.Project, environment);
+            var callHandler = new EvalCallUnityIpcMethodHandler(
+                CreateCompilationService(),
+                new CsEvalEntryPointReflectionResolver(),
+                new CsEvalReturnValueSerializer(),
+                new StubUnityEditorReadinessGate(),
+                scope.Project,
+                environment,
+                new MutationReadPostconditionJournal());
+            const string source = "throw new System.InvalidOperationException(\"call-only sentinel\");";
+            var planResponse = await UnityIpcMethodHandlerTestInvoker.HandleAsync(
+                planHandler,
+                CreateRequest(UnityIpcMethod.EvalPlan, new IpcEvalPlanRequest(source, CsEvalSourceKind.Snippet, true, false)));
+
+            Assert.That(planResponse.Status, Is.EqualTo(IpcResponseStatus.Ok));
+            Assert.That(IpcPayloadCodec.TryDeserializeStrict(planResponse.Payload, out IpcEvalResponse plan, out var planError), Is.True, planError.Message);
+            Assert.That(plan.Phase, Is.EqualTo(CsEvalPhase.Plan));
+            Assert.That(plan.PlanToken, Is.Not.Null.And.Not.Empty);
+
+            var callRequest = new IpcEvalCallRequest(source, CsEvalSourceKind.Snippet, true, false, plan.PlanToken!);
+            var callResponse = await UnityIpcMethodHandlerTestInvoker.HandleAsync(callHandler, CreateRequest(UnityIpcMethod.EvalCall, callRequest));
+
+            Assert.That(callResponse.Status, Is.EqualTo(IpcResponseStatus.Error));
+            Assert.That(IpcPayloadCodec.TryDeserializeStrict(callResponse.Payload, out IpcEvalErrorResponse callError, out var decodeError), Is.True, decodeError.Message);
+            Assert.That(callError.ApplicationState, Is.EqualTo(ExecutionApplicationState.Indeterminate));
+            Assert.That(callError.ReadPostcondition, Is.Not.Null);
+            Assert.That(callError.ReadPostcondition!.Requirements, Has.Count.EqualTo(3));
+
+            var replayResponse = await UnityIpcMethodHandlerTestInvoker.HandleAsync(callHandler, CreateRequest(UnityIpcMethod.EvalCall, callRequest));
+            Assert.That(replayResponse.Status, Is.EqualTo(IpcResponseStatus.Error));
+            Assert.That(IpcPayloadCodec.TryDeserializeStrict(replayResponse.Payload, out IpcEvalErrorResponse replay, out var replayError), Is.True, replayError.Message);
+            Assert.That(replay.ApplicationState, Is.EqualTo(ExecutionApplicationState.NotApplied));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public async Task Plan_WhenEvalIsDisabled_ReturnsNotAppliedStructuredError ()
+        {
+            using var scope = new EvalTestScope(evalEnabled: false);
+            var handler = new EvalPlanUnityIpcMethodHandler(CreateCompilationService(), new StubUnityEditorReadinessGate(), scope.Project, scope.CreateEnvironment());
+
+            var response = await UnityIpcMethodHandlerTestInvoker.HandleAsync(
+                handler,
+                CreateRequest(UnityIpcMethod.EvalPlan, new IpcEvalPlanRequest("return null;", CsEvalSourceKind.Snippet, true, false)));
+
+            Assert.That(response.Status, Is.EqualTo(IpcResponseStatus.Error));
+            Assert.That(IpcPayloadCodec.TryDeserializeStrict(response.Payload, out IpcEvalErrorResponse error, out var decodeError), Is.True, decodeError.Message);
+            Assert.That(error.ApplicationState, Is.EqualTo(ExecutionApplicationState.NotApplied));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public async Task Plan_WhenConfigMissesRequiredProperty_FailsClosedBeforeReadiness ()
+        {
+            using var scope = new EvalTestScope("{\"operationPolicy\":\"safe\",\"planTokenMode\":\"optional\",\"operationAllowlist\":[\"^ucli\\\\.\"],\"evalEnabled\":true}");
+            var readinessGate = new StubUnityEditorReadinessGate();
+
+            var response = await UnityIpcMethodHandlerTestInvoker.HandleAsync(
+                new EvalPlanUnityIpcMethodHandler(CreateCompilationService(), readinessGate, scope.Project, scope.CreateEnvironment()),
+                CreateRequest(UnityIpcMethod.EvalPlan, new IpcEvalPlanRequest("context.DeclareNoChanges();", CsEvalSourceKind.Snippet, true, false)));
+
+            Assert.That(response.Status, Is.EqualTo(IpcResponseStatus.Error));
+            Assert.That(readinessGate.CallCount, Is.Zero);
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public async Task Plan_WhenConfigContainsUnknownProperty_FailsClosedBeforeReadiness ()
+        {
+            using var scope = new EvalTestScope("{\"schemaVersion\":1,\"operationPolicy\":\"safe\",\"planTokenMode\":\"optional\",\"operationAllowlist\":[\"^ucli\\\\.\"],\"evalEnabled\":true,\"unknown\":true}");
+            var readinessGate = new StubUnityEditorReadinessGate();
+
+            var response = await UnityIpcMethodHandlerTestInvoker.HandleAsync(
+                new EvalPlanUnityIpcMethodHandler(CreateCompilationService(), readinessGate, scope.Project, scope.CreateEnvironment()),
+                CreateRequest(UnityIpcMethod.EvalPlan, new IpcEvalPlanRequest("context.DeclareNoChanges();", CsEvalSourceKind.Snippet, true, false)));
+
+            Assert.That(response.Status, Is.EqualTo(IpcResponseStatus.Error));
+            Assert.That(readinessGate.CallCount, Is.Zero);
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public async Task Plan_WhenConfigHasEvalEnabledTypeMismatch_FailsClosedBeforeReadiness ()
+        {
+            using var scope = new EvalTestScope("{\"schemaVersion\":1,\"operationPolicy\":\"safe\",\"planTokenMode\":\"optional\",\"operationAllowlist\":[\"^ucli\\\\.\"],\"evalEnabled\":\"true\"}");
+            var readinessGate = new StubUnityEditorReadinessGate();
+
+            var response = await UnityIpcMethodHandlerTestInvoker.HandleAsync(
+                new EvalPlanUnityIpcMethodHandler(CreateCompilationService(), readinessGate, scope.Project, scope.CreateEnvironment()),
+                CreateRequest(UnityIpcMethod.EvalPlan, new IpcEvalPlanRequest("context.DeclareNoChanges();", CsEvalSourceKind.Snippet, true, false)));
+
+            Assert.That(response.Status, Is.EqualTo(IpcResponseStatus.Error));
+            Assert.That(readinessGate.CallCount, Is.Zero);
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public async Task Call_WhenEntryPointCompletesWithImpactDeclaration_ReturnsAppliedSuccess ()
+        {
+            using var scope = new EvalTestScope();
+            var environment = scope.CreateEnvironment();
+            const string source = "context.DeclareNoChanges();";
+            var planResponse = await UnityIpcMethodHandlerTestInvoker.HandleAsync(
+                CreatePlanHandler(scope, environment),
+                CreateRequest(UnityIpcMethod.EvalPlan, new IpcEvalPlanRequest(source, CsEvalSourceKind.Snippet, true, false)));
+            Assert.That(IpcPayloadCodec.TryDeserializeStrict(planResponse.Payload, out IpcEvalResponse plan, out var planError), Is.True, planError.Message);
+
+            var response = await UnityIpcMethodHandlerTestInvoker.HandleAsync(
+                CreateCallHandler(scope, environment),
+                CreateRequest(UnityIpcMethod.EvalCall, new IpcEvalCallRequest(source, CsEvalSourceKind.Snippet, true, false, plan.PlanToken!)));
+
+            Assert.That(response.Status, Is.EqualTo(IpcResponseStatus.Ok));
+            Assert.That(IpcPayloadCodec.TryDeserializeStrict(response.Payload, out IpcEvalResponse call, out var callError), Is.True, callError.Message);
+            Assert.That(call.Phase, Is.EqualTo(CsEvalPhase.Call));
+            Assert.That(call.ApplicationState, Is.EqualTo(ExecutionApplicationState.Applied));
+            Assert.That(call.Eval, Is.TypeOf<CsEvalCallSuccessResult>());
+            var result = (CsEvalCallSuccessResult)call.Eval;
+            Assert.That(result.DurationMilliseconds, Is.GreaterThanOrEqualTo(0));
+            Assert.That(result.TouchedResources.NoChanges, Is.True);
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public async Task Call_WhenEvalIsDisabledAfterPlan_DoesNotInvokeEntryPoint ()
+        {
+            using var scope = new EvalTestScope();
+            var environment = scope.CreateEnvironment();
+            const string source = "throw new System.InvalidOperationException(\"must not execute\");";
+            var plan = await CreateSuccessfulPlanAsync(scope, environment, source, allowPlayMode: false);
+            scope.SetEvalEnabled(false);
+
+            var response = await UnityIpcMethodHandlerTestInvoker.HandleAsync(
+                CreateCallHandler(scope, environment),
+                CreateRequest(UnityIpcMethod.EvalCall, new IpcEvalCallRequest(source, CsEvalSourceKind.Snippet, true, false, plan.PlanToken!)));
+
+            Assert.That(response.Status, Is.EqualTo(IpcResponseStatus.Error));
+            Assert.That(IpcPayloadCodec.TryDeserializeStrict(response.Payload, out IpcEvalErrorResponse error, out var decodeError), Is.True, decodeError.Message);
+            Assert.That(error.ApplicationState, Is.EqualTo(ExecutionApplicationState.NotApplied));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public async Task Call_WhenEditorGenerationChangedAfterPlan_DoesNotInvokeEntryPoint ()
+        {
+            using var scope = new EvalTestScope();
+            var environment = scope.CreateEnvironment();
+            const string source = "throw new System.InvalidOperationException(\"must not execute\");";
+            var plan = await CreateSuccessfulPlanAsync(scope, environment, source, allowPlayMode: false);
+            environment.AdvanceDomainReloadGeneration();
+
+            var response = await UnityIpcMethodHandlerTestInvoker.HandleAsync(
+                CreateCallHandler(scope, environment),
+                CreateRequest(UnityIpcMethod.EvalCall, new IpcEvalCallRequest(source, CsEvalSourceKind.Snippet, true, false, plan.PlanToken!)));
+
+            Assert.That(response.Status, Is.EqualTo(IpcResponseStatus.Error));
+            Assert.That(IpcPayloadCodec.TryDeserializeStrict(response.Payload, out IpcEvalErrorResponse error, out var decodeError), Is.True, decodeError.Message);
+            Assert.That(error.ApplicationState, Is.EqualTo(ExecutionApplicationState.NotApplied));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public async Task Plan_WhenAllowDangerousIsFalse_DoesNotEnterEvaluation ()
+        {
+            using var scope = new EvalTestScope();
+            var readinessGate = new StubUnityEditorReadinessGate();
+
+            var response = await UnityIpcMethodHandlerTestInvoker.HandleAsync(
+                new EvalPlanUnityIpcMethodHandler(CreateCompilationService(), readinessGate, scope.Project, scope.CreateEnvironment()),
+                CreateRequest(UnityIpcMethod.EvalPlan, new IpcEvalPlanRequest("context.DeclareNoChanges();", CsEvalSourceKind.Snippet, false, false)));
+
+            Assert.That(response.Status, Is.EqualTo(IpcResponseStatus.Error));
+            Assert.That(IpcPayloadCodec.TryDeserializeStrict(response.Payload, out IpcEvalErrorResponse error, out var decodeError), Is.True, decodeError.Message);
+            Assert.That(error.ApplicationState, Is.EqualTo(ExecutionApplicationState.NotApplied));
+            Assert.That(readinessGate.CallCount, Is.Zero);
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public async Task Plan_WhenPlayModePermissionIsExplicit_PropagatesItToReadinessAdmission ()
+        {
+            using var scope = new EvalTestScope();
+            var readinessGate = new StubUnityEditorReadinessGate();
+
+            var response = await UnityIpcMethodHandlerTestInvoker.HandleAsync(
+                new EvalPlanUnityIpcMethodHandler(CreateCompilationService(), readinessGate, scope.Project, scope.CreateEnvironment()),
+                CreateRequest(UnityIpcMethod.EvalPlan, new IpcEvalPlanRequest("context.DeclareNoChanges();", CsEvalSourceKind.Snippet, true, true)));
+
+            Assert.That(response.Status, Is.EqualTo(IpcResponseStatus.Ok));
+            Assert.That(readinessGate.LastAllowPlayMode, Is.True);
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public async Task Call_WhenAllowPlayModeDiffersFromPlan_DoesNotInvokeEntryPoint ()
+        {
+            using var scope = new EvalTestScope();
+            var environment = scope.CreateEnvironment();
+            const string source = "throw new System.InvalidOperationException(\"must not execute\");";
+            var plan = await CreateSuccessfulPlanAsync(scope, environment, source, allowPlayMode: false);
+
+            var response = await UnityIpcMethodHandlerTestInvoker.HandleAsync(
+                CreateCallHandler(scope, environment),
+                CreateRequest(UnityIpcMethod.EvalCall, new IpcEvalCallRequest(source, CsEvalSourceKind.Snippet, true, true, plan.PlanToken!)));
+
+            Assert.That(response.Status, Is.EqualTo(IpcResponseStatus.Error));
+            Assert.That(IpcPayloadCodec.TryDeserializeStrict(response.Payload, out IpcEvalErrorResponse error, out var decodeError), Is.True, decodeError.Message);
+            Assert.That(error.ApplicationState, Is.EqualTo(ExecutionApplicationState.NotApplied));
+        }
+
+        private static EvalPlanUnityIpcMethodHandler CreatePlanHandler (EvalTestScope scope, IPlanTokenEnvironment environment) => new(
+            CreateCompilationService(),
+            new StubUnityEditorReadinessGate(),
+            scope.Project,
+            environment);
+
+        private static EvalCallUnityIpcMethodHandler CreateCallHandler (EvalTestScope scope, IPlanTokenEnvironment environment) => new(
+            CreateCompilationService(),
+            new CsEvalEntryPointReflectionResolver(),
+            new CsEvalReturnValueSerializer(),
+            new StubUnityEditorReadinessGate(),
+            scope.Project,
+            environment,
+            new MutationReadPostconditionJournal());
+
+        private static async Task<IpcEvalResponse> CreateSuccessfulPlanAsync (
+            EvalTestScope scope,
+            IPlanTokenEnvironment environment,
+            string source,
+            bool allowPlayMode)
+        {
+            var response = await UnityIpcMethodHandlerTestInvoker.HandleAsync(
+                CreatePlanHandler(scope, environment),
+                CreateRequest(UnityIpcMethod.EvalPlan, new IpcEvalPlanRequest(source, CsEvalSourceKind.Snippet, true, allowPlayMode)));
+            Assert.That(response.Status, Is.EqualTo(IpcResponseStatus.Ok));
+            Assert.That(IpcPayloadCodec.TryDeserializeStrict(response.Payload, out IpcEvalResponse plan, out var error), Is.True, error.Message);
+            return plan;
+        }
+
+        private static CsEvalCompilationService CreateCompilationService () => new(
+            new CsEvalReferenceResolver(),
+            new CsEvalEntryPointSymbolValidator(),
+            new CsEvalSourcePreparer());
+
+        private static IpcRequestEnvelope CreateRequest (UnityIpcMethod method, object payload) => new(
+            IpcProtocol.CurrentVersion,
+            Guid.NewGuid(),
+            "eval-handler-test-session",
+            TextVocabulary.GetText(method),
+            IpcPayloadCodec.SerializeToElement(payload),
+            "single",
+            DateTimeOffset.UtcNow.AddMinutes(1),
+            60_000);
+
+        private sealed class EvalTestScope : IDisposable
+        {
+            public EvalTestScope (bool evalEnabled = true)
+                : this(CreateConfigJson(evalEnabled))
+            {
+            }
+
+            public EvalTestScope (string configJson)
+            {
+                RepositoryRoot = Path.Combine(Path.GetTempPath(), "ucli-eval-handler-tests-" + Guid.NewGuid().ToString("N"));
+                var projectRoot = Path.Combine(RepositoryRoot, "UnityProject");
+                Directory.CreateDirectory(Path.Combine(RepositoryRoot, ".git"));
+                Directory.CreateDirectory(Path.Combine(projectRoot, "Assets"));
+                Directory.CreateDirectory(Path.Combine(projectRoot, "ProjectSettings"));
+                var repository = AbsolutePath.Parse(RepositoryRoot);
+                var unityProject = AbsolutePath.Parse(projectRoot);
+                var fingerprint = UnityProjectFingerprintCalculator.Create(repository, unityProject);
+                Project = new UnityProjectIdentity(projectRoot, fingerprint, "2023.2.22f1");
+                var configDirectory = UcliStoragePathResolver.ResolveUcliDirectoryPath(repository);
+                Directory.CreateDirectory(configDirectory.Value);
+                File.WriteAllText(UcliStoragePathResolver.ResolveConfigPath(repository).Value, configJson);
+                Snapshot = new PlanTokenEnvironmentSnapshot(unityProject, repository, fingerprint, "2023.2.22f1", UnityEditorCompileState.Ready, 0);
+            }
+
+            public string RepositoryRoot { get; }
+            public UnityProjectIdentity Project { get; }
+            public PlanTokenEnvironmentSnapshot Snapshot { get; }
+
+            private FixedPlanTokenEnvironment CreateEnvironment () => new FixedPlanTokenEnvironment(Snapshot);
+
+            public void SetEvalEnabled (bool evalEnabled)
+            {
+                File.WriteAllText(
+                    UcliStoragePathResolver.ResolveConfigPath(AbsolutePath.Parse(RepositoryRoot)).Value,
+                    CreateConfigJson(evalEnabled));
+            }
+
+            private static string CreateConfigJson (bool evalEnabled) =>
+                "{\"schemaVersion\":1,\"operationPolicy\":\"safe\",\"planTokenMode\":\"optional\",\"operationAllowlist\":[\"^ucli\\\\.\"],\"evalEnabled\":"
+                + (evalEnabled ? "true" : "false")
+                + "}";
+
+            public void Dispose ()
+            {
+                if (Directory.Exists(RepositoryRoot)) Directory.Delete(RepositoryRoot, recursive: true);
+            }
+        }
+
+        private sealed class FixedPlanTokenEnvironment : IPlanTokenEnvironment
+        {
+            private PlanTokenEnvironmentSnapshot snapshot;
+
+            public FixedPlanTokenEnvironment (PlanTokenEnvironmentSnapshot snapshot) => this.snapshot = snapshot;
+
+            public DateTimeOffset UtcNow => DateTimeOffset.UtcNow;
+
+            public PlanTokenEnvironmentSnapshot Capture () => snapshot;
+
+            public void AdvanceDomainReloadGeneration () => snapshot = new PlanTokenEnvironmentSnapshot(
+                snapshot.ProjectRoot,
+                snapshot.RepositoryRoot,
+                snapshot.ProjectFingerprint,
+                snapshot.UnityVersion,
+                snapshot.CompileState,
+                snapshot.DomainReloadGeneration + 1);
+        }
+    }
+}
