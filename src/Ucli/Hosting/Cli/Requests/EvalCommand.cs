@@ -79,9 +79,12 @@ internal sealed class EvalCommand
             return WriteExecutionError(sourceInputReadResult.Error!);
         }
 
-        if (!TryParseSourceKind(sourceKind, out var parsedSourceKind))
+        var parsedSourceKind = CsEvalSourceKind.Snippet;
+        if (sourceKind is not null
+            && !TextVocabulary.TryGetValue(sourceKind, out parsedSourceKind))
         {
-            return WriteExecutionError(ExecutionError.InvalidArgument("sourceKind must be 'snippet' or 'compilationUnit'."));
+            return WriteExecutionError(ExecutionError.InvalidArgument(
+                $"sourceKind must be '{TextVocabulary.GetText(CsEvalSourceKind.Snippet)}' or '{TextVocabulary.GetText(CsEvalSourceKind.CompilationUnit)}'."));
         }
 
         var serviceResult = await evalService.ExecuteAsync(
@@ -109,21 +112,4 @@ internal sealed class EvalCommand
         return commandResult.ExitCode;
     }
 
-    private static bool TryParseSourceKind (string? value, out CsEvalSourceKind sourceKind)
-    {
-        if (value is null || string.Equals(value, "snippet", StringComparison.Ordinal))
-        {
-            sourceKind = CsEvalSourceKind.Snippet;
-            return true;
-        }
-
-        if (string.Equals(value, "compilationUnit", StringComparison.Ordinal))
-        {
-            sourceKind = CsEvalSourceKind.CompilationUnit;
-            return true;
-        }
-
-        sourceKind = default;
-        return false;
-    }
 }
