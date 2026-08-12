@@ -163,6 +163,26 @@ public sealed class ProgramDefinitionResolverTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task ResolveAsync_ChangedReadResult_MapsToUnavailableDiagnosticAboutPathOrFileChange ()
+    {
+        var root = AbsolutePath.Parse(Path.GetFullPath($"ucli-program-definition-{Guid.NewGuid():N}"));
+        const string program = "{\"steps\":[{\"command\":\"call\",\"requestPath\":\"request.json\"}]}";
+        var reader = new StubFileReader(path => path.RelativePath.Value == "program.json"
+            ? new ProgramDefinitionFileReadSuccess(System.Text.Encoding.UTF8.GetBytes(program), AbsolutePath.Resolve(root, "program.json"))
+            : new ProgramDefinitionFileReadChangedDuringRead());
+        var receipt = await CreateReceiptAsync(reader, root);
+
+        var result = await new ProgramDefinitionResolver(new ProgramJsonParser(), reader).ResolveAsync(
+            new FileProgramDefinitionResolutionInput(receipt));
+
+        var diagnostic = Assert.Single(result.Diagnostics);
+        Assert.Equal("program.referenceUnavailable", diagnostic.Code);
+        Assert.Equal("/steps/0/requestPath", diagnostic.InstancePath);
+        Assert.Equal("Program definition path or file changed while it was being resolved or read.", diagnostic.Message);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task ResolveAsync_StdinWithoutReferences_ProducesFixedManifestWithNullRootFields ()
     {
         var reader = new StubFileReader(_ => throw new Xunit.Sdk.XunitException("reader must not be called"));
