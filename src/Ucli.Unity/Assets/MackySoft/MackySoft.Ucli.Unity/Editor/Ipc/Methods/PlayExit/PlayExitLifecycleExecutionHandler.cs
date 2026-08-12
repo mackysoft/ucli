@@ -232,14 +232,6 @@ namespace MackySoft.Ucli.Unity.Ipc
                 cancellationToken);
             if (request.RejectionReason.HasValue)
             {
-                if (checkpoint == null
-                    && request.CanAttributeCurrentProviderObservation)
-                {
-                    checkpoint = await EnsureCheckpointAsync(
-                        executionId,
-                        provider.CaptureObservation());
-                }
-
                 await FinalizeWithoutResponseAsync(
                     executionId,
                     CreateSchedulerRejectionCandidate(
@@ -254,10 +246,21 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return;
             }
 
-            // A durable start without an action checkpoint means no Play Mode exit request reached
-            // the action owner, so bootstrap recovery has no side effect or result to recover.
+            // A durable start without an action checkpoint has no side effect or result to
+            // recover. It remains open until its deadline is reached.
             if (checkpoint == null)
             {
+                if (attemptResolution
+                    is AttemptResolution.DeadlineExceeded)
+                {
+                    await FinalizeDeadlineWithoutResponseAsync(
+                        executionId,
+                        execution,
+                        checkpoint: null,
+                        canAttributeCurrentProviderObservation:
+                            request.CanAttributeCurrentProviderObservation);
+                }
+
                 return;
             }
 
@@ -617,13 +620,6 @@ namespace MackySoft.Ucli.Unity.Ipc
             PlayExitLifecycleExecutionCheckpoint checkpoint,
             bool canAttributeCurrentProviderObservation)
         {
-            if (checkpoint == null
-                && canAttributeCurrentProviderObservation)
-            {
-                checkpoint = await EnsureCheckpointAsync(
-                    executionId,
-                    provider.CaptureObservation());
-            }
             await FinalizeWithoutResponseAsync(
                 executionId,
                 CreateSchedulerRejectionCandidate(

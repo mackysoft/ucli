@@ -1,7 +1,6 @@
 using System.Runtime.ExceptionServices;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Acquisition;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
-using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
@@ -39,6 +38,64 @@ internal sealed class UnityDaemonIpcClient : IUnityIpcClient
 
     /// <inheritdoc />
     public UnityExecutionTarget Target => UnityExecutionTarget.Daemon;
+
+    /// <summary> Fixes the currently published daemon session for one Lifecycle Execution start. </summary>
+    internal async ValueTask<DaemonHostBindingResult> BindHostAsync (
+        ResolvedUnityProjectContext unityProject,
+        ExecutionDeadline deadline,
+        CancellationToken cancellationToken)
+    {
+        var acquisition = await sessionAcquisitionCoordinator
+            .CreateScope(deadline)
+            .ResolveCurrentAsync(unityProject, cancellationToken)
+            .ConfigureAwait(false);
+        return acquisition.Kind == DaemonSessionAcquisitionKind.Success
+            ? DaemonHostBindingResult.Success(acquisition.Session!)
+            : DaemonHostBindingResult.Rejected(
+                UnityIpcFailureClassifier.FromCodeAndMessage(
+                    UnityExecutionModeDecisionErrorCodes.DaemonNotRunning,
+                    DaemonSessionAcquisitionResult.SessionNotAvailableMessage));
+    }
+
+    /// <summary>
+    /// Sends through the daemon session selected at bind time. Session recovery is allowed only
+    /// through the acquisition scope's same-host successor policy.
+    /// </summary>
+    internal async ValueTask<UnityRequestExecutionResult> SendBoundAsync (
+        ResolvedUnityProjectContext unityProject,
+        UnityIpcDispatchRequest dispatchRequest,
+        ExecutionDeadline deadline,
+        DaemonSession fixedSession,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(fixedSession);
+        var scope = sessionAcquisitionCoordinator.CreateScope(deadline);
+        if (!scope.TryBindDurableHost(fixedSession))
+        {
+            throw new InvalidOperationException("A fixed daemon session must establish its host identity.");
+        }
+
+        return await LifecycleExecutionCallerWaitCoordinator.WaitAsync(
+                unityProject,
+                dispatchRequest,
+                deadline,
+                dispatchObservation => SendCoreAsync(
+                    unityProject,
+                    dispatchRequest,
+                    deadline,
+                    IpcResponseMode.Single,
+                    (endpoint, request, attemptTimeout, token) => transportClient.SendAsync(
+                        endpoint,
+                        request,
+                        attemptTimeout,
+                        token),
+                    dispatchObservation,
+                    scope,
+                    DaemonSessionAcquisitionResult.Success(fixedSession),
+                    cancellationToken),
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
 
     /// <inheritdoc />
     public async ValueTask<UnityRequestExecutionResult> SendAsync (
@@ -216,6 +273,7 @@ internal sealed class UnityDaemonIpcClient : IUnityIpcClient
             dispatchRequest.RequiredStart;
         var lifecycleActionDispatched = false;
         var lifecycleCompletionDeadlineStarted = false;
+        var requiresFixedHostProof = initialSessionAcquisition is not null;
         UnityRequestExecutionResult RetainLifecycleStart (UnityRequestExecutionResult result)
         {
             return result.WithLifecycleExecutionStart(
@@ -451,15 +509,27 @@ internal sealed class UnityDaemonIpcClient : IUnityIpcClient
                                     CreateReconnectStartMismatchResult(
                                         mismatched.Code));
                             case LifecycleExecutionStartExchange.Confirmed confirmed:
-                                actionPayload = confirmed.ActionPayload;
-                                if (!acquisitionScope.TryBindDurableHost(session))
+                                if ((requiresFixedHostProof
+                                        && !MatchesRequiredStartHost(
+                                            session,
+                                            confirmed.Start))
+                                    || !acquisitionScope.TryBindDurableHost(session))
                                 {
                                     return RetainLifecycleStart(
                                         CreateReconnectHostMismatchResult());
                                 }
+                                actionPayload = confirmed.ActionPayload;
                                 lifecycleExecutionStart = confirmed.Start;
-                                dispatchObservation?.ReportStarted(
-                                    confirmed.Start);
+                                var startObservation = await ObserveStartAsync(
+                                        dispatchRequest,
+                                        confirmed.Start,
+                                        deadline,
+                                        dispatchObservation)
+                                    .ConfigureAwait(false);
+                                if (startObservation is not null)
+                                {
+                                    return RetainLifecycleStart(startObservation);
+                                }
                                 break;
                             default:
                                 throw new InvalidOperationException(
@@ -558,13 +628,25 @@ internal sealed class UnityDaemonIpcClient : IUnityIpcClient
                             .ConfigureAwait(false);
                     if (lifecycleExecutionStart is not null)
                     {
-                        if (!acquisitionScope.TryBindDurableHost(session))
+                        if ((requiresFixedHostProof
+                                && !MatchesRequiredStartHost(
+                                    session,
+                                    lifecycleExecutionStart))
+                            || !acquisitionScope.TryBindDurableHost(session))
                         {
                             return RetainLifecycleStart(
                                 CreateReconnectHostMismatchResult());
                         }
-                        dispatchObservation?.ReportStarted(
-                            lifecycleExecutionStart);
+                        var startObservation = await ObserveStartAsync(
+                                dispatchRequest,
+                                lifecycleExecutionStart,
+                                deadline,
+                                dispatchObservation)
+                            .ConfigureAwait(false);
+                        if (startObservation is not null)
+                        {
+                            return RetainLifecycleStart(startObservation);
+                        }
                     }
                 }
 
@@ -699,6 +781,28 @@ internal sealed class UnityDaemonIpcClient : IUnityIpcClient
             UnityIpcFailureClassifier.FromCodeAndMessage(
                 LifecycleExecutionErrorCodes.HostMismatch,
                 "The daemon session does not belong to the Unity Editor host fixed by the Lifecycle Execution start."));
+    }
+
+    private static async ValueTask<UnityRequestExecutionResult?> ObserveStartAsync (
+        UnityIpcDispatchRequest dispatchRequest,
+        LifecycleExecutionStartBinding start,
+        ExecutionDeadline deadline,
+        LifecycleExecutionDispatchObservation? dispatchObservation)
+    {
+        var observation = await dispatchRequest
+            .ObserveLifecycleStartAsync(start)
+            .ConfigureAwait(false);
+        if (observation is LifecycleExecutionStartObservation.Rejected rejected)
+        {
+            return UnityRequestExecutionResult.Failure(
+                UnityIpcFailureClassifier.FromCodeAndMessage(
+                    rejected.Failure.Code,
+                    rejected.Failure.Message),
+                start);
+        }
+
+        dispatchObservation?.ReportStarted(start);
+        return null;
     }
 
     private static UnityRequestExecutionResult CreateConfirmedHostExitResult (
@@ -865,4 +969,20 @@ internal sealed class UnityDaemonIpcClient : IUnityIpcClient
         return false;
     }
 
+}
+
+/// <summary> Contains the daemon session fixed for one Lifecycle Execution host binding. </summary>
+internal sealed record DaemonHostBindingResult (
+    DaemonSession? Session,
+    UnityRequestFailure? Failure)
+{
+    public bool IsSuccess => Session is not null;
+
+    public static DaemonHostBindingResult Success (DaemonSession session) => new(
+        session ?? throw new ArgumentNullException(nameof(session)),
+        Failure: null);
+
+    public static DaemonHostBindingResult Rejected (UnityRequestFailure failure) => new(
+        Session: null,
+        failure ?? throw new ArgumentNullException(nameof(failure)));
 }

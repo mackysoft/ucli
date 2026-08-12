@@ -115,6 +115,7 @@ public static class UcliApplicationServiceCollectionExtensions
     {
         services.AddSingleton<IGuidGenerator, GuidGenerator>();
         services.AddSingleton<LifecycleExecutionRegistrationIssuer>();
+        services.AddSingleton<ILifecycleExecutionStartInvocationFactory, LifecycleExecutionStartInvocationFactory>();
         services.AddSingleton<IProjectPathInputResolver, ProjectPathInputResolver>();
         services.AddSingleton<IProjectContextResolver, ProjectContextResolver>();
         services.AddSingleton<IUnityExecutionModeDecisionService, UnityExecutionModeDecisionService>();
@@ -141,6 +142,7 @@ public static class UcliApplicationServiceCollectionExtensions
     {
         services.AddSingleton<IBuildService, BuildService>();
         services.AddSingleton<ICompileService, CompileService>();
+        services.AddSingleton<ICompileLifecycleExecutionStartInvocationFactory, CompileLifecycleExecutionStartInvocationFactory>();
         services.AddSingleton<IReadyService, ReadyService>();
         services.AddSingleton<IVerifyService, VerifyService>();
         return services;
@@ -148,6 +150,7 @@ public static class UcliApplicationServiceCollectionExtensions
 
     private static IServiceCollection AddUcliApplicationRequestServices (this IServiceCollection services)
     {
+        services.AddSingleton<IRefreshLifecycleExecutionStartInvocationFactory, RefreshLifecycleExecutionStartInvocationFactory>();
         services.AddSingleton<IRequestPreparationService, RequestPreparationService>();
         services.AddSingleton<IRequestStaticValidationPreflightService, RequestStaticValidationPreflightService>();
         services.AddSingleton<IValidateRequestJsonParser, ValidateRequestJsonParser>();
@@ -243,6 +246,7 @@ public static class UcliApplicationServiceCollectionExtensions
     private static IServiceCollection AddUcliApplicationPlayServices (this IServiceCollection services)
     {
         services.AddSingleton<IPlayCommandExecutionContextResolver, PlayCommandExecutionContextResolver>();
+        services.AddSingleton<IPlayLifecycleExecutionStartInvocationFactory, PlayLifecycleExecutionStartInvocationFactory>();
         services.AddSingleton<PlayTransitionWorkflow>();
         services.AddSingleton<IPlayEnterService, PlayEnterService>();
         services.AddSingleton<IPlayExitService, PlayExitService>();

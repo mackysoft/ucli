@@ -21,7 +21,7 @@ public sealed class CompileCommandProgressTests
                 cancellationToken);
             return CompileExecutionResult.Completed(CreateOutput());
         });
-        var command = new CompileCommand(service, CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
+        var command = new CompileCommand(service, CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System, new RecordingLifecycleExecutionStartInvocationFactory());
 
         var result = await CommandResultCapture.ExecuteWithErrorAsync(() => command.CompileAsync(
             format: "json",
@@ -51,7 +51,7 @@ public sealed class CompileCommandProgressTests
                 cancellationToken);
             return CompileExecutionResult.Completed(CreateOutput());
         });
-        var command = new CompileCommand(service, CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
+        var command = new CompileCommand(service, CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System, new RecordingLifecycleExecutionStartInvocationFactory());
 
         var result = await CommandResultCapture.ExecuteWithErrorAsync(() => command.CompileAsync(
             cancellationToken: CancellationToken.None));

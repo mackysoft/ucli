@@ -626,6 +626,83 @@ namespace MackySoft.Ucli.Unity.Tests
                     $"Refresh registration failed: {result.Outcome}");
         }
 
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator RecoverAsync_WhenOnlyStartWasRegisteredBeforeDeadline_RemainsOpenWithoutRefresh () =>
+            UniTask.ToCoroutine(async () =>
+            {
+                using var scope = TemporaryStorageScope.Create();
+                var executionStore = scope.CreateExecutionStore(ProjectFingerprint);
+                var start = await RegisterAsync(executionStore);
+                var refreshRequestCount = 0;
+                var handler = CreateHandler(
+                    executionStore,
+                    new MutableUnityEditorReadinessGate(CreateReadySnapshot()),
+                    new RecordingUnityAssetRefreshController(
+                        () => refreshRequestCount++));
+
+                await handler.RecoverAsync(
+                    new LifecycleExecutionRecoveryRequest(
+                        start,
+                        rejectionReason: null,
+                        canAttributeCurrentProviderObservation: true),
+                    CancellationToken.None);
+
+                Assert.That(refreshRequestCount, Is.EqualTo(0));
+                var execution = await executionStore.ReadAsync(
+                    LifecycleExecutionKind.Refresh,
+                    start.LifecycleExecutionRef.Id,
+                    CancellationToken.None);
+                Assert.That(execution.IsTerminal, Is.False);
+                Assert.That(
+                    execution.CurrentReference.State.Value,
+                    Is.EqualTo(TextVocabulary.GetText(
+                        LifecycleExecutionState.Registered)));
+            });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator RecoverAsync_WhenOnlyStartWasRegisteredAfterDeadline_PublishesNotAppliedTerminalWithoutRefresh () =>
+            UniTask.ToCoroutine(async () =>
+            {
+                using var scope = TemporaryStorageScope.Create();
+                var executionStore = scope.CreateExecutionStore(ProjectFingerprint);
+                var start = await RegisterAsync(
+                    executionStore,
+                    DateTimeOffset.UtcNow.AddMilliseconds(-100));
+                var refreshRequestCount = 0;
+                var handler = CreateHandler(
+                    executionStore,
+                    new MutableUnityEditorReadinessGate(CreateReadySnapshot()),
+                    new RecordingUnityAssetRefreshController(
+                        () => refreshRequestCount++));
+
+                await handler.RecoverAsync(
+                    new LifecycleExecutionRecoveryRequest(
+                        start,
+                        rejectionReason: null,
+                        canAttributeCurrentProviderObservation: true),
+                    CancellationToken.None);
+
+                Assert.That(refreshRequestCount, Is.EqualTo(0));
+                Assert.That(
+                    await new FileRefreshLifecycleExecutionCheckpointStore(
+                            executionStore)
+                        .ReadAsync(start.LifecycleExecutionRef.Id, CancellationToken.None),
+                    Is.Null);
+                var terminal = ReadTerminalRecord(
+                    executionStore,
+                    start.LifecycleExecutionRef.Id);
+                Assert.That(
+                    terminal.TerminalReason,
+                    Is.EqualTo(LifecycleExecutionTerminalReason.DeadlineExceeded));
+                Assert.That(
+                    terminal.ApplicationState,
+                    Is.EqualTo(ExecutionApplicationState.NotApplied));
+                Assert.That(terminal.Result, Is.Null);
+                Assert.That(terminal.Verdict, Is.Null);
+            });
+
         private static RefreshHandlerFixture CreateHandler (
             FileLifecycleExecutionStore executionStore,
             MutableUnityEditorReadinessGate readinessGate,

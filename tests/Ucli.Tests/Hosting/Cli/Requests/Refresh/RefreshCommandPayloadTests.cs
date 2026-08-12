@@ -11,8 +11,8 @@ public sealed class RefreshCommandPayloadTests
     [Trait("Size", "Small")]
     public async Task Refresh_WithSuccessResult_WritesDedicatedLifecyclePayload ()
     {
-        var service = new RecordingRefreshService((_, _) => ValueTask.FromResult(CreateSuccessResult()));
-        var command = new RefreshCommand(service, CommandResultTestWriter.Create());
+        var service = new RecordingRefreshService((_, _, _, _) => ValueTask.FromResult(CreateSuccessResult()));
+        var command = new RefreshCommand(service, CommandResultTestWriter.Create(), new RecordingLifecycleExecutionStartInvocationFactory());
 
         var result = await CommandResultCapture.ExecuteAsync(() => command.RefreshAsync(
             cancellationToken: CancellationToken.None));
@@ -27,8 +27,8 @@ public sealed class RefreshCommandPayloadTests
     [Trait("Size", "Small")]
     public async Task Refresh_WhenServiceReturnsTypedFailure_WritesApplicationStateAndExecutionReference ()
     {
-        var service = new RecordingRefreshService((_, _) => ValueTask.FromResult(CreateFailureResult()));
-        var command = new RefreshCommand(service, CommandResultTestWriter.Create());
+        var service = new RecordingRefreshService((_, _, _, _) => ValueTask.FromResult(CreateFailureResult()));
+        var command = new RefreshCommand(service, CommandResultTestWriter.Create(), new RecordingLifecycleExecutionStartInvocationFactory());
 
         var result = await CommandResultCapture.ExecuteAsync(() => command.RefreshAsync(
             projectPath: AbsolutePath.Parse(ProjectPathTestValues.RepositoryUnityProject),
@@ -70,9 +70,9 @@ public sealed class RefreshCommandPayloadTests
     [Trait("Size", "Small")]
     public async Task Refresh_WhenTerminalPublicationFails_ProjectsOnlyDocumentedFailureEvidence ()
     {
-        var service = new RecordingRefreshService((_, _) =>
+        var service = new RecordingRefreshService((_, _, _, _) =>
             ValueTask.FromResult(CreatePublicationFailureResult()));
-        var command = new RefreshCommand(service, CommandResultTestWriter.Create());
+        var command = new RefreshCommand(service, CommandResultTestWriter.Create(), new RecordingLifecycleExecutionStartInvocationFactory());
 
         var result = await CommandResultCapture.ExecuteAsync(() =>
             command.RefreshAsync(cancellationToken: CancellationToken.None));
@@ -102,9 +102,9 @@ public sealed class RefreshCommandPayloadTests
     public async Task Refresh_WhenReadPostconditionExists_WritesTopLevelPayload ()
     {
         var readPostcondition = ReadPostconditionTestFactory.CreateAssetSearch();
-        var service = new RecordingRefreshService((_, _) => ValueTask.FromResult(
+        var service = new RecordingRefreshService((_, _, _, _) => ValueTask.FromResult(
             CreateSuccessResult(readPostcondition)));
-        var command = new RefreshCommand(service, CommandResultTestWriter.Create());
+        var command = new RefreshCommand(service, CommandResultTestWriter.Create(), new RecordingLifecycleExecutionStartInvocationFactory());
 
         var result = await CommandResultCapture.ExecuteAsync(() => command.RefreshAsync(
             projectPath: AbsolutePath.Parse(ProjectPathTestValues.RepositoryUnityProject),

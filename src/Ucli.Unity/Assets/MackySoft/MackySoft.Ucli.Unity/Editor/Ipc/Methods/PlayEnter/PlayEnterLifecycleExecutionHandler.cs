@@ -261,6 +261,24 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             if (checkpoint == null)
             {
+                if (attemptResolution
+                    is AttemptResolution.DeadlineExceeded)
+                {
+                    var deadlineCandidate = CreateSchedulerRejectionCandidate(
+                        execution.Start,
+                        LifecycleExecutionTerminalReason.DeadlineExceeded,
+                        checkpoint: null,
+                        canAttributeCurrentProviderObservation:
+                            request.CanAttributeCurrentProviderObservation);
+                    deadlineCandidate = ResolveTerminalCandidate(
+                        execution.Start,
+                        deadlineCandidate);
+                    await TryPublishDuringRecoveryAsync(
+                        deadlineCandidate,
+                        execution.CurrentReference,
+                        CancellationToken.None);
+                }
+
                 return;
             }
 

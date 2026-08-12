@@ -10,7 +10,7 @@ internal static class VerifyStepInvocationAssert
         bool? expectProgressSink = null)
     {
         var invocation = Assert.Single(compileService.Invocations);
-        Assert.Equal(expectedTimeoutMilliseconds, invocation.Input.TimeoutMilliseconds);
+        Assert.Equal(expectedTimeoutMilliseconds, (int)invocation.StartInvocation.ExecutionDeadline.Timeout.TotalMilliseconds);
         if (expectProgressSink.HasValue)
         {
             if (expectProgressSink.Value)

@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Features.Play.Common;
+using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
 
 namespace MackySoft.Ucli.Application.Features.Play.UseCases.Enter;
 
@@ -14,15 +15,13 @@ internal sealed class PlayEnterService : IPlayEnterService
     }
 
     /// <inheritdoc />
-    public async ValueTask<PlayEnterExecutionResult> ExecuteAsync (
-        PlayEnterCommandInput input,
+    public async ValueTask<PlayEnterExecutionResult> StartAsync (
+        LifecycleExecutionStartInvocation invocation,
         CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(input);
         return CreateResult(
-            await workflow.ExecuteAsync(
-                    input.ProjectPath,
-                    input.TimeoutMilliseconds,
+            await workflow.StartAsync(
+                    invocation,
                     PlayEnterTransitionDirectionPolicy.Instance,
                     cancellationToken)
                 .ConfigureAwait(false));
@@ -30,17 +29,12 @@ internal sealed class PlayEnterService : IPlayEnterService
 
     /// <inheritdoc />
     public async ValueTask<PlayEnterExecutionResult> ReconnectAsync (
-        PlayEnterCommandInput input,
-        ExecutionRef lifecycleExecutionRef,
+        LifecycleExecutionReconnectInvocation invocation,
         CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(input);
-        ArgumentNullException.ThrowIfNull(lifecycleExecutionRef);
         return CreateResult(
             await workflow.ReconnectAsync(
-                    input.ProjectPath,
-                    input.TimeoutMilliseconds,
-                    lifecycleExecutionRef,
+                    invocation,
                     PlayEnterTransitionDirectionPolicy.Instance,
                     cancellationToken)
                 .ConfigureAwait(false));

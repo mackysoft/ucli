@@ -15,7 +15,7 @@ using MackySoft.Ucli.Contracts.Text;
 namespace MackySoft.Ucli.Application.Features.Assurance.Compile.Execution;
 
 /// <summary> Executes compile assurance through the typed compile Lifecycle Execution handler. </summary>
-internal sealed class CompileService : ICompileService
+internal sealed partial class CompileService : ICompileService
 {
     internal static readonly AssuranceVerifierId VerifierId = new("compile");
 
@@ -24,12 +24,6 @@ internal sealed class CompileService : ICompileService
 
     private static readonly LifecycleExecutionDefinition Definition =
         new(LifecycleExecutionKind.Compile);
-
-    private readonly IProjectContextResolver projectContextResolver;
-
-    private readonly IUnityExecutionModeDecisionService executionModeDecisionService;
-
-    private readonly IUnityRequestExecutor unityRequestExecutor;
 
     private readonly ILifecycleExecutionReconnectResolver reconnectResolver;
 
@@ -41,20 +35,11 @@ internal sealed class CompileService : ICompileService
 
     /// <summary> Initializes a new instance of the <see cref="CompileService" /> class. </summary>
     public CompileService (
-        IProjectContextResolver projectContextResolver,
-        IUnityExecutionModeDecisionService executionModeDecisionService,
-        IUnityRequestExecutor unityRequestExecutor,
         ILifecycleExecutionReconnectResolver reconnectResolver,
         ILifecycleExecutionHostExitTerminalizer hostExitTerminalizer,
         LifecycleExecutionRegistrationIssuer registrationIssuer,
         TimeProvider timeProvider)
     {
-        this.projectContextResolver = projectContextResolver
-            ?? throw new ArgumentNullException(nameof(projectContextResolver));
-        this.executionModeDecisionService = executionModeDecisionService
-            ?? throw new ArgumentNullException(nameof(executionModeDecisionService));
-        this.unityRequestExecutor = unityRequestExecutor
-            ?? throw new ArgumentNullException(nameof(unityRequestExecutor));
         this.reconnectResolver = reconnectResolver
             ?? throw new ArgumentNullException(nameof(reconnectResolver));
         this.hostExitTerminalizer = hostExitTerminalizer
@@ -65,247 +50,18 @@ internal sealed class CompileService : ICompileService
             ?? throw new ArgumentNullException(nameof(timeProvider));
     }
 
-    /// <inheritdoc />
-    public async ValueTask<CompileExecutionResult> ExecuteAsync (
-        CompileCommandInput input,
-        ICommandProgressSink? progressSink = null,
-        CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(input);
-        cancellationToken.ThrowIfCancellationRequested();
-
-        var resolvedProgressSink = progressSink ?? NullCommandProgressSink.Instance;
-        var contextResult = await projectContextResolver.ResolveAsync(
-                input.ProjectPath,
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (!contextResult.IsSuccess)
-        {
-            return CompileExecutionResult.Failed(
-                contextResult.Error!,
-                project: null,
-                lifecycleExecutionRef: null,
-                ExecutionApplicationState.NotApplied);
-        }
-
-        var context = contextResult.Context!;
-        var project = ProjectIdentityInfo.From(context.UnityProject);
-        var timeoutResult = IpcCommandTimeoutResolver.ResolveNormalized(
-            input.TimeoutMilliseconds,
-            UcliCommandIds.Compile,
-            context.Config);
-        if (!timeoutResult.IsSuccess)
-        {
-            return CompileExecutionResult.Failed(
-                timeoutResult.Error!,
-                project,
-                lifecycleExecutionRef: null,
-                ExecutionApplicationState.NotApplied);
-        }
-
-        var timeout = timeoutResult.Timeout!.Value;
-        var requestedMode = input.Mode ?? UnityExecutionMode.Auto;
-        var executionDeadline = ExecutionDeadline.Start(timeout, timeProvider);
-        if (!executionDeadline.TryGetRemainingTimeout(out var modeDecisionTimeout))
-        {
-            return CompileExecutionResult.Failed(
-                CreateTimeoutFailure(timeout),
-                project,
-                lifecycleExecutionRef: null,
-                ExecutionApplicationState.NotApplied);
-        }
-
-        var modeDecisionResult = await executionModeDecisionService.DecideAsync(
-                requestedMode,
-                context.UnityProject,
-                modeDecisionTimeout,
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (!modeDecisionResult.IsSuccess)
-        {
-            var failure = modeDecisionResult.HasContractError
-                ? ApplicationFailure.EnvironmentError(
-                    modeDecisionResult.ContractError!.Message,
-                    modeDecisionResult.ContractError.Code,
-                    instancePath: null)
-                : ApplicationFailure.FromExecutionError(modeDecisionResult.Error!);
-            return CompileExecutionResult.Failed(
-                failure,
-                project,
-                lifecycleExecutionRef: null,
-                ExecutionApplicationState.NotApplied);
-        }
-
-        if (!executionDeadline.TryGetRemainingTimeout(out var requestTimeout))
-        {
-            return CompileExecutionResult.Failed(
-                CreateTimeoutFailure(timeout),
-                project,
-                lifecycleExecutionRef: null,
-                ExecutionApplicationState.NotApplied);
-        }
-
-        var executionTarget = modeDecisionResult.Decision!.Target;
-        if (!registrationIssuer.TryIssueBeforeDeadline(
-                Definition,
-                executionDeadline.UtcDeadline,
-                out var registration))
-        {
-            return CompileExecutionResult.Failed(
-                CreateTimeoutFailure(timeout),
-                project,
-                lifecycleExecutionRef: null,
-                ExecutionApplicationState.NotApplied);
-        }
-
-        await EmitStartedAsync(
-                resolvedProgressSink,
-                registration.ExecutionId,
-                project,
-                requestedMode,
-                executionTarget,
-                timeout,
-                cancellationToken)
-            .ConfigureAwait(false);
-        return await ExecuteRegisteredAsync(
-                context,
-                project,
-                registration,
-                UnityExecutionTargetModeMapper.ToExplicitMode(
-                    executionTarget),
-                requestTimeout,
-                resolvedProgressSink,
-                reconnectedExecutionRef: null,
-                requiredStart: null,
-                cancellationToken)
-            .ConfigureAwait(false);
-    }
-
-    /// <inheritdoc />
-    public async ValueTask<CompileExecutionResult> ReconnectAsync (
-        CompileCommandInput input,
-        ExecutionRef lifecycleExecutionRef,
-        ICommandProgressSink? progressSink = null,
-        CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(input);
-        ArgumentNullException.ThrowIfNull(lifecycleExecutionRef);
-        cancellationToken.ThrowIfCancellationRequested();
-
-        var contextResult = await projectContextResolver.ResolveAsync(
-                input.ProjectPath,
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (!contextResult.IsSuccess)
-        {
-            return CompileExecutionResult.Failed(
-                contextResult.Error!,
-                project: null,
-                lifecycleExecutionRef: null,
-                ExecutionApplicationState.NotApplied);
-        }
-
-        var context = contextResult.Context!;
-        var project = ProjectIdentityInfo.From(context.UnityProject);
-        var timeoutResult = IpcCommandTimeoutResolver.ResolveNormalized(
-            input.TimeoutMilliseconds,
-            UcliCommandIds.Compile,
-            context.Config);
-        if (!timeoutResult.IsSuccess)
-        {
-            return CompileExecutionResult.Failed(
-                timeoutResult.Error!,
-                project,
-                lifecycleExecutionRef: null,
-                ExecutionApplicationState.NotApplied);
-        }
-
-        var reconnectResult = await reconnectResolver.ResolveAsync(
-                context.UnityProject,
-                Definition,
-                lifecycleExecutionRef,
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (reconnectResult
-            is LifecycleExecutionReconnectResolution.PublicationFailed
-                publicationFailed)
-        {
-            return CompileExecutionResult.Failed(
-                publicationFailed.Failure,
-                project,
-                publicationFailed.CurrentReference,
-                ExecutionApplicationState.Indeterminate);
-        }
-        if (reconnectResult
-            is LifecycleExecutionReconnectResolution.Rejected rejected)
-        {
-            return CompileExecutionResult.Failed(
-                rejected.Failure,
-                project,
-                lifecycleExecutionRef: null,
-                ExecutionApplicationState.NotApplied);
-        }
-        if (reconnectResult
-            is LifecycleExecutionReconnectResolution.Terminal terminal)
-        {
-            return await CreateResultFromTerminalRecordAsync(
-                    project,
-                    terminal.ExecutionReference,
-                    terminal.TerminalRecord,
-                    progressSink ?? NullCommandProgressSink.Instance)
-                .ConfigureAwait(false);
-        }
-
-        var open =
-            (LifecycleExecutionReconnectResolution.Open)reconnectResult;
-        try
-        {
-            return await ExecuteRegisteredAsync(
-                    context,
-                    project,
-                    open.Registration,
-                    UnityExecutionMode.Auto,
-                    timeoutResult.Timeout!.Value,
-                    progressSink ?? NullCommandProgressSink.Instance,
-                    open.CurrentReference,
-                    open.RequiredStart,
-                    cancellationToken)
-                .ConfigureAwait(false);
-        }
-        catch (OperationCanceledException)
-            when (cancellationToken.IsCancellationRequested)
-        {
-            return CompileExecutionResult.Failed(
-                ApplicationFailure.Canceled(
-                    "Waiting for the reconnected Unity compile execution was canceled.",
-                    ExecutionErrorCodes.Canceled),
-                project,
-                open.CurrentReference,
-                ExecutionApplicationState.Unknown);
-        }
-    }
-
     private async ValueTask<CompileExecutionResult> ExecuteRegisteredAsync (
         ProjectContext context,
         ProjectIdentityInfo project,
         LifecycleExecutionRegistration registration,
-        UnityExecutionMode executionMode,
-        TimeSpan requestTimeout,
         ICommandProgressSink progressSink,
         ExecutionRef? reconnectedExecutionRef,
         LifecycleExecutionStartBinding? requiredStart,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Func<UnityRequestPayload, CancellationToken, ValueTask<UnityRequestExecutionResult>> dispatchAsync)
     {
-        var executionResult = await unityRequestExecutor.ExecuteAsync(
-                UcliCommandIds.Compile,
-                executionMode,
-                LifecycleExecutionTiming.AddResponseDeliveryGrace(requestTimeout),
-                context.Config,
-                context.UnityProject,
-                new UnityRequestPayload.Compile(
-                    registration,
-                    requiredStart),
-                cancellationToken)
+        var payload = new UnityRequestPayload.Compile(registration, requiredStart);
+        var executionResult = await dispatchAsync(payload, cancellationToken)
             .ConfigureAwait(false);
         if (!executionResult.IsSuccess)
         {

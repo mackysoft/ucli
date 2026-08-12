@@ -1,27 +1,30 @@
 using MackySoft.Ucli.Application.Features.Play.UseCases.Exit;
+using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
 
 namespace MackySoft.Tests;
 
-internal sealed class RecordingPlayExitService : RecordingCommandService<PlayExitCommandInput, PlayExitExecutionResult>, IPlayExitService
+internal sealed class RecordingPlayExitService : IPlayExitService
 {
-    public RecordingPlayExitService (Func<PlayExitCommandInput, CancellationToken, ValueTask<PlayExitExecutionResult>> handler)
-        : base(handler)
+    private readonly Func<LifecycleExecutionStartInvocation, CancellationToken, ValueTask<PlayExitExecutionResult>> handler;
+
+    public RecordingPlayExitService (Func<LifecycleExecutionStartInvocation, CancellationToken, ValueTask<PlayExitExecutionResult>> handler)
     {
+        this.handler = handler ?? throw new ArgumentNullException(nameof(handler));
     }
 
-    public ValueTask<PlayExitExecutionResult> ExecuteAsync (
-        PlayExitCommandInput input,
+    public List<CommandServiceInvocation<LifecycleExecutionStartInvocation>> Invocations { get; } = [];
+
+    public ValueTask<PlayExitExecutionResult> StartAsync (
+        LifecycleExecutionStartInvocation invocation,
         CancellationToken cancellationToken = default)
     {
-        return ExecuteRecordedAsync(input, cancellationToken);
+        Invocations.Add(new CommandServiceInvocation<LifecycleExecutionStartInvocation>(invocation, cancellationToken));
+        return handler(invocation, cancellationToken);
     }
 
     public ValueTask<PlayExitExecutionResult> ReconnectAsync (
-        PlayExitCommandInput input,
-        ExecutionRef lifecycleExecutionRef,
-        CancellationToken cancellationToken = default)
-    {
-        throw new InvalidOperationException(
-            "Play exit reconnect was not expected.");
-    }
+        LifecycleExecutionReconnectInvocation invocation,
+        CancellationToken cancellationToken = default) =>
+        throw new InvalidOperationException("Fixed-context Play exit reconnect was not expected.");
+
 }
