@@ -1,6 +1,9 @@
 using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Reflection;
+using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Execution;
@@ -15,8 +18,12 @@ using MackySoft.Ucli.Unity.Runtime;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
-    internal sealed class EvalCallUnityIpcMethodHandler : IUnityIpcMethodHandler
+    internal sealed class EvalCallUnityIpcMethodHandler :
+        IUnityIpcMethodHandler,
+        IUnityExecutionDeadlineResponseProvider
     {
+        private readonly ConcurrentDictionary<Guid, EvalCallDeadlineResponseBoundary> deadlineResponseBoundaries = new();
+
         private readonly CsEvalCompilationService compilationService;
         private readonly CsEvalEntryPointReflectionResolver entryPointResolver;
         private readonly CsEvalReturnValueSerializer returnValueSerializer;
@@ -60,136 +67,178 @@ namespace MackySoft.Ucli.Unity.Ipc
             // Admission must use the snapshot that was revalidated after emission, never a stale plan snapshot.
             tokenValidation = await ValidatePlanTokenAsync(payload.PlanToken, compilation, payload.AllowDangerous, payload.AllowPlayMode, request.SessionTokenDigest, cancellation.Token);
             if (!tokenValidation.IsValid) return CreateError(request, tokenValidation.ErrorCode!, tokenValidation.Error!, CreatePartial(compilation), ExecutionApplicationState.NotApplied);
-            var admission = await admissionJournal.TryAdmitEvalCallAsync(
-                tokenValidation.Snapshot!.RepositoryRoot,
-                tokenValidation.Snapshot.ProjectFingerprint,
-                new EvalCallAdmission(
-                    tokenValidation.DecodedToken!.Payload.Nonce.ToString(),
-                    MackySoft.Ucli.Contracts.Cryptography.Sha256Digest.Compute(System.Text.Encoding.UTF8.GetBytes(payload.PlanToken)),
-                    request.RequestId,
-                    compilation.SourceDigest,
-                    compilation.ExecutionDigest,
-                    tokenValidation.Snapshot.DomainReloadGeneration,
-                    tokenValidation.DecodedToken.Payload.IssuedAtUtc,
-                    tokenValidation.DecodedToken.Payload.ExpiresAtUtc),
-                cancellation.Token);
-            if (!admission.IsAdmitted)
+            var deadlineBoundary = new EvalCallDeadlineResponseBoundary();
+            if (!deadlineResponseBoundaries.TryAdd(request.RequestId, deadlineBoundary))
             {
-                var message = admission.IsReplay
-                    ? "C# eval plan token has already been consumed."
-                    : admission.Failure!.Message;
-                return CreateError(request, UcliCoreErrorCodes.InvalidArgument, message, CreatePartial(compilation), ExecutionApplicationState.NotApplied);
+                return CreateError(
+                    request,
+                    UcliCoreErrorCodes.InvalidArgument,
+                    "C# eval call requestId is already active.",
+                    CreatePartial(compilation),
+                    ExecutionApplicationState.NotApplied);
             }
 
-            var mutationActivity = mutationLaneControl.BeginMutation();
             try
             {
-                cancellation.Token.ThrowIfCancellationRequested();
-                MethodInfo method;
-                try
+                var admission = await admissionJournal.TryAdmitEvalCallAsync(
+                    tokenValidation.Snapshot!.RepositoryRoot,
+                    tokenValidation.Snapshot.ProjectFingerprint,
+                    new EvalCallAdmission(
+                        tokenValidation.DecodedToken!.Payload.Nonce.ToString(),
+                        MackySoft.Ucli.Contracts.Cryptography.Sha256Digest.Compute(System.Text.Encoding.UTF8.GetBytes(payload.PlanToken)),
+                        request.RequestId,
+                        compilation.SourceDigest,
+                        compilation.ExecutionDigest,
+                        tokenValidation.Snapshot.DomainReloadGeneration,
+                    tokenValidation.DecodedToken.Payload.IssuedAtUtc,
+                    tokenValidation.DecodedToken.Payload.ExpiresAtUtc),
+                    readPostcondition => deadlineBoundary.Publish(
+                        CreateValidatedDeadlineResponse(
+                            request,
+                            CreateDeadlineExceededError(request, compilation, readPostcondition))),
+                    cancellation.Token);
+                if (!admission.IsDurablyAdmitted)
                 {
-                    if (!entryPointResolver.TryResolve(Assembly.Load(bytes), compilation.EntryPointName!.Value, out method, out var entryPointError)) return CreateError(request, UcliCoreErrorCodes.InvalidArgument, entryPointError, CreatePartial(compilation), ExecutionApplicationState.Indeterminate, admission.ReadPostcondition);
+                    var message = admission.IsReplay
+                        ? "C# eval plan token has already been consumed."
+                        : admission.Failure!.Message;
+                    return CreateError(request, UcliCoreErrorCodes.InvalidArgument, message, CreatePartial(compilation), ExecutionApplicationState.NotApplied);
                 }
-                catch (OperationCanceledException) when (cancellation.Token.IsCancellationRequested)
+
+                if (!admission.IsAdmitted)
                 {
-                    throw;
-                }
-                catch (Exception exception)
-                {
-                    return CreateError(
+                    var publicationFailureResponse = CreateError(
                         request,
-                        UcliCoreErrorCodes.InvalidArgument,
-                        exception.InnerException?.Message ?? exception.Message,
+                        UcliCoreErrorCodes.InternalError,
+                        "C# eval call was durably admitted but its timeout response could not be published.",
                         CreatePartial(compilation),
                         ExecutionApplicationState.Indeterminate,
                         admission.ReadPostcondition);
+                    // A publication callback failure cannot undo durable admission. Publish this
+                    // immutable terminal response before returning so an already canceled
+                    // mutation executor cannot collapse it to the dispatcher generic timeout.
+                    deadlineBoundary.Publish(CreateValidatedDeadlineResponse(request, publicationFailureResponse));
+                    return publicationFailureResponse;
                 }
-                var context = new UcliCsEvalContext(cancellation.Token);
-                var stopwatch = Stopwatch.StartNew();
-                object value;
+
+                var mutationActivity = mutationLaneControl.BeginMutation();
                 try
                 {
                     cancellation.Token.ThrowIfCancellationRequested();
-                    var invoked = method.Invoke(null, new object[] { context });
-                    value = await CsEvalEntryPointReturnValueResolver.ResolveAsync(
-                        method.ReturnType,
-                        invoked,
-                        cancellation.Token,
-                        mutationLaneControl.Quarantine);
-                }
-                catch (OperationCanceledException) when (cancellation.Token.IsCancellationRequested)
-                {
-                    throw;
-                }
-                catch (Exception exception)
-                {
+                    MethodInfo method;
+                    try
+                    {
+                        if (!entryPointResolver.TryResolve(Assembly.Load(bytes), compilation.EntryPointName!.Value, out method, out var entryPointError)) return CreateError(request, UcliCoreErrorCodes.InvalidArgument, entryPointError, CreatePartial(compilation), ExecutionApplicationState.Indeterminate, admission.ReadPostcondition);
+                    }
+                    catch (OperationCanceledException) when (cancellation.Token.IsCancellationRequested)
+                    {
+                        throw;
+                    }
+                    catch (Exception exception)
+                    {
+                        return CreateError(request, UcliCoreErrorCodes.InvalidArgument, exception.InnerException?.Message ?? exception.Message, CreatePartial(compilation), ExecutionApplicationState.Indeterminate, admission.ReadPostcondition);
+                    }
+                    var context = new UcliCsEvalContext(cancellation.Token);
+                    var stopwatch = Stopwatch.StartNew();
+                    object value;
+                    try
+                    {
+                        cancellation.Token.ThrowIfCancellationRequested();
+                        var invoked = method.Invoke(null, new object[] { context });
+                        value = await CsEvalEntryPointReturnValueResolver.ResolveAsync(method.ReturnType, invoked, cancellation.Token, mutationLaneControl.Quarantine);
+                    }
+                    catch (OperationCanceledException) when (cancellation.Reason == IpcRequestCancellationReason.ExecutionDeadline)
+                    {
+                        stopwatch.Stop();
+                        return CreateDeadlineExceededError(request, compilation, admission.ReadPostcondition);
+                    }
+                    catch (OperationCanceledException) when (cancellation.Token.IsCancellationRequested)
+                    {
+                        throw;
+                    }
+                    catch (Exception exception)
+                    {
+                        stopwatch.Stop();
+                        return CreateError(request, UcliCoreErrorCodes.InvalidArgument, exception.InnerException?.Message ?? exception.Message, CreatePartial(compilation, stopwatch.ElapsedMilliseconds, context.Logs, null, context.HasImpactDeclaration ? CsEvalTouchedResourceMapper.CreateResult(context) : null), ExecutionApplicationState.Indeterminate, admission.ReadPostcondition);
+                    }
+
                     stopwatch.Stop();
-                    return CreateError(
-                        request,
-                        UcliCoreErrorCodes.InvalidArgument,
-                        exception.InnerException?.Message ?? exception.Message,
-                        CreatePartial(
-                            compilation,
-                            stopwatch.ElapsedMilliseconds,
-                            context.Logs,
-                            null,
-                            context.HasImpactDeclaration ? CsEvalTouchedResourceMapper.CreateResult(context) : null),
-                        ExecutionApplicationState.Indeterminate,
-                        admission.ReadPostcondition);
-                }
+                    if (!context.HasImpactDeclaration)
+                    {
+                        return CreateError(request, UcliCoreErrorCodes.InvalidArgument, "C# eval entry point must call DeclareNoChanges or one of the Touch* methods before completing.", new CsEvalPartialErrorResult(compilation.SourceDigest, compilation.SourceKind, compilation.ResolvedEntryPoint, compilation.ExecutionDigest, compilation.Compile, stopwatch.ElapsedMilliseconds, context.Logs, null, null), ExecutionApplicationState.Indeterminate, admission.ReadPostcondition);
+                    }
+                    var touched = CsEvalTouchedResourceMapper.CreateResult(context);
+                    if (!returnValueSerializer.TrySerialize(value, out var returnValue, out var returnError))
+                    {
+                        return CreateError(request, UcliCoreErrorCodes.InvalidArgument, returnError, CreatePartial(compilation, stopwatch.ElapsedMilliseconds, context.Logs, null, touched), ExecutionApplicationState.Indeterminate, admission.ReadPostcondition);
+                    }
 
-                stopwatch.Stop();
-                if (!context.HasImpactDeclaration)
-                {
-                    return CreateError(
-                        request,
-                        UcliCoreErrorCodes.InvalidArgument,
-                        "C# eval entry point must call DeclareNoChanges or one of the Touch* methods before completing.",
-                        new CsEvalPartialErrorResult(
-                            compilation.SourceDigest,
-                            compilation.SourceKind,
-                            compilation.ResolvedEntryPoint,
-                            compilation.ExecutionDigest,
-                            compilation.Compile,
-                            stopwatch.ElapsedMilliseconds,
-                            context.Logs,
-                            null,
-                            null),
-                        ExecutionApplicationState.Indeterminate,
-                        admission.ReadPostcondition);
-                }
-                var touched = CsEvalTouchedResourceMapper.CreateResult(context);
-                if (!returnValueSerializer.TrySerialize(value, out var returnValue, out var returnError))
-                {
-                    return CreateError(
-                        request,
-                        UcliCoreErrorCodes.InvalidArgument,
-                        returnError,
-                        CreatePartial(compilation, stopwatch.ElapsedMilliseconds, context.Logs, null, touched),
-                        ExecutionApplicationState.Indeterminate,
-                        admission.ReadPostcondition);
-                }
+                    tokenValidation = await ValidatePlanTokenAsync(payload.PlanToken, compilation, payload.AllowDangerous, payload.AllowPlayMode, request.SessionTokenDigest, cancellation.Token);
+                    if (!tokenValidation.IsValid)
+                    {
+                        return CreateError(request, tokenValidation.ErrorCode!, tokenValidation.Error!, CreatePartial(compilation, stopwatch.ElapsedMilliseconds, context.Logs, returnValue, touched), ExecutionApplicationState.Indeterminate, admission.ReadPostcondition);
+                    }
 
-                // A completed entry point is not safely reportable as applied when its Editor generation
-                // (or the validated eval configuration) changed while it was running.
-                tokenValidation = await ValidatePlanTokenAsync(payload.PlanToken, compilation, payload.AllowDangerous, payload.AllowPlayMode, request.SessionTokenDigest, cancellation.Token);
-                if (!tokenValidation.IsValid)
-                {
-                    return CreateError(
-                        request,
-                        tokenValidation.ErrorCode!,
-                        tokenValidation.Error!,
-                        CreatePartial(compilation, stopwatch.ElapsedMilliseconds, context.Logs, returnValue, touched),
-                        ExecutionApplicationState.Indeterminate,
-                        admission.ReadPostcondition);
+                    var result = new CsEvalCallSuccessResult(compilation.SourceDigest, payload.SourceKind, compilation.ResolvedEntryPoint!, compilation.ExecutionDigest, compilation.Compile, stopwatch.ElapsedMilliseconds, context.Logs, returnValue, touched);
+                    return UnityIpcResponseFactory.CreateSuccessResponse(request, new IpcEvalResponse(project, CsEvalPhase.Call, ExecutionApplicationState.Applied, result, null, admission.ReadPostcondition));
                 }
-
-                var result = new CsEvalCallSuccessResult(compilation.SourceDigest, payload.SourceKind, compilation.ResolvedEntryPoint!, compilation.ExecutionDigest, compilation.Compile, stopwatch.ElapsedMilliseconds, context.Logs, returnValue, touched);
-                return UnityIpcResponseFactory.CreateSuccessResponse(request, new IpcEvalResponse(project, CsEvalPhase.Call, ExecutionApplicationState.Applied, result, null, admission.ReadPostcondition));
+                catch (OperationCanceledException) when (cancellation.Reason == IpcRequestCancellationReason.ExecutionDeadline)
+                {
+                    return CreateDeadlineExceededError(request, compilation, admission.ReadPostcondition);
+                }
+                finally
+                {
+                    mutationActivity.Complete();
+                }
             }
             finally
             {
-                mutationActivity.Complete();
+                deadlineBoundary.End();
+                ReleaseCompletedDeadlineBoundary(request.RequestId, deadlineBoundary);
+            }
+        }
+
+        /// <inheritdoc />
+        public bool TryGetPublishedExecutionDeadlineResponse (Guid requestId, out UnityExecutionDeadlineResponse? response)
+        {
+            if (deadlineResponseBoundaries.TryGetValue(requestId, out var boundary))
+            {
+                return boundary.TryGetPublishedResponse(out response);
+            }
+
+            response = null;
+            return false;
+        }
+
+        /// <inheritdoc />
+        public Task<UnityExecutionDeadlineResponse?> WaitForExecutionDeadlineResponseAsync (Guid requestId)
+        {
+            return deadlineResponseBoundaries.TryGetValue(requestId, out var boundary)
+                ? boundary.WaitForResponseAsync()
+                : Task.FromResult<UnityExecutionDeadlineResponse?>(null);
+        }
+
+        /// <inheritdoc />
+        public void CompleteExecutionDeadlineResponse (Guid requestId)
+        {
+            if (deadlineResponseBoundaries.TryGetValue(requestId, out var boundary)
+                && boundary.CompleteDispatch())
+            {
+                _ = ((System.Collections.Generic.ICollection<
+                    KeyValuePair<Guid, EvalCallDeadlineResponseBoundary>>)deadlineResponseBoundaries)
+                    .Remove(new KeyValuePair<Guid, EvalCallDeadlineResponseBoundary>(requestId, boundary));
+            }
+        }
+
+        private void ReleaseCompletedDeadlineBoundary (
+            Guid requestId,
+            EvalCallDeadlineResponseBoundary boundary)
+        {
+            if (boundary.IsDispatchCompleted)
+            {
+                _ = ((System.Collections.Generic.ICollection<
+                    KeyValuePair<Guid, EvalCallDeadlineResponseBoundary>>)deadlineResponseBoundaries)
+                    .Remove(new KeyValuePair<Guid, EvalCallDeadlineResponseBoundary>(requestId, boundary));
             }
         }
 
@@ -225,6 +274,85 @@ namespace MackySoft.Ucli.Unity.Ipc
                 message,
                 null,
                 new IpcEvalErrorResponse(project, CsEvalPhase.Call, applicationState, partial, readPostcondition));
+        }
+
+        private IpcResponse CreateDeadlineExceededError (
+            ValidatedUnityIpcRequest request,
+            CsEvalCompilationResult compilation,
+            ExecutionReadPostcondition readPostcondition)
+        {
+            return CreateError(
+                request,
+                IpcTransportErrorCodes.IpcTimeout,
+                "C# eval call reached its request deadline after admission.",
+                CreatePartial(compilation),
+                ExecutionApplicationState.Indeterminate,
+                readPostcondition);
+        }
+
+        private static UnityExecutionDeadlineResponse CreateValidatedDeadlineResponse (
+            ValidatedUnityIpcRequest request,
+            IpcResponse response)
+        {
+            if (response.RequestId != request.RequestId
+                || response.Status != IpcResponseStatus.Error
+                || !IpcPayloadCodec.TryDeserializeStrict(response.Payload, out IpcEvalErrorResponse error, out _)
+                || error.Phase != CsEvalPhase.Call
+                || error.ApplicationState != ExecutionApplicationState.Indeterminate
+                || error.ReadPostcondition is null)
+            {
+                throw new InvalidOperationException("Eval call deadline fallback must be a correlated indeterminate eval error with a read postcondition.");
+            }
+
+            return new UnityExecutionDeadlineResponse(response);
+        }
+
+        private sealed class EvalCallDeadlineResponseBoundary
+        {
+            private readonly TaskCompletionSource<UnityExecutionDeadlineResponse?> availabilitySource = new(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+
+            private UnityExecutionDeadlineResponse? response;
+
+            private int dispatchCompleted;
+
+            public void Publish (UnityExecutionDeadlineResponse response)
+            {
+                if (response == null)
+                {
+                    throw new ArgumentNullException(nameof(response));
+                }
+
+                if (Interlocked.CompareExchange(ref this.response, response, null) is null)
+                {
+                    // Wake a dispatcher that observed outward deadline cancellation before this
+                    // synchronous durable-admission callback reached its publication point.
+                    availabilitySource.TrySetResult(response);
+                }
+            }
+
+            public bool TryGetPublishedResponse (out UnityExecutionDeadlineResponse? publishedResponse)
+            {
+                publishedResponse = Volatile.Read(ref response);
+                if (publishedResponse != null)
+                {
+                    return true;
+                }
+
+                return false;
+            }
+
+            public Task<UnityExecutionDeadlineResponse?> WaitForResponseAsync () => availabilitySource.Task;
+
+            public void End () => availabilitySource.TrySetResult(Volatile.Read(ref response));
+
+            public bool CompleteDispatch ()
+            {
+                Interlocked.Exchange(ref dispatchCompleted, 1);
+                return availabilitySource.Task.IsCompleted;
+            }
+
+            public bool IsDispatchCompleted => Volatile.Read(ref dispatchCompleted) != 0;
         }
 
         private IpcResponse CreateConfigError (ValidatedUnityIpcRequest request, EvalConfigResolution config, ExecutionApplicationState applicationState)

@@ -6,7 +6,9 @@ using Cysharp.Threading.Tasks;
 using MackySoft.Text.Vocabularies;
 using TextVocabulary = MackySoft.Text.Vocabularies.Vocabulary;
 using MackySoft.Ucli.Contracts;
+using MackySoft.Ucli.Contracts.Execution;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Projects;
 using MackySoft.Ucli.Contracts.Testing;
 using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Infrastructure.Ipc;
@@ -572,6 +574,58 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator Dispatch_WhenOptInDeadlineResponsePublishesAfterOutwardCancellation_ReturnsPublishedStructuredResponse () => UniTask.ToCoroutine(async () =>
+        {
+            var request = CreateRequest(
+                Guid.NewGuid(),
+                UnityIpcMethod.EvalCall,
+                new UcliEmptyArgs(),
+                requestDuration: TimeSpan.FromMilliseconds(500));
+            var handler = new ReservedDeadlineResponseMethodHandler(UnityIpcMethod.EvalCall);
+            var executor = new StartThenOutwardCancelExecutor();
+            var dispatcher = new UnityIpcMethodDispatcher(
+                new IUnityIpcMethodHandler[] { handler },
+                executor,
+                new InlineRequestExecutor());
+            using var phaseScope = new IpcRequestPhaseScopeFactory().Create(
+                request,
+                CancellationToken.None,
+                TimeSpan.FromMilliseconds(100));
+            var validatedRequest = CreateValidatedRequest(
+                request,
+                UnityIpcMethod.EvalCall,
+                IpcResponseMode.Single);
+
+            var dispatchTask = dispatcher.DispatchAsync(validatedRequest, phaseScope);
+            await TestAwaiter.WaitAsync(
+                handler.Reserved.Task.AsUniTask(),
+                "Reserved eval deadline boundary",
+                AsyncWaitTimeout);
+            await TestAwaiter.WaitAsync(
+                handler.WaitObserved.Task.AsUniTask(),
+                "Dispatcher wait for unpublished eval deadline response",
+                AsyncWaitTimeout);
+
+            var expected = CreateStructuredEvalIndeterminateError(request);
+            Assert.That(IpcPayloadCodec.TryDeserializeStrict(expected.Payload, out IpcEvalErrorResponse error, out var decodeError), Is.True, decodeError.Message);
+            Assert.That(error.Phase, Is.EqualTo(CsEvalPhase.Call));
+            Assert.That(error.ApplicationState, Is.EqualTo(ExecutionApplicationState.Indeterminate));
+            Assert.That(error.ReadPostcondition, Is.Not.Null);
+            handler.Publish(expected);
+
+            var response = await TestAwaiter.WaitAsync(
+                dispatchTask.AsUniTask(),
+                "Published eval deadline response",
+                AsyncWaitTimeout);
+
+            Assert.That(response, Is.SameAs(expected));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(UcliCoreErrorCodes.InternalError));
+            Assert.That(handler.TryGetCount, Is.GreaterThanOrEqualTo(1));
+            Assert.That(handler.WaitCount, Is.EqualTo(1));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator Dispatch_WhenHandlerReturnsMethodTimeoutAtExecutionDeadline_PreservesTerminalResponseAfterExecutorCancellationCheck () => UniTask.ToCoroutine(async () =>
         {
             var handler = new StubMethodHandler(UnityIpcMethod.Compile, static async (request, cancellation) =>
@@ -763,6 +817,31 @@ namespace MackySoft.Ucli.Unity.Tests
                 errors: Array.Empty<IpcError>());
         }
 
+        private static IpcResponse CreateStructuredEvalIndeterminateError (IpcRequestEnvelope request)
+        {
+            var fenceUtc = DateTimeOffset.UtcNow;
+            var readPostcondition = new ExecutionReadPostcondition(new[]
+            {
+                new ExecutionReadPostconditionRequirement(ExecutionReadPostconditionSurface.AssetSearch, fenceUtc, null),
+                new ExecutionReadPostconditionRequirement(ExecutionReadPostconditionSurface.GuidPath, fenceUtc, null),
+                new ExecutionReadPostconditionRequirement(ExecutionReadPostconditionSurface.SceneTreeLite, fenceUtc, null),
+            });
+            return UnityIpcResponseFactory.CreateErrorResponse(
+                CreateValidatedRequest(request, UnityIpcMethod.EvalCall, IpcResponseMode.Single),
+                UcliCoreErrorCodes.InternalError,
+                "Durable eval admission could not publish its original fallback.",
+                null,
+                new IpcEvalErrorResponse(
+                    new UnityProjectIdentity(
+                        "test-project",
+                        ProjectFingerprintTestFactory.Create("dispatcher-eval-deadline"),
+                        "2023.2.22f1"),
+                    CsEvalPhase.Call,
+                    ExecutionApplicationState.Indeterminate,
+                    null,
+                    readPostcondition));
+        }
+
         private sealed class StubMethodHandler : IUnityIpcMethodHandler
         {
             private readonly Func<ValidatedUnityIpcRequest, IpcRequestCancellation, ValueTask<IpcResponse>> handle;
@@ -785,6 +864,65 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 CallCount++;
                 return handle(request, cancellation);
+            }
+        }
+
+        private sealed class ReservedDeadlineResponseMethodHandler :
+            IUnityIpcMethodHandler,
+            IUnityExecutionDeadlineResponseProvider
+        {
+            private readonly TaskCompletionSource<IpcResponse> physicalCompletion = new(TaskCreationOptions.RunContinuationsAsynchronously);
+            private readonly TaskCompletionSource<UnityExecutionDeadlineResponse> publishedResponse = new(TaskCreationOptions.RunContinuationsAsynchronously);
+            private UnityExecutionDeadlineResponse response;
+
+            public ReservedDeadlineResponseMethodHandler (UnityIpcMethod method)
+            {
+                Method = method;
+            }
+
+            public TaskCompletionSource<bool> Reserved { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            public TaskCompletionSource<bool> WaitObserved { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            public int TryGetCount { get; private set; }
+
+            public int WaitCount { get; private set; }
+
+            public UnityIpcMethod Method { get; }
+
+            public ValueTask<IpcResponse> HandleAsync (
+                ValidatedUnityIpcRequest request,
+                IpcRequestCancellation cancellation)
+            {
+                Reserved.TrySetResult(true);
+                return new ValueTask<IpcResponse>(physicalCompletion.Task);
+            }
+
+            public bool TryGetPublishedExecutionDeadlineResponse (
+                Guid requestId,
+                out UnityExecutionDeadlineResponse published)
+            {
+                TryGetCount++;
+                published = Volatile.Read(ref response);
+                return published is not null;
+            }
+
+            public Task<UnityExecutionDeadlineResponse?> WaitForExecutionDeadlineResponseAsync (Guid requestId)
+            {
+                WaitCount++;
+                WaitObserved.TrySetResult(true);
+                return publishedResponse.Task;
+            }
+
+            public void CompleteExecutionDeadlineResponse (Guid requestId)
+            {
+            }
+
+            public void Publish (IpcResponse response)
+            {
+                var trustedResponse = new UnityExecutionDeadlineResponse(response);
+                Volatile.Write(ref this.response, trustedResponse);
+                publishedResponse.TrySetResult(trustedResponse);
             }
         }
 
@@ -891,6 +1029,18 @@ namespace MackySoft.Ucli.Unity.Tests
                 CancellationToken cancellationToken = default)
             {
                 CallCount++;
+                await Task.Delay(Timeout.Infinite, cancellationToken);
+                return default;
+            }
+        }
+
+        private sealed class StartThenOutwardCancelExecutor : IUnityMainThreadRequestExecutor
+        {
+            public async Task<T> ExecuteAsync<T> (
+                Func<Task<T>> workItem,
+                CancellationToken cancellationToken = default)
+            {
+                _ = workItem();
                 await Task.Delay(Timeout.Infinite, cancellationToken);
                 return default;
             }

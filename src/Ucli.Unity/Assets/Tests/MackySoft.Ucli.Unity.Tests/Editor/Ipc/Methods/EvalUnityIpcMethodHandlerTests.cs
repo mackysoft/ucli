@@ -345,6 +345,142 @@ public static class TypeInitializerFailureEval
 
         [Test]
         [Category("Size.Small")]
+        public async Task Call_WhenExecutionDeadlineExpiresAfterAdmission_ReturnsStructuredIndeterminateTimeoutWithoutReentry ()
+        {
+            using var scope = new EvalTestScope();
+            var environment = scope.CreateEnvironment();
+            var mutationLane = new StubMutationLaneControl();
+            const string source = "await System.Threading.Tasks.Task.Delay(System.Threading.Timeout.Infinite);";
+            var plan = await CreateSuccessfulPlanAsync(scope, environment, source, allowPlayMode: false);
+            var request = CreateRequest(
+                UnityIpcMethod.EvalCall,
+                new IpcEvalCallRequest(source, CsEvalSourceKind.Snippet, true, false, plan.PlanToken!),
+                requestDuration: TimeSpan.FromSeconds(1));
+            var handler = CreateCallHandler(scope, environment, mutationLane);
+            var executor = new InlineRequestExecutor();
+            var dispatcher = new UnityIpcMethodDispatcher(
+                new IUnityIpcMethodHandler[] { handler },
+                executor,
+                executor);
+            using var phaseScope = new IpcRequestPhaseScopeFactory().Create(
+                request,
+                CancellationToken.None,
+                TimeSpan.FromMilliseconds(100));
+            var validatedRequest = ValidatedUnityIpcRequestTestFactory.Create(
+                request,
+                UnityIpcMethod.EvalCall,
+                IpcResponseMode.Single);
+
+            var dispatchTask = dispatcher.DispatchAsync(validatedRequest, phaseScope);
+            await mutationLane.MutationStarted;
+            var response = await dispatchTask;
+
+            Assert.That(response.Status, Is.EqualTo(IpcResponseStatus.Error));
+            Assert.That(response.Errors, Has.Count.EqualTo(1));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(IpcTransportErrorCodes.IpcTimeout));
+            Assert.That(IpcPayloadCodec.TryDeserializeStrict(response.Payload, out IpcEvalErrorResponse error, out var decodeError), Is.True, decodeError.Message);
+            Assert.That(error.Phase, Is.EqualTo(CsEvalPhase.Call));
+            Assert.That(error.ApplicationState, Is.EqualTo(ExecutionApplicationState.Indeterminate));
+            Assert.That(error.Eval, Is.Not.Null);
+            Assert.That(error.ReadPostcondition, Is.Not.Null);
+            Assert.That(error.ReadPostcondition!.Requirements, Has.Count.EqualTo(3));
+            Assert.That(mutationLane.BeginMutationCount, Is.EqualTo(1));
+            Assert.That(mutationLane.IsQuarantined, Is.True);
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public async Task Call_WhenActualMutationExecutorCancelsAfterQuiescence_PreservesStructuredDeadlineResponse ()
+        {
+            using var scope = new EvalTestScope();
+            using var mutationExecutor = new UnitySynchronizationContextRequestExecutor(
+                SynchronizationContext.Current,
+                Thread.CurrentThread.ManagedThreadId,
+                UnitySynchronizationContextRequestExecutor.DefaultMaxPendingInvocations);
+            var environment = scope.CreateEnvironment();
+            const string source = "await System.Threading.Tasks.Task.Delay(System.Threading.Timeout.Infinite);";
+            var plan = await CreateSuccessfulPlanAsync(scope, environment, source, allowPlayMode: false);
+            var request = CreateRequest(
+                UnityIpcMethod.EvalCall,
+                new IpcEvalCallRequest(source, CsEvalSourceKind.Snippet, true, false, plan.PlanToken!),
+                requestDuration: TimeSpan.FromSeconds(2));
+            var handler = CreateCallHandler(scope, environment, mutationExecutor);
+            var controlPlaneExecutor = new InlineRequestExecutor();
+            var dispatcher = new UnityIpcMethodDispatcher(
+                new IUnityIpcMethodHandler[] { handler },
+                mutationExecutor,
+                controlPlaneExecutor);
+            using var phaseScope = new IpcRequestPhaseScopeFactory().Create(
+                request,
+                CancellationToken.None,
+                TimeSpan.FromMilliseconds(100));
+            var validatedRequest = ValidatedUnityIpcRequestTestFactory.Create(
+                request,
+                UnityIpcMethod.EvalCall,
+                IpcResponseMode.Single);
+
+            var response = await dispatcher.DispatchAsync(validatedRequest, phaseScope);
+
+            Assert.That(response.Status, Is.EqualTo(IpcResponseStatus.Error));
+            Assert.That(response.Errors, Has.Count.EqualTo(1));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(IpcTransportErrorCodes.IpcTimeout));
+            Assert.That(IpcPayloadCodec.TryDeserializeStrict(response.Payload, out IpcEvalErrorResponse error, out var decodeError), Is.True, decodeError.Message);
+            Assert.That(error.Phase, Is.EqualTo(CsEvalPhase.Call));
+            Assert.That(error.ApplicationState, Is.EqualTo(ExecutionApplicationState.Indeterminate));
+            Assert.That(error.ReadPostcondition, Is.Not.Null);
+            Assert.That(error.ReadPostcondition!.Requirements, Has.Count.EqualTo(3));
+            Assert.That(mutationExecutor.IsQuarantined, Is.True);
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public async Task Call_WhenExecutionDeadlineExpiresBetweenAdmissionAndMutationStart_PreservesStructuredDeadlineResponse ()
+        {
+            using var scope = new EvalTestScope();
+            using var mutationExecutor = new UnitySynchronizationContextRequestExecutor(
+                SynchronizationContext.Current,
+                Thread.CurrentThread.ManagedThreadId,
+                UnitySynchronizationContextRequestExecutor.DefaultMaxPendingInvocations);
+            var environment = scope.CreateEnvironment();
+            var mutationLane = new DeadlineBlockingMutationLaneControl(TimeSpan.FromSeconds(1));
+            const string source = "context.DeclareNoChanges();";
+            var plan = await CreateSuccessfulPlanAsync(scope, environment, source, allowPlayMode: false);
+            var request = CreateRequest(
+                UnityIpcMethod.EvalCall,
+                new IpcEvalCallRequest(source, CsEvalSourceKind.Snippet, true, false, plan.PlanToken!),
+                requestDuration: TimeSpan.FromSeconds(1));
+            var handler = CreateCallHandler(scope, environment, mutationLane);
+            var controlPlaneExecutor = new InlineRequestExecutor();
+            var dispatcher = new UnityIpcMethodDispatcher(
+                new IUnityIpcMethodHandler[] { handler },
+                mutationExecutor,
+                controlPlaneExecutor);
+            using var phaseScope = new IpcRequestPhaseScopeFactory().Create(
+                request,
+                CancellationToken.None,
+                TimeSpan.FromMilliseconds(100));
+            var validatedRequest = ValidatedUnityIpcRequestTestFactory.Create(
+                request,
+                UnityIpcMethod.EvalCall,
+                IpcResponseMode.Single);
+
+            var response = await dispatcher.DispatchAsync(validatedRequest, phaseScope);
+
+            Assert.That(response.Status, Is.EqualTo(IpcResponseStatus.Error));
+            Assert.That(response.Errors, Has.Count.EqualTo(1));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(IpcTransportErrorCodes.IpcTimeout));
+            Assert.That(IpcPayloadCodec.TryDeserializeStrict(response.Payload, out IpcEvalErrorResponse error, out var decodeError), Is.True, decodeError.Message);
+            Assert.That(error.Phase, Is.EqualTo(CsEvalPhase.Call));
+            Assert.That(error.ApplicationState, Is.EqualTo(ExecutionApplicationState.Indeterminate));
+            Assert.That(error.Eval, Is.Not.Null);
+            Assert.That(error.ReadPostcondition, Is.Not.Null);
+            Assert.That(error.ReadPostcondition!.Requirements, Has.Count.EqualTo(3));
+            Assert.That(mutationLane.BeginMutationCount, Is.EqualTo(1));
+            Assert.That(handler.TryGetPublishedExecutionDeadlineResponse(request.RequestId, out _), Is.False);
+        }
+
+        [Test]
+        [Category("Size.Small")]
         public async Task Plan_WhenAllowDangerousIsFalse_DoesNotEnterEvaluation ()
         {
             using var scope = new EvalTestScope();
@@ -445,15 +581,19 @@ public static class TypeInitializerFailureEval
             new CsEvalEntryPointSymbolValidator(),
             new CsEvalSourcePreparer());
 
-        private static IpcRequestEnvelope CreateRequest (UnityIpcMethod method, object payload, string sessionToken = "eval-handler-test-session") => new(
+        private static IpcRequestEnvelope CreateRequest (
+            UnityIpcMethod method,
+            object payload,
+            string sessionToken = "eval-handler-test-session",
+            TimeSpan? requestDuration = null) => new(
             IpcProtocol.CurrentVersion,
             Guid.NewGuid(),
             sessionToken,
             TextVocabulary.GetText(method),
             IpcPayloadCodec.SerializeToElement(payload),
             "single",
-            DateTimeOffset.UtcNow.AddMinutes(1),
-            60_000);
+            DateTimeOffset.UtcNow + (requestDuration ?? TimeSpan.FromMinutes(1)),
+            checked((int)Math.Ceiling((requestDuration ?? TimeSpan.FromMinutes(1)).TotalMilliseconds)));
 
         private sealed class EvalTestScope : IDisposable
         {
@@ -548,11 +688,13 @@ public static class TypeInitializerFailureEval
             public bool IsBusy => false;
             public bool HasUnfinishedWork => QuarantinedTask is { IsCompleted: false };
             public bool IsQuarantined { get; private set; }
+            public int BeginMutationCount { get; private set; }
             public Task? QuarantinedTask { get; private set; }
             public Task MutationStarted => mutationStarted.Task;
 
             public IUnityMutationActivity BeginMutation ()
             {
+                BeginMutationCount++;
                 mutationStarted.TrySetResult(true);
                 return new StubMutationActivity();
             }
@@ -580,6 +722,61 @@ public static class TypeInitializerFailureEval
             private sealed class StubDisposable : IDisposable
             {
                 public void Dispose () { }
+            }
+        }
+
+        private sealed class DeadlineBlockingMutationLaneControl : IUnityMutationLaneControl
+        {
+            private readonly TimeSpan delay;
+
+            public DeadlineBlockingMutationLaneControl (TimeSpan delay)
+            {
+                this.delay = delay;
+            }
+
+            public bool IsBusy => false;
+            public bool HasUnfinishedWork => false;
+            public bool IsQuarantined => false;
+            public int BeginMutationCount { get; private set; }
+
+            public IUnityMutationActivity BeginMutation ()
+            {
+                BeginMutationCount++;
+                Thread.Sleep(delay);
+                return new NoOpMutationActivity();
+            }
+
+            public void Quarantine (string reason, Task mutationCompletion) { }
+
+            public bool TrySealAdmissionForRetirement (out IDisposable admissionSeal)
+            {
+                admissionSeal = new StubDisposable();
+                return true;
+            }
+
+            public Task WaitForRetirementAsync () => Task.CompletedTask;
+
+            private sealed class NoOpMutationActivity : IUnityMutationActivity
+            {
+                public void Complete () { }
+            }
+
+            private sealed class StubDisposable : IDisposable
+            {
+                public void Dispose () { }
+            }
+        }
+
+        private sealed class InlineRequestExecutor :
+            IUnityMainThreadRequestExecutor,
+            IUnityControlPlaneRequestExecutor
+        {
+            public Task<T> ExecuteAsync<T> (
+                Func<Task<T>> workItem,
+                CancellationToken cancellationToken = default)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                return workItem();
             }
         }
     }

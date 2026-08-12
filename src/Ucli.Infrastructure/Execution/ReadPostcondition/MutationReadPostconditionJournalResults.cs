@@ -45,19 +45,60 @@ public sealed record MutationReadPostconditionJournalWriteResult (MutationReadPo
     public static MutationReadPostconditionJournalWriteResult Failed (MutationReadPostconditionJournalFailure failure) => new(failure ?? throw new ArgumentNullException(nameof(failure)));
 }
 
-/// <summary> Represents one durable eval-call admission outcome. </summary>
+/// <summary> Classifies the durable journal admission and timeout-publication outcome for one eval call. </summary>
+public enum EvalCallAdmissionOutcome
+{
+    /// <summary> The journal did not durably consume the eval-call binding. </summary>
+    Rejected = 0,
+
+    /// <summary> The journal durably consumed the binding and its timeout fallback was synchronously published. </summary>
+    AdmittedAndPublished = 1,
+
+    /// <summary> The journal durably consumed the binding but timeout fallback publication threw. </summary>
+    DurablyAdmittedPublicationFailed = 2,
+}
+
+/// <summary> Represents one durable eval-call admission and synchronous timeout-publication outcome. </summary>
 public sealed record EvalCallAdmissionResult (
-    bool IsAdmitted,
+    EvalCallAdmissionOutcome Outcome,
     bool IsReplay,
     ExecutionReadPostcondition? ReadPostcondition,
-    MutationReadPostconditionJournalFailure? Failure)
+    MutationReadPostconditionJournalFailure? Failure,
+    Exception? PublicationException)
 {
-    /// <summary> Creates a successful admission. </summary>
-    public static EvalCallAdmissionResult Admitted (ExecutionReadPostcondition readPostcondition) => new(true, false, readPostcondition ?? throw new ArgumentNullException(nameof(readPostcondition)), null);
+    /// <summary> Gets whether the durable admission and timeout fallback publication both succeeded. </summary>
+    public bool IsAdmitted => Outcome == EvalCallAdmissionOutcome.AdmittedAndPublished;
+
+    /// <summary> Gets whether the journal durably consumed the eval-call binding. </summary>
+    public bool IsDurablyAdmitted => Outcome is EvalCallAdmissionOutcome.AdmittedAndPublished
+        or EvalCallAdmissionOutcome.DurablyAdmittedPublicationFailed;
+
+    /// <summary> Creates a successful durable admission with its fallback synchronously published. </summary>
+    public static EvalCallAdmissionResult AdmittedAndPublished (ExecutionReadPostcondition readPostcondition) => new(
+        EvalCallAdmissionOutcome.AdmittedAndPublished,
+        false,
+        readPostcondition ?? throw new ArgumentNullException(nameof(readPostcondition)),
+        null,
+        null);
+
+    /// <summary> Creates a durable admission whose synchronous fallback publication threw. </summary>
+    public static EvalCallAdmissionResult DurablyAdmittedPublicationFailed (
+        ExecutionReadPostcondition readPostcondition,
+        Exception exception) => new(
+        EvalCallAdmissionOutcome.DurablyAdmittedPublicationFailed,
+        false,
+        readPostcondition ?? throw new ArgumentNullException(nameof(readPostcondition)),
+        null,
+        exception ?? throw new ArgumentNullException(nameof(exception)));
 
     /// <summary> Creates a rejection for a previously consumed token binding. </summary>
-    public static EvalCallAdmissionResult Replay () => new(false, true, null, null);
+    public static EvalCallAdmissionResult Replay () => new(EvalCallAdmissionOutcome.Rejected, true, null, null, null);
 
     /// <summary> Creates a fail-closed storage or document outcome. </summary>
-    public static EvalCallAdmissionResult Failed (MutationReadPostconditionJournalFailure failure) => new(false, false, null, failure ?? throw new ArgumentNullException(nameof(failure)));
+    public static EvalCallAdmissionResult Failed (MutationReadPostconditionJournalFailure failure) => new(
+        EvalCallAdmissionOutcome.Rejected,
+        false,
+        null,
+        failure ?? throw new ArgumentNullException(nameof(failure)),
+        null);
 }

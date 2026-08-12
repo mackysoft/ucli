@@ -20,7 +20,7 @@ public sealed class MutationReadPostconditionStoreTests
         var startedAtUtc = DateTimeOffset.UtcNow;
 
         const string planToken = "raw-plan-token";
-        var result = await journal.TryAdmitEvalCallAsync(storageRoot, fingerprint, CreateAdmission("nonce-1", planToken), CancellationToken.None);
+        var result = await journal.TryAdmitEvalCallAsync(storageRoot, fingerprint, CreateAdmission("nonce-1", planToken), static _ => { }, CancellationToken.None);
 
         var postcondition = Assert.IsType<ExecutionReadPostcondition>(result.ReadPostcondition);
         Assert.True(result.IsAdmitted);
@@ -48,13 +48,108 @@ public sealed class MutationReadPostconditionStoreTests
         var storageRoot = AbsolutePath.Parse(scope.FullPath);
         var fingerprint = ProjectFingerprintTestFactory.Create("fingerprint-1");
 
-        var initial = await new MutationReadPostconditionJournal().TryAdmitEvalCallAsync(storageRoot, fingerprint, CreateAdmission("nonce-1", "token-1"), CancellationToken.None);
-        var replay = await new MutationReadPostconditionJournal().TryAdmitEvalCallAsync(storageRoot, fingerprint, CreateAdmission("nonce-1", "token-1"), CancellationToken.None);
+        var initial = await new MutationReadPostconditionJournal().TryAdmitEvalCallAsync(storageRoot, fingerprint, CreateAdmission("nonce-1", "token-1"), static _ => { }, CancellationToken.None);
+        var replay = await new MutationReadPostconditionJournal().TryAdmitEvalCallAsync(storageRoot, fingerprint, CreateAdmission("nonce-1", "token-1"), static _ => { }, CancellationToken.None);
 
         Assert.True(initial.IsAdmitted);
         Assert.False(replay.IsAdmitted);
         Assert.True(replay.IsReplay);
         Assert.Null(replay.Failure);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task TryAdmitEvalCall_PublishesTheReadFenceOnlyAfterDurableReplacement ()
+    {
+        using var scope = TestDirectories.CreateTempScope("mutation-read-postcondition-journal", "publication");
+        var storageRoot = AbsolutePath.Parse(scope.FullPath);
+        var fingerprint = ProjectFingerprintTestFactory.Create("fingerprint-1");
+        var documentPath = UcliStoragePathResolver.ResolveMutationReadPostconditionPath(storageRoot, fingerprint);
+        ExecutionReadPostcondition? published = null;
+
+        var result = await new MutationReadPostconditionJournal().TryAdmitEvalCallAsync(
+            storageRoot,
+            fingerprint,
+            CreateAdmission("nonce-1", "token-1"),
+            readPostcondition =>
+            {
+                Assert.True(File.Exists(documentPath.Value));
+                published = readPostcondition;
+            },
+            CancellationToken.None);
+
+        Assert.Equal(EvalCallAdmissionOutcome.AdmittedAndPublished, result.Outcome);
+        Assert.Same(result.ReadPostcondition, published);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task TryAdmitEvalCall_WhenSynchronousPublicationIsBlocked_KeepsTheDurableAdmissionVisibleBeforeTheCallbackReturns ()
+    {
+        using var scope = TestDirectories.CreateTempScope("mutation-read-postcondition-journal", "blocked-publication");
+        var storageRoot = AbsolutePath.Parse(scope.FullPath);
+        var fingerprint = ProjectFingerprintTestFactory.Create("fingerprint-1");
+        var documentPath = UcliStoragePathResolver.ResolveMutationReadPostconditionPath(storageRoot, fingerprint);
+        var publicationStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releasePublication = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        var admissionTask = Task.Run(async () => await new MutationReadPostconditionJournal().TryAdmitEvalCallAsync(
+            storageRoot,
+            fingerprint,
+            CreateAdmission("nonce-1", "token-1"),
+            _ =>
+            {
+                publicationStarted.TrySetResult(true);
+                releasePublication.Task.GetAwaiter().GetResult();
+            },
+            CancellationToken.None));
+        try
+        {
+            await publicationStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+            using var document = JsonDocument.Parse(File.ReadAllText(documentPath.Value));
+            JsonAssert.For(document.RootElement)
+                .HasArrayLength("requirements", 3)
+                .HasArrayLength("consumedEvalCalls", 1);
+            Assert.False(admissionTask.IsCompleted);
+        }
+        finally
+        {
+            releasePublication.TrySetResult(true);
+        }
+
+        var result = await admissionTask;
+        Assert.Equal(EvalCallAdmissionOutcome.AdmittedAndPublished, result.Outcome);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task TryAdmitEvalCall_WhenPublicationThrows_ReturnsDurablyAdmittedFailureWithReadFence ()
+    {
+        using var scope = TestDirectories.CreateTempScope("mutation-read-postcondition-journal", "publication-failure");
+        var storageRoot = AbsolutePath.Parse(scope.FullPath);
+        var fingerprint = ProjectFingerprintTestFactory.Create("fingerprint-1");
+
+        var result = await new MutationReadPostconditionJournal().TryAdmitEvalCallAsync(
+            storageRoot,
+            fingerprint,
+            CreateAdmission("nonce-1", "token-1"),
+            static _ => throw new InvalidOperationException("publication failed"),
+            CancellationToken.None);
+
+        Assert.Equal(EvalCallAdmissionOutcome.DurablyAdmittedPublicationFailed, result.Outcome);
+        Assert.True(result.IsDurablyAdmitted);
+        Assert.False(result.IsAdmitted);
+        Assert.NotNull(result.ReadPostcondition);
+        Assert.IsType<InvalidOperationException>(result.PublicationException);
+
+        var replay = await new MutationReadPostconditionJournal().TryAdmitEvalCallAsync(
+            storageRoot,
+            fingerprint,
+            CreateAdmission("nonce-1", "token-1"),
+            static _ => { },
+            CancellationToken.None);
+        Assert.True(replay.IsReplay);
     }
 
     [Fact]
@@ -88,7 +183,7 @@ public sealed class MutationReadPostconditionStoreTests
         var fingerprint = ProjectFingerprintTestFactory.Create("fingerprint-1");
         var admission = CreateAdmission("nonce-1", "token-1");
 
-        var results = await Task.WhenAll(Enumerable.Range(0, 8).Select(_ => new MutationReadPostconditionJournal().TryAdmitEvalCallAsync(storageRoot, fingerprint, admission, CancellationToken.None).AsTask()));
+        var results = await Task.WhenAll(Enumerable.Range(0, 8).Select(_ => new MutationReadPostconditionJournal().TryAdmitEvalCallAsync(storageRoot, fingerprint, admission, static _ => { }, CancellationToken.None).AsTask()));
 
         Assert.Single(results, static result => result.IsAdmitted);
         Assert.Equal(7, results.Count(static result => result.IsReplay));
@@ -108,7 +203,7 @@ public sealed class MutationReadPostconditionStoreTests
             new ExecutionReadPostconditionRequirement(ExecutionReadPostconditionSurface.SceneTreeLite, existingFenceUtc, new UnityScenePath("Assets/Scenes/Main.unity")),
         ]), CancellationToken.None);
 
-        var result = await journal.TryAdmitEvalCallAsync(storageRoot, fingerprint, CreateAdmission("nonce-1", "token-1"), CancellationToken.None);
+        var result = await journal.TryAdmitEvalCallAsync(storageRoot, fingerprint, CreateAdmission("nonce-1", "token-1"), static _ => { }, CancellationToken.None);
 
         var expectedFenceUtc = existingFenceUtc.AddTicks(1);
         Assert.All(Assert.IsType<ExecutionReadPostcondition>(result.ReadPostcondition).Requirements, requirement => Assert.Equal(expectedFenceUtc, requirement.MinSafeGeneratedAtUtc));
@@ -126,7 +221,7 @@ public sealed class MutationReadPostconditionStoreTests
         var documentPath = UcliStoragePathResolver.ResolveMutationReadPostconditionPath(storageRoot, fingerprint);
         scope.WriteFile(Path.GetRelativePath(scope.FullPath, documentPath.Value), "{\"schemaVersion\":1}");
 
-        var result = await new MutationReadPostconditionJournal().TryAdmitEvalCallAsync(storageRoot, fingerprint, CreateAdmission("nonce-1", "token-1"), CancellationToken.None);
+        var result = await new MutationReadPostconditionJournal().TryAdmitEvalCallAsync(storageRoot, fingerprint, CreateAdmission("nonce-1", "token-1"), static _ => { }, CancellationToken.None);
 
         Assert.False(result.IsAdmitted);
         Assert.False(result.IsReplay);

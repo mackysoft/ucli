@@ -262,7 +262,13 @@ namespace MackySoft.Ucli.Unity.Ipc
                 laneExecutionTask = mutationRequestExecutor.ExecuteAsync(workItem, cancellation.Token);
             }
 
-            return AwaitLaneExecutionAsync(laneExecutionTask, terminalResponseSource, cancellation);
+            return AwaitLaneExecutionAndCompleteDeadlineResponseAsync(
+                laneExecutionTask,
+                terminalResponseSource,
+                cancellation,
+                methodHandler as IUnityExecutionDeadlineResponseProvider,
+                request.RequestId,
+                phaseScope.Plan.WriteCutoff - phaseScope.Plan.ExecutionCutoff);
         }
 
         private Task<IpcResponse> ExecuteOnSelectedLaneAsync (
@@ -293,26 +299,84 @@ namespace MackySoft.Ucli.Unity.Ipc
                 laneExecutionTask = mutationRequestExecutor.ExecuteAsync(workItem, cancellation.Token);
             }
 
-            return AwaitLaneExecutionAsync(laneExecutionTask, terminalResponseSource, cancellation);
+            return AwaitLaneExecutionAndCompleteDeadlineResponseAsync(
+                laneExecutionTask,
+                terminalResponseSource,
+                cancellation,
+                methodHandler as IUnityExecutionDeadlineResponseProvider,
+                request.RequestId,
+                phaseScope.Plan.WriteCutoff - phaseScope.Plan.ExecutionCutoff);
+        }
+
+        private static async Task<IpcResponse> AwaitLaneExecutionAndCompleteDeadlineResponseAsync (
+            Task<IpcResponse> laneExecutionTask,
+            TaskCompletionSource<IpcResponse> terminalResponseSource,
+            IpcRequestCancellation cancellation,
+            IUnityExecutionDeadlineResponseProvider? deadlineResponseProvider,
+            Guid requestId,
+            TimeSpan deadlineResponseWaitDuration)
+        {
+            try
+            {
+                return await AwaitLaneExecutionAsync(
+                    laneExecutionTask,
+                    terminalResponseSource,
+                    cancellation,
+                    deadlineResponseProvider,
+                    requestId,
+                    deadlineResponseWaitDuration)
+                    .ConfigureAwait(false);
+            }
+            finally
+            {
+                deadlineResponseProvider?.CompleteExecutionDeadlineResponse(requestId);
+            }
         }
 
         private static async Task<IpcResponse> AwaitLaneExecutionAsync (
             Task<IpcResponse> laneExecutionTask,
             TaskCompletionSource<IpcResponse> terminalResponseSource,
-            IpcRequestCancellation cancellation)
+            IpcRequestCancellation cancellation,
+            IUnityExecutionDeadlineResponseProvider? deadlineResponseProvider,
+            Guid requestId,
+            TimeSpan deadlineResponseWaitDuration)
         {
             try
             {
                 return await laneExecutionTask.ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (
-                cancellation.Reason == IpcRequestCancellationReason.ExecutionDeadline
-                && terminalResponseSource.Task.Status == TaskStatus.RanToCompletion)
+                cancellation.Reason == IpcRequestCancellationReason.ExecutionDeadline)
             {
-                var terminalResponse = await terminalResponseSource.Task.ConfigureAwait(false);
-                if (IsExecutionDeadlineResponse(terminalResponse))
+                if (terminalResponseSource.Task.Status == TaskStatus.RanToCompletion)
                 {
-                    return terminalResponse;
+                    var terminalResponse = await terminalResponseSource.Task.ConfigureAwait(false);
+                    if (IsExecutionDeadlineResponse(terminalResponse))
+                    {
+                        return terminalResponse;
+                    }
+                }
+
+                if (deadlineResponseProvider != null
+                    && deadlineResponseProvider.TryGetPublishedExecutionDeadlineResponse(requestId, out var publishedResponse))
+                {
+                    return publishedResponse!.Response;
+                }
+
+                if (deadlineResponseProvider != null)
+                {
+                    var availabilityTask = deadlineResponseProvider.WaitForExecutionDeadlineResponseAsync(requestId);
+                    var completedTask = await Task.WhenAny(
+                        availabilityTask,
+                        Task.Delay(deadlineResponseWaitDuration)).ConfigureAwait(false);
+                    if (ReferenceEquals(completedTask, availabilityTask))
+                    {
+                        var response = await availabilityTask.ConfigureAwait(false);
+                        if (response != null)
+                        {
+                            return response.Response;
+                        }
+                    }
                 }
 
                 throw;

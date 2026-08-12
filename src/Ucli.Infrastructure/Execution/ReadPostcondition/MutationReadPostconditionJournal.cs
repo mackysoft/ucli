@@ -117,11 +117,17 @@ public sealed class MutationReadPostconditionJournal
         AbsolutePath storageRoot,
         ProjectFingerprint projectFingerprint,
         EvalCallAdmission admission,
+        Action<ExecutionReadPostcondition> publishAdmission,
         CancellationToken cancellationToken = default)
     {
         if (admission is null)
         {
             throw new ArgumentNullException(nameof(admission));
+        }
+
+        if (publishAdmission is null)
+        {
+            throw new ArgumentNullException(nameof(publishAdmission));
         }
 
         cancellationToken.ThrowIfCancellationRequested();
@@ -149,7 +155,17 @@ public sealed class MutationReadPostconditionJournal
                 MergeRequirements(document.Requirements.Concat(readPostcondition.Requirements)),
                 document.ConsumedEvalCalls.Append(ConsumedEvalCall.From(admission)).ToArray());
             await WriteDocumentAsync(documentPath, writeDocument, cancellationToken).ConfigureAwait(false);
-            return EvalCallAdmissionResult.Admitted(readPostcondition);
+            try
+            {
+                // This call deliberately has no await between durable replacement and publication. A timeout
+                // fallback can therefore become observable only after the consumed token binding is durable.
+                publishAdmission(readPostcondition);
+                return EvalCallAdmissionResult.AdmittedAndPublished(readPostcondition);
+            }
+            catch (Exception exception)
+            {
+                return EvalCallAdmissionResult.DurablyAdmittedPublicationFailed(readPostcondition, exception);
+            }
         }
         catch (Exception exception) when (IsStorageFailure(exception))
         {
