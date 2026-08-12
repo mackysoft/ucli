@@ -155,11 +155,12 @@ public sealed class FileProgramDefinitionFileReaderTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task ReadAsync_OpenTargetReplacedBeforeRead_ReturnsChangedDuringRead ()
+    public async Task ReadContent_PathReplacedBeforeComplete_ReturnsChangedDuringRead ()
     {
         using var scope = TestDirectories.CreateTempScope("program-definition-reader", "replace-before-read");
         var target = Path.Combine(scope.FullPath, "request.json");
         var replacement = Path.Combine(scope.FullPath, "replacement.json");
+        var displaced = Path.Combine(scope.FullPath, "displaced.json");
         File.WriteAllText(target, "{\"before\":true}", new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
         File.WriteAllText(replacement, "{\"after\":true}", new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
         var root = AbsolutePath.Parse(scope.FullPath);
@@ -168,7 +169,8 @@ public sealed class FileProgramDefinitionFileReaderTests
         Assert.Null(ProgramDefinitionPhysicalFileReadSession.TryOpen(snapshot, out var session));
         await using var openedSession = session!;
         await openedSession.ReadContentAsync(CancellationToken.None);
-        File.Move(replacement, target, overwrite: true);
+        File.Move(target, displaced);
+        File.Move(replacement, target);
 
         var result = openedSession.CompleteRead();
 
