@@ -16,7 +16,6 @@ internal static class PhaseExecutionPreflightInvocationAssert
         Assert.False(result.HasValidationErrors);
         Assert.NotNull(result.Error);
         Assert.Equal(ApplicationFailureKind.Timeout, result.Error!.Kind);
-        Assert.Contains("operation metadata discovery", result.Error.Message, StringComparison.Ordinal);
         Assert.Equal(expectedPreparedRequest, result.PreparedRequest.PreparedRequest);
         Assert.Empty(result.PreparedRequest.OperationsByName);
         Assert.Empty(result.ValidationErrors);

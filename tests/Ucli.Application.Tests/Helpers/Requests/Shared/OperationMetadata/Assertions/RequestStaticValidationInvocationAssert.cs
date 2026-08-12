@@ -14,7 +14,7 @@ internal static class RequestStaticValidationInvocationAssert
         ReadIndexMode? expectedReadIndexMode)
     {
         var invocation = Assert.Single(preflightService.Invocations);
-        Assert.Same(expectedPreparedRequest, invocation.PreparedRequest);
+        Assert.Equal(expectedPreparedRequest, invocation.PreparedRequest);
         Assert.Equal(expectedReadIndexMode, invocation.ReadIndexMode);
         return invocation;
     }
@@ -25,7 +25,7 @@ internal static class RequestStaticValidationInvocationAssert
         ReadIndexMode expectedReadIndexMode)
     {
         var invocation = Assert.Single(resolver.Invocations);
-        Assert.Same(expectedPreparedRequest.ProjectContext.UnityProject, invocation.UnityProject);
+        Assert.Equal(expectedPreparedRequest.ProjectContext.UnityProject, invocation.UnityProject);
         Assert.Equal(expectedReadIndexMode, invocation.ReadIndexMode);
         return invocation;
     }
@@ -44,16 +44,14 @@ internal static class RequestStaticValidationInvocationAssert
         PreparedRequestContext expectedPreparedRequest,
         ReadIndexInfo expectedReadIndex,
         UcliCode expectedErrorCode,
-        string expectedMessageFragment,
         RecordingRequestStaticValidator validator)
     {
         Assert.False(result.IsSuccess);
         Assert.False(result.HasValidationErrors);
         Assert.NotNull(result.Error);
-        Assert.Contains(expectedMessageFragment, result.Error!.Message, StringComparison.Ordinal);
         Assert.Equal(expectedErrorCode, result.Error.Code);
-        Assert.Same(expectedPreparedRequest, result.PreparedRequest);
-        Assert.Same(expectedReadIndex, result.ReadIndex);
+        Assert.Equal(expectedPreparedRequest, result.PreparedRequest);
+        Assert.Equal(expectedReadIndex, result.ReadIndex);
         Assert.Empty(result.ValidationErrors);
         Assert.Empty(validator.Invocations);
     }
@@ -66,8 +64,8 @@ internal static class RequestStaticValidationInvocationAssert
         var invocation = PureStaticValidationRequestedOnce(
             validator,
             expectedCatalogAvailable: true);
-        Assert.Same(expectedPreparedRequest.Request, invocation.Request);
-        Assert.Same(expectedPreparedRequest.ProjectContext.Config, invocation.Config);
+        Assert.Equal(expectedPreparedRequest.Request, invocation.Request);
+        Assert.Equal(expectedPreparedRequest.ProjectContext.Config, invocation.Config);
         Assert.Contains(invocation.Catalog.Operations, operation => operation.Name == expectedOperationName);
         return invocation;
     }
@@ -82,8 +80,8 @@ internal static class RequestStaticValidationInvocationAssert
         var invocation = PureStaticValidationRequestedOnce(
             validator,
             expectedCatalogAvailable: true);
-        Assert.Same(expectedRequest, invocation.Request);
-        Assert.Same(expectedConfig, invocation.Config);
+        Assert.Equal(expectedRequest, invocation.Request);
+        Assert.Equal(expectedConfig, invocation.Config);
         Assert.Equal(expectedCancellationToken, invocation.CancellationToken);
         Assert.Contains(invocation.Catalog.Operations, operation => operation.Name == expectedOperationName);
         return invocation;

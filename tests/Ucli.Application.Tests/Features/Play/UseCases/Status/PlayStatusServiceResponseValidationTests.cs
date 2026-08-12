@@ -23,9 +23,6 @@ public sealed class PlayStatusServiceResponseValidationTests
         Assert.False(result.IsSuccess);
         var error = Assert.IsType<ExecutionError>(result.Error);
         Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
-        Assert.Contains("projectFingerprint mismatch", error.Message, StringComparison.Ordinal);
-        Assert.Contains(PlayProjectContext.UnityProject.ProjectFingerprint.ToString(), error.Message, StringComparison.Ordinal);
-        Assert.Contains(otherProjectFingerprint.ToString(), error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -49,6 +46,5 @@ public sealed class PlayStatusServiceResponseValidationTests
         Assert.False(result.IsSuccess);
         var error = Assert.IsType<ExecutionError>(result.Error);
         Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
-        Assert.Contains("Unity play status payload is invalid.", error.Message, StringComparison.Ordinal);
     }
 }

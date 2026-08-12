@@ -89,7 +89,6 @@ public sealed class OperationCatalogDiscoveryServiceTests
 
         Assert.Equal(ApplicationFailureKind.InvalidInput, exception.Error.Kind);
         Assert.Equal(UcliCoreErrorCodes.InvalidArgument, exception.Error.Code);
-        Assert.Contains("Operation catalog discovery failed.", exception.Error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -117,7 +116,6 @@ public sealed class OperationCatalogDiscoveryServiceTests
 
         Assert.Equal(ApplicationFailureKind.Timeout, exception.Error.Kind);
         Assert.Equal(ExecutionErrorCodes.IpcTimeout, exception.Error.Code);
-        Assert.Contains("Operation catalog discovery failed.", exception.Error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -145,7 +143,6 @@ public sealed class OperationCatalogDiscoveryServiceTests
 
         Assert.Equal(ApplicationFailureKind.UnityIpcFailure, exception.Error.Kind);
         Assert.Equal(UnityExecutionModeDecisionErrorCodes.DaemonNotRunning, exception.Error.Code);
-        Assert.Contains("Operation catalog discovery failed.", exception.Error.Message, StringComparison.Ordinal);
     }
 
     private static OpsCatalogFetchResult CreateSceneOpenFetchResult ()

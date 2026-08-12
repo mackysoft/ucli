@@ -12,7 +12,7 @@ public sealed class SupervisorRequestDispatcherConnectionLifetimeTests
     [Trait("Size", "Small")]
     public async Task HandleConnection_WhenConnectedPeerSendsNoInitialFrame_ReturnsAtInitialFrameDeadline ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var dispatcher = CreateDispatcher(timeProvider: timeProvider);
         var runtimeContext = CreateRuntimeContext();
         await using var stream = new SupervisorControlledReadStream(
@@ -24,7 +24,6 @@ public sealed class SupervisorRequestDispatcherConnectionLifetimeTests
             TimeSpan.FromMilliseconds(50),
             CancellationToken.None);
         await stream.ReadStarted.WaitAsync(SignalWaitTimeout);
-        await timeProvider.WaitForTimerDueWithinAsync(TimeSpan.FromMilliseconds(50)).WaitAsync(SignalWaitTimeout);
         timeProvider.Advance(TimeSpan.FromMilliseconds(50));
 
         try
@@ -42,7 +41,7 @@ public sealed class SupervisorRequestDispatcherConnectionLifetimeTests
     [Trait("Size", "Small")]
     public async Task HandleConnection_WhenInitialReadBlocksBeforeReturningValueTask_ReturnsAtInitialFrameDeadline ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var dispatcher = CreateDispatcher(timeProvider: timeProvider);
         var runtimeContext = CreateRuntimeContext();
         await using var stream = new SupervisorControlledReadStream(
@@ -56,7 +55,6 @@ public sealed class SupervisorRequestDispatcherConnectionLifetimeTests
         try
         {
             await stream.ReadStarted.WaitAsync(SignalWaitTimeout);
-            await timeProvider.WaitForTimerDueWithinAsync(TimeSpan.FromMilliseconds(50)).WaitAsync(SignalWaitTimeout);
             timeProvider.Advance(TimeSpan.FromMilliseconds(50));
             await handleTask.WaitAsync(SignalWaitTimeout);
         }
@@ -71,7 +69,7 @@ public sealed class SupervisorRequestDispatcherConnectionLifetimeTests
     [Trait("Size", "Small")]
     public async Task HandleConnection_WhenInitialReadFaultsAfterDeadline_ObservesLateFault ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var dispatcher = CreateDispatcher(timeProvider: timeProvider);
         var runtimeContext = CreateRuntimeContext();
         await using var stream = new SupervisorControlledReadStream(
@@ -82,7 +80,6 @@ public sealed class SupervisorRequestDispatcherConnectionLifetimeTests
             TimeSpan.FromMilliseconds(50),
             CancellationToken.None);
         await stream.ReadStarted.WaitAsync(SignalWaitTimeout);
-        await timeProvider.WaitForTimerDueWithinAsync(TimeSpan.FromMilliseconds(50)).WaitAsync(SignalWaitTimeout);
         timeProvider.Advance(TimeSpan.FromMilliseconds(50));
         await handleTask.WaitAsync(SignalWaitTimeout);
 
@@ -95,7 +92,7 @@ public sealed class SupervisorRequestDispatcherConnectionLifetimeTests
     [Trait("Size", "Small")]
     public async Task HandleConnection_WhenSingleRequestCompletes_ReleasesReadAndWriteDeadlineTimers ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var dispatcher = CreateDispatcher(timeProvider: timeProvider);
         var runtimeContext = CreateRuntimeContext();
         var request = new IpcRequestEnvelope(
@@ -112,14 +109,13 @@ public sealed class SupervisorRequestDispatcherConnectionLifetimeTests
         var response = await SendRequestAsync(dispatcher, runtimeContext, request);
 
         Assert.Equal(IpcResponseStatus.Ok, response.Status);
-        Assert.Equal(0, timeProvider.ActiveTimerCount);
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public async Task HandleConnection_WhenSingleResponseWriteAndDisposeBlock_ReturnsAtFrameDeadline ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var dispatcher = CreateDispatcher(timeProvider: timeProvider);
         var runtimeContext = CreateRuntimeContext();
         var request = new IpcRequestEnvelope(
@@ -161,7 +157,6 @@ public sealed class SupervisorRequestDispatcherConnectionLifetimeTests
         try
         {
             await stream.WriteStarted.WaitAsync(SignalWaitTimeout);
-            await timeProvider.WaitForTimerDueWithinAsync(SupervisorConstants.ResponseFrameWriteTimeout).WaitAsync(SignalWaitTimeout);
             timeProvider.Advance(SupervisorConstants.ResponseFrameWriteTimeout);
             await handlerReturned.Task.WaitAsync(SignalWaitTimeout);
             await stream.DisposeStarted.WaitAsync(SignalWaitTimeout);

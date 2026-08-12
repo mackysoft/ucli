@@ -124,7 +124,7 @@ public sealed class ExecutionDeadlineTests
     public void CreateCappedDeadline_AfterUtcClockShift_PreservesParentMonotonicToUtcMapping ()
     {
         var startedAtUtc = new DateTimeOffset(2030, 1, 2, 3, 4, 5, TimeSpan.Zero);
-        var timeProvider = new ManualTimeProvider(startedAtUtc);
+        var timeProvider = new WallClockSkewFakeTimeProvider(startedAtUtc);
         var deadline = ExecutionDeadline.Start(TimeSpan.FromSeconds(1), timeProvider);
         timeProvider.Advance(TimeSpan.FromMilliseconds(400));
         timeProvider.ShiftUtc(TimeSpan.FromDays(-1));
@@ -140,7 +140,7 @@ public sealed class ExecutionDeadlineTests
     [Trait("Size", "Small")]
     public void StartFromObservation_PreservesCapturedMonotonicAndUtcObservation ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new WallClockSkewFakeTimeProvider();
         var startTimestamp = timeProvider.GetTimestamp();
         var observedAtUtc = timeProvider.GetUtcNow();
         timeProvider.Advance(TimeSpan.FromMilliseconds(400));

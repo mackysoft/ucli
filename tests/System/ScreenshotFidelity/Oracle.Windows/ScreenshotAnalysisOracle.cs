@@ -1,5 +1,3 @@
-using System.Drawing.Imaging;
-
 namespace MackySoft.Ucli.ScreenshotFidelityOracle.Windows;
 
 internal static class ScreenshotAnalysisOracle
@@ -96,20 +94,29 @@ internal static class ScreenshotAnalysisOracle
                 ChangedPixelThreshold,
                 excludeNonOpaquePixels: true);
 
-            bool acceptsIdenticalImages = PassesFidelityThresholds(identicalMetrics);
-            bool rejectsExcessiveMaximumError = !PassesFidelityThresholds(invalidMetrics);
-            bool acceptsDistinctVariants = PassesVariantThresholds(variantMetrics);
+            bool acceptsIdenticalImages = identicalMetrics.ComparedPixelFraction == 1d
+                && identicalMetrics.MeanAbsoluteError == 0d
+                && identicalMetrics.Percentile95AbsoluteError == 0d
+                && identicalMetrics.MaximumAbsoluteError == 0d;
+            bool rejectsExcessiveMaximumError = invalidMetrics.MaximumAbsoluteError
+                > FidelityMaximumAbsoluteErrorThreshold;
+            bool acceptsDistinctVariants = variantMetrics.ComparedPixelFraction == 1d
+                && variantMetrics.MeanAbsoluteError >= VariantMeanAbsoluteErrorMinimum
+                && variantMetrics.ChangedPixelFraction >= VariantChangedPixelFractionMinimum;
             bool acceptsCompositorCornerMask = acceptedMaskFailures.Count == 0
                 && acceptedMask.ContainsOnlyCornerConnectedPixels
-                && PassesFidelityThresholds(cornerMaskedMetrics);
+                && cornerMaskedMetrics.ComparedPixelFraction >= MinimumComparablePixelFraction
+                && cornerMaskedMetrics.MeanAbsoluteError == 0d
+                && cornerMaskedMetrics.Percentile95AbsoluteError == 0d
+                && cornerMaskedMetrics.MaximumAbsoluteError == 0d;
             bool rejectsInteriorTransparency = rejectedMaskFailures.Count != 0;
-            bool decodesOpaquePng = VerifyPixelImageDecoder();
+            bool validatesPngStructureAndDecodedPixels = VerifyPngStructureAndDecodedPixels();
             bool passed = acceptsIdenticalImages
                 && rejectsExcessiveMaximumError
                 && acceptsDistinctVariants
                 && acceptsCompositorCornerMask
                 && rejectsInteriorTransparency
-                && decodesOpaquePng;
+                && validatesPngStructureAndDecodedPixels;
 
             var report = new SelfCheckReport(
                 SchemaVersion,
@@ -120,7 +127,7 @@ internal static class ScreenshotAnalysisOracle
                 acceptsDistinctVariants,
                 acceptsCompositorCornerMask,
                 rejectsInteriorTransparency,
-                decodesOpaquePng,
+                validatesPngStructureAndDecodedPixels,
                 identicalMetrics,
                 invalidMetrics,
                 variantMetrics,
@@ -149,9 +156,9 @@ internal static class ScreenshotAnalysisOracle
         PixelImage confirmationReference = PixelImage.Load(confirmationReferenceFullPath);
 
         var failures = new List<string>();
-        if (!artifactPng.HasSrgbChunk)
+        if (!HasMatchingDecodedRgbaDimensionsAndBytes(artifactPng, artifact))
         {
-            failures.Add("The screenshot artifact PNG does not declare the sRGB color space before image data.");
+            failures.Add("The decoded screenshot artifact does not match its PNG RGBA dimensions and byte count.");
         }
 
         AddOpacityFailure(failures, "screenshot artifact", artifact);
@@ -522,28 +529,60 @@ internal static class ScreenshotAnalysisOracle
             && metrics.ChangedPixelFraction >= VariantChangedPixelFractionMinimum;
     }
 
-    private static bool VerifyPixelImageDecoder ()
+    private static bool HasMatchingDecodedRgbaDimensionsAndBytes (PngInspector.Inspection inspection, PixelImage image)
     {
+        try
+        {
+            return inspection.Width == image.Width
+                && inspection.Height == image.Height
+                && image.Pixels.Length == checked(image.Width * image.Height * 4);
+        }
+        catch (OverflowException)
+        {
+            return false;
+        }
+    }
+
+    private static bool VerifyPngStructureAndDecodedPixels ()
+    {
+        byte[] valid = Convert.FromBase64String(
+            "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAAXNSR0IArs4c6QAAABpJREFUeJxj4BKR+69hZPOfwS0g6n9KXsV/ADLaBwnQtcZpAAAAAElFTkSuQmCC");
+        (string Name, string EncodedPng)[] rejectedFixtures =
+        [
+            ("invalid IHDR CRC", "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0lAAAAAXNSR0IArs4c6QAAABpJREFUeJxj4BKR+69hZPOfwS0g6n9KXsV/ADLaBwnQtcZpAAAAAElFTkSuQmCC"),
+            ("RGB instead of RGBA", "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAAXNSR0IArs4c6QAAABpJREFUeJxj4BKR+69hZPOfwS0g6n9KXsV/ADLaBwnQtcZpAAAAAElFTkSuQmCC"),
+            ("interlaced", "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAAEFsT2yAAAAAXNSR0IArs4c6QAAABpJREFUeJxj4BKR+69hZPOfwS0g6n9KXsV/ADLaBwnQtcZpAAAAAElFTkSuQmCC"),
+            ("sRGB after IDAT", "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAGklEQVR4nGPgEpH7r2Fk85/BLSDqf0pexX8AMtoHCdC1xmkAAAABc1JHQgCuzhzpAAAAAElFTkSuQmCC"),
+            ("missing IDAT", "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAAXNSR0IArs4c6QAAAABJRU5ErkJggg=="),
+            ("data after IEND", "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAAXNSR0IArs4c6QAAABpJREFUeJxj4BKR+69hZPOfwS0g6n9KXsV/ADLaBwnQtcZpAAAAAElFTkSuQmCCAA=="),
+            ("missing sRGB", "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAGklEQVR4nGPgEpH7r2Fk85/BLSDqf0pexX8AMtoHCdC1xmkAAAAASUVORK5CYII="),
+            ("zero width", "iVBORw0KGgoAAAANSUhEUgAAAAAAAAACCAYAAAB2Q90ZAAAAAXNSR0IArs4c6QAAABpJREFUeJxj4BKR+69hZPOfwS0g6n9KXsV/ADLaBwnQtcZpAAAAAElFTkSuQmCC"),
+            ("zero height", "iVBORw0KGgoAAAANSUhEUgAAAAIAAAAACAYAAAA/fqwvAAAAAXNSR0IArs4c6QAAABpJREFUeJxj4BKR+69hZPOfwS0g6n9KXsV/ADLaBwnQtcZpAAAAAElFTkSuQmCC"),
+            ("missing IEND", "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAAXNSR0IArs4c6QAAABpJREFUeJxj4BKR+69hZPOfwS0g6n9KXsV/ADLaBwnQtcZp"),
+            ("non-consecutive IDAT", "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAAXNSR0IArs4c6QAAAA1JREFUeJxj4BKR+69hZPOfwWcAV5UAAAADdEVYdGsAdssE85AAAAANSURBVC0g6n9KXsV/ADLaBwnvrFJFAAAAAElFTkSuQmCC"),
+        ];
+        if (!IsAccepted(valid, "valid self-check PNG"))
+        {
+            return false;
+        }
+
+        foreach ((string name, string encodedPng) in rejectedFixtures)
+        {
+            if (!IsRejected(name, encodedPng))
+            {
+                return false;
+            }
+        }
+
         string path = Path.Combine(
             Path.GetTempPath(),
             $"ucli-screenshot-fidelity-self-check-{Guid.NewGuid():N}.png");
         try
         {
-            using (var bitmap = new Bitmap(2, 2, PixelFormat.Format32bppArgb))
-            {
-                bitmap.SetPixel(0, 0, Color.FromArgb(byte.MaxValue, 10, 20, 30));
-                bitmap.SetPixel(1, 0, Color.FromArgb(byte.MaxValue, 40, 50, 60));
-                bitmap.SetPixel(0, 1, Color.FromArgb(byte.MaxValue, 70, 80, 90));
-                bitmap.SetPixel(1, 1, Color.FromArgb(byte.MaxValue, 100, 110, 120));
-                bitmap.Save(path, ImageFormat.Png);
-            }
-
-            File.WriteAllBytes(path, AddSrgbChunk(File.ReadAllBytes(path)));
+            File.WriteAllBytes(path, valid);
             PngInspector.Inspection inspection = PngInspector.Inspect(path);
             PixelImage decoded = PixelImage.Load(path);
-            return inspection.HasSrgbChunk
-                && decoded.Width == 2
-                && decoded.Height == 2
+            return HasMatchingDecodedRgbaDimensionsAndBytes(inspection, decoded)
                 && decoded.IsOpaque
                 && decoded.HasPixel(0, 0, 10, 20, 30)
                 && decoded.HasPixel(1, 0, 40, 50, 60)
@@ -559,30 +598,22 @@ internal static class ScreenshotAnalysisOracle
         }
     }
 
-    private static byte[] AddSrgbChunk (byte[] png)
+    private static bool IsAccepted (byte[] png, string source)
     {
-        ArgumentNullException.ThrowIfNull(png);
-
-        const int endOfIhdrChunk = 33;
-        if (png.Length < endOfIhdrChunk
-            || !png.AsSpan(12, 4).SequenceEqual("IHDR"u8))
+        try
         {
-            throw new InvalidDataException("The self-check encoder did not produce a PNG with an initial IHDR chunk.");
+            _ = PngInspector.Inspect(png, source);
+            return true;
         }
+        catch (InvalidDataException)
+        {
+            return false;
+        }
+    }
 
-        // This is the standard one-byte sRGB chunk for perceptual rendering intent, including its CRC.
-        ReadOnlySpan<byte> srgbChunk =
-        [
-            0x00, 0x00, 0x00, 0x01,
-            0x73, 0x52, 0x47, 0x42,
-            0x00,
-            0xAE, 0xCE, 0x1C, 0xE9,
-        ];
-        var taggedPng = new byte[png.Length + srgbChunk.Length];
-        png.AsSpan(0, endOfIhdrChunk).CopyTo(taggedPng);
-        srgbChunk.CopyTo(taggedPng.AsSpan(endOfIhdrChunk));
-        png.AsSpan(endOfIhdrChunk).CopyTo(taggedPng.AsSpan(endOfIhdrChunk + srgbChunk.Length));
-        return taggedPng;
+    private static bool IsRejected (string name, string encodedPng)
+    {
+        return !IsAccepted(Convert.FromBase64String(encodedPng), $"corrupt self-check PNG ({name})");
     }
 
     private static Thresholds CreateThresholds ()
@@ -668,7 +699,7 @@ internal static class ScreenshotAnalysisOracle
         bool AcceptsDistinctVariants,
         bool AcceptsCompositorCornerMask,
         bool RejectsInteriorTransparency,
-        bool DecodesOpaquePng,
+        bool PngStructureAndDecodedPixelsValidated,
         ImageComparison.Metrics IdenticalMetrics,
         ImageComparison.Metrics InvalidMetrics,
         ImageComparison.Metrics VariantMetrics,

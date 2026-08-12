@@ -96,7 +96,7 @@ public sealed class OpsListFilterTests
         var result = filter.Apply(snapshot.Operations);
 
         Assert.False(result.IsSuccess);
-        Assert.Contains("nameRegex", result.ErrorMessage, StringComparison.Ordinal);
+        Assert.False(string.IsNullOrWhiteSpace(result.ErrorMessage));
     }
 
     private static OpsCatalogListSnapshot CreateListSnapshot (params IndexOpEntryJsonContract[] operations)

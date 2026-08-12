@@ -105,7 +105,7 @@ public sealed class SupervisorBootstrapperTimeoutTests
     public async Task EnsureReady_WhenLaunchPollDelayWouldExceedDeadline_ReturnsTimeoutAtDeadline ()
     {
         using var scope = TestDirectories.CreateTempScope("supervisor-bootstrapper", "launch-poll-deadline");
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var releaseStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var releaseAllowed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var launchLease = new RecordingSupervisorProcessLaunchLease
@@ -139,10 +139,6 @@ public sealed class SupervisorBootstrapperTimeoutTests
                 TimeSpan.FromMilliseconds(50),
                 CancellationToken.None)
             .AsTask();
-        await ManualTimeTaskDriver.WaitForTimerDueWithinOrCompletionAsync(
-            timeProvider,
-            resultTask,
-            TimeSpan.FromMilliseconds(50));
         if (!resultTask.IsCompleted)
         {
             timeProvider.Advance(TimeSpan.FromMilliseconds(50));
@@ -166,7 +162,7 @@ public sealed class SupervisorBootstrapperTimeoutTests
     public async Task EnsureReady_WhenCanceledAfterLaunch_RollsBackRegistration ()
     {
         using var scope = TestDirectories.CreateTempScope("supervisor-bootstrapper", "post-launch-cancellation");
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var launchLease = new RecordingSupervisorProcessLaunchLease();
         var processManager = new RecordingSupervisorProcessManager
         {
@@ -186,9 +182,6 @@ public sealed class SupervisorBootstrapperTimeoutTests
                 TimeSpan.FromSeconds(5),
                 cancellation.Token)
             .AsTask();
-        await timeProvider.WaitForTimerDueWithinAsync(SupervisorConstants.BootstrapPollDelay)
-            .WaitAsync(SupervisorBootstrapperTestSupport.SignalWaitTimeout);
-
         cancellation.Cancel();
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => resultTask);

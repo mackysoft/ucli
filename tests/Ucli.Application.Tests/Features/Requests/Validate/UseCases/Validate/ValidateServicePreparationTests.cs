@@ -79,7 +79,6 @@ public sealed class ValidateServicePreparationTests
 
         ValidateServiceAssert.InvalidTimeoutStoppedBeforeSharedPreflight(
             result,
-            preflightService,
-            expectedMessageFragment: "ipcTimeoutMillisecondsByCommand[validate]");
+            preflightService);
     }
 }

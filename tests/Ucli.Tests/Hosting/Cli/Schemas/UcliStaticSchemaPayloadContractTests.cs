@@ -1,12 +1,15 @@
 using System.Text.Json;
-using System.Text.Json.Nodes;
 using Json.Schema;
-using MackySoft.FileSystem;
+using MackySoft.Ucli.Application.Features.Screenshot.Capture;
+using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Cryptography;
+using MackySoft.Ucli.Contracts.Editor;
 using MackySoft.Ucli.Contracts.Execution;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Schemas;
+using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 using MackySoft.Ucli.Hosting.Cli.Schemas;
+using MackySoft.Ucli.Hosting.Cli.Screenshot;
 using MackySoft.Ucli.Hosting.Cli.Testing;
 
 namespace MackySoft.Ucli.Tests.Hosting.Cli.Schemas;
@@ -317,6 +320,95 @@ public sealed class UcliStaticSchemaPayloadContractTests
 
     [Fact]
     [Trait("Size", "Medium")]
+    public void GeneratedBuildRunAndScreenshotResults_PreservePublicWireBranchesAndAgreeWithSchemas ()
+    {
+        var testCases = CreateGeneratedCommandResultCases();
+        var schemaSet = UcliStaticSchemaSetLoader.Load(
+            AbsolutePath.Parse(TestRepositoryPaths.GetFullPath("schemas")));
+        var envelopeSchema = BuildSchema(schemaSet, "cli-output.envelope");
+        var writer = new CommandResultJsonContractWriter();
+        var failures = new List<string>();
+
+        foreach (var testCase in testCases)
+        {
+            var result = testCase.CreateResult();
+            using var document = JsonDocument.Parse(writer.Write(result));
+            var root = document.RootElement;
+            AssertGeneratedCommandResultWireContract(root, testCase);
+
+            var envelopeFailure = EvaluateGolden(
+                envelopeSchema,
+                root,
+                testCase.Name,
+                "cli-output.envelope");
+            if (envelopeFailure != null)
+            {
+                failures.Add(envelopeFailure);
+                continue;
+            }
+
+            var payloadFailure = EvaluateGolden(
+                BuildSchema(schemaSet, testCase.PayloadSchemaName),
+                root.GetProperty("payload"),
+                testCase.Name,
+                testCase.PayloadSchemaName);
+            if (payloadFailure != null)
+            {
+                failures.Add(payloadFailure);
+            }
+        }
+
+        Assert.True(failures.Count == 0, string.Join(Environment.NewLine, failures));
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task GeneratedBuildRunAndScreenshotResults_UseCodesPublishedByThePublicCatalog ()
+    {
+        var catalogResult = await global::MackySoft.Ucli.Tests.CodesCliOutputContractTestSupport
+            .RunCodesListCommandAsync();
+        using var catalogDocument = JsonAssert.ParseMultilineObject(catalogResult.StdOut);
+        var catalogEntries = catalogDocument.RootElement
+            .GetProperty("payload")
+            .GetProperty("codes")
+            .EnumerateArray()
+            .ToDictionary(
+                static entry => entry.GetProperty("code").GetString()!,
+                static entry => entry.GetProperty("kind").GetString()!,
+                StringComparer.Ordinal);
+        var writer = new CommandResultJsonContractWriter();
+
+        foreach (var testCase in CreateGeneratedCommandResultCases())
+        {
+            using var outputDocument = JsonDocument.Parse(writer.Write(testCase.CreateResult()));
+            var root = outputDocument.RootElement;
+            foreach (var error in root.GetProperty("errors").EnumerateArray())
+            {
+                AssertPublishedCode(
+                    catalogEntries,
+                    error.GetProperty("code").GetString()!,
+                    expectedKind: "error",
+                    testCase.Name);
+            }
+
+            if (!root.GetProperty("payload").TryGetProperty("claims", out var claims))
+            {
+                continue;
+            }
+
+            foreach (var claim in claims.EnumerateArray())
+            {
+                AssertPublishedCode(
+                    catalogEntries,
+                    claim.GetProperty("id").GetString()!,
+                    expectedKind: "claim",
+                    testCase.Name);
+            }
+        }
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
     public void OperationContractViolationSchema_RejectsLifecycleOnlyPartialApplicationState ()
     {
         var golden = CliOutputGoldenFiles.ReadAllDocuments().Single(
@@ -381,6 +473,18 @@ public sealed class UcliStaticSchemaPayloadContractTests
         };
     }
 
+    private static void AssertPublishedCode (
+        IReadOnlyDictionary<string, string> catalogEntries,
+        string code,
+        string expectedKind,
+        string caseName)
+    {
+        Assert.True(
+            catalogEntries.TryGetValue(code, out var actualKind),
+            $"{caseName} emitted code '{code}', but `codes list` did not publish it.");
+        Assert.Equal(expectedKind, actualKind);
+    }
+
     [Fact]
     [Trait("Size", "Medium")]
     public void GeneratedPublicContracts_RejectMissingAlwaysEmittedProperties ()
@@ -409,13 +513,10 @@ public sealed class UcliStaticSchemaPayloadContractTests
 
         foreach (var testCase in cases)
         {
-            var golden = goldens.Single(document =>
-                document.RepositoryRelativePath.EndsWith(
-                    testCase.GoldenPathSuffix,
-                    StringComparison.Ordinal));
+            var root = ReadMissingPropertyCaseRoot(testCase, goldens);
             var source = testCase.ContainerProperty == null
-                ? golden.Root
-                : golden.Root.GetProperty(testCase.ContainerProperty);
+                ? root
+                : root.GetProperty(testCase.ContainerProperty);
             var instance = JsonNode.Parse(source.GetRawText())!.AsObject();
             Assert.True(instance.Remove(testCase.MissingProperty));
             var schema = BuildSchema(schemaSet, testCase.LogicalName);
@@ -426,6 +527,318 @@ public sealed class UcliStaticSchemaPayloadContractTests
                 result.IsValid,
                 $"'{testCase.LogicalName}' accepted an instance without '{testCase.MissingProperty}'.");
         }
+    }
+
+    private static JsonElement ReadMissingPropertyCaseRoot (
+        MissingPropertyCase testCase,
+        IReadOnlyList<CliOutputGoldenFiles.GoldenDocument> goldens)
+    {
+        if (string.Equals(testCase.GoldenPathSuffix, "build-run/success.json", StringComparison.Ordinal))
+        {
+            using var document = BuildRunCliOutputContractTestSupport.CreateDocument("success");
+            return document.RootElement.Clone();
+        }
+
+        return goldens
+            .Single(document => document.RepositoryRelativePath.EndsWith(
+                testCase.GoldenPathSuffix,
+                StringComparison.Ordinal))
+            .Root
+            .Clone();
+    }
+
+    private static GeneratedCommandResultCase[] CreateGeneratedCommandResultCases ()
+    {
+        return
+        [
+            new(
+                Name: "build.run pass",
+                CreateResult: static () => BuildRunCliOutputContractTestSupport.CreateCommandResult("success"),
+                ExpectedCommand: "build.run",
+                ExpectedStatus: "ok",
+                ExpectedExitCode: 0,
+                ExpectedErrorCode: null,
+                PayloadSchemaName: "cli-output.payload.build.run.ok",
+                AssertPayload: static payload => AssertBuildRunCompletedPayload(payload, "pass", "succeeded")),
+            new(
+                Name: "build.run runner failure",
+                CreateResult: static () => BuildRunCliOutputContractTestSupport.CreateCommandResult("build-report-failed"),
+                ExpectedCommand: "build.run",
+                ExpectedStatus: "ok",
+                ExpectedExitCode: 1,
+                ExpectedErrorCode: null,
+                PayloadSchemaName: "cli-output.payload.build.run.ok",
+                AssertPayload: static payload => AssertBuildRunCompletedPayload(payload, "fail", "failed")),
+            new(
+                Name: "build.run invalid profile",
+                CreateResult: static () => BuildRunCliOutputContractTestSupport.CreateCommandResult("invalid-profile"),
+                ExpectedCommand: "build.run",
+                ExpectedStatus: "error",
+                ExpectedExitCode: 3,
+                ExpectedErrorCode: "BUILD_PROFILE_INVALID",
+                PayloadSchemaName: "cli-output.payload.build.run.error",
+                AssertPayload: static payload => AssertBuildRunDetailedErrorPayload(payload, expectsDirtyState: false)),
+            new(
+                Name: "build.run unsupported target",
+                CreateResult: static () => BuildRunCliOutputContractTestSupport.CreateCommandResult("unsupported-buildTarget"),
+                ExpectedCommand: "build.run",
+                ExpectedStatus: "error",
+                ExpectedExitCode: 3,
+                ExpectedErrorCode: "BUILD_TARGET_UNSUPPORTED",
+                PayloadSchemaName: "cli-output.payload.build.run.error",
+                AssertPayload: static payload => AssertBuildRunDetailedErrorPayload(payload, expectsDirtyState: false)),
+            new(
+                Name: "build.run dirty scene",
+                CreateResult: static () => BuildRunCliOutputContractTestSupport.CreateCommandResult("dirty-scene"),
+                ExpectedCommand: "build.run",
+                ExpectedStatus: "error",
+                ExpectedExitCode: 4,
+                ExpectedErrorCode: "BUILD_DIRTY_STATE_PRESENT",
+                PayloadSchemaName: "cli-output.payload.build.run.error",
+                AssertPayload: static payload => AssertBuildRunDetailedErrorPayload(payload, expectsDirtyState: true)),
+            new(
+                Name: "build.run target module missing",
+                CreateResult: static () => BuildRunCliOutputContractTestSupport.CreateCommandResult("buildTarget-module-missing"),
+                ExpectedCommand: "build.run",
+                ExpectedStatus: "error",
+                ExpectedExitCode: 4,
+                ExpectedErrorCode: "BUILD_TARGET_MODULE_MISSING",
+                PayloadSchemaName: "cli-output.payload.build.run.error",
+                AssertPayload: static payload => AssertBuildRunDetailedErrorPayload(payload, expectsDirtyState: false)),
+            new(
+                Name: "build.run artifact write failure",
+                CreateResult: static () => BuildRunCliOutputContractTestSupport.CreateCommandResult("artifact-write-failed"),
+                ExpectedCommand: "build.run",
+                ExpectedStatus: "error",
+                ExpectedExitCode: 4,
+                ExpectedErrorCode: "BUILD_ARTIFACT_WRITE_FAILED",
+                PayloadSchemaName: "cli-output.payload.build.run.error",
+                AssertPayload: static payload => AssertBuildRunDetailedErrorPayload(payload, expectsDirtyState: false)),
+            new(
+                Name: "build.run output manifest failure",
+                CreateResult: static () => BuildRunCliOutputContractTestSupport.CreateCommandResult("output-manifest-failed"),
+                ExpectedCommand: "build.run",
+                ExpectedStatus: "error",
+                ExpectedExitCode: 4,
+                ExpectedErrorCode: "BUILD_OUTPUT_MANIFEST_FAILED",
+                PayloadSchemaName: "cli-output.payload.build.run.error",
+                AssertPayload: static payload => AssertBuildRunDetailedErrorPayload(payload, expectsDirtyState: false)),
+            new(
+                Name: "screenshot.game success",
+                CreateResult: static () => ScreenshotCommandResultFactory.Create(
+                    UcliCommandNames.ScreenshotGame,
+                    ScreenshotCaptureResult.Success(CreateScreenshotOutput(IpcScreenshotTarget.Game))),
+                ExpectedCommand: "screenshot.game",
+                ExpectedStatus: "ok",
+                ExpectedExitCode: 0,
+                ExpectedErrorCode: null,
+                PayloadSchemaName: "cli-output.payload.screenshot.game.ok",
+                AssertPayload: static payload => AssertScreenshotSuccessPayload(payload, "game")),
+            new(
+                Name: "screenshot.scene success",
+                CreateResult: static () => ScreenshotCommandResultFactory.Create(
+                    UcliCommandNames.ScreenshotScene,
+                    ScreenshotCaptureResult.Success(CreateScreenshotOutput(IpcScreenshotTarget.Scene))),
+                ExpectedCommand: "screenshot.scene",
+                ExpectedStatus: "ok",
+                ExpectedExitCode: 0,
+                ExpectedErrorCode: null,
+                PayloadSchemaName: "cli-output.payload.screenshot.scene.ok",
+                AssertPayload: static payload => AssertScreenshotSuccessPayload(payload, "scene")),
+            new(
+                Name: "screenshot.game requires GUI session",
+                CreateResult: static () => ScreenshotCommandResultFactory.Create(
+                    UcliCommandNames.ScreenshotGame,
+                    ScreenshotCaptureResult.Failure(ExecutionError.InternalError(
+                        "Screenshot capture requires a GUI Editor session.",
+                        ScreenshotErrorCodes.ScreenshotRequiresGuiSession))),
+                ExpectedCommand: "screenshot.game",
+                ExpectedStatus: "error",
+                ExpectedExitCode: 4,
+                ExpectedErrorCode: "SCREENSHOT_REQUIRES_GUI_SESSION",
+                PayloadSchemaName: "cli-output.payload.screenshot.game.error",
+                AssertPayload: AssertEmptyPayload),
+            new(
+                Name: "screenshot.scene capture unsupported",
+                CreateResult: static () => ScreenshotCommandResultFactory.Create(
+                    UcliCommandNames.ScreenshotScene,
+                    ScreenshotCaptureResult.Failure(ExecutionError.InternalError(
+                        "Screenshot capture is unsupported.",
+                        ScreenshotErrorCodes.ScreenshotCaptureUnsupported))),
+                ExpectedCommand: "screenshot.scene",
+                ExpectedStatus: "error",
+                ExpectedExitCode: 4,
+                ExpectedErrorCode: "SCREENSHOT_CAPTURE_UNSUPPORTED",
+                PayloadSchemaName: "cli-output.payload.screenshot.scene.error",
+                AssertPayload: AssertEmptyPayload),
+        ];
+    }
+
+    private static void AssertGeneratedCommandResultWireContract (
+        JsonElement root,
+        GeneratedCommandResultCase testCase)
+    {
+        Assert.Equal(JsonValueKind.Object, root.ValueKind);
+        Assert.Equal(testCase.ExpectedCommand, ReadRequiredString(root, "command"));
+        Assert.Equal(testCase.ExpectedStatus, ReadRequiredString(root, "status"));
+        Assert.Equal(testCase.ExpectedExitCode, root.GetProperty("exitCode").GetInt32());
+        Assert.Equal(JsonValueKind.String, root.GetProperty("message").ValueKind);
+
+        var errors = root.GetProperty("errors");
+        Assert.Equal(JsonValueKind.Array, errors.ValueKind);
+        var errorCodes = errors
+            .EnumerateArray()
+            .Select(static error => ReadRequiredString(error, "code"))
+            .ToArray();
+        if (testCase.ExpectedErrorCode == null)
+        {
+            Assert.Empty(errorCodes);
+        }
+        else
+        {
+            Assert.Contains(testCase.ExpectedErrorCode, errorCodes, StringComparer.Ordinal);
+        }
+
+        var payload = root.GetProperty("payload");
+        Assert.Equal(JsonValueKind.Object, payload.ValueKind);
+        testCase.AssertPayload(payload);
+    }
+
+    private static void AssertBuildRunCompletedPayload (
+        JsonElement payload,
+        string expectedVerdict,
+        string expectedRunnerStatus)
+    {
+        AssertHasProperties(
+            payload,
+            "verdict",
+            "project",
+            "build",
+            "verifiers",
+            "claims",
+            "reports",
+            "residualRisks");
+        Assert.Equal(expectedVerdict, ReadRequiredString(payload, "verdict"));
+
+        var build = payload.GetProperty("build");
+        Assert.Equal(JsonValueKind.Object, build.ValueKind);
+        AssertHasProperties(
+            build,
+            "runId",
+            "profile",
+            "inputs",
+            "runner",
+            "runnerResult",
+            "output",
+            "generations",
+            "summary",
+            "logs");
+        Assert.Equal(
+            expectedRunnerStatus,
+            ReadRequiredString(build.GetProperty("runnerResult"), "status"));
+    }
+
+    private static void AssertBuildRunDetailedErrorPayload (
+        JsonElement payload,
+        bool expectsDirtyState)
+    {
+        AssertHasProperties(payload, "payloadKind", "project");
+        Assert.Equal("detailed", ReadRequiredString(payload, "payloadKind"));
+        Assert.Equal(JsonValueKind.Object, payload.GetProperty("project").ValueKind);
+
+        if (expectsDirtyState)
+        {
+            Assert.Equal(JsonValueKind.Object, payload.GetProperty("dirtyState").ValueKind);
+        }
+    }
+
+    private static void AssertScreenshotSuccessPayload (
+        JsonElement payload,
+        string expectedTarget)
+    {
+        AssertHasProperties(payload, "project", "capture", "artifact");
+        Assert.Equal(JsonValueKind.Object, payload.GetProperty("project").ValueKind);
+
+        var capture = payload.GetProperty("capture");
+        Assert.Equal(JsonValueKind.Object, capture.ValueKind);
+        AssertHasProperties(
+            capture,
+            "target",
+            "sizeMode",
+            "requestedDimensions",
+            "dimensions",
+            "projectColorSpace",
+            "lifecycleStateAtCapture",
+            "compileStateAtCapture",
+            "generations",
+            "playModeState");
+        Assert.Equal(expectedTarget, ReadRequiredString(capture, "target"));
+
+        var artifact = payload.GetProperty("artifact");
+        Assert.Equal(JsonValueKind.Object, artifact.ValueKind);
+        AssertHasProperties(
+            artifact,
+            "locationKind",
+            "kind",
+            "mediaType",
+            "path",
+            "digest",
+            "sizeBytes",
+            "createdAtUtc");
+        Assert.Equal("path", ReadRequiredString(artifact, "locationKind"));
+        Assert.Equal("screenshot", ReadRequiredString(artifact, "kind"));
+        Assert.Equal("image/png", ReadRequiredString(artifact, "mediaType"));
+        Assert.Equal(JsonValueKind.String, artifact.GetProperty("path").ValueKind);
+        Assert.Equal(JsonValueKind.String, artifact.GetProperty("createdAtUtc").ValueKind);
+    }
+
+    private static void AssertEmptyPayload (JsonElement payload)
+    {
+        Assert.Empty(payload.EnumerateObject());
+    }
+
+    private static void AssertHasProperties (
+        JsonElement value,
+        params string[] propertyNames)
+    {
+        foreach (var propertyName in propertyNames)
+        {
+            Assert.True(
+                value.TryGetProperty(propertyName, out _),
+                $"Expected required property '{propertyName}'.");
+        }
+    }
+
+    private static ScreenshotCaptureOutput CreateScreenshotOutput (IpcScreenshotTarget target)
+    {
+        return new ScreenshotCaptureOutput(
+            ProjectIdentityInfoTestFactory.CreateWithProjectPath(
+                projectPath: ProjectPathTestValues.RepositoryUnityProject,
+                projectFingerprint: ProjectFingerprintTestFactory.Create("screenshot-schema"),
+                unityVersion: "6000.0.77f1"),
+            new IpcScreenshotCapture(
+                target,
+                IpcScreenshotSizeMode.CurrentSurface,
+                RequestedDimensions: null,
+                new PixelDimensions(1280, 720),
+                UnityProjectColorSpace.Linear,
+                new UnityEditorStateSnapshot(
+                    UnityEditorMode.Gui,
+                    UnityEditorLifecycleState.Ready,
+                    UnityEditorCompileState.Ready,
+                    new UnityEditorGenerationSnapshot(5, 7, 11, 13),
+                    new UnityEditorPlayModeSnapshot(
+                        UnityEditorPlayModeState.Stopped,
+                        UnityEditorPlayModeTransition.None,
+                        IsPlaying: false,
+                        IsPlayingOrWillChangePlaymode: false))),
+            new PathArtifactRef(
+                new ArtifactKind(TextVocabulary.GetText(ScreenshotArtifactKind.Screenshot)),
+                new ArtifactMediaType(TextVocabulary.GetText(ScreenshotArtifactMediaType.Png)),
+                new ArtifactPath(".ucli/local/projects/project/artifacts/screenshot/capture/screenshot.png"),
+                Sha256Digest.Parse(new string('a', 64)),
+                sizeBytes: 4096,
+                new DateTimeOffset(2026, 7, 11, 1, 2, 3, TimeSpan.Zero)));
     }
 
     private static string? EvaluateGoldenPayload (
@@ -508,4 +921,14 @@ public sealed class UcliStaticSchemaPayloadContractTests
         string GoldenPathSuffix,
         string? ContainerProperty,
         string MissingProperty);
+
+    private sealed record GeneratedCommandResultCase (
+        string Name,
+        Func<CommandResult> CreateResult,
+        string ExpectedCommand,
+        string ExpectedStatus,
+        int ExpectedExitCode,
+        string? ExpectedErrorCode,
+        string PayloadSchemaName,
+        Action<JsonElement> AssertPayload);
 }

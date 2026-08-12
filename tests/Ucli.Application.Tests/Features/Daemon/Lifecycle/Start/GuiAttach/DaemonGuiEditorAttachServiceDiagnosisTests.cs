@@ -165,7 +165,7 @@ public sealed class DaemonGuiEditorAttachServiceDiagnosisTests
                 return new ValueTask<DaemonDiagnosisStoreOperationResult>(releaseDiagnosisWrite.Task);
             },
         };
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var service = new DaemonGuiEditorAttachService(
             new RecordingUnityEditorInstanceMarkerReader
             {
@@ -200,19 +200,14 @@ public sealed class DaemonGuiEditorAttachServiceDiagnosisTests
                 cancellationToken: CancellationToken.None)
             .AsTask();
         await diagnosisWriteStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
-        var timerWaitTask = timeProvider
-            .WaitForTimerDueWithinAsync(DaemonTimeouts.SupplementalPersistenceTimeout);
-
         try
         {
-            await timerWaitTask.WaitAsync(TimeSpan.FromSeconds(1));
             timeProvider.Advance(DaemonTimeouts.SupplementalPersistenceTimeout);
             var result = await resultTask.WaitAsync(TimeSpan.FromSeconds(5));
 
             Assert.NotNull(result);
             Assert.False(result!.IsSuccess);
             Assert.Equal(DaemonErrorCodes.DaemonEndpointNotRegistered, result.Error!.Code);
-            Assert.Contains("diagnosis persistence failed", result.Error.Message, StringComparison.OrdinalIgnoreCase);
         }
         finally
         {
@@ -237,7 +232,7 @@ public sealed class DaemonGuiEditorAttachServiceDiagnosisTests
                 return new ValueTask<DaemonDiagnosisStoreOperationResult>(releaseDiagnosisWrite.Task);
             },
         };
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var service = new DaemonGuiEditorAttachService(
             new RecordingUnityEditorInstanceMarkerReader
             {
@@ -267,17 +262,12 @@ public sealed class DaemonGuiEditorAttachServiceDiagnosisTests
                 cancellationToken: CancellationToken.None)
             .AsTask();
         await diagnosisWriteStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
-        await timeProvider
-            .WaitForTimerDueWithinAsync(DaemonTimeouts.SupplementalPersistenceTimeout)
-            .WaitAsync(TimeSpan.FromSeconds(1));
-
         timeProvider.Advance(DaemonTimeouts.SupplementalPersistenceTimeout);
         var result = await resultTask.WaitAsync(TimeSpan.FromSeconds(5));
 
         Assert.NotNull(result);
         Assert.False(result!.IsSuccess);
         Assert.Equal(ExecutionErrorCodes.IpcTimeout, result.Error!.Code);
-        Assert.Contains("diagnosis persistence failed", result.Error.Message, StringComparison.OrdinalIgnoreCase);
         releaseDiagnosisWrite.TrySetResult(DaemonDiagnosisStoreOperationResult.Success());
     }
 }

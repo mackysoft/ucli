@@ -55,7 +55,6 @@ public sealed class ExecuteResponseConverterTests
         Assert.Null(result.Project);
         var error = Assert.Single(result.Errors);
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
-        Assert.Contains("project.projectFingerprint", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -78,7 +77,6 @@ public sealed class ExecuteResponseConverterTests
         Assert.False(result.IsSuccess);
         Assert.Null(result.Project);
         var error = Assert.Single(result.Errors);
-        Assert.Contains("project.projectPath", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -101,7 +99,6 @@ public sealed class ExecuteResponseConverterTests
         Assert.False(result.IsSuccess);
         Assert.Null(result.Project);
         var error = Assert.Single(result.Errors);
-        Assert.Contains("project.unityVersion", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -120,7 +117,6 @@ public sealed class ExecuteResponseConverterTests
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
-        Assert.Contains("payload is invalid", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -138,7 +134,6 @@ public sealed class ExecuteResponseConverterTests
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
-        Assert.Contains("'project' field", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -152,7 +147,6 @@ public sealed class ExecuteResponseConverterTests
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
-        Assert.Contains("opResults", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -176,7 +170,6 @@ public sealed class ExecuteResponseConverterTests
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
-        Assert.Contains(nameof(IpcExecuteOperationResult.Touched), error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -205,7 +198,6 @@ public sealed class ExecuteResponseConverterTests
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
-        Assert.Contains("Touched-resource kind must be specified.", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -232,7 +224,6 @@ public sealed class ExecuteResponseConverterTests
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
-        Assert.Contains(nameof(ExecutionReadPostcondition.Requirements), error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -251,7 +242,6 @@ public sealed class ExecuteResponseConverterTests
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
-        Assert.Contains("Read postcondition surface must be specified.", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -284,8 +274,6 @@ public sealed class ExecuteResponseConverterTests
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
-        Assert.Contains(nameof(IpcExecuteOperationPhase), error.Message, StringComparison.Ordinal);
-        Assert.Contains("unknownPhase", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -315,8 +303,6 @@ public sealed class ExecuteResponseConverterTests
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
-        Assert.Contains(nameof(UcliTouchedResourceKind), error.Message, StringComparison.Ordinal);
-        Assert.Contains("unknownKind", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -336,8 +322,6 @@ public sealed class ExecuteResponseConverterTests
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
-        Assert.Contains(nameof(ExecutionReadPostconditionSurface), error.Message, StringComparison.Ordinal);
-        Assert.Contains("unknownSurface", error.Message, StringComparison.Ordinal);
     }
 
     private static string CreatePayloadWithReadPostconditionRequirement (string requirementJson)

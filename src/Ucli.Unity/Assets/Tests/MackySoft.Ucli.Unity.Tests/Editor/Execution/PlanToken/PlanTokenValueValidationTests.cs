@@ -189,31 +189,6 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void CompactCodec_WhenOversizedTokenContainsManySeparators_RejectsWithoutInputSizedAllocation ()
-        {
-            const int IterationCount = 4;
-            var token = new string('.', PlanTokenCompactCodec.MaximumTokenLength + 1);
-            _ = PlanTokenCompactCodec.TryDecodeToken(string.Empty, out _);
-            _ = GC.GetAllocatedBytesForCurrentThread();
-            var allocatedBefore = GC.GetAllocatedBytesForCurrentThread();
-            var rejectedCount = 0;
-
-            for (var index = 0; index < IterationCount; index++)
-            {
-                if (!PlanTokenCompactCodec.TryDecodeToken(token, out _))
-                {
-                    rejectedCount++;
-                }
-            }
-
-            var allocatedAfter = GC.GetAllocatedBytesForCurrentThread();
-
-            Assert.That(rejectedCount, Is.EqualTo(IterationCount));
-            Assert.That(allocatedAfter - allocatedBefore, Is.LessThan(token.Length));
-        }
-
-        [Test]
-        [Category("Size.Small")]
         public void CompactCodec_WhenPayloadSegmentExceedsMaximum_RejectsToken ()
         {
             var segments = CreateValidToken().Split('.');

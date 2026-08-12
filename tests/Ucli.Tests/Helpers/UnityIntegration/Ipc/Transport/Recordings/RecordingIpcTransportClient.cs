@@ -28,6 +28,8 @@ internal sealed class RecordingIpcTransportClient : IIpcTransportClient
 
     private readonly List<CancellationToken> cancellationTokens = [];
 
+    private readonly SemaphoreSlim requestSignals = new(0);
+
     public RecordingIpcTransportClient (
         Func<IpcRequestEnvelope, IpcResponse> responseFactory,
         Func<IpcRequestEnvelope, IpcStreamFrame?>? progressFrameFactory = null,
@@ -59,6 +61,11 @@ internal sealed class RecordingIpcTransportClient : IIpcTransportClient
     public IReadOnlyList<TimeSpan> Timeouts => timeouts;
 
     public IReadOnlyList<CancellationToken> CancellationTokens => cancellationTokens;
+
+    internal Task WaitForRequestAsync (TimeSpan timeout)
+    {
+        return requestSignals.WaitAsync(timeout);
+    }
 
     public void EnqueueResponse (Func<IpcRequestEnvelope, IpcResponse> response)
     {
@@ -129,6 +136,7 @@ internal sealed class RecordingIpcTransportClient : IIpcTransportClient
         requests.Add(request);
         timeouts.Add(timeout);
         cancellationTokens.Add(cancellationToken);
+        requestSignals.Release();
 
         if (createLifecycleStartResponses
             && LifecycleExecutionIpcTestResponseFactory.TryCreateResponse(request) is { } lifecycleStartResponse)

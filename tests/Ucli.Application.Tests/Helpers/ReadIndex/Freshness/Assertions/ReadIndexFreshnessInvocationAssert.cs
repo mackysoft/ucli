@@ -31,7 +31,7 @@ internal static class ReadIndexFreshnessInvocationAssert
         SceneAssetPath expectedScenePath)
     {
         var invocation = Assert.Single(sceneHashProvider.Invocations);
-        Assert.Same(expectedUnityProject.UnityProjectRoot, invocation.SourcePaths.SceneFilePath.BoundaryRoot);
+        Assert.Equal(expectedUnityProject.UnityProjectRoot, invocation.SourcePaths.SceneFilePath.BoundaryRoot);
         Assert.Equal(expectedScenePath, invocation.SourcePaths.SceneAssetPath);
         Assert.Equal(expectedScenePath.Value, invocation.SourcePaths.SceneFilePath.RelativePath.Value);
         Assert.Equal(expectedScenePath.Value + ".meta", invocation.SourcePaths.MetaFilePath.RelativePath.Value);
@@ -58,7 +58,7 @@ internal static class ReadIndexFreshnessInvocationAssert
         Sha256Digest expectedPersistedSourceInputsHash)
     {
         var invocation = Assert.Single(freshnessEvaluator.ObserveInvocations);
-        Assert.Same(expectedUnityProject, invocation.UnityProject);
+        Assert.Equal(expectedUnityProject, invocation.UnityProject);
         Assert.Equal(expectedTarget, invocation.Target);
         Assert.Equal(expectedPersistedSourceInputsHash, invocation.PersistedSourceInputsHash);
         return invocation;

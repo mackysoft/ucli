@@ -22,12 +22,13 @@ public sealed class UnityDaemonIpcClientStartRecordRecoveryTests
         var unityProject =
             ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(
                 scope.FullPath);
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var executionTimeout = TimeSpan.FromSeconds(5);
         var completionTimeout =
             executionTimeout
             + LifecycleExecutionTiming.ResponseDeliveryGrace;
         LifecycleExecutionStartBinding? persistedStart = null;
+        var startPersisted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var transportClient = new RecordingIpcTransportClient(
             async (request, _) =>
             {
@@ -37,6 +38,7 @@ public sealed class UnityDaemonIpcClientStartRecordRecoveryTests
                 persistedStart =
                     await LifecycleExecutionIpcTestResponseFactory
                         .PersistStartAsync(unityProject, request);
+                startPersisted.TrySetResult();
                 throw new IpcResponseReadInterruptedException(
                     new EndOfStreamException(
                         "Lifecycle Start response was lost."));
@@ -86,12 +88,8 @@ public sealed class UnityDaemonIpcClientStartRecordRecoveryTests
                     timeProvider),
                 CancellationToken.None)
             .AsTask();
-        await ManualTimeTaskDriver.AdvanceUntilCompletedAsync(
-            timeProvider,
-            sendTask,
-            completionTimeout,
-            TimeSpan.FromMilliseconds(
-                DaemonTimeouts.StartupProbeRetryDelayMilliseconds));
+        await startPersisted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        timeProvider.Advance(completionTimeout);
         var result = await sendTask;
 
         Assert.False(result.IsSuccess);

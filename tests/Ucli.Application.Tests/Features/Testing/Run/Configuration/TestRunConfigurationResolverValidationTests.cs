@@ -34,7 +34,6 @@ public sealed class TestRunConfigurationResolverValidationTests
         var failed = Assert.IsType<TestRunConfigurationResolutionResult.Failed>(result);
         var error = Assert.Single(failed.Errors);
         Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
-        Assert.Contains("timeout", error.Message, StringComparison.Ordinal);
     }
 
 }

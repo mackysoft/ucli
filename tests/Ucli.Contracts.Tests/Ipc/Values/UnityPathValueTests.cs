@@ -1,4 +1,3 @@
-using System.Reflection;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Json;
 using MackySoft.Ucli.Contracts.Projects;
@@ -7,47 +6,47 @@ namespace MackySoft.Ucli.Contracts.Tests.Ipc.Values;
 
 public sealed class UnityPathValueTests
 {
-    public static TheoryData<Type, string, string> NormalizedPathCases => new()
+    public static TheoryData<Func<string, UcliStringValue>, string, string> NormalizedPathCases => new()
     {
-        { typeof(UnityAssetPath), @"Assets\Data\Settings.asset", "Assets/Data/Settings.asset" },
-        { typeof(SceneAssetPath), @"Assets\Scenes\Main.unity", "Assets/Scenes/Main.unity" },
-        { typeof(UnityScenePath), @"Assets\Scenes\Main.unity", "Assets/Scenes/Main.unity" },
-        { typeof(UnityScenePath), @"Packages\com.example\Scenes\Main.unity", "Packages/com.example/Scenes/Main.unity" },
-        { typeof(PrefabAssetPath), @"Assets\Prefabs\Player.prefab", "Assets/Prefabs/Player.prefab" },
-        { typeof(ProjectSettingsAssetPath), @"ProjectSettings\TagManager.asset", "ProjectSettings/TagManager.asset" },
-        { typeof(UnityAssetPathPrefix), "Assets", "Assets" },
-        { typeof(UnityAssetPathPrefix), @"Assets\Data", "Assets/Data" },
+        { static value => new UnityAssetPath(value), @"Assets\Data\Settings.asset", "Assets/Data/Settings.asset" },
+        { static value => new SceneAssetPath(value), @"Assets\Scenes\Main.unity", "Assets/Scenes/Main.unity" },
+        { static value => new UnityScenePath(value), @"Assets\Scenes\Main.unity", "Assets/Scenes/Main.unity" },
+        { static value => new UnityScenePath(value), @"Packages\com.example\Scenes\Main.unity", "Packages/com.example/Scenes/Main.unity" },
+        { static value => new PrefabAssetPath(value), @"Assets\Prefabs\Player.prefab", "Assets/Prefabs/Player.prefab" },
+        { static value => new ProjectSettingsAssetPath(value), @"ProjectSettings\TagManager.asset", "ProjectSettings/TagManager.asset" },
+        { static value => new UnityAssetPathPrefix(value), "Assets", "Assets" },
+        { static value => new UnityAssetPathPrefix(value), @"Assets\Data", "Assets/Data" },
     };
 
-    public static TheoryData<Type, string> InvalidPathCases => new()
+    public static TheoryData<Func<string, UcliStringValue>, string> InvalidPathCases => new()
     {
-        { typeof(UnityAssetPath), "Assets" },
-        { typeof(UnityAssetPath), "Packages/Data/Settings.asset" },
-        { typeof(UnityAssetPath), "Assets/../Settings.asset" },
-        { typeof(SceneAssetPath), "Assets/Scenes/Main.prefab" },
-        { typeof(SceneAssetPath), "Assets/Scenes/Main.UNITY" },
-        { typeof(UnityScenePath), "Packages/com.example/Scenes/Main.prefab" },
-        { typeof(UnityScenePath), "ProjectSettings/Scenes/Main.unity" },
-        { typeof(PrefabAssetPath), "Assets/Prefabs/Player.unity" },
-        { typeof(ProjectSettingsAssetPath), "ProjectSettings" },
-        { typeof(ProjectSettingsAssetPath), "Assets/TagManager.asset" },
-        { typeof(ProjectSettingsAssetPath), "ProjectSettings/../TagManager.asset" },
-        { typeof(UnityAssetPathPrefix), "Packages/com.example" },
-        { typeof(UnityAssetPathPrefix), "Assets//Data" },
-        { typeof(UnityHierarchyPath), "/Root" },
-        { typeof(UnityHierarchyPath), "Root/" },
-        { typeof(UnityHierarchyPath), "Root//Child" },
+        { static value => new UnityAssetPath(value), "Assets" },
+        { static value => new UnityAssetPath(value), "Packages/Data/Settings.asset" },
+        { static value => new UnityAssetPath(value), "Assets/../Settings.asset" },
+        { static value => new SceneAssetPath(value), "Assets/Scenes/Main.prefab" },
+        { static value => new SceneAssetPath(value), "Assets/Scenes/Main.UNITY" },
+        { static value => new UnityScenePath(value), "Packages/com.example/Scenes/Main.prefab" },
+        { static value => new UnityScenePath(value), "ProjectSettings/Scenes/Main.unity" },
+        { static value => new PrefabAssetPath(value), "Assets/Prefabs/Player.unity" },
+        { static value => new ProjectSettingsAssetPath(value), "ProjectSettings" },
+        { static value => new ProjectSettingsAssetPath(value), "Assets/TagManager.asset" },
+        { static value => new ProjectSettingsAssetPath(value), "ProjectSettings/../TagManager.asset" },
+        { static value => new UnityAssetPathPrefix(value), "Packages/com.example" },
+        { static value => new UnityAssetPathPrefix(value), "Assets//Data" },
+        { static value => new UnityHierarchyPath(value), "/Root" },
+        { static value => new UnityHierarchyPath(value), "Root/" },
+        { static value => new UnityHierarchyPath(value), "Root//Child" },
     };
 
     [Theory]
     [MemberData(nameof(NormalizedPathCases))]
     [Trait("Size", "Small")]
     public void Constructor_WhenPathUsesAlternateSeparators_StoresCanonicalPath (
-        Type valueType,
+        Func<string, UcliStringValue> create,
         string input,
         string expected)
     {
-        var value = Assert.IsAssignableFrom<UcliStringValue>(Activator.CreateInstance(valueType, input));
+        var value = create(input);
 
         Assert.Equal(expected, value.Value);
     }
@@ -56,14 +55,12 @@ public sealed class UnityPathValueTests
     [MemberData(nameof(InvalidPathCases))]
     [Trait("Size", "Small")]
     public void Constructor_WhenPathViolatesTypeInvariant_ThrowsArgumentException (
-        Type valueType,
+        Func<string, UcliStringValue> create,
         string input)
     {
-        var exception = Assert.Throws<TargetInvocationException>(
-            () => Activator.CreateInstance(valueType, input));
-        var argumentException = Assert.IsAssignableFrom<ArgumentException>(exception.InnerException);
+        var exception = Assert.ThrowsAny<ArgumentException>(() => create(input));
 
-        Assert.Equal("value", argumentException.ParamName);
+        Assert.Equal("value", exception.ParamName);
     }
 
     [Fact]

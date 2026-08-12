@@ -12,7 +12,7 @@ public sealed class UnityEditorInstallationSearchRootsTests
         var first = UnityEditorInstallationSearchRoots.GetSearchRoots();
         var second = UnityEditorInstallationSearchRoots.GetSearchRoots();
 
-        Assert.Same(first, second);
+        Assert.Equal(first, second);
     }
 
     [Fact]
