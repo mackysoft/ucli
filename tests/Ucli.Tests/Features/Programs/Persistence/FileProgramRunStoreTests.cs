@@ -1684,10 +1684,10 @@ public sealed class FileProgramRunStoreTests
             stepOverride: CreateFailedStep(terminalRef) with { ErrorCode = errorCode },
             definitionSnapshotRef: initial.DefinitionSnapshotRef);
 
-    private static UnityProjectIdentity CreateProject () => new("/project", new ProjectFingerprint(new string('b', 64)), "6000.1.0f1");
+    private static UnityProjectIdentity CreateProject () => new(ProjectPathTestValues.WorkspaceUnityProject, new ProjectFingerprint(new string('b', 64)), "6000.1.0f1");
 
     private static ResolvedUnityProjectContext CreateResolvedProject () => ResolvedUnityProjectContext.Create(
-        AbsolutePath.Parse("/project"), AbsolutePath.Parse("/repository"), CreateProject().ProjectFingerprint,
+        AbsolutePath.Parse(ProjectPathTestValues.WorkspaceUnityProject), AbsolutePath.Parse(ProjectPathTestValues.WorkspaceRoot), CreateProject().ProjectFingerprint,
         UnityProjectPathSource.CurrentDirectory, null, "6000.1.0f1");
 
     private sealed class SingleStoreFactory (IProgramRunStore store) : IProgramRunStoreFactory

@@ -713,7 +713,7 @@ public sealed class ProgramSupervisorTests
     }
 
     private static ResolvedUnityProjectContext CreateProject () => ResolvedUnityProjectContext.Create(
-        AbsolutePath.Parse("/project"), AbsolutePath.Parse("/repository"), new ProjectFingerprint(new string('c', 64)), UnityProjectPathSource.CurrentDirectory, null, "6000.1.0f1");
+        AbsolutePath.Parse(ProjectPathTestValues.WorkspaceUnityProject), AbsolutePath.Parse(ProjectPathTestValues.WorkspaceRoot), new ProjectFingerprint(new string('c', 64)), UnityProjectPathSource.CurrentDirectory, null, "6000.1.0f1");
 
     private static UnityProjectIdentity CreateProjectIdentity () => new("/project", new ProjectFingerprint(new string('c', 64)), "6000.1.0f1");
 
