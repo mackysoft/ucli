@@ -40,15 +40,21 @@ public sealed class ProgramDefinitionSnapshotTests
     [Trait("Size", "Small")]
     public async Task FromResolved_IsDeterministicForEquivalentResolvedInput ()
     {
-        const string programJson = "{\"steps\":[{\"command\":\"call\",\"timeoutMilliseconds\":1000,\"steps\":[{\"kind\":\"op\",\"op\":\"ucli.scene.open\",\"args\":{\"path\":\"Assets/Main.unity\"}}]},{\"command\":\"ready\",\"timeoutMilliseconds\":1001}]}";
+        const string programJson = "{\"steps\":[{\"command\":\"call\",\"timeoutMilliseconds\":1000,\"requestPath\":\"request.json\"},{\"command\":\"ready\",\"timeoutMilliseconds\":1001}]}";
+        const string requestJson = "{\"steps\":[{\"kind\":\"op\",\"op\":\"ucli.scene.open\",\"args\":{\"path\":\"Assets/Main.unity\"}}]}";
         var root = AbsolutePath.Parse(Path.GetFullPath($"ucli-program-snapshot-{Guid.NewGuid():N}"));
 
-        var first = ProgramDefinitionSnapshot.FromResolved(await ResolveAsync(new RecordingReader(_ => programJson), root));
-        var second = ProgramDefinitionSnapshot.FromResolved(await ResolveAsync(new RecordingReader(_ => programJson), root));
+        var first = ProgramDefinitionSnapshot.FromResolved(await ResolveAsync(new RecordingReader(path =>
+            path.RelativePath.Value == "program.json" ? programJson : requestJson), root));
+        var second = ProgramDefinitionSnapshot.FromResolved(await ResolveAsync(new RecordingReader(path =>
+            path.RelativePath.Value == "program.json" ? programJson : requestJson), root));
+        var firstDefinition = first.RestoreFixedDefinition();
+        var secondDefinition = second.RestoreFixedDefinition();
 
-        Assert.Equal(
-            JsonSerializer.Serialize(first, IpcJsonSerializerOptions.Default),
-            JsonSerializer.Serialize(second, IpcJsonSerializerOptions.Default));
+        Assert.Equal(first.DefinitionDigest, second.DefinitionDigest);
+        Assert.Equal(["reference:1000:request.json", "ready:1001"], firstDefinition.Steps.Select(GetSignature));
+        Assert.Equal(firstDefinition.Steps.Select(GetSignature), secondDefinition.Steps.Select(GetSignature));
+        Assert.Equal(firstDefinition.Sources.Select(GetSourceSignature), secondDefinition.Sources.Select(GetSourceSignature));
     }
 
     [Fact]
@@ -152,6 +158,20 @@ public sealed class ProgramDefinitionSnapshotTests
         ScreenshotSceneProgramStep scene => $"screenshot.scene:{scene.TimeoutMilliseconds}",
         _ => throw new InvalidOperationException($"Unexpected Program Step type {step.GetType().Name}."),
     };
+
+    private static (string InstancePath, string Path, string DocumentDigest, int ByteLength, int ProtocolVersion, bool AllowPlayMode, string Operation, string? AssetPath) GetSourceSignature (ResolvedProgramSource source)
+    {
+        var step = Assert.Single(source.Request.Steps);
+        return (
+            source.InstancePath,
+            source.Path.Value,
+            source.DocumentDigest.ToString(),
+            source.ByteLength,
+            source.Request.ProtocolVersion,
+            source.Request.AllowPlayMode,
+            step.Op ?? throw new InvalidOperationException("Expected an operation Request Step."),
+            step.Args.GetProperty("path").GetString());
+    }
 
     private sealed class RecordingReader (Func<ContainedPath, string> read) : IProgramDefinitionFileReader
     {

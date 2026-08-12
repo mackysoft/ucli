@@ -36,10 +36,21 @@ public sealed class ProgramRunPersistenceServiceTests
         Assert.All(registration.Current.Steps, static step => Assert.Equal(ProgramStepState.Deferred, step.State));
 
         var loaded = await service.LoadAsync(project, runId);
-        Assert.Same(registration.Current, loaded!.Run);
+        Assert.NotNull(loaded);
+        Assert.Equal(runId, loaded.Run.RunId);
+        Assert.Equal(0, loaded.Run.Version);
+        Assert.Equal(Sha256Digest.Parse("14c934ffaac9d7cfce1bcda1de4d74cfbc14d35d8f3eae8d119dfb2e84c5c629"), loaded.Run.DefinitionDigest);
+        Assert.Equal(ProgramRunState.Created, loaded.Run.State);
+        Assert.Equal(0, loaded.Run.Cursor);
+        Assert.Equal(ProgramStepState.Deferred, Assert.Single(loaded.Run.Steps).State);
+        Assert.Empty(loaded.Run.ChildExecutionRefs);
+        Assert.False(loaded.Run.Cancellation.Requested);
         var cancelled = await service.RequestCancellationAsync(project, runId, "USER_CANCELLED");
         var duplicate = await service.RequestCancellationAsync(project, runId, "ignored");
         Assert.True(cancelled!.Cancellation.Requested);
+        Assert.Equal(1, cancelled.Version);
+        Assert.Equal("USER_CANCELLED", cancelled.Cancellation.ReasonCode);
+        Assert.Equal(1, duplicate!.Version);
         Assert.Equal("USER_CANCELLED", duplicate!.Cancellation.ReasonCode);
     }
 
@@ -199,10 +210,17 @@ public sealed class ProgramRunPersistenceServiceTests
             return ValueTask.FromResult(new ProgramRunStoreCreateResult(true, run));
         }
 
-        public ValueTask<ProgramRunRecord?> ReadAsync (Guid runId, CancellationToken cancellationToken = default) => ValueTask.FromResult(current);
+        public ValueTask<ProgramRunRecord?> ReadAsync (Guid runId, CancellationToken cancellationToken = default) => ValueTask.FromResult<ProgramRunRecord?>(
+            current is null ? null : CloneRun(current));
 
         public ValueTask<ProgramRunStoredDefinition?> ReadDefinitionAsync (Guid runId, CancellationToken cancellationToken = default) =>
-            ValueTask.FromResult<ProgramRunStoredDefinition?>(current is null ? null : new ProgramRunStoredDefinition(current, CreateStoredDefinition()));
+            ValueTask.FromResult<ProgramRunStoredDefinition?>(current is null ? null : new ProgramRunStoredDefinition(CloneRun(current), CreateStoredDefinition()));
+
+        private static ProgramRunRecord CloneRun (ProgramRunRecord run) => new(
+            run.SchemaVersion, run.Version, run.RunId, run.DefinitionDigest, run.DefinitionSnapshotRef,
+            run.Project, run.FixedContext, run.Host, run.StartedGeneration, run.CurrentEditorGeneration,
+            run.DeadlineUtc, run.StartedAtUtc, run.UpdatedAtUtc, run.State, run.Cursor,
+            run.Steps, run.ChildExecutionRefs, run.Cancellation, run.TerminalRecordRef);
 
         private static ProgramDefinitionSnapshotFixedDefinition CreateStoredDefinition () => new(
             [new ReadyProgramStep(1000)], [], new ProgramSourceManifest(
@@ -213,9 +231,13 @@ public sealed class ProgramRunPersistenceServiceTests
 
         public ValueTask<ProgramRunStoreCompareExchangeResult> CompareExchangeAsync (ProgramRunRecord expected, ProgramRunRecord replacement, CancellationToken cancellationToken = default)
         {
-            if (!ReferenceEquals(expected, current))
+            if (current is null)
             {
-                return ValueTask.FromResult(new ProgramRunStoreCompareExchangeResult(false, current!));
+                throw new InvalidOperationException("Program Run must exist before it can be replaced.");
+            }
+            if (expected.Version != current.Version || replacement.Version != current.Version + 1)
+            {
+                return ValueTask.FromResult(new ProgramRunStoreCompareExchangeResult(false, current));
             }
             current = replacement;
             return ValueTask.FromResult(new ProgramRunStoreCompareExchangeResult(true, replacement));
