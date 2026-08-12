@@ -1,11 +1,12 @@
 namespace MackySoft.Ucli.Tests.Execution;
 
+using System.Diagnostics;
 using System.Runtime.Versioning;
+using System.Security.Cryptography;
 using System.Text;
 using MackySoft.FileSystem;
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
-using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Tests.Helpers;
 
 public sealed class FileSystemProjectLifecycleLockProviderTests
@@ -151,10 +152,7 @@ public sealed class FileSystemProjectLifecycleLockProviderTests
         using var scope = TestDirectories.CreateTempScope("daemon-lock", "nested-ordinary-project");
         var lockStorageRoot = AbsolutePath.Parse(scope.CreateDirectory("locks"));
         var projectRoot = AbsolutePath.Parse(TestRepositoryPaths.GetFullPath("src", "Ucli"));
-        var expectedIdentityText = OperatingSystem.IsWindows()
-            ? projectRoot.Value.ToUpperInvariant()
-            : projectRoot.Value;
-        var expectedLockKey = Sha256LowerHex.Compute(Encoding.UTF8.GetBytes(expectedIdentityText));
+        var expectedLockKey = CreateExpectedLockKey(projectRoot);
         var expectedLockFilePath = Path.Combine(
             lockStorageRoot.Value,
             expectedLockKey,
@@ -197,9 +195,9 @@ public sealed class FileSystemProjectLifecycleLockProviderTests
 
     [Fact]
     [Trait("Size", "Medium")]
-    public async Task Acquire_WithSymlinkProjectRoot_UsesTargetPhysicalProjectLock ()
+    public async Task Acquire_WithExactAndSymlinkProjectRoots_UsesOnePhysicalProjectLock ()
     {
-        using var scope = TestDirectories.CreateTempScope("daemon-lock", "symlink-project");
+        using var scope = CreatePhysicalResolutionScope("symlink-project");
         var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var lockStorageRoot = AbsolutePath.Parse(scope.CreateDirectory("locks"));
         var firstProvider = new FileSystemProjectLifecycleLockProvider(timeProvider, lockStorageRoot);
@@ -207,7 +205,6 @@ public sealed class FileSystemProjectLifecycleLockProviderTests
         var targetProjectRoot = scope.CreateDirectory(Path.Combine("target", "UnityProject"));
         var symlinkProjectRoot = Path.Combine(scope.FullPath, "linked-project");
         Directory.CreateSymbolicLink(symlinkProjectRoot, targetProjectRoot);
-
         await AssertSecondAcquireWaitsForReleaseAsync(
             firstProvider,
             secondProvider,
@@ -215,6 +212,58 @@ public sealed class FileSystemProjectLifecycleLockProviderTests
             new ProjectLifecycleLockRequest(AbsolutePath.Parse(targetProjectRoot)),
             new ProjectLifecycleLockRequest(AbsolutePath.Parse(symlinkProjectRoot)),
             "Symlink lifecycle lock reacquire");
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task Acquire_WithAncestorSymlinkProjectRoot_UsesTargetPhysicalProjectLock ()
+    {
+        using var scope = CreatePhysicalResolutionScope("ancestor-symlink-project");
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
+        var lockStorageRoot = AbsolutePath.Parse(scope.CreateDirectory("locks"));
+        var firstProvider = new FileSystemProjectLifecycleLockProvider(timeProvider, lockStorageRoot);
+        var secondProvider = new FileSystemProjectLifecycleLockProvider(timeProvider, lockStorageRoot);
+        var targetAncestorPath = scope.CreateDirectory("target");
+        var targetProjectRoot = Directory.CreateDirectory(Path.Combine(targetAncestorPath, "UnityProject")).FullName;
+        var linkedAncestorPath = Path.Combine(scope.FullPath, "linked-ancestor");
+        Directory.CreateSymbolicLink(linkedAncestorPath, targetAncestorPath);
+        var linkedProjectRoot = Path.Combine(linkedAncestorPath, "UnityProject");
+        await AssertSecondAcquireWaitsForReleaseAsync(
+            firstProvider,
+            secondProvider,
+            timeProvider,
+            new ProjectLifecycleLockRequest(AbsolutePath.Parse(targetProjectRoot)),
+            new ProjectLifecycleLockRequest(AbsolutePath.Parse(linkedProjectRoot)),
+            "Ancestor-symlink lifecycle lock reacquire");
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    [SupportedOSPlatform("windows")]
+    public async Task Acquire_OnWindows_WithJunctionProjectRoot_UsesTargetPhysicalProjectLock ()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        using var scope = CreatePhysicalResolutionScope("junction-project");
+        var targetProjectRoot = scope.CreateDirectory(Path.Combine("target", "UnityProject"));
+        var junctionProjectRoot = Path.Combine(scope.FullPath, "junction-project");
+        var junctionCreation = await CreateWindowsJunctionAsync(junctionProjectRoot, targetProjectRoot);
+        Assert.True(junctionCreation.Succeeded, junctionCreation.CreateFailureMessage());
+
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
+        var lockStorageRoot = AbsolutePath.Parse(scope.CreateDirectory("locks"));
+        var firstProvider = new FileSystemProjectLifecycleLockProvider(timeProvider, lockStorageRoot);
+        var secondProvider = new FileSystemProjectLifecycleLockProvider(timeProvider, lockStorageRoot);
+        await AssertSecondAcquireWaitsForReleaseAsync(
+            firstProvider,
+            secondProvider,
+            timeProvider,
+            new ProjectLifecycleLockRequest(AbsolutePath.Parse(targetProjectRoot)),
+            new ProjectLifecycleLockRequest(AbsolutePath.Parse(junctionProjectRoot)),
+            "Junction lifecycle lock reacquire");
     }
 
     [Fact]
@@ -275,6 +324,66 @@ public sealed class FileSystemProjectLifecycleLockProviderTests
 
     [Fact]
     [Trait("Size", "Medium")]
+    public async Task Acquire_WithMissingProjectRoot_ThrowsDirectoryNotFoundException ()
+    {
+        using var scope = TestDirectories.CreateTempScope("daemon-lock", "missing-project");
+        var provider = CreateProvider(scope, new FakeTimeProvider(DateTimeOffset.UnixEpoch));
+        var missingProjectRoot = AbsolutePath.Parse(Path.Combine(scope.FullPath, "missing", "UnityProject"));
+
+        var exception = await Record.ExceptionAsync(async () =>
+        {
+            await provider.AcquireAsync(
+                new ProjectLifecycleLockRequest(missingProjectRoot),
+                InitialAcquireTimeout,
+                CancellationToken.None);
+        });
+
+        Assert.IsType<DirectoryNotFoundException>(exception);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task Acquire_WithBrokenProjectRootSymbolicLink_ThrowsDirectoryNotFoundException ()
+    {
+        using var scope = CreatePhysicalResolutionScope("broken-project-link");
+        var brokenProjectRoot = Path.Combine(scope.FullPath, "broken-project");
+        Directory.CreateSymbolicLink(brokenProjectRoot, Path.Combine(scope.FullPath, "missing", "UnityProject"));
+        var provider = CreateProvider(scope, new FakeTimeProvider(DateTimeOffset.UnixEpoch));
+        var exception = await Record.ExceptionAsync(async () =>
+        {
+            await provider.AcquireAsync(
+                new ProjectLifecycleLockRequest(AbsolutePath.Parse(brokenProjectRoot)),
+                InitialAcquireTimeout,
+                CancellationToken.None);
+        });
+
+        Assert.IsType<DirectoryNotFoundException>(exception);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task Acquire_WithSymbolicLinkCycle_ThrowsIOException ()
+    {
+        using var scope = CreatePhysicalResolutionScope("project-link-cycle");
+        var firstLinkPath = Path.Combine(scope.FullPath, "first-link");
+        var secondLinkPath = Path.Combine(scope.FullPath, "second-link");
+        Directory.CreateSymbolicLink(firstLinkPath, secondLinkPath);
+        Directory.CreateSymbolicLink(secondLinkPath, firstLinkPath);
+        var provider = CreateProvider(scope, new FakeTimeProvider(DateTimeOffset.UnixEpoch));
+
+        var exception = await Record.ExceptionAsync(async () =>
+        {
+            await provider.AcquireAsync(
+                new ProjectLifecycleLockRequest(AbsolutePath.Parse(firstLinkPath)),
+                InitialAcquireTimeout,
+                CancellationToken.None);
+        });
+
+        Assert.IsType<IOException>(exception);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
     [SupportedOSPlatform("macos")]
     [SupportedOSPlatform("linux")]
     public async Task Acquire_OnUnix_CreatesLockStorageDirectoryChainWithOwnerOnlyAccess ()
@@ -307,6 +416,44 @@ public sealed class FileSystemProjectLifecycleLockProviderTests
         return new FileSystemProjectLifecycleLockProvider(
             timeProvider,
             AbsolutePath.Parse(scope.CreateDirectory("locks")));
+    }
+
+    private static FileSystemProjectLifecycleLockProvider CreateProvider (
+        PhysicalResolutionScope scope,
+        TimeProvider timeProvider)
+    {
+        return new FileSystemProjectLifecycleLockProvider(
+            timeProvider,
+            AbsolutePath.Parse(scope.CreateDirectory("locks")));
+    }
+
+    private static PhysicalResolutionScope CreatePhysicalResolutionScope (string testCaseName)
+    {
+        var root = Path.Combine(
+            TestRepositoryPaths.GetFullPath("TestResults"),
+            "daemon-lock",
+            testCaseName,
+            Guid.NewGuid().ToString("N"));
+        return new PhysicalResolutionScope(root);
+    }
+
+    private static string CreateExpectedLockKey (AbsolutePath actualCasedProjectRoot)
+    {
+        var identityText = CreateExpectedLockIdentityText(actualCasedProjectRoot);
+        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(identityText))).ToLowerInvariant();
+    }
+
+    private static string CreateExpectedLockIdentityText (AbsolutePath actualCasedProjectRoot)
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return actualCasedProjectRoot.Value;
+        }
+
+        var root = actualCasedProjectRoot.GetRoot();
+        return string.Concat(
+            root.Value.ToUpperInvariant(),
+            actualCasedProjectRoot.Value[root.Value.Length..]);
     }
 
     private static async Task AssertSecondAcquireWaitsForReleaseAsync (
@@ -389,5 +536,168 @@ public sealed class FileSystemProjectLifecycleLockProviderTests
         }
 
         throw new InvalidOperationException($"Filesystem root contains no letter whose case can be changed: {rootPath}");
+    }
+
+    private static async Task<WindowsJunctionCreationResult> CreateWindowsJunctionAsync (
+        string junctionPath,
+        string targetPath)
+    {
+        var processStartInfo = new ProcessStartInfo
+        {
+            FileName = "cmd.exe",
+            Arguments = $"/c mklink /J \"{junctionPath}\" \"{targetPath}\"",
+            CreateNoWindow = true,
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+        };
+        var command = $"{processStartInfo.FileName} {processStartInfo.Arguments}";
+        try
+        {
+            using var process = Process.Start(processStartInfo);
+            if (process is null)
+            {
+                return WindowsJunctionCreationResult.FailedToStart(command, junctionPath, targetPath);
+            }
+
+            var standardOutputTask = process.StandardOutput.ReadToEndAsync();
+            var standardErrorTask = process.StandardError.ReadToEndAsync();
+            Exception? processException = null;
+            try
+            {
+                await process.WaitForExitAsync().WaitAsync(AcquireWaitTimeout);
+            }
+            catch (Exception exception)
+            {
+                processException = exception;
+                if (!process.HasExited)
+                {
+                    try
+                    {
+                        process.Kill(entireProcessTree: true);
+                        await process.WaitForExitAsync().WaitAsync(AcquireWaitTimeout);
+                    }
+                    catch (Exception terminationException)
+                    {
+                        processException = new AggregateException(exception, terminationException);
+                    }
+                }
+            }
+
+            if (!process.HasExited)
+            {
+                return WindowsJunctionCreationResult.FailedToRun(
+                    command,
+                    junctionPath,
+                    targetPath,
+                    processException ?? new InvalidOperationException("Junction creation process did not exit."));
+            }
+
+            var standardOutput = await standardOutputTask;
+            var standardError = await standardErrorTask;
+            return new WindowsJunctionCreationResult(
+                command,
+                junctionPath,
+                targetPath,
+                process.ExitCode,
+                standardOutput,
+                standardError,
+                processException is null && process.ExitCode == 0 && Directory.Exists(junctionPath),
+                processException);
+        }
+        catch (Exception exception)
+        {
+            return WindowsJunctionCreationResult.FailedToRun(
+                command,
+                junctionPath,
+                targetPath,
+                exception);
+        }
+    }
+
+    private sealed record WindowsJunctionCreationResult (
+        string Command,
+        string JunctionPath,
+        string TargetPath,
+        int? ExitCode,
+        string StandardOutput,
+        string StandardError,
+        bool Succeeded,
+        Exception? Exception)
+    {
+        public static WindowsJunctionCreationResult FailedToStart (
+            string command,
+            string junctionPath,
+            string targetPath)
+        {
+            return new WindowsJunctionCreationResult(
+                command,
+                junctionPath,
+                targetPath,
+                null,
+                string.Empty,
+                string.Empty,
+                false,
+                null);
+        }
+
+        public static WindowsJunctionCreationResult FailedToRun (
+            string command,
+            string junctionPath,
+            string targetPath,
+            Exception exception)
+        {
+            return new WindowsJunctionCreationResult(
+                command,
+                junctionPath,
+                targetPath,
+                null,
+                string.Empty,
+                string.Empty,
+                false,
+                exception);
+        }
+
+        public string CreateFailureMessage ()
+        {
+            return $"""
+                Windows junction fixture creation failed.
+                Command: {Command}
+                Exit code: {ExitCode?.ToString() ?? "not available"}
+                Target path: {TargetPath}
+                Junction path: {JunctionPath}
+                Standard output:
+                {StandardOutput}
+                Standard error:
+                {StandardError}
+                Exception: {Exception?.ToString() ?? "none"}
+                """;
+        }
+    }
+
+    private sealed class PhysicalResolutionScope : IDisposable
+    {
+        public PhysicalResolutionScope (string fullPath)
+        {
+            FullPath = fullPath;
+            Directory.CreateDirectory(FullPath);
+        }
+
+        public string FullPath { get; }
+
+        public string CreateDirectory (string relativePath)
+        {
+            var fullPath = Path.Combine(FullPath, relativePath);
+            Directory.CreateDirectory(fullPath);
+            return fullPath;
+        }
+
+        public void Dispose ()
+        {
+            if (Directory.Exists(FullPath))
+            {
+                Directory.Delete(FullPath, recursive: true);
+            }
+        }
     }
 }

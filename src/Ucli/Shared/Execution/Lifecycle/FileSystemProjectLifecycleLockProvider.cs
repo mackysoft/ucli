@@ -1,9 +1,7 @@
 using System.Text;
-using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Contracts.Cryptography;
-using MackySoft.Ucli.Infrastructure.Cryptography;
 using MackySoft.Ucli.Infrastructure.Storage;
 
 namespace MackySoft.Ucli.Shared.Execution.Lifecycle;
@@ -113,7 +111,7 @@ internal sealed class FileSystemProjectLifecycleLockProvider : IProjectLifecycle
     private AbsolutePath ResolveLockFilePath (AbsolutePath unityProjectRoot)
     {
         var physicalProjectRoot = ResolvePhysicalProjectRoot(unityProjectRoot);
-        var identityText = DeterministicPathText.ForIdentity(physicalProjectRoot);
+        var identityText = CreateLockIdentityText(physicalProjectRoot);
         var lockKey = Sha256LowerHex.Compute(Encoding.UTF8.GetBytes(identityText));
         return ContainedPath.Create(
             lockStorageRoot,
@@ -122,41 +120,47 @@ internal sealed class FileSystemProjectLifecycleLockProvider : IProjectLifecycle
 
     private static AbsolutePath ResolvePhysicalProjectRoot (AbsolutePath unityProjectRoot)
     {
-        if (!Directory.Exists(unityProjectRoot.Value))
+        var requestedPath = ContainedPath.Create(unityProjectRoot.GetRoot(), unityProjectRoot);
+        if (!PhysicalPathResolver.TryResolve(
+                requestedPath,
+                SymbolicLinkHandling.Follow,
+                MissingPathHandling.Reject,
+                out var resolution,
+                out var failure))
         {
-            throw new DirectoryNotFoundException($"Unity project root was not found: {unityProjectRoot.Value}");
+            throw CreateResolutionException(failure);
         }
 
-        return ResolveSymbolicLinksUntilStable(unityProjectRoot);
+        return ResolveActualCasing(resolution.ResolvedPath.Target);
     }
 
-    private static AbsolutePath ResolveSymbolicLinksUntilStable (AbsolutePath fullPath)
+    private static Exception CreateResolutionException (FileSystemOperationFailure failure)
     {
-        var currentPath = fullPath;
-        for (var i = 0; i < 8; i++)
+        var message = $"Physical Unity project root resolution failed. Kind={failure.Kind}; Path={failure.Path}; Diagnostic={failure.Message}";
+        return failure.Kind switch
         {
-            var resolvedPath = ResolveSymbolicLinks(currentPath);
-            if (resolvedPath == currentPath)
-            {
-                return resolvedPath;
-            }
-
-            currentPath = resolvedPath;
-        }
-
-        return currentPath;
+            FileSystemOperationFailureKind.EntryNotFound => new DirectoryNotFoundException(message),
+            FileSystemOperationFailureKind.AccessDenied => new UnauthorizedAccessException(message),
+            FileSystemOperationFailureKind.PlatformNotSupported => new PlatformNotSupportedException(message),
+            FileSystemOperationFailureKind.LinkCycle
+                or FileSystemOperationFailureKind.UnexpectedEntryKind
+                or FileSystemOperationFailureKind.IoFailure
+                or FileSystemOperationFailureKind.OutsideBoundary
+                or FileSystemOperationFailureKind.ConcurrentChange => new IOException(message),
+            _ => new InvalidOperationException(message),
+        };
     }
 
-    private static AbsolutePath ResolveSymbolicLinks (AbsolutePath fullPath)
+    private static AbsolutePath ResolveActualCasing (AbsolutePath resolvedPath)
     {
-        var root = fullPath.GetRoot();
-        if (root.IsSameAs(fullPath))
+        var root = resolvedPath.GetRoot();
+        if (root.IsSameAs(resolvedPath))
         {
             return root;
         }
 
         var pathSegments = new Stack<RootRelativePath>();
-        var lexicalPath = fullPath;
+        var lexicalPath = resolvedPath;
         while (lexicalPath.TryGetParent(out var lexicalParent))
         {
             pathSegments.Push(
@@ -167,8 +171,7 @@ internal sealed class FileSystemProjectLifecycleLockProvider : IProjectLifecycle
         var currentPath = root;
         while (pathSegments.TryPop(out var pathSegment))
         {
-            var candidatePath = ResolveExistingPathSegment(currentPath, pathSegment);
-            currentPath = ResolveSymbolicLinkTarget(candidatePath);
+            currentPath = ResolveExistingPathSegment(currentPath, pathSegment);
         }
 
         return currentPath;
@@ -198,35 +201,21 @@ internal sealed class FileSystemProjectLifecycleLockProvider : IProjectLifecycle
             }
         }
 
-        return ignoreCaseMatch
-            ?? ContainedPath.Create(parentPath, pathSegment).Target;
+        return ignoreCaseMatch ?? throw new IOException(
+            $"A resolved Unity project path segment changed while its actual casing was being read. Parent={parentPath}; Segment={pathSegment}.");
     }
 
-    private static AbsolutePath ResolveSymbolicLinkTarget (AbsolutePath path)
+    private static string CreateLockIdentityText (AbsolutePath actualCasedProjectRoot)
     {
-        FileSystemInfo fileSystemInfo;
-        if (Directory.Exists(path.Value))
+        if (!OperatingSystem.IsWindows())
         {
-            fileSystemInfo = new DirectoryInfo(path.Value);
-        }
-        else if (File.Exists(path.Value))
-        {
-            fileSystemInfo = new FileInfo(path.Value);
-        }
-        else
-        {
-            return path;
+            return actualCasedProjectRoot.Value;
         }
 
-        if (string.IsNullOrEmpty(fileSystemInfo.LinkTarget))
-        {
-            return path;
-        }
-
-        var finalTarget = fileSystemInfo.ResolveLinkTarget(returnFinalTarget: true);
-        return finalTarget == null
-            ? path
-            : AbsolutePath.Parse(finalTarget.FullName);
+        var root = actualCasedProjectRoot.GetRoot();
+        return string.Concat(
+            root.Value.ToUpperInvariant(),
+            actualCasedProjectRoot.Value[root.Value.Length..]);
     }
 
     private static (AbsolutePath BoundaryRoot, AbsolutePath StorageRoot) ResolveDefaultLockStoragePaths ()
