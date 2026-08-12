@@ -203,8 +203,7 @@ public sealed class FileSystemProjectLifecycleLockProviderTests
         var firstProvider = new FileSystemProjectLifecycleLockProvider(timeProvider, lockStorageRoot);
         var secondProvider = new FileSystemProjectLifecycleLockProvider(timeProvider, lockStorageRoot);
         var targetProjectRoot = scope.CreateDirectory(Path.Combine("target", "UnityProject"));
-        var symlinkProjectRoot = Path.Combine(scope.FullPath, "linked-project");
-        Directory.CreateSymbolicLink(symlinkProjectRoot, targetProjectRoot);
+        var symlinkProjectRoot = scope.CreateDirectorySymbolicLink("linked-project", targetProjectRoot);
         await AssertSecondAcquireWaitsForReleaseAsync(
             firstProvider,
             secondProvider,
@@ -225,8 +224,7 @@ public sealed class FileSystemProjectLifecycleLockProviderTests
         var secondProvider = new FileSystemProjectLifecycleLockProvider(timeProvider, lockStorageRoot);
         var targetAncestorPath = scope.CreateDirectory("target");
         var targetProjectRoot = Directory.CreateDirectory(Path.Combine(targetAncestorPath, "UnityProject")).FullName;
-        var linkedAncestorPath = Path.Combine(scope.FullPath, "linked-ancestor");
-        Directory.CreateSymbolicLink(linkedAncestorPath, targetAncestorPath);
+        var linkedAncestorPath = scope.CreateDirectorySymbolicLink("linked-ancestor", targetAncestorPath);
         var linkedProjectRoot = Path.Combine(linkedAncestorPath, "UnityProject");
         await AssertSecondAcquireWaitsForReleaseAsync(
             firstProvider,
@@ -251,7 +249,13 @@ public sealed class FileSystemProjectLifecycleLockProviderTests
         var targetProjectRoot = scope.CreateDirectory(Path.Combine("target", "UnityProject"));
         var junctionProjectRoot = Path.Combine(scope.FullPath, "junction-project");
         var junctionCreation = await CreateWindowsJunctionAsync(junctionProjectRoot, targetProjectRoot);
-        Assert.True(junctionCreation.Succeeded, junctionCreation.CreateFailureMessage());
+        if (!junctionCreation.Succeeded)
+        {
+            var cleanupException = Record.Exception(scope.Dispose);
+            Assert.True(junctionCreation.Succeeded, junctionCreation.CreateFailureMessage(cleanupException));
+        }
+
+        scope.RegisterDirectoryLink(junctionProjectRoot);
 
         var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var lockStorageRoot = AbsolutePath.Parse(scope.CreateDirectory("locks"));
@@ -346,8 +350,9 @@ public sealed class FileSystemProjectLifecycleLockProviderTests
     public async Task Acquire_WithBrokenProjectRootSymbolicLink_ThrowsDirectoryNotFoundException ()
     {
         using var scope = CreatePhysicalResolutionScope("broken-project-link");
-        var brokenProjectRoot = Path.Combine(scope.FullPath, "broken-project");
-        Directory.CreateSymbolicLink(brokenProjectRoot, Path.Combine(scope.FullPath, "missing", "UnityProject"));
+        var brokenProjectRoot = scope.CreateDirectorySymbolicLink(
+            "broken-project",
+            Path.Combine(scope.FullPath, "missing", "UnityProject"));
         var provider = CreateProvider(scope, new FakeTimeProvider(DateTimeOffset.UnixEpoch));
         var exception = await Record.ExceptionAsync(async () =>
         {
@@ -367,8 +372,8 @@ public sealed class FileSystemProjectLifecycleLockProviderTests
         using var scope = CreatePhysicalResolutionScope("project-link-cycle");
         var firstLinkPath = Path.Combine(scope.FullPath, "first-link");
         var secondLinkPath = Path.Combine(scope.FullPath, "second-link");
-        Directory.CreateSymbolicLink(firstLinkPath, secondLinkPath);
-        Directory.CreateSymbolicLink(secondLinkPath, firstLinkPath);
+        scope.CreateDirectorySymbolicLink("first-link", secondLinkPath);
+        scope.CreateDirectorySymbolicLink("second-link", firstLinkPath);
         var provider = CreateProvider(scope, new FakeTimeProvider(DateTimeOffset.UnixEpoch));
 
         var exception = await Record.ExceptionAsync(async () =>
@@ -658,7 +663,7 @@ public sealed class FileSystemProjectLifecycleLockProviderTests
                 exception);
         }
 
-        public string CreateFailureMessage ()
+        public string CreateFailureMessage (Exception? cleanupException = null)
         {
             return $"""
                 Windows junction fixture creation failed.
@@ -671,12 +676,16 @@ public sealed class FileSystemProjectLifecycleLockProviderTests
                 Standard error:
                 {StandardError}
                 Exception: {Exception?.ToString() ?? "none"}
+                Cleanup exception: {cleanupException?.ToString() ?? "none"}
                 """;
         }
     }
 
     private sealed class PhysicalResolutionScope : IDisposable
     {
+        private readonly Stack<string> directoryLinkPaths = new();
+        private bool isDisposed;
+
         public PhysicalResolutionScope (string fullPath)
         {
             FullPath = fullPath;
@@ -692,11 +701,64 @@ public sealed class FileSystemProjectLifecycleLockProviderTests
             return fullPath;
         }
 
+        public string CreateDirectorySymbolicLink (string relativePath, string targetPath)
+        {
+            var linkPath = Path.Combine(FullPath, relativePath);
+            Directory.CreateSymbolicLink(linkPath, targetPath);
+            RegisterDirectoryLink(linkPath);
+            return linkPath;
+        }
+
+        public void RegisterDirectoryLink (string linkPath)
+        {
+            var containedLinkPath = ContainedPath.Create(
+                AbsolutePath.Parse(FullPath),
+                AbsolutePath.Parse(linkPath));
+            directoryLinkPaths.Push(containedLinkPath.Target.Value);
+        }
+
         public void Dispose ()
         {
+            if (isDisposed)
+            {
+                return;
+            }
+
+            isDisposed = true;
+            var cleanupExceptions = new List<Exception>();
+            while (directoryLinkPaths.TryPop(out var directoryLinkPath))
+            {
+                try
+                {
+                    Directory.Delete(directoryLinkPath, recursive: false);
+                }
+                catch (DirectoryNotFoundException)
+                {
+                    // The test or a failed fixture setup already removed the link.
+                }
+                catch (Exception exception)
+                {
+                    cleanupExceptions.Add(exception);
+                }
+            }
+
             if (Directory.Exists(FullPath))
             {
-                Directory.Delete(FullPath, recursive: true);
+                try
+                {
+                    Directory.Delete(FullPath, recursive: true);
+                }
+                catch (Exception exception)
+                {
+                    cleanupExceptions.Add(exception);
+                }
+            }
+
+            if (cleanupExceptions.Count > 0)
+            {
+                throw new AggregateException(
+                    $"Physical path resolution fixture cleanup failed: {FullPath}",
+                    cleanupExceptions);
             }
         }
     }
