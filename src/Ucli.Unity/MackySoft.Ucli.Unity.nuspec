@@ -16,7 +16,7 @@
     <dependencies>
       <dependency id="MackySoft.Json.Canonicalization" version="[0.1.0]" />
       <dependency id="MackySoft.JsonSchema.Generation" version="[0.3.1]" />
-      <dependency id="MackySoft.FileSystem" version="[0.1.0]" />
+      <dependency id="MackySoft.FileSystem" version="[0.2.1]" />
       <dependency id="MackySoft.Text.Vocabularies" version="[0.1.0]" />
       <dependency id="MackySoft.Text.Vocabularies.Json" version="[0.1.0]" />
       <dependency id="MackySoft.Ucli.Contracts" version="0.0.0" />
