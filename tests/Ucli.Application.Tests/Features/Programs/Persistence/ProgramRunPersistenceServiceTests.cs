@@ -2,6 +2,7 @@ using System.Text.Json;
 using MackySoft.Ucli.Application.Features.Programs.Parsing;
 using MackySoft.Ucli.Application.Features.Programs.Persistence;
 using MackySoft.Ucli.Application.Features.Programs.Resolution;
+using MackySoft.Ucli.Application.Shared.Execution.Process;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Editor;
@@ -52,6 +53,29 @@ public sealed class ProgramRunPersistenceServiceTests
         Assert.Equal("USER_CANCELLED", cancelled.Cancellation.ReasonCode);
         Assert.Equal(1, duplicate!.Version);
         Assert.Equal("USER_CANCELLED", duplicate!.Cancellation.ReasonCode);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task RequestCancellationAsync_PreservesPersistedLivenessObservations ()
+    {
+        var project = CreateProject();
+        var store = new RecordingStore();
+        var runId = Guid.Parse("10000000-0000-0000-0000-000000000001");
+        var service = new ProgramRunPersistenceService(new RecordingFactory(store), new FixedGuidGenerator(runId), TimeProvider.System);
+        await service.RegisterAsync(CreateRequest(project));
+        store.Replace(store.CreatedRun! with
+        {
+            SupervisorObservation = new ProgramProcessLivenessObservation(ProcessIdentityStatus.Matching, DateTimeOffset.UtcNow),
+            HostObservation = new ProgramProcessLivenessObservation(ProcessIdentityStatus.Unobservable, DateTimeOffset.UtcNow),
+        });
+
+        var cancelled = await service.RequestCancellationAsync(project, runId, "USER_CANCELLED");
+
+        Assert.Equal(1, cancelled!.Version);
+        Assert.Equal("USER_CANCELLED", cancelled.Cancellation.ReasonCode);
+        Assert.Equal(ProcessIdentityStatus.Matching, cancelled.SupervisorObservation!.Status);
+        Assert.Equal(ProcessIdentityStatus.Unobservable, cancelled.HostObservation!.Status);
     }
 
     [Fact]
@@ -151,7 +175,7 @@ public sealed class ProgramRunPersistenceServiceTests
         new ProgramEffectiveConfigurationSnapshot(1, OperationPolicy.Safe, PlanTokenMode.Optional, ReadIndexMode.RequireFresh, [], 1000, commandTimeouts, false,
             ProgramEffectiveConfigurationSnapshot.ComputeDigest(1, OperationPolicy.Safe, PlanTokenMode.Optional, ReadIndexMode.RequireFresh, [], 1000, commandTimeouts, false), DateTimeOffset.UtcNow),
         new ProgramExecutionModeSnapshot("auto", "daemon"),
-        new ProgramAttachedSupervisorSnapshot(Guid.Parse("10000000-0000-0000-0000-000000000002"), Guid.Parse("10000000-0000-0000-0000-000000000003"), ProgramSupervisorConnection.Connected, ProgramSupervisorAvailability.Available, DateTimeOffset.UtcNow));
+        new ProgramAttachedSupervisorSnapshot(Guid.Parse("10000000-0000-0000-0000-000000000002"), Guid.Parse("10000000-0000-0000-0000-000000000003"), new ProcessIdentity(2, 2), ProgramSupervisorConnection.Connected, ProgramSupervisorAvailability.Available, DateTimeOffset.UtcNow));
 
     private static ResolvedUnityProjectContext CreateProject () => ResolvedUnityProjectContext.Create(
         AbsolutePath.Parse(Path.Combine(Path.GetTempPath(), "ucli-project")), AbsolutePath.Parse(Path.Combine(Path.GetTempPath(), "ucli-repository")), new ProjectFingerprint(new string('e', 64)), UnityProjectPathSource.CurrentDirectory, null, "6000.1.0f1");
@@ -180,6 +204,8 @@ public sealed class ProgramRunPersistenceServiceTests
         public Exception? PublishException { get; init; }
 
         public ProgramRunRecord? CreatedRun => current;
+
+        public void Replace (ProgramRunRecord run) => current = run;
 
         public List<string> Operations { get; } = [];
 
@@ -220,7 +246,12 @@ public sealed class ProgramRunPersistenceServiceTests
             run.SchemaVersion, run.Version, run.RunId, run.DefinitionDigest, run.DefinitionSnapshotRef,
             run.Project, run.FixedContext, run.Host, run.StartedGeneration, run.CurrentEditorGeneration,
             run.DeadlineUtc, run.StartedAtUtc, run.UpdatedAtUtc, run.State, run.Cursor,
-            run.Steps, run.ChildExecutionRefs, run.Cancellation, run.TerminalRecordRef);
+            run.Steps, run.ChildExecutionRefs, run.Cancellation, run.TerminalRecordRef)
+        {
+            SupervisorObservation = run.SupervisorObservation,
+            HostObservation = run.HostObservation,
+            TerminalReasonCode = run.TerminalReasonCode,
+        };
 
         private static ProgramDefinitionSnapshotFixedDefinition CreateStoredDefinition () => new(
             [new ReadyProgramStep(1000)], [], new ProgramSourceManifest(
@@ -244,6 +275,8 @@ public sealed class ProgramRunPersistenceServiceTests
         }
 
         public ValueTask<ProgramRunTerminalPublicationResult> PublishRunTerminalAsync (ProgramRunRecord expected, ProgramRunTerminalRecord terminalRecord, Func<ArtifactRef, ProgramRunRecord> createReplacement, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
+        public ValueTask<ProgramRunTerminalPublicationResult> PublishRunTimeoutTerminalAsync (ProgramRunRecord expected, int stepIndex, ProgramRunTerminalRecord terminalRecord, Func<ArtifactRef, ProgramRunRecord> createReplacement, CancellationToken cancellationToken = default) => throw new NotSupportedException();
 
         public ValueTask<ProgramRunStepTerminalPublicationResult> PublishStepTerminalAsync (ProgramRunRecord expected, int stepIndex, ProgramStepTerminalRecord terminalRecord, Func<ArtifactRef, ProgramRunRecord> createReplacement, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     }

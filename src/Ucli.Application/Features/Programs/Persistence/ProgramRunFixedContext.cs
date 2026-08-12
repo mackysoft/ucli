@@ -1,9 +1,9 @@
 using System.Buffers;
 using System.Text.Json;
 using MackySoft.Json.Canonicalization;
-using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Cryptography;
+using MackySoft.Ucli.Contracts.Execution;
 
 namespace MackySoft.Ucli.Application.Features.Programs.Persistence;
 
@@ -131,13 +131,14 @@ internal sealed record ProgramExecutionModeSnapshot (string RequestedMode, strin
 internal sealed record ProgramAttachedSupervisorSnapshot (
     Guid SupervisorId,
     Guid HostId,
+    ProcessIdentity OwnerProcess,
     ProgramSupervisorConnection Connection,
     ProgramSupervisorAvailability Availability,
     DateTimeOffset LastObservedAtUtc)
 {
     public ProgramAttachedSupervisorSnapshot Validate ()
     {
-        if (SupervisorId == Guid.Empty || HostId == Guid.Empty || !TextVocabulary.IsDefined(Connection)
+        if (SupervisorId == Guid.Empty || HostId == Guid.Empty || OwnerProcess is null || !TextVocabulary.IsDefined(Connection)
             || !TextVocabulary.IsDefined(Availability) || LastObservedAtUtc == default || LastObservedAtUtc.Offset != TimeSpan.Zero)
         {
             throw new ArgumentException("Attached supervisor snapshot must retain a complete identity and UTC observation.");

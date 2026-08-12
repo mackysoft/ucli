@@ -67,7 +67,12 @@ internal sealed class ProgramRunPersistenceService
                 current.SchemaVersion, current.Version + 1, current.RunId, current.DefinitionDigest, current.DefinitionSnapshotRef,
                 current.Project, current.FixedContext, current.Host, current.StartedGeneration, current.CurrentEditorGeneration,
                 current.DeadlineUtc, current.StartedAtUtc, timeProvider.GetUtcNow(), current.State, current.Cursor,
-                current.Steps, current.ChildExecutionRefs, current.Cancellation.Request(timeProvider.GetUtcNow(), reasonCode), current.TerminalRecordRef);
+                current.Steps, current.ChildExecutionRefs, current.Cancellation.Request(timeProvider.GetUtcNow(), reasonCode), current.TerminalRecordRef)
+            {
+                SupervisorObservation = current.SupervisorObservation,
+                HostObservation = current.HostObservation,
+                TerminalReasonCode = current.TerminalReasonCode,
+            };
             var exchange = await store.CompareExchangeAsync(current, replacement, cancellationToken).ConfigureAwait(false);
             if (exchange.Exchanged || exchange.Current.Cancellation.Requested || ProgramRunStateSemantics.IsTerminal(exchange.Current.State))
             {
