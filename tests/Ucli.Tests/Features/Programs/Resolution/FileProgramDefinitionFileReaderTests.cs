@@ -11,9 +11,9 @@ public sealed class FileProgramDefinitionFileReaderTests
     [Trait("Size", "Small")]
     public async Task ReadAsync_InternalRegularFile_ReturnsBytesAndPhysicalPath ()
     {
-        using var scope = new TemporaryDirectory();
-        File.WriteAllText(Path.Combine(scope.Root, "request.json"), "{}", new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
-        var root = AbsolutePath.Parse(scope.Root);
+        using var scope = TestDirectories.CreateTempScope("program-definition-reader", "internal-file");
+        File.WriteAllText(Path.Combine(scope.FullPath, "request.json"), "{}", new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+        var root = AbsolutePath.Parse(scope.FullPath);
 
         var result = await new FileProgramDefinitionFileReader().ReadAsync(
             ContainedPath.Create(root, RootRelativePath.Parse("request.json")));
@@ -27,12 +27,12 @@ public sealed class FileProgramDefinitionFileReaderTests
     [Trait("Size", "Small")]
     public async Task ReadAsync_ExternalLeafOrAncestorSymlink_ReturnsOutsideBoundary ()
     {
-        using var scope = new TemporaryDirectory();
-        using var external = new TemporaryDirectory();
-        File.WriteAllText(Path.Combine(external.Root, "request.json"), "{}", Encoding.UTF8);
-        File.CreateSymbolicLink(Path.Combine(scope.Root, "leaf.json"), Path.Combine(external.Root, "request.json"));
-        Directory.CreateSymbolicLink(Path.Combine(scope.Root, "directory"), external.Root);
-        var root = AbsolutePath.Parse(scope.Root);
+        using var scope = TestDirectories.CreateTempScope("program-definition-reader", "external-link");
+        using var external = TestDirectories.CreateTempScope("program-definition-reader", "external-target");
+        File.WriteAllText(Path.Combine(external.FullPath, "request.json"), "{}", Encoding.UTF8);
+        File.CreateSymbolicLink(Path.Combine(scope.FullPath, "leaf.json"), Path.Combine(external.FullPath, "request.json"));
+        Directory.CreateSymbolicLink(Path.Combine(scope.FullPath, "directory"), external.FullPath);
+        var root = AbsolutePath.Parse(scope.FullPath);
         var reader = new FileProgramDefinitionFileReader();
 
         var leaf = await reader.ReadAsync(ContainedPath.Create(root, RootRelativePath.Parse("leaf.json")));
@@ -46,12 +46,12 @@ public sealed class FileProgramDefinitionFileReaderTests
     [Trait("Size", "Small")]
     public async Task ReadAsync_InternalLeafSymlink_ReturnsTargetBytesAndPhysicalPath ()
     {
-        using var scope = new TemporaryDirectory();
-        var target = Path.Combine(scope.Root, "actual-request.json");
+        using var scope = TestDirectories.CreateTempScope("program-definition-reader", "internal-leaf-link");
+        var target = Path.Combine(scope.FullPath, "actual-request.json");
         File.WriteAllText(target, "{\"leaf\":true}", new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
-        var link = Path.Combine(scope.Root, "leaf.json");
+        var link = Path.Combine(scope.FullPath, "leaf.json");
         File.CreateSymbolicLink(link, target);
-        var root = AbsolutePath.Parse(scope.Root);
+        var root = AbsolutePath.Parse(scope.FullPath);
 
         var result = await new FileProgramDefinitionFileReader().ReadAsync(
             ContainedPath.Create(root, RootRelativePath.Parse("leaf.json")));
@@ -66,14 +66,14 @@ public sealed class FileProgramDefinitionFileReaderTests
     [Trait("Size", "Small")]
     public async Task ReadAsync_InternalAncestorDirectorySymlink_ReturnsTargetBytesAndPhysicalPath ()
     {
-        using var scope = new TemporaryDirectory();
-        var actualDirectory = Path.Combine(scope.Root, "actual");
+        using var scope = TestDirectories.CreateTempScope("program-definition-reader", "internal-ancestor-link");
+        var actualDirectory = Path.Combine(scope.FullPath, "actual");
         Directory.CreateDirectory(actualDirectory);
         var target = Path.Combine(actualDirectory, "request.json");
         File.WriteAllText(target, "{\"ancestor\":true}", new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
-        var link = Path.Combine(scope.Root, "directory");
+        var link = Path.Combine(scope.FullPath, "directory");
         Directory.CreateSymbolicLink(link, actualDirectory);
-        var root = AbsolutePath.Parse(scope.Root);
+        var root = AbsolutePath.Parse(scope.FullPath);
 
         var result = await new FileProgramDefinitionFileReader().ReadAsync(
             ContainedPath.Create(root, RootRelativePath.Parse("directory/request.json")));
@@ -88,9 +88,9 @@ public sealed class FileProgramDefinitionFileReaderTests
     [Trait("Size", "Small")]
     public async Task ReadAsync_NonRegularFile_ReturnsUnavailable ()
     {
-        using var scope = new TemporaryDirectory();
-        Directory.CreateDirectory(Path.Combine(scope.Root, "directory"));
-        var root = AbsolutePath.Parse(scope.Root);
+        using var scope = TestDirectories.CreateTempScope("program-definition-reader", "non-regular-file");
+        Directory.CreateDirectory(Path.Combine(scope.FullPath, "directory"));
+        var root = AbsolutePath.Parse(scope.FullPath);
 
         var result = await new FileProgramDefinitionFileReader().ReadAsync(
             ContainedPath.Create(root, RootRelativePath.Parse("directory")));
@@ -98,26 +98,85 @@ public sealed class FileProgramDefinitionFileReaderTests
         Assert.IsType<ProgramDefinitionFileReadUnavailable>(result);
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task ReadAsync_MissingBrokenOrCyclicLink_ReturnsUnavailable ()
+    {
+        using var scope = TestDirectories.CreateTempScope("program-definition-reader", "unavailable-paths");
+        File.CreateSymbolicLink(Path.Combine(scope.FullPath, "broken.json"), Path.Combine(scope.FullPath, "missing-target.json"));
+        File.CreateSymbolicLink(Path.Combine(scope.FullPath, "first.json"), Path.Combine(scope.FullPath, "second.json"));
+        File.CreateSymbolicLink(Path.Combine(scope.FullPath, "second.json"), Path.Combine(scope.FullPath, "first.json"));
+        var root = AbsolutePath.Parse(scope.FullPath);
+        var reader = new FileProgramDefinitionFileReader();
+
+        var missing = await reader.ReadAsync(ContainedPath.Create(root, RootRelativePath.Parse("missing.json")));
+        var broken = await reader.ReadAsync(ContainedPath.Create(root, RootRelativePath.Parse("broken.json")));
+        var cycle = await reader.ReadAsync(ContainedPath.Create(root, RootRelativePath.Parse("first.json")));
+
+        Assert.IsType<ProgramDefinitionFileReadUnavailable>(missing);
+        Assert.IsType<ProgramDefinitionFileReadUnavailable>(broken);
+        Assert.IsType<ProgramDefinitionFileReadUnavailable>(cycle);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task ReadAsync_CanceledBeforeResolution_RethrowsCancellation ()
+    {
+        using var scope = TestDirectories.CreateTempScope("program-definition-reader", "canceled-read");
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        var root = AbsolutePath.Parse(scope.FullPath);
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => new FileProgramDefinitionFileReader().ReadAsync(
+            ContainedPath.Create(root, RootRelativePath.Parse("request.json")),
+            cancellation.Token).AsTask());
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Open_SnapshotTargetReplacedBeforeOpen_ReturnsChangedDuringRead ()
+    {
+        using var scope = TestDirectories.CreateTempScope("program-definition-reader", "replace-before-open");
+        var target = Path.Combine(scope.FullPath, "request.json");
+        var replacement = Path.Combine(scope.FullPath, "replacement.json");
+        File.WriteAllText(target, "{\"before\":true}", new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+        File.WriteAllText(replacement, "{}", new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+        var root = AbsolutePath.Parse(scope.FullPath);
+        var snapshot = ProgramDefinitionPhysicalPathSnapshot.Capture(root, AbsolutePath.Resolve(root, "request.json"));
+
+        File.Move(replacement, target, overwrite: true);
+
+        var result = ProgramDefinitionPhysicalFileReadSession.TryOpen(snapshot, out var session);
+
+        Assert.IsType<ProgramDefinitionFileReadChangedDuringRead>(result);
+        Assert.Null(session);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task ReadAsync_OpenTargetReplacedBeforeRead_ReturnsChangedDuringRead ()
+    {
+        using var scope = TestDirectories.CreateTempScope("program-definition-reader", "replace-before-read");
+        var target = Path.Combine(scope.FullPath, "request.json");
+        var replacement = Path.Combine(scope.FullPath, "replacement.json");
+        File.WriteAllText(target, "{\"before\":true}", new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+        File.WriteAllText(replacement, "{\"after\":true}", new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+        var root = AbsolutePath.Parse(scope.FullPath);
+        var snapshot = ProgramDefinitionPhysicalPathSnapshot.Capture(root, AbsolutePath.Resolve(root, "request.json"));
+
+        Assert.Null(ProgramDefinitionPhysicalFileReadSession.TryOpen(snapshot, out var session));
+        await using var openedSession = session!;
+        File.Move(replacement, target, overwrite: true);
+
+        var result = await openedSession.ReadAsync(CancellationToken.None);
+
+        Assert.IsType<ProgramDefinitionFileReadChangedDuringRead>(result);
+    }
+
     private static void AssertSamePhysicalFile (string expectedPath, AbsolutePath actualPath)
     {
         var expected = FileSystemNodeIdentityReader.ReadPath(AbsolutePath.Parse(expectedPath), "expected Program definition file");
         var actual = FileSystemNodeIdentityReader.ReadPath(actualPath, "returned Program definition file");
         Assert.True(expected.IsSamePhysicalNodeAs(actual));
-    }
-
-    private sealed class TemporaryDirectory : IDisposable
-    {
-        public TemporaryDirectory ()
-        {
-            Root = Path.Combine(Path.GetTempPath(), $"ucli-program-reader-{Guid.NewGuid():N}");
-            Directory.CreateDirectory(Root);
-        }
-
-        public string Root { get; }
-
-        public void Dispose ()
-        {
-            Directory.Delete(Root, recursive: true);
-        }
     }
 }

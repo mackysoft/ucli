@@ -107,6 +107,28 @@ public sealed class ProgramPresetCatalogTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task ResolveAsync_ChangedPresetRead_ReportsPathOrFileChange ()
+    {
+        var root = AbsolutePath.Parse(Path.GetFullPath($"ucli-program-preset-{Guid.NewGuid():N}"));
+        var reader = new StubFileReader(_ => new ProgramDefinitionFileReadChangedDuringRead());
+        var catalog = new ProgramPresetCatalog(reader, new ProgramDefinitionResolver(new ProgramJsonParser(), reader));
+        var config = UcliConfig.CreateDefault() with
+        {
+            ProgramPresets = new Dictionary<string, ProgramPresetRegistration>(StringComparer.Ordinal)
+            {
+                ["smoke"] = new("Runs smoke checks.", RootRelativePath.Parse("programs/smoke.json")),
+            },
+        };
+
+        var result = await catalog.ResolveAsync("smoke", config, root.Value);
+
+        var diagnostic = Assert.Single(result.Diagnostics);
+        Assert.Equal("program.presetReadFailed", diagnostic.Code);
+        Assert.Equal("Program Preset path or file changed while it was being resolved or read.", diagnostic.Message);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task ListAsync_ResolvesEveryPresetInOrdinalOrderThroughEachReceiptAndItsReferences ()
     {
         const string alphaProgram = "{\"steps\":[{\"command\":\"call\",\"requestPath\":\"alpha-request.json\"}]}";
