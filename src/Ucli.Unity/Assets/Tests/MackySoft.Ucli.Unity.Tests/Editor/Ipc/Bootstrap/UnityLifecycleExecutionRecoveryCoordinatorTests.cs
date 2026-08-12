@@ -461,6 +461,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     CancellationToken.None);
                 _ = await checkpointStore.MarkProviderReturnedAsync(
                     admitted,
+                    DateTimeOffset.UtcNow,
                     CancellationToken.None);
                 var provider =
                     new RecoveryCompileLifecycleExecutionProvider(
@@ -469,7 +470,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     provider,
                     NoOpDaemonLogger.Instance,
                     executionStore,
-                    checkpointStore);
+                    checkpointStore,
+                    new SystemLifecycleExecutionTimeSource());
                 var terminalObserver =
                     new RecordingLifecycleExecutionTerminalObserver();
                 var recoveryLease = new DaemonLifecycleRecoveryLease(

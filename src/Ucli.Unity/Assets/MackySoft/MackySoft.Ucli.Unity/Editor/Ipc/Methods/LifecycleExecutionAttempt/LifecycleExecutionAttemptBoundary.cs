@@ -3,6 +3,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Execution.Lifecycle;
 using MackySoft.Ucli.Infrastructure.Execution.Lifecycle;
+using MackySoft.Ucli.Unity.Runtime;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
@@ -13,12 +14,16 @@ namespace MackySoft.Ucli.Unity.Ipc
     internal sealed class LifecycleExecutionAttemptBoundary
     {
         private readonly FileLifecycleExecutionStore executionStore;
+        private readonly ILifecycleExecutionTimeSource timeSource;
 
         public LifecycleExecutionAttemptBoundary (
-            FileLifecycleExecutionStore executionStore)
+            FileLifecycleExecutionStore executionStore,
+            ILifecycleExecutionTimeSource timeSource)
         {
             this.executionStore = executionStore
                 ?? throw new ArgumentNullException(nameof(executionStore));
+            this.timeSource = timeSource
+                ?? throw new ArgumentNullException(nameof(timeSource));
         }
 
         /// <summary>
@@ -219,7 +224,9 @@ namespace MackySoft.Ucli.Unity.Ipc
                     .TerminalOrPublishing(execution);
             }
 
-            var open = new LifecycleExecutionAttemptResolution.Open(execution);
+            var open = new LifecycleExecutionAttemptResolution.Open(
+                execution,
+                timeSource);
             if (!open.IsDeadlineExceeded)
             {
                 return open;

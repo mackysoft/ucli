@@ -45,27 +45,51 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 using var scope = TemporaryStorageScope.Create();
                 var executionStore = scope.CreateExecutionStore(ProjectFingerprint);
+                var timeSource = new ManualLifecycleExecutionTimeSource(
+                    new DateTimeOffset(2026, 8, 12, 0, 0, 0, TimeSpan.Zero));
                 var start = await RegisterAsync(
                     executionStore,
-                    DateTimeOffset.UtcNow.AddSeconds(1));
+                    timeSource.UtcNow.AddSeconds(1),
+                    timeSource.UtcNow);
+                var finalObservationEntered = new TaskCompletionSource<bool>(
+                    TaskCreationOptions.RunContinuationsAsynchronously);
+                var releaseFinalObservation = new TaskCompletionSource<bool>(
+                    TaskCreationOptions.RunContinuationsAsynchronously);
                 var provider =
                     new RecordingRefreshLifecycleExecutionProvider(
                         CreateReadySnapshot(),
-                        start.DeadlineUtc.AddMilliseconds(20));
+                        finalObservationEntered,
+                        releaseFinalObservation.Task);
                 var executionHandler = new RefreshLifecycleExecutionHandler(
                     provider,
                     NoOpDaemonLogger.Instance,
                     executionStore,
                     new FileRefreshLifecycleExecutionCheckpointStore(
-                        executionStore));
+                        executionStore),
+                    timeSource);
                 var handler = new RefreshUnityIpcMethodHandler(
                     executionHandler,
                     NoOpDaemonLogger.Instance);
 
-                var response = await UnityIpcMethodHandlerTestInvoker.HandleAsync(
-                    handler,
-                    CreateRefreshRequest(start),
-                    CancellationToken.None);
+                var responseTask = Task.Run(() =>
+                    UnityIpcMethodHandlerTestInvoker.HandleAsync(
+                        handler,
+                        CreateRefreshRequest(start),
+                        CancellationToken.None).AsTask());
+                await TestAwaiter.WaitAsync(
+                    finalObservationEntered.Task,
+                    "refresh final result observation",
+                    TimeSpan.FromSeconds(5));
+                timeSource.Advance(TimeSpan.FromSeconds(1));
+                await TestAwaiter.WaitAsync(
+                    timeSource.DeadlineReached,
+                    "refresh execution deadline",
+                    TimeSpan.FromSeconds(5));
+                releaseFinalObservation.TrySetResult(true);
+                var response = await TestAwaiter.WaitAsync(
+                    responseTask,
+                    "refresh deadline terminal response",
+                    TimeSpan.FromSeconds(5));
 
                 Assert.That(response.Status, Is.EqualTo(IpcResponseStatus.Error));
                 Assert.That(
@@ -230,7 +254,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     provider,
                     NoOpDaemonLogger.Instance,
                     executionStore,
-                    checkpointStore);
+                    checkpointStore,
+                    new SystemLifecycleExecutionTimeSource());
 
                 var outcome = await handler.ExecuteAsync(start);
 
@@ -607,7 +632,8 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private static async ValueTask<LifecycleExecutionStartBinding> RegisterAsync (
             FileLifecycleExecutionStore executionStore,
-            DateTimeOffset? deadlineUtc = null)
+            DateTimeOffset? deadlineUtc = null,
+            DateTimeOffset? startedAtUtc = null)
         {
             var definition =
                 new LifecycleExecutionDefinition(LifecycleExecutionKind.Refresh);
@@ -619,7 +645,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 Host,
                 CreateReadySnapshot().State.Generations,
                 deadlineUtc ?? DateTimeOffset.UtcNow.AddSeconds(10),
-                DateTimeOffset.UtcNow.AddSeconds(-1),
+                startedAtUtc ?? DateTimeOffset.UtcNow.AddSeconds(-1),
                 CancellationToken.None);
             return result.Binding
                 ?? throw new AssertionException(
@@ -722,7 +748,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 daemonLogger,
                 executionStore,
                 new FileRefreshLifecycleExecutionCheckpointStore(
-                    executionStore));
+                    executionStore),
+                new SystemLifecycleExecutionTimeSource());
             return new RefreshHandlerFixture(
                 new RefreshUnityIpcMethodHandler(
                     executionHandler,
@@ -767,19 +794,28 @@ namespace MackySoft.Ucli.Unity.Tests
             IRefreshLifecycleExecutionProvider
         {
             private readonly UnityEditorRuntimeObservation observation;
-            private readonly DateTimeOffset? delayFinalObservationUntilUtc;
-            private readonly DateTimeOffset? delayMutationUntilUtc;
+            private readonly TaskCompletionSource<bool> finalObservationEntered;
+            private readonly Task releaseFinalObservation;
             private int lifecycleObservationCount;
 
             public RecordingRefreshLifecycleExecutionProvider (
-                UnityEditorRuntimeObservation observation,
-                DateTimeOffset? delayFinalObservationUntilUtc = null,
-                DateTimeOffset? delayMutationUntilUtc = null)
+                UnityEditorRuntimeObservation observation)
             {
                 this.observation = observation;
-                this.delayFinalObservationUntilUtc =
-                    delayFinalObservationUntilUtc;
-                this.delayMutationUntilUtc = delayMutationUntilUtc;
+            }
+
+            public RecordingRefreshLifecycleExecutionProvider (
+                UnityEditorRuntimeObservation observation,
+                TaskCompletionSource<bool> finalObservationEntered,
+                Task releaseFinalObservation)
+                : this(observation)
+            {
+                this.finalObservationEntered = finalObservationEntered
+                    ?? throw new ArgumentNullException(
+                        nameof(finalObservationEntered));
+                this.releaseFinalObservation = releaseFinalObservation
+                    ?? throw new ArgumentNullException(
+                        nameof(releaseFinalObservation));
             }
 
             public UnityProjectIdentity Project => ProjectIdentity;
@@ -800,9 +836,10 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 lifecycleObservationCount++;
                 if (lifecycleObservationCount == 2
-                    && delayFinalObservationUntilUtc.HasValue)
+                    && finalObservationEntered != null)
                 {
-                    WaitUntil(delayFinalObservationUntilUtc.Value);
+                    finalObservationEntered.TrySetResult(true);
+                    releaseFinalObservation.GetAwaiter().GetResult();
                 }
 
                 return UnityLifecycleResponseFactory.Create(
@@ -811,22 +848,9 @@ namespace MackySoft.Ucli.Unity.Tests
                     currentObservation);
             }
 
-            private static void WaitUntil (DateTimeOffset utc)
-            {
-                while (DateTimeOffset.UtcNow < utc)
-                {
-                    Thread.Sleep(1);
-                }
-            }
-
             public IUnityMutationActivity BeginMutation ()
             {
                 MutationCount++;
-                if (delayMutationUntilUtc.HasValue)
-                {
-                    WaitUntil(delayMutationUntilUtc.Value);
-                }
-
                 return new RecordingMutationActivity(
                     () => MutationCompleted = true);
             }

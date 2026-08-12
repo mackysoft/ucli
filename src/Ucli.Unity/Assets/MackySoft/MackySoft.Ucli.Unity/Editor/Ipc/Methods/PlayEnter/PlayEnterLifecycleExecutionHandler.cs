@@ -27,6 +27,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private readonly IPlayEnterLifecycleExecutionProvider provider;
         private readonly FileLifecycleExecutionStore executionStore;
+        private readonly ILifecycleExecutionTimeSource timeSource;
         private readonly LifecycleExecutionAttemptBoundary attemptBoundary;
         private readonly FilePlayEnterLifecycleExecutionCheckpointStore checkpointStore;
         private readonly LifecycleExecutionTerminalPublicationBoundary<
@@ -37,13 +38,16 @@ namespace MackySoft.Ucli.Unity.Ipc
             IPlayEnterLifecycleExecutionProvider provider,
             FileLifecycleExecutionStore executionStore,
             FilePlayEnterLifecycleExecutionCheckpointStore checkpointStore,
-            IDaemonLogger daemonLogger)
+            IDaemonLogger daemonLogger,
+            ILifecycleExecutionTimeSource timeSource)
         {
             this.provider = provider
                 ?? throw new ArgumentNullException(nameof(provider));
             this.executionStore = executionStore
                 ?? throw new ArgumentNullException(nameof(executionStore));
-            attemptBoundary = new(this.executionStore);
+            this.timeSource = timeSource
+                ?? throw new ArgumentNullException(nameof(timeSource));
+            attemptBoundary = new(this.executionStore, this.timeSource);
             this.checkpointStore = checkpointStore
                 ?? throw new ArgumentNullException(nameof(checkpointStore));
             terminalPublication =
@@ -516,7 +520,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 Array.Empty<ArtifactRef>());
         }
 
-        private static TerminalCandidate
+        private TerminalCandidate
             CreateTerminalCandidate (
                 Guid executionId,
                 PlayEnterTransitionExecutionResult executionResult)
@@ -543,15 +547,15 @@ namespace MackySoft.Ucli.Unity.Ipc
                 applicationState,
                 transition.After?.State.Generations
                     ?? transition.Observed?.State.Generations,
-                DateTimeOffset.UtcNow);
+                timeSource.UtcNow);
         }
 
-        private static TerminalCandidate
+        private TerminalCandidate
             ResolveTerminalCandidate (
                 LifecycleExecutionStartBinding start,
                 TerminalCandidate candidate)
         {
-            var fixedAtUtc = DateTimeOffset.UtcNow;
+            var fixedAtUtc = timeSource.UtcNow;
             var terminalFacts =
                 LifecycleExecutionTerminalFactsPolicy.ResolveTerminalFacts(
                     start,
@@ -625,7 +629,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 reason,
                 applicationState,
                 terminalGeneration,
-                DateTimeOffset.UtcNow);
+                timeSource.UtcNow);
         }
 
         private UnityEditorGenerationSnapshot
