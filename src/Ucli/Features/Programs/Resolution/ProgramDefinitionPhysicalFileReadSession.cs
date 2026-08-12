@@ -98,6 +98,9 @@ internal sealed class ProgramDefinitionPhysicalFileReadSession : IAsyncDisposabl
 {
     private readonly ProgramDefinitionPhysicalPathSnapshot snapshot;
     private readonly FileStream stream;
+    private byte[]? content;
+    private bool readStarted;
+    private bool completed;
 
     private ProgramDefinitionPhysicalFileReadSession (ProgramDefinitionPhysicalPathSnapshot snapshot, FileStream stream)
     {
@@ -139,23 +142,37 @@ internal sealed class ProgramDefinitionPhysicalFileReadSession : IAsyncDisposabl
         }
     }
 
-    /// <summary> Reads the opened file while retaining its physical handle. </summary>
-    public async ValueTask<byte[]> ReadContentAsync (CancellationToken cancellationToken)
+    /// <summary> Reads the opened file into this session while retaining its physical handle. </summary>
+    public async ValueTask ReadContentAsync (CancellationToken cancellationToken)
     {
+        if (readStarted || completed)
+        {
+            throw new InvalidOperationException("Program definition file read session can only read once.");
+        }
+
+        readStarted = true;
         using var output = new MemoryStream();
         await stream.CopyToAsync(output, cancellationToken).ConfigureAwait(false);
-        return output.ToArray();
+        content = output.ToArray();
     }
 
     /// <summary> Confirms the captured path identity after reading and creates the closed read result. </summary>
-    public ProgramDefinitionFileReadResult CompleteRead (byte[] content)
+    public ProgramDefinitionFileReadResult CompleteRead ()
     {
+        if (completed || content is null)
+        {
+            throw new InvalidOperationException("Program definition file read session must complete after one successful read.");
+        }
+
+        completed = true;
+        var completedContent = content;
+        content = null;
         if (!snapshot.HasSameIdentityChain())
         {
             return new ProgramDefinitionFileReadChangedDuringRead();
         }
 
-        return new ProgramDefinitionFileReadSuccess(content, snapshot.Target);
+        return new ProgramDefinitionFileReadSuccess(completedContent, snapshot.Target);
     }
 
     /// <inheritdoc />

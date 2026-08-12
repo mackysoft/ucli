@@ -167,10 +167,10 @@ public sealed class FileProgramDefinitionFileReaderTests
 
         Assert.Null(ProgramDefinitionPhysicalFileReadSession.TryOpen(snapshot, out var session));
         await using var openedSession = session!;
-        var content = await openedSession.ReadContentAsync(CancellationToken.None);
+        await openedSession.ReadContentAsync(CancellationToken.None);
         File.Move(replacement, target, overwrite: true);
 
-        var result = openedSession.CompleteRead(content);
+        var result = openedSession.CompleteRead();
 
         Assert.IsType<ProgramDefinitionFileReadChangedDuringRead>(result);
     }

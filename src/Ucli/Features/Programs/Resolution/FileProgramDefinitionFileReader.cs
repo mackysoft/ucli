@@ -1,5 +1,4 @@
 using MackySoft.Ucli.Application.Features.Programs.Resolution;
-using MackySoft.Ucli.Infrastructure.Storage;
 
 namespace MackySoft.Ucli.Features.Programs.Resolution;
 
@@ -39,8 +38,8 @@ internal sealed class FileProgramDefinitionFileReader : IProgramDefinitionFileRe
             }
 
             await using var openedSession = session!;
-            var content = await openedSession.ReadContentAsync(cancellationToken).ConfigureAwait(false);
-            return openedSession.CompleteRead(content);
+            await openedSession.ReadContentAsync(cancellationToken).ConfigureAwait(false);
+            return openedSession.CompleteRead();
         }
         catch (OperationCanceledException)
         {
