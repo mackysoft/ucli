@@ -12,7 +12,8 @@ public sealed class PlayExitCommandDispatchTests
     {
         var service = new RecordingPlayExitService((_, _) => ValueTask.FromResult(PlayExitExecutionResult.Success(
             PlayExitCommandTestData.CreateOutput())));
-        var command = new PlayExitCommand(service, CommandResultTestWriter.Create());
+        var invocationFactory = new RecordingLifecycleExecutionStartInvocationFactory();
+        var command = new PlayExitCommand(service, CommandResultTestWriter.Create(), invocationFactory);
         using var cancellationTokenSource = new CancellationTokenSource();
 
         var result = await CommandResultCapture.ExecuteAsync(() => command.ExitAsync(
@@ -22,9 +23,10 @@ public sealed class PlayExitCommandDispatchTests
 
         PlayCommandAssert.ExitSucceededWithDispatchedInput(
             result,
-            service,
+            invocationFactory,
             cancellationTokenSource.Token,
             PlayCommandOutputTestData.ProjectPath,
             expectedTimeoutMilliseconds: 1234);
+        Assert.Equal(1, invocationFactory.DisposeCount);
     }
 }

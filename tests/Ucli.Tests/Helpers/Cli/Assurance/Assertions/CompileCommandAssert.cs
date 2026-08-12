@@ -7,19 +7,18 @@ internal static class CompileCommandAssert
 {
     public static void SucceededWithDispatchedInput (
         CommandExecutionResult result,
-        RecordingCompileService service,
+        RecordingLifecycleExecutionStartInvocationFactory invocationFactory,
         CancellationToken expectedCancellationToken,
         string expectedProjectPath,
         UnityExecutionMode expectedMode,
         int expectedTimeoutMilliseconds)
     {
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
-        var invocation = Assert.Single(service.Invocations);
+        var invocation = Assert.Single(invocationFactory.CompileRequests);
         Assert.Equal(expectedCancellationToken, invocation.CancellationToken);
-        ProjectPathDispatchAssert.EqualNormalized(expectedProjectPath, invocation.Input.ProjectPath);
-        Assert.Equal(expectedMode, invocation.Input.Mode);
-        Assert.Equal(expectedTimeoutMilliseconds, invocation.Input.TimeoutMilliseconds);
-        Assert.NotNull(invocation.ProgressSink);
+        ProjectPathDispatchAssert.EqualNormalized(expectedProjectPath, invocation.ProjectPath);
+        Assert.Equal(expectedMode, invocation.RequestedMode);
+        Assert.Equal(expectedTimeoutMilliseconds, invocation.TimeoutMilliseconds);
     }
 
     public static void SucceededWithOnlyFinalOutputAndGolden (

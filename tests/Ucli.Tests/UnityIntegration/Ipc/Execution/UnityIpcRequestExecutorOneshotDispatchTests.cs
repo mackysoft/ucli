@@ -1,4 +1,3 @@
-using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Foundation;
@@ -13,6 +12,95 @@ namespace MackySoft.Ucli.Tests.Ipc;
 
 public sealed class UnityIpcRequestExecutorOneshotDispatchTests
 {
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task BindResolvedTargetAsync_WhenTargetIsOneshot_VerifiesPluginWithoutDecidingMode ()
+    {
+        using var scope = TestDirectories.CreateTempScope("unity-ipc-request-executor", "resolved-oneshot-bind");
+        var unityProject = ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(scope.FullPath);
+        var processHandle = new StubUnityBatchmodeProcessHandle();
+        var oneshotTransportClient = new RecordingUnityIpcTransportClient(request =>
+        {
+            Assert.Equal(UnityIpcMethod.Ping, IpcRequestAssert.ParseMethod(request));
+            return CreateReadyPingResponse(request.RequestId, unityProject.ProjectFingerprint);
+        });
+        var modeDecisionService = new StubModeDecisionService(UnityExecutionModeDecisionResult.Success(
+            new UnityExecutionModeDecision(
+                UnityExecutionMode.Auto,
+                false,
+                UnityExecutionTarget.Oneshot,
+                DefaultTimeout)));
+        var pluginLocator = new RecordingUnityUcliPluginLocator();
+        var executor = CreateExecutor(
+            modeDecisionService,
+            new RecordingDaemonPingInfoClient(),
+            pluginLocator,
+            CreateClients(
+                new RecordingUnityIpcTransportClient(_ => throw new Xunit.Sdk.XunitException("Daemon transport must not be called.")),
+                oneshotTransportClient,
+                new UnexpectedDaemonSessionStore("Resolved oneshot binding should not resolve a daemon session."),
+                new RecordingUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle))));
+        var deadline = ExecutionDeadline.Start(DefaultTimeout, TimeProvider.System);
+
+        var binding = await executor.BindResolvedTargetAsync(
+            unityProject,
+            UnityExecutionTarget.Oneshot,
+            deadline);
+
+        Assert.True(binding.IsSuccess);
+        Assert.Empty(modeDecisionService.Invocations);
+        UnityPluginLocatorAssert.VerificationAttemptedFor(pluginLocator, unityProject);
+        await binding.Binding!.DisposeAsync();
+        Assert.Equal(1, processHandle.DisposeCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task Bind_WhenTargetIsOneshot_LaunchesOneLeaseAndDisposalCleansItWithoutResolvingAnotherHost ()
+    {
+        using var scope = TestDirectories.CreateTempScope("unity-ipc-request-executor", "oneshot-bind");
+        var unityProject = ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(scope.FullPath);
+        var processHandle = new StubUnityBatchmodeProcessHandle();
+        var oneshotTransportClient = new RecordingUnityIpcTransportClient(request =>
+        {
+            Assert.Equal(UnityIpcMethod.Ping, IpcRequestAssert.ParseMethod(request));
+            return CreateReadyPingResponse(request.RequestId, unityProject.ProjectFingerprint);
+        });
+        var launcher = new RecordingUnityBatchmodeProcessLauncher(
+            UnityBatchmodeProcessLaunchResult.Success(processHandle));
+        var modeDecisionService = new StubModeDecisionService(UnityExecutionModeDecisionResult.Success(
+                new UnityExecutionModeDecision(
+                    UnityExecutionMode.Oneshot,
+                    false,
+                    UnityExecutionTarget.Oneshot,
+                    DefaultTimeout)));
+        var pluginLocator = new RecordingUnityUcliPluginLocator();
+        var executor = CreateExecutor(
+            modeDecisionService,
+            new RecordingDaemonPingInfoClient(),
+            pluginLocator,
+            CreateClients(
+                new RecordingUnityIpcTransportClient(_ => throw new Xunit.Sdk.XunitException("Daemon transport must not be called.")),
+                oneshotTransportClient,
+                new UnexpectedDaemonSessionStore("Oneshot binding should not resolve a daemon session."),
+                launcher));
+
+        var binding = await executor.BindAsync(
+            UnityExecutionMode.Oneshot,
+            unityProject,
+            ExecutionDeadline.Start(DefaultTimeout, TimeProvider.System));
+
+        Assert.True(binding.IsSuccess);
+        Assert.Single(modeDecisionService.Invocations);
+        UnityPluginLocatorAssert.VerificationAttemptedFor(pluginLocator, unityProject);
+        UnityOneshotLaunchAssert.LaunchedOnce(launcher, unityProject);
+
+        await binding.Binding!.DisposeAsync();
+
+        Assert.Equal(1, processHandle.DisposeCount);
+        Assert.Single(oneshotTransportClient.Requests);
+    }
+
     [Fact]
     [Trait("Size", "Medium")]
     public async Task Execute_WhenTargetIsOneshot_UsesOneshotClient ()

@@ -298,7 +298,7 @@ public sealed class PlayEnterCommandPayloadTests
     private static async Task<CommandExecutionResult> ExecuteAsync (PlayEnterExecutionResult executionResult)
     {
         var service = new RecordingPlayEnterService((_, _) => ValueTask.FromResult(executionResult));
-        var command = new PlayEnterCommand(service, CommandResultTestWriter.Create());
+        var command = new PlayEnterCommand(service, CommandResultTestWriter.Create(), new RecordingLifecycleExecutionStartInvocationFactory());
 
         return await CommandResultCapture.ExecuteAsync(() => command.EnterAsync(
             timeout: "1000",

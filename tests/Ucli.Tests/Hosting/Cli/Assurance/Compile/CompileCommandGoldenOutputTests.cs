@@ -17,7 +17,7 @@ public sealed class CompileCommandGoldenOutputTests
     public async Task Compile_WithDefaultOrSupportedFormat_WritesOnlyFinalCommandResult (string? format)
     {
         var service = new RecordingCompileService((_, _, _) => ValueTask.FromResult<CompileExecutionResult>(CompileExecutionResult.Completed(CreateOutput())));
-        var command = new CompileCommand(service, CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
+        var command = new CompileCommand(service, CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System, new RecordingLifecycleExecutionStartInvocationFactory());
 
         var result = await CommandResultCapture.ExecuteWithErrorAsync(() => command.CompileAsync(
             format: format,
@@ -34,7 +34,7 @@ public sealed class CompileCommandGoldenOutputTests
     public async Task Compile_WithCompileErrorOutput_ReturnsOkEnvelopeWithFailureExitCodeAndMatchesGolden ()
     {
         var service = new RecordingCompileService((_, _, _) => ValueTask.FromResult<CompileExecutionResult>(CompileExecutionResult.Completed(CreateOutput(errorCount: 1))));
-        var command = new CompileCommand(service, CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
+        var command = new CompileCommand(service, CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System, new RecordingLifecycleExecutionStartInvocationFactory());
 
         var result = await CommandResultCapture.ExecuteAsync(() => command.CompileAsync(
             cancellationToken: CancellationToken.None));
@@ -77,7 +77,8 @@ public sealed class CompileCommandGoldenOutputTests
         var command = new CompileCommand(
             service,
             CommandResultTestWriter.Create(),
-            CliStreamEntryWriterFactoryTestFixture.System);
+            CliStreamEntryWriterFactoryTestFixture.System,
+            new RecordingLifecycleExecutionStartInvocationFactory());
 
         var result = await CommandResultCapture.ExecuteAsync(
             () => command.CompileAsync(cancellationToken: CancellationToken.None));
@@ -131,7 +132,8 @@ public sealed class CompileCommandGoldenOutputTests
         var command = new CompileCommand(
             service,
             CommandResultTestWriter.Create(),
-            CliStreamEntryWriterFactoryTestFixture.System);
+            CliStreamEntryWriterFactoryTestFixture.System,
+            new RecordingLifecycleExecutionStartInvocationFactory());
 
         var result = await CommandResultCapture.ExecuteAsync(
             () => command.CompileAsync(

@@ -1,4 +1,3 @@
-using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Ipc;
 
@@ -44,6 +43,19 @@ internal sealed class UnityIpcTransportClient : IUnityIpcTransportClient
     }
 
     /// <inheritdoc />
+    public ValueTask<IpcResponse> SendAsync (
+        IpcTransportEndpoint endpoint,
+        IpcRequestEnvelope request,
+        TimeSpan timeout,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(endpoint);
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
+        return transportClient.SendAsync(endpoint, request, timeout, cancellationToken);
+    }
+
+    /// <inheritdoc />
     public async ValueTask<IpcResponse> SendStreamingAsync (
         AbsolutePath storageRoot,
         ProjectFingerprint projectFingerprint,
@@ -65,5 +77,25 @@ internal sealed class UnityIpcTransportClient : IUnityIpcTransportClient
                 onProgressFrame,
                 cancellationToken)
             .ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public ValueTask<IpcResponse> SendStreamingAsync (
+        IpcTransportEndpoint endpoint,
+        IpcRequestEnvelope request,
+        TimeSpan timeout,
+        Func<IpcStreamFrame, CancellationToken, ValueTask> onProgressFrame,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(endpoint);
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(onProgressFrame);
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
+        return transportClient.SendStreamingAsync(
+            endpoint,
+            request,
+            timeout,
+            onProgressFrame,
+            cancellationToken);
     }
 }

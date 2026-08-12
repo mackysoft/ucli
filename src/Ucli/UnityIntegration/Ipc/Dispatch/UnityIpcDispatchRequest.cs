@@ -28,6 +28,10 @@ internal sealed record UnityIpcDispatchRequest
 
     private readonly Func<LifecycleExecutionStartBinding, JsonElement>? lifecyclePayloadFactory;
 
+    private readonly ILifecycleExecutionStartObserver? lifecycleStartObserver;
+
+    private readonly LifecycleExecutionStartObserverGate lifecycleStartObserverGate;
+
     /// <summary> Initializes a new instance of the <see cref="UnityIpcDispatchRequest" /> class. </summary>
     /// <param name="method"> The defined Unity IPC method. </param>
     /// <param name="payload"> The IPC payload element. </param>
@@ -53,6 +57,8 @@ internal sealed record UnityIpcDispatchRequest
         Method = method;
         this.payload = payload;
         LaunchOptions = launchOptions;
+        lifecycleStartObserverGate = new LifecycleExecutionStartObserverGate(
+            observer: null);
     }
 
     private UnityIpcDispatchRequest (
@@ -60,7 +66,8 @@ internal sealed record UnityIpcDispatchRequest
         LifecycleExecutionRegistration registration,
         LifecycleExecutionStartBinding? requiredStart,
         Func<LifecycleExecutionStartBinding, JsonElement> lifecyclePayloadFactory,
-        ILifecycleExecutionStartAdmissionPolicy? startAdmissionPolicy)
+        ILifecycleExecutionStartAdmissionPolicy? startAdmissionPolicy,
+        ILifecycleExecutionStartObserver? lifecycleStartObserver)
     {
         if (!UnityIpcMethodCapabilities.SupportsLifecycleExecution(method))
         {
@@ -96,6 +103,9 @@ internal sealed record UnityIpcDispatchRequest
         }
 
         StartAdmissionPolicy = startAdmissionPolicy;
+        this.lifecycleStartObserver = lifecycleStartObserver;
+        lifecycleStartObserverGate = new LifecycleExecutionStartObserverGate(
+            lifecycleStartObserver);
     }
 
     /// <summary> Gets the defined Unity IPC method. </summary>
@@ -129,6 +139,25 @@ internal sealed record UnityIpcDispatchRequest
     public ILifecycleExecutionStartAdmissionPolicy? StartAdmissionPolicy { get; }
 
     /// <summary>
+    /// Gets the durable-start observer that must complete successfully before a new action enters
+    /// its provider, or <see langword="null" /> for callers that do not own an additional durable
+    /// record.
+    /// </summary>
+    public ILifecycleExecutionStartObserver? LifecycleStartObserver => lifecycleStartObserver;
+
+    /// <summary>
+    /// Observes a provider-confirmed Start Record at most once for this logical dispatch. Response
+    /// recovery may report the same persisted binding again, but never re-runs durable-start
+    /// persistence.
+    /// </summary>
+    public ValueTask<LifecycleExecutionStartObservation> ObserveLifecycleStartAsync (
+        LifecycleExecutionStartBinding start)
+    {
+        ArgumentNullException.ThrowIfNull(start);
+        return lifecycleStartObserverGate.ObserveAsync(start);
+    }
+
+    /// <summary>
     /// Gets whether this dispatch may create its immutable Start Record rather than reconnecting
     /// an already-started execution.
     /// </summary>
@@ -156,14 +185,16 @@ internal sealed record UnityIpcDispatchRequest
         LifecycleExecutionRegistration registration,
         LifecycleExecutionStartBinding? requiredStart,
         Func<LifecycleExecutionStartBinding, JsonElement> payloadFactory,
-        ILifecycleExecutionStartAdmissionPolicy? startAdmissionPolicy = null)
+        ILifecycleExecutionStartAdmissionPolicy? startAdmissionPolicy = null,
+        ILifecycleExecutionStartObserver? lifecycleStartObserver = null)
     {
         return new UnityIpcDispatchRequest(
             method,
             registration,
             requiredStart,
             payloadFactory,
-            startAdmissionPolicy);
+            startAdmissionPolicy,
+            lifecycleStartObserver);
     }
 
     /// <summary> Creates the provider-private registration request sent before the action request. </summary>

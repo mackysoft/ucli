@@ -919,6 +919,27 @@ public sealed class GameViewRecordingTerminalFinalizerTests
             return ValueTask.FromResult(UnityRequestExecutionResult.Success(
                 new UnityRequestResponse(responsePayload, Errors: [])));
         }
+
+        public ValueTask<LifecycleExecutionHostBindingResolution> BindAsync (
+            UnityExecutionMode requestedMode,
+            ResolvedUnityProjectContext project,
+            ExecutionDeadline executionDeadline,
+            CancellationToken cancellationToken = default) =>
+            throw new InvalidOperationException("Recording tests do not bind Lifecycle Execution hosts.");
+
+        public ValueTask<LifecycleExecutionHostBindingResolution> BindResolvedTargetAsync (
+            ResolvedUnityProjectContext project,
+            UnityExecutionTarget target,
+            ExecutionDeadline executionDeadline,
+            CancellationToken cancellationToken = default) =>
+            throw new InvalidOperationException("Recording tests do not bind resolved Lifecycle Execution hosts.");
+
+        public ValueTask<LifecycleExecutionHostBindingResolution> BindReconnectAsync (
+            ResolvedUnityProjectContext project,
+            LifecycleExecutionStartBinding requiredStart,
+            ExecutionDeadline callerWaitDeadline,
+            CancellationToken cancellationToken = default) =>
+            throw new InvalidOperationException("Recording tests do not reconnect Lifecycle Execution hosts.");
     }
 
     private sealed class FailingTerminalFinalizer : IGameViewRecordingTerminalFinalizer

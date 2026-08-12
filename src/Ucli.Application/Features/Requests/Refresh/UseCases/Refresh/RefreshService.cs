@@ -12,14 +12,10 @@ namespace MackySoft.Ucli.Application.Features.Requests.Refresh.UseCases.Refresh;
 /// Owns the typed project-refresh application workflow from execution registration through
 /// provider-independent terminal-result projection.
 /// </summary>
-internal sealed class RefreshService : IRefreshService
+internal sealed partial class RefreshService : IRefreshService
 {
     private static readonly LifecycleExecutionDefinition Definition =
         new(LifecycleExecutionKind.Refresh);
-
-    private readonly IProjectContextResolver projectContextResolver;
-
-    private readonly IUnityRequestExecutor unityRequestExecutor;
 
     private readonly IMutationReadPostconditionStore mutationReadPostconditionStore;
 
@@ -33,16 +29,12 @@ internal sealed class RefreshService : IRefreshService
 
     /// <summary> Initializes one refresh application handler. </summary>
     public RefreshService (
-        IProjectContextResolver projectContextResolver,
-        IUnityRequestExecutor unityRequestExecutor,
         IMutationReadPostconditionStore mutationReadPostconditionStore,
         ILifecycleExecutionReconnectResolver reconnectResolver,
         ILifecycleExecutionHostExitTerminalizer hostExitTerminalizer,
         LifecycleExecutionRegistrationIssuer registrationIssuer,
         TimeProvider timeProvider)
     {
-        this.projectContextResolver = projectContextResolver ?? throw new ArgumentNullException(nameof(projectContextResolver));
-        this.unityRequestExecutor = unityRequestExecutor ?? throw new ArgumentNullException(nameof(unityRequestExecutor));
         this.mutationReadPostconditionStore = mutationReadPostconditionStore ?? throw new ArgumentNullException(nameof(mutationReadPostconditionStore));
         this.reconnectResolver = reconnectResolver ?? throw new ArgumentNullException(nameof(reconnectResolver));
         this.hostExitTerminalizer = hostExitTerminalizer ?? throw new ArgumentNullException(nameof(hostExitTerminalizer));
@@ -50,200 +42,22 @@ internal sealed class RefreshService : IRefreshService
         this.timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
     }
 
-    /// <inheritdoc />
-    public async ValueTask<RefreshExecutionResult> ExecuteAsync (
-        Guid requestId,
-        RefreshCommandInput input,
-        CancellationToken cancellationToken = default)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        if (requestId == Guid.Empty)
-        {
-            throw new ArgumentException("Request id must not be empty.", nameof(requestId));
-        }
-
-        ArgumentNullException.ThrowIfNull(input);
-
-        var contextResult = await projectContextResolver.ResolveAsync(
-                input.ProjectPath,
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (!contextResult.IsSuccess)
-        {
-            return RefreshExecutionResult.Failure(
-                ApplicationFailure.FromExecutionError(contextResult.Error!));
-        }
-
-        var context = contextResult.Context!;
-        var project = ProjectIdentityInfo.From(context.UnityProject);
-        var timeoutResult = IpcCommandTimeoutResolver.ResolveNormalized(
-            input.TimeoutMilliseconds,
-            UcliCommandIds.Refresh,
-            context.Config);
-        if (!timeoutResult.IsSuccess)
-        {
-            return RefreshExecutionResult.Failure(
-                ApplicationFailure.FromExecutionError(timeoutResult.Error!),
-                CreatePreStartErrorOutput(project, requestId));
-        }
-
-        var timeout = timeoutResult.Timeout!.Value;
-        var registration = registrationIssuer.IssueForTimeout(
-            Definition,
-            timeout);
-        return await ExecuteRegisteredAsync(
-                requestId,
-                input,
-                context,
-                project,
-                registration,
-                timeout,
-                new RefreshLifecycleExecutionStartAdmissionPolicy(
-                    input.FailFast),
-                reconnectedExecutionRef: null,
-                requiredStart: null,
-                cancellationToken)
-            .ConfigureAwait(false);
-    }
-
-    /// <inheritdoc />
-    public async ValueTask<RefreshExecutionResult> ReconnectAsync (
-        Guid requestId,
-        RefreshCommandInput input,
-        ExecutionRef lifecycleExecutionRef,
-        CancellationToken cancellationToken = default)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        if (requestId == Guid.Empty)
-        {
-            throw new ArgumentException(
-                "Request id must not be empty.",
-                nameof(requestId));
-        }
-
-        ArgumentNullException.ThrowIfNull(input);
-        ArgumentNullException.ThrowIfNull(lifecycleExecutionRef);
-
-        var contextResult = await projectContextResolver.ResolveAsync(
-                input.ProjectPath,
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (!contextResult.IsSuccess)
-        {
-            return RefreshExecutionResult.Failure(
-                ApplicationFailure.FromExecutionError(
-                    contextResult.Error!));
-        }
-
-        var context = contextResult.Context!;
-        var project = ProjectIdentityInfo.From(context.UnityProject);
-        var timeoutResult = IpcCommandTimeoutResolver.ResolveNormalized(
-            input.TimeoutMilliseconds,
-            UcliCommandIds.Refresh,
-            context.Config);
-        if (!timeoutResult.IsSuccess)
-        {
-            return RefreshExecutionResult.Failure(
-                ApplicationFailure.FromExecutionError(timeoutResult.Error!),
-                CreatePreStartErrorOutput(project, requestId));
-        }
-
-        var reconnectResult = await reconnectResolver.ResolveAsync(
-                context.UnityProject,
-                Definition,
-                lifecycleExecutionRef,
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (reconnectResult
-            is LifecycleExecutionReconnectResolution.PublicationFailed
-                publicationFailed)
-        {
-            return RefreshExecutionResult.Failure(
-                publicationFailed.Failure,
-                new RefreshExecutionErrorOutput(
-                    project,
-                    requestId,
-                    publicationFailed.CurrentReference,
-                    ExecutionApplicationState.Indeterminate,
-                    Refresh: null,
-                    ObservedLifecycle: null,
-                    ReadPostcondition: null));
-        }
-        if (reconnectResult
-            is LifecycleExecutionReconnectResolution.Rejected rejected)
-        {
-            return RefreshExecutionResult.Failure(
-                rejected.Failure,
-                CreatePreStartErrorOutput(project, requestId));
-        }
-        if (reconnectResult
-            is LifecycleExecutionReconnectResolution.Terminal terminal)
-        {
-            return await CreateResultFromTerminalRecordAsync(
-                    requestId,
-                    context,
-                    project,
-                    terminal.ExecutionReference,
-                    terminal.TerminalRecord)
-                .ConfigureAwait(false);
-        }
-
-        var open =
-            (LifecycleExecutionReconnectResolution.Open)reconnectResult;
-        try
-        {
-            return await ExecuteRegisteredAsync(
-                    requestId,
-                    input,
-                    context,
-                    project,
-                    open.Registration,
-                    timeoutResult.Timeout!.Value,
-                    startAdmissionPolicy: null,
-                    open.CurrentReference,
-                    open.RequiredStart,
-                    cancellationToken)
-                .ConfigureAwait(false);
-        }
-        catch (OperationCanceledException)
-            when (cancellationToken.IsCancellationRequested)
-        {
-            return await CreateCallerWaitCanceledFailureAsync(
-                    requestId,
-                    context,
-                    project,
-                    open.Registration,
-                    open.CurrentReference)
-                .ConfigureAwait(false);
-        }
-    }
-
     private async ValueTask<RefreshExecutionResult> ExecuteRegisteredAsync (
         Guid requestId,
-        RefreshCommandInput input,
         ProjectContext context,
         ProjectIdentityInfo project,
         LifecycleExecutionRegistration registration,
-        TimeSpan callerWaitTimeout,
         ILifecycleExecutionStartAdmissionPolicy? startAdmissionPolicy,
         ExecutionRef? reconnectedExecutionRef,
         LifecycleExecutionStartBinding? requiredStart,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Func<UnityRequestPayload, CancellationToken, ValueTask<UnityRequestExecutionResult>> dispatchAsync)
     {
-        var executionResult = await unityRequestExecutor.ExecuteAsync(
-                UcliCommandIds.Refresh,
-                requiredStart is null
-                    ? input.Mode ?? UnityExecutionMode.Auto
-                    : UnityExecutionMode.Auto,
-                LifecycleExecutionTiming.AddResponseDeliveryGrace(
-                    callerWaitTimeout),
-                context.Config,
-                context.UnityProject,
-                new UnityRequestPayload.Refresh(
-                    registration,
-                    requiredStart,
-                    startAdmissionPolicy),
-                cancellationToken)
+        var payload = new UnityRequestPayload.Refresh(
+            registration,
+            requiredStart,
+            startAdmissionPolicy);
+        var executionResult = await dispatchAsync(payload, cancellationToken)
             .ConfigureAwait(false);
 
         if (!executionResult.IsSuccess)

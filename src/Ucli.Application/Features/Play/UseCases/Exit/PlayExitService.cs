@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Features.Play.Common;
+using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
 
 namespace MackySoft.Ucli.Application.Features.Play.UseCases.Exit;
 
@@ -14,15 +15,13 @@ internal sealed class PlayExitService : IPlayExitService
     }
 
     /// <inheritdoc />
-    public async ValueTask<PlayExitExecutionResult> ExecuteAsync (
-        PlayExitCommandInput input,
+    public async ValueTask<PlayExitExecutionResult> StartAsync (
+        LifecycleExecutionStartInvocation invocation,
         CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(input);
         return CreateResult(
-            await workflow.ExecuteAsync(
-                    input.ProjectPath,
-                    input.TimeoutMilliseconds,
+            await workflow.StartAsync(
+                    invocation,
                     PlayExitTransitionDirectionPolicy.Instance,
                     cancellationToken)
                 .ConfigureAwait(false));
@@ -30,17 +29,12 @@ internal sealed class PlayExitService : IPlayExitService
 
     /// <inheritdoc />
     public async ValueTask<PlayExitExecutionResult> ReconnectAsync (
-        PlayExitCommandInput input,
-        ExecutionRef lifecycleExecutionRef,
+        LifecycleExecutionReconnectInvocation invocation,
         CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(input);
-        ArgumentNullException.ThrowIfNull(lifecycleExecutionRef);
         return CreateResult(
             await workflow.ReconnectAsync(
-                    input.ProjectPath,
-                    input.TimeoutMilliseconds,
-                    lifecycleExecutionRef,
+                    invocation,
                     PlayExitTransitionDirectionPolicy.Instance,
                     cancellationToken)
                 .ConfigureAwait(false));

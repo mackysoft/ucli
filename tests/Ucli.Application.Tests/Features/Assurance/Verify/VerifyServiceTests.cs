@@ -4,9 +4,8 @@ using MackySoft.Ucli.Application.Features.Assurance.Verify.Contracts;
 using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Common;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Foundation;
-using MackySoft.Ucli.Contracts.Ipc;
-using static MackySoft.Ucli.Application.Tests.Features.Assurance.Verify.VerifyServiceTestSupport;
 using MackySoft.Ucli.Contracts.Execution;
+using static MackySoft.Ucli.Application.Tests.Features.Assurance.Verify.VerifyServiceTestSupport;
 
 namespace MackySoft.Ucli.Application.Tests.Features.Assurance.Verify;
 
@@ -104,7 +103,11 @@ public sealed class VerifyServiceTests
             project: null,
             lifecycleExecutionRef: null,
             ExecutionApplicationState.NotApplied));
-        var service = CreateService(scope.FullPath, compileService: compileService);
+        VerifyInvocationFactory? invocationFactory = null;
+        var service = CreateService(
+            scope.FullPath,
+            compileService: compileService,
+            invocationFactoryCreated: factory => invocationFactory = factory);
 
         var result = await service.ExecuteAsync(
             new VerifyCommandInput(
@@ -123,6 +126,7 @@ public sealed class VerifyServiceTests
         Assert.Equal(VerifyStepKind.Compile, diagnostic.StepKind);
         Assert.Equal(UcliDiagnosticSeverity.Error, diagnostic.Severity);
         Assert.Equal("Compile command failed.", diagnostic.Message);
+        Assert.Equal(1, invocationFactory!.DisposeCount);
     }
 
     [Fact]
@@ -238,11 +242,13 @@ public sealed class VerifyServiceTests
             return CreateReadyResult(input.Target, project);
         });
         var compileService = new RecordingVerifyCompileService(_ => CreateCompileResult(project));
+        VerifyInvocationFactory? invocationFactory = null;
         var service = CreateService(
             scope.FullPath,
             readyService: readyService,
             compileService: compileService,
-            timeProvider: timeProvider);
+            timeProvider: timeProvider,
+            invocationFactoryCreated: factory => invocationFactory = factory);
 
         var result = await service.ExecuteAsync(new VerifyCommandInput(
             ProjectPath: null,
@@ -257,6 +263,7 @@ public sealed class VerifyServiceTests
             compileService,
             expectedTimeoutMilliseconds: 800,
             expectProgressSink: false);
+        Assert.Equal(1, invocationFactory!.DisposeCount);
     }
 
     [Fact]

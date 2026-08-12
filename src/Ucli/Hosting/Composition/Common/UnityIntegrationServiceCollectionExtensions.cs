@@ -1,5 +1,6 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Preflight;
 using MackySoft.Ucli.Application.Shared.Context.Project;
+using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
 using MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Assets;
 using MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Scenes;
@@ -73,6 +74,7 @@ internal static class UnityIntegrationServiceCollectionExtensions
         services.AddSingleton<UnityIpcRequestExecutor>();
         services.AddSingleton<IUnityRequestExecutor>(serviceProvider => serviceProvider.GetRequiredService<UnityIpcRequestExecutor>());
         services.AddSingleton<IUnityStreamingRequestExecutor>(serviceProvider => serviceProvider.GetRequiredService<UnityIpcRequestExecutor>());
+        services.AddSingleton<ILifecycleExecutionHostBindingFactory>(serviceProvider => serviceProvider.GetRequiredService<UnityIpcRequestExecutor>());
         return services;
     }
 }

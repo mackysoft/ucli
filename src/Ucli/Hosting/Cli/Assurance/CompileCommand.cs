@@ -1,9 +1,11 @@
 using ConsoleAppFramework;
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Contracts;
+using MackySoft.Ucli.Application.Features.Assurance.Compile.Execution;
+using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
+using MackySoft.Ucli.Contracts.Execution;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 using MackySoft.Ucli.Hosting.Cli.Common.Streaming;
-using MackySoft.Ucli.Hosting.Cli.Options;
 
 namespace MackySoft.Ucli.Hosting.Cli.Assurance;
 
@@ -16,15 +18,19 @@ internal sealed class CompileCommand
 
     private readonly CliStreamEntryWriterFactory streamEntryWriterFactory;
 
+    private readonly ICompileLifecycleExecutionStartInvocationFactory invocationFactory;
+
     /// <summary> Initializes a new instance of the <see cref="CompileCommand" /> class. </summary>
     public CompileCommand (
         ICompileService compileService,
         ICommandResultWriter commandResultWriter,
-        CliStreamEntryWriterFactory streamEntryWriterFactory)
+        CliStreamEntryWriterFactory streamEntryWriterFactory,
+        ICompileLifecycleExecutionStartInvocationFactory invocationFactory)
     {
         this.compileService = compileService ?? throw new ArgumentNullException(nameof(compileService));
         this.commandResultWriter = commandResultWriter ?? throw new ArgumentNullException(nameof(commandResultWriter));
         this.streamEntryWriterFactory = streamEntryWriterFactory ?? throw new ArgumentNullException(nameof(streamEntryWriterFactory));
+        this.invocationFactory = invocationFactory ?? throw new ArgumentNullException(nameof(invocationFactory));
     }
 
     /// <summary> Executes the compile command and emits the JSON result contract. </summary>
@@ -74,14 +80,31 @@ internal sealed class CompileCommand
             formatResult.Format,
             streamEntryWriterFactory.Create(UcliCommandNames.Compile),
             new CompileProgressTextProjector());
-        var executionResult = await compileService.ExecuteAsync(
-                new CompileCommandInput(
-                    ProjectPath: projectPath,
-                    Mode: modeResult.Mode,
-                    TimeoutMilliseconds: timeoutResult.TimeoutMilliseconds),
-                progressSink,
+        var invocationResult = await invocationFactory.CreateAsync(
+                projectPath,
+                modeResult.Mode ?? UnityExecutionMode.Auto,
+                timeoutResult.TimeoutMilliseconds,
                 cancellationToken)
             .ConfigureAwait(false);
+        CompileExecutionResult executionResult;
+        if (invocationResult.IsSuccess)
+        {
+            var invocation = invocationResult.Invocation!;
+            await using var hostBinding = invocation.Context.HostBinding;
+            executionResult = await compileService.StartAsync(
+                    invocation,
+                    progressSink,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+        else
+        {
+            executionResult = CompileExecutionResult.Failed(
+                invocationResult.Failure!,
+                invocationResult.Project,
+                lifecycleExecutionRef: null,
+                ExecutionApplicationState.NotApplied);
+        }
         var commandResult = CompileCommandResultFactory.Create(executionResult);
         commandResultWriter.WriteToStandardOutput(commandResult);
         return commandResult.ExitCode;
