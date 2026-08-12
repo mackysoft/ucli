@@ -745,10 +745,12 @@ public sealed class FileProgramRunStoreTests
         await store.CreateAsync(initial);
         var statePath = Assert.Single(Directory.GetFiles(repository.Value, "state.json", SearchOption.AllDirectories));
         var originalState = await File.ReadAllTextAsync(statePath);
+        PathArtifactRef? orphanTerminalRef = null;
 
         await Assert.ThrowsAsync<IOException>(() => store.PublishRunTerminalAsync(initial,
             CreateRunTerminal(initial, CreateArtifact("programStepTerminalRecord", "orphan.json"), "ORPHAN"), artifact =>
             {
+                orphanTerminalRef = Assert.IsType<PathArtifactRef>(artifact);
                 File.Delete(statePath);
                 Directory.CreateDirectory(statePath);
                 return CreateTerminalRunReplacement(initial, artifact, CreateArtifact("programStepTerminalRecord", "orphan.json"), "ORPHAN");
@@ -763,10 +765,15 @@ public sealed class FileProgramRunStoreTests
             CreateRunTerminal(restored, CreateArtifact("programStepTerminalRecord", "recovered.json"), "RECOVERED"),
             artifact => CreateTerminalRunReplacement(restored, artifact, CreateArtifact("programStepTerminalRecord", "recovered.json"), "RECOVERED"));
 
+        var recoveredTerminalPath = ContainedPath.Create(repository, RootRelativePath.Parse(Assert.IsType<PathArtifactRef>(publication.TerminalRecordRef).Path.Value)).Target;
+        var orphanTerminalPath = ContainedPath.Create(repository, RootRelativePath.Parse(Assert.IsType<PathArtifactRef>(orphanTerminalRef).Path.Value)).Target;
         var terminalFiles = Directory.GetFiles(repository.Value, "*.json", SearchOption.AllDirectories)
-            .Where(static path => Path.GetDirectoryName(path)!.EndsWith($"{Path.DirectorySeparatorChar}terminal", StringComparison.Ordinal)).ToArray();
+            .Where(static path => Path.GetDirectoryName(path)!.EndsWith($"{Path.DirectorySeparatorChar}terminal", StringComparison.Ordinal))
+            .Select(AbsolutePath.Parse)
+            .ToArray();
         Assert.Equal(2, terminalFiles.Length);
-        Assert.Contains(Path.Combine(repository.Value, Assert.IsType<PathArtifactRef>(publication.TerminalRecordRef).Path.Value), terminalFiles);
+        Assert.Contains(terminalFiles, path => path.IsSameAs(recoveredTerminalPath));
+        Assert.False(orphanTerminalPath.IsSameAs(recoveredTerminalPath));
     }
 
     [Fact]
@@ -852,9 +859,11 @@ public sealed class FileProgramRunStoreTests
         await store.CreateAsync(initial);
         var statePath = Assert.Single(Directory.GetFiles(repository.Value, "state.json", SearchOption.AllDirectories));
         var originalState = await File.ReadAllTextAsync(statePath);
+        PathArtifactRef? orphanTerminalRef = null;
 
         await Assert.ThrowsAsync<IOException>(() => store.PublishStepTerminalAsync(initial, 0, CreateStepTerminal(initial, "ORPHAN"), artifact =>
             {
+                orphanTerminalRef = Assert.IsType<PathArtifactRef>(artifact);
                 File.Delete(statePath);
                 Directory.CreateDirectory(statePath);
                 return CreateStepTerminalReplacement(initial, artifact, "ORPHAN");
@@ -868,10 +877,15 @@ public sealed class FileProgramRunStoreTests
         var publication = await store.PublishStepTerminalAsync(restored, 0, CreateStepTerminal(restored, "RECOVERED"),
             artifact => CreateStepTerminalReplacement(restored, artifact, "RECOVERED"));
 
+        var recoveredTerminalPath = ContainedPath.Create(repository, RootRelativePath.Parse(Assert.IsType<PathArtifactRef>(publication.TerminalRecordRef).Path.Value)).Target;
+        var orphanTerminalPath = ContainedPath.Create(repository, RootRelativePath.Parse(Assert.IsType<PathArtifactRef>(orphanTerminalRef).Path.Value)).Target;
         var terminalFiles = Directory.GetFiles(repository.Value, "*.json", SearchOption.AllDirectories)
-            .Where(static path => Path.GetDirectoryName(path)!.EndsWith($"{Path.DirectorySeparatorChar}terminal", StringComparison.Ordinal)).ToArray();
+            .Where(static path => Path.GetDirectoryName(path)!.EndsWith($"{Path.DirectorySeparatorChar}terminal", StringComparison.Ordinal))
+            .Select(AbsolutePath.Parse)
+            .ToArray();
         Assert.Equal(2, terminalFiles.Length);
-        Assert.Contains(Path.Combine(repository.Value, Assert.IsType<PathArtifactRef>(publication.TerminalRecordRef).Path.Value), terminalFiles);
+        Assert.Contains(terminalFiles, path => path.IsSameAs(recoveredTerminalPath));
+        Assert.False(orphanTerminalPath.IsSameAs(recoveredTerminalPath));
     }
 
     [Fact]
