@@ -143,7 +143,7 @@ public sealed class ProgramRunPersistenceServiceTests
         new ProgramAttachedSupervisorSnapshot(Guid.Parse("10000000-0000-0000-0000-000000000002"), Guid.Parse("10000000-0000-0000-0000-000000000003"), ProgramSupervisorConnection.Connected, ProgramSupervisorAvailability.Available, DateTimeOffset.UtcNow));
 
     private static ResolvedUnityProjectContext CreateProject () => ResolvedUnityProjectContext.Create(
-        AbsolutePath.Parse("/project"), AbsolutePath.Parse("/repository"), new ProjectFingerprint(new string('e', 64)), UnityProjectPathSource.CurrentDirectory, null, "6000.1.0f1");
+        AbsolutePath.Parse(Path.Combine(Path.GetTempPath(), "ucli-project")), AbsolutePath.Parse(Path.Combine(Path.GetTempPath(), "ucli-repository")), new ProjectFingerprint(new string('e', 64)), UnityProjectPathSource.CurrentDirectory, null, "6000.1.0f1");
 
     private static ResolvedProgramDefinition CreateResolvedDefinition ()
     {
