@@ -139,17 +139,23 @@ internal sealed class ProgramDefinitionPhysicalFileReadSession : IAsyncDisposabl
         }
     }
 
-    /// <summary> Reads the opened file and confirms its captured path identity immediately afterwards. </summary>
-    public async ValueTask<ProgramDefinitionFileReadResult> ReadAsync (CancellationToken cancellationToken)
+    /// <summary> Reads the opened file while retaining its physical handle. </summary>
+    public async ValueTask<byte[]> ReadContentAsync (CancellationToken cancellationToken)
     {
         using var output = new MemoryStream();
         await stream.CopyToAsync(output, cancellationToken).ConfigureAwait(false);
+        return output.ToArray();
+    }
+
+    /// <summary> Confirms the captured path identity after reading and creates the closed read result. </summary>
+    public ProgramDefinitionFileReadResult CompleteRead (byte[] content)
+    {
         if (!snapshot.HasSameIdentityChain())
         {
             return new ProgramDefinitionFileReadChangedDuringRead();
         }
 
-        return new ProgramDefinitionFileReadSuccess(output.ToArray(), snapshot.Target);
+        return new ProgramDefinitionFileReadSuccess(content, snapshot.Target);
     }
 
     /// <inheritdoc />

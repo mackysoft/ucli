@@ -39,7 +39,8 @@ internal sealed class FileProgramDefinitionFileReader : IProgramDefinitionFileRe
             }
 
             await using var openedSession = session!;
-            return await openedSession.ReadAsync(cancellationToken).ConfigureAwait(false);
+            var content = await openedSession.ReadContentAsync(cancellationToken).ConfigureAwait(false);
+            return openedSession.CompleteRead(content);
         }
         catch (OperationCanceledException)
         {

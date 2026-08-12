@@ -81,6 +81,7 @@ public sealed class FileProgramDefinitionFileReaderTests
         var success = Assert.IsType<ProgramDefinitionFileReadSuccess>(result);
         Assert.Equal("{\"ancestor\":true}", Encoding.UTF8.GetString(success.Content));
         Assert.Equal("request.json", Path.GetFileName(success.PhysicalPath.Value));
+        Assert.Equal("actual", Path.GetFileName(Path.GetDirectoryName(success.PhysicalPath.Value)));
         AssertSamePhysicalFile(target, success.PhysicalPath);
     }
 
@@ -166,9 +167,10 @@ public sealed class FileProgramDefinitionFileReaderTests
 
         Assert.Null(ProgramDefinitionPhysicalFileReadSession.TryOpen(snapshot, out var session));
         await using var openedSession = session!;
+        var content = await openedSession.ReadContentAsync(CancellationToken.None);
         File.Move(replacement, target, overwrite: true);
 
-        var result = await openedSession.ReadAsync(CancellationToken.None);
+        var result = openedSession.CompleteRead(content);
 
         Assert.IsType<ProgramDefinitionFileReadChangedDuringRead>(result);
     }
