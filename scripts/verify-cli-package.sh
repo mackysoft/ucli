@@ -32,7 +32,7 @@ if [[ ! -f "${package_path}" ]]; then
 fi
 
 filesystem_package_id="MackySoft.FileSystem"
-filesystem_package_version="0.1.0"
+filesystem_package_version="0.2.1"
 physical_filesystem_package_id="MackySoft.FileSystem.Physical"
 physical_filesystem_package_version="0.2.1"
 canonicalization_package_id="MackySoft.Json.Canonicalization"
@@ -59,6 +59,12 @@ foundation_package_ids=(
   "${filesystem_package_id}"
   "${text_package_ids[@]}"
   "${canonicalization_package_id}"
+)
+foundation_dependency_specs=(
+  "${filesystem_package_id}|${filesystem_package_version}"
+  "MackySoft.Text.Vocabularies|${text_package_version}"
+  "MackySoft.Text.Vocabularies.Json|${text_package_version}"
+  "${canonicalization_package_id}|${canonicalization_package_version}"
 )
 canonicalization_notice_root="tools/net8.0/any/third-party/${canonicalization_package_id}/${canonicalization_package_version}"
 canonicalization_notice_files=(
@@ -273,9 +279,10 @@ fi
 dependency_manifest="$(
   unzip -p "${package_path}" tools/net8.0/any/MackySoft.Ucli.deps.json
 )"
-for package_id in "${foundation_package_ids[@]}"; do
-  if ! grep -F "\"${package_id}/0.1.0\"" <<< "${dependency_manifest}" >/dev/null; then
-    echo "CLI package dependency manifest does not reference ${package_id} 0.1.0." >&2
+for dependency_spec in "${foundation_dependency_specs[@]}"; do
+  IFS='|' read -r package_id package_version <<< "${dependency_spec}"
+  if ! grep -F "\"${package_id}/${package_version}\"" <<< "${dependency_manifest}" >/dev/null; then
+    echo "CLI package dependency manifest does not reference ${package_id} ${package_version}." >&2
     exit 1
   fi
 done
