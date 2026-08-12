@@ -8,48 +8,51 @@ public sealed class IndexOpsDescribeJsonRoundTripTests
 {
     [Fact]
     [Trait("Size", "Small")]
-    public void Serializer_RoundTripsOperationMetadataAndSchemaObjects ()
+    public void Serializer_DeserializesFixedOperationMetadataAndSchemaObjects ()
     {
         var contract = IndexOpsDescribeJsonContractTestSupport.CreateGoDescribeIndexContract();
         var json = new IndexOpsDescribeJsonContractWriter().Write(contract);
         var deserialized = IndexOpsDescribeJsonContractSerializer.Deserialize(json);
 
-        var expectedOperation = contract.Operation!;
         Assert.NotNull(deserialized);
-        Assert.Equal(contract.SchemaVersion, deserialized.SchemaVersion);
-        Assert.Equal(contract.SourceInputsHash, deserialized.SourceInputsHash);
+        Assert.Equal(1, deserialized.SchemaVersion);
+        Assert.Equal("source-hash", deserialized.SourceInputsHash);
         Assert.NotNull(deserialized.Operation);
         Assert.Equal(UcliPrimitiveOperationNames.GoDescribe, deserialized.Operation.Name);
         Assert.Equal(UcliOperationPlayModeSupport.Disallowed, deserialized.Operation.PlayModeSupport);
-        Assert.Equal(expectedOperation.DescriptorDigest, deserialized.Operation.DescriptorDigest);
-        Assert.Equal(expectedOperation.Description, deserialized.Operation.Description);
+        Assert.Equal(
+            IndexOpsDescribeContractTestData.GoDescribeDescriptorDigest,
+            deserialized.Operation.DescriptorDigest!.ToString());
+        Assert.Equal(IndexOpsDescribeContractTestData.GoDescribeDescription, deserialized.Operation.Description);
         Assert.NotNull(deserialized.Operation.ArgsContract);
         Assert.NotNull(deserialized.Operation.ResultContract);
-        var expectedArgsContract = expectedOperation.ArgsContract!.Value;
         var actualArgsContract = deserialized.Operation.ArgsContract!.Value;
         Assert.Equal(
-            expectedArgsContract.ContractDigest,
-            actualArgsContract.ContractDigest);
+            IndexOpsDescribeContractTestData.ArgsContractDigest,
+            actualArgsContract.ContractDigest.ToString());
         Assert.True(JsonNode.DeepEquals(
-            JsonNode.Parse(expectedArgsContract.TypeMetadata.GetRawText()),
+            JsonNode.Parse(
+                "{\"contractDigest\":\"" + IndexOpsDescribeContractTestData.ArgsContractDigest + "\",\"title\":\"args\"}"),
             JsonNode.Parse(actualArgsContract.TypeMetadata.GetRawText())));
         Assert.True(JsonNode.DeepEquals(
-            JsonNode.Parse(expectedArgsContract.Schema.GetRawText()),
+            JsonNode.Parse(
+                "{\"x-contract-digest\":\"" + IndexOpsDescribeContractTestData.ArgsContractDigest + "\",\"type\":\"object\",\"properties\":{}}"),
             JsonNode.Parse(actualArgsContract.Schema.GetRawText())));
-        var expectedResultContract = expectedOperation.ResultContract!.Value;
         var actualResultContract = deserialized.Operation.ResultContract!.Value;
         Assert.Equal(
-            expectedResultContract.ContractDigest,
-            actualResultContract.ContractDigest);
+            IndexOpsDescribeContractTestData.ResultContractDigest,
+            actualResultContract.ContractDigest.ToString());
         Assert.True(JsonNode.DeepEquals(
-            JsonNode.Parse(expectedResultContract.TypeMetadata.GetRawText()),
+            JsonNode.Parse(
+                "{\"contractDigest\":\"" + IndexOpsDescribeContractTestData.ResultContractDigest + "\",\"title\":\"result\"}"),
             JsonNode.Parse(actualResultContract.TypeMetadata.GetRawText())));
         Assert.True(JsonNode.DeepEquals(
-            JsonNode.Parse(expectedResultContract.Schema.GetRawText()),
+            JsonNode.Parse(
+                "{\"x-contract-digest\":\"" + IndexOpsDescribeContractTestData.ResultContractDigest + "\",\"type\":\"object\",\"properties\":{}}"),
             JsonNode.Parse(actualResultContract.Schema.GetRawText())));
         Assert.Equal(
-            expectedOperation.VerdictContract,
-            deserialized.Operation.VerdictContract);
+            IndexOpsDescribeContractTestData.GoDescribeVerdictDescription,
+            deserialized.Operation.VerdictContract!.Description);
         Assert.NotNull(deserialized.Operation.Assurance);
     }
 

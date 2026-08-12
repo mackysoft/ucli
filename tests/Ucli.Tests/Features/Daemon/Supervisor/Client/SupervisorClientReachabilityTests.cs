@@ -106,13 +106,15 @@ public sealed class SupervisorClientReachabilityTests
     [Trait("Size", "Small")]
     public async Task ProbeReachability_WhenTransportIgnoresCancellation_ReturnsAtDeadline ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
+        var transportStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var cancellationObserved = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var responseSource = new TaskCompletionSource<IpcResponse>(TaskCreationOptions.RunContinuationsAsynchronously);
         var transportClient = new StubIpcTransportClient
         {
             SendHandler = (_, _, _, cancellationToken) =>
             {
+                transportStarted.TrySetResult();
                 _ = cancellationToken.Register(() => cancellationObserved.TrySetResult());
                 return new ValueTask<IpcResponse>(responseSource.Task);
             },
@@ -124,7 +126,7 @@ public sealed class SupervisorClientReachabilityTests
                 timeout,
                 CancellationToken.None)
             .AsTask();
-        await timeProvider.WaitForTimerDueWithinAsync(timeout).WaitAsync(SignalWaitTimeout);
+        await transportStarted.Task.WaitAsync(SignalWaitTimeout);
 
         try
         {

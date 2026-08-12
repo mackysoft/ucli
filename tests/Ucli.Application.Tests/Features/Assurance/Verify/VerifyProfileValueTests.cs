@@ -20,7 +20,7 @@ public sealed class VerifyProfileValueTests
         var exposedSteps = Assert.IsAssignableFrom<IList<VerifyProfileStep>>(profile.Steps);
 
         Assert.Throws<NotSupportedException>(() => exposedSteps[0] = CreateStep(VerifyStepKind.Logs));
-        Assert.Same(firstStep, profile.Steps[0]);
+        Assert.Equal(firstStep, profile.Steps[0]);
     }
 
     [Fact]

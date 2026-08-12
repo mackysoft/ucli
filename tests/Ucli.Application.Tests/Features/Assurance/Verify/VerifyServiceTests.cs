@@ -125,7 +125,7 @@ public sealed class VerifyServiceTests
         var diagnostic = Assert.IsType<VerifyDiagnosticEntry>(diagnosticEntry.Payload);
         Assert.Equal(VerifyStepKind.Compile, diagnostic.StepKind);
         Assert.Equal(UcliDiagnosticSeverity.Error, diagnostic.Severity);
-        Assert.Equal("Compile command failed.", diagnostic.Message);
+        Assert.Equal(UcliCoreErrorCodes.InternalError.Value, diagnostic.Code);
         Assert.Equal(1, invocationFactory!.DisposeCount);
     }
 

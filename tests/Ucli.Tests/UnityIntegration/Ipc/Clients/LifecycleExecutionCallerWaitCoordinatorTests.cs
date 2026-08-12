@@ -67,7 +67,7 @@ public sealed class LifecycleExecutionCallerWaitCoordinatorTests
         var unityProject =
             ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(
                 scope.FullPath);
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var executionTimeout = TimeSpan.FromSeconds(30);
         var dispatchRequest = CreateLifecycleDispatchRequest(
             LifecycleExecutionKind.Compile,
@@ -75,6 +75,7 @@ public sealed class LifecycleExecutionCallerWaitCoordinatorTests
             executionTimeout);
         var dispatchRelease = new TaskCompletionSource<UnityRequestExecutionResult>(
             TaskCreationOptions.RunContinuationsAsynchronously);
+        var dispatchStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
         var resultTask = LifecycleExecutionCallerWaitCoordinator.WaitAsync(
                 unityProject,
@@ -85,25 +86,21 @@ public sealed class LifecycleExecutionCallerWaitCoordinatorTests
                 observation =>
                 {
                     Assert.NotNull(observation);
+                    dispatchStarted.TrySetResult();
                     callerCancellation.Cancel();
                     return new ValueTask<UnityRequestExecutionResult>(
                         dispatchRelease.Task);
                 },
                 callerCancellation.Token)
             .AsTask();
-        await timeProvider.WaitForTimerDueWithinAsync(
-            TimeSpan.FromMilliseconds(10));
+        await dispatchStarted.Task.WaitAsync(SignalWaitTimeout);
         timeProvider.Advance(
             executionTimeout + TimeSpan.FromSeconds(1));
         var persistedStart =
             await LifecycleExecutionIpcTestResponseFactory.PersistStartAsync(
                 unityProject,
                 dispatchRequest);
-        await ManualTimeTaskDriver.AdvanceUntilCompletedAsync(
-            timeProvider,
-            resultTask,
-            LifecycleExecutionTiming.ResponseDeliveryGrace,
-            TimeSpan.FromMilliseconds(10));
+        timeProvider.Advance(LifecycleExecutionTiming.ResponseDeliveryGrace);
         var result = await resultTask.WaitAsync(SignalWaitTimeout);
 
         Assert.False(result.IsSuccess);

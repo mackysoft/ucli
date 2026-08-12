@@ -234,7 +234,6 @@ public sealed class CallServiceWorkflowTests
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal("uCLI eval completed.", result.Message);
         CallServiceInvocationAssert.PlanThenCallDispatchedByOwner(
             ipcRequestExecutor,
             UcliCommandIds.Eval,

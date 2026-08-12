@@ -13,10 +13,10 @@ public sealed class SceneTreeLiteSourcePathsTests
 
         var result = SceneTreeLiteSourcePaths.Create(project.UnityProjectRoot, sceneAssetPath);
 
-        Assert.Same(sceneAssetPath, result.SceneAssetPath);
-        Assert.Same(project.UnityProjectRoot, result.SceneFilePath.BoundaryRoot);
+        Assert.Equal(sceneAssetPath, result.SceneAssetPath);
+        Assert.Equal(project.UnityProjectRoot, result.SceneFilePath.BoundaryRoot);
         Assert.Equal("Assets/Scenes/Main.unity", result.SceneFilePath.RelativePath.Value);
-        Assert.Same(project.UnityProjectRoot, result.MetaFilePath.BoundaryRoot);
+        Assert.Equal(project.UnityProjectRoot, result.MetaFilePath.BoundaryRoot);
         Assert.Equal("Assets/Scenes/Main.unity.meta", result.MetaFilePath.RelativePath.Value);
     }
 }

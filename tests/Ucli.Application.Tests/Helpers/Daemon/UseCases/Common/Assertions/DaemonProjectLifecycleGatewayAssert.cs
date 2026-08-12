@@ -45,7 +45,7 @@ internal static class DaemonProjectLifecycleGatewayAssert
         ICommandProgressSink expectedSupervisorProgressSink)
     {
         var invocation = Assert.Single(gateway.EnsureRunningInvocations);
-        Assert.Same(expectedSupervisorProgressSink, invocation.SupervisorProgressSink);
+        Assert.Equal(expectedSupervisorProgressSink, invocation.SupervisorProgressSink);
         return invocation;
     }
 

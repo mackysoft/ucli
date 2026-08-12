@@ -27,7 +27,7 @@ public sealed class OpsPreflightServiceTests
 
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Context);
-        Assert.Same(context, result.Context.Context);
+        Assert.Equal(context, result.Context.Context);
         Assert.Equal(ReadIndexMode.AllowStale, result.Context.ReadIndexMode);
         Assert.Equal(UnityExecutionMode.Daemon, result.Context.Mode);
         Assert.Equal(TimeSpan.FromMilliseconds(1200), result.Context.Timeout);

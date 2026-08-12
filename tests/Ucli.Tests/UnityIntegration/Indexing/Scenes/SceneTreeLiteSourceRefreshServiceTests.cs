@@ -2,10 +2,10 @@ using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Scenes;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Projects;
 using MackySoft.Ucli.Tests.Helpers.Indexing;
 using MackySoft.Ucli.Tests.Helpers.Indexing.Scenes;
 using MackySoft.Ucli.UnityIntegration.Indexing.Scenes;
-using MackySoft.Ucli.Contracts.Projects;
 
 namespace MackySoft.Ucli.Tests.Scenes;
 
@@ -40,7 +40,7 @@ public sealed class SceneTreeLiteSourceRefreshServiceTests
             cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        Assert.Same(snapshot, result.Snapshot);
+        SceneTreeLiteSourceSnapshotAssert.Equal(snapshot, result.Snapshot);
         Assert.Equal("readIndex stale.", result.FallbackReason);
         SceneTreeLiteSnapshotReaderAssert.ReadRequested(reader, UnityExecutionMode.Auto, expectedFailFast: true);
         ReadIndexArtifactWriterAssert.SceneTreeLiteWritten(store, "hash-1");

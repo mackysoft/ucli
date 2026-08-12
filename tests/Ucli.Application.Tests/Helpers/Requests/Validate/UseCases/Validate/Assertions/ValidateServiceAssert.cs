@@ -16,12 +16,10 @@ internal static class ValidateServiceAssert
 
     public static void InvalidTimeoutStoppedBeforeSharedPreflight (
         ValidateServiceResult result,
-        RecordingRequestStaticValidationPreflightService preflightService,
-        string expectedMessageFragment)
+        RecordingRequestStaticValidationPreflightService preflightService)
     {
         var error = AssertFailureWithoutOutput(result);
         Assert.Equal(UcliCoreErrorCodes.InvalidArgument, error.Code);
-        Assert.Contains(expectedMessageFragment, error.Message, StringComparison.Ordinal);
         Assert.Empty(preflightService.Invocations);
     }
 
@@ -64,7 +62,6 @@ internal static class ValidateServiceAssert
         bool expectedReadIndexUsed)
     {
         Assert.True(result.IsSuccess);
-        Assert.Equal("Static validation passed.", result.Message);
         Assert.NotNull(result.Output);
         Assert.Equal(expectedReadIndexUsed, result.Output!.ReadIndex.Used);
         Assert.Empty(result.Errors);

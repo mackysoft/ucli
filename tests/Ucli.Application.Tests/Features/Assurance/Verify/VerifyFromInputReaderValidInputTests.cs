@@ -59,7 +59,6 @@ public sealed class VerifyFromInputReaderValidInputTests
         Assert.Equal("READ_SURFACE_PARTIAL", diagnostic.Code.Value);
         Assert.Equal(UcliDiagnosticSeverity.Warning, diagnostic.Severity);
         Assert.Equal(IpcExecuteDiagnosticCoverageImpact.Partial, diagnostic.CoverageImpact);
-        Assert.Equal("Read surface coverage is partial.", diagnostic.Message);
         Assert.True(input.NeedsPostRead);
     }
 

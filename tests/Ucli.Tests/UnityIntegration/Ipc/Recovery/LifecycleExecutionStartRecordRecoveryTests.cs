@@ -17,7 +17,7 @@ public sealed class LifecycleExecutionStartRecordRecoveryTests
         var unityProject =
             ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(
                 scope.FullPath);
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var dispatchRequest = CreateLifecycleDispatchRequest(
             LifecycleExecutionKind.Compile,
             timeProvider,
@@ -37,11 +37,7 @@ public sealed class LifecycleExecutionStartRecordRecoveryTests
             await LifecycleExecutionIpcTestResponseFactory.PersistStartAsync(
                 unityProject,
                 dispatchRequest);
-        await ManualTimeTaskDriver.AdvanceUntilCompletedAsync(
-            timeProvider,
-            waitTask,
-            TimeSpan.FromSeconds(1),
-            TimeSpan.FromMilliseconds(10));
+        timeProvider.Advance(TimeSpan.FromMilliseconds(10));
         var recoveredStart = await waitTask;
 
         Assert.NotNull(recoveredStart);

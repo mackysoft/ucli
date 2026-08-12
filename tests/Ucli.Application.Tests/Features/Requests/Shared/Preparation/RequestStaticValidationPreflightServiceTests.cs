@@ -103,7 +103,6 @@ public sealed class RequestStaticValidationPreflightServiceTests
             preparedRequest,
             readIndex,
             ReadIndexErrorCodes.ReadIndexFormatInvalid,
-            "ops.catalog.json",
             validator);
     }
 

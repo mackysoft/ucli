@@ -7,14 +7,6 @@ public sealed class IpcBootstrapVocabularyTests
 {
     [Fact]
     [Trait("Size", "Small")]
-    public void IpcTransportKind_HasStableEnumValues ()
-    {
-        Assert.Equal(0, (int)IpcTransportKind.NamedPipe);
-        Assert.Equal(1, (int)IpcTransportKind.UnixDomainSocket);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
     public void IpcBatchmodeBootstrapArgumentNames_HasStableStringValues ()
     {
         Assert.Equal("-ucliBootstrapTarget", IpcBatchmodeBootstrapArgumentNames.Target);

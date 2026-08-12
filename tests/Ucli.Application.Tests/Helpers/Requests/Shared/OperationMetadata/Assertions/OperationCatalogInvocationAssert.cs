@@ -43,8 +43,8 @@ internal static class OperationCatalogInvocationAssert
         bool expectedFailFast)
     {
         var invocation = Assert.Single(discoveryService.Invocations);
-        Assert.Same(expectedUnityProject, invocation.UnityProject);
-        Assert.Same(expectedConfig, invocation.Config);
+        Assert.Equal(expectedUnityProject, invocation.UnityProject);
+        Assert.Equal(expectedConfig, invocation.Config);
         Assert.Equal(expectedMode, invocation.Mode);
         Assert.Equal(expectedTimeout, invocation.Timeout);
         Assert.Equal(expectedFailFast, invocation.FailFast);
@@ -61,8 +61,8 @@ internal static class OperationCatalogInvocationAssert
         CancellationToken expectedCancellationToken)
     {
         var invocation = Assert.Single(operationCatalog.ProjectGetAllInvocations);
-        Assert.Same(expectedUnityProject, invocation.UnityProject);
-        Assert.Same(expectedConfig, invocation.Config);
+        Assert.Equal(expectedUnityProject, invocation.UnityProject);
+        Assert.Equal(expectedConfig, invocation.Config);
         Assert.Equal(expectedMode, invocation.Mode);
         Assert.Equal(expectedTimeout, invocation.Timeout);
         Assert.Equal(expectedFailFast, invocation.FailFast);

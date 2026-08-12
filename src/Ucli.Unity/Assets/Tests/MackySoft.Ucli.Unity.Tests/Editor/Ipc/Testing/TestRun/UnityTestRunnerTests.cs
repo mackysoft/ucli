@@ -249,7 +249,7 @@ namespace MackySoft.Ucli.Unity.Tests
             callbacks.TestFinished(result);
 
             Assert.That(progressSink.Entries, Has.Count.EqualTo(2));
-            Assert.That(progressSink.Entries[0].EventName, Is.EqualTo(TestRunProgressEventNames.CaseStarted));
+            Assert.That(progressSink.Entries[0].EventName, Is.EqualTo("test.case.started"));
             Assert.That(progressSink.Entries[0].Payload, Is.TypeOf<TestCaseStartedEntry>());
             var started = (TestCaseStartedEntry)progressSink.Entries[0].Payload;
             Assert.That(started.RunId, Is.EqualTo(requestContext.RunId));
@@ -258,7 +258,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(started.TestPlatform, Is.EqualTo("editmode"));
             Assert.That(started.Categories, Is.EqualTo(new[] { "smoke" }));
 
-            Assert.That(progressSink.Entries[1].EventName, Is.EqualTo(TestRunProgressEventNames.CaseFinished));
+            Assert.That(progressSink.Entries[1].EventName, Is.EqualTo("test.case.finished"));
             Assert.That(progressSink.Entries[1].Payload, Is.TypeOf<TestCaseFinishedEntry>());
             var finished = (TestCaseFinishedEntry)progressSink.Entries[1].Payload;
             Assert.That(finished.RunId, Is.EqualTo(requestContext.RunId));
@@ -366,7 +366,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 "6000.1.4f1");
             var factory = new UnityTestRunRequestContextFactory(projectIdentity);
             var request = new IpcTestRunRequest(
-                TestPlatform: TestRunPlatformCodec.ToValue(TestRunPlatform.Player("Android")),
+                TestPlatform: "Android",
                 TestFilter: null,
                 TestCategories: new[] { "Size.Small" },
                 AssemblyNames: new[] { "MackySoft.Ucli.Unity.Tests.Editor" },

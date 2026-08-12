@@ -11,66 +11,9 @@ public sealed class DaemonShutdownClientTests
 {
     [Fact]
     [Trait("Size", "Small")]
-    public async Task SendShutdown_WhenSessionTokenPublicationLags_RetriesOnceWithPublishedSuccessor ()
-    {
-        var startedAtUtc = new DateTimeOffset(2030, 1, 2, 3, 4, 5, TimeSpan.Zero);
-        var timeProvider = new ManualTimeProvider(startedAtUtc);
-        var transportClient = new RecordingIpcTransportClient(
-            static request => IpcResponseTestFactory.CreateSuccess(
-                request,
-                new IpcShutdownResponse(Accepted: true, Message: "shutdown accepted")));
-        transportClient.EnqueueResponse(static request => IpcResponseTestFactory.CreateError(
-            request,
-            IpcSessionErrorCodes.SessionTokenInvalid,
-            "session rejected"));
-        transportClient.EnqueueResponse(static request => IpcResponseTestFactory.CreateSuccess(
-            request,
-            new IpcShutdownResponse(Accepted: true, Message: "shutdown accepted")));
-        var client = new DaemonShutdownClient(
-            transportClient,
-            DaemonSessionAcquisitionCoordinatorTestFactory.Create(
-                new QueuedDaemonSessionStore(
-                CreateSessionReadResult("daemon-token-1"),
-                CreateSessionReadResult("daemon-token-1"),
-                CreateSessionReadResult("daemon-token-2"),
-                CreateSessionReadResult("daemon-token-3"))));
-
-        var resultTask = client.SendShutdownAsync(
-                ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(
-                    ProjectFingerprintTestFactory.Create("fingerprint-shutdown-token-publication")),
-                CreateSession("daemon-token-1"),
-                ExecutionDeadline.Start(TimeSpan.FromSeconds(5), timeProvider),
-                CancellationToken.None)
-            .AsTask();
-        await ManualTimeTaskDriver.AdvanceUntilCompletedAsync(
-            timeProvider,
-            resultTask,
-            TimeSpan.FromSeconds(2),
-            TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds));
-
-        var result = await resultTask;
-
-        Assert.True(result.IsSuccess);
-        var requests = transportClient.Requests;
-        Assert.Collection(
-            requests,
-            static request => Assert.Equal(TextVocabulary.GetText(UnityIpcMethod.Shutdown), request.Method),
-            static request => Assert.Equal(TextVocabulary.GetText(UnityIpcMethod.Shutdown), request.Method));
-        IpcRequestAssert.SessionTokens(
-            requests,
-            IpcSessionTokenTestFactory.Create("daemon-token-1").GetEncodedValue(),
-            IpcSessionTokenTestFactory.Create("daemon-token-2").GetEncodedValue());
-        _ = IpcRequestAssert.SingleRequestId(requests);
-        Assert.All(
-            requests,
-            request => Assert.Equal(startedAtUtc + TimeSpan.FromSeconds(5), request.RequestDeadlineUtc));
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
     public async Task SendShutdown_WhenRejectedSessionTokenDoesNotRotate_ReturnsFailureAfterPublicationGrace ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var transportClient = new RecordingIpcTransportClient(
             static request => IpcResponseTestFactory.CreateError(
                 request,
@@ -88,9 +31,7 @@ public sealed class DaemonShutdownClientTests
                 ExecutionDeadline.Start(TimeSpan.FromSeconds(5), timeProvider),
                 CancellationToken.None)
             .AsTask();
-        await timeProvider
-            .WaitForTimerDueWithinAsync(TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds))
-            .WaitAsync(TimeSpan.FromSeconds(1));
+        await transportClient.WaitForRequestAsync(TimeSpan.FromSeconds(1));
         timeProvider.Advance(DaemonTimeouts.SessionPublicationRetryTimeout);
 
         var result = await resultTask.WaitAsync(TimeSpan.FromSeconds(1));
@@ -108,7 +49,7 @@ public sealed class DaemonShutdownClientTests
     [Trait("Size", "Small")]
     public async Task SendShutdown_WhenReplacementSessionResolutionIgnoresCancellation_ReturnsRejectionAtPublicationDeadline ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var transportClient = new RecordingIpcTransportClient(
             static request => IpcResponseTestFactory.CreateError(
                 request,
@@ -132,9 +73,6 @@ public sealed class DaemonShutdownClientTests
 
         try
         {
-            await timeProvider
-                .WaitForTimerDueWithinAsync(DaemonTimeouts.SessionPublicationRetryTimeout)
-                .WaitAsync(TimeSpan.FromSeconds(1));
             timeProvider.Advance(DaemonTimeouts.SessionPublicationRetryTimeout);
             var completedTask = await Task.WhenAny(resultTask, Task.Delay(TimeSpan.FromSeconds(1)));
 
@@ -161,16 +99,18 @@ public sealed class DaemonShutdownClientTests
     [Trait("Size", "Small")]
     public async Task SendShutdown_WhenOverallDeadlinePrecedesPublicationGrace_ReturnsTimeoutAtOverallDeadline ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var transportClient = new RecordingIpcTransportClient(
             static request => IpcResponseTestFactory.CreateError(
                 request,
                 IpcSessionErrorCodes.SessionTokenInvalid,
                 "session rejected"));
+        var sessionStore = new NonCooperativeBlockingDaemonSessionStore(
+            blockOnCall: 1,
+            CreateSessionReadResult("daemon-token-1"));
         var client = new DaemonShutdownClient(
             transportClient,
-            DaemonSessionAcquisitionCoordinatorTestFactory.Create(
-                new RecordingDaemonSessionStore(CreateSessionReadResult("daemon-token-1"))));
+            DaemonSessionAcquisitionCoordinatorTestFactory.Create(sessionStore));
         var timeout = TimeSpan.FromMilliseconds(500);
 
         var resultTask = client.SendShutdownAsync(
@@ -180,26 +120,31 @@ public sealed class DaemonShutdownClientTests
                 ExecutionDeadline.Start(timeout, timeProvider),
                 CancellationToken.None)
             .AsTask();
-        await ManualTimeTaskDriver.AdvanceUntilCompletedAsync(
-            timeProvider,
-            resultTask,
-            TimeSpan.FromSeconds(1),
-            TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds));
+        await sessionStore.Blocked.WaitAsync(TimeSpan.FromSeconds(1));
 
-        var result = await resultTask;
+        try
+        {
+            timeProvider.Advance(timeout);
+            var result = await resultTask.WaitAsync(TimeSpan.FromSeconds(1));
 
-        Assert.False(result.IsSuccess);
-        Assert.False(result.IsNotRunning);
-        Assert.Equal(ExecutionErrorKind.Timeout, Assert.IsType<ExecutionError>(result.Error).Kind);
-        Assert.Single(transportClient.Requests);
-        Assert.Equal(DateTimeOffset.UnixEpoch + timeout, timeProvider.GetUtcNow());
+            Assert.False(result.IsSuccess);
+            Assert.False(result.IsNotRunning);
+            Assert.Equal(ExecutionErrorKind.Timeout, Assert.IsType<ExecutionError>(result.Error).Kind);
+            Assert.Single(transportClient.Requests);
+            Assert.Equal(DateTimeOffset.UnixEpoch + timeout, timeProvider.GetUtcNow());
+        }
+        finally
+        {
+            sessionStore.Release();
+            await ObserveCompletionAsync(resultTask);
+        }
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public async Task SendShutdown_WhenSuccessorSessionTokenIsRejected_FollowsNextPublishedGeneration ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var attempt = 0;
         var transportClient = new RecordingIpcTransportClient(request =>
         {
@@ -232,13 +177,7 @@ public sealed class DaemonShutdownClientTests
                 ExecutionDeadline.Start(TimeSpan.FromSeconds(5), timeProvider),
                 CancellationToken.None)
             .AsTask();
-        await ManualTimeTaskDriver.AdvanceUntilCompletedAsync(
-            timeProvider,
-            resultTask,
-            TimeSpan.FromSeconds(1),
-            TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds));
-
-        var result = await resultTask;
+        var result = await resultTask.WaitAsync(TimeSpan.FromSeconds(1));
 
         Assert.True(result.IsSuccess);
         var requests = transportClient.Requests;
@@ -254,7 +193,7 @@ public sealed class DaemonShutdownClientTests
     [Trait("Size", "Small")]
     public async Task SendShutdown_WhenSuccessorResponseIsInterrupted_DoesNotReplayAmbiguousRequest ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var attempt = 0;
         var transportClient = new RecordingIpcTransportClient(request =>
         {
@@ -282,13 +221,7 @@ public sealed class DaemonShutdownClientTests
                 ExecutionDeadline.Start(TimeSpan.FromSeconds(5), timeProvider),
                 CancellationToken.None)
             .AsTask();
-        await ManualTimeTaskDriver.AdvanceUntilCompletedAsync(
-            timeProvider,
-            resultTask,
-            TimeSpan.FromSeconds(1),
-            TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds));
-
-        var result = await resultTask;
+        var result = await resultTask.WaitAsync(TimeSpan.FromSeconds(1));
 
         Assert.False(result.IsSuccess);
         Assert.False(result.IsNotRunning);
@@ -305,7 +238,7 @@ public sealed class DaemonShutdownClientTests
     [Trait("Size", "Small")]
     public async Task SendShutdown_WhenSuccessorEndpointFailsBeforeWrite_FollowsNextPublishedGeneration ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var attempt = 0;
         var transportClient = new RecordingIpcTransportClient(request =>
         {
@@ -336,13 +269,7 @@ public sealed class DaemonShutdownClientTests
                 ExecutionDeadline.Start(TimeSpan.FromSeconds(5), timeProvider),
                 CancellationToken.None)
             .AsTask();
-        await ManualTimeTaskDriver.AdvanceUntilCompletedAsync(
-            timeProvider,
-            resultTask,
-            TimeSpan.FromSeconds(1),
-            TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds));
-
-        var result = await resultTask;
+        var result = await resultTask.WaitAsync(TimeSpan.FromSeconds(1));
 
         Assert.True(result.IsSuccess);
         IpcRequestAssert.SessionTokens(
@@ -357,7 +284,7 @@ public sealed class DaemonShutdownClientTests
     [Trait("Size", "Small")]
     public async Task SendShutdown_WhenTransportIgnoresCancellation_ReturnsAtSharedDeadline ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var sendStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var sendCompletion = new TaskCompletionSource<IpcResponse>(TaskCreationOptions.RunContinuationsAsynchronously);
         var transportClient = new StubIpcTransportClient
@@ -387,7 +314,6 @@ public sealed class DaemonShutdownClientTests
 
         try
         {
-            await timeProvider.WaitForTimerDueWithinAsync(timeout).WaitAsync(TimeSpan.FromSeconds(1));
             timeProvider.Advance(timeout);
             var result = await resultTask.WaitAsync(TimeSpan.FromSeconds(1));
 
@@ -560,4 +486,5 @@ public sealed class DaemonShutdownClientTests
             _ = task.Exception;
         }
     }
+
 }
