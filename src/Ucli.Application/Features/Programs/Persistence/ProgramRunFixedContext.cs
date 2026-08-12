@@ -1,7 +1,6 @@
 using System.Buffers;
 using System.Text.Json;
 using MackySoft.Json.Canonicalization;
-using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Cryptography;
 
@@ -51,7 +50,6 @@ internal sealed record ProgramEffectiveConfigurationSnapshot (
     IReadOnlyList<string> OperationAllowlist,
     int IpcDefaultTimeoutMilliseconds,
     IReadOnlyDictionary<string, int> IpcTimeoutMillisecondsByCommand,
-    bool EvalEnabled,
     Sha256Digest Digest,
     DateTimeOffset CapturedAtUtc)
 {
@@ -62,8 +60,7 @@ internal sealed record ProgramEffectiveConfigurationSnapshot (
         ReadIndexMode readIndexDefaultMode,
         IReadOnlyList<string> operationAllowlist,
         int ipcDefaultTimeoutMilliseconds,
-        IReadOnlyDictionary<string, int> ipcTimeoutMillisecondsByCommand,
-        bool evalEnabled)
+        IReadOnlyDictionary<string, int> ipcTimeoutMillisecondsByCommand)
     {
         var buffer = new ArrayBufferWriter<byte>();
         using (var writer = new Utf8JsonWriter(buffer))
@@ -88,7 +85,6 @@ internal sealed record ProgramEffectiveConfigurationSnapshot (
                 writer.WriteNumber(entry.Key, entry.Value);
             }
             writer.WriteEndObject();
-            writer.WriteBoolean("evalEnabled", evalEnabled);
             writer.WriteEndObject();
         }
         using var document = JsonDocument.Parse(buffer.WrittenMemory);
@@ -106,7 +102,7 @@ internal sealed record ProgramEffectiveConfigurationSnapshot (
             throw new ArgumentException("Program configuration snapshot must be complete, effective, and closed.");
         }
         if (Digest != ComputeDigest(SchemaVersion, OperationPolicy, PlanTokenMode, ReadIndexDefaultMode, OperationAllowlist,
-                IpcDefaultTimeoutMilliseconds, IpcTimeoutMillisecondsByCommand, EvalEnabled))
+                IpcDefaultTimeoutMilliseconds, IpcTimeoutMillisecondsByCommand))
         {
             throw new ArgumentException("Program configuration snapshot digest does not match its effective settings.");
         }

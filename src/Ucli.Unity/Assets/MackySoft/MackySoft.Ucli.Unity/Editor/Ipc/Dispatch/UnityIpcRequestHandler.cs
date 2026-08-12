@@ -1,9 +1,11 @@
 using System;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Text.Vocabularies;
 using TextVocabulary = MackySoft.Text.Vocabularies.Vocabulary;
 using MackySoft.Ucli.Contracts;
+using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.Authorization;
 using MackySoft.Ucli.Contracts.Text;
@@ -281,6 +283,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             return UnityIpcRequestValidationResult.Success(
                 new ValidatedUnityIpcRequest(
                     request.RequestId,
+                    Sha256Digest.Compute(Encoding.UTF8.GetBytes(sessionToken.GetEncodedValue())),
                     method,
                     request.Payload,
                     responseMode,

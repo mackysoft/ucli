@@ -111,7 +111,7 @@ internal sealed class EvalCommand
 
     private static bool TryParseSourceKind (string? value, out CsEvalSourceKind sourceKind)
     {
-        if (string.IsNullOrWhiteSpace(value) || string.Equals(value, "snippet", StringComparison.Ordinal))
+        if (value is null || string.Equals(value, "snippet", StringComparison.Ordinal))
         {
             sourceKind = CsEvalSourceKind.Snippet;
             return true;

@@ -9,6 +9,7 @@ using MackySoft.Ucli.Contracts.Projects;
 using MackySoft.Ucli.Infrastructure.Execution.ReadPostcondition;
 using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Unity.Execution.CsEval;
+using MackySoft.Ucli.Unity.Execution.Phases;
 using MackySoft.Ucli.Unity.Execution.PlanToken;
 using MackySoft.Ucli.Unity.Runtime;
 
@@ -23,8 +24,9 @@ namespace MackySoft.Ucli.Unity.Ipc
         private readonly UnityProjectIdentity project;
         private readonly IPlanTokenEnvironment tokenEnvironment;
         private readonly MutationReadPostconditionJournal admissionJournal;
+        private readonly IUnityMutationLaneControl mutationLaneControl;
 
-        public EvalCallUnityIpcMethodHandler (CsEvalCompilationService compilationService, CsEvalEntryPointReflectionResolver entryPointResolver, CsEvalReturnValueSerializer returnValueSerializer, IUnityEditorReadinessGate readinessGate, UnityProjectIdentity project, IPlanTokenEnvironment tokenEnvironment, MutationReadPostconditionJournal admissionJournal)
+        public EvalCallUnityIpcMethodHandler (CsEvalCompilationService compilationService, CsEvalEntryPointReflectionResolver entryPointResolver, CsEvalReturnValueSerializer returnValueSerializer, IUnityEditorReadinessGate readinessGate, UnityProjectIdentity project, IPlanTokenEnvironment tokenEnvironment, MutationReadPostconditionJournal admissionJournal, IUnityMutationLaneControl mutationLaneControl)
         {
             this.compilationService = compilationService ?? throw new ArgumentNullException(nameof(compilationService));
             this.entryPointResolver = entryPointResolver ?? throw new ArgumentNullException(nameof(entryPointResolver));
@@ -33,6 +35,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             this.project = project ?? throw new ArgumentNullException(nameof(project));
             this.tokenEnvironment = tokenEnvironment ?? throw new ArgumentNullException(nameof(tokenEnvironment));
             this.admissionJournal = admissionJournal ?? throw new ArgumentNullException(nameof(admissionJournal));
+            this.mutationLaneControl = mutationLaneControl ?? throw new ArgumentNullException(nameof(mutationLaneControl));
         }
 
         public UnityIpcMethod Method => UnityIpcMethod.EvalCall;
@@ -50,12 +53,12 @@ namespace MackySoft.Ucli.Unity.Ipc
             if (!ready.IsReady) return CreateError(request, ready.Error!.Code, ready.Error.Message, null, ExecutionApplicationState.NotApplied);
             var compilation = compilationService.CompileAndValidate(payload.Source, payload.SourceKind, payload.AllowDangerous, payload.AllowPlayMode, cancellation.Token);
             if (!compilation.IsSuccess) return CreateError(request, UcliCoreErrorCodes.InvalidArgument, "C# eval call source is invalid.", CreatePartial(compilation), ExecutionApplicationState.NotApplied);
-            var tokenValidation = await ValidatePlanTokenAsync(payload.PlanToken, compilation, payload.AllowDangerous, payload.AllowPlayMode, cancellation.Token);
+            var tokenValidation = await ValidatePlanTokenAsync(payload.PlanToken, compilation, payload.AllowDangerous, payload.AllowPlayMode, request.SessionTokenDigest, cancellation.Token);
             if (!tokenValidation.IsValid) return CreateError(request, tokenValidation.ErrorCode!, tokenValidation.Error!, CreatePartial(compilation), ExecutionApplicationState.NotApplied);
             if (!compilationService.TryEmitAssembly(compilation.Compilation, cancellation.Token, out var bytes, out _, out var emitError)) return CreateError(request, UcliCoreErrorCodes.InvalidArgument, emitError, CreatePartial(compilation), ExecutionApplicationState.NotApplied);
             // Emission may take long enough for the Editor generation or eval configuration to change.
             // Admission must use the snapshot that was revalidated after emission, never a stale plan snapshot.
-            tokenValidation = await ValidatePlanTokenAsync(payload.PlanToken, compilation, payload.AllowDangerous, payload.AllowPlayMode, cancellation.Token);
+            tokenValidation = await ValidatePlanTokenAsync(payload.PlanToken, compilation, payload.AllowDangerous, payload.AllowPlayMode, request.SessionTokenDigest, cancellation.Token);
             if (!tokenValidation.IsValid) return CreateError(request, tokenValidation.ErrorCode!, tokenValidation.Error!, CreatePartial(compilation), ExecutionApplicationState.NotApplied);
             var admission = await admissionJournal.TryAdmitEvalCallAsync(
                 tokenValidation.Snapshot!.RepositoryRoot,
@@ -78,98 +81,116 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return CreateError(request, UcliCoreErrorCodes.InvalidArgument, message, CreatePartial(compilation), ExecutionApplicationState.NotApplied);
             }
 
-            MethodInfo method;
+            var mutationActivity = mutationLaneControl.BeginMutation();
             try
             {
-                if (!entryPointResolver.TryResolve(Assembly.Load(bytes), compilation.EntryPointName!.Value, out method, out var entryPointError)) return CreateError(request, UcliCoreErrorCodes.InvalidArgument, entryPointError, CreatePartial(compilation), ExecutionApplicationState.Indeterminate, admission.ReadPostcondition);
-            }
-            catch (Exception exception)
-            {
-                return CreateError(
-                    request,
-                    UcliCoreErrorCodes.InvalidArgument,
-                    exception.InnerException?.Message ?? exception.Message,
-                    CreatePartial(compilation),
-                    ExecutionApplicationState.Indeterminate,
-                    admission.ReadPostcondition);
-            }
-            var context = new UcliCsEvalContext(cancellation.Token);
-            var stopwatch = Stopwatch.StartNew();
-            object value;
-            try
-            {
-                var invoked = method.Invoke(null, new object[] { context });
-                value = await CsEvalEntryPointReturnValueResolver.ResolveAsync(
-                    method.ReturnType,
-                    invoked,
-                    cancellation.Token,
-                    static (_, _) => { });
-            }
-            catch (Exception exception)
-            {
+                cancellation.Token.ThrowIfCancellationRequested();
+                MethodInfo method;
+                try
+                {
+                    if (!entryPointResolver.TryResolve(Assembly.Load(bytes), compilation.EntryPointName!.Value, out method, out var entryPointError)) return CreateError(request, UcliCoreErrorCodes.InvalidArgument, entryPointError, CreatePartial(compilation), ExecutionApplicationState.Indeterminate, admission.ReadPostcondition);
+                }
+                catch (OperationCanceledException) when (cancellation.Token.IsCancellationRequested)
+                {
+                    throw;
+                }
+                catch (Exception exception)
+                {
+                    return CreateError(
+                        request,
+                        UcliCoreErrorCodes.InvalidArgument,
+                        exception.InnerException?.Message ?? exception.Message,
+                        CreatePartial(compilation),
+                        ExecutionApplicationState.Indeterminate,
+                        admission.ReadPostcondition);
+                }
+                var context = new UcliCsEvalContext(cancellation.Token);
+                var stopwatch = Stopwatch.StartNew();
+                object value;
+                try
+                {
+                    cancellation.Token.ThrowIfCancellationRequested();
+                    var invoked = method.Invoke(null, new object[] { context });
+                    value = await CsEvalEntryPointReturnValueResolver.ResolveAsync(
+                        method.ReturnType,
+                        invoked,
+                        cancellation.Token,
+                        mutationLaneControl.Quarantine);
+                }
+                catch (OperationCanceledException) when (cancellation.Token.IsCancellationRequested)
+                {
+                    throw;
+                }
+                catch (Exception exception)
+                {
+                    stopwatch.Stop();
+                    return CreateError(
+                        request,
+                        UcliCoreErrorCodes.InvalidArgument,
+                        exception.InnerException?.Message ?? exception.Message,
+                        CreatePartial(
+                            compilation,
+                            stopwatch.ElapsedMilliseconds,
+                            context.Logs,
+                            null,
+                            context.HasImpactDeclaration ? CsEvalTouchedResourceMapper.CreateResult(context) : null),
+                        ExecutionApplicationState.Indeterminate,
+                        admission.ReadPostcondition);
+                }
+
                 stopwatch.Stop();
-                return CreateError(
-                    request,
-                    UcliCoreErrorCodes.InvalidArgument,
-                    exception.InnerException?.Message ?? exception.Message,
-                    CreatePartial(
-                        compilation,
-                        stopwatch.ElapsedMilliseconds,
-                        context.Logs,
-                        null,
-                        context.HasImpactDeclaration ? CsEvalTouchedResourceMapper.CreateResult(context) : null),
-                    ExecutionApplicationState.Indeterminate,
-                    admission.ReadPostcondition);
-            }
+                if (!context.HasImpactDeclaration)
+                {
+                    return CreateError(
+                        request,
+                        UcliCoreErrorCodes.InvalidArgument,
+                        "C# eval entry point must call DeclareNoChanges or one of the Touch* methods before completing.",
+                        new CsEvalPartialErrorResult(
+                            compilation.SourceDigest,
+                            compilation.SourceKind,
+                            compilation.ResolvedEntryPoint,
+                            compilation.ExecutionDigest,
+                            compilation.Compile,
+                            stopwatch.ElapsedMilliseconds,
+                            context.Logs,
+                            null,
+                            null),
+                        ExecutionApplicationState.Indeterminate,
+                        admission.ReadPostcondition);
+                }
+                var touched = CsEvalTouchedResourceMapper.CreateResult(context);
+                if (!returnValueSerializer.TrySerialize(value, out var returnValue, out var returnError))
+                {
+                    return CreateError(
+                        request,
+                        UcliCoreErrorCodes.InvalidArgument,
+                        returnError,
+                        CreatePartial(compilation, stopwatch.ElapsedMilliseconds, context.Logs, null, touched),
+                        ExecutionApplicationState.Indeterminate,
+                        admission.ReadPostcondition);
+                }
 
-            stopwatch.Stop();
-            if (!context.HasImpactDeclaration)
-            {
-                return CreateError(
-                    request,
-                    UcliCoreErrorCodes.InvalidArgument,
-                    "C# eval entry point must call DeclareNoChanges or one of the Touch* methods before completing.",
-                    new CsEvalPartialErrorResult(
-                        compilation.SourceDigest,
-                        compilation.SourceKind,
-                        compilation.ResolvedEntryPoint,
-                        compilation.ExecutionDigest,
-                        compilation.Compile,
-                        stopwatch.ElapsedMilliseconds,
-                        context.Logs,
-                        null,
-                        null),
-                    ExecutionApplicationState.Indeterminate,
-                    admission.ReadPostcondition);
-            }
-            var touched = CsEvalTouchedResourceMapper.CreateResult(context);
-            if (!returnValueSerializer.TrySerialize(value, out var returnValue, out var returnError))
-            {
-                return CreateError(
-                    request,
-                    UcliCoreErrorCodes.InvalidArgument,
-                    returnError,
-                    CreatePartial(compilation, stopwatch.ElapsedMilliseconds, context.Logs, null, touched),
-                    ExecutionApplicationState.Indeterminate,
-                    admission.ReadPostcondition);
-            }
+                // A completed entry point is not safely reportable as applied when its Editor generation
+                // (or the validated eval configuration) changed while it was running.
+                tokenValidation = await ValidatePlanTokenAsync(payload.PlanToken, compilation, payload.AllowDangerous, payload.AllowPlayMode, request.SessionTokenDigest, cancellation.Token);
+                if (!tokenValidation.IsValid)
+                {
+                    return CreateError(
+                        request,
+                        tokenValidation.ErrorCode!,
+                        tokenValidation.Error!,
+                        CreatePartial(compilation, stopwatch.ElapsedMilliseconds, context.Logs, returnValue, touched),
+                        ExecutionApplicationState.Indeterminate,
+                        admission.ReadPostcondition);
+                }
 
-            // A completed entry point is not safely reportable as applied when its Editor generation
-            // (or the validated eval configuration) changed while it was running.
-            tokenValidation = await ValidatePlanTokenAsync(payload.PlanToken, compilation, payload.AllowDangerous, payload.AllowPlayMode, cancellation.Token);
-            if (!tokenValidation.IsValid)
-            {
-                return CreateError(
-                    request,
-                    tokenValidation.ErrorCode!,
-                    tokenValidation.Error!,
-                    CreatePartial(compilation, stopwatch.ElapsedMilliseconds, context.Logs, returnValue, touched),
-                    ExecutionApplicationState.Indeterminate,
-                    admission.ReadPostcondition);
+                var result = new CsEvalCallSuccessResult(compilation.SourceDigest, payload.SourceKind, compilation.ResolvedEntryPoint!, compilation.ExecutionDigest, compilation.Compile, stopwatch.ElapsedMilliseconds, context.Logs, returnValue, touched);
+                return UnityIpcResponseFactory.CreateSuccessResponse(request, new IpcEvalResponse(project, CsEvalPhase.Call, ExecutionApplicationState.Applied, result, null, admission.ReadPostcondition));
             }
-
-            var result = new CsEvalCallSuccessResult(compilation.SourceDigest, payload.SourceKind, compilation.ResolvedEntryPoint!, compilation.ExecutionDigest, compilation.Compile, stopwatch.ElapsedMilliseconds, context.Logs, returnValue, touched);
-            return UnityIpcResponseFactory.CreateSuccessResponse(request, new IpcEvalResponse(project, CsEvalPhase.Call, ExecutionApplicationState.Applied, result, null, admission.ReadPostcondition));
+            finally
+            {
+                mutationActivity.Complete();
+            }
         }
 
         private static CsEvalPartialErrorResult CreatePartial (CsEvalCompilationResult compilation)
@@ -216,7 +237,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             };
         }
 
-        private async ValueTask<EvalPlanTokenValidation> ValidatePlanTokenAsync (string token, CsEvalCompilationResult compilation, bool allowDangerous, bool allowPlayMode, System.Threading.CancellationToken cancellationToken)
+        private async ValueTask<EvalPlanTokenValidation> ValidatePlanTokenAsync (string token, CsEvalCompilationResult compilation, bool allowDangerous, bool allowPlayMode, MackySoft.Ucli.Contracts.Cryptography.Sha256Digest sessionTokenDigest, System.Threading.CancellationToken cancellationToken)
         {
             if (!PlanTokenCompactCodec.TryDecodeToken(token, out var decoded))
             {
@@ -262,8 +283,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return EvalPlanTokenValidation.Failure(UcliCoreErrorCodes.InvalidArgument, "C# eval plan token does not match the current eval configuration or request flags.");
             }
 
-            var generation = MackySoft.Ucli.Contracts.Cryptography.Sha256Digest.Compute(
-                System.Text.Encoding.UTF8.GetBytes(snapshot.DomainReloadGeneration.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+            var generation = PlanTokenStateFingerprintCalculator.ComputeEval(snapshot, sessionTokenDigest);
             if (decoded.Payload.StateFingerprint != generation)
             {
                 return EvalPlanTokenValidation.Failure(UcliCoreErrorCodes.InvalidArgument, "C# eval plan token was issued for a previous Editor generation.");

@@ -26,4 +26,21 @@ public sealed class EvalCommandDispatchTests
         EvalCommandAssert.HasDedicatedSuccessPayload(result, CsEvalSourceKind.CompilationUnit);
         EvalCommandAssert.HasDedicatedDispatch(service, EvalSource, CsEvalSourceKind.CompilationUnit, true, true);
     }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Eval_WhenSourceKindIsExplicitWhitespace_RejectsItBeforeServiceExecution ()
+    {
+        var service = new RecordingEvalService((_, _, _) => throw new Xunit.Sdk.XunitException("Eval service must not run for an invalid sourceKind."));
+        var sourceReader = new RecordingEvalSourceInputReader((_, _, _) => ValueTask.FromResult(EvalSourceInputReadResult.Success(EvalSource)));
+        var command = new EvalCommand(service, sourceReader, CommandResultTestWriter.Create());
+
+        var result = await CommandResultCapture.ExecuteAsync(() => command.EvalAsync(
+            source: EvalSource,
+            sourceKind: " ",
+            cancellationToken: CancellationToken.None));
+
+        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
+        Assert.Empty(service.Invocations);
+    }
 }

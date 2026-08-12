@@ -162,6 +162,53 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator Handle_WhenEvalPlanThenCallComplete_KeepsHostForPlanAndSignalsAfterCall () => UniTask.ToCoroutine(async () =>
+        {
+            using var watchdog = CreateIdleWatchdog();
+            var completionSignal = new OneshotRequestCompletionSignal(watchdog);
+            var planRequest = CreateRequest(
+                UnityIpcMethod.EvalPlan,
+                JsonSerializer.SerializeToElement(new IpcEvalPlanRequest(
+                    "context.DeclareNoChanges();",
+                    CsEvalSourceKind.Snippet,
+                    allowDangerous: true,
+                    allowPlayMode: false)));
+            var planHandler = CreateHandler(
+                planRequest,
+                CreateSuccessResponse(planRequest.RequestId),
+                completionSignal,
+                watchdog);
+
+            using (var planStream = await CreateStreamAsync(planRequest))
+            {
+                var planResult = await planHandler.HandleAsync(planStream, CancellationToken.None);
+                Assert.That(planResult.Method, Is.EqualTo(UnityIpcMethod.EvalPlan));
+                Assert.That(completionSignal.IsCompleted, Is.False);
+            }
+
+            var callRequest = CreateRequest(
+                UnityIpcMethod.EvalCall,
+                JsonSerializer.SerializeToElement(new IpcEvalCallRequest(
+                    "context.DeclareNoChanges();",
+                    CsEvalSourceKind.Snippet,
+                    allowDangerous: true,
+                    allowPlayMode: false,
+                    planToken: "test-plan-token")));
+            var callHandler = CreateHandler(
+                callRequest,
+                CreateSuccessResponse(callRequest.RequestId),
+                completionSignal,
+                watchdog);
+
+            using var callStream = await CreateStreamAsync(callRequest);
+            var callResult = await callHandler.HandleAsync(callStream, CancellationToken.None);
+
+            Assert.That(callResult.Method, Is.EqualTo(UnityIpcMethod.EvalCall));
+            Assert.That(completionSignal.IsCompleted, Is.True);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator Handle_WhenLifecycleStartWasAcceptedButResponseWriteFails_IgnoresParentLoss () => UniTask.ToCoroutine(async () =>
         {
             var lifecycleExecutionTimeout = TimeSpan.FromMinutes(2);

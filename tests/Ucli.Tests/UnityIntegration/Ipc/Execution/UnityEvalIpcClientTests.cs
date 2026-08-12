@@ -42,7 +42,7 @@ public sealed class UnityEvalIpcClientTests
         Assert.False(result.IsSuccess);
         Assert.False(result.CallWasSent);
         Assert.Null(result.Plan);
-        Assert.Contains("eval.plan returned digests", result.Error!.Message, StringComparison.Ordinal);
+        Assert.Contains("eval.plan returned an identity", result.Error!.Message, StringComparison.Ordinal);
         IpcRequestAssert.Methods(transport, UnityIpcMethod.EvalPlan);
     }
 
@@ -74,7 +74,42 @@ public sealed class UnityEvalIpcClientTests
         Assert.True(result.CallWasSent);
         Assert.NotNull(result.Plan);
         Assert.Null(result.Call);
-        Assert.Contains("eval.call returned digests", result.Error!.Message, StringComparison.Ordinal);
+        Assert.Contains("eval.call returned an identity", result.Error!.Message, StringComparison.Ordinal);
+        IpcRequestAssert.Methods(transport, UnityIpcMethod.EvalPlan, UnityIpcMethod.EvalCall);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WhenCallTransportDisconnects_DoesNotResendAndMarksCallAsSent ()
+    {
+        using var scope = TestDirectories.CreateTempScope("unity-eval-ipc-client", "call-disconnect");
+        var project = ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(scope.FullPath);
+        var sourceDigest = EvalExecutionDigestCalculator.ComputeSourceDigest(PlanRequest.Source);
+        var executionDigest = EvalExecutionDigestCalculator.ComputeExecutionDigest(PlanRequest.Source, PlanRequest.SourceKind, PlanRequest.AllowDangerous, PlanRequest.AllowPlayMode);
+        var transport = new RecordingUnityIpcTransportClient(request =>
+        {
+            if (request.Method == TextVocabulary.GetText(UnityIpcMethod.EvalPlan))
+            {
+                return CreateResponse(request.RequestId, CreatePlan(ProjectIdentity(project), sourceDigest, executionDigest));
+            }
+
+            throw new IOException("The eval.call connection closed before its response was received.");
+        });
+        var client = CreateDaemonClient(project, transport);
+
+        var result = await client.ExecuteAsync(
+            UnityExecutionMode.Daemon,
+            TimeSpan.FromSeconds(30),
+            project,
+            PlanRequest,
+            failFast: false);
+
+        Assert.False(result.IsSuccess);
+        Assert.True(result.CallWasSent);
+        Assert.NotNull(result.Plan);
+        Assert.Null(result.Call);
+        Assert.Null(result.ErrorResponse);
+        Assert.NotNull(result.Error);
         IpcRequestAssert.Methods(transport, UnityIpcMethod.EvalPlan, UnityIpcMethod.EvalCall);
     }
 
@@ -151,6 +186,129 @@ public sealed class UnityEvalIpcClientTests
         Assert.Equal(CsEvalPhase.Call, result.ErrorResponse!.Phase);
         Assert.Equal(ExecutionApplicationState.Indeterminate, result.ErrorResponse.ApplicationState);
         IpcRequestAssert.Methods(transport, UnityIpcMethod.EvalPlan, UnityIpcMethod.EvalCall);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WhenPlanErrorReportsCallPhase_RejectsTheContradictoryEvidence ()
+    {
+        using var scope = TestDirectories.CreateTempScope("unity-eval-ipc-client", "plan-error-phase-mismatch");
+        var project = ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(scope.FullPath);
+        var errorPayload = new IpcEvalErrorResponse(
+            ProjectIdentity(project),
+            CsEvalPhase.Call,
+            ExecutionApplicationState.Indeterminate,
+            null,
+            null);
+        var transport = new RecordingUnityIpcTransportClient(request => new IpcResponse(
+            IpcProtocol.CurrentVersion,
+            request.RequestId,
+            IpcResponseStatus.Error,
+            IpcPayloadCodec.SerializeToElement(errorPayload),
+            [new IpcError(UcliCoreErrorCodes.InvalidArgument, "contradictory phase", null)]));
+        var client = CreateDaemonClient(project, transport);
+
+        var result = await client.ExecuteAsync(
+            UnityExecutionMode.Daemon,
+            TimeSpan.FromSeconds(30),
+            project,
+            PlanRequest,
+            failFast: false);
+
+        Assert.False(result.IsSuccess);
+        Assert.False(result.CallWasSent);
+        Assert.Null(result.ErrorResponse);
+        Assert.Contains("does not match the request", result.Error!.Message, StringComparison.Ordinal);
+        IpcRequestAssert.Methods(transport, UnityIpcMethod.EvalPlan);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WhenCallErrorReportsAnotherProject_RejectsTheContradictoryEvidence ()
+    {
+        using var scope = TestDirectories.CreateTempScope("unity-eval-ipc-client", "call-error-project-mismatch");
+        var project = ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(scope.FullPath);
+        var sourceDigest = EvalExecutionDigestCalculator.ComputeSourceDigest(PlanRequest.Source);
+        var executionDigest = EvalExecutionDigestCalculator.ComputeExecutionDigest(PlanRequest.Source, PlanRequest.SourceKind, PlanRequest.AllowDangerous, PlanRequest.AllowPlayMode);
+        var anotherProject = new UnityProjectIdentity(
+            ProjectIdentity(project).ProjectPath,
+            ProjectFingerprintTestFactory.Create("another-project"),
+            ProjectIdentity(project).UnityVersion);
+        var callError = new IpcEvalErrorResponse(
+            anotherProject,
+            CsEvalPhase.Call,
+            ExecutionApplicationState.Indeterminate,
+            null,
+            null);
+        var transport = new RecordingUnityIpcTransportClient(request => request.Method == TextVocabulary.GetText(UnityIpcMethod.EvalPlan)
+            ? CreateResponse(request.RequestId, CreatePlan(ProjectIdentity(project), sourceDigest, executionDigest))
+            : new IpcResponse(
+                IpcProtocol.CurrentVersion,
+                request.RequestId,
+                IpcResponseStatus.Error,
+                IpcPayloadCodec.SerializeToElement(callError),
+                [new IpcError(UcliCoreErrorCodes.InvalidArgument, "wrong project", null)]));
+        var client = CreateDaemonClient(project, transport);
+
+        var result = await client.ExecuteAsync(
+            UnityExecutionMode.Daemon,
+            TimeSpan.FromSeconds(30),
+            project,
+            PlanRequest,
+            failFast: false);
+
+        Assert.False(result.IsSuccess);
+        Assert.True(result.CallWasSent);
+        Assert.NotNull(result.Plan);
+        Assert.Null(result.ErrorResponse);
+        Assert.Contains("does not match the request", result.Error!.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WhenCallErrorPartialDigestDoesNotMatchInput_RejectsTheContradictoryEvidence ()
+    {
+        using var scope = TestDirectories.CreateTempScope("unity-eval-ipc-client", "call-error-digest-mismatch");
+        var project = ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(scope.FullPath);
+        var sourceDigest = EvalExecutionDigestCalculator.ComputeSourceDigest(PlanRequest.Source);
+        var executionDigest = EvalExecutionDigestCalculator.ComputeExecutionDigest(PlanRequest.Source, PlanRequest.SourceKind, PlanRequest.AllowDangerous, PlanRequest.AllowPlayMode);
+        var partial = new CsEvalPartialErrorResult(
+            Sha256Digest.Parse(new string('f', 64)),
+            PlanRequest.SourceKind,
+            "Snippet.Run",
+            executionDigest,
+            new CsEvalPlanCompileResult(true, []),
+            null,
+            null,
+            null,
+            null);
+        var callError = new IpcEvalErrorResponse(
+            ProjectIdentity(project),
+            CsEvalPhase.Call,
+            ExecutionApplicationState.Indeterminate,
+            partial,
+            null);
+        var transport = new RecordingUnityIpcTransportClient(request => request.Method == TextVocabulary.GetText(UnityIpcMethod.EvalPlan)
+            ? CreateResponse(request.RequestId, CreatePlan(ProjectIdentity(project), sourceDigest, executionDigest))
+            : new IpcResponse(
+                IpcProtocol.CurrentVersion,
+                request.RequestId,
+                IpcResponseStatus.Error,
+                IpcPayloadCodec.SerializeToElement(callError),
+                [new IpcError(UcliCoreErrorCodes.InvalidArgument, "wrong digest", null)]));
+        var client = CreateDaemonClient(project, transport);
+
+        var result = await client.ExecuteAsync(
+            UnityExecutionMode.Daemon,
+            TimeSpan.FromSeconds(30),
+            project,
+            PlanRequest,
+            failFast: false);
+
+        Assert.False(result.IsSuccess);
+        Assert.True(result.CallWasSent);
+        Assert.Null(result.ErrorResponse);
+        Assert.Contains("does not match the request", result.Error!.Message, StringComparison.Ordinal);
     }
 
     private static UnityEvalIpcClient CreateDaemonClient (

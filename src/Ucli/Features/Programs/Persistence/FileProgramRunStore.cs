@@ -805,7 +805,6 @@ internal sealed class FileProgramRunStore : IProgramRunStore
             && left.Configuration.PlanTokenMode == right.Configuration.PlanTokenMode
             && left.Configuration.ReadIndexDefaultMode == right.Configuration.ReadIndexDefaultMode
             && left.Configuration.IpcDefaultTimeoutMilliseconds == right.Configuration.IpcDefaultTimeoutMilliseconds
-            && left.Configuration.EvalEnabled == right.Configuration.EvalEnabled
             && left.Configuration.Digest == right.Configuration.Digest
             && left.Configuration.CapturedAtUtc == right.Configuration.CapturedAtUtc
             && left.Configuration.OperationAllowlist.SequenceEqual(right.Configuration.OperationAllowlist, StringComparer.Ordinal)

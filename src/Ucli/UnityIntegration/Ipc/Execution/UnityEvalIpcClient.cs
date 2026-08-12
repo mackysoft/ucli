@@ -150,8 +150,28 @@ internal sealed class UnityEvalIpcClient : IUnityEvalClient
         ExecutionDeadline deadline,
         CancellationToken cancellationToken)
     {
+        var expectedSourceDigest = EvalExecutionDigestCalculator.ComputeSourceDigest(planRequest.Source);
+        var expectedExecutionDigest = EvalExecutionDigestCalculator.ComputeExecutionDigest(
+            planRequest.Source,
+            planRequest.SourceKind,
+            planRequest.AllowDangerous,
+            planRequest.AllowPlayMode);
         if (!TryReadPlan(planResult, out var planResponse, out var planError, out var planErrorResponse))
         {
+            if (planErrorResponse is not null
+                && !IsExpectedErrorResponse(
+                    planErrorResponse,
+                    CsEvalPhase.Plan,
+                    expectedProject,
+                    planRequest.SourceKind,
+                    expectedSourceDigest,
+                    expectedExecutionDigest,
+                    expectedResolvedEntryPoint: null))
+            {
+                return UnityEvalExecutionResult.PlanFailure(
+                    ExecutionError.InternalError("eval.plan returned an error IPC payload that does not match the request."));
+            }
+
             return UnityEvalExecutionResult.PlanFailure(planError!, planErrorResponse);
         }
 
@@ -166,15 +186,14 @@ internal sealed class UnityEvalIpcClient : IUnityEvalClient
                 ExecutionError.InternalError("eval.plan returned an invalid successful IPC payload."));
         }
 
-        var expectedSourceDigest = EvalExecutionDigestCalculator.ComputeSourceDigest(planRequest.Source);
-        var expectedExecutionDigest = EvalExecutionDigestCalculator.ComputeExecutionDigest(
-            planRequest.Source,
-            planRequest.SourceKind,
-            planRequest.AllowDangerous,
-            planRequest.AllowPlayMode);
-        if (!HasExpectedDigests(planResponse, expectedSourceDigest, expectedExecutionDigest))
+        if (!HasExpectedEvalIdentity(
+                planResponse,
+                planRequest.SourceKind,
+                expectedSourceDigest,
+                expectedExecutionDigest,
+                expectedResolvedEntryPoint: null))
         {
-            return UnityEvalExecutionResult.PlanFailure(ExecutionError.InternalError("eval.plan returned digests that do not match the CLI input."));
+            return UnityEvalExecutionResult.PlanFailure(ExecutionError.InternalError("eval.plan returned an identity that does not match the CLI input."));
         }
 
         if (!deadline.TryGetRemainingTimeout(out _))
@@ -191,6 +210,22 @@ internal sealed class UnityEvalIpcClient : IUnityEvalClient
         var callResult = await sendCall(requestBuilder.Build(new UnityRequestPayload.EvalCall(callRequest))).ConfigureAwait(false);
         if (!TryReadCall(callResult, out var callResponse, out var callError, out var callErrorResponse))
         {
+            if (callErrorResponse is not null
+                && !IsExpectedErrorResponse(
+                    callErrorResponse,
+                    CsEvalPhase.Call,
+                    expectedProject,
+                    planRequest.SourceKind,
+                    expectedSourceDigest,
+                    expectedExecutionDigest,
+                    ((CsEvalPlanSuccessResult)planResponse.Eval).ResolvedEntryPoint))
+            {
+                return UnityEvalExecutionResult.CallFailure(
+                    planResponse,
+                    ExecutionError.InternalError("eval.call returned an error IPC payload that does not match the request."),
+                    true);
+            }
+
             return UnityEvalExecutionResult.CallFailure(planResponse, callError!, true, callErrorResponse);
         }
 
@@ -208,9 +243,14 @@ internal sealed class UnityEvalIpcClient : IUnityEvalClient
                 true);
         }
 
-        if (!HasExpectedDigests(callResponse, expectedSourceDigest, expectedExecutionDigest))
+        if (!HasExpectedEvalIdentity(
+                callResponse,
+                planRequest.SourceKind,
+                expectedSourceDigest,
+                expectedExecutionDigest,
+                ((CsEvalPlanSuccessResult)planResponse.Eval).ResolvedEntryPoint))
         {
-            return UnityEvalExecutionResult.CallFailure(planResponse, ExecutionError.InternalError("eval.call returned digests that do not match the CLI input."), true);
+            return UnityEvalExecutionResult.CallFailure(planResponse, ExecutionError.InternalError("eval.call returned an identity that does not match the CLI input."), true);
         }
 
         return UnityEvalExecutionResult.Success(planResponse, callResponse);
@@ -262,14 +302,53 @@ internal sealed class UnityEvalIpcClient : IUnityEvalClient
         out IpcEvalErrorResponse? errorResponse) =>
         TryReadPlan(result, out response, out error, out errorResponse);
 
-    private static bool HasExpectedDigests (IpcEvalResponse response, MackySoft.Ucli.Contracts.Cryptography.Sha256Digest sourceDigest, MackySoft.Ucli.Contracts.Cryptography.Sha256Digest executionDigest)
+    private static bool HasExpectedEvalIdentity (
+        IpcEvalResponse response,
+        CsEvalSourceKind sourceKind,
+        MackySoft.Ucli.Contracts.Cryptography.Sha256Digest sourceDigest,
+        MackySoft.Ucli.Contracts.Cryptography.Sha256Digest executionDigest,
+        string? expectedResolvedEntryPoint)
     {
         return response.Eval switch
         {
-            CsEvalPlanSuccessResult plan => plan.SourceDigest == sourceDigest && plan.ExecutionDigest == executionDigest,
-            CsEvalCallSuccessResult call => call.SourceDigest == sourceDigest && call.ExecutionDigest == executionDigest,
+            CsEvalPlanSuccessResult plan =>
+                plan.SourceKind == sourceKind
+                && plan.SourceDigest == sourceDigest
+                && plan.ExecutionDigest == executionDigest,
+            CsEvalCallSuccessResult call =>
+                call.SourceKind == sourceKind
+                && call.SourceDigest == sourceDigest
+                && call.ExecutionDigest == executionDigest
+                && string.Equals(call.ResolvedEntryPoint, expectedResolvedEntryPoint, StringComparison.Ordinal),
             _ => false,
         };
+    }
+
+    private static bool IsExpectedErrorResponse (
+        IpcEvalErrorResponse response,
+        CsEvalPhase expectedPhase,
+        UnityProjectIdentity expectedProject,
+        CsEvalSourceKind expectedSourceKind,
+        MackySoft.Ucli.Contracts.Cryptography.Sha256Digest expectedSourceDigest,
+        MackySoft.Ucli.Contracts.Cryptography.Sha256Digest expectedExecutionDigest,
+        string? expectedResolvedEntryPoint)
+    {
+        if (response.Phase != expectedPhase || response.Project != expectedProject)
+        {
+            return false;
+        }
+
+        if (response.Eval is not { } partial)
+        {
+            return true;
+        }
+
+        return partial.SourceKind == expectedSourceKind
+            && partial.SourceDigest == expectedSourceDigest
+            && partial.ExecutionDigest == expectedExecutionDigest
+            && (expectedResolvedEntryPoint is null
+                || partial.ResolvedEntryPoint is null
+                || string.Equals(partial.ResolvedEntryPoint, expectedResolvedEntryPoint, StringComparison.Ordinal));
     }
 
     private static ExecutionError ToExecutionError (UnityRequestFailure failure)

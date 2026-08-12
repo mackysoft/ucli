@@ -14,6 +14,7 @@ using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Unity.Execution.CsEval;
 using MackySoft.Ucli.Unity.Execution.PlanToken;
 using MackySoft.Ucli.Unity.Ipc;
+using MackySoft.Ucli.Unity.Runtime;
 using TextVocabulary = MackySoft.Text.Vocabularies.Vocabulary;
 using NUnit.Framework;
 
@@ -37,7 +38,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 new StubUnityEditorReadinessGate(),
                 scope.Project,
                 environment,
-                new MutationReadPostconditionJournal());
+                new MutationReadPostconditionJournal(),
+                new StubMutationLaneControl());
             const string source = "throw new System.InvalidOperationException(\"call-only sentinel\");";
             var planResponse = await UnityIpcMethodHandlerTestInvoker.HandleAsync(
                 planHandler,
@@ -61,6 +63,41 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(replayResponse.Status, Is.EqualTo(IpcResponseStatus.Error));
             Assert.That(IpcPayloadCodec.TryDeserializeStrict(replayResponse.Payload, out IpcEvalErrorResponse replay, out var replayError), Is.True, replayError.Message);
             Assert.That(replay.ApplicationState, Is.EqualTo(ExecutionApplicationState.NotApplied));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public async Task Call_WhenTypeInitializerThrows_ReturnsIndeterminateWithReadPostcondition ()
+        {
+            using var scope = new EvalTestScope();
+            var environment = scope.CreateEnvironment();
+            const string source = @"
+public static class TypeInitializerFailureEval
+{
+    static TypeInitializerFailureEval () =>
+        throw new System.InvalidOperationException(""type initializer failure"");
+
+    public static object? Run (MackySoft.Ucli.Unity.Execution.CsEval.UcliCsEvalContext context)
+    {
+        context.DeclareNoChanges();
+        return null;
+    }
+}";
+            var planResponse = await UnityIpcMethodHandlerTestInvoker.HandleAsync(
+                CreatePlanHandler(scope, environment),
+                CreateRequest(UnityIpcMethod.EvalPlan, new IpcEvalPlanRequest(source, CsEvalSourceKind.CompilationUnit, true, false)));
+            Assert.That(planResponse.Status, Is.EqualTo(IpcResponseStatus.Ok));
+            Assert.That(IpcPayloadCodec.TryDeserializeStrict(planResponse.Payload, out IpcEvalResponse plan, out var planError), Is.True, planError.Message);
+
+            var callResponse = await UnityIpcMethodHandlerTestInvoker.HandleAsync(
+                CreateCallHandler(scope, environment),
+                CreateRequest(UnityIpcMethod.EvalCall, new IpcEvalCallRequest(source, CsEvalSourceKind.CompilationUnit, true, false, plan.PlanToken!)));
+
+            Assert.That(callResponse.Status, Is.EqualTo(IpcResponseStatus.Error));
+            Assert.That(IpcPayloadCodec.TryDeserializeStrict(callResponse.Payload, out IpcEvalErrorResponse callError, out var decodeError), Is.True, decodeError.Message);
+            Assert.That(callError.ApplicationState, Is.EqualTo(ExecutionApplicationState.Indeterminate));
+            Assert.That(callError.ReadPostcondition, Is.Not.Null);
+            Assert.That(callError.ReadPostcondition!.Requirements, Has.Count.EqualTo(3));
         }
 
         [Test]
@@ -232,6 +269,82 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
+        public async Task Call_WhenEditorProcessChangedAfterPlan_DoesNotInvokeEntryPoint ()
+        {
+            using var scope = new EvalTestScope();
+            var environment = scope.CreateEnvironment();
+            const string source = "throw new System.InvalidOperationException(\"must not execute\");";
+            var plan = await CreateSuccessfulPlanAsync(scope, environment, source, allowPlayMode: false);
+            environment.AdvanceEditorInstance();
+
+            var response = await UnityIpcMethodHandlerTestInvoker.HandleAsync(
+                CreateCallHandler(scope, environment),
+                CreateRequest(UnityIpcMethod.EvalCall, new IpcEvalCallRequest(source, CsEvalSourceKind.Snippet, true, false, plan.PlanToken!)));
+
+            Assert.That(response.Status, Is.EqualTo(IpcResponseStatus.Error));
+            Assert.That(IpcPayloadCodec.TryDeserializeStrict(response.Payload, out IpcEvalErrorResponse error, out var decodeError), Is.True, decodeError.Message);
+            Assert.That(error.ApplicationState, Is.EqualTo(ExecutionApplicationState.NotApplied));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public async Task Call_WhenIpcSessionChangedAfterPlan_DoesNotInvokeEntryPoint ()
+        {
+            using var scope = new EvalTestScope();
+            var environment = scope.CreateEnvironment();
+            const string source = "throw new System.InvalidOperationException(\"must not execute\");";
+            const string planSession = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+            const string callSession = "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB";
+            var planResponse = await UnityIpcMethodHandlerTestInvoker.HandleAsync(
+                CreatePlanHandler(scope, environment),
+                CreateRequest(UnityIpcMethod.EvalPlan, new IpcEvalPlanRequest(source, CsEvalSourceKind.Snippet, true, false), planSession));
+            Assert.That(IpcPayloadCodec.TryDeserializeStrict(planResponse.Payload, out IpcEvalResponse plan, out var planError), Is.True, planError.Message);
+
+            var response = await UnityIpcMethodHandlerTestInvoker.HandleAsync(
+                CreateCallHandler(scope, environment),
+                CreateRequest(UnityIpcMethod.EvalCall, new IpcEvalCallRequest(source, CsEvalSourceKind.Snippet, true, false, plan.PlanToken!), callSession));
+
+            Assert.That(response.Status, Is.EqualTo(IpcResponseStatus.Error));
+            Assert.That(IpcPayloadCodec.TryDeserializeStrict(response.Payload, out IpcEvalErrorResponse error, out var decodeError), Is.True, decodeError.Message);
+            Assert.That(error.ApplicationState, Is.EqualTo(ExecutionApplicationState.NotApplied));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public async Task Call_WhenTaskWaitIsCanceled_QuarantinesTheMutationLaneAndPropagatesCancellation ()
+        {
+            using var scope = new EvalTestScope();
+            using var cancellation = new CancellationTokenSource();
+            var environment = scope.CreateEnvironment();
+            var mutationLane = new StubMutationLaneControl();
+            const string source = "await System.Threading.Tasks.Task.Delay(System.Threading.Timeout.Infinite);";
+            var plan = await CreateSuccessfulPlanAsync(scope, environment, source, allowPlayMode: false);
+            var callTask = UnityIpcMethodHandlerTestInvoker.HandleAsync(
+                    CreateCallHandler(scope, environment, mutationLane),
+                    CreateRequest(UnityIpcMethod.EvalCall, new IpcEvalCallRequest(source, CsEvalSourceKind.Snippet, true, false, plan.PlanToken!)),
+                    cancellation.Token)
+                .AsTask();
+            await mutationLane.MutationStarted;
+
+            cancellation.Cancel();
+
+            Exception? exception = null;
+            try
+            {
+                await callTask;
+            }
+            catch (Exception caught)
+            {
+                exception = caught;
+            }
+
+            Assert.That(exception, Is.InstanceOf<OperationCanceledException>());
+            Assert.That(mutationLane.IsQuarantined, Is.True);
+            Assert.That(mutationLane.QuarantinedTask, Is.Not.Null);
+        }
+
+        [Test]
+        [Category("Size.Small")]
         public async Task Plan_WhenAllowDangerousIsFalse_DoesNotEnterEvaluation ()
         {
             using var scope = new EvalTestScope();
@@ -303,14 +416,15 @@ namespace MackySoft.Ucli.Unity.Tests
             scope.Project,
             environment);
 
-        private static EvalCallUnityIpcMethodHandler CreateCallHandler (EvalTestScope scope, IPlanTokenEnvironment environment) => new(
+        private static EvalCallUnityIpcMethodHandler CreateCallHandler (EvalTestScope scope, IPlanTokenEnvironment environment, IUnityMutationLaneControl? mutationLane = null) => new(
             CreateCompilationService(),
             new CsEvalEntryPointReflectionResolver(),
             new CsEvalReturnValueSerializer(),
             new StubUnityEditorReadinessGate(),
             scope.Project,
             environment,
-            new MutationReadPostconditionJournal());
+            new MutationReadPostconditionJournal(),
+            mutationLane ?? new StubMutationLaneControl());
 
         private static async Task<IpcEvalResponse> CreateSuccessfulPlanAsync (
             EvalTestScope scope,
@@ -331,10 +445,10 @@ namespace MackySoft.Ucli.Unity.Tests
             new CsEvalEntryPointSymbolValidator(),
             new CsEvalSourcePreparer());
 
-        private static IpcRequestEnvelope CreateRequest (UnityIpcMethod method, object payload) => new(
+        private static IpcRequestEnvelope CreateRequest (UnityIpcMethod method, object payload, string sessionToken = "eval-handler-test-session") => new(
             IpcProtocol.CurrentVersion,
             Guid.NewGuid(),
-            "eval-handler-test-session",
+            sessionToken,
             TextVocabulary.GetText(method),
             IpcPayloadCodec.SerializeToElement(payload),
             "single",
@@ -362,7 +476,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 var configDirectory = UcliStoragePathResolver.ResolveUcliDirectoryPath(repository);
                 Directory.CreateDirectory(configDirectory.Value);
                 File.WriteAllText(UcliStoragePathResolver.ResolveConfigPath(repository).Value, configJson);
-                Snapshot = new PlanTokenEnvironmentSnapshot(unityProject, repository, fingerprint, "2023.2.22f1", UnityEditorCompileState.Ready, 0);
+                Snapshot = new PlanTokenEnvironmentSnapshot(unityProject, repository, fingerprint, "2023.2.22f1", UnityEditorCompileState.Ready, 0, Guid.NewGuid());
             }
 
             public string RepositoryRoot { get; }
@@ -414,7 +528,59 @@ namespace MackySoft.Ucli.Unity.Tests
                 snapshot.ProjectFingerprint,
                 snapshot.UnityVersion,
                 snapshot.CompileState,
-                snapshot.DomainReloadGeneration + 1);
+                snapshot.DomainReloadGeneration + 1,
+                snapshot.EditorInstanceId);
+
+            public void AdvanceEditorInstance () => snapshot = new PlanTokenEnvironmentSnapshot(
+                snapshot.ProjectRoot,
+                snapshot.RepositoryRoot,
+                snapshot.ProjectFingerprint,
+                snapshot.UnityVersion,
+                snapshot.CompileState,
+                snapshot.DomainReloadGeneration,
+                Guid.NewGuid());
+        }
+
+        private sealed class StubMutationLaneControl : IUnityMutationLaneControl
+        {
+            private readonly TaskCompletionSource<bool> mutationStarted = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            public bool IsBusy => false;
+            public bool HasUnfinishedWork => QuarantinedTask is { IsCompleted: false };
+            public bool IsQuarantined { get; private set; }
+            public Task? QuarantinedTask { get; private set; }
+            public Task MutationStarted => mutationStarted.Task;
+
+            public IUnityMutationActivity BeginMutation ()
+            {
+                mutationStarted.TrySetResult(true);
+                return new StubMutationActivity();
+            }
+
+            public void Quarantine (string reason, Task mutationCompletion)
+            {
+                Assert.That(reason, Is.Not.Null.And.Not.Empty);
+                IsQuarantined = true;
+                QuarantinedTask = mutationCompletion;
+            }
+
+            public bool TrySealAdmissionForRetirement (out IDisposable admissionSeal)
+            {
+                admissionSeal = new StubDisposable();
+                return true;
+            }
+
+            public Task WaitForRetirementAsync () => QuarantinedTask ?? Task.CompletedTask;
+
+            private sealed class StubMutationActivity : IUnityMutationActivity
+            {
+                public void Complete () { }
+            }
+
+            private sealed class StubDisposable : IDisposable
+            {
+                public void Dispose () { }
+            }
         }
     }
 }

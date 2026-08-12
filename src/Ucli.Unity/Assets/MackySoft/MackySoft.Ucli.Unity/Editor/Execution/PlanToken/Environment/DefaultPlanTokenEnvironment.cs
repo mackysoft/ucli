@@ -38,7 +38,8 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
                 projectFingerprint: projectFingerprint,
                 unityVersion: unityVersion,
                 compileState: compileState,
-                domainReloadGeneration: UnityEditorReadinessGate.CurrentDomainReloadGeneration);
+                domainReloadGeneration: UnityEditorReadinessGate.CurrentDomainReloadGeneration,
+                editorInstanceId: UnityEditorSessionStateStore.GetOrCreateEditorInstanceId());
         }
     }
 }

@@ -56,6 +56,46 @@ internal static class EvalCommandTestData
                 callWasSent: true));
     }
 
+    public static EvalServiceResult CreatePreEntryCallFailureServiceResult (Guid requestId)
+    {
+        var plan = CreatePlan(CsEvalSourceKind.Snippet);
+        var partial = CreatePartialResult(plan);
+        var errorResponse = new IpcEvalErrorResponse(
+            plan.Project,
+            CsEvalPhase.Call,
+            ExecutionApplicationState.NotApplied,
+            partial,
+            null);
+        return EvalServiceResult.FromUnityResult(
+            requestId,
+            plan.Project,
+            UnityEvalExecutionResult.CallFailure(
+                plan,
+                ExecutionError.InvalidArgument("eval.call was rejected before entry invocation."),
+                callWasSent: true,
+                errorResponse));
+    }
+
+    public static EvalServiceResult CreatePostEntryCallFailureServiceResult (Guid requestId)
+    {
+        var plan = CreatePlan(CsEvalSourceKind.Snippet);
+        var partial = CreatePartialResult(plan);
+        var errorResponse = new IpcEvalErrorResponse(
+            plan.Project,
+            CsEvalPhase.Call,
+            ExecutionApplicationState.Indeterminate,
+            partial,
+            CreateCallReadPostcondition());
+        return EvalServiceResult.FromUnityResult(
+            requestId,
+            plan.Project,
+            UnityEvalExecutionResult.CallFailure(
+                plan,
+                ExecutionError.InvalidArgument("eval.call entry point failed."),
+                callWasSent: true,
+                errorResponse));
+    }
+
     private static IpcEvalResponse CreatePlan (CsEvalSourceKind sourceKind)
     {
         var project = new UnityProjectIdentity("/workspace/UnityProject", ProjectFingerprintTestFactory.Create("project-fingerprint"), "6000.1.4f1");
@@ -66,6 +106,21 @@ internal static class EvalCommandTestData
             ExecutionApplicationState.NotApplied,
             new CsEvalPlanSuccessResult(SourceDigest, sourceKind, "Snippet.Run", ExecutionDigest, compile),
             "plan-token-1",
+            null);
+    }
+
+    private static CsEvalPartialErrorResult CreatePartialResult (IpcEvalResponse plan)
+    {
+        var result = (CsEvalPlanSuccessResult)plan.Eval;
+        return new CsEvalPartialErrorResult(
+            result.SourceDigest,
+            result.SourceKind,
+            result.ResolvedEntryPoint,
+            result.ExecutionDigest,
+            result.Compile,
+            null,
+            null,
+            null,
             null);
     }
 

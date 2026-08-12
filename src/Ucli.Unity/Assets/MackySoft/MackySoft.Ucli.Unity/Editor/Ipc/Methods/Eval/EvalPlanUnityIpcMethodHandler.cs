@@ -6,6 +6,7 @@ using MackySoft.Ucli.Contracts.Execution;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Projects;
 using MackySoft.Ucli.Unity.Execution.CsEval;
+using MackySoft.Ucli.Unity.Execution.Phases;
 using MackySoft.Ucli.Unity.Execution.PlanToken;
 using MackySoft.Ucli.Unity.Runtime;
 
@@ -41,7 +42,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             if (!ready.IsReady) return CreateError(request, ready.Error!.Code, ready.Error.Message, null);
             var compilation = compilationService.CompileAndValidate(payload.Source, payload.SourceKind, payload.AllowDangerous, payload.AllowPlayMode, cancellation.Token);
             if (!compilation.IsSuccess) return CreateError(request, UcliCoreErrorCodes.InvalidArgument, compilation.FailureMessage!, new CsEvalPartialErrorResult(compilation.SourceDigest, compilation.SourceKind, compilation.ResolvedEntryPoint, compilation.ExecutionDigest, compilation.Compile, null, null, null, null));
-            if (!TryIssuePlanToken(compilation, payload.AllowPlayMode, out var token, out var tokenError))
+            if (!TryIssuePlanToken(compilation, payload.AllowPlayMode, request.SessionTokenDigest, out var token, out var tokenError))
             {
                 return CreateError(request, UcliCoreErrorCodes.InternalError, tokenError!, null);
             }
@@ -70,7 +71,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             };
         }
 
-        private bool TryIssuePlanToken (CsEvalCompilationResult compilation, bool allowPlayMode, out string? token, out string? error)
+        private bool TryIssuePlanToken (CsEvalCompilationResult compilation, bool allowPlayMode, MackySoft.Ucli.Contracts.Cryptography.Sha256Digest sessionTokenDigest, out string? token, out string? error)
         {
             try
             {
@@ -82,8 +83,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 }
 
                 var issuedAtUtc = tokenEnvironment.UtcNow;
-                var stateFingerprint = MackySoft.Ucli.Contracts.Cryptography.Sha256Digest.Compute(
-                    System.Text.Encoding.UTF8.GetBytes(snapshot.DomainReloadGeneration.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+                var stateFingerprint = PlanTokenStateFingerprintCalculator.ComputeEval(snapshot, sessionTokenDigest);
                 token = PlanTokenCompactCodec.CreateSignedToken(key, new PlanTokenPayload(
                     snapshot.ProjectFingerprint,
                     compilation.SourceDigest,

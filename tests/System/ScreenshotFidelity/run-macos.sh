@@ -573,7 +573,7 @@ mkdir -p "${test_repository}/.ucli"
 jq -n \
   '{
     schemaVersion:1,
-    operationPolicy:"dangerous",
+    operationPolicy:"safe",
     operationAllowlist:[],
     planTokenMode:"optional",
     evalEnabled:true

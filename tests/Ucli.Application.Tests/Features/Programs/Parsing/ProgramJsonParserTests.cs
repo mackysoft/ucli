@@ -70,6 +70,21 @@ public sealed class ProgramJsonParserTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void Parse_WithEvalCommand_RejectsDedicatedEvalSurface ()
+    {
+        const string json = """
+        { "steps": [{ "command": "eval", "source": "return 1;" }] }
+        """;
+
+        var result = new ProgramJsonParser().Parse(json);
+
+        var diagnostic = Assert.Single(result.Diagnostics);
+        Assert.Equal("program.invalidValue", diagnostic.Code);
+        Assert.Equal("/steps/0/command", diagnostic.InstancePath);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void Parse_WithInvalidUtf8_ReturnsInvalidJsonDiagnostic ()
     {
         var result = new ProgramJsonParser().Parse([(byte)'{', 0xff, (byte)'}']);

@@ -1004,7 +1004,7 @@ try {
     [System.IO.Directory]::CreateDirectory($ucliConfigurationDirectory) | Out-Null
     Write-JsonFile -Path (Join-Path $ucliConfigurationDirectory "config.json") -Value ([ordered]@{
         schemaVersion = 1
-        operationPolicy = "dangerous"
+        operationPolicy = "safe"
         operationAllowlist = @()
         planTokenMode = "optional"
         evalEnabled = $true

@@ -148,8 +148,8 @@ public sealed class ProgramRunPersistenceServiceTests
 
     private static ProgramRunFixedContext CreateFixedContext (IReadOnlyDictionary<string, int> commandTimeouts) => new(
         new ProgramEffectiveAuthorizationSnapshot(false, false, new string('c', 64), DateTimeOffset.UtcNow),
-        new ProgramEffectiveConfigurationSnapshot(1, OperationPolicy.Safe, PlanTokenMode.Optional, ReadIndexMode.RequireFresh, [], 1000, commandTimeouts, false,
-            ProgramEffectiveConfigurationSnapshot.ComputeDigest(1, OperationPolicy.Safe, PlanTokenMode.Optional, ReadIndexMode.RequireFresh, [], 1000, commandTimeouts, false), DateTimeOffset.UtcNow),
+        new ProgramEffectiveConfigurationSnapshot(1, OperationPolicy.Safe, PlanTokenMode.Optional, ReadIndexMode.RequireFresh, [], 1000, commandTimeouts,
+            ProgramEffectiveConfigurationSnapshot.ComputeDigest(1, OperationPolicy.Safe, PlanTokenMode.Optional, ReadIndexMode.RequireFresh, [], 1000, commandTimeouts), DateTimeOffset.UtcNow),
         new ProgramExecutionModeSnapshot("auto", "daemon"),
         new ProgramAttachedSupervisorSnapshot(Guid.Parse("10000000-0000-0000-0000-000000000002"), Guid.Parse("10000000-0000-0000-0000-000000000003"), ProgramSupervisorConnection.Connected, ProgramSupervisorAvailability.Available, DateTimeOffset.UtcNow));
 
