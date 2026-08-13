@@ -257,10 +257,8 @@ internal sealed class UcliConfigContractCompiler
         }
         if (value.ValueKind == JsonValueKind.Null)
         {
-            Add(diagnostics, "config.schema.propertyTypeMismatch", name, sourcePath, $"Config JSON property type is invalid: {name}.");
             return null;
         }
-
         if (value.ValueKind != JsonValueKind.Number || !value.TryGetInt32(out var parsed))
         {
             Add(diagnostics, "config.schema.propertyTypeMismatch", name, sourcePath, $"Config JSON property type is invalid: {name}.");

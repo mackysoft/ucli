@@ -6,6 +6,23 @@ namespace MackySoft.Ucli.Contracts.Tests.Configuration;
 public sealed class UcliConfigContractCompilerTests
 {
     [Fact]
+    public void Compile_WithNullGlobalTimeout_UsesDefault ()
+    {
+        using var document = JsonDocument.Parse("{\"schemaVersion\":1,\"operationPolicy\":\"safe\",\"planTokenMode\":\"optional\",\"operationAllowlist\":[],\"ipcDefaultTimeoutMilliseconds\":null}");
+        var result = new UcliConfigContractCompiler().Compile(document.RootElement, "config.json");
+        Assert.True(result.IsSuccess);
+        Assert.Equal(3000, result.Snapshot!.IpcDefaultTimeoutMilliseconds);
+    }
+
+    [Fact]
+    public void Compile_WithNullTimeoutMap_RejectsProperty ()
+    {
+        using var document = JsonDocument.Parse("{\"schemaVersion\":1,\"operationPolicy\":\"safe\",\"planTokenMode\":\"optional\",\"operationAllowlist\":[],\"ipcTimeoutMillisecondsByCommand\":null}");
+        var result = new UcliConfigContractCompiler().Compile(document.RootElement, "config.json");
+        Assert.False(result.IsSuccess);
+        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.PropertyPath == "ipcTimeoutMillisecondsByCommand");
+    }
+    [Fact]
     [Trait("Size", "Small")]
     public void Compile_WithValidEvalConfig_ProducesSharedSnapshot ()
     {
