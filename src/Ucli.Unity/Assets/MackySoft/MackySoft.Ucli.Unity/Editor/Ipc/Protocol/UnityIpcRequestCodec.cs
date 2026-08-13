@@ -20,6 +20,42 @@ namespace MackySoft.Ucli.Unity.Ipc
             return TryDecodePayload(request, "Ping", out payload, out errorResponse);
         }
 
+        /// <summary> Tries to decode one Program execution-context request payload. </summary>
+        public static bool TryDecodeProgramExecutionContextRequest (
+            ValidatedUnityIpcRequest request,
+            out IpcProgramExecutionContextRequest? payload,
+            out IpcResponse? errorResponse)
+        {
+            return TryDecodePayload(request, "ProgramExecutionContext", out payload, out errorResponse);
+        }
+
+        /// <summary> Tries to decode one Program logical Request start payload. </summary>
+        public static bool TryDecodeProgramRequestStartRequest (
+            ValidatedUnityIpcRequest request,
+            out IpcProgramRequestStartRequest? payload,
+            out IpcResponse? errorResponse)
+        {
+            return TryDecodePayload(request, "ProgramRequestStart", out payload, out errorResponse);
+        }
+
+        /// <summary> Tries to decode one Program logical Request attach payload. </summary>
+        public static bool TryDecodeProgramRequestAttachRequest (
+            ValidatedUnityIpcRequest request,
+            out IpcProgramRequestAttachRequest? payload,
+            out IpcResponse? errorResponse)
+        {
+            return TryDecodePayload(request, "ProgramRequestAttach", out payload, out errorResponse);
+        }
+
+        /// <summary> Tries to decode one Program logical Request cancellation payload. </summary>
+        public static bool TryDecodeProgramRequestCancelRequest (
+            ValidatedUnityIpcRequest request,
+            out IpcProgramRequestCancelRequest? payload,
+            out IpcResponse? errorResponse)
+        {
+            return TryDecodePayload(request, "ProgramRequestCancel", out payload, out errorResponse);
+        }
+
         /// <summary> Tries to decode one execute request payload. </summary>
         /// <param name="request"> The incoming request envelope. </param>
         /// <param name="payload"> The decoded payload when successful. </param>

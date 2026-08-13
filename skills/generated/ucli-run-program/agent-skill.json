@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "skillBundleVersion": 2,
+  "catalogId": "com.mackysoft.ucli",
+  "category": "basic",
+  "skillName": "ucli-run-program",
+  "displayName": "uCLI Run Program",
+  "description": "Use when selecting, validating, planning, and safely supervising a closed typed uCLI Program across Unity lifecycle boundaries.",
+  "dependencies": [],
+  "contentDigest": "794cdb651a9925bc3825daab3fcf4197ee46279f37798a9c6785fcc0d53898d8",
+  "manifestDigest": "58e74b012d6781b42f8fc88d8192b9e7d5fadab052769831f83a29ed6ad42e59",
+  "hostArtifacts": [
+    {
+      "host": "claude",
+      "materializedFrontmatterDigest": "46d1cb000b03e5ffc533949589f1f5891dfe47d8b36f75a09fe1a2a994d6ac6b"
+    },
+    {
+      "host": "copilot",
+      "materializedFrontmatterDigest": "eafc3a97186c96a557b0269b52ca24042a5e13fe41a6f1f7d4c82f7038bdd57b"
+    },
+    {
+      "host": "openai",
+      "path": "agents/openai.yaml",
+      "digest": "b1e3c8fd0807101a67f6a0f9130b1f21f42d82c132c51abca0e58270d3935f55",
+      "materializedFrontmatterDigest": "1d92938fd78a19594856259efde6334901d217c894c5c89709bae069f3a07403"
+    }
+  ]
+}

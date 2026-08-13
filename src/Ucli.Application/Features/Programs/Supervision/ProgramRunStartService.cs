@@ -1,5 +1,4 @@
 using MackySoft.Ucli.Application.Features.Programs.Persistence;
-using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 
 namespace MackySoft.Ucli.Application.Features.Programs.Supervision;
 
@@ -44,7 +43,13 @@ internal sealed class ProgramRunStartService
 
         try
         {
-            await startNotification.NotifyAsync(run, cancellationToken).ConfigureAwait(false);
+            // The public started entry is emitted only after the create-only
+            // record can be read from the durable Run store.  In particular,
+            // it is never an optimistic notification for an uncommitted Run.
+            var durableRun = await storeFactory.ForProject(request.StorageProject)
+                .ReadAsync(run.RunId, cancellationToken).ConfigureAwait(false)
+                ?? throw new InvalidOperationException("Registered Program Run could not be read before its creation notification.");
+            await startNotification.NotifyAsync(durableRun, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception) when (!cancellationToken.IsCancellationRequested)
         {

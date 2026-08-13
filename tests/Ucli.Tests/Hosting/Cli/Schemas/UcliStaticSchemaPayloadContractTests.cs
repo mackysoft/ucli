@@ -1,13 +1,16 @@
 using System.Text.Json;
 using Json.Schema;
+using MackySoft.Ucli.Application.Features.Programs.Persistence;
 using MackySoft.Ucli.Application.Features.Screenshot.Capture;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Editor;
 using MackySoft.Ucli.Contracts.Execution;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Json;
 using MackySoft.Ucli.Contracts.Schemas;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
+using MackySoft.Ucli.Hosting.Cli.Programs;
 using MackySoft.Ucli.Hosting.Cli.Schemas;
 using MackySoft.Ucli.Hosting.Cli.Screenshot;
 using MackySoft.Ucli.Hosting.Cli.Testing;
@@ -16,6 +19,40 @@ namespace MackySoft.Ucli.Tests.Hosting.Cli.Schemas;
 
 public sealed class UcliStaticSchemaPayloadContractTests
 {
+    [Fact]
+    [Trait("Size", "Small")]
+    public void ProgramRunPayloadSchemas_ConstrainChildExecutionRefToLiteralNull ()
+    {
+        var schemaSet = UcliStaticSchemaSetLoader.Load(
+            AbsolutePath.Parse(TestRepositoryPaths.GetFullPath("schemas")));
+
+        foreach (var logicalName in new[]
+                 {
+                     "cli-output.payload.program.run.ok",
+                     "cli-output.payload.program.status.ok",
+                     "cli-output.payload.program.cancel.ok",
+                 })
+        {
+            var artifact = Assert.IsType<UcliStaticSchemaArtifact>(schemaSet.Find(logicalName));
+            var childExecutionRef = FindProperty(JsonNode.Parse(artifact.Document.GetRawText())!, "childExecutionRef");
+
+            Assert.Equal("null", childExecutionRef["type"]!.GetValue<string>());
+        }
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void ProgramRunStepPayload_SerializesChildExecutionRefAsNull ()
+    {
+        var payload = new ProgramRunStepPayload(
+            "refresh", 1_000, ProgramStepState.Deferred, null, null, null, null, null,
+            ExecutionApplicationState.NotApplied, null, [], null, UcliNull.Value, null, null, null, null);
+
+        var json = JsonSerializer.SerializeToElement(payload, CliOutputJsonSerializerOptions.Default);
+
+        Assert.Equal(JsonValueKind.Null, json.GetProperty("childExecutionRef").ValueKind);
+    }
+
     [Fact]
     [Trait("Size", "Medium")]
     public void PublicObjectRootSchemas_RejectNull ()
@@ -892,6 +929,33 @@ public sealed class UcliStaticSchemaPayloadContractTests
                     Fetch = null!,
                 },
             });
+    }
+
+    private static JsonObject FindProperty (JsonNode node, string propertyName)
+    {
+        if (node is JsonObject current
+            && current["properties"] is JsonObject properties
+            && properties[propertyName] is JsonObject property)
+        {
+            return property;
+        }
+
+        foreach (var child in node.AsObject().Select(static pair => pair.Value).Where(static child => child is not null))
+        {
+            if (child is JsonObject)
+            {
+                try
+                {
+                    return FindProperty(child, propertyName);
+                }
+                catch (InvalidOperationException)
+                {
+                    // Continue through the generated schema tree.
+                }
+            }
+        }
+
+        throw new InvalidOperationException($"Property '{propertyName}' was not found.");
     }
 
     private static void AssertRejectedBySchemaAndStrictDeserializer<TContract> (
