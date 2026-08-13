@@ -92,8 +92,7 @@ namespace MackySoft.Ucli.Unity.Execution.Program
                 document.ReadIndexDefaultMode,
                 document.OperationAllowlist,
                 document.IpcDefaultTimeoutMilliseconds,
-                document.IpcTimeoutMillisecondsByCommand,
-                document.EvalEnabled);
+                document.IpcTimeoutMillisecondsByCommand);
             return true;
         }
 
