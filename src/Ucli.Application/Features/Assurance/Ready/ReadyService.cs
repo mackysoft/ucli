@@ -5,8 +5,8 @@ using MackySoft.Ucli.Application.Shared.Context;
 using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Configuration;
-using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Editor;
+using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Features.Assurance.Ready;
 
@@ -203,6 +203,61 @@ internal sealed class ReadyService : IReadyService
             lifecycleProbeResult,
             default);
         return ReadyExecutionResult.Completed(output);
+    }
+
+    /// <inheritdoc />
+    public async ValueTask<ProgramReadyObservation> ObserveOnFixedHostAsync (
+        ProjectContext context,
+        IUnityExecutionHostBinding binding,
+        ExecutionDeadline deadline,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(binding);
+        ArgumentNullException.ThrowIfNull(deadline);
+        if (!deadline.TryGetRemainingTimeout(out _))
+        {
+            return ProgramReadyObservation.Failed(null, CreateTimeoutFailure(TimeSpan.Zero));
+        }
+
+        var execution = await binding.ExecuteAsync(
+                UcliCommandIds.Ready,
+                new UnityRequestPayload.Ping(IpcPingClientVersions.Ready, FailFast: false),
+                deadline,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (!execution.IsSuccess)
+        {
+            return ProgramReadyObservation.Failed(
+                null,
+                RequestFailureNormalizer.FromUnityRequestFailure(execution.FailureInfo!));
+        }
+        if (execution.Response!.Errors.Count != 0)
+        {
+            return ProgramReadyObservation.Failed(
+                null,
+                RequestFailureNormalizer.FromOperationError(execution.Response.Errors[0]));
+        }
+        if (!IpcPayloadCodec.TryDeserialize(execution.Response.Payload, out UnityEditorObservation observation, out var payloadError))
+        {
+            return ProgramReadyObservation.Failed(null, ApplicationFailure.ContractViolation(
+                $"Unity ready ping payload is invalid. {payloadError.Message}",
+                UcliCoreErrorCodes.InternalError,
+                instancePath: null,
+                startupFailure: null));
+        }
+        if (observation.ProjectFingerprint != context.UnityProject.ProjectFingerprint)
+        {
+            return ProgramReadyObservation.Failed(observation.State.Generations, ApplicationFailure.ContractViolation(
+                "Unity ready ping projectFingerprint does not match the fixed Program project.",
+                UcliCoreErrorCodes.InternalError,
+                instancePath: null,
+                startupFailure: null));
+        }
+        var decision = UnityEditorReadinessPolicy.Evaluate(observation, failFast: false);
+        return decision.IsReady
+            ? ProgramReadyObservation.Ready(observation.State.Generations)
+            : ProgramReadyObservation.NotReady(Verdict.Fail, observation.State.Generations);
     }
 
     private async ValueTask<ReadyLifecycleProbeResult> ProbeLifecycleAsync (

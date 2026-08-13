@@ -165,6 +165,12 @@ public sealed class LifecycleExecutionStartInvocationFactoryTests
         public int StartCount { get; private set; }
         public int DisposeCount { get; private set; }
 
+        public ValueTask<UnityRequestExecutionResult> ExecuteAsync (
+            UcliCommand command,
+            UnityRequestPayload payload,
+            ExecutionDeadline deadline,
+            CancellationToken cancellationToken = default) => throw new InvalidOperationException();
+
         public ValueTask<UnityRequestExecutionResult> StartAsync (
             UcliCommand command,
             UnityRequestPayload payload,

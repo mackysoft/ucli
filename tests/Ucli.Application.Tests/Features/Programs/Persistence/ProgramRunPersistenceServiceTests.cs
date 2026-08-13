@@ -8,6 +8,7 @@ using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Editor;
 using MackySoft.Ucli.Contracts.Execution;
 using MackySoft.Ucli.Contracts.Execution.Lifecycle;
+using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Tests.Features.Programs.Persistence;
 
@@ -171,9 +172,9 @@ public sealed class ProgramRunPersistenceServiceTests
         new UnityEditorGenerationSnapshot(1, 2, 3, 4), null, DateTimeOffset.UtcNow.AddMinutes(1), pendingSteps ?? [new ProgramRunPendingStep("ready", 1000)]);
 
     private static ProgramRunFixedContext CreateFixedContext (IReadOnlyDictionary<string, int> commandTimeouts) => new(
-        new ProgramEffectiveAuthorizationSnapshot(false, false, new string('c', 64), DateTimeOffset.UtcNow),
+        new ProgramEffectiveAuthorizationSnapshot(false, false, IpcProgramEffectiveAuthorizationSnapshot.ComputeDigest(false, false).ToString(), DateTimeOffset.UtcNow),
         new ProgramEffectiveConfigurationSnapshot(1, OperationPolicy.Safe, PlanTokenMode.Optional, ReadIndexMode.RequireFresh, [], 1000, commandTimeouts, false,
-            ProgramEffectiveConfigurationSnapshot.ComputeDigest(1, OperationPolicy.Safe, PlanTokenMode.Optional, ReadIndexMode.RequireFresh, [], 1000, commandTimeouts, false), DateTimeOffset.UtcNow),
+            IpcProgramEffectiveConfigurationSnapshot.ComputeDigest(1, "safe", "optional", "requireFresh", [], 1000, commandTimeouts, false), DateTimeOffset.UtcNow),
         new ProgramExecutionModeSnapshot("auto", "daemon"),
         new ProgramAttachedSupervisorSnapshot(Guid.Parse("10000000-0000-0000-0000-000000000002"), Guid.Parse("10000000-0000-0000-0000-000000000003"), new ProcessIdentity(2, 2), ProgramSupervisorConnection.Connected, ProgramSupervisorAvailability.Available, DateTimeOffset.UtcNow));
 

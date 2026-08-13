@@ -15,6 +15,7 @@ internal static class SkillsCliOutputContractTestSupport
     [
         "ucli-plan-apply",
         "ucli-read-project",
+        "ucli-run-program",
         "ucli-troubleshoot",
         "ucli-verify-changes",
     ];

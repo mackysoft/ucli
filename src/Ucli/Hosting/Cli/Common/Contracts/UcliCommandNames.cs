@@ -63,6 +63,30 @@ internal static class UcliCommandNames
     /// <summary> Gets the command name for eval. </summary>
     public const string Eval = "eval";
 
+    /// <summary> Gets the top-level command name for Program execution. </summary>
+    public const string Program = "program";
+
+    /// <summary> Gets the command name for <c>program presets list</c> result payloads. </summary>
+    public const string ProgramPresetsList = "program.presets.list";
+
+    /// <summary> Gets the command name for <c>program presets describe</c> result payloads. </summary>
+    public const string ProgramPresetsDescribe = "program.presets.describe";
+
+    /// <summary> Gets the command name for <c>program validate</c> result payloads. </summary>
+    public const string ProgramValidate = "program.validate";
+
+    /// <summary> Gets the command name for <c>program plan</c> result payloads. </summary>
+    public const string ProgramPlan = "program.plan";
+
+    /// <summary> Gets the command name for <c>program run</c> result payloads. </summary>
+    public const string ProgramRun = "program.run";
+
+    /// <summary> Gets the command name for <c>program status</c> result payloads. </summary>
+    public const string ProgramStatus = "program.status";
+
+    /// <summary> Gets the command name for <c>program cancel</c> result payloads. </summary>
+    public const string ProgramCancel = "program.cancel";
+
     /// <summary> Gets the top-level command name for daemon. </summary>
     public const string Daemon = "daemon";
 
@@ -192,6 +216,9 @@ internal static class UcliCommandNames
     /// <summary> Gets the nested command name for profile. </summary>
     public const string Profile = "profile";
 
+    /// <summary> Gets the nested command name for Program Presets. </summary>
+    public const string Presets = "presets";
+
     /// <summary> Gets the nested command name for run. </summary>
     public const string RunSubcommand = "run";
 
@@ -233,6 +260,9 @@ internal static class UcliCommandNames
 
     /// <summary> Gets the nested command name for daemon cleanup. </summary>
     public const string CleanupSubcommand = "cleanup";
+
+    /// <summary> Gets the nested command name for Program cancellation. </summary>
+    public const string CancelSubcommand = "cancel";
 
     /// <summary> Gets the nested command name for play enter. </summary>
     public const string EnterSubcommand = "enter";

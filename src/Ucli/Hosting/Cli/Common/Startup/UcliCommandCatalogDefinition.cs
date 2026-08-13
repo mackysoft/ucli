@@ -169,6 +169,23 @@ internal static class UcliCommandGroupDefinitions
                 Leaf(UcliCommandNames.RunSubcommand, UcliAssuranceCommandOutputContracts.BuildRun),
             ],
             []),
+        new(
+            UcliCommandNames.Program,
+            [
+                Leaf(UcliCommandNames.Validate, UcliProgramCommandOutputContracts.Validate),
+                Leaf(UcliCommandNames.Plan, UcliProgramCommandOutputContracts.Plan),
+                Leaf(UcliCommandNames.RunSubcommand, UcliProgramCommandOutputContracts.Run),
+                Leaf(UcliCommandNames.Status, UcliProgramCommandOutputContracts.Status),
+                Leaf(UcliCommandNames.CancelSubcommand, UcliProgramCommandOutputContracts.Cancel),
+            ],
+            [
+                Nested(
+                    UcliCommandNames.Presets,
+                    [
+                        Leaf(UcliCommandNames.ListSubcommand, UcliProgramCommandOutputContracts.PresetsList),
+                        Leaf(UcliCommandNames.DescribeSubcommand, UcliProgramCommandOutputContracts.PresetsDescribe),
+                    ]),
+            ]),
     ];
 
     private static UcliCommandCatalog.CommandLeafEntry Leaf (
