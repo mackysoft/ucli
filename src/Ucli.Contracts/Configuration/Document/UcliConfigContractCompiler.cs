@@ -119,7 +119,7 @@ internal sealed class UcliConfigContractCompiler
             ? null
             : NormalizeTimeouts(timeouts, sourcePath, diagnostics);
         var normalizedPresets = NormalizeProgramPresets(presets, sourcePath, diagnostics);
-        var requiredProgramPresets = ReadRequiredProgramPresets(root);
+        var requiredProgramPresets = ReadRequiredProgramPresets(root, sourcePath, diagnostics);
         var effectiveDefaultTimeout = defaultTimeout ?? DefaultIpcTimeoutMilliseconds;
         if (effectiveDefaultTimeout <= 0)
         {
@@ -161,15 +161,38 @@ internal sealed class UcliConfigContractCompiler
         return parsed;
     }
 
-    private static IReadOnlyList<string> ReadRequiredProgramPresets (JsonElement root)
+    private static IReadOnlyList<string> ReadRequiredProgramPresets (JsonElement root, string sourcePath, List<UcliConfigContractDiagnostic> diagnostics)
     {
-        if (!root.TryGetProperty(UcliConfigJsonPropertyNames.WorkCompletion, out var work)
-            || !work.TryGetProperty(UcliConfigJsonPropertyNames.RequiredProgramPresets, out var values)
-            || values.ValueKind != JsonValueKind.Array)
+        if (!root.TryGetProperty(UcliConfigJsonPropertyNames.WorkCompletion, out var work))
         {
             return Array.Empty<string>();
         }
-        return values.EnumerateArray().Where(static value => value.ValueKind == JsonValueKind.String).Select(static value => value.GetString()!).ToArray();
+        if (work.ValueKind != JsonValueKind.Object || !work.TryGetProperty(UcliConfigJsonPropertyNames.RequiredProgramPresets, out var values))
+        {
+            Add(diagnostics, "config.schema.propertyTypeMismatch", UcliConfigJsonPropertyNames.WorkCompletion, sourcePath, "workCompletion must contain requiredProgramPresets.");
+            return Array.Empty<string>();
+        }
+        foreach (var property in work.EnumerateObject())
+        {
+            if (property.Name != UcliConfigJsonPropertyNames.RequiredProgramPresets)
+            {
+                Add(diagnostics, "config.schema.unknownProperty", $"{UcliConfigJsonPropertyNames.WorkCompletion}.{property.Name}", sourcePath, "workCompletion contains an unknown property.");
+            }
+        }
+        if (values.ValueKind != JsonValueKind.Array)
+        {
+            Add(diagnostics, "config.schema.propertyTypeMismatch", UcliConfigJsonPropertyNames.RequiredProgramPresets, sourcePath, "requiredProgramPresets must be an array.");
+            return Array.Empty<string>();
+        }
+        var result = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var value in values.EnumerateArray())
+        {
+            if (value.ValueKind != JsonValueKind.String || !result.Add(value.GetString()!))
+            {
+                Add(diagnostics, "config.schema.arrayElementTypeMismatch", UcliConfigJsonPropertyNames.RequiredProgramPresets, sourcePath, "requiredProgramPresets must contain unique strings.");
+            }
+        }
+        return result.OrderBy(static value => value, StringComparer.Ordinal).ToArray();
     }
 
     private static string? ReadRequiredString (JsonElement root, string name, string sourcePath, List<UcliConfigContractDiagnostic> diagnostics)
