@@ -2205,6 +2205,12 @@ namespace MackySoft.Ucli.Unity.Tests
                 return execute(request, context, cancellationToken);
             }
 
+            public Task<IpcResponse> DispatchProgramRequestAsync (
+                IpcExecuteRequest request,
+                ExecuteDispatchContext context,
+                CancellationToken cancellationToken = default) =>
+                DispatchAsync(request, context, cancellationToken);
+
             private static Task<IpcResponse> DefaultExecuteAsync (
                 IpcExecuteRequest request,
                 ExecuteDispatchContext context,

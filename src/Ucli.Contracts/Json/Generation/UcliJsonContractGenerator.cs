@@ -537,6 +537,7 @@ public static class UcliJsonContractGenerator
         }
         typeMappers.AddRange(
         [
+            new UcliNullJsonContractTypeMapper(),
             new UcliExecutionRefBranchJsonContractTypeMapper(),
             new UcliNonNullJsonObjectJsonContractTypeMapper(),
             new UcliJsonObjectJsonContractTypeMapper(),

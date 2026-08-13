@@ -3,12 +3,14 @@ using MackySoft.Ucli.Application.Features.Programs.Parsing;
 using MackySoft.Ucli.Application.Features.Programs.Persistence;
 using MackySoft.Ucli.Application.Features.Programs.Resolution;
 using MackySoft.Ucli.Application.Features.Programs.Supervision;
+using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Application.Shared.Execution.Process;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Editor;
 using MackySoft.Ucli.Contracts.Execution;
 using MackySoft.Ucli.Contracts.Execution.Lifecycle;
+using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Tests.Features.Programs.Supervision;
 
@@ -52,6 +54,139 @@ public sealed class ProgramSupervisorTests
         var recovery = Assert.Single(port.Recoveries);
         Assert.Equal(start.Execution.ExecutionId, recovery.Execution.ExecutionId);
         Assert.Single(port.Starts);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task StartNextAsync_WhenTheTypedStartResponseIsTerminal_PublishesItAndAdvancesWithoutRecovery ()
+    {
+        var source = CreateRun();
+        var second = new ProgramRunPendingStep("ready", 1000).ToRecord();
+        var store = new MemoryStore(new ProgramRunRecord(
+            source.SchemaVersion, source.Version, source.RunId, source.DefinitionDigest, source.DefinitionSnapshotRef,
+            source.Project, source.FixedContext, source.Host, source.StartedGeneration, source.CurrentEditorGeneration,
+            source.DeadlineUtc, source.StartedAtUtc, source.UpdatedAtUtc, source.State, source.Cursor,
+            [source.Steps[0], second], source.ChildExecutionRefs, source.Cancellation, source.TerminalRecordRef));
+        var port = new RecordingPort
+        {
+            OnStartAsync = static (start, _) => ValueTask.FromResult(
+                start.StepIndex == 0
+                    ? ProgramStepExecutionPortResult.TerminallyReturned(
+                        new ProgramStepExecutionRecoveredTerminal(ProgramStepState.Completed, Verdict.Pass, ExecutionApplicationState.Applied, null))
+                    : ProgramStepExecutionPortResult.Started),
+        };
+        var clock = new FakeTimeProvider(StartedAtUtc);
+        var supervisor = CreateSupervisor(store, port, new FixedObserver(), clock);
+
+        var result = await supervisor.StartNextAsync(
+            CreateProject(), store.Current.RunId, ExecutionDeadline.Start(TimeSpan.FromMinutes(1), clock));
+
+        Assert.Equal(ProgramRunState.Running, result!.State);
+        Assert.Equal(ProgramStepState.Completed, result.Steps[0].State);
+        Assert.Equal(ProgramStepState.Planning, result.Steps[1].State);
+        Assert.Equal([0, 1], port.Starts.Select(static start => start.StepIndex));
+        Assert.Empty(port.Recoveries);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task StartNextAsync_WhenCallPreflightFails_PublishesOneNotAppliedTerminalWithoutStartingRequestExecution ()
+    {
+        var source = CreateRun();
+        var call = source.Steps[0] with { Command = "call" };
+        var store = new MemoryStore(CreateRun(source, call));
+        var port = new RecordingPort
+        {
+            StartResult = ProgramStepExecutionPortResult.TerminallyReturned(
+                new ProgramStepExecutionRecoveredTerminal(
+                    ProgramStepState.Failed,
+                    null,
+                    ExecutionApplicationState.NotApplied,
+                    "PROGRAM_CALL_STATIC_PREFLIGHT_REJECTED",
+                    Origin: ProgramStepExecutionTerminalOrigin.LocalPreflight)),
+        };
+        var clock = new FakeTimeProvider(StartedAtUtc);
+        var supervisor = CreateSupervisor(store, port, new FixedObserver(), clock);
+
+        var result = await supervisor.StartNextAsync(
+            CreateProject(), store.Current.RunId, ExecutionDeadline.Start(TimeSpan.FromMinutes(1), clock));
+        var recovered = await supervisor.RecoverAsync(
+            CreateProject(), store.Current.RunId, ExecutionDeadline.Start(TimeSpan.FromMinutes(1), clock));
+
+        var step = Assert.Single(result!.Steps);
+        Assert.Equal(ProgramRunState.Failed, result.State);
+        Assert.Equal(ProgramStepState.Failed, step.State);
+        Assert.Equal(ExecutionApplicationState.NotApplied, step.ApplicationState);
+        Assert.Equal("PROGRAM_CALL_STATIC_PREFLIGHT_REJECTED", step.ErrorCode);
+        Assert.Null(step.RequestExecution);
+        Assert.Null(step.RequestPlanRef);
+        Assert.Empty(step.OperationDescriptorRefs);
+        Assert.True(step.ExecutionPortInvoked);
+        Assert.Single(port.Starts);
+        Assert.Empty(port.Recoveries);
+        Assert.Same(result, recovered);
+        Assert.Equal(1, store.StepTerminalPublicationAttempts);
+        Assert.NotNull(store.LastRunTerminal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task StartNextAsync_WhenLifecycleObserverPersistsItsReferenceBeforeTerminalReturn_PublishesFromThePersistedStep ()
+    {
+        var source = CreateRun();
+        var refresh = source.Steps[0] with { Command = "refresh" };
+        var store = new MemoryStore(CreateRun(source, refresh));
+        var definition = new LifecycleExecutionDefinition(LifecycleExecutionKind.Refresh);
+        var terminalReference = new TerminalExecutionRef(
+            definition.ExecutionKind,
+            Guid.Parse("3a0f9ada-c23f-41b7-88ac-849cedf38882"),
+            LifecycleExecutionDefinitionDigest.Calculate(definition),
+            new ExecutionState("completed"),
+            null,
+            new PathArtifactRef(
+                LifecycleExecutionArtifactContract.TerminalRecordKind,
+                LifecycleExecutionArtifactContract.TerminalRecordMediaType,
+                new ArtifactPath("lifecycle-execution/refresh/terminal.json"),
+                Sha256Digest.Parse(new string('e', 64)),
+                1,
+                StartedAtUtc));
+        var activeReference = new ActiveExecutionRef(
+            definition.ExecutionKind,
+            terminalReference.Id,
+            terminalReference.DefinitionDigest,
+            new ExecutionState("registered"),
+            new ExecutionStatusLocator(".ucli/local/lifecycle-execution/refresh/execution.json"));
+        var port = new RecordingPort
+        {
+            OnStartAsync = (start, _) =>
+            {
+                var observed = store.Current;
+                store.Replace(ReplaceStep(observed, observed.Steps[start.StepIndex] with
+                {
+                    State = ProgramStepState.Running,
+                    LifecycleExecutionRef = activeReference,
+                    GenerationBefore = observed.StartedGeneration,
+                }));
+                return ValueTask.FromResult(ProgramStepExecutionPortResult.TerminallyReturned(
+                    new ProgramStepExecutionRecoveredTerminal(
+                        ProgramStepState.Completed,
+                        null,
+                        ExecutionApplicationState.Applied,
+                        null,
+                        observed.StartedGeneration,
+                        terminalReference)));
+            },
+        };
+        var clock = new FakeTimeProvider(StartedAtUtc);
+        var supervisor = CreateSupervisor(store, port, new FixedObserver(), clock);
+
+        var result = await supervisor.StartNextAsync(
+            CreateProject(), store.Current.RunId, ExecutionDeadline.Start(TimeSpan.FromMinutes(1), clock));
+
+        var step = Assert.Single(result!.Steps);
+        Assert.Equal(ProgramRunState.Completed, result.State);
+        Assert.Equal(ProgramStepState.Completed, step.State);
+        Assert.Equal(terminalReference, step.LifecycleExecutionRef);
     }
 
     [Fact]
@@ -231,6 +366,41 @@ public sealed class ProgramSupervisorTests
         Assert.Equal(ExecutionApplicationState.Applied, result.Steps[0].ApplicationState);
         Assert.Single(port.Starts);
         Assert.Single(port.Recoveries);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task RecoverAsync_WhenCompletedStepHasASuccessor_StartsOnlyTheNextPersistedStepAndThenCompletesTheRun ()
+    {
+        var source = CreateRun();
+        ProgramRunStepRecord[] steps =
+        [
+            new ProgramRunPendingStep("ready", 1000).ToRecord(),
+            new ProgramRunPendingStep("ready", 1000).ToRecord(),
+        ];
+        var run = new ProgramRunRecord(
+            source.SchemaVersion, source.Version, source.RunId, source.DefinitionDigest, source.DefinitionSnapshotRef,
+            source.Project, source.FixedContext, source.Host, source.StartedGeneration, source.CurrentEditorGeneration,
+            source.DeadlineUtc, source.StartedAtUtc, source.UpdatedAtUtc, source.State, 0,
+            steps, source.ChildExecutionRefs, source.Cancellation, source.TerminalRecordRef);
+        var store = new MemoryStore(run);
+        var port = new RecordingPort
+        {
+            StartResult = ProgramStepExecutionPortResult.CommunicationLost,
+            RecoveryResult = ProgramStepExecutionRecoveryResult.TerminallyRecovered(
+                new ProgramStepExecutionRecoveredTerminal(ProgramStepState.Completed, Verdict.Pass, ExecutionApplicationState.Applied, null)),
+        };
+        var clock = new FakeTimeProvider(StartedAtUtc);
+        var supervisor = CreateSupervisor(store, port, new FixedObserver(), clock);
+
+        var result = await supervisor.StartNextAsync(CreateProject(), run.RunId, ExecutionDeadline.Start(TimeSpan.FromMinutes(1), clock));
+
+        Assert.Equal(ProgramRunState.Completed, result!.State);
+        Assert.Equal(2, result.Cursor);
+        Assert.All(result.Steps, step => Assert.Equal(ProgramStepState.Completed, step.State));
+        Assert.Equal([0, 1], port.Starts.Select(start => start.StepIndex));
+        Assert.Equal(2, port.Recoveries.Count);
+        Assert.NotNull(result.TerminalRecordRef);
     }
 
     [Fact]
@@ -517,15 +687,67 @@ public sealed class ProgramSupervisorTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task CancelAsync_WhenTerminalPublicationNeverConverges_StopsAfterTheBoundedRetryBudget ()
+    public async Task CancelAsync_DoesNotPublishATerminalRecordBeforeTheAttachedExecutionIsRecovered ()
     {
-        var store = new MemoryStore(CreateRun()) { RejectRunTerminalPublications = true };
+        var source = CreateRun();
+        var started = source.Steps[0] with
+        {
+            State = ProgramStepState.Running,
+            PlanningStartedAtUtc = StartedAtUtc,
+            DeadlineUtc = StartedAtUtc.AddSeconds(1),
+            StartedAtUtc = StartedAtUtc,
+            Execution = new ProgramStepExecutionReference(Guid.NewGuid(), StartedAtUtc, StartedAtUtc.AddSeconds(1)),
+            ExecutionPortInvoked = true,
+        };
+        var store = new MemoryStore(CreateRun(source, started)) { RejectRunTerminalPublications = true };
         var service = new ProgramRunStatusCancelReconciliationService(store, new FixedObserver(), new FakeTimeProvider(StartedAtUtc));
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => service.CancelAsync(CreateProject(), store.Current.RunId, "USER_CANCELLED").AsTask());
+        var result = await service.CancelAsync(CreateProject(), store.Current.RunId, "USER_CANCELLED");
 
+        Assert.Equal(ProgramRunState.Cancelling, result!.State);
         Assert.True(store.Current.Cancellation.Requested);
-        Assert.Equal(ProgramRunState.Created, store.Current.State);
+        Assert.Null(store.Current.TerminalRecordRef);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task RecoverAsync_WhenCancellationWasRequested_RecoversAndCancelsOnlyThePersistedExecution ()
+    {
+        var source = CreateRun();
+        var execution = new ProgramStepExecutionReference(Guid.NewGuid(), StartedAtUtc, StartedAtUtc.AddMinutes(1));
+        var running = source.Steps[0] with
+        {
+            State = ProgramStepState.Running,
+            PlanningStartedAtUtc = StartedAtUtc,
+            DeadlineUtc = execution.DeadlineUtc,
+            StartedAtUtc = execution.StartedAtUtc,
+            Execution = execution,
+            ExecutionPortInvoked = true,
+        };
+        var requestedAtUtc = StartedAtUtc.AddSeconds(1);
+        var cancelled = new ProgramRunRecord(
+            source.SchemaVersion, source.Version + 1, source.RunId, source.DefinitionDigest, source.DefinitionSnapshotRef,
+            source.Project, source.FixedContext, source.Host, source.StartedGeneration, source.CurrentEditorGeneration,
+            source.DeadlineUtc, source.StartedAtUtc, requestedAtUtc, ProgramRunState.Cancelling, source.Cursor,
+            [running], source.ChildExecutionRefs, source.Cancellation.Request(requestedAtUtc, "USER_CANCELLED"), source.TerminalRecordRef);
+        var store = new MemoryStore(cancelled);
+        var port = new RecordingPort
+        {
+            RecoveryResult = ProgramStepExecutionRecoveryResult.TerminallyRecovered(
+                new ProgramStepExecutionRecoveredTerminal(ProgramStepState.Completed, Verdict.Pass, ExecutionApplicationState.Applied, null)),
+        };
+        var clock = new FakeTimeProvider(StartedAtUtc);
+        var supervisor = CreateSupervisor(store, port, new FixedObserver(), clock);
+
+        var result = await supervisor.RecoverAsync(
+            CreateProject(), cancelled.RunId, ExecutionDeadline.Start(TimeSpan.FromMinutes(1), clock));
+
+        Assert.Equal(ProgramRunState.Cancelled, result!.State);
+        Assert.Equal(ProgramStepState.Cancelled, Assert.Single(result.Steps).State);
+        Assert.Equal("PROGRAM_RUN_CANCELLED", result.Steps[0].ErrorCode);
+        Assert.Equal(execution.ExecutionId, Assert.Single(port.Terminations).Execution.ExecutionId);
+        Assert.Single(port.Recoveries);
+        Assert.Empty(port.Starts);
     }
 
     [Fact]
@@ -636,6 +858,69 @@ public sealed class ProgramSupervisorTests
         }
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    [Trait("Size", "Small")]
+    public async Task StatusOrCancelAsync_WhenOwnerIsLostAndTheSameLifecycleTerminalIsAvailable_ProjectsItBeforeInterrupting (bool cancel)
+    {
+        var run = CreateRunningRefreshRun(out var activeReference);
+        var terminalReference = CreateTerminalRefreshReference(activeReference.Id);
+        var terminal = CreateRefreshTerminal(run, activeReference.Id, run.Host);
+        var resolver = new RecordingLifecycleExecutionReconnectResolver(
+            new LifecycleExecutionReconnectResolution.Terminal(terminalReference, terminal));
+        var store = new MemoryStore(run);
+        var service = new ProgramRunStatusCancelReconciliationService(
+            store,
+            new FixedObserver(ProcessIdentityStatus.ExitedOrReplaced),
+            new FakeTimeProvider(StartedAtUtc),
+            resolver);
+
+        var result = cancel
+            ? await service.CancelAsync(CreateProject(), run.RunId, "USER_CANCELLED")
+            : await service.GetStatusAsync(CreateProject(), run.RunId);
+
+        Assert.Equal(ProgramRunState.Interrupted, result!.State);
+        var step = Assert.Single(result.Steps);
+        Assert.Equal(ProgramStepState.Failed, step.State);
+        Assert.Equal(terminalReference, step.LifecycleExecutionRef);
+        Assert.Equal(ExecutionApplicationState.Applied, step.ApplicationState);
+        Assert.Single(resolver.Invocations);
+        Assert.False(result.Cancellation.Requested);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task GetStatusAsync_WhenLifecycleTerminalDoesNotMatchTheFixedHost_LeavesTheActiveReferenceUnknownAndInterrupts ()
+    {
+        var run = CreateRunningRefreshRun(out var activeReference);
+        var terminalReference = CreateTerminalRefreshReference(activeReference.Id);
+        var mismatchedHost = new LifecycleExecutionHostRegistration(
+            run.Host.Process,
+            Guid.NewGuid(),
+            run.Host.FirstEndpointRegistrationGenerationId,
+            run.Host.CurrentEndpointRegistrationGenerationId);
+        var resolver = new RecordingLifecycleExecutionReconnectResolver(
+            new LifecycleExecutionReconnectResolution.Terminal(
+                terminalReference,
+                CreateRefreshTerminal(run, activeReference.Id, mismatchedHost)));
+        var store = new MemoryStore(run);
+        var service = new ProgramRunStatusCancelReconciliationService(
+            store,
+            new FixedObserver(hostStatus: ProcessIdentityStatus.ExitedOrReplaced),
+            new FakeTimeProvider(StartedAtUtc),
+            resolver);
+
+        var result = await service.GetStatusAsync(CreateProject(), run.RunId);
+
+        Assert.Equal(ProgramRunState.Interrupted, result!.State);
+        var step = Assert.Single(result.Steps);
+        Assert.Equal(ProgramStepState.Interrupted, step.State);
+        Assert.Equal(activeReference, step.LifecycleExecutionRef);
+        Assert.Equal(ExecutionApplicationState.Unknown, step.ApplicationState);
+        Assert.Single(resolver.Invocations);
+    }
+
     [Fact]
     [Trait("Size", "Small")]
     public async Task CancelAsync_IsIdempotentAndDoesNotCallAnExecutionPort ()
@@ -650,6 +935,7 @@ public sealed class ProgramSupervisorTests
         Assert.Same(first, second);
         Assert.True(first.Cancellation.Requested);
         Assert.Equal("USER_CANCELLED", first.Cancellation.ReasonCode);
+        Assert.Equal(first.Cancellation, second!.Cancellation);
     }
 
     private static ProgramAttachedSupervisor CreateSupervisor (MemoryStore store, RecordingPort port, IProcessIdentityObserver observer, TimeProvider clock) => new(
@@ -667,11 +953,80 @@ public sealed class ProgramSupervisorTests
             [new ProgramRunPendingStep("ready", 1000).ToRecord()], [], ProgramCancellationRecord.None, null);
     }
 
+    private static ProgramRunRecord CreateRunningRefreshRun (out ActiveExecutionRef lifecycleReference)
+    {
+        var source = CreateRun();
+        var definition = new LifecycleExecutionDefinition(LifecycleExecutionKind.Refresh);
+        lifecycleReference = new ActiveExecutionRef(
+            definition.ExecutionKind,
+            Guid.Parse("00000000-0000-0000-0000-000000000333"),
+            LifecycleExecutionDefinitionDigest.Calculate(definition),
+            new ExecutionState(TextVocabulary.GetText(LifecycleExecutionState.Registered)),
+            new ExecutionStatusLocator(".ucli/local/lifecycle-executions/refresh/00000000000000000000000000000333/execution.json"));
+        var execution = new ProgramStepExecutionReference(
+            Guid.Parse("00000000-0000-0000-0000-000000000444"), StartedAtUtc, StartedAtUtc.AddMinutes(1));
+        var step = new ProgramRunStepRecord(
+            "refresh", 1000, ProgramStepState.Running, null, StartedAtUtc, execution.DeadlineUtc,
+            source.StartedGeneration, null, ExecutionApplicationState.NotApplied, null, [], lifecycleReference,
+            null, null, null, null, [], null, execution.StartedAtUtc, null)
+        {
+            Execution = execution,
+            ExecutionPortInvoked = true,
+        };
+        return new ProgramRunRecord(
+            source.SchemaVersion, source.Version, source.RunId, source.DefinitionDigest, source.DefinitionSnapshotRef,
+            source.Project, source.FixedContext, source.Host, source.StartedGeneration, source.StartedGeneration,
+            source.DeadlineUtc, source.StartedAtUtc, source.UpdatedAtUtc, ProgramRunState.WaitingForRuntime, source.Cursor,
+            [step], source.ChildExecutionRefs, source.Cancellation, null);
+    }
+
+    private static TerminalExecutionRef CreateTerminalRefreshReference (Guid executionId)
+    {
+        var definition = new LifecycleExecutionDefinition(LifecycleExecutionKind.Refresh);
+        return new TerminalExecutionRef(
+            definition.ExecutionKind,
+            executionId,
+            LifecycleExecutionDefinitionDigest.Calculate(definition),
+            new ExecutionState(TextVocabulary.GetText(LifecycleExecutionState.Completed)),
+            null,
+            CreateArtifact("lifecycleExecutionTerminalRecord", "lifecycle-terminal.json"));
+    }
+
+    private static RefreshLifecycleExecutionTerminalRecord CreateRefreshTerminal (
+        ProgramRunRecord run,
+        Guid executionId,
+        LifecycleExecutionHostRegistration host) => new(
+        executionId,
+        LifecycleExecutionDefinitionDigest.Calculate(new LifecycleExecutionDefinition(LifecycleExecutionKind.Refresh)),
+        run.Project,
+        host,
+        run.StartedGeneration,
+        run.StartedGeneration,
+        StartedAtUtc.AddMinutes(2),
+        StartedAtUtc,
+        StartedAtUtc.AddSeconds(1),
+        LifecycleExecutionTerminalReason.ActionFailed,
+        ExecutionApplicationState.Applied,
+        null,
+        null,
+        []);
+
     private static ProgramRunRecord CreateRun (ProgramRunRecord source, ProgramRunStepRecord step) => new(
         source.SchemaVersion, source.Version, source.RunId, source.DefinitionDigest, source.DefinitionSnapshotRef,
         source.Project, source.FixedContext, source.Host, source.StartedGeneration, source.CurrentEditorGeneration,
         source.DeadlineUtc, source.StartedAtUtc, source.UpdatedAtUtc, ProgramRunState.Created, 0,
         [step], source.ChildExecutionRefs, source.Cancellation, source.TerminalRecordRef);
+
+    private static ProgramRunRecord ReplaceStep (ProgramRunRecord source, ProgramRunStepRecord step) => new(
+        source.SchemaVersion, source.Version + 1, source.RunId, source.DefinitionDigest, source.DefinitionSnapshotRef,
+        source.Project, source.FixedContext, source.Host, source.StartedGeneration, source.CurrentEditorGeneration,
+        source.DeadlineUtc, source.StartedAtUtc, source.UpdatedAtUtc, source.State, source.Cursor,
+        [step], source.ChildExecutionRefs, source.Cancellation, source.TerminalRecordRef)
+    {
+        SupervisorObservation = source.SupervisorObservation,
+        HostObservation = source.HostObservation,
+        TerminalReasonCode = source.TerminalReasonCode,
+    };
 
     private static ProgramRunRecord CreateTerminalRun (ProgramRunRecord source) => new(
         source.SchemaVersion, source.Version + 1, source.RunId, source.DefinitionDigest, source.DefinitionSnapshotRef,
@@ -705,9 +1060,9 @@ public sealed class ProgramSupervisorTests
     {
         var commandTimeouts = new Dictionary<string, int> { ["ready"] = 1000 };
         return new ProgramRunFixedContext(
-            new ProgramEffectiveAuthorizationSnapshot(false, false, new string('b', 64), StartedAtUtc),
-            new ProgramEffectiveConfigurationSnapshot(1, OperationPolicy.Safe, PlanTokenMode.Optional, ReadIndexMode.RequireFresh, [], 1000, commandTimeouts,
-                ProgramEffectiveConfigurationSnapshot.ComputeDigest(1, OperationPolicy.Safe, PlanTokenMode.Optional, ReadIndexMode.RequireFresh, [], 1000, commandTimeouts), StartedAtUtc),
+            new ProgramEffectiveAuthorizationSnapshot(false, false, IpcProgramEffectiveAuthorizationSnapshot.ComputeDigest(false, false).ToString(), StartedAtUtc),
+            new ProgramEffectiveConfigurationSnapshot(1, OperationPolicy.Safe, PlanTokenMode.Optional, ReadIndexMode.RequireFresh, [], 1000, commandTimeouts, false,
+                IpcProgramEffectiveConfigurationSnapshot.ComputeDigest(1, "safe", "optional", "requireFresh", [], 1000, commandTimeouts, false), StartedAtUtc),
             new ProgramExecutionModeSnapshot("auto", "daemon"),
             new ProgramAttachedSupervisorSnapshot(Guid.Parse("00000000-0000-0000-0000-000000000010"), Guid.Parse("00000000-0000-0000-0000-000000000011"), Owner, ProgramSupervisorConnection.Connected, ProgramSupervisorAvailability.Available, StartedAtUtc));
     }
@@ -763,6 +1118,7 @@ public sealed class ProgramSupervisorTests
         public List<ProgramStepExecutionRecovery> Recoveries { get; } = [];
         public List<ProgramStepExecutionTermination> Terminations { get; } = [];
         public ProgramStepExecutionPortResult StartResult { get; init; } = ProgramStepExecutionPortResult.Started;
+        public Func<ProgramStepExecutionStart, CancellationToken, ValueTask<ProgramStepExecutionPortResult>>? OnStartAsync { get; init; }
         public ProgramStepExecutionRecoveryResult RecoveryResult { get; set; } = ProgramStepExecutionRecoveryResult.Recovered;
         public Action? OnRecover { get; set; }
         public Func<ProgramStepExecutionRecovery, CancellationToken, ValueTask<ProgramStepExecutionRecoveryResult>>? OnRecoveryAsync { get; set; }
@@ -773,6 +1129,10 @@ public sealed class ProgramSupervisorTests
         {
             Operations.Add("start");
             Starts.Add(start);
+            if (OnStartAsync is not null)
+            {
+                return OnStartAsync(start, cancellationToken);
+            }
             return ValueTask.FromResult(StartResult);
         }
 

@@ -3,6 +3,7 @@ using MackySoft.Ucli.Unity.Execution.CsEval;
 using MackySoft.Ucli.Unity.Execution.Dispatch;
 using MackySoft.Ucli.Unity.Execution.Phases;
 using MackySoft.Ucli.Unity.Execution.PlanToken;
+using MackySoft.Ucli.Unity.Execution.Program;
 using MackySoft.Ucli.Unity.Execution.RequestIdempotency;
 using MackySoft.Ucli.Unity.Execution.Requests;
 using MackySoft.Ucli.Unity.Runtime;
@@ -41,6 +42,7 @@ namespace MackySoft.Ucli.Unity.Execution
                 ExecuteRequestIdempotencyCoordinator.DefaultMaxEntries,
                 serviceProvider.GetRequiredService<IMonotonicClock>()));
             services.AddSingleton<IExecuteRequestIdempotencyCoordinator, ExecuteRequestIdempotencyCoordinator>();
+            services.AddSingleton<ProgramRequestExecutionRegistry>();
             services.AddSingleton<IExecuteRequestDispatcher, ExecuteRequestDispatcher>();
             return services;
         }

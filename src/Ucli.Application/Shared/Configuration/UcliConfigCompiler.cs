@@ -14,6 +14,13 @@ internal sealed class UcliConfigCompiler
     private const string InvalidTimeoutCode = "config.save.invalidTimeout";
     private const string NullTimeoutOverridesCode = "config.save.nullTimeoutOverrides";
     private const string UnsupportedTimeoutCommandCode = "config.save.unsupportedTimeoutCommand";
+    private const string PortableContractViolationCode = "config.semantic.portableContractViolation";
+    private const string SavePortableContractViolationCode = "config.save.portableContractViolation";
+
+    private static readonly JsonSerializerOptions PortableDocumentSerializerOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+    };
 
     private readonly UcliConfigSchemaValidator schemaValidator;
 
@@ -50,19 +57,26 @@ internal sealed class UcliConfigCompiler
         JsonElement root,
         string sourcePath)
     {
-        var compilationResult = schemaValidator.Compile(root, sourcePath);
-        if (!compilationResult.IsSuccess)
+        var schemaResult = schemaValidator.Validate(root, sourcePath);
+        if (!schemaResult.IsSuccess)
         {
-            return UcliConfigBuildResult.Failure(UcliConfigContractDiagnosticMapper.Map(compilationResult.Diagnostics));
+            return UcliConfigBuildResult.Failure(schemaResult.Diagnostics);
         }
 
-        return effectiveConfigBuilder.Build(compilationResult.Snapshot!);
-    }
+        var buildResult = effectiveConfigBuilder.Build(schemaResult.Document!.Value, sourcePath);
+        if (!buildResult.IsSuccess || UcliConfigDocumentValidator.TryValidate(root, CreatePortableTimeoutDefaults(), out _))
+        {
+            return buildResult;
+        }
 
-    /// <summary> Maps one snapshot already validated by the shared compiler. </summary>
-    public UcliConfigBuildResult Build (UcliConfigContractSnapshot snapshot)
-    {
-        return effectiveConfigBuilder.Build(snapshot);
+        return UcliConfigBuildResult.Failure(
+        [
+            UcliConfigDiagnostic.Create(
+                PortableContractViolationCode,
+                propertyPath: null,
+                sourcePath,
+                "Config JSON violates the portable configuration contract."),
+        ]);
     }
 
     /// <summary> Builds a serializable config document from typed config values. </summary>
@@ -91,17 +105,34 @@ internal sealed class UcliConfigCompiler
             static entry => entry.Key,
             static entry => new UcliProgramPresetDocument(entry.Value.Description, entry.Value.ProgramPath.Value),
             StringComparer.Ordinal);
+        var workCompletion = config.WorkCompletion is null
+            ? null
+            : new UcliWorkCompletionDocument(config.WorkCompletion.RequiredProgramPresets.ToArray());
 
-        return UcliConfigDocumentBuildResult.Success(new UcliConfigDocument(
+        var document = new UcliConfigDocument(
             SchemaVersion: config.SchemaVersion,
             OperationPolicy: TextVocabulary.GetText(config.OperationPolicy),
             PlanTokenMode: TextVocabulary.GetText(config.PlanTokenMode),
             ReadIndexDefaultMode: TextVocabulary.GetText(config.ReadIndexDefaultMode),
             OperationAllowlist: config.OperationAllowlist.ToArray(),
-            EvalEnabled: config.EvalEnabled,
             IpcDefaultTimeoutMilliseconds: config.IpcDefaultTimeoutMilliseconds,
             IpcTimeoutMillisecondsByCommand: ipcTimeoutMillisecondsByCommand,
-            ProgramPresets: programPresets));
+            EvalEnabled: config.EvalEnabled,
+            ProgramPresets: programPresets,
+            WorkCompletion: workCompletion);
+        if (!IsPortableDocument(document))
+        {
+            return UcliConfigDocumentBuildResult.Failure(
+            [
+                UcliConfigDiagnostic.Create(
+                    SavePortableContractViolationCode,
+                    propertyPath: null,
+                    sourcePath,
+                    "Config values violate the portable configuration contract."),
+            ]);
+        }
+
+        return UcliConfigDocumentBuildResult.Success(document);
     }
 
     private static IReadOnlyList<UcliConfigDiagnostic> ValidateConfigForSave (
@@ -137,8 +168,28 @@ internal sealed class UcliConfigCompiler
         AddAllowlistDiagnostics(config.OperationAllowlist, sourcePath, diagnostics);
         AddTimeoutDiagnostics(config, sourcePath, diagnostics);
         AddProgramPresetDiagnostics(config.ProgramPresets, sourcePath, diagnostics);
+        if (config.WorkCompletion is null)
+        {
+            AddDiagnostic(diagnostics, CreateDiagnostic(
+                "config.save.nullWorkCompletion",
+                UcliConfigJsonPropertyNames.WorkCompletion,
+                sourcePath,
+                "Config workCompletion must not be null."));
+        }
 
         return diagnostics;
+    }
+
+    private static IReadOnlyDictionary<string, int> CreatePortableTimeoutDefaults () =>
+        IpcTimeoutDefaults.CreateDefaultTimeoutOverrides().ToDictionary(
+            static entry => entry.Key,
+            static entry => entry.Value!.Value,
+            StringComparer.Ordinal);
+
+    private static bool IsPortableDocument (UcliConfigDocument document)
+    {
+        using var json = JsonSerializer.SerializeToDocument(document, PortableDocumentSerializerOptions);
+        return UcliConfigDocumentValidator.TryValidate(json.RootElement, CreatePortableTimeoutDefaults(), out _);
     }
 
     private static void AddProgramPresetDiagnostics (

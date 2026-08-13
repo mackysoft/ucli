@@ -18,6 +18,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="../Tests.ProcessFixture/Tests.ProcessFixture.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Using Include="Xunit" />
   </ItemGroup>
 

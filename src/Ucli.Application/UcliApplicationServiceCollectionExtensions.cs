@@ -44,8 +44,10 @@ using MackySoft.Ucli.Application.Features.Play.UseCases.Exit;
 using MackySoft.Ucli.Application.Features.Play.UseCases.Status;
 using MackySoft.Ucli.Application.Features.Programs.Parsing;
 using MackySoft.Ucli.Application.Features.Programs.Persistence;
+using MackySoft.Ucli.Application.Features.Programs.Planning;
 using MackySoft.Ucli.Application.Features.Programs.Presets;
 using MackySoft.Ucli.Application.Features.Programs.Resolution;
+using MackySoft.Ucli.Application.Features.Programs.Supervision;
 using MackySoft.Ucli.Application.Features.Programs.Validate;
 using MackySoft.Ucli.Application.Features.Recording.Capability;
 using MackySoft.Ucli.Application.Features.Recording.UseCases;
@@ -198,6 +200,11 @@ public static class UcliApplicationServiceCollectionExtensions
         services.AddSingleton<IProgramPresetCatalog, ProgramPresetCatalog>();
         services.AddSingleton<IProgramValidationService, ProgramValidationService>();
         services.AddSingleton<ProgramRunPersistenceService>();
+        services.AddSingleton<ProgramRunStatusCancelReconciliationService>();
+        services.AddSingleton<IProgramRunHostContextResolver, ProgramRunHostContextResolver>();
+        services.AddSingleton<ProgramPlanPreflightService>();
+        services.AddSingleton<IProgramFixedHostCatalogReader, ProgramFixedHostCatalogReader>();
+        services.AddSingleton<ProgramCallPreflightService>();
         return services;
     }
 

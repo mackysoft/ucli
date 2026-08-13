@@ -11,13 +11,12 @@ public sealed class LogsStreamPollingExecutorTimeTests
 {
     private static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(100);
 
-    private static readonly TimeSpan TestTimeout = TimeSpan.FromSeconds(1);
-
     [Fact]
     [Trait("Size", "Small")]
     public async Task Execute_WhenPollingContinues_WaitsUsingInjectedTimeProvider ()
     {
-        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
+        var innerTimeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
+        var timeProvider = new PollDelayObservingTimeProvider(innerTimeProvider, PollInterval);
         var daemonLogsClient = new RecordingDaemonLogsClient([]);
         var executor = new LogsStreamPollingExecutor(CreateResolver(), timeProvider);
         using var cancellationTokenSource = new CancellationTokenSource();
@@ -29,18 +28,19 @@ public sealed class LogsStreamPollingExecutorTimeTests
             untilTimestamp: null,
             cancellationToken: cancellationTokenSource.Token);
 
-        await daemonLogsClient.WaitForReadAsync(TestTimeout);
+        await daemonLogsClient.WaitForNextReadAsync();
+        await timeProvider.WaitForNextPollDelayRegistrationAsync();
         Assert.Single(daemonLogsClient.Invocations);
 
-        timeProvider.Advance(PollInterval - TimeSpan.FromTicks(1));
+        innerTimeProvider.Advance(PollInterval - TimeSpan.FromTicks(1));
         Assert.Single(daemonLogsClient.Invocations);
 
-        timeProvider.Advance(TimeSpan.FromTicks(1));
-        await daemonLogsClient.WaitForReadAsync(TestTimeout);
+        innerTimeProvider.Advance(TimeSpan.FromTicks(1));
+        await daemonLogsClient.WaitForNextReadAsync();
         Assert.Equal(2, daemonLogsClient.Invocations.Count);
 
         cancellationTokenSource.Cancel();
-        var result = await resultTask.WaitAsync(TestTimeout);
+        var result = await resultTask;
         Assert.Equal(LogsReadCompletionReason.Canceled, result.CompletionReason);
     }
 
@@ -49,7 +49,8 @@ public sealed class LogsStreamPollingExecutorTimeTests
     public async Task Execute_WhenUtcMovesBackward_IdleTimeoutUsesMonotonicElapsedTime ()
     {
         var initialUtc = new DateTimeOffset(2026, 7, 15, 0, 0, 0, TimeSpan.Zero);
-        var timeProvider = new WallClockSkewFakeTimeProvider(initialUtc);
+        var innerTimeProvider = new WallClockSkewFakeTimeProvider(initialUtc);
+        var timeProvider = new PollDelayObservingTimeProvider(innerTimeProvider, PollInterval);
         var daemonLogsClient = new RecordingDaemonLogsClient([]);
         var executor = new LogsStreamPollingExecutor(CreateResolver(), timeProvider);
 
@@ -60,19 +61,22 @@ public sealed class LogsStreamPollingExecutorTimeTests
             untilTimestamp: null,
             cancellationToken: CancellationToken.None);
 
-        await daemonLogsClient.WaitForReadAsync(TestTimeout);
-        timeProvider.ShiftUtc(-TimeSpan.FromDays(1));
+        await daemonLogsClient.WaitForNextReadAsync();
+        await timeProvider.WaitForNextPollDelayRegistrationAsync();
+        innerTimeProvider.ShiftUtc(-TimeSpan.FromDays(1));
 
-        timeProvider.Advance(PollInterval);
-        await daemonLogsClient.WaitForReadAsync(TestTimeout);
+        innerTimeProvider.Advance(PollInterval);
+        await daemonLogsClient.WaitForNextReadAsync();
+        await timeProvider.WaitForNextPollDelayRegistrationAsync();
         Assert.False(resultTask.IsCompleted);
 
-        timeProvider.Advance(PollInterval);
-        var result = await resultTask.WaitAsync(TestTimeout);
+        innerTimeProvider.Advance(PollInterval);
+        await daemonLogsClient.WaitForNextReadAsync();
+        var result = await resultTask;
 
         Assert.Equal(LogsReadCompletionReason.IdleTimeout, result.CompletionReason);
         Assert.Equal(3, daemonLogsClient.Invocations.Count);
-        Assert.True(timeProvider.GetUtcNow() < initialUtc);
+        Assert.True(innerTimeProvider.GetUtcNow() < initialUtc);
     }
 
     [Fact]
@@ -81,8 +85,9 @@ public sealed class LogsStreamPollingExecutorTimeTests
     {
         var initialUtc = new DateTimeOffset(2026, 7, 15, 0, 0, 0, TimeSpan.Zero);
         var untilTimestamp = initialUtc + TimeSpan.FromHours(1);
-        var timeProvider = new WallClockSkewFakeTimeProvider(initialUtc);
-        var startedAtTimestamp = timeProvider.GetTimestamp();
+        var innerTimeProvider = new WallClockSkewFakeTimeProvider(initialUtc);
+        var timeProvider = new PollDelayObservingTimeProvider(innerTimeProvider, PollInterval);
+        var startedAtTimestamp = innerTimeProvider.GetTimestamp();
         var daemonLogsClient = new RecordingDaemonLogsClient([]);
         var executor = new LogsStreamPollingExecutor(CreateResolver(), timeProvider);
 
@@ -93,15 +98,17 @@ public sealed class LogsStreamPollingExecutorTimeTests
             untilTimestamp: untilTimestamp,
             cancellationToken: CancellationToken.None);
 
-        await daemonLogsClient.WaitForReadAsync(TestTimeout);
-        timeProvider.ShiftUtc(TimeSpan.FromHours(2));
-        timeProvider.Advance(PollInterval);
+        await daemonLogsClient.WaitForNextReadAsync();
+        await timeProvider.WaitForNextPollDelayRegistrationAsync();
+        innerTimeProvider.ShiftUtc(TimeSpan.FromHours(2));
+        innerTimeProvider.Advance(PollInterval);
 
-        var result = await resultTask.WaitAsync(TestTimeout);
+        await daemonLogsClient.WaitForNextReadAsync();
+        var result = await resultTask;
 
         Assert.Equal(LogsReadCompletionReason.UntilReached, result.CompletionReason);
         Assert.Equal(2, daemonLogsClient.Invocations.Count);
-        Assert.Equal(PollInterval, timeProvider.GetElapsedTime(startedAtTimestamp));
+        Assert.Equal(PollInterval, innerTimeProvider.GetElapsedTime(startedAtTimestamp));
     }
 
     private static RecordingDaemonCommandExecutionContextResolver CreateResolver ()
@@ -154,5 +161,54 @@ public sealed class LogsStreamPollingExecutorTimeTests
                 static logEvent => logEvent.Timestamp,
                 cancellationToken)
             .AsTask();
+    }
+
+    private sealed class PollDelayObservingTimeProvider : TimeProvider
+    {
+        private readonly TimeProvider inner;
+
+        private readonly TimeSpan pollInterval;
+
+        private readonly SemaphoreSlim pollDelaySignals = new(0);
+
+        public PollDelayObservingTimeProvider (TimeProvider inner, TimeSpan pollInterval)
+        {
+            this.inner = inner ?? throw new ArgumentNullException(nameof(inner));
+            this.pollInterval = pollInterval;
+        }
+
+        public override TimeZoneInfo LocalTimeZone => inner.LocalTimeZone;
+
+        public override long TimestampFrequency => inner.TimestampFrequency;
+
+        public override DateTimeOffset GetUtcNow ()
+        {
+            return inner.GetUtcNow();
+        }
+
+        public override long GetTimestamp ()
+        {
+            return inner.GetTimestamp();
+        }
+
+        public override ITimer CreateTimer (
+            TimerCallback callback,
+            object? state,
+            TimeSpan dueTime,
+            TimeSpan period)
+        {
+            var timer = inner.CreateTimer(callback, state, dueTime, period);
+            if (dueTime == pollInterval && period == Timeout.InfiniteTimeSpan)
+            {
+                pollDelaySignals.Release();
+            }
+
+            return timer;
+        }
+
+        public Task WaitForNextPollDelayRegistrationAsync ()
+        {
+            return pollDelaySignals.WaitAsync();
+        }
     }
 }

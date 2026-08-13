@@ -30,6 +30,12 @@ internal sealed record UcliConfig (
     /// <summary> Gets project-provided Program Preset registrations keyed by their ordinal ID. </summary>
     public IReadOnlyDictionary<string, ProgramPresetRegistration> ProgramPresets { get; init; } = new Dictionary<string, ProgramPresetRegistration>(StringComparer.Ordinal);
 
+    /// <summary> Gets whether the dedicated C# evaluation surface is enabled by configuration. </summary>
+    public bool EvalEnabled { get; init; }
+
+    /// <summary> Gets the additional Program Presets required to complete Work Close. </summary>
+    public UcliWorkCompletion WorkCompletion { get; init; } = UcliWorkCompletion.Empty;
+
     /// <summary> Creates default configuration values for missing config files. </summary>
     /// <returns> The default config instance. </returns>
     public static UcliConfig CreateDefault ()
@@ -47,7 +53,9 @@ internal sealed record UcliConfig (
             IpcDefaultTimeoutMilliseconds = IpcTimeoutDefaults.GlobalTimeoutMilliseconds,
             EvalEnabled = false,
             IpcTimeoutMillisecondsByCommand = IpcTimeoutDefaults.CreateDefaultTimeoutOverrides(),
+            EvalEnabled = false,
             ProgramPresets = new Dictionary<string, ProgramPresetRegistration>(StringComparer.Ordinal),
+            WorkCompletion = UcliWorkCompletion.Empty,
         };
     }
 }

@@ -45,13 +45,21 @@ internal sealed class UnityIpcRequestBuilder
                 UnityIpcMethod.Ping,
                 IpcPayloadCodec.SerializeToElement(new IpcPingRequest(ping.ClientVersion, ping.FailFast)),
                 UnityBatchmodeLaunchOptions.Default),
-            UnityRequestPayload.EvalPlan evalPlan => new UnityIpcDispatchRequest(
-                UnityIpcMethod.EvalPlan,
-                IpcPayloadCodec.SerializeToElement(evalPlan.Request),
+            UnityRequestPayload.ProgramExecutionContext programExecutionContext => new UnityIpcDispatchRequest(
+                UnityIpcMethod.ProgramExecutionContext,
+                IpcPayloadCodec.SerializeToElement(new IpcProgramExecutionContextRequest(programExecutionContext.Authorization)),
                 UnityBatchmodeLaunchOptions.Default),
-            UnityRequestPayload.EvalCall evalCall => new UnityIpcDispatchRequest(
-                UnityIpcMethod.EvalCall,
-                IpcPayloadCodec.SerializeToElement(evalCall.Request),
+            UnityRequestPayload.ProgramRequestStart programRequestStart => new UnityIpcDispatchRequest(
+                UnityIpcMethod.ProgramRequestStart,
+                IpcPayloadCodec.SerializeToElement(programRequestStart.Request),
+                UnityBatchmodeLaunchOptions.Default),
+            UnityRequestPayload.ProgramRequestAttach programRequestAttach => new UnityIpcDispatchRequest(
+                UnityIpcMethod.ProgramRequestAttach,
+                IpcPayloadCodec.SerializeToElement(programRequestAttach.Request),
+                UnityBatchmodeLaunchOptions.Default),
+            UnityRequestPayload.ProgramRequestCancel programRequestCancel => new UnityIpcDispatchRequest(
+                UnityIpcMethod.ProgramRequestCancel,
+                IpcPayloadCodec.SerializeToElement(programRequestCancel.Request),
                 UnityBatchmodeLaunchOptions.Default),
             UnityRequestPayload.Refresh refresh => UnityIpcDispatchRequest.LifecycleExecution(
                 UnityIpcMethod.Refresh,
@@ -65,6 +73,7 @@ internal sealed class UnityIpcRequestBuilder
                 compile.Registration,
                 compile.RequiredStart,
                 static start => IpcPayloadCodec.SerializeToElement(new IpcCompileRequest(start)),
+                compile.StartAdmissionPolicy,
                 lifecycleStartObserver: lifecycleStartObserver),
             UnityRequestPayload.BuildRun buildRun => new UnityIpcDispatchRequest(
                 UnityIpcMethod.BuildRun,
@@ -112,12 +121,14 @@ internal sealed class UnityIpcRequestBuilder
                 playEnter.Registration,
                 playEnter.RequiredStart,
                 static start => IpcPayloadCodec.SerializeToElement(new IpcPlayEnterRequest(start)),
+                playEnter.StartAdmissionPolicy,
                 lifecycleStartObserver: lifecycleStartObserver),
             UnityRequestPayload.PlayExit playExit => UnityIpcDispatchRequest.LifecycleExecution(
                 UnityIpcMethod.PlayExit,
                 playExit.Registration,
                 playExit.RequiredStart,
                 static start => IpcPayloadCodec.SerializeToElement(new IpcPlayExitRequest(start)),
+                playExit.StartAdmissionPolicy,
                 lifecycleStartObserver: lifecycleStartObserver),
             UnityRequestPayload.ExecuteJson executeJson => new UnityIpcDispatchRequest(
                 UnityIpcMethod.Execute,

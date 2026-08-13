@@ -1,3 +1,4 @@
+using System.Text.Json;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Editor;
 using MackySoft.Ucli.Contracts.Execution;
@@ -111,5 +112,152 @@ internal sealed record ProgramRunTerminalRecord (
             throw new ArgumentException("Program Run Terminal Record application state must be derived from its Steps.");
         }
         return this;
+    }
+}
+
+/// <summary>
+/// Defines the closed, externally readable representation of a Program Step
+/// terminal artifact. Durable run records deliberately retain additional
+/// recovery facts; none of those facts belong to the immutable public artifact.
+/// </summary>
+internal sealed record ProgramStepTerminalArtifact (
+    Guid RunId,
+    Sha256Digest DefinitionDigest,
+    string Command,
+    ProgramStepState State,
+    Verdict? Verdict,
+    ExecutionApplicationState ApplicationState,
+    UnityEditorGenerationSnapshot? GenerationBefore,
+    UnityEditorGenerationSnapshot? GenerationAfter,
+    ArtifactRef? RequestPlanRef,
+    IReadOnlyList<ArtifactRef> OperationDescriptorRefs,
+    ExecutionRef? LifecycleExecutionRef,
+    ExecutionRef? ChildExecutionRef,
+    JsonElement? StepResult,
+    IReadOnlyList<ArtifactRef> ArtifactRefs,
+    string? ErrorCode,
+    DateTimeOffset? StartedAtUtc,
+    DateTimeOffset CompletedAtUtc)
+{
+    public ProgramStepTerminalArtifact Validate ()
+    {
+        if (RunId == Guid.Empty || DefinitionDigest is null || string.IsNullOrWhiteSpace(Command)
+            || !ProgramRunStateSemantics.IsTerminal(State)
+            || (Verdict.HasValue && !TextVocabulary.IsDefined(Verdict.Value))
+            || !TextVocabulary.IsDefined(ApplicationState)
+            || OperationDescriptorRefs is null || ArtifactRefs is null
+            || ChildExecutionRef is not null
+            || (StepResult.HasValue && StepResult.Value.ValueKind != JsonValueKind.Object)
+            || (StartedAtUtc.HasValue && (StartedAtUtc.Value == default || StartedAtUtc.Value.Offset != TimeSpan.Zero))
+            || CompletedAtUtc == default || CompletedAtUtc.Offset != TimeSpan.Zero
+            || (StartedAtUtc.HasValue && StartedAtUtc > CompletedAtUtc))
+        {
+            throw new ArgumentException("Program Step terminal artifact must contain only its closed public contract.");
+        }
+        if (LifecycleExecutionRef is not null && StepResult is not null)
+        {
+            throw new ArgumentException("Lifecycle Program Steps must not duplicate their terminal result.");
+        }
+        return this;
+    }
+}
+
+/// <summary> Defines the closed, externally readable representation of a Program Run terminal artifact. </summary>
+internal sealed record ProgramRunTerminalArtifact (
+    UnityProjectIdentity Project,
+    Guid RunId,
+    Sha256Digest DefinitionDigest,
+    ArtifactRef DefinitionSnapshotRef,
+    ProgramEffectiveAuthorizationSnapshot Authorization,
+    ProgramEffectiveConfigurationSnapshot Configuration,
+    DateTimeOffset DeadlineUtc,
+    ProgramDefinitionSnapshotManifest SourceManifest,
+    ProgramRunState State,
+    Verdict? Verdict,
+    ExecutionApplicationState ApplicationState,
+    IReadOnlyList<ProgramRunTerminalStepArtifact> Steps,
+    IReadOnlyList<ExecutionRef> ChildExecutionRefs,
+    ProgramAttachedSupervisorSnapshot Supervisor,
+    UnityEditorGenerationSnapshot? CurrentEditorGeneration,
+    ProgramCancellationRecord Cancellation,
+    ProgramRunTerminalSummary Terminal,
+    DateTimeOffset StartedAtUtc,
+    DateTimeOffset CompletedAtUtc)
+{
+    public ProgramRunTerminalArtifact Validate ()
+    {
+        if (Project is null || RunId == Guid.Empty || DefinitionDigest is null || DefinitionSnapshotRef is null
+            || Authorization is null || Configuration is null || SourceManifest is null || !ProgramRunStateSemantics.IsTerminal(State)
+            || (Verdict.HasValue && !TextVocabulary.IsDefined(Verdict.Value)) || !TextVocabulary.IsDefined(ApplicationState)
+            || Steps is null || ChildExecutionRefs is null || ChildExecutionRefs.Count != 0 || Supervisor is null || Cancellation is null || Terminal is null
+            || DeadlineUtc == default || DeadlineUtc.Offset != TimeSpan.Zero || StartedAtUtc == default || StartedAtUtc.Offset != TimeSpan.Zero
+            || CompletedAtUtc == default || CompletedAtUtc.Offset != TimeSpan.Zero || CompletedAtUtc < StartedAtUtc)
+        {
+            throw new ArgumentException("Program Run terminal artifact must contain only its closed public contract.");
+        }
+        Authorization.Validate();
+        Configuration.Validate();
+        Supervisor.Validate();
+        Cancellation.Validate();
+        Terminal.Validate(State, Verdict, ApplicationState, Steps, CompletedAtUtc);
+        foreach (var step in Steps)
+        {
+            step.Validate();
+        }
+        return this;
+    }
+}
+
+/// <summary> Projects durable step status without exposing its execution boundary or persistence-only result reference. </summary>
+internal sealed record ProgramRunTerminalStepArtifact (
+    string Command,
+    int TimeoutMilliseconds,
+    ProgramStepState State,
+    Verdict? Verdict,
+    DateTimeOffset? PlanningStartedAtUtc,
+    DateTimeOffset? StepDeadlineAtUtc,
+    UnityEditorGenerationSnapshot? GenerationBefore,
+    UnityEditorGenerationSnapshot? GenerationAfter,
+    ExecutionApplicationState ApplicationState,
+    ArtifactRef? RequestPlanRef,
+    IReadOnlyList<ArtifactRef> OperationDescriptorRefs,
+    ExecutionRef? LifecycleExecutionRef,
+    ExecutionRef? ChildExecutionRef,
+    ArtifactRef? ResultRef,
+    string? ErrorCode,
+    DateTimeOffset? StartedAtUtc,
+    DateTimeOffset? CompletedAtUtc)
+{
+    public ProgramRunTerminalStepArtifact Validate ()
+    {
+        if (string.IsNullOrWhiteSpace(Command) || TimeoutMilliseconds < 1 || !TextVocabulary.IsDefined(State)
+            || (Verdict.HasValue && !TextVocabulary.IsDefined(Verdict.Value)) || !TextVocabulary.IsDefined(ApplicationState)
+            || OperationDescriptorRefs is null || ChildExecutionRef is not null)
+        {
+            throw new ArgumentException("Program Run terminal Step must contain only its closed public status contract.");
+        }
+        return this;
+    }
+}
+
+/// <summary> Captures the terminal fields without a self-reference or status locator. </summary>
+internal sealed record ProgramRunTerminalSummary (
+    ProgramRunState State,
+    Verdict? Verdict,
+    string? ReasonCode,
+    ExecutionApplicationState ApplicationState,
+    int CompletedStepCount,
+    int UnstartedStepCount,
+    DateTimeOffset CompletedAtUtc)
+{
+    public void Validate (ProgramRunState runState, Verdict? runVerdict, ExecutionApplicationState applicationState,
+        IReadOnlyList<ProgramRunTerminalStepArtifact> steps, DateTimeOffset completedAtUtc)
+    {
+        if (State != runState || Verdict != runVerdict || ApplicationState != applicationState || CompletedAtUtc != completedAtUtc
+            || CompletedStepCount != steps.Count(static step => step.State == ProgramStepState.Completed)
+            || UnstartedStepCount != steps.Count(static step => step.StartedAtUtc is null))
+        {
+            throw new ArgumentException("Program Run terminal summary must agree with the terminal aggregate.");
+        }
     }
 }

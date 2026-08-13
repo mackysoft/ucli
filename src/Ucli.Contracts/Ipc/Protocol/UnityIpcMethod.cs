@@ -104,4 +104,20 @@ public enum UnityIpcMethod
     /// <summary>Requests an idempotent stop for one GameView recording.</summary>
     [VocabularyText("recording.stop")]
     RecordingStop,
+
+    /// <summary> Reads the fixed host and generation facts required to begin a Program Run. </summary>
+    [VocabularyText("program.execution-context")]
+    ProgramExecutionContext,
+
+    /// <summary> Starts one Program-owned synchronous request by its logical execution identity. </summary>
+    [VocabularyText("program.request.start")]
+    ProgramRequestStart,
+
+    /// <summary> Attaches to one Program-owned synchronous request without starting it. </summary>
+    [VocabularyText("program.request.attach")]
+    ProgramRequestAttach,
+
+    /// <summary> Requests cancellation of a Program-owned Request without changing its logical identity. </summary>
+    [VocabularyText("program.request.cancel")]
+    ProgramRequestCancel,
 }

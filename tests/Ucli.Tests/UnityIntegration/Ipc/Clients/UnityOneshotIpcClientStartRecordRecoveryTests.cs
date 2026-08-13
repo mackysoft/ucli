@@ -1,5 +1,3 @@
-using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
-using MackySoft.Ucli.Contracts.Execution.Lifecycle;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Tests.Helpers.Ipc;
 using MackySoft.Ucli.Tests.Helpers.Process;
@@ -21,7 +19,8 @@ public sealed class UnityOneshotIpcClientStartRecordRecoveryTests
         var unityProject =
             ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(
                 scope.FullPath);
-        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
+        var timeProvider = new RecoveryRetryObservationTimeProvider(
+            DateTimeOffset.UnixEpoch);
         var executionTimeout = TimeSpan.FromSeconds(5);
         var completionTimeout =
             executionTimeout
@@ -76,8 +75,16 @@ public sealed class UnityOneshotIpcClientStartRecordRecoveryTests
                 CancellationToken.None)
             .AsTask();
         await startPersisted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        var completedTask = await Task.WhenAny(
+                timeProvider.RecoveryRetryTimerRegistered,
+                sendTask)
+            .WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Same(timeProvider.RecoveryRetryTimerRegistered, completedTask);
+        Assert.Equal(2, pingAttempt);
+        Assert.False(sendTask.IsCompleted);
         timeProvider.Advance(completionTimeout);
-        var result = await sendTask;
+        var result = await sendTask.WaitAsync(TimeSpan.FromSeconds(5));
 
         Assert.False(result.IsSuccess);
         Assert.Equal(
@@ -97,6 +104,52 @@ public sealed class UnityOneshotIpcClientStartRecordRecoveryTests
                 == UnityIpcMethod.Compile);
         UnityBatchmodeProcessHandleAssert.WasNotTerminated(processHandle);
         Assert.Equal(0, processHandle.DisposeCount);
+    }
+
+    private sealed class RecoveryRetryObservationTimeProvider : TimeProvider
+    {
+        private static readonly TimeSpan RecoveryRetryDelay = TimeSpan.FromMilliseconds(50);
+
+        private readonly FakeTimeProvider inner;
+
+        private readonly TaskCompletionSource recoveryRetryTimerRegistered = new(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public RecoveryRetryObservationTimeProvider (DateTimeOffset initialUtc)
+        {
+            inner = new FakeTimeProvider(initialUtc);
+        }
+
+        public Task RecoveryRetryTimerRegistered => recoveryRetryTimerRegistered.Task;
+
+        public override TimeZoneInfo LocalTimeZone => inner.LocalTimeZone;
+
+        public override long TimestampFrequency => inner.TimestampFrequency;
+
+        public override DateTimeOffset GetUtcNow () => inner.GetUtcNow();
+
+        public override long GetTimestamp () => inner.GetTimestamp();
+
+        public void Advance (TimeSpan elapsed)
+        {
+            inner.Advance(elapsed);
+        }
+
+        public override ITimer CreateTimer (
+            TimerCallback callback,
+            object? state,
+            TimeSpan dueTime,
+            TimeSpan period)
+        {
+            var timer = inner.CreateTimer(callback, state, dueTime, period);
+            if (dueTime == RecoveryRetryDelay
+                && period == Timeout.InfiniteTimeSpan)
+            {
+                recoveryRetryTimerRegistered.TrySetResult();
+            }
+
+            return timer;
+        }
     }
 
 }

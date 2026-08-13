@@ -7,6 +7,7 @@ using MackySoft.Ucli.Infrastructure.Execution.Lifecycle;
 using MackySoft.Ucli.Infrastructure.Execution.ReadPostcondition;
 using MackySoft.Ucli.Unity.Build;
 using MackySoft.Ucli.Unity.Execution;
+using MackySoft.Ucli.Unity.Execution.Program;
 using MackySoft.Ucli.Unity.Index;
 using MackySoft.Ucli.Unity.Project;
 using MackySoft.Ucli.Unity.Recording;
@@ -71,6 +72,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             var projectIdentity = UnityProjectIdentityFactory.Create(projectFingerprint);
             services.AddSingleton(projectIdentity);
             services.AddSingleton(projectIdentity.IpcIdentity);
+            services.AddSingleton<IUnityProgramEffectiveConfigurationSource, UnityProgramEffectiveConfigurationSource>();
             services.AddSingleton<ISessionTokenValidator>(sessionTokenValidator);
             services.AddSingleton<IDaemonLogger>(daemonLogger);
             services.AddSingleton<UnityLogRedactionScopeProvider>();
@@ -113,6 +115,10 @@ namespace MackySoft.Ucli.Unity.Ipc
                     serviceProvider.GetRequiredService<UnityProjectIdentity>(),
                     serviceProvider.GetRequiredService<IDaemonLogger>());
             });
+            services.AddSingleton<IUnityIpcMethodHandler, ProgramExecutionContextUnityIpcMethodHandler>();
+            services.AddSingleton<IUnityIpcMethodHandler, ProgramRequestExecutionUnityIpcMethodHandler>();
+            services.AddSingleton<IUnityIpcMethodHandler, ProgramRequestAttachUnityIpcMethodHandler>();
+            services.AddSingleton<IUnityIpcMethodHandler, ProgramRequestCancelUnityIpcMethodHandler>();
             services.AddSingleton<IUnityIpcMethodHandler, ExecuteUnityIpcMethodHandler>();
             services.AddSingleton<MutationReadPostconditionJournal>();
             services.AddSingleton<IUnityIpcMethodHandler, EvalPlanUnityIpcMethodHandler>();

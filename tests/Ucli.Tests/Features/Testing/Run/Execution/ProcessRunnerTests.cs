@@ -1,10 +1,12 @@
 namespace MackySoft.Ucli.Tests;
 
+using System.IO.Pipes;
+
 public sealed class ProcessRunnerTests
 {
-    private const int LongOutputLength = 5000;
+    private const int ControlledOutputLength = 5000;
 
-    private const char LongOutputCharacter = '0';
+    private const char ControlledOutputCharacter = '0';
 
     private static readonly TimeSpan InheritedOutputHandleLifetime = TimeSpan.FromSeconds(1);
 
@@ -19,6 +21,12 @@ public sealed class ProcessRunnerTests
     private static readonly TimeSpan NonResponsiveProcessForceKillWaitTimeout = TimeSpan.FromMilliseconds(200);
 
     private static readonly TimeSpan SignalWaitTimeout = TimeSpan.FromSeconds(5);
+
+    private static readonly TimeSpan ControlledOutputWatchdogTimeout = TimeSpan.FromSeconds(30);
+
+    private const byte ReadySignal = 1;
+
+    private const byte ReleaseSignal = 2;
 
     [Fact]
     [Trait("Size", "Medium")]
@@ -42,28 +50,21 @@ public sealed class ProcessRunnerTests
     [Trait("Size", "Medium")]
     public async Task RunAsync_WhenCaptureStandardOutputIsEnabled_PreservesFullOutput ()
     {
-        var runner = new ProcessRunner();
-
-        var result = await runner.RunAsync(
-            CreateLongOutputRequest(captureStandardOutput: true),
-            CancellationToken.None);
+        var result = await RunControlledStandardOutputAsync(captureStandardOutput: true);
 
         Assert.Equal(ProcessRunStatus.Exited, result.Status);
         Assert.Equal(0, result.ExitCode);
-        Assert.NotNull(result.StandardOutput);
-        Assert.Equal(LongOutputLength, result.StandardOutput!.TrimEnd('\r', '\n').Length);
-        Assert.Equal(new string(LongOutputCharacter, LongOutputLength), result.StandardOutput.TrimEnd('\r', '\n'));
+        Assert.Equal(
+            new string(ControlledOutputCharacter, ControlledOutputLength)
+            + Environment.NewLine,
+            result.StandardOutput);
     }
 
     [Fact]
     [Trait("Size", "Medium")]
     public async Task RunAsync_WhenCaptureStandardOutputIsDisabled_DoesNotPreserveOutput ()
     {
-        var runner = new ProcessRunner();
-
-        var result = await runner.RunAsync(
-            CreateOutputRequest("ignored", captureStandardOutput: false),
-            CancellationToken.None);
+        var result = await RunControlledStandardOutputAsync(captureStandardOutput: false);
 
         Assert.Equal(ProcessRunStatus.Exited, result.Status);
         Assert.Equal(0, result.ExitCode);
@@ -193,11 +194,6 @@ public sealed class ProcessRunnerTests
         Assert.False(string.IsNullOrWhiteSpace(result.ErrorMessage));
     }
 
-    private static ProcessRunRequest CreateLongOutputRequest (bool captureStandardOutput)
-    {
-        return CreateOutputRequest(new string(LongOutputCharacter, LongOutputLength), captureStandardOutput);
-    }
-
     private static ProcessRunRequest CreateLongRunningRequest (
         TimeSpan timeout,
         ProcessOutputDrainMode outputDrainMode = ProcessOutputDrainMode.WaitForCompletion)
@@ -242,16 +238,50 @@ public sealed class ProcessRunnerTests
             OutputDrainMode: outputDrainMode);
     }
 
-    private static ProcessRunRequest CreateOutputRequest (
-        string output,
-        bool captureStandardOutput)
+    private static async Task<ProcessRunResult> RunControlledStandardOutputAsync (bool captureStandardOutput)
     {
-        var invocation = TestProcessInvocations.CreateStandardOutput(output);
+        using var cancellationTokenSource = new CancellationTokenSource();
+        using var watchdogCancellationTokenSource = new CancellationTokenSource(ControlledOutputWatchdogTimeout);
+        using var watchdogRegistration = watchdogCancellationTokenSource.Token.Register(cancellationTokenSource.Cancel);
+        var pipeName = "ucli-" + Guid.NewGuid().ToString("N")[..16];
+        var pipe = new NamedPipeServerStream(
+            pipeName,
+            PipeDirection.InOut,
+            1,
+            PipeTransmissionMode.Byte,
+            PipeOptions.Asynchronous);
+        var invocation = TestProcessInvocations.CreateControlledStandardOutput(pipeName);
+        var runner = new ProcessRunner();
+        Task<ProcessRunResult>? runTask = null;
 
-        return new ProcessRunRequest(
-            FileName: invocation.FileName,
-            Arguments: invocation.Arguments,
-            Timeout: TimeSpan.FromSeconds(5),
-            CaptureStandardOutput: captureStandardOutput);
+        try
+        {
+            runTask = runner.RunAsync(
+                new ProcessRunRequest(
+                    FileName: invocation.FileName,
+                    Arguments: invocation.Arguments,
+                    Timeout: Timeout.InfiniteTimeSpan,
+                    CaptureStandardOutput: captureStandardOutput,
+                    OutputDrainMode: ProcessOutputDrainMode.WaitForCompletion),
+                cancellationTokenSource.Token);
+
+            await pipe.WaitForConnectionAsync(cancellationTokenSource.Token);
+            var readyBuffer = new byte[1];
+            Assert.Equal(1, await pipe.ReadAsync(readyBuffer, cancellationTokenSource.Token));
+            Assert.Equal(ReadySignal, readyBuffer[0]);
+            await pipe.WriteAsync(new byte[] { ReleaseSignal }, cancellationTokenSource.Token);
+            await pipe.FlushAsync(cancellationTokenSource.Token);
+
+            return await runTask;
+        }
+        finally
+        {
+            cancellationTokenSource.Cancel();
+            await pipe.DisposeAsync();
+            if (runTask is not null)
+            {
+                await runTask;
+            }
+        }
     }
 }

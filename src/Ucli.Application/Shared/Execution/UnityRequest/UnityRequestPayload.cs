@@ -70,11 +70,49 @@ internal abstract record UnityRequestPayload
         string ClientVersion,
         bool FailFast = false) : UnityRequestPayload;
 
-    /// <summary> Represents one dedicated eval.plan request. </summary>
-    internal sealed record EvalPlan (IpcEvalPlanRequest Request) : UnityRequestPayload;
+    /// <summary> Reads the fixed host and generation facts needed to register a Program Run. </summary>
+    internal sealed record ProgramExecutionContext : UnityRequestPayload
+    {
+        public ProgramExecutionContext (IpcProgramEffectiveAuthorizationSnapshot authorization)
+        {
+            Authorization = authorization ?? throw new ArgumentNullException(nameof(authorization));
+        }
 
-    /// <summary> Represents one dedicated eval.call request. </summary>
-    internal sealed record EvalCall (IpcEvalCallRequest Request) : UnityRequestPayload;
+        public IpcProgramEffectiveAuthorizationSnapshot Authorization { get; }
+    }
+
+    /// <summary> Starts the one Program-owned same-generation Request execution. </summary>
+    internal sealed record ProgramRequestStart : UnityRequestPayload
+    {
+        public ProgramRequestStart (IpcProgramRequestStartRequest request)
+        {
+            Request = request ?? throw new ArgumentNullException(nameof(request));
+        }
+
+        public IpcProgramRequestStartRequest Request { get; }
+    }
+
+    /// <summary> Attaches to a previously admitted Program-owned Request execution. </summary>
+    internal sealed record ProgramRequestAttach : UnityRequestPayload
+    {
+        public ProgramRequestAttach (IpcProgramRequestAttachRequest request)
+        {
+            Request = request ?? throw new ArgumentNullException(nameof(request));
+        }
+
+        public IpcProgramRequestAttachRequest Request { get; }
+    }
+
+    /// <summary> Requests cancellation of a Program-owned Request while preserving its logical identity. </summary>
+    internal sealed record ProgramRequestCancel : UnityRequestPayload
+    {
+        public ProgramRequestCancel (IpcProgramRequestCancelRequest request)
+        {
+            Request = request ?? throw new ArgumentNullException(nameof(request));
+        }
+
+        public IpcProgramRequestCancelRequest Request { get; }
+    }
 
     /// <summary> Represents a durable project-refresh request prepared by application orchestration. </summary>
     internal sealed record Refresh : UnityRequestPayload
@@ -105,7 +143,7 @@ internal abstract record UnityRequestPayload
         /// Gets the refresh-owned admission policy for a new Start Record, or
         /// <see langword="null" /> when reconnecting an existing execution.
         /// </summary>
-        public ILifecycleExecutionStartAdmissionPolicy? StartAdmissionPolicy { get; }
+        public ILifecycleExecutionStartAdmissionPolicy? StartAdmissionPolicy { get; init; }
     }
 
     /// <summary> Represents a durable compile assurance request prepared by application orchestration. </summary>
@@ -113,16 +151,19 @@ internal abstract record UnityRequestPayload
     {
         public Compile (
             LifecycleExecutionRegistration registration,
-            LifecycleExecutionStartBinding? requiredStart)
+            LifecycleExecutionStartBinding? requiredStart,
+            ILifecycleExecutionStartAdmissionPolicy? startAdmissionPolicy = null)
         {
             Registration = registration ?? throw new ArgumentNullException(nameof(registration));
             ValidateRequiredStart(registration, requiredStart);
             RequiredStart = requiredStart;
+            StartAdmissionPolicy = startAdmissionPolicy;
         }
 
         public LifecycleExecutionRegistration Registration { get; }
 
         public LifecycleExecutionStartBinding? RequiredStart { get; }
+        public ILifecycleExecutionStartAdmissionPolicy? StartAdmissionPolicy { get; init; }
     }
 
     /// <summary> Represents a build assurance request prepared by application orchestration. </summary>
@@ -276,16 +317,19 @@ internal abstract record UnityRequestPayload
     {
         public PlayEnter (
             LifecycleExecutionRegistration registration,
-            LifecycleExecutionStartBinding? requiredStart)
+            LifecycleExecutionStartBinding? requiredStart,
+            ILifecycleExecutionStartAdmissionPolicy? startAdmissionPolicy = null)
         {
             Registration = registration ?? throw new ArgumentNullException(nameof(registration));
             ValidateRequiredStart(registration, requiredStart);
             RequiredStart = requiredStart;
+            StartAdmissionPolicy = startAdmissionPolicy;
         }
 
         public LifecycleExecutionRegistration Registration { get; }
 
         public LifecycleExecutionStartBinding? RequiredStart { get; }
+        public ILifecycleExecutionStartAdmissionPolicy? StartAdmissionPolicy { get; init; }
     }
 
     /// <summary> Represents a Play Mode exit request prepared by application orchestration. </summary>
@@ -293,16 +337,19 @@ internal abstract record UnityRequestPayload
     {
         public PlayExit (
             LifecycleExecutionRegistration registration,
-            LifecycleExecutionStartBinding? requiredStart)
+            LifecycleExecutionStartBinding? requiredStart,
+            ILifecycleExecutionStartAdmissionPolicy? startAdmissionPolicy = null)
         {
             Registration = registration ?? throw new ArgumentNullException(nameof(registration));
             ValidateRequiredStart(registration, requiredStart);
             RequiredStart = requiredStart;
+            StartAdmissionPolicy = startAdmissionPolicy;
         }
 
         public LifecycleExecutionRegistration Registration { get; }
 
         public LifecycleExecutionStartBinding? RequiredStart { get; }
+        public ILifecycleExecutionStartAdmissionPolicy? StartAdmissionPolicy { get; init; }
     }
 
     /// <summary> Represents an execute request whose execute-arguments JSON was already prepared. </summary>

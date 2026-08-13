@@ -10,7 +10,7 @@ using MackySoft.Ucli.Infrastructure.Storage;
 namespace MackySoft.Ucli.Features.Programs.Persistence;
 
 /// <summary> Stores Program Run aggregates under one project-local create-only and compare-and-swap boundary. </summary>
-internal sealed class FileProgramRunStore : IProgramRunStore
+internal sealed class FileProgramRunStore : IProgramRunStore, IProgramArtifactStore
 {
     private static readonly TimeSpan LockTimeout = TimeSpan.FromSeconds(5);
 
@@ -61,6 +61,53 @@ internal sealed class FileProgramRunStore : IProgramRunStore
                     throw new InvalidDataException("Program definition snapshot does not preserve its fixed content.");
                 }
             }, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async ValueTask<ArtifactRef> PublishAsync (
+        Guid runId,
+        ArtifactKind kind,
+        ArtifactMediaType mediaType,
+        ReadOnlyMemory<byte> content,
+        CancellationToken cancellationToken = default)
+    {
+        EnsureRunId(runId);
+        ArgumentNullException.ThrowIfNull(kind);
+        ArgumentNullException.ThrowIfNull(mediaType);
+        if (content.IsEmpty)
+        {
+            throw new ArgumentException("Program artifact content must not be empty.", nameof(content));
+        }
+
+        var bytes = content.ToArray();
+        var digest = Sha256Digest.Compute(bytes);
+        var destination = ResolveProgramArtifactPath(runId, kind, mediaType, digest);
+        return await PublishImmutableArtifactAsync(destination, kind, mediaType, bytes, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async ValueTask<byte[]?> ReadAsync (ArtifactRef artifact, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(artifact);
+        if (artifact is not PathArtifactRef pathArtifact)
+        {
+            return null;
+        }
+
+        var path = ContainedPath.Create(storageRoot, RootRelativePath.Parse(pathArtifact.Path.Value));
+        if (!File.Exists(path.Target.Value))
+        {
+            return null;
+        }
+
+        using var session = ImmutableArtifactFileReadBoundary.OpenSession(path, "Program artifact", cancellationToken);
+        var before = await session.MeasureAsync(cancellationToken).ConfigureAwait(false);
+        var bytes = await File.ReadAllBytesAsync(path.Target.Value, cancellationToken).ConfigureAwait(false);
+        var after = await session.MeasureAsync(cancellationToken).ConfigureAwait(false);
+        before.EnsureMatches(after, path.Target, "Program artifact changed during read");
+        if (before.Digest != artifact.Digest || before.SizeBytes != artifact.SizeBytes)
+        {
+            throw new InvalidDataException("Program artifact content does not match its immutable reference.");
+        }
+        return bytes;
     }
 
     public async ValueTask<ProgramRunRecord?> ReadAsync (Guid runId, CancellationToken cancellationToken = default)
@@ -130,7 +177,7 @@ internal sealed class FileProgramRunStore : IProgramRunStore
 
         var definition = await ReadDefinitionSnapshotAsync(current, cancellationToken).ConfigureAwait(false);
 
-        var candidate = CreateRunTerminalArtifactCandidate(current.RunId, terminalRecord);
+        var candidate = await CreateRunTerminalArtifactCandidateAsync(current.RunId, terminalRecord, cancellationToken).ConfigureAwait(false);
         var replacementTemplate = createReplacement(candidate.Reference) ?? throw new InvalidOperationException("Terminal replacement must be created.");
         EnsureRunTerminalMatchesReplacement(terminalRecord, replacementTemplate, candidate.Reference, definition, nameof(createReplacement));
         EnsureReplacementPreservesIdentity(current, replacementTemplate);
@@ -166,7 +213,7 @@ internal sealed class FileProgramRunStore : IProgramRunStore
         }
         EnsureStepTerminalIdentity(terminalRecord, current, stepIndex);
 
-        var candidate = CreateStepTerminalArtifactCandidate(current.RunId, stepIndex, terminalRecord);
+        var candidate = await CreateStepTerminalArtifactCandidateAsync(current.RunId, stepIndex, terminalRecord, cancellationToken).ConfigureAwait(false);
         var replacementTemplate = createReplacement(candidate.Reference) ?? throw new InvalidOperationException("Terminal replacement must be created.");
         EnsureStepTerminalMatchesReplacement(terminalRecord, replacementTemplate, stepIndex, candidate.Reference, nameof(createReplacement));
         EnsureReplacementPreservesIdentity(current, replacementTemplate);
@@ -202,7 +249,7 @@ internal sealed class FileProgramRunStore : IProgramRunStore
         }
         EnsureRunTimeoutTerminalTransition(current, stepIndex, terminalRecord);
         var definition = await ReadDefinitionSnapshotAsync(current, cancellationToken).ConfigureAwait(false);
-        var candidate = CreateRunTerminalArtifactCandidate(current.RunId, terminalRecord);
+        var candidate = await CreateRunTerminalArtifactCandidateAsync(current.RunId, terminalRecord, cancellationToken).ConfigureAwait(false);
         var replacementTemplate = createReplacement(candidate.Reference) ?? throw new InvalidOperationException("Terminal replacement must be created.");
         EnsureRunTerminalMatchesReplacement(terminalRecord, replacementTemplate, candidate.Reference, definition, nameof(createReplacement));
         EnsureReplacementPreservesIdentity(current, replacementTemplate, allowsRunTimeoutPlanningRestoration: true);
@@ -284,7 +331,7 @@ internal sealed class FileProgramRunStore : IProgramRunStore
         {
             return null;
         }
-        var candidate = CreateRunTerminalArtifactCandidate(current.RunId, terminal);
+        var candidate = await CreateRunTerminalArtifactCandidateAsync(current.RunId, terminal, cancellationToken).ConfigureAwait(false);
         var destination = candidate.Destination;
         if (!File.Exists(destination.Target.Value))
         {
@@ -309,7 +356,7 @@ internal sealed class FileProgramRunStore : IProgramRunStore
         {
             return null;
         }
-        var candidate = CreateStepTerminalArtifactCandidate(current.RunId, stepIndex, terminal);
+        var candidate = await CreateStepTerminalArtifactCandidateAsync(current.RunId, stepIndex, terminal, cancellationToken).ConfigureAwait(false);
         var destination = candidate.Destination;
         if (!File.Exists(destination.Target.Value))
         {
@@ -331,16 +378,110 @@ internal sealed class FileProgramRunStore : IProgramRunStore
             RootRelativePath.Parse($"program-runs/{StoragePathSegmentCodec.EncodeGuid(runId, nameof(runId))}/{fileName}")).Target;
     }
 
-    private TerminalArtifactCandidate CreateRunTerminalArtifactCandidate (Guid runId, ProgramRunTerminalRecord terminalRecord)
+    private async ValueTask<TerminalArtifactCandidate> CreateRunTerminalArtifactCandidateAsync (
+        Guid runId,
+        ProgramRunTerminalRecord terminalRecord,
+        CancellationToken cancellationToken)
     {
-        var bytes = JsonSerializer.SerializeToUtf8Bytes(terminalRecord, IpcJsonSerializerOptions.Default);
+        var artifact = CreateRunTerminalArtifact(terminalRecord);
+        artifact.Validate();
+        var bytes = JsonSerializer.SerializeToUtf8Bytes(artifact, IpcJsonSerializerOptions.Default);
         return CreateTerminalArtifactCandidate(runId, null, ProgramTerminalArtifactContract.RunTerminalRecordKind, bytes);
     }
 
-    private TerminalArtifactCandidate CreateStepTerminalArtifactCandidate (Guid runId, int stepIndex, ProgramStepTerminalRecord terminalRecord)
+    private static ProgramRunTerminalArtifact CreateRunTerminalArtifact (ProgramRunTerminalRecord source) => new(
+        source.Project,
+        source.RunId,
+        source.DefinitionDigest,
+        source.DefinitionSnapshotRef,
+        source.FixedContext.Authorization,
+        source.FixedContext.Configuration,
+        source.DeadlineUtc,
+        source.SourceManifest,
+        source.State,
+        source.Verdict,
+        source.ApplicationState,
+        source.Steps.Select(CreateRunTerminalStepArtifact).ToArray(),
+        [],
+        source.FinalSupervisorSnapshot,
+        source.CurrentEditorGeneration,
+        source.Cancellation,
+        new ProgramRunTerminalSummary(
+            source.State,
+            source.Verdict,
+            source.ReasonCode,
+            source.ApplicationState,
+            source.Steps.Count(static step => step.State == ProgramStepState.Completed),
+            source.Steps.Count(static step => step.StartedAtUtc is null),
+            source.CompletedAtUtc),
+        source.StartedAtUtc,
+        source.CompletedAtUtc);
+
+    private static ProgramRunTerminalStepArtifact CreateRunTerminalStepArtifact (ProgramRunStepRecord source) => new(
+        source.Command,
+        source.TimeoutMilliseconds,
+        source.State,
+        source.Verdict,
+        source.PlanningStartedAtUtc,
+        source.DeadlineUtc,
+        source.GenerationBefore,
+        source.GenerationAfter,
+        source.ApplicationState,
+        source.RequestPlanRef,
+        source.OperationDescriptorRefs,
+        source.LifecycleExecutionRef,
+        null,
+        source.ResultRef,
+        source.ErrorCode,
+        source.StartedAtUtc,
+        source.CompletedAtUtc);
+
+    private async ValueTask<TerminalArtifactCandidate> CreateStepTerminalArtifactCandidateAsync (
+        Guid runId,
+        int stepIndex,
+        ProgramStepTerminalRecord terminalRecord,
+        CancellationToken cancellationToken)
     {
-        var bytes = JsonSerializer.SerializeToUtf8Bytes(terminalRecord, IpcJsonSerializerOptions.Default);
+        var artifact = await CreateStepTerminalArtifactAsync(terminalRecord, cancellationToken).ConfigureAwait(false);
+        artifact.Validate();
+        var bytes = JsonSerializer.SerializeToUtf8Bytes(artifact, IpcJsonSerializerOptions.Default);
         return CreateTerminalArtifactCandidate(runId, stepIndex, ProgramTerminalArtifactContract.StepTerminalRecordKind, bytes);
+    }
+
+    private async ValueTask<ProgramStepTerminalArtifact> CreateStepTerminalArtifactAsync (
+        ProgramStepTerminalRecord source,
+        CancellationToken cancellationToken)
+    {
+        JsonElement? stepResult = null;
+        if (source.StepResultRef is not null)
+        {
+            var bytes = await ReadAsync(source.StepResultRef, cancellationToken).ConfigureAwait(false)
+                ?? throw new InvalidDataException("Program Step result artifact is unavailable.");
+            using var document = JsonDocument.Parse(bytes);
+            if (document.RootElement.ValueKind != JsonValueKind.Object)
+            {
+                throw new InvalidDataException("Program Step result artifact must contain a JSON object.");
+            }
+            stepResult = document.RootElement.Clone();
+        }
+        return new ProgramStepTerminalArtifact(
+            source.RunId,
+            source.DefinitionDigest,
+            source.Command,
+            source.State,
+            source.Verdict,
+            source.ApplicationState,
+            source.GenerationBefore,
+            source.GenerationAfter,
+            source.RequestPlanRef,
+            source.OperationDescriptorRefs,
+            source.LifecycleExecutionRef,
+            null,
+            stepResult,
+            source.ArtifactRefs.Where(artifact => artifact != source.StepResultRef).ToArray(),
+            source.ErrorCode,
+            source.StartedAtUtc,
+            source.CompletedAtUtc);
     }
 
     private TerminalArtifactCandidate CreateTerminalArtifactCandidate (Guid runId, int? stepIndex, ArtifactKind kind, byte[] bytes)
@@ -359,7 +500,7 @@ internal sealed class FileProgramRunStore : IProgramRunStore
         return await PublishTerminalArtifactAsync(candidate.Destination, candidate.Reference.Kind, candidate.Bytes,
             async (stream, token) =>
             {
-                var read = await JsonSerializer.DeserializeAsync<ProgramRunTerminalRecord>(stream, IpcJsonSerializerOptions.Default, token).ConfigureAwait(false)
+                var read = await JsonSerializer.DeserializeAsync<ProgramRunTerminalArtifact>(stream, IpcJsonSerializerOptions.Default, token).ConfigureAwait(false)
                     ?? throw new InvalidDataException("Program Run terminal artifact is empty.");
                 read.Validate();
                 if (read.RunId != terminalRecord.RunId || read.DefinitionDigest != terminalRecord.DefinitionDigest
@@ -378,11 +519,10 @@ internal sealed class FileProgramRunStore : IProgramRunStore
         return await PublishTerminalArtifactAsync(candidate.Destination, candidate.Reference.Kind, candidate.Bytes,
             async (stream, token) =>
             {
-                var read = await JsonSerializer.DeserializeAsync<ProgramStepTerminalRecord>(stream, IpcJsonSerializerOptions.Default, token).ConfigureAwait(false)
+                var read = await JsonSerializer.DeserializeAsync<ProgramStepTerminalArtifact>(stream, IpcJsonSerializerOptions.Default, token).ConfigureAwait(false)
                     ?? throw new InvalidDataException("Program Step terminal artifact is empty.");
                 read.Validate();
                 if (read.RunId != terminalRecord.RunId || read.DefinitionDigest != terminalRecord.DefinitionDigest
-                    || read.StepIndex != terminalRecord.StepIndex
                     || !JsonSerializer.SerializeToUtf8Bytes(read, IpcJsonSerializerOptions.Default).AsSpan().SequenceEqual(candidate.Bytes))
                 {
                     throw new InvalidDataException("Program Step terminal artifact does not preserve its fixed identity and content.");
@@ -436,6 +576,59 @@ internal sealed class FileProgramRunStore : IProgramRunStore
         var suffix = stepIndex is null ? $"terminal/{contentSegment}.json" : $"steps/{stepIndex.Value}/terminal/{contentSegment}.json";
         return ContainedPath.Create(storageRoot, RootRelativePath.Parse(
             $".ucli/local/projects/{StoragePathSegmentCodec.EncodeProjectFingerprint(projectFingerprint)}/artifacts/program-run/{StoragePathSegmentCodec.EncodeGuid(runId, nameof(runId))}/{suffix}"));
+    }
+
+    private ContainedPath ResolveProgramArtifactPath (
+        Guid runId,
+        ArtifactKind kind,
+        ArtifactMediaType mediaType,
+        Sha256Digest contentDigest)
+    {
+        var extension = mediaType.Value == ProgramTerminalArtifactContract.JsonMediaType.Value ? "json" : "bin";
+        return ContainedPath.Create(storageRoot, RootRelativePath.Parse(
+            $".ucli/local/projects/{StoragePathSegmentCodec.EncodeProjectFingerprint(projectFingerprint)}/artifacts/program-run/{StoragePathSegmentCodec.EncodeGuid(runId, nameof(runId))}/content/{kind.Value}/{StoragePathSegmentCodec.EncodeSha256Digest(contentDigest)}.{extension}"));
+    }
+
+    private async ValueTask<ArtifactRef> PublishImmutableArtifactAsync (
+        ContainedPath destination,
+        ArtifactKind kind,
+        ArtifactMediaType mediaType,
+        byte[] bytes,
+        CancellationToken cancellationToken)
+    {
+        if (!destination.Target.TryGetParent(out var parent))
+        {
+            throw new InvalidOperationException("Program artifact path must have a parent directory.");
+        }
+        FileSystemAccessBoundary.EnsureSecureDirectory(parent);
+        if (File.Exists(destination.Target.Value))
+        {
+            using var session = ImmutableArtifactFileReadBoundary.OpenSession(destination, "Program artifact", cancellationToken);
+            var before = await session.MeasureAsync(cancellationToken).ConfigureAwait(false);
+            var after = await session.MeasureAsync(cancellationToken).ConfigureAwait(false);
+            before.EnsureMatches(after, destination.Target, "Program artifact changed during identity validation");
+            if (before.Digest != Sha256Digest.Compute(bytes) || before.SizeBytes != (ulong)bytes.Length)
+            {
+                throw new InvalidDataException("Program artifact destination already contains different immutable content.");
+            }
+            return new PathArtifactRef(kind, mediaType, new ArtifactPath(destination.RelativePath.Value), before.Digest, before.SizeBytes, DateTimeOffset.UtcNow);
+        }
+        if (Directory.Exists(destination.Target.Value))
+        {
+            throw new IOException("Program artifact destination is not a regular file.");
+        }
+
+        var publisher = new ImmutableArtifactFilePublisher(static () => DateTimeOffset.UtcNow);
+        var artifact = await publisher.PublishAsync(
+                kind,
+                mediaType,
+                destination,
+                async (stream, token) => await stream.WriteAsync(bytes, token).ConfigureAwait(false),
+                static (_, _) => ValueTask.CompletedTask,
+                cancellationToken)
+            .ConfigureAwait(false);
+        await ImmutableArtifactFileVerifier.VerifyAsync(storageRoot, artifact, cancellationToken).ConfigureAwait(false);
+        return artifact;
     }
 
     private static ProgramRunRecord ApplyRunTerminalArtifactReference (
@@ -528,16 +721,15 @@ internal sealed class FileProgramRunStore : IProgramRunStore
     {
         if (run.TerminalRecordRef is not null)
         {
-            var terminal = await ReadVerifiedImmutableJsonArtifactAsync<ProgramRunTerminalRecord, ProgramRunTerminalRecord>(
+            var terminal = await ReadVerifiedImmutableJsonArtifactAsync<ProgramRunTerminalArtifact, ProgramRunTerminalArtifact>(
                 run.TerminalRecordRef,
                 ProgramTerminalArtifactContract.RunTerminalRecordKind,
                 "Program Run terminal record",
                 static value => value.Validate(),
                 cancellationToken).ConfigureAwait(false);
-            var mismatch = GetRunTerminalAggregateMismatch(terminal, run, run.TerminalRecordRef, definition);
-            if (mismatch is not null)
+            if (!RunTerminalArtifactMatchesAggregate(terminal, run))
             {
-                throw new InvalidDataException($"Program Run terminal record does not describe its durable aggregate: {mismatch}");
+                throw new InvalidDataException("Program Run terminal record does not describe its durable aggregate.");
             }
         }
 
@@ -551,13 +743,13 @@ internal sealed class FileProgramRunStore : IProgramRunStore
 
             var terminalReference = step.ResultRef
                 ?? throw new InvalidDataException("Terminal Program Step does not reference its terminal record.");
-            var terminal = await ReadVerifiedImmutableJsonArtifactAsync<ProgramStepTerminalRecord, ProgramStepTerminalRecord>(
+            var terminal = await ReadVerifiedImmutableJsonArtifactAsync<ProgramStepTerminalArtifact, ProgramStepTerminalArtifact>(
                 terminalReference,
                 ProgramTerminalArtifactContract.StepTerminalRecordKind,
                 "Program Step terminal record",
                 static value => value.Validate(),
                 cancellationToken).ConfigureAwait(false);
-            if (!StepTerminalMatchesAggregate(terminal, run, step, index, terminalReference))
+            if (!await StepTerminalArtifactMatchesAggregateAsync(terminal, run, step, terminalReference, cancellationToken).ConfigureAwait(false))
             {
                 throw new InvalidDataException("Program Step terminal record does not describe its durable Step.");
             }
@@ -723,7 +915,7 @@ internal sealed class FileProgramRunStore : IProgramRunStore
         RequireSameWhenSet(expected.GenerationBefore, replacement.GenerationBefore, parameterName);
         RequireSameWhenSet(expected.GenerationAfter, replacement.GenerationAfter, parameterName);
         RequireSameWhenSet(expected.RequestPlanRef, replacement.RequestPlanRef, parameterName);
-        RequireSameWhenSet(expected.LifecycleExecutionRef, replacement.LifecycleExecutionRef, parameterName);
+        EnsureLifecycleExecutionReferenceIsAppendOnly(expected.LifecycleExecutionRef, replacement.LifecycleExecutionRef, parameterName);
         if (expected.RequestExecution is not null
             && !HasSameRequestExecutionBoundaryOrNull(expected.RequestExecution, replacement.RequestExecution))
         {
@@ -800,7 +992,7 @@ internal sealed class FileProgramRunStore : IProgramRunStore
         RequireSameWhenSet(expected.GenerationBefore, replacement.GenerationBefore, parameterName);
         RequireSameWhenSet(expected.GenerationAfter, replacement.GenerationAfter, parameterName);
         RequireSameWhenSet(expected.RequestPlanRef, replacement.RequestPlanRef, parameterName);
-        RequireSameWhenSet(expected.LifecycleExecutionRef, replacement.LifecycleExecutionRef, parameterName);
+        EnsureLifecycleExecutionReferenceIsAppendOnly(expected.LifecycleExecutionRef, replacement.LifecycleExecutionRef, parameterName);
         if (!HasSameRequestExecutionBoundaryOrNull(expected.RequestExecution, replacement.RequestExecution))
         {
             throw new ArgumentException("Program Run replacement cannot remove or replace an established Program Step fact.", parameterName);
@@ -822,6 +1014,51 @@ internal sealed class FileProgramRunStore : IProgramRunStore
         {
             throw new ArgumentException("Program Run cancellation facts are append-only.", parameterName);
         }
+    }
+
+    /// <summary>
+    /// A Lifecycle reference first establishes its immutable logical identity
+    /// at durable start. The action can later mature that exact active
+    /// reference into the terminal reference that carries its verified
+    /// terminal-record artifact. No other replacement is a new Program fact.
+    /// </summary>
+    private static void EnsureLifecycleExecutionReferenceIsAppendOnly (
+        ExecutionRef? expected,
+        ExecutionRef? replacement,
+        string parameterName)
+    {
+        if (expected is null)
+        {
+            return;
+        }
+        if (replacement is null)
+        {
+            throw new ArgumentException("Program Run replacement cannot remove an established Lifecycle Execution reference.", parameterName);
+        }
+        if (expected.Lifecycle == ExecutionLifecycle.Terminal)
+        {
+            if (expected != replacement)
+            {
+                throw new ArgumentException("A terminal Lifecycle Execution reference is immutable.", parameterName);
+            }
+            return;
+        }
+        if (expected == replacement)
+        {
+            return;
+        }
+        if (expected.Lifecycle == ExecutionLifecycle.Active
+            && replacement.Lifecycle == ExecutionLifecycle.Terminal
+            && expected.Kind == replacement.Kind
+            && expected.Id == replacement.Id
+            && expected.DefinitionDigest == replacement.DefinitionDigest)
+        {
+            return;
+        }
+
+        throw new ArgumentException(
+            "A Lifecycle Execution reference may mature only from its active durable identity to its same terminal reference.",
+            parameterName);
     }
 
     private static void EnsureObservationIsAppendOnly (
@@ -962,6 +1199,93 @@ internal sealed class FileProgramRunStore : IProgramRunStore
             && terminal.StartedAtUtc == step.StartedAtUtc
             && terminal.CompletedAtUtc == step.CompletedAtUtc;
     }
+
+    private static bool RunTerminalArtifactMatchesAggregate (ProgramRunTerminalArtifact terminal, ProgramRunRecord run)
+    {
+        return ProgramRunStateSemantics.IsTerminal(run.State)
+            && terminal.Project == run.Project
+            && terminal.RunId == run.RunId
+            && terminal.DefinitionDigest == run.DefinitionDigest
+            && terminal.DefinitionSnapshotRef == run.DefinitionSnapshotRef
+            && terminal.Authorization.Digest == run.FixedContext.Authorization.Digest
+            && terminal.Authorization.CapturedAtUtc == run.FixedContext.Authorization.CapturedAtUtc
+            && terminal.Configuration.Digest == run.FixedContext.Configuration.Digest
+            && terminal.Configuration.CapturedAtUtc == run.FixedContext.Configuration.CapturedAtUtc
+            && terminal.DeadlineUtc == run.DeadlineUtc
+            && terminal.State == run.State
+            && terminal.Verdict == run.Verdict
+            && terminal.ApplicationState == run.ApplicationState
+            && terminal.ChildExecutionRefs.Count == 0
+            && terminal.CurrentEditorGeneration == run.CurrentEditorGeneration
+            && terminal.Cancellation == run.Cancellation
+            && terminal.StartedAtUtc == run.StartedAtUtc
+            && terminal.CompletedAtUtc == run.UpdatedAtUtc
+            && terminal.Steps.Count == run.Steps.Count
+            && terminal.Steps.Zip(run.Steps, static (artifact, record) => RunTerminalStepMatchesAggregate(artifact, record)).All(static value => value);
+    }
+
+    private async ValueTask<bool> StepTerminalArtifactMatchesAggregateAsync (
+        ProgramStepTerminalArtifact terminal,
+        ProgramRunRecord run,
+        ProgramRunStepRecord step,
+        ArtifactRef artifact,
+        CancellationToken cancellationToken)
+    {
+        if (!ProgramRunStateSemantics.IsTerminal(step.State)
+            || step.ResultRef is null
+            || !HasSameArtifactContent(step.ResultRef, artifact)
+            || terminal.RunId != run.RunId
+            || terminal.DefinitionDigest != run.DefinitionDigest
+            || terminal.Command != step.Command
+            || terminal.State != step.State
+            || terminal.Verdict != step.Verdict
+            || terminal.ApplicationState != step.ApplicationState
+            || terminal.GenerationBefore != step.GenerationBefore
+            || terminal.GenerationAfter != step.GenerationAfter
+            || terminal.RequestPlanRef != step.RequestPlanRef
+            || !terminal.OperationDescriptorRefs.SequenceEqual(step.OperationDescriptorRefs)
+            || terminal.LifecycleExecutionRef != step.LifecycleExecutionRef
+            || terminal.ChildExecutionRef is not null
+            || !terminal.ArtifactRefs.SequenceEqual(step.ArtifactRefs.Where(candidate => candidate != step.StepResultRef))
+            || terminal.ErrorCode != step.ErrorCode
+            || terminal.StartedAtUtc != step.StartedAtUtc
+            || terminal.CompletedAtUtc != step.CompletedAtUtc)
+        {
+            return false;
+        }
+
+        if (step.StepResultRef is null)
+        {
+            return terminal.StepResult is null;
+        }
+        var bytes = await ReadAsync(step.StepResultRef, cancellationToken).ConfigureAwait(false);
+        if (bytes is null)
+        {
+            return false;
+        }
+        using var document = JsonDocument.Parse(bytes);
+        return terminal.StepResult is { } result
+            && string.Equals(result.GetRawText(), document.RootElement.GetRawText(), StringComparison.Ordinal);
+    }
+
+    private static bool RunTerminalStepMatchesAggregate (ProgramRunTerminalStepArtifact artifact, ProgramRunStepRecord record) =>
+        artifact.Command == record.Command
+        && artifact.TimeoutMilliseconds == record.TimeoutMilliseconds
+        && artifact.State == record.State
+        && artifact.Verdict == record.Verdict
+        && artifact.PlanningStartedAtUtc == record.PlanningStartedAtUtc
+        && artifact.StepDeadlineAtUtc == record.DeadlineUtc
+        && artifact.GenerationBefore == record.GenerationBefore
+        && artifact.GenerationAfter == record.GenerationAfter
+        && artifact.ApplicationState == record.ApplicationState
+        && artifact.RequestPlanRef == record.RequestPlanRef
+        && artifact.OperationDescriptorRefs.SequenceEqual(record.OperationDescriptorRefs)
+        && artifact.LifecycleExecutionRef == record.LifecycleExecutionRef
+        && artifact.ChildExecutionRef is null
+        && artifact.ResultRef == record.ResultRef
+        && artifact.ErrorCode == record.ErrorCode
+        && artifact.StartedAtUtc == record.StartedAtUtc
+        && artifact.CompletedAtUtc == record.CompletedAtUtc;
 
     private static bool ProgramRunStepsMatch (ProgramRunStepRecord left, ProgramRunStepRecord right)
     {
