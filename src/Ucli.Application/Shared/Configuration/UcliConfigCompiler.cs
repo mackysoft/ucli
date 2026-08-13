@@ -61,7 +61,7 @@ internal sealed class UcliConfigCompiler
             OperationAllowlist = snapshot.OperationAllowlist.ToArray(),
             EvalEnabled = snapshot.EvalEnabled,
             IpcDefaultTimeoutMilliseconds = snapshot.IpcDefaultTimeoutMilliseconds,
-            IpcTimeoutMillisecondsByCommand = snapshot.IpcTimeoutMillisecondsByCommand ?? new Dictionary<string, int?>(),
+            IpcTimeoutMillisecondsByCommand = snapshot.IpcTimeoutMillisecondsByCommand ?? IpcTimeoutDefaults.CreateDefaultTimeoutOverrides(),
             ProgramPresets = snapshot.ProgramPresets.ToDictionary(
                 static entry => entry.Key,
                 static entry => new ProgramPresetRegistration(entry.Value.Description, RootRelativePath.Parse(entry.Value.ProgramPath)),
@@ -136,9 +136,9 @@ internal sealed class UcliConfigCompiler
             PlanTokenMode: TextVocabulary.GetText(config.PlanTokenMode),
             ReadIndexDefaultMode: TextVocabulary.GetText(config.ReadIndexDefaultMode),
             OperationAllowlist: config.OperationAllowlist.ToArray(),
+            EvalEnabled: config.EvalEnabled,
             IpcDefaultTimeoutMilliseconds: config.IpcDefaultTimeoutMilliseconds,
             IpcTimeoutMillisecondsByCommand: ipcTimeoutMillisecondsByCommand,
-            EvalEnabled: config.EvalEnabled,
             ProgramPresets: programPresets,
             WorkCompletion: workCompletion);
         if (!IsPortableDocument(document))
