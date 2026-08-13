@@ -89,7 +89,7 @@ public sealed class UnityDaemonIpcClientDispatchTests
     [InlineData(true)]
     public async Task Send_WhenSessionTokenPublicationLags_ReResolvesWithoutReplayingRejectedToken (bool streaming)
     {
-        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
+        var timeProvider = new PublicationRetryTimerObservingFakeTimeProvider(DateTimeOffset.UnixEpoch);
         var transportClient = new RecordingIpcTransportClient(_ => CreateResponse(Guid.NewGuid()));
         var rejectedDispatch = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         transportClient.EnqueueResponse(request =>
@@ -128,11 +128,13 @@ public sealed class UnityDaemonIpcClientDispatchTests
                     CancellationToken.None)
                 .AsTask();
         await rejectedDispatch.Task.WaitAsync(TimeSpan.FromSeconds(5));
-        for (var expectedReadCount = 2; expectedReadCount <= 4; expectedReadCount++)
-        {
-            timeProvider.Advance(TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds));
-            await sessionStore.WaitForReadCountAsync(expectedReadCount);
-        }
+        await sessionStore.WaitForReadCountAsync(2);
+        await timeProvider.WaitForPublicationRetryTimerAsync().WaitAsync(SignalWaitTimeout);
+        timeProvider.Advance(TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds));
+        await sessionStore.WaitForReadCountAsync(3);
+        await timeProvider.WaitForPublicationRetryTimerAsync().WaitAsync(SignalWaitTimeout);
+        timeProvider.Advance(TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds));
+        await sessionStore.WaitForReadCountAsync(4);
 
         var result = await sendTask;
 
@@ -222,7 +224,7 @@ public sealed class UnityDaemonIpcClientDispatchTests
     [InlineData(true)]
     public async Task Send_WhenRejectedSessionTokenDoesNotRotate_ReturnsRejectionAfterPublicationGrace (bool streaming)
     {
-        var timeProvider = new PublicationGraceTimerObservingFakeTimeProvider(DateTimeOffset.UnixEpoch);
+        var timeProvider = new PublicationRetryTimerObservingFakeTimeProvider(DateTimeOffset.UnixEpoch);
         var transportClient = new RecordingIpcTransportClient(_ => CreateSessionTokenInvalidResponse());
         var client = new UnityDaemonIpcClient(
             transportClient,
@@ -248,7 +250,7 @@ public sealed class UnityDaemonIpcClientDispatchTests
                     deadline,
                     CancellationToken.None)
                 .AsTask();
-        await timeProvider.PublicationRetryTimerRegistered.WaitAsync(SignalWaitTimeout);
+        await timeProvider.WaitForPublicationRetryTimerAsync().WaitAsync(SignalWaitTimeout);
         timeProvider.Advance(DaemonTimeouts.SessionPublicationRetryTimeout);
 
         var result = await sendTask.WaitAsync(TimeSpan.FromSeconds(1));
@@ -1252,17 +1254,19 @@ public sealed class UnityDaemonIpcClientDispatchTests
         Assert.Equal(2, requests.Count);
     }
 
-    private sealed class PublicationGraceTimerObservingFakeTimeProvider : FakeTimeProvider
+    private sealed class PublicationRetryTimerObservingFakeTimeProvider : FakeTimeProvider
     {
-        private readonly TaskCompletionSource publicationRetryTimerRegistered =
-            new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly SemaphoreSlim publicationRetryTimerRegistrations = new(0);
 
-        public PublicationGraceTimerObservingFakeTimeProvider (DateTimeOffset startTime)
+        public PublicationRetryTimerObservingFakeTimeProvider (DateTimeOffset startTime)
             : base(startTime)
         {
         }
 
-        public Task PublicationRetryTimerRegistered => publicationRetryTimerRegistered.Task;
+        public Task WaitForPublicationRetryTimerAsync (CancellationToken cancellationToken = default)
+        {
+            return publicationRetryTimerRegistrations.WaitAsync(cancellationToken);
+        }
 
         public override ITimer CreateTimer (
             TimerCallback callback,
@@ -1274,7 +1278,7 @@ public sealed class UnityDaemonIpcClientDispatchTests
             if (dueTime == TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds)
                 && period == Timeout.InfiniteTimeSpan)
             {
-                publicationRetryTimerRegistered.TrySetResult();
+                _ = publicationRetryTimerRegistrations.Release();
             }
 
             return timer;
