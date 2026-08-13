@@ -8,7 +8,7 @@ public sealed class ProcessLivenessProbeTests
 {
     [Fact]
     [Trait("Size", "Small")]
-    public void ObserveIdentity_WhenExpectedProcessIsCurrent_ReturnsSame ()
+    public void ObserveIdentity_WhenExpectedProcessWasCapturedByProbe_ReturnsSame ()
     {
         var identity = ProcessLivenessProbe.CaptureCurrentProcess();
 

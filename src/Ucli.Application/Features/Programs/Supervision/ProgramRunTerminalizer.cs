@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Features.Programs.Persistence;
+using MackySoft.Ucli.Contracts.Editor;
 using MackySoft.Ucli.Contracts.Execution;
 
 namespace MackySoft.Ucli.Application.Features.Programs.Supervision;
@@ -75,11 +76,11 @@ internal sealed class ProgramRunTerminalizer
                 FinalSupervisorObservation = current.SupervisorObservation,
                 FinalHostObservation = current.HostObservation,
                 FinalSupervisorSnapshot = CreateFinalSupervisorSnapshot(current),
-                ReasonCode = reasonCode,
+                ReasonCode = terminalState == ProgramRunState.Completed ? null : reasonCode,
             };
             try
             {
-                var publication = await store.PublishRunTerminalAsync(current, terminal, terminalRef => CreateRunReplacement(current, terminalState, terminalRef, completedAtUtc, terminalReasonCode: reasonCode), cancellationToken).ConfigureAwait(false);
+                var publication = await store.PublishRunTerminalAsync(current, terminal, terminalRef => CreateRunReplacement(current, terminalState, terminalRef, completedAtUtc, terminalReasonCode: terminalState == ProgramRunState.Completed ? null : reasonCode), cancellationToken).ConfigureAwait(false);
                 return publication.Current;
             }
             catch (InvalidOperationException)
@@ -202,11 +203,13 @@ internal sealed class ProgramRunTerminalizer
             {
                 return current;
             }
+            ValidateLifecycleProjection(step, recovered);
             var completedAtUtc = timeProvider.GetUtcNow();
+            var lifecycleExecutionRef = recovered.LifecycleExecutionRef ?? step.LifecycleExecutionRef;
             var terminal = new ProgramStepTerminalRecord(
                 ProgramStepTerminalRecord.CurrentSchemaVersion, current.RunId, current.DefinitionDigest, stepIndex,
-                step.Command, recovered.State, recovered.Verdict, recovered.ApplicationState, step.GenerationBefore, step.GenerationAfter,
-                step.RequestPlanRef, step.OperationDescriptorRefs, step.LifecycleExecutionRef, step.StepResultRef,
+                step.Command, recovered.State, recovered.Verdict, recovered.ApplicationState, step.GenerationBefore, recovered.GenerationAfter ?? step.GenerationAfter,
+                step.RequestPlanRef, step.OperationDescriptorRefs, lifecycleExecutionRef, step.StepResultRef,
                 step.ArtifactRefs, recovered.ErrorCode, step.StartedAtUtc, completedAtUtc);
             try
             {
@@ -218,12 +221,27 @@ internal sealed class ProgramRunTerminalizer
                             State = recovered.State,
                             Verdict = recovered.Verdict,
                             ApplicationState = recovered.ApplicationState,
+                            GenerationAfter = recovered.GenerationAfter ?? candidate.GenerationAfter,
+                            LifecycleExecutionRef = lifecycleExecutionRef,
                             ErrorCode = recovered.ErrorCode,
                             CompletedAtUtc = completedAtUtc,
                             ResultRef = terminalRef,
                         }
                         : candidate).ToArray();
-                    return CreateRunReplacement(current, current.State, current.TerminalRecordRef, completedAtUtc, steps);
+                    // A completed Step consumes exactly its persisted cursor.
+                    // Non-completed terminals keep the cursor on the failed
+                    // position so the Run terminal record can identify it.
+                    var cursor = recovered.State == ProgramStepState.Completed
+                        ? stepIndex + 1
+                        : current.Cursor;
+                    return CreateRunReplacement(
+                        current,
+                        current.State,
+                        current.TerminalRecordRef,
+                        completedAtUtc,
+                        steps,
+                        cursor: cursor,
+                        currentEditorGeneration: recovered.GenerationAfter ?? current.CurrentEditorGeneration);
                 }, cancellationToken).ConfigureAwait(false);
                 return publication.Current;
             }
@@ -358,16 +376,35 @@ internal sealed class ProgramRunTerminalizer
 
     private sealed record ProgramStepTerminalPublicationAttempt (ProgramRunRecord Current, bool RequiresRetry);
 
+    private static void ValidateLifecycleProjection (
+        ProgramRunStepRecord step,
+        ProgramStepExecutionRecoveredTerminal recovered)
+    {
+        if (recovered.LifecycleExecutionRef is null)
+        {
+            return;
+        }
+        if (step.LifecycleExecutionRef is null
+            || step.LifecycleExecutionRef.Kind != recovered.LifecycleExecutionRef.Kind
+            || step.LifecycleExecutionRef.Id != recovered.LifecycleExecutionRef.Id
+            || step.LifecycleExecutionRef.DefinitionDigest != recovered.LifecycleExecutionRef.DefinitionDigest)
+        {
+            throw new ArgumentException("Lifecycle terminal facts must project the Step's same durable execution identity.", nameof(recovered));
+        }
+    }
+
     private static ProgramRunRecord CreateRunReplacement (
         ProgramRunRecord current,
         ProgramRunState state,
         ArtifactRef? terminalRef,
         DateTimeOffset updatedAtUtc,
         IReadOnlyList<ProgramRunStepRecord>? steps = null,
-        string? terminalReasonCode = null) => new(
+        string? terminalReasonCode = null,
+        int? cursor = null,
+        UnityEditorGenerationSnapshot? currentEditorGeneration = null) => new(
         current.SchemaVersion, current.Version + 1, current.RunId, current.DefinitionDigest, current.DefinitionSnapshotRef,
-        current.Project, current.FixedContext, current.Host, current.StartedGeneration, current.CurrentEditorGeneration,
-        current.DeadlineUtc, current.StartedAtUtc, updatedAtUtc, state, current.Cursor,
+        current.Project, current.FixedContext, current.Host, current.StartedGeneration, currentEditorGeneration ?? current.CurrentEditorGeneration,
+        current.DeadlineUtc, current.StartedAtUtc, updatedAtUtc, state, cursor ?? current.Cursor,
         steps ?? current.Steps, current.ChildExecutionRefs, current.Cancellation, terminalRef)
         {
             SupervisorObservation = current.SupervisorObservation,

@@ -485,6 +485,12 @@ internal sealed class VerifyInvocationFactory : ICompileLifecycleExecutionStartI
 
         public UnityExecutionTarget Target => UnityExecutionTarget.Daemon;
 
+        public ValueTask<UnityRequestExecutionResult> ExecuteAsync (
+            UcliCommand command,
+            UnityRequestPayload payload,
+            ExecutionDeadline deadline,
+            CancellationToken cancellationToken = default) => throw new InvalidOperationException();
+
         public ValueTask<UnityRequestExecutionResult> StartAsync (UcliCommand command, UnityRequestPayload payload, LifecycleExecutionStartInvocation invocation, CancellationToken cancellationToken = default) => throw new InvalidOperationException();
 
         public ValueTask<UnityRequestExecutionResult> ReconnectAsync (UcliCommand command, UnityRequestPayload payload, LifecycleExecutionReconnectInvocation invocation, CancellationToken cancellationToken = default) => throw new InvalidOperationException();

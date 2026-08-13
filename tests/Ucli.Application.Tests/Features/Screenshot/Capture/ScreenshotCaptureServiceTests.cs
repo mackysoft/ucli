@@ -6,8 +6,8 @@ using MackySoft.Ucli.Application.Shared.Context;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Cryptography;
-using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Editor;
+using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Tests.Screenshot;
 
@@ -287,6 +287,89 @@ public sealed class ScreenshotCaptureServiceTests
         Assert.Equal(ExecutionErrorKind.Timeout, result.Error!.Kind);
         Assert.Empty(artifactStore.CommitRequests);
         Assert.Equal(1, artifactStore.DiscardCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task CaptureOnFixedHost_WhenTransportResponseIsLost_ReportsRecoverableDisposition ()
+    {
+        var executor = new RecordingUnityRequestExecutor(UnityRequestExecutionResult.Failure(
+            new UnityRequestFailure(UnityRequestFailureKind.General, IpcTransportErrorCodes.IpcTimeout, "response lost")));
+        var service = CreateService(CreateGuiSessionResult(), executor, new RecordingScreenshotArtifactStore());
+        var context = ProjectContextTestFactory.CreateSingleRootProject();
+        var binding = (await executor.BindAsync(
+            UnityExecutionMode.Daemon,
+            context.UnityProject,
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(1), TimeProvider.System),
+            CancellationToken.None)).Binding!;
+
+        var result = await service.CaptureOnFixedHostAsync(
+            context,
+            binding,
+            IpcScreenshotTarget.Game,
+            new PixelDimensions(1920, 1080),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(1), TimeProvider.System),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ScreenshotCaptureFailureDisposition.CommunicationLost, result.FailureDisposition);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task CaptureOnFixedHost_WhenCaptureSucceeds_RetainsTypedCaptureGenerationAndArtifact ()
+    {
+        var executor = new RecordingUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateResponse(1920, 1080)));
+        var artifactStore = new RecordingScreenshotArtifactStore();
+        var service = CreateService(CreateGuiSessionResult(), executor, artifactStore);
+        var context = ProjectContextTestFactory.CreateSingleRootProject();
+        var binding = (await executor.BindAsync(
+            UnityExecutionMode.Daemon,
+            context.UnityProject,
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(1), TimeProvider.System),
+            CancellationToken.None)).Binding!;
+
+        var result = await service.CaptureOnFixedHostAsync(
+            context,
+            binding,
+            IpcScreenshotTarget.Game,
+            new PixelDimensions(1920, 1080),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(1), TimeProvider.System),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(ScreenshotCaptureFailureDisposition.Terminal, result.FailureDisposition);
+        Assert.Equal(7, result.Output!.Capture.State.Generations.DomainReloadGeneration);
+        Assert.Equal(Sha256Digest.Parse(new string('b', 64)), result.Output.Artifact.Digest);
+        Assert.Single(artifactStore.CommitRequests);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task CaptureOnFixedHost_WhenResponseContractIsInvalid_ReportsInvalidDisposition ()
+    {
+        var executor = new RecordingUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateResponse(
+            width: 1920,
+            height: 1080,
+            captureId: Guid.Parse("33333333-3333-3333-3333-333333333333"))));
+        var service = CreateService(CreateGuiSessionResult(), executor, new RecordingScreenshotArtifactStore());
+        var context = ProjectContextTestFactory.CreateSingleRootProject();
+        var binding = (await executor.BindAsync(
+            UnityExecutionMode.Daemon,
+            context.UnityProject,
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(1), TimeProvider.System),
+            CancellationToken.None)).Binding!;
+
+        var result = await service.CaptureOnFixedHostAsync(
+            context,
+            binding,
+            IpcScreenshotTarget.Game,
+            new PixelDimensions(1920, 1080),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(1), TimeProvider.System),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ScreenshotCaptureFailureDisposition.ContractInvalid, result.FailureDisposition);
     }
 
     [Fact]

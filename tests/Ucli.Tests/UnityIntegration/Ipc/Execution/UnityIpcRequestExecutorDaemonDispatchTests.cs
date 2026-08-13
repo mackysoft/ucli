@@ -3,6 +3,9 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Contracts.Cryptography;
+using MackySoft.Ucli.Contracts.Editor;
+using MackySoft.Ucli.Contracts.Execution;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Testing;
 using MackySoft.Ucli.Tests.Helpers.Ipc;
@@ -15,6 +18,52 @@ namespace MackySoft.Ucli.Tests.Ipc;
 
 public sealed class UnityIpcRequestExecutorDaemonDispatchTests
 {
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task FixedDaemonBinding_ExecuteCancel_ForwardsTheProgramRequestToTheBoundSession ()
+    {
+        using var scope = TestDirectories.CreateTempScope("unity-ipc-request-executor", "fixed-daemon-cancel");
+        var unityProject = ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(scope.FullPath);
+        var daemonTransportClient = new RecordingUnityIpcTransportClient(request => CreateSuccessResponse(request.RequestId));
+        var oneshotTransportClient = new RecordingUnityIpcTransportClient(_ => throw new Xunit.Sdk.XunitException("Oneshot transport must not be called."));
+        var executor = CreateExecutor(
+            new StubModeDecisionService(UnityExecutionModeDecisionResult.Success(
+                new UnityExecutionModeDecision(
+                    UnityExecutionMode.Daemon,
+                    true,
+                    UnityExecutionTarget.Daemon,
+                    DefaultTimeout))),
+            new RecordingDaemonPingInfoClient(),
+            new RecordingUnityUcliPluginLocator(),
+            CreateClients(
+                daemonTransportClient,
+                oneshotTransportClient,
+                new QueuedDaemonSessionStore(CreateSessionReadResult("fixed-daemon-token")),
+                new RecordingUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(new StubUnityBatchmodeProcessHandle()))));
+
+        var resolution = await executor.BindAsync(
+            UnityExecutionMode.Daemon,
+            unityProject,
+            ExecutionDeadline.Start(DefaultTimeout, TimeProvider.System));
+
+        Assert.True(resolution.IsSuccess);
+        var result = await resolution.Binding!.ExecuteAsync(
+            UcliCommandIds.Call,
+            new UnityRequestPayload.ProgramRequestCancel(new IpcProgramRequestCancelRequest(
+                Guid.NewGuid(),
+                CreateProgramRequestBinding(unityProject),
+                IpcProgramRequestCancellationReason.UserCancelled)),
+            ExecutionDeadline.Start(DefaultTimeout, TimeProvider.System));
+
+        Assert.True(result.IsSuccess);
+        var request = Assert.Single(daemonTransportClient.Requests);
+        Assert.Equal(UnityIpcMethod.ProgramRequestCancel, IpcRequestAssert.ParseMethod(request));
+        Assert.Equal(IpcSessionTokenTestFactory.Create("fixed-daemon-token").GetEncodedValue(), request.SessionToken);
+        UnityIpcTransportClientAssert.EndpointDispatchAddressedOnce(daemonTransportClient, "/tmp/ucli-session.sock");
+        Assert.Empty(oneshotTransportClient.Requests);
+        await resolution.Binding.DisposeAsync();
+    }
+
     [Fact]
     [Trait("Size", "Medium")]
     public async Task Execute_WhenExplicitDaemonModeIsRequested_DispatchesWithoutReachabilityProbe ()
@@ -257,5 +306,25 @@ public sealed class UnityIpcRequestExecutorDaemonDispatchTests
             daemonTransportClient,
             oneshotTransportClient,
             launcher);
+    }
+
+    private static IpcProgramRequestExecutionBinding CreateProgramRequestBinding (ResolvedUnityProjectContext project)
+    {
+        var digest = Sha256Digest.Compute("fixed-daemon-cancel"u8);
+        return new IpcProgramRequestExecutionBinding(
+            new UnityProjectIdentity(project.UnityProjectRoot.Value, project.ProjectFingerprint, project.UnityVersion),
+            new LifecycleExecutionHostRegistration(
+                new ProcessIdentity(42, 1),
+                Guid.NewGuid(),
+                Guid.NewGuid(),
+                Guid.NewGuid()),
+            new UnityEditorGenerationSnapshot(0, 0, 0, 0),
+            DateTimeOffset.UtcNow.AddMinutes(1),
+            digest,
+            digest,
+            planTokenDigest: null,
+            [digest],
+            digest,
+            digest);
     }
 }

@@ -471,69 +471,81 @@ internal sealed class UnityDaemonIpcClient : IUnityIpcClient
                     // From the first Lifecycle Execution start write onward, the durable execution
                     // owns delivery and replay. Caller cancellation only stops waiting for its result.
                     dispatchCancellationToken = CancellationToken.None;
-                    var lifecycleStartResponse = await transportClient.SendAsync(
-                            endpoint,
-                            LifecycleExecutionStartExchange.CreateRequest(
-                                dispatchRequest,
-                                session.SessionToken,
-                                lifecycleStartRequestId,
-                                requestDeadlineUtc,
-                                remainingMilliseconds),
-                            remainingTimeout,
-                            dispatchCancellationToken)
-                        .ConfigureAwait(false);
-                    if (IsSessionTokenInvalid(lifecycleStartResponse))
+                    if (lifecycleExecutionStart is not null)
                     {
-                        response = lifecycleStartResponse;
+                        // The observer already accepted this immutable Start
+                        // Record. A response replay may use a permitted
+                        // endpoint successor, but it must never issue another
+                        // Lifecycle Start exchange or observe a new binding.
+                        actionPayload = dispatchRequest.CreateLifecycleActionPayload(
+                            lifecycleExecutionStart);
                     }
                     else
                     {
-                        switch (LifecycleExecutionStartExchange
-                            .InterpretResponse(
-                                dispatchRequest,
-                                lifecycleStartResponse))
+                        var lifecycleStartResponse = await transportClient.SendAsync(
+                                endpoint,
+                                LifecycleExecutionStartExchange.CreateRequest(
+                                    dispatchRequest,
+                                    session.SessionToken,
+                                    lifecycleStartRequestId,
+                                    requestDeadlineUtc,
+                                    remainingMilliseconds),
+                                remainingTimeout,
+                                dispatchCancellationToken)
+                            .ConfigureAwait(false);
+                        if (IsSessionTokenInvalid(lifecycleStartResponse))
                         {
-                            case LifecycleExecutionStartExchange
-                                .ProviderRejected rejected:
-                                return RetainLifecycleStart(
-                                    UnityRequestExecutionResult.Success(
-                                        UnityRequestResponseFactory.Create(
-                                            rejected.Response)));
-                            case LifecycleExecutionStartExchange.Invalid invalid:
-                                return RetainLifecycleStart(
-                                    UnityRequestExecutionResult.Failure(
-                                        invalid.Failure));
-                            case LifecycleExecutionStartExchange
-                                .Mismatched mismatched:
-                                return RetainLifecycleStart(
-                                    CreateReconnectStartMismatchResult(
-                                        mismatched.Code));
-                            case LifecycleExecutionStartExchange.Confirmed confirmed:
-                                if ((requiresFixedHostProof
-                                        && !MatchesRequiredStartHost(
-                                            session,
-                                            confirmed.Start))
-                                    || !acquisitionScope.TryBindDurableHost(session))
-                                {
+                            response = lifecycleStartResponse;
+                        }
+                        else
+                        {
+                            switch (LifecycleExecutionStartExchange
+                                .InterpretResponse(
+                                    dispatchRequest,
+                                    lifecycleStartResponse))
+                            {
+                                case LifecycleExecutionStartExchange
+                                    .ProviderRejected rejected:
                                     return RetainLifecycleStart(
-                                        CreateReconnectHostMismatchResult());
-                                }
-                                actionPayload = confirmed.ActionPayload;
-                                lifecycleExecutionStart = confirmed.Start;
-                                var startObservation = await ObserveStartAsync(
-                                        dispatchRequest,
-                                        confirmed.Start,
-                                        deadline,
-                                        dispatchObservation)
-                                    .ConfigureAwait(false);
-                                if (startObservation is not null)
-                                {
-                                    return RetainLifecycleStart(startObservation);
-                                }
-                                break;
-                            default:
-                                throw new InvalidOperationException(
-                                    "Unsupported Lifecycle Execution start interpretation.");
+                                        UnityRequestExecutionResult.Success(
+                                            UnityRequestResponseFactory.Create(
+                                                rejected.Response)));
+                                case LifecycleExecutionStartExchange.Invalid invalid:
+                                    return RetainLifecycleStart(
+                                        UnityRequestExecutionResult.Failure(
+                                            invalid.Failure));
+                                case LifecycleExecutionStartExchange
+                                    .Mismatched mismatched:
+                                    return RetainLifecycleStart(
+                                        CreateReconnectStartMismatchResult(
+                                            mismatched.Code));
+                                case LifecycleExecutionStartExchange.Confirmed confirmed:
+                                    if ((requiresFixedHostProof
+                                            && !MatchesRequiredStartHost(
+                                                session,
+                                                confirmed.Start))
+                                        || !acquisitionScope.TryBindDurableHost(session))
+                                    {
+                                        return RetainLifecycleStart(
+                                            CreateReconnectHostMismatchResult());
+                                    }
+                                    actionPayload = confirmed.ActionPayload;
+                                    lifecycleExecutionStart = confirmed.Start;
+                                    var startObservation = await ObserveStartAsync(
+                                            dispatchRequest,
+                                            confirmed.Start,
+                                            deadline,
+                                            dispatchObservation)
+                                        .ConfigureAwait(false);
+                                    if (startObservation is not null)
+                                    {
+                                        return RetainLifecycleStart(startObservation);
+                                    }
+                                    break;
+                                default:
+                                    throw new InvalidOperationException(
+                                        "Unsupported Lifecycle Execution start interpretation.");
+                            }
                         }
                     }
                 }

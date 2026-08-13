@@ -46,11 +46,19 @@ internal sealed partial class PlayTransitionWorkflow
             ExecutionRef? establishedExecutionReference,
             LifecycleExecutionStartBinding? requiredStart,
             IPlayTransitionDirectionPolicy<TOutput> direction,
+            bool failFast,
             CancellationToken cancellationToken,
             Func<UnityRequestPayload, CancellationToken, ValueTask<UnityRequestExecutionResult>> dispatchAsync)
         where TOutput : class
     {
-        var payload = direction.CreatePayload(registration, requiredStart);
+        var payload = requiredStart is null
+            ? direction.CreatePayload(registration, requiredStart) switch
+            {
+                UnityRequestPayload.PlayEnter enter => enter with { StartAdmissionPolicy = new WaitableEditorLifecycleStartAdmissionPolicy(failFast) },
+                UnityRequestPayload.PlayExit exit => exit with { StartAdmissionPolicy = new WaitableEditorLifecycleStartAdmissionPolicy(failFast) },
+                _ => throw new InvalidOperationException("Play Lifecycle dispatch requires a typed Play payload."),
+            }
+            : direction.CreatePayload(registration, requiredStart);
         var executionResult = await dispatchAsync(payload, cancellationToken)
             .ConfigureAwait(false);
         if (!executionResult.IsSuccess)

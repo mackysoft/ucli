@@ -1,4 +1,6 @@
 using MackySoft.Ucli.Application.Features.Screenshot.Capture;
+using MackySoft.Ucli.Application.Shared.Context;
+using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Tests;
 
@@ -21,4 +23,12 @@ internal sealed class RecordingScreenshotCaptureService : IScreenshotCaptureServ
         Inputs.Add(input);
         return handler(input, cancellationToken);
     }
+
+    public ValueTask<ScreenshotCaptureResult> CaptureOnFixedHostAsync (
+        ProjectContext context,
+        IUnityExecutionHostBinding binding,
+        IpcScreenshotTarget target,
+        PixelDimensions? requestedDimensions,
+        ExecutionDeadline deadline,
+        CancellationToken cancellationToken = default) => throw new InvalidOperationException();
 }
