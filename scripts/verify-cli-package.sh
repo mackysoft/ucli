@@ -557,7 +557,7 @@ if ! grep -F '"command": "skills.list"' <<< "${skills_list}" >/dev/null; then
   exit 1
 fi
 
-if ! grep -F '"skillName": "ucli-plan-apply"' <<< "${skills_list}" >/dev/null; then
+if ! grep -F '"skillName": "ucli-run-program"' <<< "${skills_list}" >/dev/null; then
   echo "ucli skills list did not include bundled official SKILL packages." >&2
   exit 1
 fi
@@ -585,7 +585,7 @@ actual = [
     for category in payload.get("availableCategories", [])
 ]
 expected = [
-    ("basic", 4),
+    ("basic", 5),
 ]
 if actual != expected:
     print(

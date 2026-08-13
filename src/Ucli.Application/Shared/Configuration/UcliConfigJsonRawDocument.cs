@@ -8,6 +8,9 @@ namespace MackySoft.Ucli.Application.Shared.Configuration;
 /// <param name="OperationAllowlist"> The raw operation-allowlist values. </param>
 /// <param name="IpcDefaultTimeoutMilliseconds"> The raw IPC default-timeout value. </param>
 /// <param name="IpcTimeoutMillisecondsByCommand"> The raw IPC timeout override-map values. </param>
+/// <param name="EvalEnabled"> The raw dedicated C# evaluation feature gate. </param>
+/// <param name="ProgramPresets"> The raw Program Preset registrations. </param>
+/// <param name="WorkCompletion"> The raw Work Close completion policy. </param>
 internal readonly record struct UcliConfigJsonRawDocument (
     int SchemaVersion,
     string OperationPolicy,
@@ -16,4 +19,6 @@ internal readonly record struct UcliConfigJsonRawDocument (
     string[] OperationAllowlist,
     int? IpcDefaultTimeoutMilliseconds,
     Dictionary<string, int?>? IpcTimeoutMillisecondsByCommand,
-    Dictionary<string, UcliProgramPresetDocument>? ProgramPresets);
+    bool EvalEnabled,
+    Dictionary<string, UcliProgramPresetDocument>? ProgramPresets,
+    UcliWorkCompletionDocument? WorkCompletion);

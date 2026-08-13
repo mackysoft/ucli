@@ -12,6 +12,17 @@ internal sealed record ProgramRunRecord
 {
     public const int CurrentSchemaVersion = 1;
 
+    /// <summary>
+    /// Program Runs bind to the Unity process lifetime and editor instance. Endpoint registration
+    /// generations belong to each request or Lifecycle execution and may advance after a domain
+    /// reload without changing the Program's fixed host.
+    /// </summary>
+    internal static bool HasSameProgramFixedHost (
+        LifecycleExecutionHostRegistration expected,
+        LifecycleExecutionHostRegistration actual) =>
+        expected.Process == actual.Process
+        && expected.EditorInstanceId == actual.EditorInstanceId;
+
     public ProgramRunRecord (
         int schemaVersion,
         long version,
@@ -263,7 +274,9 @@ internal sealed record ProgramRunRecord
             && step.PlanningStartedAtUtc is not null
             && step.ApplicationState == ExecutionApplicationState.NotApplied
             && boundary.StartedAtUtc == step.PlanningStartedAtUtc;
-        if (boundary.Project != Project || boundary.Host != Host || boundary.StartedGeneration != step.GenerationBefore
+        if (boundary.Project != Project
+            || !HasSameProgramFixedHost(Host, boundary.Host)
+            || boundary.StartedGeneration != step.GenerationBefore
             || boundary.RequestPlanRef != step.RequestPlanRef
             || !boundary.OperationDescriptorRefs.SequenceEqual(step.OperationDescriptorRefs)
             || (!preservesUnstartedPlanningBoundary && boundary.StartedAtUtc != step.StartedAtUtc)

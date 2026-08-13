@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Features.Assurance.Ready;
+using MackySoft.Ucli.Application.Shared.Context;
 
 namespace MackySoft.Tests;
 
@@ -15,4 +16,10 @@ internal sealed class RecordingReadyService : RecordingCommandService<ReadyComma
     {
         return ExecuteRecordedAsync(input, cancellationToken);
     }
+
+    public ValueTask<ProgramReadyObservation> ObserveOnFixedHostAsync (
+        ProjectContext context,
+        IUnityExecutionHostBinding binding,
+        ExecutionDeadline deadline,
+        CancellationToken cancellationToken = default) => throw new InvalidOperationException();
 }

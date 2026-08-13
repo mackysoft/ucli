@@ -1,10 +1,7 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
-using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Contracts.Editor;
 using MackySoft.Ucli.Contracts.Execution;
-using MackySoft.Ucli.Contracts.Execution.Lifecycle;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Contracts.Projects;
 using MackySoft.Ucli.Infrastructure.Execution;
 using MackySoft.Ucli.Tests.Helpers.Ipc;
 using MackySoft.Ucli.UnityIntegration.Ipc.Clients;
@@ -154,13 +151,11 @@ public sealed class UnityDaemonIpcClientReconnectTests
         Assert.True(attempt.Result!.IsSuccess);
         var requests = IpcRequestAssert.Methods(
             transportClient.Requests,
-            UnityIpcMethod.LifecycleStart,
-            UnityIpcMethod.LifecycleStart,
+            UnityIpcMethod.Compile,
             UnityIpcMethod.Compile);
         IpcRequestAssert.SessionTokens(
             requests,
             firstSession.SessionToken.GetEncodedValue(),
-            successorSession.SessionToken.GetEncodedValue(),
             successorSession.SessionToken.GetEncodedValue());
     }
 

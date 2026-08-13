@@ -1,8 +1,9 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
-using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
+using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Execution.UnityRequest;
 using MackySoft.Ucli.Contracts.Execution.Lifecycle;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.UnityIntegration.Ipc.Clients;
 using MackySoft.Ucli.UnityIntegration.Ipc.Failures;
 
@@ -71,6 +72,48 @@ internal sealed class UnityExecutionHostBinding : IUnityExecutionHostBinding
     public ResolvedUnityProjectContext Project { get; }
 
     public UnityExecutionTarget Target { get; }
+
+    /// <inheritdoc />
+    public async ValueTask<UnityRequestExecutionResult> ExecuteAsync (
+        UcliCommand command,
+        UnityRequestPayload payload,
+        ExecutionDeadline deadline,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        ArgumentNullException.ThrowIfNull(payload);
+        ArgumentNullException.ThrowIfNull(deadline);
+        if (reconnectStart is not null)
+        {
+            throw new InvalidOperationException(
+                "A Lifecycle reconnect binding cannot execute a new Program registration request.");
+        }
+
+        var request = requestBuilder.Build(payload);
+        if (!UnityIpcMethodCapabilities.SupportsStatelessReadReplay(request.Method)
+            && request.Method is not UnityIpcMethod.ProgramRequestStart
+            && request.Method is not UnityIpcMethod.ProgramRequestAttach
+            && request.Method is not UnityIpcMethod.ProgramRequestCancel)
+        {
+            throw new ArgumentException(
+                "A fixed-host general request must be a stateless read or a Program-owned logical Request execution.",
+                nameof(payload));
+        }
+
+        if (fixedDaemonSession is not null)
+        {
+            return await ((UnityDaemonIpcClient)client!).SendBoundAsync(
+                    Project,
+                    request,
+                    deadline,
+                    fixedDaemonSession,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        return await client!.SendAsync(Project, request, deadline, cancellationToken)
+            .ConfigureAwait(false);
+    }
 
     public async ValueTask<UnityRequestExecutionResult> StartAsync (
         UcliCommand command,

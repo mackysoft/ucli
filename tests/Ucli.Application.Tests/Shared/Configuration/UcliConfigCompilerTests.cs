@@ -203,6 +203,53 @@ public sealed class UcliConfigCompilerTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void Compile_WithEvalEnabledAndWorkCompletion_PreservesTheClosedConfigurationValues ()
+    {
+        const string json = """
+        {
+          "schemaVersion": 1,
+          "operationPolicy": "safe",
+          "planTokenMode": "optional",
+          "operationAllowlist": [],
+          "evalEnabled": true,
+          "workCompletion": {
+            "requiredProgramPresets": ["smoke", "verify"]
+          }
+        }
+        """;
+
+        var result = Compile(json);
+
+        Assert.True(result.IsSuccess);
+        var config = Assert.IsType<UcliConfig>(result.Config);
+        Assert.True(config.EvalEnabled);
+        Assert.Equal(["smoke", "verify"], config.WorkCompletion.RequiredProgramPresets);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Compile_WithWorkCompletionThatViolatesThePortableContract_ReturnsPortableContractDiagnostic ()
+    {
+        const string json = """
+        {
+          "schemaVersion": 1,
+          "operationPolicy": "safe",
+          "planTokenMode": "optional",
+          "operationAllowlist": [],
+          "workCompletion": {
+            "requiredProgramPresets": ["Invalid"]
+          }
+        }
+        """;
+
+        var result = Compile(json);
+
+        var diagnostic = AssertSingleDiagnostic(result.Diagnostics, "config.semantic.portableContractViolation");
+        Assert.Null(diagnostic.PropertyPath);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void CreateDocument_WithInvalidProgramPresets_ReturnsLoadEquivalentDiagnostics ()
     {
         var config = CreateConfigWithProgramPresets(
@@ -216,6 +263,21 @@ public sealed class UcliConfigCompilerTests
         Assert.False(result.IsSuccess);
         Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.Code == "config.save.invalidProgramPresetId");
         Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.Code == "config.save.invalidProgramPresetDescription");
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void CreateDocument_WithWorkCompletionThatViolatesThePortableContract_ReturnsPortableContractDiagnostic ()
+    {
+        var config = CreateConfigWithProgramPresets(new Dictionary<string, ProgramPresetRegistration>(StringComparer.Ordinal)) with
+        {
+            WorkCompletion = new UcliWorkCompletion(["Invalid"]),
+        };
+
+        var result = UcliConfigCompiler.CreateDefault().CreateDocument(config, "config.json");
+
+        var diagnostic = AssertSingleDiagnostic(result.Diagnostics, "config.save.portableContractViolation");
+        Assert.Null(diagnostic.PropertyPath);
     }
 
     [Fact]
@@ -269,6 +331,8 @@ public sealed class UcliConfigCompilerTests
         var timeoutOverrides = document.IpcTimeoutMillisecondsByCommand!;
         Assert.Null(timeoutOverrides["status"]);
         Assert.Equal(15000, timeoutOverrides["call"]);
+        Assert.False(document.EvalEnabled);
+        Assert.Empty(document.WorkCompletion!.RequiredProgramPresets);
     }
 
     [Fact]

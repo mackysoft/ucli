@@ -476,6 +476,12 @@ namespace MackySoft.Ucli.Unity.Tests
                 }
             }
 
+            public Task<IpcResponse> DispatchProgramRequestAsync (
+                IpcExecuteRequest request,
+                ExecuteDispatchContext context,
+                CancellationToken cancellationToken = default) =>
+                DispatchAsync(request, context, cancellationToken);
+
             public void CompleteMutation ()
             {
                 mutationCompletion.TrySetResult(true);

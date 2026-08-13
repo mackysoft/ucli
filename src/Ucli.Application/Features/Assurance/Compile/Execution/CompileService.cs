@@ -57,10 +57,12 @@ internal sealed partial class CompileService : ICompileService
         ICommandProgressSink progressSink,
         ExecutionRef? reconnectedExecutionRef,
         LifecycleExecutionStartBinding? requiredStart,
+        bool failFast,
         CancellationToken cancellationToken,
         Func<UnityRequestPayload, CancellationToken, ValueTask<UnityRequestExecutionResult>> dispatchAsync)
     {
-        var payload = new UnityRequestPayload.Compile(registration, requiredStart);
+        var payload = new UnityRequestPayload.Compile(registration, requiredStart,
+            requiredStart is null ? new WaitableEditorLifecycleStartAdmissionPolicy(failFast) : null);
         var executionResult = await dispatchAsync(payload, cancellationToken)
             .ConfigureAwait(false);
         if (!executionResult.IsSuccess)

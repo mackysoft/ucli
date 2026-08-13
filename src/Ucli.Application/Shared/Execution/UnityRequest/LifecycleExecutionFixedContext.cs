@@ -15,11 +15,13 @@ internal sealed class LifecycleExecutionFixedContext
     public LifecycleExecutionFixedContext (
         ProjectContext project,
         ExecutionMode requestedMode,
-        IUnityExecutionHostBinding hostBinding)
+        IUnityExecutionHostBinding hostBinding,
+        bool failFast = false)
     {
         Project = project ?? throw new ArgumentNullException(nameof(project));
         RequestedMode = requestedMode;
         HostBinding = hostBinding ?? throw new ArgumentNullException(nameof(hostBinding));
+        FailFast = failFast;
         if (HostBinding.Project != Project.UnityProject)
         {
             throw new ArgumentException(
@@ -33,6 +35,9 @@ internal sealed class LifecycleExecutionFixedContext
     public ExecutionMode RequestedMode { get; }
 
     public IUnityExecutionHostBinding HostBinding { get; }
+
+    /// <summary> Gets whether the caller elected immediate failure instead of readiness waiting. </summary>
+    public bool FailFast { get; }
 }
 
 /// <summary>
@@ -91,6 +96,17 @@ internal interface IUnityExecutionHostBinding : IAsyncDisposable
 
     /// <summary> Gets the selected provider target. </summary>
     UnityExecutionTarget Target { get; }
+
+    /// <summary>
+    /// Executes a read-only request on this already fixed host. It never
+    /// selects a replacement host and is used by Program registration to
+    /// capture host and generation before any Step can start.
+    /// </summary>
+    ValueTask<UnityRequestExecutionResult> ExecuteAsync (
+        UcliCommand command,
+        UnityRequestPayload payload,
+        ExecutionDeadline deadline,
+        CancellationToken cancellationToken = default);
 
     /// <summary> Starts one Lifecycle Execution without resolving another host. </summary>
     ValueTask<UnityRequestExecutionResult> StartAsync (

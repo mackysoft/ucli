@@ -21,6 +21,48 @@ public sealed class IpcCommandTimeoutResolverTests
         Assert.Null(result.Error);
     }
 
+    [Theory]
+    [Trait("Size", "Small")]
+    [MemberData(nameof(ProgramReconciliationCommands))]
+    public void Resolve_ProgramReconciliationWithoutOption_UsesCommandOverride (UcliCommand command)
+    {
+        var config = CreateConfig(
+            ipcDefaultTimeoutMilliseconds: 3_200,
+            ipcTimeoutMillisecondsByCommand: new Dictionary<string, int?>(StringComparer.Ordinal)
+            {
+                [command.Name] = 6_200,
+            });
+
+        var result = IpcCommandTimeoutResolver.ResolveNormalized(null, command, config);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(TimeSpan.FromMilliseconds(6_200), result.Timeout);
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [MemberData(nameof(ProgramReconciliationCommands))]
+    public void Resolve_ProgramReconciliationExplicitOption_OverridesCommandConfiguration (UcliCommand command)
+    {
+        var config = CreateConfig(
+            ipcDefaultTimeoutMilliseconds: 3_200,
+            ipcTimeoutMillisecondsByCommand: new Dictionary<string, int?>(StringComparer.Ordinal)
+            {
+                [command.Name] = 6_200,
+            });
+
+        var result = IpcCommandTimeoutResolver.ResolveNormalized(1_500, command, config);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(TimeSpan.FromMilliseconds(1_500), result.Timeout);
+    }
+
+    public static IEnumerable<object[]> ProgramReconciliationCommands =>
+    [
+        [UcliCommandIds.ProgramStatus],
+        [UcliCommandIds.ProgramCancel],
+    ];
+
     [Fact]
     [Trait("Size", "Small")]
     public void Resolve_WithOption_UsesOptionValue ()

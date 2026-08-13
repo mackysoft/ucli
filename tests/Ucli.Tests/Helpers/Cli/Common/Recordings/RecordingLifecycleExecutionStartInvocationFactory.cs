@@ -119,6 +119,15 @@ internal sealed class RecordingLifecycleExecutionStartInvocationFactory :
 
         public int DisposeCount { get; private set; }
 
+        public ValueTask<UnityRequestExecutionResult> ExecuteAsync (
+            UcliCommand command,
+            UnityRequestPayload payload,
+            ExecutionDeadline deadline,
+            CancellationToken cancellationToken = default)
+        {
+            throw new InvalidOperationException("Test command services do not dispatch through the host binding.");
+        }
+
         public ValueTask<UnityRequestExecutionResult> StartAsync (
             UcliCommand command,
             UnityRequestPayload payload,
