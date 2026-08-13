@@ -56,11 +56,6 @@ internal sealed class ProgramCallPreflightService
         }
 
         var request = parsed.Request! with { AllowPlayMode = run.FixedContext.Authorization.AllowPlayMode };
-        if (ContainsEval(request))
-        {
-            return ProgramCallPreflightResult.Refused("PROGRAM_CALL_EVAL_NOT_ALLOWED");
-        }
-
         var executionContext = await ObserveExecutionContextAsync(run, binding, deadline, cancellationToken).ConfigureAwait(false);
         if (executionContext is null)
         {
@@ -160,14 +155,6 @@ internal sealed class ProgramCallPreflightService
             return null;
         }
         return new ProgramCallExecutionContext(context.Host, context.Generation);
-    }
-
-    private static bool ContainsEval (ValidateRequest request)
-    {
-        ArgumentNullException.ThrowIfNull(request);
-        return request.Steps.Any(static step =>
-            step.Kind == IpcExecuteStepKind.Op
-            && string.Equals(step.Op, UcliPrimitiveOperationNames.CsEval, StringComparison.Ordinal));
     }
 
 }

@@ -98,7 +98,7 @@ internal sealed class UcliEffectiveConfigBuilder
         {
             IpcDefaultTimeoutMilliseconds = ipcDefaultTimeoutMilliseconds,
             IpcTimeoutMillisecondsByCommand = ipcTimeoutMillisecondsByCommand,
-            EvalEnabled = document.EvalEnabled,
+            EvalEnabled = document.EvalEnabled ?? false,
             ProgramPresets = programPresets,
             WorkCompletion = new UcliWorkCompletion(
                 document.WorkCompletion?.RequiredProgramPresets ?? Array.Empty<string>()),

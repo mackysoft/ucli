@@ -1061,8 +1061,8 @@ public sealed class ProgramSupervisorTests
         var commandTimeouts = new Dictionary<string, int> { ["ready"] = 1000 };
         return new ProgramRunFixedContext(
             new ProgramEffectiveAuthorizationSnapshot(false, false, IpcProgramEffectiveAuthorizationSnapshot.ComputeDigest(false, false).ToString(), StartedAtUtc),
-            new ProgramEffectiveConfigurationSnapshot(1, OperationPolicy.Safe, PlanTokenMode.Optional, ReadIndexMode.RequireFresh, [], 1000, commandTimeouts, false,
-                IpcProgramEffectiveConfigurationSnapshot.ComputeDigest(1, "safe", "optional", "requireFresh", [], 1000, commandTimeouts, false), StartedAtUtc),
+            new ProgramEffectiveConfigurationSnapshot(1, OperationPolicy.Safe, PlanTokenMode.Optional, ReadIndexMode.RequireFresh, [], 1000, commandTimeouts,
+            IpcProgramEffectiveConfigurationSnapshot.ComputeDigest(1, "safe", "optional", "requireFresh", [], 1000, commandTimeouts), StartedAtUtc),
             new ProgramExecutionModeSnapshot("auto", "daemon"),
             new ProgramAttachedSupervisorSnapshot(Guid.Parse("00000000-0000-0000-0000-000000000010"), Guid.Parse("00000000-0000-0000-0000-000000000011"), Owner, ProgramSupervisorConnection.Connected, ProgramSupervisorAvailability.Available, StartedAtUtc));
     }

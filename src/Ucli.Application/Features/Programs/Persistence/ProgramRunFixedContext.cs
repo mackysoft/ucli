@@ -56,7 +56,6 @@ internal sealed record ProgramEffectiveConfigurationSnapshot (
     IReadOnlyList<string> OperationAllowlist,
     int IpcDefaultTimeoutMilliseconds,
     IReadOnlyDictionary<string, int> IpcTimeoutMillisecondsByCommand,
-    bool EvalEnabled,
     Sha256Digest Digest,
     DateTimeOffset CapturedAtUtc)
 {
@@ -77,8 +76,7 @@ internal sealed record ProgramEffectiveConfigurationSnapshot (
                 TextVocabulary.GetText(ReadIndexDefaultMode),
                 OperationAllowlist,
                 IpcDefaultTimeoutMilliseconds,
-                IpcTimeoutMillisecondsByCommand,
-                EvalEnabled))
+                IpcTimeoutMillisecondsByCommand))
         {
             throw new ArgumentException("Program configuration snapshot digest does not match its effective settings.");
         }

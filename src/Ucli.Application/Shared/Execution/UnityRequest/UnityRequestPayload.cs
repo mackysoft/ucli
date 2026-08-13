@@ -70,6 +70,18 @@ internal abstract record UnityRequestPayload
         string ClientVersion,
         bool FailFast = false) : UnityRequestPayload;
 
+    internal sealed record EvalPlan : UnityRequestPayload
+    {
+        public EvalPlan (IpcEvalPlanRequest request) => Request = request ?? throw new ArgumentNullException(nameof(request));
+        public IpcEvalPlanRequest Request { get; }
+    }
+
+    internal sealed record EvalCall : UnityRequestPayload
+    {
+        public EvalCall (IpcEvalCallRequest request) => Request = request ?? throw new ArgumentNullException(nameof(request));
+        public IpcEvalCallRequest Request { get; }
+    }
+
     /// <summary> Reads the fixed host and generation facts needed to register a Program Run. </summary>
     internal sealed record ProgramExecutionContext : UnityRequestPayload
     {

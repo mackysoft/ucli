@@ -49,6 +49,27 @@ internal sealed class UcliConfigCompiler
             new UcliEffectiveConfigBuilder());
     }
 
+    public UcliConfigBuildResult Build (UcliConfigContractSnapshot snapshot)
+    {
+        ArgumentNullException.ThrowIfNull(snapshot);
+        var config = UcliConfig.CreateDefault() with
+        {
+            SchemaVersion = snapshot.SchemaVersion,
+            OperationPolicy = snapshot.OperationPolicy,
+            PlanTokenMode = snapshot.PlanTokenMode,
+            ReadIndexDefaultMode = snapshot.ReadIndexDefaultMode,
+            OperationAllowlist = snapshot.OperationAllowlist.ToArray(),
+            EvalEnabled = snapshot.EvalEnabled,
+            IpcDefaultTimeoutMilliseconds = snapshot.IpcDefaultTimeoutMilliseconds,
+            IpcTimeoutMillisecondsByCommand = snapshot.IpcTimeoutMillisecondsByCommand ?? new Dictionary<string, int?>(),
+            ProgramPresets = snapshot.ProgramPresets.ToDictionary(
+                static entry => entry.Key,
+                static entry => new ProgramPresetRegistration(entry.Value.Description, RootRelativePath.Parse(entry.Value.ProgramPath)),
+                StringComparer.Ordinal),
+        };
+        return UcliConfigBuildResult.Success(config);
+    }
+
     /// <summary> Compiles one config JSON root into effective config values. </summary>
     /// <param name="root"> The config JSON root element. </param>
     /// <param name="sourcePath"> The source config path used in diagnostics. </param>

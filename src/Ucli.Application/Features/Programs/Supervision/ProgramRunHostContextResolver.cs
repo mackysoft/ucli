@@ -237,7 +237,6 @@ internal sealed class ProgramRunHostContextResolver : IProgramRunHostContextReso
             configuration.OperationAllowlist,
             configuration.IpcDefaultTimeoutMilliseconds,
             effectiveTimeouts,
-            evalEnabled: configuration.EvalEnabled,
             IpcProgramEffectiveConfigurationSnapshot.ComputeDigest(
                 configuration.SchemaVersion,
                 TextVocabulary.GetText(configuration.OperationPolicy),
@@ -245,8 +244,7 @@ internal sealed class ProgramRunHostContextResolver : IProgramRunHostContextReso
                 TextVocabulary.GetText(configuration.ReadIndexDefaultMode),
                 configuration.OperationAllowlist,
                 configuration.IpcDefaultTimeoutMilliseconds,
-                effectiveTimeouts,
-                evalEnabled: configuration.EvalEnabled));
+                effectiveTimeouts));
     }
 
     private static bool HasSameConfiguration (
@@ -259,7 +257,6 @@ internal sealed class ProgramRunHostContextResolver : IProgramRunHostContextReso
             && expected.PlanTokenMode == actual.PlanTokenMode
             && expected.ReadIndexDefaultMode == actual.ReadIndexDefaultMode
             && expected.IpcDefaultTimeoutMilliseconds == actual.IpcDefaultTimeoutMilliseconds
-            && expected.EvalEnabled == actual.EvalEnabled
             && expected.OperationAllowlist.SequenceEqual(actual.OperationAllowlist, StringComparer.Ordinal)
             && expected.IpcTimeoutMillisecondsByCommand.Count == actual.IpcTimeoutMillisecondsByCommand.Count
             && expected.IpcTimeoutMillisecondsByCommand.All(entry =>
