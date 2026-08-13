@@ -464,7 +464,13 @@ public static class TypeInitializerFailureEval
                 UnityIpcMethod.EvalCall,
                 IpcResponseMode.Single);
 
-            var response = await dispatcher.DispatchAsync(validatedRequest, phaseScope);
+            var dispatchTask = dispatcher.DispatchAsync(validatedRequest, phaseScope);
+            Assert.That(dispatchTask.IsCompleted, Is.False, "Dispatch completed before mutation admission was observed.");
+            await TestAwaiter.WaitAsync(
+                mutationLane.MutationStarted,
+                "Mutation admission",
+                TimeSpan.FromSeconds(2));
+            var response = await dispatchTask;
 
             Assert.That(response.Status, Is.EqualTo(IpcResponseStatus.Error));
             Assert.That(response.Errors, Has.Count.EqualTo(1));
@@ -728,6 +734,7 @@ public static class TypeInitializerFailureEval
         private sealed class DeadlineBlockingMutationLaneControl : IUnityMutationLaneControl
         {
             private readonly TimeSpan delay;
+            private readonly TaskCompletionSource<bool> mutationStarted = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
             public DeadlineBlockingMutationLaneControl (TimeSpan delay)
             {
@@ -738,10 +745,12 @@ public static class TypeInitializerFailureEval
             public bool HasUnfinishedWork => false;
             public bool IsQuarantined => false;
             public int BeginMutationCount { get; private set; }
+            public Task MutationStarted => mutationStarted.Task;
 
             public IUnityMutationActivity BeginMutation ()
             {
                 BeginMutationCount++;
+                mutationStarted.TrySetResult(true);
                 Thread.Sleep(delay);
                 return new NoOpMutationActivity();
             }
