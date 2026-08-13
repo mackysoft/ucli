@@ -10,15 +10,30 @@ public sealed class DaemonStartOperationTimeoutTests
     [Trait("Size", "Small")]
     public async Task Start_WhenSessionReadIgnoresCancellation_ReturnsAtDeadline ()
     {
-        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
+        var timeout = TimeSpan.FromMilliseconds(500);
+        var timeProvider = new DeadlineTimerObservingTimeProvider(
+            new FakeTimeProvider(DateTimeOffset.UnixEpoch),
+            timeout);
         var readStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var readCancellationObserved = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var readFinished = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var readCompletion = new TaskCompletionSource<DaemonSessionReadResult>(TaskCreationOptions.RunContinuationsAsynchronously);
         var sessionStore = new RecordingDaemonSessionStore
         {
-            ReadAsyncHandler = (_, _, _) =>
+            ReadAsyncHandler = async (_, _, cancellationToken) =>
             {
+                using var cancellationRegistration = cancellationToken.UnsafeRegister(
+                    static state => ((TaskCompletionSource)state!).TrySetResult(),
+                    readCancellationObserved);
                 readStarted.TrySetResult();
-                return new ValueTask<DaemonSessionReadResult>(readCompletion.Task);
+                try
+                {
+                    return await readCompletion.Task.ConfigureAwait(false);
+                }
+                finally
+                {
+                    readFinished.TrySetResult();
+                }
             },
         };
         var operation = CreateOperation(
@@ -28,7 +43,6 @@ public sealed class DaemonStartOperationTimeoutTests
             daemonLaunchService: new RecordingDaemonLaunchService(),
             timeProvider: timeProvider);
         var unityProject = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-start-session-read-timeout"));
-        var timeout = TimeSpan.FromSeconds(1);
 
         var resultTask = operation.StartAsync(
                 unityProject,
@@ -37,12 +51,20 @@ public sealed class DaemonStartOperationTimeoutTests
                 onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
                 cancellationToken: CancellationToken.None)
             .AsTask();
-        await readStarted.Task.WaitAsync(TimeSpan.FromSeconds(1));
 
         try
         {
+            await timeProvider.WaitForDeadlineTimerRegistrationAsync();
+            await readStarted.Task;
+            Assert.False(resultTask.IsCompleted);
+            Assert.False(readCompletion.Task.IsCompleted);
+
             timeProvider.Advance(timeout);
-            var result = await resultTask.WaitAsync(TimeSpan.FromSeconds(1));
+            await readCancellationObserved.Task;
+            Assert.False(readCompletion.Task.IsCompleted);
+            Assert.False(readFinished.Task.IsCompleted);
+
+            var result = await resultTask;
 
             Assert.False(result.IsSuccess);
             Assert.Equal(ExecutionErrorKind.Timeout, result.Error!.Kind);
@@ -50,6 +72,63 @@ public sealed class DaemonStartOperationTimeoutTests
         finally
         {
             readCompletion.TrySetResult(DaemonSessionReadResult.Missing());
+            await readFinished.Task;
+        }
+    }
+
+    private sealed class DeadlineTimerObservingTimeProvider : TimeProvider
+    {
+        private readonly FakeTimeProvider inner;
+
+        private readonly TimeSpan deadlineTimeout;
+
+        private readonly TaskCompletionSource deadlineTimerRegistered = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public DeadlineTimerObservingTimeProvider (
+            FakeTimeProvider inner,
+            TimeSpan deadlineTimeout)
+        {
+            this.inner = inner ?? throw new ArgumentNullException(nameof(inner));
+            this.deadlineTimeout = deadlineTimeout;
+        }
+
+        public override TimeZoneInfo LocalTimeZone => inner.LocalTimeZone;
+
+        public override long TimestampFrequency => inner.TimestampFrequency;
+
+        public override DateTimeOffset GetUtcNow ()
+        {
+            return inner.GetUtcNow();
+        }
+
+        public override long GetTimestamp ()
+        {
+            return inner.GetTimestamp();
+        }
+
+        public void Advance (TimeSpan elapsed)
+        {
+            inner.Advance(elapsed);
+        }
+
+        public override ITimer CreateTimer (
+            TimerCallback callback,
+            object? state,
+            TimeSpan dueTime,
+            TimeSpan period)
+        {
+            var timer = inner.CreateTimer(callback, state, dueTime, period);
+            if (dueTime == deadlineTimeout && period == Timeout.InfiniteTimeSpan)
+            {
+                deadlineTimerRegistered.TrySetResult();
+            }
+
+            return timer;
+        }
+
+        public Task WaitForDeadlineTimerRegistrationAsync ()
+        {
+            return deadlineTimerRegistered.Task;
         }
     }
 }
