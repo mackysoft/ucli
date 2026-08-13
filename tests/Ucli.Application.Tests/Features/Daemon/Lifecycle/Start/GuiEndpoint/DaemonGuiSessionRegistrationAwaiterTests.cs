@@ -1,7 +1,6 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Acquisition;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Foundation;
-using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Tests.Daemon;
@@ -74,7 +73,7 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task WaitForSession_WhenSessionTokenRotates_ProbesValidatedSuccessorWithSameRequestId ()
+    public async Task WaitForSession_WhenSessionTokenRotates_ProbesValidatedSuccessor ()
     {
         var unityProject = DaemonCommandExecutionContextTestFactory.Create(1000).Context.UnityProject;
         var observedSession = CreateGuiSession(
@@ -111,12 +110,11 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
             pingClient.Invocations,
             invocation => Assert.Equal(observedSession, invocation.Session),
             invocation => Assert.Equal(successorSession, invocation.Session));
-        Assert.Single(pingClient.Invocations.Select(static invocation => invocation.RequestId).Distinct());
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task WaitForSession_WhenResponseIsInterrupted_ProbesValidatedSuccessorWithSameRequestId ()
+    public async Task WaitForSession_WhenResponseIsInterrupted_ProbesValidatedSuccessor ()
     {
         var unityProject = DaemonCommandExecutionContextTestFactory.Create(1000).Context.UnityProject;
         var observedSession = CreateGuiSession(
@@ -149,7 +147,6 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
 
         Assert.True(result.IsSuccess);
         Assert.Equal(successorSession, result.Session);
-        Assert.Single(pingClient.Invocations.Select(static invocation => invocation.RequestId).Distinct());
     }
 
     [Fact]
@@ -514,7 +511,7 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task WaitForSession_WhenDaemonReportsRequestTimeout_RetriesWithNewRequestId ()
+    public async Task WaitForSession_WhenDaemonReportsRequestTimeout_RetriesWithRefreshedSession ()
     {
         var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
         var firstPingObserved = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -548,7 +545,6 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
         Assert.True(result.IsSuccess);
         Assert.Equal(2, sessionStore.ReadInvocations.Count);
         Assert.Equal(2, pingClient.Invocations.Count);
-        Assert.Equal(2, pingClient.Invocations.Select(static invocation => invocation.RequestId).Distinct().Count());
     }
 
     [Fact]

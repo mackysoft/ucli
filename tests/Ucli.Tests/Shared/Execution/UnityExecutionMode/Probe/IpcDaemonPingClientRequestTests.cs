@@ -89,7 +89,7 @@ public sealed class IpcDaemonPingClientRequestTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task PingAndRead_WhenReplacementPublicationIsDelayed_RetriesOnceWithSameRequestId ()
+    public async Task PingAndRead_WhenReplacementPublicationIsDelayed_RetriesOnceWithDistinctRequestIds ()
     {
         var unityProject = CreateFingerprintMatchedProject();
         var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
@@ -150,9 +150,7 @@ public sealed class IpcDaemonPingClientRequestTests
             request => Assert.Equal(
                 IpcSessionTokenTestFactory.Create("refreshed-token").GetEncodedValue(),
                 request.SessionToken));
-        var requestId = unityIpcClient.Requests[0].RequestId;
-        Assert.NotEqual(Guid.Empty, requestId);
-        Assert.Equal(requestId, unityIpcClient.Requests[1].RequestId);
+        AssertDistinctNonEmptyRequestIds(unityIpcClient.Requests);
         Assert.Collection(
             unityIpcClient.Endpoints,
             endpoint => Assert.Equal(rejectedSession.EndpointContract, endpoint),
@@ -221,7 +219,7 @@ public sealed class IpcDaemonPingClientRequestTests
             initialSession.SessionToken.GetEncodedValue(),
             successorSession.SessionToken.GetEncodedValue(),
             latestSession.SessionToken.GetEncodedValue());
-        _ = IpcRequestAssert.SingleRequestId(unityIpcClient.Requests);
+        AssertDistinctNonEmptyRequestIds(unityIpcClient.Requests);
     }
 
     [Fact]
@@ -278,7 +276,7 @@ public sealed class IpcDaemonPingClientRequestTests
             initialSession.SessionToken.GetEncodedValue(),
             successorSession.SessionToken.GetEncodedValue(),
             latestSession.SessionToken.GetEncodedValue());
-        _ = IpcRequestAssert.SingleRequestId(unityIpcClient.Requests);
+        AssertDistinctNonEmptyRequestIds(unityIpcClient.Requests);
     }
 
     [Fact]
@@ -482,13 +480,11 @@ public sealed class IpcDaemonPingClientRequestTests
             sessionToken: "captured-token",
             endpointTransportKind: IpcTransportKind.UnixDomainSocket,
             endpointAddress: "/tmp/ucli-captured-session.sock");
-        var requestId = Guid.NewGuid();
         var deadline = ExecutionDeadline.Start(DefaultTimeout, TimeProvider.System);
 
         _ = await pingClient.PingSessionAndReadAsync(
             CreateFingerprintMatchedProject(),
             session,
-            requestId,
             deadline,
             validateProjectFingerprint: true,
             CancellationToken.None);
@@ -498,7 +494,7 @@ public sealed class IpcDaemonPingClientRequestTests
             expectedEndpointAddress: session.EndpointContract.Address,
             expectedMethod: UnityIpcMethod.Ping,
             expectedSessionToken: IpcSessionTokenTestFactory.Create("captured-token").GetEncodedValue());
-        Assert.Equal(requestId, request.RequestId);
+        Assert.NotEqual(Guid.Empty, request.RequestId);
     }
 
     [Theory]
@@ -531,6 +527,12 @@ public sealed class IpcDaemonPingClientRequestTests
         {
             _ = task.Exception;
         }
+    }
+
+    private static void AssertDistinctNonEmptyRequestIds (IReadOnlyList<IpcRequestEnvelope> requests)
+    {
+        Assert.All(requests, static request => Assert.NotEqual(Guid.Empty, request.RequestId));
+        Assert.Equal(requests.Count, requests.Select(static request => request.RequestId).Distinct().Count());
     }
 
 }

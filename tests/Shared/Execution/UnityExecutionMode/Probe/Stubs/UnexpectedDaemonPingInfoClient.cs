@@ -26,7 +26,6 @@ internal sealed class UnexpectedDaemonPingInfoClient : IDaemonPingInfoClient
     public ValueTask<UnityEditorObservation> PingSessionAndReadAsync (
         ResolvedUnityProjectContext unityProject,
         DaemonSession session,
-        Guid requestId,
         ExecutionDeadline deadline,
         bool validateProjectFingerprint,
         CancellationToken cancellationToken)
