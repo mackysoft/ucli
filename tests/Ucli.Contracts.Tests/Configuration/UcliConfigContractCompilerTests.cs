@@ -6,6 +6,23 @@ namespace MackySoft.Ucli.Contracts.Tests.Configuration;
 public sealed class UcliConfigContractCompilerTests
 {
     [Fact]
+    public void Compile_WithNullEntryPreservesBuiltinFallbackMarker ()
+    {
+        using var document = JsonDocument.Parse("{\"schemaVersion\":1,\"operationPolicy\":\"safe\",\"planTokenMode\":\"optional\",\"operationAllowlist\":[],\"ipcTimeoutMillisecondsByCommand\":{\"call\":null}}");
+        var result = new UcliConfigContractCompiler().Compile(document.RootElement, "config.json");
+        Assert.True(result.IsSuccess);
+        Assert.Null(result.Snapshot!.IpcTimeoutMillisecondsByCommand!["call"]);
+    }
+
+    [Fact]
+    public void Compile_WithDuplicateWorkCompletionPropertyFails ()
+    {
+        using var document = JsonDocument.Parse("{\"schemaVersion\":1,\"operationPolicy\":\"safe\",\"planTokenMode\":\"optional\",\"operationAllowlist\":[],\"workCompletion\":{\"requiredProgramPresets\":[],\"requiredProgramPresets\":[]}}");
+        var result = new UcliConfigContractCompiler().Compile(document.RootElement, "config.json");
+        Assert.False(result.IsSuccess);
+        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.Code == "config.schema.duplicateProperty");
+    }
+    [Fact]
     public void Compile_NormalizesProgramPresetKeysOrdinally ()
     {
         using var document = JsonDocument.Parse("{\"schemaVersion\":1,\"operationPolicy\":\"safe\",\"planTokenMode\":\"optional\",\"operationAllowlist\":[],\"programPresets\":{\"z\":{\"description\":\"z\",\"programPath\":\"z.json\"},\"a\":{\"description\":\"a\",\"programPath\":\"a.json\"}}}");
