@@ -1,6 +1,6 @@
 {
   "schemaSet": "ucli",
-  "packageVersion": "0.0.0-ci",
+  "packageVersion": "0.0.0",
   "protocolVersion": 1,
   "jsonSchemaDialect": "https://json-schema.org/draft/2020-12/schema",
   "schemas": [
