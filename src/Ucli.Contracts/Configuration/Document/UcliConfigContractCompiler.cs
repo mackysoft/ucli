@@ -529,7 +529,7 @@ internal sealed class UcliConfigContractCompiler
             return result;
         }
 
-        foreach (var entry in source)
+        foreach (var entry in source.OrderBy(static entry => entry.Key, StringComparer.Ordinal))
         {
             var path = $"{UcliConfigJsonPropertyNames.ProgramPresets}.{entry.Key}";
             if (!IsValidPresetId(entry.Key))

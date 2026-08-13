@@ -6,6 +6,14 @@ namespace MackySoft.Ucli.Contracts.Tests.Configuration;
 public sealed class UcliConfigContractCompilerTests
 {
     [Fact]
+    public void Compile_NormalizesProgramPresetKeysOrdinally ()
+    {
+        using var document = JsonDocument.Parse("{\"schemaVersion\":1,\"operationPolicy\":\"safe\",\"planTokenMode\":\"optional\",\"operationAllowlist\":[],\"programPresets\":{\"z\":{\"description\":\"z\",\"programPath\":\"z.json\"},\"a\":{\"description\":\"a\",\"programPath\":\"a.json\"}}}");
+        var result = new UcliConfigContractCompiler().Compile(document.RootElement, "config.json");
+        Assert.True(result.IsSuccess);
+        Assert.Equal(["a", "z"], result.Snapshot!.ProgramPresets.Keys);
+    }
+    [Fact]
     public void Compile_WithNullGlobalTimeout_UsesDefault ()
     {
         using var document = JsonDocument.Parse("{\"schemaVersion\":1,\"operationPolicy\":\"safe\",\"planTokenMode\":\"optional\",\"operationAllowlist\":[],\"ipcDefaultTimeoutMilliseconds\":null}");
