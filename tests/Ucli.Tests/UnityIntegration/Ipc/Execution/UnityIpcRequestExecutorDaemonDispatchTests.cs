@@ -59,7 +59,7 @@ public sealed class UnityIpcRequestExecutorDaemonDispatchTests
         var request = Assert.Single(daemonTransportClient.Requests);
         Assert.Equal(UnityIpcMethod.ProgramRequestCancel, IpcRequestAssert.ParseMethod(request));
         Assert.Equal(IpcSessionTokenTestFactory.Create("fixed-daemon-token").GetEncodedValue(), request.SessionToken);
-        UnityIpcTransportClientAssert.EndpointDispatchAddressedOnce(daemonTransportClient, "/tmp/ucli-session.sock");
+        UnityIpcTransportClientAssert.EndpointDispatchAddressedOnce(daemonTransportClient, Path.GetFullPath("/tmp/ucli-session.sock"));
         Assert.Empty(oneshotTransportClient.Requests);
         await resolution.Binding.DisposeAsync();
     }
