@@ -447,9 +447,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 new[] { "^ucli\\." },
                 defaultTimeout,
                 timeouts,
-                evalEnabled: false,
                 IpcProgramEffectiveConfigurationSnapshot.ComputeDigest(
-                    1, "safe", "optional", "requireFresh", new[] { "^ucli\\." }, defaultTimeout, timeouts, false));
+                    1, "safe", "optional", "requireFresh", new[] { "^ucli\\." }, defaultTimeout, timeouts));
         }
 
         private sealed class FixedConfigurationSource : IUnityProgramEffectiveConfigurationSource
