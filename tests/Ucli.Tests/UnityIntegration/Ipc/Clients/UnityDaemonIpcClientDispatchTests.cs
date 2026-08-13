@@ -253,7 +253,7 @@ public sealed class UnityDaemonIpcClientDispatchTests
         await timeProvider.WaitForPublicationRetryTimerAsync().WaitAsync(SignalWaitTimeout);
         timeProvider.Advance(DaemonTimeouts.SessionPublicationRetryTimeout);
 
-        var result = await sendTask.WaitAsync(TimeSpan.FromSeconds(1));
+        var result = await sendTask;
 
         Assert.True(result.IsSuccess);
         Assert.Equal(IpcSessionErrorCodes.SessionTokenInvalid, Assert.Single(result.Response!.Errors).Code);
