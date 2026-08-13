@@ -320,7 +320,9 @@ public sealed class IpcDaemonReachabilityProbeTests
         Assert.All(
             transportClient.Timeouts,
             timeout => Assert.InRange(timeout, TimeSpan.FromTicks(1), ProbeAttemptTimeoutCap));
-        Assert.Equal(transportClient.Requests[0].RequestId, transportClient.Requests[1].RequestId);
+        Assert.NotEqual(Guid.Empty, transportClient.Requests[0].RequestId);
+        Assert.NotEqual(Guid.Empty, transportClient.Requests[1].RequestId);
+        Assert.NotEqual(transportClient.Requests[0].RequestId, transportClient.Requests[1].RequestId);
         Assert.Equal(transportClient.Requests[0].RequestDeadlineUtc, transportClient.Requests[1].RequestDeadlineUtc);
         Assert.Equal(startedAtUtc + DefaultProbeTimeout, transportClient.Requests[0].RequestDeadlineUtc);
         Assert.Equal(startedAtUtc + ProbeAttemptTimeoutCap, timeProvider.GetUtcNow());
@@ -392,7 +394,10 @@ public sealed class IpcDaemonReachabilityProbeTests
         Assert.Contains(errorCode.Value, error.Message, StringComparison.Ordinal);
         var expectedAttemptCount = errorCode == IpcSessionErrorCodes.SessionTokenInvalid ? 2 : 1;
         Assert.Equal(expectedAttemptCount, transportClient.Requests.Count);
-        _ = IpcRequestAssert.SingleRequestId(transportClient.Requests);
+        Assert.All(transportClient.Requests, static request => Assert.NotEqual(Guid.Empty, request.RequestId));
+        Assert.Equal(
+            expectedAttemptCount,
+            transportClient.Requests.Select(static request => request.RequestId).Distinct().Count());
     }
 
     [Fact]

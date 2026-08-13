@@ -46,7 +46,6 @@ internal sealed class RecordingDaemonPingInfoClient : IDaemonPingInfoClient
             timeout,
             deadline: null,
             session: null,
-            requestId: null,
             validateProjectFingerprint,
             cancellationToken);
     }
@@ -54,17 +53,12 @@ internal sealed class RecordingDaemonPingInfoClient : IDaemonPingInfoClient
     public ValueTask<UnityEditorObservation> PingSessionAndReadAsync (
         ResolvedUnityProjectContext unityProject,
         DaemonSession session,
-        Guid requestId,
         ExecutionDeadline deadline,
         bool validateProjectFingerprint,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(session);
         ArgumentNullException.ThrowIfNull(deadline);
-        if (requestId == Guid.Empty)
-        {
-            throw new ArgumentException("Daemon ping request identifier must not be empty.", nameof(requestId));
-        }
 
         if (!deadline.TryGetRemainingTimeout(out var timeout))
         {
@@ -76,7 +70,6 @@ internal sealed class RecordingDaemonPingInfoClient : IDaemonPingInfoClient
             timeout,
             deadline,
             session,
-            requestId,
             validateProjectFingerprint,
             cancellationToken);
     }
@@ -86,7 +79,6 @@ internal sealed class RecordingDaemonPingInfoClient : IDaemonPingInfoClient
         TimeSpan timeout,
         ExecutionDeadline? deadline,
         DaemonSession? session,
-        Guid? requestId,
         bool validateProjectFingerprint,
         CancellationToken cancellationToken)
     {
@@ -98,7 +90,6 @@ internal sealed class RecordingDaemonPingInfoClient : IDaemonPingInfoClient
             timeout,
             deadline,
             session,
-            requestId,
             validateProjectFingerprint,
             cancellationToken));
         firstInvocationObserved.TrySetResult(null);
@@ -142,7 +133,6 @@ internal sealed class RecordingDaemonPingInfoClient : IDaemonPingInfoClient
         TimeSpan Timeout,
         ExecutionDeadline? Deadline,
         DaemonSession? Session,
-        Guid? RequestId,
         bool ValidateProjectFingerprint,
         CancellationToken CancellationToken)
     {

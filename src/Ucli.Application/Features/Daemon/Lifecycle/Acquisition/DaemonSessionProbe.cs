@@ -1,5 +1,4 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
-using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Acquisition;
@@ -43,7 +42,6 @@ internal sealed class DaemonSessionProbe
         ArgumentNullException.ThrowIfNull(unityProject);
         ArgumentNullException.ThrowIfNull(observedSession);
         ArgumentNullException.ThrowIfNull(deadline);
-        var requestId = Guid.NewGuid();
 
         var acquisitionScope = sessionAcquisitionCoordinator.CreateScope(deadline);
         var currentSession = observedSession;
@@ -88,7 +86,6 @@ internal sealed class DaemonSessionProbe
                 var pingResponse = await PingWithinDeadlineAsync(
                         unityProject,
                         currentSession,
-                        requestId,
                         deadline,
                         cancellationToken)
                     .ConfigureAwait(false);
@@ -139,7 +136,6 @@ internal sealed class DaemonSessionProbe
     private async ValueTask<UnityEditorObservation> PingWithinDeadlineAsync (
         ResolvedUnityProjectContext unityProject,
         DaemonSession session,
-        Guid requestId,
         ExecutionDeadline deadline,
         CancellationToken cancellationToken)
     {
@@ -156,7 +152,6 @@ internal sealed class DaemonSessionProbe
                 token => daemonPingInfoClient.PingSessionAndReadAsync(
                     unityProject,
                     session,
-                    requestId,
                     deadline,
                     validateProjectFingerprint: true,
                     cancellationToken: token))

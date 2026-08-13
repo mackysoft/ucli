@@ -2,8 +2,8 @@ using System.Runtime.ExceptionServices;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Acquisition;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Timing;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
-using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.Timeout;
+using MackySoft.Ucli.Contracts.Editor;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.Authorization;
 using MackySoft.Ucli.Features.Daemon.Common.Ipc;
@@ -11,7 +11,6 @@ using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.UnityIntegration.Ipc.Dispatch;
 using MackySoft.Ucli.UnityIntegration.Ipc.Recovery;
 using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
-using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Probe;
 
@@ -69,7 +68,6 @@ internal sealed class IpcDaemonPingClient : IDaemonPingClient, IDaemonPingInfoCl
         var response = await SendPingRequestAsync(
                 DaemonSessionIpcTransportEndpointAdapter.Adapt(session),
                 session.SessionToken,
-                Guid.NewGuid(),
                 deadline,
                 cancellationToken)
             .ConfigureAwait(false);
@@ -131,7 +129,6 @@ internal sealed class IpcDaemonPingClient : IDaemonPingClient, IDaemonPingInfoCl
         var response = await SendPingRequestAsync(
                 endpoint,
                 sessionToken,
-                Guid.NewGuid(),
                 deadline,
                 cancellationToken)
             .ConfigureAwait(false);
@@ -158,7 +155,6 @@ internal sealed class IpcDaemonPingClient : IDaemonPingClient, IDaemonPingInfoCl
     public async ValueTask<UnityEditorObservation> PingSessionAndReadAsync (
         ResolvedUnityProjectContext unityProject,
         DaemonSession session,
-        Guid requestId,
         ExecutionDeadline deadline,
         bool validateProjectFingerprint,
         CancellationToken cancellationToken)
@@ -167,15 +163,10 @@ internal sealed class IpcDaemonPingClient : IDaemonPingClient, IDaemonPingInfoCl
         ArgumentNullException.ThrowIfNull(session);
         ArgumentNullException.ThrowIfNull(deadline);
         cancellationToken.ThrowIfCancellationRequested();
-        if (requestId == Guid.Empty)
-        {
-            throw new ArgumentException("Daemon ping request identifier must not be empty.", nameof(requestId));
-        }
 
         var response = await SendPingRequestAsync(
                 DaemonSessionIpcTransportEndpointAdapter.Adapt(session),
                 session.SessionToken,
-                requestId,
                 deadline,
                 cancellationToken)
             .ConfigureAwait(false);
@@ -189,7 +180,6 @@ internal sealed class IpcDaemonPingClient : IDaemonPingClient, IDaemonPingInfoCl
         CancellationToken cancellationToken)
     {
         var deadline = ExecutionDeadline.Start(timeout, timeProvider);
-        var requestId = Guid.NewGuid();
         var acquisitionScope = sessionAcquisitionCoordinator.CreateScope(deadline);
         var sessionAcquisition = await acquisitionScope.ResolveCurrentAsync(
                 unityProject,
@@ -240,7 +230,6 @@ internal sealed class IpcDaemonPingClient : IDaemonPingClient, IDaemonPingInfoCl
                 return await SendPingAndDecodeWithinDeadlineAsync(
                         unityProject,
                         session,
-                        requestId,
                         deadline,
                         validateProjectFingerprint,
                         cancellationToken)
@@ -284,7 +273,6 @@ internal sealed class IpcDaemonPingClient : IDaemonPingClient, IDaemonPingInfoCl
     private async ValueTask<UnityEditorObservation> SendPingAndDecodeWithinDeadlineAsync (
         ResolvedUnityProjectContext unityProject,
         DaemonSession session,
-        Guid requestId,
         ExecutionDeadline deadline,
         bool validateProjectFingerprint,
         CancellationToken cancellationToken)
@@ -292,7 +280,6 @@ internal sealed class IpcDaemonPingClient : IDaemonPingClient, IDaemonPingInfoCl
         var response = await SendPingRequestAsync(
                 DaemonSessionIpcTransportEndpointAdapter.Adapt(session),
                 session.SessionToken,
-                requestId,
                 deadline,
                 cancellationToken)
             .ConfigureAwait(false);
@@ -304,17 +291,15 @@ internal sealed class IpcDaemonPingClient : IDaemonPingClient, IDaemonPingInfoCl
         return DecodeResponse(unityProject, response, validateProjectFingerprint);
     }
 
-    /// <summary> Sends one ping request and returns the raw IPC response envelope. </summary>
+    /// <summary> Sends one newly constructed ping envelope and returns the raw IPC response envelope. </summary>
     /// <param name="endpoint"> The validated endpoint captured from one session generation. </param>
     /// <param name="sessionToken"> The authorization token captured from the same session generation. </param>
-    /// <param name="requestId"> The identifier shared by every delivery attempt for the logical ping. </param>
     /// <param name="deadline"> The deadline shared by every delivery attempt for the logical ping request. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> A task that resolves to the raw ping response. </returns>
     private async ValueTask<IpcResponse> SendPingRequestAsync (
         IpcTransportEndpoint endpoint,
         IpcSessionToken sessionToken,
-        Guid requestId,
         ExecutionDeadline deadline,
         CancellationToken cancellationToken)
     {
@@ -334,17 +319,19 @@ internal sealed class IpcDaemonPingClient : IDaemonPingClient, IDaemonPingInfoCl
         var transportAttemptTimeout = remainingTimeout < DaemonTimeouts.ProbeAttemptTimeoutCap
             ? remainingTimeout
             : DaemonTimeouts.ProbeAttemptTimeoutCap;
+        var requestId = Guid.NewGuid();
+        var request = UnityIpcRequestFactory.Create(
+            sessionToken,
+            UnityIpcMethod.Ping,
+            IpcPayloadCodec.SerializeToElement(new IpcPingRequest(ProbeClientVersion)),
+            requestId,
+            IpcResponseMode.Single,
+            deadline.UtcDeadline,
+            requestDeadlineRemainingMilliseconds);
 
         return await transportClient.SendAsync(
                 endpoint,
-                UnityIpcRequestFactory.Create(
-                    sessionToken,
-                    UnityIpcMethod.Ping,
-                    IpcPayloadCodec.SerializeToElement(new IpcPingRequest(ProbeClientVersion)),
-                    requestId,
-                    IpcResponseMode.Single,
-                    deadline.UtcDeadline,
-                    requestDeadlineRemainingMilliseconds),
+                request,
                 transportAttemptTimeout,
                 cancellationToken)
             .ConfigureAwait(false);

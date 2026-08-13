@@ -1,4 +1,3 @@
-using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
@@ -20,20 +19,17 @@ internal interface IDaemonPingInfoClient
         bool validateProjectFingerprint,
         CancellationToken cancellationToken = default);
 
-    /// <summary> Sends one ping request to the endpoint and token captured in one daemon session snapshot. </summary>
+    /// <summary> Sends one ping envelope with a newly generated request identifier to the endpoint and token captured in one daemon session snapshot. </summary>
     /// <param name="unityProject"> The resolved Unity project context. </param>
     /// <param name="session"> The daemon session snapshot whose endpoint and token must be used together. </param>
-    /// <param name="requestId"> The non-empty identifier of the logical ping request, shared by any replacement-session delivery. </param>
     /// <param name="deadline"> The deadline shared with the logical ping request. </param>
     /// <param name="validateProjectFingerprint"> Whether to reject a decoded ping payload whose project fingerprint differs from <paramref name="unityProject" />. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> A task that resolves to the decoded ping payload. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityProject" />, <paramref name="session" />, or <paramref name="deadline" /> is <see langword="null" />. </exception>
-    /// <exception cref="ArgumentException"> Thrown when <paramref name="requestId" /> is empty. </exception>
     ValueTask<UnityEditorObservation> PingSessionAndReadAsync (
         ResolvedUnityProjectContext unityProject,
         DaemonSession session,
-        Guid requestId,
         ExecutionDeadline deadline,
         bool validateProjectFingerprint,
         CancellationToken cancellationToken);

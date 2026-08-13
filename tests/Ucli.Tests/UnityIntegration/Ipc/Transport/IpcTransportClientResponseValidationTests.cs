@@ -7,6 +7,48 @@ namespace MackySoft.Ucli.Tests.Ipc;
 
 public sealed class IpcTransportClientResponseValidationTests
 {
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task SendAsync_WhenSameEnvelopeIsSentTwice_PreservesSerializedRequestPayloadAndCorrelatesEachResponse ()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        var receivedPayloads = new List<byte[]>();
+        await IpcTransportTestHarness.WithUnixResponseServerCapturingRequestPayloadAsync(
+            async (requestPayload, request, stream, cancellationToken) =>
+            {
+                receivedPayloads.Add(requestPayload.ToArray());
+                await IpcFrameCodec.WriteModelAsync(
+                    stream,
+                    IpcTransportTestHarness.CreateResponse(request.RequestId, "{}"),
+                    IpcJsonSerializerOptions.Default,
+                    cancellationToken: cancellationToken);
+            },
+            async (endpoint, request) =>
+            {
+                var client = IpcTransportClientTestSupport.CreateClient(TimeProvider.System);
+                var firstResponse = await client.SendAsync(
+                    endpoint,
+                    request,
+                    IpcTransportClientTestSupport.DefaultTimeout);
+                var secondResponse = await client.SendAsync(
+                    endpoint,
+                    request,
+                    IpcTransportClientTestSupport.DefaultTimeout);
+
+                Assert.NotEqual(Guid.Empty, request.RequestId);
+                Assert.Equal(request.RequestId, firstResponse.RequestId);
+                Assert.Equal(request.RequestId, secondResponse.RequestId);
+            },
+            IpcTransportClientTestSupport.WaitTimeout);
+
+        Assert.Equal(2, receivedPayloads.Count);
+        Assert.Equal(receivedPayloads[0], receivedPayloads[1]);
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
