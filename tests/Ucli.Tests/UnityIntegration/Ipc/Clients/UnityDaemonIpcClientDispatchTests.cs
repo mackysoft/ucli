@@ -1,11 +1,9 @@
 using System.Net.Sockets;
-using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Acquisition;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Observation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts.Editor;
-using MackySoft.Ucli.Contracts.Execution.Lifecycle;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Tests.Helpers.Ipc;
 using MackySoft.Ucli.UnityIntegration.Ipc.Clients;
@@ -91,7 +89,7 @@ public sealed class UnityDaemonIpcClientDispatchTests
     [InlineData(true)]
     public async Task Send_WhenSessionTokenPublicationLags_ReResolvesWithoutReplayingRejectedToken (bool streaming)
     {
-        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
+        var timeProvider = new PublicationRetryTimerObservingFakeTimeProvider(DateTimeOffset.UnixEpoch);
         var transportClient = new RecordingIpcTransportClient(_ => CreateResponse(Guid.NewGuid()));
         var rejectedDispatch = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         transportClient.EnqueueResponse(request =>
@@ -130,11 +128,13 @@ public sealed class UnityDaemonIpcClientDispatchTests
                     CancellationToken.None)
                 .AsTask();
         await rejectedDispatch.Task.WaitAsync(TimeSpan.FromSeconds(5));
-        for (var expectedReadCount = 2; expectedReadCount <= 4; expectedReadCount++)
-        {
-            timeProvider.Advance(TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds));
-            await sessionStore.WaitForReadCountAsync(expectedReadCount);
-        }
+        await sessionStore.WaitForReadCountAsync(2);
+        await timeProvider.WaitForPublicationRetryTimerAsync().WaitAsync(SignalWaitTimeout);
+        timeProvider.Advance(TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds));
+        await sessionStore.WaitForReadCountAsync(3);
+        await timeProvider.WaitForPublicationRetryTimerAsync().WaitAsync(SignalWaitTimeout);
+        timeProvider.Advance(TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds));
+        await sessionStore.WaitForReadCountAsync(4);
 
         var result = await sendTask;
 
@@ -224,7 +224,7 @@ public sealed class UnityDaemonIpcClientDispatchTests
     [InlineData(true)]
     public async Task Send_WhenRejectedSessionTokenDoesNotRotate_ReturnsRejectionAfterPublicationGrace (bool streaming)
     {
-        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
+        var timeProvider = new PublicationRetryTimerObservingFakeTimeProvider(DateTimeOffset.UnixEpoch);
         var transportClient = new RecordingIpcTransportClient(_ => CreateSessionTokenInvalidResponse());
         var client = new UnityDaemonIpcClient(
             transportClient,
@@ -250,6 +250,7 @@ public sealed class UnityDaemonIpcClientDispatchTests
                     deadline,
                     CancellationToken.None)
                 .AsTask();
+        await timeProvider.WaitForPublicationRetryTimerAsync().WaitAsync(SignalWaitTimeout);
         timeProvider.Advance(DaemonTimeouts.SessionPublicationRetryTimeout);
 
         var result = await sendTask.WaitAsync(TimeSpan.FromSeconds(1));
@@ -1251,6 +1252,37 @@ public sealed class UnityDaemonIpcClientDispatchTests
             UnityIpcMethod.OpsRead,
             maximumAttempts: 2);
         Assert.Equal(2, requests.Count);
+    }
+
+    private sealed class PublicationRetryTimerObservingFakeTimeProvider : FakeTimeProvider
+    {
+        private readonly SemaphoreSlim publicationRetryTimerRegistrations = new(0);
+
+        public PublicationRetryTimerObservingFakeTimeProvider (DateTimeOffset startTime)
+            : base(startTime)
+        {
+        }
+
+        public Task WaitForPublicationRetryTimerAsync (CancellationToken cancellationToken = default)
+        {
+            return publicationRetryTimerRegistrations.WaitAsync(cancellationToken);
+        }
+
+        public override ITimer CreateTimer (
+            TimerCallback callback,
+            object? state,
+            TimeSpan dueTime,
+            TimeSpan period)
+        {
+            var timer = base.CreateTimer(callback, state, dueTime, period);
+            if (dueTime == TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds)
+                && period == Timeout.InfiniteTimeSpan)
+            {
+                _ = publicationRetryTimerRegistrations.Release();
+            }
+
+            return timer;
+        }
     }
 
     private sealed class TimeAdvancingDaemonSessionStore : ReadOnlyDaemonSessionStore
