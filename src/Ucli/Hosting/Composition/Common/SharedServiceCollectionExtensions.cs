@@ -42,6 +42,8 @@ internal static class SharedServiceCollectionExtensions
         services.AddSingleton<IUcliConfigStore, UcliConfigStore>();
         services.AddSingleton<IProgramDefinitionFileReader, FileProgramDefinitionFileReader>();
         services.AddSingleton<IProgramRunStoreFactory, FileProgramRunStoreFactory>();
+        services.AddSingleton<IProgramArtifactStoreFactory>(serviceProvider =>
+            (FileProgramRunStoreFactory)serviceProvider.GetRequiredService<IProgramRunStoreFactory>());
         services.AddSingleton<IProjectLifecycleLockProvider, FileSystemProjectLifecycleLockProvider>();
         services.AddSingleton<ILifecycleExecutionReconnectResolver, FileLifecycleExecutionReconnectResolver>();
         services.AddSingleton<ILifecycleExecutionHostExitTerminalizer, FileLifecycleExecutionHostExitTerminalizer>();

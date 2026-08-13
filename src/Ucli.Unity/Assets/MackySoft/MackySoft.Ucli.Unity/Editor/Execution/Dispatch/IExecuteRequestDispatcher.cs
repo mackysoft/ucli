@@ -17,5 +17,14 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
             IpcExecuteRequest request,
             ExecuteDispatchContext context,
             CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Executes the already admitted Program-owned logical request without
+        /// consulting the transport request-id replay cache.
+        /// </summary>
+        Task<IpcResponse> DispatchProgramRequestAsync (
+            IpcExecuteRequest request,
+            ExecuteDispatchContext context,
+            CancellationToken cancellationToken = default);
     }
 }

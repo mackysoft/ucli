@@ -123,6 +123,12 @@ public sealed class CompileLifecycleExecutionStartInvocationFactoryTests
         public ResolvedUnityProjectContext Project { get; }
         public UnityExecutionTarget Target { get; }
 
+        public ValueTask<UnityRequestExecutionResult> ExecuteAsync (
+            UcliCommand command,
+            UnityRequestPayload payload,
+            ExecutionDeadline deadline,
+            CancellationToken cancellationToken = default) => throw new InvalidOperationException();
+
         public ValueTask<UnityRequestExecutionResult> StartAsync (
             UcliCommand command,
             UnityRequestPayload payload,
