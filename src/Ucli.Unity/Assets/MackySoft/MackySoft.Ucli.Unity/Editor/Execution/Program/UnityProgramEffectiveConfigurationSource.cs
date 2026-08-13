@@ -104,15 +104,14 @@ namespace MackySoft.Ucli.Unity.Execution.Program
             string readIndexDefaultMode,
             IReadOnlyList<string> operationAllowlist,
             int ipcDefaultTimeoutMilliseconds,
-            IReadOnlyDictionary<string, int> timeouts,
-            bool evalEnabled = false)
+            IReadOnlyDictionary<string, int> timeouts)
         {
             var digest = IpcProgramEffectiveConfigurationSnapshot.ComputeDigest(
                 schemaVersion, operationPolicy, planTokenMode, readIndexDefaultMode, operationAllowlist,
-                ipcDefaultTimeoutMilliseconds, timeouts, evalEnabled);
+                ipcDefaultTimeoutMilliseconds, timeouts);
             return new IpcProgramEffectiveConfigurationSnapshot(
                 schemaVersion, operationPolicy, planTokenMode, readIndexDefaultMode, operationAllowlist,
-                ipcDefaultTimeoutMilliseconds, timeouts, evalEnabled, digest);
+                ipcDefaultTimeoutMilliseconds, timeouts, digest);
         }
     }
 }
