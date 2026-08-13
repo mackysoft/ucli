@@ -5,6 +5,20 @@ namespace MackySoft.Ucli.Contracts.Tests.Configuration;
 
 public sealed class UcliConfigContractCompilerTests
 {
+    [Theory]
+    [InlineData("{\"schemaVersion\":1,\"operationPolicy\":\"safe\",\"planTokenMode\":\"optional\",\"operationAllowlist\":[]}", true)]
+    [InlineData("{\"schemaVersion\":1,\"operationPolicy\":\"SAFE\",\"planTokenMode\":\"optional\",\"operationAllowlist\":[]}", false)]
+    [InlineData("{\"schemaVersion\":1,\"operationPolicy\":\"safe\",\"planTokenMode\":\"optional\",\"operationAllowlist\":[],\"ipcTimeoutMillisecondsByCommand\":null}", false)]
+    [InlineData("{\"schemaVersion\":1,\"operationPolicy\":\"safe\",\"planTokenMode\":\"optional\",\"operationAllowlist\":[],\"workCompletion\":{}}", false)]
+    [InlineData("{\"schemaVersion\":1,\"operationPolicy\":\"safe\",\"planTokenMode\":\"optional\",\"operationAllowlist\":[],\"unknown\":true}", false)]
+    public void Compile_AndPortableValidatorAgreeOnRepresentativeDocuments (string json, bool expected)
+    {
+        using var document = JsonDocument.Parse(json);
+        var shared = new UcliConfigContractCompiler().Compile(document.RootElement, "config.json").IsSuccess;
+        var portable = UcliConfigDocumentValidator.TryValidate(document.RootElement, new Dictionary<string, int> { ["call"] = 3000 }, out _);
+        Assert.Equal(expected, shared);
+        Assert.Equal(portable, shared);
+    }
     [Fact]
     public void Compile_WithNullEntryPreservesBuiltinFallbackMarker ()
     {
