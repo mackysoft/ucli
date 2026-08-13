@@ -76,7 +76,7 @@ public sealed class DaemonSessionProbeTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Probe_WhenReplacementPublicationIsDelayed_PreservesRequestIdentityForSuccessorPing ()
+    public async Task Probe_WhenReplacementPublicationIsDelayed_PingsValidatedSuccessor ()
     {
         var unityProject = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(
             ProjectFingerprintTestFactory.Create("fingerprint-session-probe-delayed-publication"));
@@ -131,10 +131,6 @@ public sealed class DaemonSessionProbeTests
             pingInfoClient.Invocations,
             invocation => Assert.Equal(observedSession, invocation.Session),
             invocation => Assert.Equal(replacementSession, invocation.Session));
-        var requestIds = pingInfoClient.Invocations.Select(static invocation => invocation.RequestId).ToArray();
-        Assert.NotNull(requestIds[0]);
-        Assert.NotEqual(Guid.Empty, requestIds[0]);
-        Assert.Equal(requestIds[0], requestIds[1]);
     }
 
     [Fact]
@@ -295,7 +291,7 @@ public sealed class DaemonSessionProbeTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Probe_WhenTimeAdvancesBeforeSuccessorDelivery_PreservesRequestIdentityAndDeadline ()
+    public async Task Probe_WhenTimeAdvancesBeforeSuccessorDelivery_PreservesDeadline ()
     {
         var startedAtUtc = new DateTimeOffset(2030, 1, 2, 3, 4, 5, TimeSpan.Zero);
         var timeProvider = new FakeTimeProvider(startedAtUtc);
@@ -343,7 +339,10 @@ public sealed class DaemonSessionProbeTests
             transportClient.Requests,
             observedSession.SessionToken.GetEncodedValue(),
             successorSession.SessionToken.GetEncodedValue());
-        _ = IpcRequestAssert.SingleRequestId(transportClient.Requests);
+        Assert.All(transportClient.Requests, static request => Assert.NotEqual(Guid.Empty, request.RequestId));
+        Assert.Equal(
+            transportClient.Requests.Count,
+            transportClient.Requests.Select(static request => request.RequestId).Distinct().Count());
         Assert.All(
             transportClient.Requests,
             request => Assert.Equal(deadline.UtcDeadline, request.RequestDeadlineUtc));

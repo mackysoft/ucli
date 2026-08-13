@@ -2,10 +2,8 @@ using MackySoft.Ucli.Contracts.Editor;
 
 namespace MackySoft.Ucli.Application.Tests.Daemon;
 
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Observation;
 using MackySoft.Ucli.Application.Shared.Foundation;
-using MackySoft.Ucli.Contracts.Ipc;
 
 public sealed class DaemonExistingSessionGateServiceRecoveryTests
 {
@@ -60,7 +58,7 @@ public sealed class DaemonExistingSessionGateServiceRecoveryTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task TryHandleExistingSession_WhenSessionTokenRotates_PingsValidatedSuccessorWithSameRequestId ()
+    public async Task TryHandleExistingSession_WhenSessionTokenRotates_PingsValidatedSuccessor ()
     {
         var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(
             ProjectFingerprintTestFactory.Create("fingerprint-existing-token-rotation"));
@@ -109,12 +107,11 @@ public sealed class DaemonExistingSessionGateServiceRecoveryTests
             first => Assert.Equal(session.SessionToken.GetEncodedValue(), first.SessionToken),
             second => Assert.Equal(replacementSession.SessionToken.GetEncodedValue(), second.SessionToken));
         Assert.Single(sessionStore.ReadInvocations);
-        Assert.Single(pingClient.Invocations.Select(static invocation => invocation.RequestId).Distinct());
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task TryHandleExistingSession_WhenResponseIsInterrupted_PingsValidatedSuccessorWithSameRequestId ()
+    public async Task TryHandleExistingSession_WhenResponseIsInterrupted_PingsValidatedSuccessor ()
     {
         var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(
             ProjectFingerprintTestFactory.Create("fingerprint-existing-response-recovery"));
@@ -155,7 +152,6 @@ public sealed class DaemonExistingSessionGateServiceRecoveryTests
         Assert.NotNull(result);
         Assert.Equal(DaemonStartStatus.AlreadyRunning, result!.Status);
         Assert.Equal(successorSession, result.Session);
-        Assert.Single(pingClient.Invocations.Select(static invocation => invocation.RequestId).Distinct());
     }
 
     [Fact]
