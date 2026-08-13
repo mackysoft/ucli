@@ -172,8 +172,13 @@ internal sealed class UcliConfigContractCompiler
             Add(diagnostics, "config.schema.propertyTypeMismatch", UcliConfigJsonPropertyNames.WorkCompletion, sourcePath, "workCompletion must contain requiredProgramPresets.");
             return Array.Empty<string>();
         }
+        var workProperties = new HashSet<string>(StringComparer.Ordinal);
         foreach (var property in work.EnumerateObject())
         {
+            if (!workProperties.Add(property.Name))
+            {
+                Add(diagnostics, "config.schema.duplicateProperty", $"{UcliConfigJsonPropertyNames.WorkCompletion}.{property.Name}", sourcePath, "workCompletion contains a duplicate property.");
+            }
             if (property.Name != UcliConfigJsonPropertyNames.RequiredProgramPresets)
             {
                 Add(diagnostics, "config.schema.unknownProperty", $"{UcliConfigJsonPropertyNames.WorkCompletion}.{property.Name}", sourcePath, "workCompletion contains an unknown property.");
@@ -305,8 +310,13 @@ internal sealed class UcliConfigContractCompiler
     private static Dictionary<string, int?>? ReadTimeouts (JsonElement root, string sourcePath, List<UcliConfigContractDiagnostic> diagnostics)
     {
         var name = UcliConfigJsonPropertyNames.IpcTimeoutMillisecondsByCommand;
-        if (!root.TryGetProperty(name, out var value) || value.ValueKind == JsonValueKind.Null)
+        if (!root.TryGetProperty(name, out var value))
         {
+            return null;
+        }
+        if (value.ValueKind == JsonValueKind.Null)
+        {
+            Add(diagnostics, "config.schema.propertyTypeMismatch", name, sourcePath, $"Config JSON property type is invalid: {name}.");
             return null;
         }
 
@@ -483,7 +493,7 @@ internal sealed class UcliConfigContractCompiler
             return result;
         }
 
-        foreach (var entry in source)
+        foreach (var entry in source.OrderBy(static entry => entry.Key, StringComparer.Ordinal))
         {
             var key = UcliConfigContractDiagnostic.FormatFragment(entry.Key);
             var path = $"{UcliConfigJsonPropertyNames.IpcTimeoutMillisecondsByCommand}.{key}";
