@@ -86,6 +86,27 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
                 .ConfigureAwait(false);
         }
 
+        /// <inheritdoc />
+        public Task<IpcResponse> DispatchProgramRequestAsync (
+            IpcExecuteRequest request,
+            ExecuteDispatchContext context,
+            CancellationToken cancellationToken = default)
+        {
+            if (request == null)
+            {
+                throw new ArgumentNullException(nameof(request));
+            }
+            if (context == null)
+            {
+                throw new ArgumentNullException(nameof(context));
+            }
+
+            // The Program registry, not requestId replay, owns this logical
+            // execution. Re-entering the transport cache would couple a
+            // caller-generated envelope id to side-effect admission.
+            return DispatchCoreAsync(request, context, cancellationToken);
+        }
+
         /// <summary> Executes one dispatch flow without idempotency coordination. </summary>
         /// <param name="request"> The execute request payload. </param>
         /// <param name="context"> The request-level dispatch context. </param>

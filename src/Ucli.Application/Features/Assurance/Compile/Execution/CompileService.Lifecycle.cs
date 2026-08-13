@@ -48,6 +48,7 @@ internal sealed partial class CompileService
                 resolvedProgressSink,
                 reconnectedExecutionRef: null,
                 requiredStart: null,
+                invocation.Context.FailFast,
                 cancellationToken,
                 (payload, token) => invocation.Context.HostBinding.StartAsync(
                     UcliCommandIds.Compile,
@@ -108,6 +109,7 @@ internal sealed partial class CompileService
                 progressSink ?? NullCommandProgressSink.Instance,
                 open.CurrentReference,
                 open.RequiredStart,
+                failFast: false,
                 cancellationToken,
                 (payload, token) => invocation.Context.HostBinding.ReconnectAsync(
                     UcliCommandIds.Compile,

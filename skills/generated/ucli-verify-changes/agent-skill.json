@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "skillBundleVersion": 1,
+  "skillBundleVersion": 2,
   "catalogId": "com.mackysoft.ucli",
   "category": "basic",
   "skillName": "ucli-verify-changes",
@@ -8,7 +8,7 @@
   "description": "Use when verifying uCLI-driven Unity changes with ucli verify profiles, claim packets, follow-up reads, ucli test, logs, artifacts, and opResults evidence after validation, plan, or call execution.",
   "dependencies": [],
   "contentDigest": "7463e8013903c86c15307c8538bbd0bcc61445793742f6b505a96a6f568a0916",
-  "manifestDigest": "78a225543b362b3dd137b9822802d10449e058914cfe44c6b51ad40547798d99",
+  "manifestDigest": "428f01c42b3d09a6dbb754e1702555d9eead42397a927bed140a6a8d6a9ebe79",
   "hostArtifacts": [
     {
       "host": "claude",

@@ -1,0 +1,6 @@
+{
+  "schemaVersion": 1,
+  "displayName": "uCLI Run Program",
+  "description": "Use when selecting, validating, planning, and safely supervising a closed typed uCLI Program across Unity lifecycle boundaries.",
+  "dependencies": []
+}
