@@ -223,8 +223,13 @@ internal sealed class UcliConfigContractCompiler
 
     private static int? ReadOptionalInt32 (JsonElement root, string name, string sourcePath, List<UcliConfigContractDiagnostic> diagnostics)
     {
-        if (!root.TryGetProperty(name, out var value) || value.ValueKind == JsonValueKind.Null)
+        if (!root.TryGetProperty(name, out var value))
         {
+            return null;
+        }
+        if (value.ValueKind == JsonValueKind.Null)
+        {
+            Add(diagnostics, "config.schema.propertyTypeMismatch", name, sourcePath, $"Config JSON property type is invalid: {name}.");
             return null;
         }
 
@@ -403,9 +408,12 @@ internal sealed class UcliConfigContractCompiler
     private static TEnum Parse<TEnum> (string value, string path, string sourcePath, List<UcliConfigContractDiagnostic> diagnostics)
         where TEnum : struct, Enum
     {
-        if (VocabularyInputParser.TryParseIgnoreCase<TEnum>(value, out var parsed))
+        foreach (var candidate in Enum.GetValues(typeof(TEnum)).Cast<TEnum>())
         {
-            return parsed;
+            if (string.Equals(TextVocabulary.GetText(candidate), value, StringComparison.Ordinal))
+            {
+                return candidate;
+            }
         }
 
         Add(diagnostics, "config.semantic.unsupportedLiteral", path, sourcePath, $"Config {path} is invalid: {UcliConfigContractDiagnostic.FormatFragment(value)}.");
