@@ -23,6 +23,7 @@ internal sealed class UcliConfigContractCompiler
         UcliConfigJsonPropertyNames.IpcDefaultTimeoutMilliseconds,
         UcliConfigJsonPropertyNames.IpcTimeoutMillisecondsByCommand,
         UcliConfigJsonPropertyNames.ProgramPresets,
+        UcliConfigJsonPropertyNames.WorkCompletion,
     };
 
     private static readonly HashSet<string> SupportedTimeoutCommands = new(StringComparer.Ordinal)
@@ -118,6 +119,7 @@ internal sealed class UcliConfigContractCompiler
             ? null
             : NormalizeTimeouts(timeouts, sourcePath, diagnostics);
         var normalizedPresets = NormalizeProgramPresets(presets, sourcePath, diagnostics);
+        var requiredProgramPresets = ReadRequiredProgramPresets(root);
         var effectiveDefaultTimeout = defaultTimeout ?? DefaultIpcTimeoutMilliseconds;
         if (effectiveDefaultTimeout <= 0)
         {
@@ -138,7 +140,8 @@ internal sealed class UcliConfigContractCompiler
             evalEnabled ?? false,
             effectiveDefaultTimeout,
             normalizedTimeouts,
-            normalizedPresets));
+            normalizedPresets,
+            requiredProgramPresets));
     }
 
     private static int? ReadRequiredInt32 (JsonElement root, string name, string sourcePath, List<UcliConfigContractDiagnostic> diagnostics)
@@ -156,6 +159,17 @@ internal sealed class UcliConfigContractCompiler
         }
 
         return parsed;
+    }
+
+    private static IReadOnlyList<string> ReadRequiredProgramPresets (JsonElement root)
+    {
+        if (!root.TryGetProperty(UcliConfigJsonPropertyNames.WorkCompletion, out var work)
+            || !work.TryGetProperty(UcliConfigJsonPropertyNames.RequiredProgramPresets, out var values)
+            || values.ValueKind != JsonValueKind.Array)
+        {
+            return Array.Empty<string>();
+        }
+        return values.EnumerateArray().Where(static value => value.ValueKind == JsonValueKind.String).Select(static value => value.GetString()!).ToArray();
     }
 
     private static string? ReadRequiredString (JsonElement root, string name, string sourcePath, List<UcliConfigContractDiagnostic> diagnostics)
@@ -545,7 +559,8 @@ internal sealed record UcliConfigContractSnapshot (
     bool EvalEnabled,
     int IpcDefaultTimeoutMilliseconds,
     IReadOnlyDictionary<string, int?>? IpcTimeoutMillisecondsByCommand,
-    IReadOnlyDictionary<string, UcliConfigContractProgramPreset> ProgramPresets);
+    IReadOnlyDictionary<string, UcliConfigContractProgramPreset> ProgramPresets,
+    IReadOnlyList<string> RequiredProgramPresets);
 
 /// <summary> Represents one Program Preset registration in the shared configuration snapshot. </summary>
 internal sealed record UcliConfigContractProgramPreset (string Description, string ProgramPath);

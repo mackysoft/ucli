@@ -69,7 +69,8 @@ internal sealed class UcliConfigFileLoader
             EvalEnabled: false,
             UcliConfigContractCompiler.DefaultIpcTimeoutMilliseconds,
             IpcTimeoutMillisecondsByCommand: null,
-            ProgramPresets: new Dictionary<string, UcliConfigContractProgramPreset>(StringComparer.Ordinal));
+            ProgramPresets: new Dictionary<string, UcliConfigContractProgramPreset>(StringComparer.Ordinal),
+            RequiredProgramPresets: Array.Empty<string>());
     }
 }
 

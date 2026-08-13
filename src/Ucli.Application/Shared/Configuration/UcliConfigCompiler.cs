@@ -66,6 +66,7 @@ internal sealed class UcliConfigCompiler
                 static entry => entry.Key,
                 static entry => new ProgramPresetRegistration(entry.Value.Description, RootRelativePath.Parse(entry.Value.ProgramPath)),
                 StringComparer.Ordinal),
+            WorkCompletion = new UcliWorkCompletion(snapshot.RequiredProgramPresets),
         };
         return UcliConfigBuildResult.Success(config);
     }
