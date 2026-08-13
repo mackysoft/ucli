@@ -187,9 +187,9 @@ internal sealed class UcliConfigContractCompiler
         var result = new HashSet<string>(StringComparer.Ordinal);
         foreach (var value in values.EnumerateArray())
         {
-            if (value.ValueKind != JsonValueKind.String || !result.Add(value.GetString()!))
+            if (value.ValueKind != JsonValueKind.String || !IsValidPresetId(value.GetString() ?? string.Empty) || !result.Add(value.GetString()!))
             {
-                Add(diagnostics, "config.schema.arrayElementTypeMismatch", UcliConfigJsonPropertyNames.RequiredProgramPresets, sourcePath, "requiredProgramPresets must contain unique strings.");
+                Add(diagnostics, "config.semantic.invalidProgramPresetId", UcliConfigJsonPropertyNames.RequiredProgramPresets, sourcePath, "requiredProgramPresets must contain unique valid Program Preset IDs.");
             }
         }
         return result.OrderBy(static value => value, StringComparer.Ordinal).ToArray();
