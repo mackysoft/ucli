@@ -17,9 +17,9 @@ internal sealed class RecordingDaemonLogsClient : IDaemonLogsClient
 
     public IReadOnlyList<Invocation> Invocations => invocations;
 
-    internal Task WaitForReadAsync (TimeSpan timeout)
+    internal Task WaitForNextReadAsync ()
     {
-        return readSignals.WaitAsync(timeout);
+        return readSignals.WaitAsync();
     }
 
     public ValueTask<DaemonLogsClientReadResult> ReadAsync (

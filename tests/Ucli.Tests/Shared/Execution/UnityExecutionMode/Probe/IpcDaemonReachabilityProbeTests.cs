@@ -335,6 +335,10 @@ public sealed class IpcDaemonReachabilityProbeTests
     public async Task Probe_WhenReachableDaemonRejectsSessionAuthentication_ReturnsInternalError (UcliCode errorCode)
     {
         using var scope = TestDirectories.CreateTempScope("mode-probe", errorCode.Value.ToLowerInvariant());
+        var timeProvider = new SessionPublicationRetryTimerObservationTimeProvider(
+            new DateTimeOffset(2030, 1, 2, 3, 4, 5, TimeSpan.Zero));
+        var initialSession = DaemonSessionTestFactory.CreateForToken("resolved-token");
+        var replacementSession = DaemonSessionTestFactory.CreateForToken("replacement-token");
         var transportClient = new RecordingIpcTransportClient(request =>
             IpcDaemonPingClientTestSupport.CreateResponse(
                 request,
@@ -345,27 +349,49 @@ public sealed class IpcDaemonReachabilityProbeTests
                         "Session authentication rejected.",
                         InstancePath: null),
                 ]));
+        var sessionStore = new RecordingDaemonSessionStore
+        {
+            ReadHandler = invocations => invocations.Count == 1
+                ? DaemonSessionReadResultTestFactory.Found(initialSession)
+                : DaemonSessionReadResultTestFactory.Found(replacementSession),
+        };
+        sessionStore.OnRead = () =>
+        {
+            if (sessionStore.ReadInvocations.Count == 3)
+            {
+                timeProvider.BeginObservation();
+            }
+        };
         var daemonPingClient = new IpcDaemonPingClient(
             transportClient,
-            DaemonSessionAcquisitionCoordinatorTestFactory.Create(new RecordingDaemonSessionStore
-            {
-                ReadHandler = invocations => invocations.Count == 1
-                    ? DaemonSessionReadResultTestFactory.FoundForToken("resolved-token")
-                    : DaemonSessionReadResultTestFactory.FoundForToken("replacement-token"),
-            }),
-            TimeProvider.System);
+            DaemonSessionAcquisitionCoordinatorTestFactory.Create(sessionStore),
+            timeProvider);
         var probe = new IpcDaemonReachabilityProbe(
             daemonPingClient,
-            TimeProvider.System);
+            timeProvider);
 
-        var result = await probe.ProbeAsync(
-            CreateReadyContext(scope),
-            DefaultProbeTimeout,
-            CancellationToken.None);
+        var resultTask = probe.ProbeAsync(
+                CreateReadyContext(scope),
+                DefaultProbeTimeout,
+                CancellationToken.None)
+            .AsTask();
+        if (errorCode == IpcSessionErrorCodes.SessionTokenInvalid)
+        {
+            // NOTE: The third read begins publication polling; wait for its timer before advancing virtual time.
+            await timeProvider.ObservedTimerRegistered.WaitAsync(SignalWaitTimeout);
+            Assert.Equal(3, sessionStore.ReadInvocations.Count);
+            Assert.False(resultTask.IsCompleted);
+            timeProvider.Advance(DaemonTimeouts.SessionPublicationRetryTimeout);
+        }
+
+        var result = await resultTask.WaitAsync(SignalWaitTimeout);
 
         Assert.False(result.IsRunning);
         Assert.True(result.HasError);
-        Assert.Equal(ExecutionErrorKind.InternalError, Assert.IsType<ExecutionError>(result.Error).Kind);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
+        Assert.Contains("Failed to probe daemon reachability.", error.Message, StringComparison.Ordinal);
+        Assert.Contains(errorCode.Value, error.Message, StringComparison.Ordinal);
         var expectedAttemptCount = errorCode == IpcSessionErrorCodes.SessionTokenInvalid ? 2 : 1;
         Assert.Equal(expectedAttemptCount, transportClient.Requests.Count);
         Assert.All(transportClient.Requests, static request => Assert.NotEqual(Guid.Empty, request.RequestId));
@@ -582,6 +608,42 @@ public sealed class IpcDaemonReachabilityProbeTests
             CancellationToken cancellationToken = default)
         {
             throw new NotSupportedException("The reachability probe uses bounded IPC dispatch.");
+        }
+    }
+
+    private sealed class SessionPublicationRetryTimerObservationTimeProvider : FakeTimeProvider
+    {
+        private readonly TaskCompletionSource observedTimerRegistered = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        private int isObservationStarted;
+
+        public SessionPublicationRetryTimerObservationTimeProvider (DateTimeOffset startTime)
+            : base(startTime)
+        {
+        }
+
+        public Task ObservedTimerRegistered => observedTimerRegistered.Task;
+
+        public void BeginObservation ()
+        {
+            Interlocked.Exchange(ref isObservationStarted, 1);
+        }
+
+        public override ITimer CreateTimer (
+            TimerCallback callback,
+            object? state,
+            TimeSpan dueTime,
+            TimeSpan period)
+        {
+            var timer = base.CreateTimer(callback, state, dueTime, period);
+            if (Volatile.Read(ref isObservationStarted) != 0
+                && dueTime == TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds)
+                && period == Timeout.InfiniteTimeSpan)
+            {
+                observedTimerRegistered.TrySetResult();
+            }
+
+            return timer;
         }
     }
 

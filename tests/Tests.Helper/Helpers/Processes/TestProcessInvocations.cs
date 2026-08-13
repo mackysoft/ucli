@@ -2,6 +2,7 @@ namespace MackySoft.Tests;
 
 using System.Diagnostics;
 using System.Globalization;
+using MackySoft.Ucli.Tests.ProcessFixture;
 
 internal static class TestProcessInvocations
 {
@@ -30,15 +31,13 @@ internal static class TestProcessInvocations
                 ["-c", "sleep 30"]);
     }
 
-    public static TestProcessInvocation CreateStandardOutput (string output)
+    public static TestProcessInvocation CreateControlledStandardOutput (string pipeName)
     {
-        ArgumentNullException.ThrowIfNull(output);
+        ArgumentException.ThrowIfNullOrWhiteSpace(pipeName);
 
-        return OperatingSystem.IsWindows()
-            ? new TestProcessInvocation(
-                "powershell",
-                ["-NoProfile", "-Command", "Write-Output " + PowerShellSingleQuote(output)])
-            : CreateUnixShellInvocation("printf '%s\\n' " + ShellSingleQuote(output));
+        return new TestProcessInvocation(
+            "dotnet",
+            [typeof(ControlledStandardOutputProcess).Assembly.Location, pipeName]);
     }
 
     public static TestProcessInvocation CreateUnixExitedParentWithInheritedOutputHandle (TimeSpan childLifetime)
@@ -120,15 +119,5 @@ internal static class TestProcessInvocations
         {
             throw new PlatformNotSupportedException("This test process invocation requires a Unix shell.");
         }
-    }
-
-    private static string ShellSingleQuote (string value)
-    {
-        return TestShellPaths.QuoteBashArgument(value);
-    }
-
-    private static string PowerShellSingleQuote (string value)
-    {
-        return "'" + value.Replace("'", "''", StringComparison.Ordinal) + "'";
     }
 }
