@@ -126,6 +126,33 @@ public static class UcliCommandIds
     /// <summary> Gets command identifier for <c>eval</c>. </summary>
     public static UcliCommand Eval { get; } = new("eval");
 
+    /// <summary> Gets command identifier for <c>program</c>. </summary>
+    public static UcliCommand Program { get; } = new("program");
+
+    /// <summary> Gets command identifier for <c>program.presets</c>. </summary>
+    public static UcliCommand ProgramPresets { get; } = new("program.presets");
+
+    /// <summary> Gets command identifier for <c>program.presets.list</c>. </summary>
+    public static UcliCommand ProgramPresetsList { get; } = new("program.presets.list");
+
+    /// <summary> Gets command identifier for <c>program.presets.describe</c>. </summary>
+    public static UcliCommand ProgramPresetsDescribe { get; } = new("program.presets.describe");
+
+    /// <summary> Gets command identifier for <c>program.validate</c>. </summary>
+    public static UcliCommand ProgramValidate { get; } = new("program.validate");
+
+    /// <summary> Gets command identifier for <c>program.plan</c>. </summary>
+    public static UcliCommand ProgramPlan { get; } = new("program.plan");
+
+    /// <summary> Gets command identifier for <c>program.run</c>. </summary>
+    public static UcliCommand ProgramRun { get; } = new("program.run");
+
+    /// <summary> Gets command identifier for <c>program.status</c>. </summary>
+    public static UcliCommand ProgramStatus { get; } = new("program.status");
+
+    /// <summary> Gets command identifier for <c>program.cancel</c>. </summary>
+    public static UcliCommand ProgramCancel { get; } = new("program.cancel");
+
     /// <summary> Gets command identifier for <c>resolve</c>. </summary>
     public static UcliCommand Resolve { get; } = new("resolve");
 

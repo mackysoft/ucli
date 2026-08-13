@@ -67,6 +67,22 @@ internal sealed class ProgramAttachedSupervisor
         }
         if (current.Cancellation.Requested)
         {
+            // A cancellation fence may race with a status/cancel caller after
+            // this Supervisor admitted a Step.  Do not publish a terminal Run
+            // until the exact persisted execution is recovered: its final
+            // application state is part of the terminal contract.
+            var active = current.Cursor < current.Steps.Count ? current.Steps[current.Cursor] : null;
+            if (active?.Execution is not null && ProgramRunStateSemantics.IsOngoing(active.State))
+            {
+                return await TerminateAndRecoverAsync(
+                    store,
+                    current,
+                    current.Cursor,
+                    runDeadline,
+                    "PROGRAM_RUN_CANCELLED",
+                    cancellationToken).ConfigureAwait(false);
+            }
+
             return await terminalizer.TerminalizeAsync(store, current, ProgramRunState.Cancelled, "PROGRAM_RUN_CANCELLED", cancellationToken).ConfigureAwait(false);
         }
         if (runDeadline.IsExpired)
@@ -101,6 +117,10 @@ internal sealed class ProgramAttachedSupervisor
             return await terminalizer.TerminalizeUnstartedStepTimeoutAsync(store, exchange.Current, exchange.Current.Cursor, cancellationToken).ConfigureAwait(false);
         }
 
+        // This admission records the only port invocation before any local
+        // preflight starts. For call, it is deliberately distinct from the
+        // Request boundary: a rejected preflight has not entered Request Call,
+        // but must still be terminalized without replaying this port invocation.
         var admitted = await MarkPortInvocationAsync(store, exchange.Current, cancellationToken).ConfigureAwait(false);
         if (admitted is null)
         {
@@ -110,7 +130,18 @@ internal sealed class ProgramAttachedSupervisor
         var execution = step.Execution ?? throw new InvalidOperationException("Persisted Program Step start requires its execution identity.");
         liveStepDeadlines[execution.ExecutionId] = stepDeadline;
         var result = await executionPort.StartAsync(new ProgramStepExecutionStart(admitted, admitted.Cursor, execution), cancellationToken).ConfigureAwait(false);
-        if (result == ProgramStepExecutionPortResult.CommunicationLost)
+        if (result.Terminal is not null)
+        {
+            return await HandleRecoveredTerminalAsync(
+                project,
+                store,
+                admitted,
+                admitted.Cursor,
+                result.Terminal,
+                runDeadline,
+                cancellationToken).ConfigureAwait(false);
+        }
+        if (result.Disposition == ProgramStepExecutionStartDisposition.CommunicationLost)
         {
             return await RecoverAsync(project, admitted.RunId, runDeadline, cancellationToken).ConfigureAwait(false);
         }
@@ -142,6 +173,16 @@ internal sealed class ProgramAttachedSupervisor
         {
             return current;
         }
+        if (current.Cancellation.Requested)
+        {
+            return await TerminateAndRecoverAsync(
+                store,
+                current,
+                current.Cursor,
+                runDeadline,
+                "PROGRAM_RUN_CANCELLED",
+                cancellationToken).ConfigureAwait(false);
+        }
         if (runDeadline.IsExpired)
         {
             return await TerminateAndRecoverAsync(store, current, current.Cursor, runDeadline, "PROGRAM_RUN_TIMEOUT", cancellationToken).ConfigureAwait(false);
@@ -168,7 +209,14 @@ internal sealed class ProgramAttachedSupervisor
             }
             if (recovery.Terminal is not null)
             {
-                return await terminalizer.PublishRecoveredTerminalAsync(store, current, current.Cursor, recovery.Terminal, cancellationToken).ConfigureAwait(false);
+                return await HandleRecoveredTerminalAsync(
+                    project,
+                    store,
+                    current,
+                    current.Cursor,
+                    recovery.Terminal,
+                    runDeadline,
+                    cancellationToken).ConfigureAwait(false);
             }
             if (recovery.Disposition != ProgramStepExecutionRecoveryDisposition.CommunicationLost)
             {
@@ -232,14 +280,20 @@ internal sealed class ProgramAttachedSupervisor
             }
             if (recovery.Terminal is not null && IsKnownApplicationState(recovery.Terminal.ApplicationState))
             {
+                var terminalState = reasonCode == "PROGRAM_RUN_CANCELLED"
+                    ? ProgramStepState.Cancelled
+                    : ProgramStepState.Failed;
                 var timedOut = recovery.Terminal with
                 {
-                    State = ProgramStepState.Failed,
+                    State = terminalState,
                     Verdict = null,
                     ErrorCode = reasonCode,
                 };
                 var withStep = await terminalizer.PublishRecoveredTerminalAsync(store, current, stepIndex, timedOut, cancellationToken).ConfigureAwait(false);
-                return await terminalizer.TerminalizeAsync(store, withStep, ProgramRunState.Failed, reasonCode, cancellationToken).ConfigureAwait(false);
+                var runState = terminalState == ProgramStepState.Cancelled
+                    ? ProgramRunState.Cancelled
+                    : ProgramRunState.Failed;
+                return await terminalizer.TerminalizeAsync(store, withStep, runState, reasonCode, cancellationToken).ConfigureAwait(false);
             }
             if (recovery.Disposition != ProgramStepExecutionRecoveryDisposition.CommunicationLost)
             {
@@ -253,6 +307,110 @@ internal sealed class ProgramAttachedSupervisor
                 attemptsSinceYield = 0;
             }
         }
+    }
+
+    /// <summary>
+    /// Records the already recovered Step before selecting the only permitted
+    /// next transition. A completed verdict is a result of execution, not an
+    /// execution failure, so only a non-completed Step stops the Program.
+    /// </summary>
+    private async ValueTask<ProgramRunRecord> HandleRecoveredTerminalAsync (
+        ResolvedUnityProjectContext project,
+        IProgramRunStore store,
+        ProgramRunRecord current,
+        int stepIndex,
+        ProgramStepExecutionRecoveredTerminal recovered,
+        ExecutionDeadline runDeadline,
+        CancellationToken cancellationToken)
+    {
+        // A Lifecycle action persists its Start Record through its observer
+        // while the port is dispatching. `current` can therefore predate that
+        // observer CAS even though `recovered` already carries the matching
+        // terminal reference. Publish only from the durable aggregate so the
+        // terminalizer validates the same persisted identity, rather than
+        // treating the stale snapshot as an invalid terminal projection.
+        var persisted = await store.ReadAsync(current.RunId, cancellationToken).ConfigureAwait(false);
+        if (persisted is null)
+        {
+            throw new InvalidOperationException("Program Run disappeared while a recovered Step terminal was being recorded.");
+        }
+        if (ProgramRunStateSemantics.IsTerminal(persisted.State)
+            || stepIndex < 0
+            || stepIndex >= persisted.Steps.Count
+            || stepIndex >= current.Steps.Count)
+        {
+            return persisted;
+        }
+
+        var expectedStep = current.Steps[stepIndex];
+        var persistedStep = persisted.Steps[stepIndex];
+        if (persisted.Cursor != stepIndex
+            || persistedStep.Execution != expectedStep.Execution
+            || !ProgramRunStateSemantics.IsOngoing(persistedStep.State)
+            || !CanPublishReturnedTerminal(persistedStep, recovered))
+        {
+            // Another supervisor/status writer has already advanced or
+            // terminalized this exact boundary. Do not publish a terminal
+            // against a different Step or rerun the returned action result.
+            return persisted;
+        }
+
+        var published = await terminalizer.PublishRecoveredTerminalAsync(
+            store, persisted, stepIndex, recovered, cancellationToken).ConfigureAwait(false);
+        if (ProgramRunStateSemantics.IsTerminal(published.State))
+        {
+            return published;
+        }
+
+        if (recovered.State != ProgramStepState.Completed)
+        {
+            var runState = recovered.State switch
+            {
+                ProgramStepState.Failed => ProgramRunState.Failed,
+                ProgramStepState.Cancelled => ProgramRunState.Cancelled,
+                ProgramStepState.Interrupted => ProgramRunState.Interrupted,
+                _ => throw new InvalidOperationException("Recovered Program Step must be terminal."),
+            };
+            var reasonCode = recovered.ErrorCode ?? runState switch
+            {
+                ProgramRunState.Failed => "PROGRAM_STEP_FAILED",
+                ProgramRunState.Cancelled => "PROGRAM_STEP_CANCELLED",
+                ProgramRunState.Interrupted => "PROGRAM_STEP_INTERRUPTED",
+                _ => throw new InvalidOperationException("Program terminal state is not defined."),
+            };
+            return await terminalizer.TerminalizeAsync(store, published, runState, reasonCode, cancellationToken).ConfigureAwait(false);
+        }
+
+        if (published.Cursor == published.Steps.Count)
+        {
+            return await terminalizer.TerminalizeAsync(
+                store, published, ProgramRunState.Completed, "PROGRAM_RUN_COMPLETED", cancellationToken).ConfigureAwait(false);
+        }
+
+        return await StartNextAsync(project, published.RunId, runDeadline, cancellationToken).ConfigureAwait(false)
+            ?? throw new InvalidOperationException("Program Run disappeared while advancing to its next Step.");
+    }
+
+    private static bool CanPublishReturnedTerminal (
+        ProgramRunStepRecord step,
+        ProgramStepExecutionRecoveredTerminal terminal)
+    {
+        // The invocation marker is the replay fence for every returned terminal.
+        // A local call preflight establishes a terminal without starting the
+        // Request entry, so it must additionally prove that no Request boundary
+        // or its published plan/descriptors were admitted.
+        if (!step.ExecutionPortInvoked)
+        {
+            return false;
+        }
+
+        return terminal.Origin != ProgramStepExecutionTerminalOrigin.LocalPreflight
+            || (step.Command == "call"
+                && step.RequestExecution is null
+                && step.RequestPlanRef is null
+                && step.OperationDescriptorRefs.Count == 0
+                && terminal.State == ProgramStepState.Failed
+                && terminal.ApplicationState == ExecutionApplicationState.NotApplied);
     }
 
     private async ValueTask<ProgramStepExecutionTerminationResult?> RequestTerminationWithinDeadlineAsync (

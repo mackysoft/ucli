@@ -1,8 +1,6 @@
 using System.Net.Sockets;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
-using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Contracts.Editor;
-using MackySoft.Ucli.Contracts.Execution.Lifecycle;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Tests.Helpers.Ipc;
 using MackySoft.Ucli.UnityIntegration.Ipc.Clients;
@@ -617,7 +615,7 @@ public sealed class UnityDaemonIpcClientRecoverableDispatchTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task SendAsync_WhenSuccessorStartResponseIsInvalid_RetainsThePreviouslyConfirmedExecution ()
+    public async Task SendAsync_WhenLifecycleActionResponseIsInterrupted_ReplaysTheConfirmedStartWithoutAnotherStartExchange ()
     {
         var interruption = new IpcResponseReadInterruptedException(
             new EndOfStreamException("lost lifecycle action response"));
@@ -661,16 +659,14 @@ public sealed class UnityDaemonIpcClientRecoverableDispatchTests
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
-        Assert.Equal(UcliCoreErrorCodes.InternalError, result.ErrorCode);
+        Assert.Equal(EditorLifecycleErrorCodes.EditorUnavailable, result.ErrorCode);
         Assert.Equal(
             dispatchRequest.Registration!.ExecutionId,
             result.LifecycleExecutionStart!.LifecycleExecutionRef.Id);
-        Assert.Equal(
-            2,
-            IpcRequestAssert.WithMethod(
-                transportClient,
-                UnityIpcMethod.LifecycleStart).Count);
-        Assert.Single(IpcRequestAssert.ActionRequests(transportClient.Requests));
+        _ = Assert.Single(IpcRequestAssert.WithMethod(
+            transportClient,
+            UnityIpcMethod.LifecycleStart));
+        Assert.True(IpcRequestAssert.ActionRequests(transportClient.Requests).Count > 1);
     }
 
     [Fact]

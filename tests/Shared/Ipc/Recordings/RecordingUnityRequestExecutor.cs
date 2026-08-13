@@ -167,6 +167,15 @@ internal sealed class RecordingUnityRequestExecutor : IUnityRequestExecutor, IUn
 
         public UnityExecutionTarget Target { get; }
 
+        public ValueTask<UnityRequestExecutionResult> ExecuteAsync (
+            UcliCommand command,
+            UnityRequestPayload payload,
+            ExecutionDeadline deadline,
+            CancellationToken cancellationToken = default)
+        {
+            return owner.ExecuteAsync(command, RequestedMode, deadline.Timeout, UcliConfig.CreateDefault(), Project, payload, cancellationToken);
+        }
+
         public async ValueTask<UnityRequestExecutionResult> StartAsync (UcliCommand command, UnityRequestPayload payload, LifecycleExecutionStartInvocation invocation, CancellationToken cancellationToken = default)
         {
             var result = await owner.ExecuteAsync(command, RequestedMode, invocation.CallerWaitDeadline.Timeout, UcliConfig.CreateDefault(), Project, payload, cancellationToken);
