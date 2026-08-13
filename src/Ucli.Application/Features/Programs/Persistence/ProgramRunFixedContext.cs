@@ -1,9 +1,7 @@
-using System.Buffers;
-using System.Text.Json;
-using MackySoft.Json.Canonicalization;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Execution;
+using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Features.Programs.Persistence;
 
@@ -14,6 +12,9 @@ internal sealed record ProgramRunFixedContext (
     ProgramExecutionModeSnapshot ExecutionMode,
     ProgramAttachedSupervisorSnapshot Supervisor)
 {
+    /// <summary> Gets whether this Run must refuse a waitable admission state without waiting. </summary>
+    public bool FailFast { get; init; }
+
     public ProgramRunFixedContext Validate ()
     {
         (Authorization ?? throw new ArgumentNullException(nameof(Authorization))).Validate();
@@ -33,10 +34,14 @@ internal sealed record ProgramEffectiveAuthorizationSnapshot (
 {
     public ProgramEffectiveAuthorizationSnapshot Validate ()
     {
-        _ = Sha256Digest.Parse(Digest ?? throw new ArgumentNullException(nameof(Digest)));
+        var digest = Sha256Digest.Parse(Digest ?? throw new ArgumentNullException(nameof(Digest)));
         if (CapturedAtUtc == default || CapturedAtUtc.Offset != TimeSpan.Zero)
         {
             throw new ArgumentException("Authorization snapshot time must be a non-default UTC timestamp.", nameof(CapturedAtUtc));
+        }
+        if (digest != IpcProgramEffectiveAuthorizationSnapshot.ComputeDigest(AllowDangerous, AllowPlayMode))
+        {
+            throw new ArgumentException("Authorization snapshot digest does not match its effective permissions.");
         }
         return this;
     }
@@ -55,46 +60,6 @@ internal sealed record ProgramEffectiveConfigurationSnapshot (
     Sha256Digest Digest,
     DateTimeOffset CapturedAtUtc)
 {
-    public static Sha256Digest ComputeDigest (
-        int schemaVersion,
-        OperationPolicy operationPolicy,
-        PlanTokenMode planTokenMode,
-        ReadIndexMode readIndexDefaultMode,
-        IReadOnlyList<string> operationAllowlist,
-        int ipcDefaultTimeoutMilliseconds,
-        IReadOnlyDictionary<string, int> ipcTimeoutMillisecondsByCommand,
-        bool evalEnabled)
-    {
-        var buffer = new ArrayBufferWriter<byte>();
-        using (var writer = new Utf8JsonWriter(buffer))
-        {
-            writer.WriteStartObject();
-            writer.WriteNumber("schemaVersion", schemaVersion);
-            writer.WriteString("operationPolicy", Vocabulary.GetText(operationPolicy));
-            writer.WriteString("planTokenMode", Vocabulary.GetText(planTokenMode));
-            writer.WriteString("readIndexDefaultMode", Vocabulary.GetText(readIndexDefaultMode));
-            writer.WritePropertyName("operationAllowlist");
-            writer.WriteStartArray();
-            foreach (var entry in operationAllowlist)
-            {
-                writer.WriteStringValue(entry);
-            }
-            writer.WriteEndArray();
-            writer.WriteNumber("ipcDefaultTimeoutMilliseconds", ipcDefaultTimeoutMilliseconds);
-            writer.WritePropertyName("ipcTimeoutMillisecondsByCommand");
-            writer.WriteStartObject();
-            foreach (var entry in ipcTimeoutMillisecondsByCommand.OrderBy(static entry => entry.Key, StringComparer.Ordinal))
-            {
-                writer.WriteNumber(entry.Key, entry.Value);
-            }
-            writer.WriteEndObject();
-            writer.WriteBoolean("evalEnabled", evalEnabled);
-            writer.WriteEndObject();
-        }
-        using var document = JsonDocument.Parse(buffer.WrittenMemory);
-        return Sha256Digest.Compute(Rfc8785JsonCanonicalizer.Canonicalize(document.RootElement));
-    }
-
     public ProgramEffectiveConfigurationSnapshot Validate ()
     {
         if (SchemaVersion < 1 || !TextVocabulary.IsDefined(OperationPolicy) || !TextVocabulary.IsDefined(PlanTokenMode)
@@ -105,8 +70,15 @@ internal sealed record ProgramEffectiveConfigurationSnapshot (
         {
             throw new ArgumentException("Program configuration snapshot must be complete, effective, and closed.");
         }
-        if (Digest != ComputeDigest(SchemaVersion, OperationPolicy, PlanTokenMode, ReadIndexDefaultMode, OperationAllowlist,
-                IpcDefaultTimeoutMilliseconds, IpcTimeoutMillisecondsByCommand, EvalEnabled))
+        if (Digest != IpcProgramEffectiveConfigurationSnapshot.ComputeDigest(
+                SchemaVersion,
+                TextVocabulary.GetText(OperationPolicy),
+                TextVocabulary.GetText(PlanTokenMode),
+                TextVocabulary.GetText(ReadIndexDefaultMode),
+                OperationAllowlist,
+                IpcDefaultTimeoutMilliseconds,
+                IpcTimeoutMillisecondsByCommand,
+                EvalEnabled))
         {
             throw new ArgumentException("Program configuration snapshot digest does not match its effective settings.");
         }

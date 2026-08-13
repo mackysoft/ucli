@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Features.Programs.Persistence;
+using MackySoft.Ucli.Contracts.Editor;
 using MackySoft.Ucli.Contracts.Execution;
 
 namespace MackySoft.Ucli.Application.Features.Programs.Supervision;
@@ -70,12 +71,26 @@ internal sealed record ProgramStepExecutionTermination (
     ExecutionDeadline Deadline,
     TimeSpan RemainingTimeout);
 
-/// <summary> Reports whether starting one persisted execution left its response recoverable. </summary>
-internal enum ProgramStepExecutionPortResult
+/// <summary>
+/// Reports the outcome of the only permitted dispatch attempt for one
+/// persisted Program Step execution. A terminal response is carried as typed
+/// facts so the Supervisor can publish it without issuing an attach or a
+/// replacement execution.
+/// </summary>
+internal sealed record ProgramStepExecutionPortResult (
+    ProgramStepExecutionStartDisposition Disposition,
+    ProgramStepExecutionRecoveredTerminal? Terminal = null)
 {
-    Started = 1,
-    CommunicationLost,
+    public static ProgramStepExecutionPortResult Started { get; } = new(ProgramStepExecutionStartDisposition.Started);
+
+    public static ProgramStepExecutionPortResult CommunicationLost { get; } = new(ProgramStepExecutionStartDisposition.CommunicationLost);
+
+    public static ProgramStepExecutionPortResult TerminallyReturned (ProgramStepExecutionRecoveredTerminal terminal) =>
+        new(ProgramStepExecutionStartDisposition.Started, terminal ?? throw new ArgumentNullException(nameof(terminal)));
 }
+
+/// <summary> Distinguishes a returned start response from one that must attach for recovery. </summary>
+internal enum ProgramStepExecutionStartDisposition { Started = 1, CommunicationLost }
 
 /// <summary> Reports whether the already-started logical execution was recovered. </summary>
 internal sealed record ProgramStepExecutionRecoveryResult (
@@ -103,7 +118,10 @@ internal sealed record ProgramStepExecutionRecoveredTerminal (
     ProgramStepState State,
     Verdict? Verdict,
     ExecutionApplicationState ApplicationState,
-    string? ErrorCode)
+    string? ErrorCode,
+    UnityEditorGenerationSnapshot? GenerationAfter = null,
+    ExecutionRef? LifecycleExecutionRef = null,
+    ProgramStepExecutionTerminalOrigin Origin = ProgramStepExecutionTerminalOrigin.Execution)
 {
     public ProgramStepExecutionRecoveredTerminal Validate ()
     {
@@ -112,6 +130,21 @@ internal sealed record ProgramStepExecutionRecoveredTerminal (
         {
             throw new ArgumentException("Recovered Program Step terminal facts must be terminal and typed.");
         }
+        if (LifecycleExecutionRef is not null && LifecycleExecutionRef.Lifecycle != ExecutionLifecycle.Terminal)
+        {
+            throw new ArgumentException("A recovered Lifecycle Program Step terminal requires a terminal Lifecycle Execution reference.");
+        }
+        if (Origin is not (ProgramStepExecutionTerminalOrigin.Execution or ProgramStepExecutionTerminalOrigin.LocalPreflight))
+        {
+            throw new ArgumentOutOfRangeException(nameof(Origin), Origin, "Program Step terminal origin must be defined.");
+        }
         return this;
     }
+}
+
+/// <summary> Identifies the boundary that established a returned Program Step terminal. </summary>
+internal enum ProgramStepExecutionTerminalOrigin
+{
+    Execution = 1,
+    LocalPreflight,
 }

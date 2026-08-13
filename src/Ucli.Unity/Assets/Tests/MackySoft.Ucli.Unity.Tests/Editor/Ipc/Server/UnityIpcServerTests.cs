@@ -1847,6 +1847,12 @@ namespace MackySoft.Ucli.Unity.Tests
                     payload: payload,
                     errors: Array.Empty<IpcError>()));
             }
+
+            public Task<IpcResponse> DispatchProgramRequestAsync (
+                IpcExecuteRequest request,
+                ExecuteDispatchContext context,
+                CancellationToken cancellationToken = default) =>
+                DispatchAsync(request, context, cancellationToken);
         }
 
         private sealed class StubUnityTestRunService : IUnityTestRunService

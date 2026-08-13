@@ -200,14 +200,18 @@ internal sealed record ProgramRequestExecutionBoundary (
     UnityProjectIdentity Project,
     LifecycleExecutionHostRegistration Host,
     UnityEditorGenerationSnapshot StartedGeneration,
+    MackySoft.Ucli.Contracts.Cryptography.Sha256Digest RequestDigest,
     ArtifactRef RequestPlanRef,
+    MackySoft.Ucli.Contracts.Cryptography.Sha256Digest? PlanTokenDigest,
     IReadOnlyList<ArtifactRef> OperationDescriptorRefs,
+    IReadOnlyList<MackySoft.Ucli.Contracts.Cryptography.Sha256Digest> OperationDescriptorDigests,
     DateTimeOffset StartedAtUtc,
     DateTimeOffset DeadlineUtc)
 {
     public ProgramRequestExecutionBoundary Validate ()
     {
-        if (ExecutionId == Guid.Empty || Project is null || Host is null || StartedGeneration is null || RequestPlanRef is null || OperationDescriptorRefs is null)
+        if (ExecutionId == Guid.Empty || Project is null || Host is null || StartedGeneration is null || RequestDigest is null || RequestPlanRef is null || OperationDescriptorRefs is null || OperationDescriptorDigests is null
+            || OperationDescriptorRefs.Count != OperationDescriptorDigests.Count)
         {
             throw new ArgumentException("Request boundary requires its logical id, fixed host context, plan, and descriptors.");
         }

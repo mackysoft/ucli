@@ -3,9 +3,9 @@ using MackySoft.Ucli.Application.Features.Screenshot.Artifacts;
 using MackySoft.Ucli.Application.Shared.Context;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Application.Shared.Identifiers;
-using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Contracts.Editor;
+using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Presentation;
 
 namespace MackySoft.Ucli.Application.Features.Screenshot.Capture;
 
@@ -119,6 +119,84 @@ internal sealed class ScreenshotCaptureService : IScreenshotCaptureService
         return discardResult.IsSuccess
             ? captureResult
             : ScreenshotCaptureResult.Failure(discardResult.Error!);
+    }
+
+    /// <inheritdoc />
+    public async ValueTask<ScreenshotCaptureResult> CaptureOnFixedHostAsync (
+        ProjectContext context,
+        IUnityExecutionHostBinding binding,
+        IpcScreenshotTarget target,
+        PixelDimensions? requestedDimensions,
+        ExecutionDeadline deadline,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(binding);
+        ArgumentNullException.ThrowIfNull(deadline);
+        var input = new ScreenshotCaptureInput(
+            ProjectPath: null,
+            Target: target,
+            RequestedDimensions: requestedDimensions,
+            TimeoutMilliseconds: null);
+        var inputError = ValidateInput(input);
+        if (inputError is not null)
+        {
+            return ScreenshotCaptureResult.Failure(inputError);
+        }
+        if (!deadline.TryGetRemainingTimeout(out _))
+        {
+            return ScreenshotCaptureResult.Failure(ExecutionError.Timeout("Program screenshot Step deadline elapsed before capture could begin."));
+        }
+        if (binding.Target != UnityExecutionTarget.Daemon)
+        {
+            return ScreenshotCaptureResult.Failure(ExecutionError.InternalError(RequiresGuiSessionMessage, ScreenshotErrorCodes.ScreenshotRequiresGuiSession));
+        }
+        var captureId = captureIdGenerator.Generate();
+        var preparation = artifactStore.Prepare(context.UnityProject, captureId);
+        if (!preparation.IsSuccess)
+        {
+            return ScreenshotCaptureResult.Failure(preparation.Error!);
+        }
+
+        var artifactLease = preparation.Lease!;
+        try
+        {
+            var execution = await binding.ExecuteAsync(
+                    UcliCommandIds.Screenshot,
+                    new UnityRequestPayload.ScreenshotCapture(new IpcScreenshotCaptureRequest(captureId, target, requestedDimensions)),
+                    deadline,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (!execution.IsSuccess)
+            {
+                return ScreenshotCaptureResult.Failure(
+                    CreateError(execution.FailureInfo!),
+                    ScreenshotCaptureFailureDisposition.CommunicationLost);
+            }
+            if (execution.Response!.Errors.Count != 0)
+            {
+                return ScreenshotCaptureResult.Failure(CreateError(execution.Response));
+            }
+            if (!IpcPayloadCodec.TryDeserialize(execution.Response.Payload, out IpcScreenshotCaptureResponse response, out var payloadError))
+            {
+                return ScreenshotCaptureResult.Failure(
+                    ExecutionError.InternalError($"Unity screenshot capture payload is invalid. {payloadError.Message}"),
+                    ScreenshotCaptureFailureDisposition.ContractInvalid);
+            }
+            var validationError = ValidateResponse(input, captureId, response);
+            if (validationError is not null)
+            {
+                return ScreenshotCaptureResult.Failure(validationError, ScreenshotCaptureFailureDisposition.ContractInvalid);
+            }
+            var committed = await artifactLease.CommitAsync(response.Staging, cancellationToken).ConfigureAwait(false);
+            return committed.IsSuccess
+                ? ScreenshotCaptureResult.Success(new ScreenshotCaptureOutput(ProjectIdentityInfo.From(context.UnityProject), response.Capture, committed.Artifact!))
+                : ScreenshotCaptureResult.Failure(committed.Error!, ScreenshotCaptureFailureDisposition.ContractInvalid);
+        }
+        finally
+        {
+            _ = artifactLease.Discard();
+        }
     }
 
     private async ValueTask<ScreenshotCaptureResult> CapturePreparedAsync (

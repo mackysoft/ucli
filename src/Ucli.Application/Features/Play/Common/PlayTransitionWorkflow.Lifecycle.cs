@@ -40,6 +40,7 @@ internal sealed partial class PlayTransitionWorkflow
                 establishedExecutionReference: null,
                 requiredStart: null,
                 direction,
+                invocation.Context.FailFast,
                 cancellationToken,
                 (payload, token) => invocation.Context.HostBinding.StartAsync(
                     direction.Command,
@@ -99,6 +100,7 @@ internal sealed partial class PlayTransitionWorkflow
                 open.CurrentReference,
                 open.RequiredStart,
                 direction,
+                failFast: false,
                 cancellationToken,
                 (payload, token) => invocation.Context.HostBinding.ReconnectAsync(
                     direction.Command,

@@ -23,7 +23,9 @@ internal sealed class UcliConfigSchemaValidator
         UcliConfigJsonPropertyNames.OperationAllowlist,
         UcliConfigJsonPropertyNames.IpcDefaultTimeoutMilliseconds,
         UcliConfigJsonPropertyNames.IpcTimeoutMillisecondsByCommand,
+        UcliConfigJsonPropertyNames.EvalEnabled,
         UcliConfigJsonPropertyNames.ProgramPresets,
+        UcliConfigJsonPropertyNames.WorkCompletion,
     };
 
     /// <summary> Validates a config JSON root and reads raw config values when validation succeeds. </summary>
@@ -89,9 +91,19 @@ internal sealed class UcliConfigSchemaValidator
             UcliConfigJsonPropertyNames.IpcTimeoutMillisecondsByCommand,
             sourcePath,
             diagnostics);
+        var evalEnabled = ReadOptionalBoolean(
+            root,
+            UcliConfigJsonPropertyNames.EvalEnabled,
+            sourcePath,
+            diagnostics);
         var programPresets = ReadOptionalProgramPresetDictionary(
             root,
             UcliConfigJsonPropertyNames.ProgramPresets,
+            sourcePath,
+            diagnostics);
+        var workCompletion = ReadOptionalWorkCompletion(
+            root,
+            UcliConfigJsonPropertyNames.WorkCompletion,
             sourcePath,
             diagnostics);
 
@@ -108,7 +120,9 @@ internal sealed class UcliConfigSchemaValidator
             OperationAllowlist: operationAllowlist!,
             IpcDefaultTimeoutMilliseconds: ipcDefaultTimeoutMilliseconds,
             IpcTimeoutMillisecondsByCommand: ipcTimeoutMillisecondsByCommand,
-            ProgramPresets: programPresets));
+            EvalEnabled: evalEnabled,
+            ProgramPresets: programPresets,
+            WorkCompletion: workCompletion));
     }
 
     private static void AddObjectPropertyDiagnostics (
@@ -225,6 +239,26 @@ internal sealed class UcliConfigSchemaValidator
         }
 
         return value;
+    }
+
+    private static bool ReadOptionalBoolean (
+        JsonElement root,
+        string propertyName,
+        string sourcePath,
+        List<UcliConfigDiagnostic> diagnostics)
+    {
+        if (!root.TryGetProperty(propertyName, out var property))
+        {
+            return false;
+        }
+
+        if (property.ValueKind is JsonValueKind.True or JsonValueKind.False)
+        {
+            return property.GetBoolean();
+        }
+
+        AddDiagnostic(diagnostics, CreatePropertyTypeMismatchDiagnostic(propertyName, sourcePath));
+        return false;
     }
 
     private static string[]? ReadRequiredStringArray (
@@ -404,6 +438,68 @@ internal sealed class UcliConfigSchemaValidator
         }
 
         return values;
+    }
+
+    private static UcliWorkCompletionDocument? ReadOptionalWorkCompletion (
+        JsonElement root,
+        string propertyName,
+        string sourcePath,
+        List<UcliConfigDiagnostic> diagnostics)
+    {
+        if (!root.TryGetProperty(propertyName, out var property))
+        {
+            return null;
+        }
+
+        if (property.ValueKind != JsonValueKind.Object)
+        {
+            AddDiagnostic(diagnostics, CreatePropertyTypeMismatchDiagnostic(propertyName, sourcePath));
+            return null;
+        }
+
+        var requiredProgramPresetsPath = $"{propertyName}.{UcliConfigJsonPropertyNames.RequiredProgramPresets}";
+        var properties = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var nestedProperty in property.EnumerateObject())
+        {
+            var nestedPath = $"{propertyName}.{UcliConfigDiagnostic.FormatFragment(nestedProperty.Name)}";
+            if (!properties.Add(nestedProperty.Name))
+            {
+                AddDiagnostic(diagnostics, CreateDuplicatePropertyDiagnostic(nestedPath, sourcePath));
+            }
+            else if (nestedProperty.Name != UcliConfigJsonPropertyNames.RequiredProgramPresets)
+            {
+                AddDiagnostic(diagnostics, CreateDiagnostic(UnknownPropertyCode, nestedPath, sourcePath, $"Config contains unknown property: {nestedPath}."));
+            }
+        }
+
+        if (!property.TryGetProperty(UcliConfigJsonPropertyNames.RequiredProgramPresets, out var requiredProgramPresets)
+            || requiredProgramPresets.ValueKind != JsonValueKind.Array)
+        {
+            AddDiagnostic(diagnostics, CreateDiagnostic(PropertyTypeMismatchCode, requiredProgramPresetsPath, sourcePath, $"Config JSON property type is invalid: {requiredProgramPresetsPath}."));
+            return null;
+        }
+
+        var values = new List<string>();
+        var index = 0;
+        foreach (var entry in requiredProgramPresets.EnumerateArray())
+        {
+            if (entry.ValueKind != JsonValueKind.String)
+            {
+                var entryPath = $"{requiredProgramPresetsPath}[{index}]";
+                if (!AddDiagnostic(diagnostics, CreateDiagnostic(ArrayElementTypeMismatchCode, entryPath, sourcePath, $"Config JSON array element type is invalid: {entryPath}.")))
+                {
+                    break;
+                }
+            }
+            else
+            {
+                values.Add(entry.GetString() ?? string.Empty);
+            }
+
+            index++;
+        }
+
+        return new UcliWorkCompletionDocument(values.ToArray());
     }
 
     private static UcliConfigDiagnostic CreateMissingPropertyDiagnostic (

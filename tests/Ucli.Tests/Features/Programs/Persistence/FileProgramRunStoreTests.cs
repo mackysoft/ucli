@@ -741,7 +741,7 @@ public sealed class FileProgramRunStoreTests
         var host = new LifecycleExecutionHostRegistration(new ProcessIdentity(101, 1), Guid.Parse("10000000-0000-0000-0000-000000000001"), Guid.Parse("10000000-0000-0000-0000-000000000002"), Guid.Parse("10000000-0000-0000-0000-000000000002"));
         var generation = new UnityEditorGenerationSnapshot(5, 6, 7, 8);
         var plan = CreateArtifact("requestPlan", "plan.json");
-        var boundary = new ProgramRequestExecutionBoundary(Guid.NewGuid(), new UnityProjectIdentity("/other", new ProjectFingerprint(new string('f', 64)), "6000.1.0f1"), host, generation, plan, [], StartedAtUtc, StartedAtUtc.AddSeconds(10));
+        var boundary = new ProgramRequestExecutionBoundary(Guid.NewGuid(), new UnityProjectIdentity("/other", new ProjectFingerprint(new string('f', 64)), "6000.1.0f1"), host, generation, Sha256Digest.Compute([1]), plan, null, [], [], StartedAtUtc, StartedAtUtc.AddSeconds(10));
         var step = new ProgramRunStepRecord("ready", 1000, ProgramStepState.Running, null, StartedAtUtc, StartedAtUtc.AddSeconds(10), generation, null, ExecutionApplicationState.NotApplied, plan, [], null, boundary, null, null, null, [], null, StartedAtUtc, null);
 
         Assert.Throws<ArgumentException>(() => CreateRun(Guid.NewGuid(), 0, ProgramRunState.Running, 0, ProgramCancellationRecord.None, stepOverride: step, hostOverride: host, definitionSnapshotRef: CreateArtifact("programDefinitionSnapshot", "definition.json")));
@@ -875,6 +875,92 @@ public sealed class FileProgramRunStoreTests
         var changedCancellation = CreateRun(initial.RunId, 2, ProgramRunState.Running, 0,
             new ProgramCancellationRecord(true, StartedAtUtc.AddMinutes(2), "second"), definitionSnapshotRef: initial.DefinitionSnapshotRef);
         await Assert.ThrowsAsync<ArgumentException>(() => store.CompareExchangeAsync(requested, changedCancellation).AsTask());
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task PublishStepTerminal_AllowsAnActiveLifecycleReferenceToMatureToItsSameTerminalReference ()
+    {
+        using var scope = TestDirectories.CreateTempScope("program-run-store", "lifecycle-terminal-maturation");
+        var store = new FileProgramRunStore(AbsolutePath.Parse(scope.GetPath("repository")), CreateProject().ProjectFingerprint);
+        var active = await CreateActiveRefreshRunAsync(store);
+        var terminal = CreateRefreshStepTerminal(active.Run, active.TerminalReference);
+
+        var publication = await store.PublishStepTerminalAsync(active.Run, 0, terminal, artifact =>
+            CreateRun(
+                active.Run.RunId,
+                active.Run.Version + 1,
+                ProgramRunState.Running,
+                1,
+                ProgramCancellationRecord.None,
+                fixedContext: active.Run.FixedContext,
+                hostOverride: active.Run.Host,
+                definitionSnapshotRef: active.Run.DefinitionSnapshotRef,
+                definitionDigest: active.Run.DefinitionDigest,
+                stepOverride: active.Run.Steps[0] with
+                {
+                    State = ProgramStepState.Completed,
+                    ApplicationState = ExecutionApplicationState.Applied,
+                    GenerationAfter = active.Run.StartedGeneration,
+                    LifecycleExecutionRef = active.TerminalReference,
+                    ResultRef = artifact,
+                    CompletedAtUtc = StartedAtUtc.AddSeconds(1),
+                }));
+
+        var step = Assert.Single(publication.Current.Steps);
+        Assert.Equal(ProgramStepState.Completed, step.State);
+        Assert.Equal(active.TerminalReference, step.LifecycleExecutionRef);
+        Assert.Equal(publication.TerminalRecordRef, step.ResultRef);
+
+        var terminalToActive = CreateRun(
+            publication.Current.RunId,
+            publication.Current.Version + 1,
+            ProgramRunState.Running,
+            1,
+            ProgramCancellationRecord.None,
+            fixedContext: publication.Current.FixedContext,
+            hostOverride: publication.Current.Host,
+            definitionSnapshotRef: publication.Current.DefinitionSnapshotRef,
+            definitionDigest: publication.Current.DefinitionDigest,
+            stepOverride: step with { LifecycleExecutionRef = active.ActiveReference });
+        await Assert.ThrowsAsync<ArgumentException>(() => store.CompareExchangeAsync(publication.Current, terminalToActive).AsTask());
+    }
+
+    [Theory]
+    [InlineData("removed")]
+    [InlineData("differentTerminal")]
+    [InlineData("recovery")]
+    [Trait("Size", "Medium")]
+    public async Task CompareExchange_RejectsReplacingAnEstablishedActiveLifecycleReferenceExceptItsSameTerminalMaturation (string replacementKind)
+    {
+        using var scope = TestDirectories.CreateTempScope("program-run-store", $"lifecycle-ref-{replacementKind}");
+        var store = new FileProgramRunStore(AbsolutePath.Parse(scope.GetPath("repository")), CreateProject().ProjectFingerprint);
+        var active = await CreateActiveRefreshRunAsync(store);
+        ExecutionRef? replacementReference = replacementKind switch
+        {
+            "removed" => null,
+            "differentTerminal" => CreateRefreshTerminalReference(Guid.NewGuid()),
+            "recovery" => new RecoveryExecutionRef(
+                active.ActiveReference.Kind,
+                active.ActiveReference.Id,
+                active.ActiveReference.DefinitionDigest,
+                new ExecutionState("recovering"),
+                new ExecutionStatusLocator("lifecycle-execution/refresh/recovery.json")),
+            _ => throw new ArgumentOutOfRangeException(nameof(replacementKind)),
+        };
+        var replacement = CreateRun(
+            active.Run.RunId,
+            active.Run.Version + 1,
+            ProgramRunState.Running,
+            0,
+            ProgramCancellationRecord.None,
+            fixedContext: active.Run.FixedContext,
+            hostOverride: active.Run.Host,
+            definitionSnapshotRef: active.Run.DefinitionSnapshotRef,
+            definitionDigest: active.Run.DefinitionDigest,
+            stepOverride: active.Run.Steps[0] with { LifecycleExecutionRef = replacementReference });
+
+        await Assert.ThrowsAsync<ArgumentException>(() => store.CompareExchangeAsync(active.Run, replacement).AsTask());
     }
 
     [Fact]
@@ -1587,6 +1673,105 @@ public sealed class FileProgramRunStoreTests
         return CreateRun(runId, version, state, cursor, cancellation, definitionSnapshotRef: reference);
     }
 
+    private static async ValueTask<(ProgramRunRecord Run, ActiveExecutionRef ActiveReference, TerminalExecutionRef TerminalReference)> CreateActiveRefreshRunAsync (
+        FileProgramRunStore store)
+    {
+        var runId = Guid.NewGuid();
+        using var program = JsonDocument.Parse("{\"steps\":[{\"command\":\"refresh\",\"timeoutMilliseconds\":1000}]}");
+        var programDigest = Sha256Digest.Compute(Rfc8785JsonCanonicalizer.Canonicalize(program.RootElement));
+        using var manifest = JsonDocument.Parse($"{{\"rootSource\":\"stdin\",\"rootPath\":null,\"presetId\":null,\"programDigest\":\"{programDigest}\",\"sources\":[]}}");
+        var manifestDigest = Sha256Digest.Compute(Rfc8785JsonCanonicalizer.Canonicalize(manifest.RootElement));
+        using var identity = JsonDocument.Parse($"{{\"program\":{program.RootElement.GetRawText()},\"sources\":[]}}");
+        var definitionDigest = Sha256Digest.Compute(Rfc8785JsonCanonicalizer.Canonicalize(identity.RootElement));
+        var definition = new ProgramDefinitionSnapshot(
+            definitionDigest,
+            program.RootElement.Clone(),
+            new ProgramDefinitionSnapshotManifest(manifestDigest, ProgramRootSource.Stdin, null, null, programDigest, []),
+            []);
+        var definitionRef = await store.PublishDefinitionSnapshotAsync(runId, definition);
+        var fixedContext = CreateFixedContext(commandTimeouts: new Dictionary<string, int> { ["refresh"] = 1000 });
+        var deferred = new ProgramRunStepRecord("refresh", 1000, ProgramStepState.Deferred, null, null, null, null, null,
+            ExecutionApplicationState.NotApplied, null, [], null, null, null, null, null, [], null, null, null);
+        var initial = CreateRun(runId, 0, ProgramRunState.Created, 0, ProgramCancellationRecord.None,
+            fixedContext: fixedContext, definitionSnapshotRef: definitionRef, definitionDigest: definitionDigest, stepOverride: deferred);
+        await store.CreateAsync(initial);
+
+        var execution = new ProgramStepExecutionReference(Guid.Parse("3a0f9ada-c23f-41b7-88ac-849cedf38882"), StartedAtUtc, StartedAtUtc.AddSeconds(10));
+        var planning = deferred with
+        {
+            State = ProgramStepState.Planning,
+            PlanningStartedAtUtc = StartedAtUtc,
+            DeadlineUtc = execution.DeadlineUtc,
+            StartedAtUtc = execution.StartedAtUtc,
+            Execution = execution,
+            ExecutionPortInvoked = true,
+        };
+        var plannedRun = CreateRun(runId, 1, ProgramRunState.Running, 0, ProgramCancellationRecord.None,
+            fixedContext: fixedContext, definitionSnapshotRef: definitionRef, definitionDigest: definitionDigest, stepOverride: planning);
+        Assert.True((await store.CompareExchangeAsync(initial, plannedRun)).Exchanged);
+
+        var activeReference = CreateRefreshActiveReference(execution.ExecutionId);
+        var activeStep = planning with
+        {
+            State = ProgramStepState.Running,
+            GenerationBefore = plannedRun.StartedGeneration,
+            LifecycleExecutionRef = activeReference,
+        };
+        var activeRun = CreateRun(runId, 2, ProgramRunState.Running, 0, ProgramCancellationRecord.None,
+            fixedContext: fixedContext, definitionSnapshotRef: definitionRef, definitionDigest: definitionDigest, stepOverride: activeStep);
+        Assert.True((await store.CompareExchangeAsync(plannedRun, activeRun)).Exchanged);
+        return (activeRun, activeReference, CreateRefreshTerminalReference(execution.ExecutionId));
+    }
+
+    private static ProgramStepTerminalRecord CreateRefreshStepTerminal (ProgramRunRecord run, TerminalExecutionRef terminalReference) => new(
+        ProgramStepTerminalRecord.CurrentSchemaVersion,
+        run.RunId,
+        run.DefinitionDigest,
+        0,
+        "refresh",
+        ProgramStepState.Completed,
+        null,
+        ExecutionApplicationState.Applied,
+        run.StartedGeneration,
+        run.StartedGeneration,
+        null,
+        [],
+        terminalReference,
+        null,
+        [],
+        null,
+        StartedAtUtc,
+        StartedAtUtc.AddSeconds(1));
+
+    private static ActiveExecutionRef CreateRefreshActiveReference (Guid executionId)
+    {
+        var definition = new LifecycleExecutionDefinition(LifecycleExecutionKind.Refresh);
+        return new ActiveExecutionRef(
+            definition.ExecutionKind,
+            executionId,
+            LifecycleExecutionDefinitionDigest.Calculate(definition),
+            new ExecutionState("registered"),
+            new ExecutionStatusLocator($"lifecycle-execution/refresh/{executionId:N}/execution.json"));
+    }
+
+    private static TerminalExecutionRef CreateRefreshTerminalReference (Guid executionId)
+    {
+        var definition = new LifecycleExecutionDefinition(LifecycleExecutionKind.Refresh);
+        return new TerminalExecutionRef(
+            definition.ExecutionKind,
+            executionId,
+            LifecycleExecutionDefinitionDigest.Calculate(definition),
+            new ExecutionState("completed"),
+            null,
+            new PathArtifactRef(
+                LifecycleExecutionArtifactContract.TerminalRecordKind,
+                LifecycleExecutionArtifactContract.TerminalRecordMediaType,
+                new ArtifactPath($"lifecycle-execution/refresh/{executionId:N}/terminal.json"),
+                Sha256Digest.Parse(new string('e', 64)),
+                1,
+                StartedAtUtc));
+    }
+
     private static async ValueTask<(ProgramRunRecord Initial, ProgramRunStepRecord Planning, ArtifactRef Plan, IReadOnlyList<ArtifactRef> Descriptors)> CreateCallPlanningRunAsync (FileProgramRunStore store)
     {
         var runId = Guid.NewGuid();
@@ -1606,7 +1791,7 @@ public sealed class FileProgramRunStoreTests
         var generation = new UnityEditorGenerationSnapshot(1, 2, 3, 4);
         var plan = CreateArtifact("requestPlan", "call-plan.json");
         var descriptors = new[] { CreateArtifact("operationDescriptor", "one.json"), CreateArtifact("operationDescriptor", "two.json") };
-        var boundary = new ProgramRequestExecutionBoundary(Guid.NewGuid(), CreateProject(), host, generation, plan, descriptors, StartedAtUtc, StartedAtUtc.AddSeconds(10));
+        var boundary = new ProgramRequestExecutionBoundary(Guid.NewGuid(), CreateProject(), host, generation, Sha256Digest.Compute([1]), plan, null, descriptors, [Sha256Digest.Compute([2]), Sha256Digest.Compute([3])], StartedAtUtc, StartedAtUtc.AddSeconds(10));
         var deferred = new ProgramRunStepRecord("call", 1000, ProgramStepState.Deferred, null, null, null, null, null,
             ExecutionApplicationState.NotApplied, null, [], null, null, null, null, null, [], null, null, null);
         var initial = CreateRun(runId, 0, ProgramRunState.Created, 0, ProgramCancellationRecord.None,
@@ -1709,9 +1894,9 @@ public sealed class FileProgramRunStoreTests
     {
         var timeouts = commandTimeouts ?? new Dictionary<string, int> { ["ready"] = 1000 };
         return new(
-        new ProgramEffectiveAuthorizationSnapshot(allowDangerous, false, new string('d', 64), StartedAtUtc),
+        new ProgramEffectiveAuthorizationSnapshot(allowDangerous, false, IpcProgramEffectiveAuthorizationSnapshot.ComputeDigest(allowDangerous, false).ToString(), StartedAtUtc),
         new ProgramEffectiveConfigurationSnapshot(1, OperationPolicy.Safe, PlanTokenMode.Optional, ReadIndexMode.RequireFresh, ["^ucli\\."], 1000, timeouts, false,
-            ProgramEffectiveConfigurationSnapshot.ComputeDigest(1, OperationPolicy.Safe, PlanTokenMode.Optional, ReadIndexMode.RequireFresh, ["^ucli\\."], 1000, timeouts, false), StartedAtUtc),
+            IpcProgramEffectiveConfigurationSnapshot.ComputeDigest(1, "safe", "optional", "requireFresh", ["^ucli\\."], 1000, timeouts, false), StartedAtUtc),
         new ProgramExecutionModeSnapshot("auto", "daemon"),
         new ProgramAttachedSupervisorSnapshot(Guid.Parse("10000000-0000-0000-0000-000000000003"), Guid.Parse("10000000-0000-0000-0000-000000000004"), new ProcessIdentity(42, 100), ProgramSupervisorConnection.Connected, ProgramSupervisorAvailability.Available, StartedAtUtc));
     }
@@ -1733,7 +1918,7 @@ public sealed class FileProgramRunStoreTests
         LifecycleExecutionHostRegistration? host = null,
         UnityEditorGenerationSnapshot? generation = null) => new(
         Guid.NewGuid(), CreateProject(), host ?? CreateHost(), generation ?? new UnityEditorGenerationSnapshot(1, 2, 3, 4),
-        CreateArtifact("requestPlan", "plan.json"), [], StartedAtUtc, StartedAtUtc.AddSeconds(10));
+        Sha256Digest.Compute([1]), CreateArtifact("requestPlan", "plan.json"), null, [], [], StartedAtUtc, StartedAtUtc.AddSeconds(10));
 
     private static LifecycleExecutionHostRegistration CreateHost (int processId = 101) => new(
         new ProcessIdentity(processId, 1), Guid.Parse("10000000-0000-0000-0000-000000000001"),

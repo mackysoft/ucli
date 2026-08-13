@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Features.Assurance.Ready;
+using MackySoft.Ucli.Application.Shared.Context;
 
 namespace MackySoft.Ucli.Application.Tests;
 
@@ -22,6 +23,12 @@ internal sealed class RecordingVerifyReadyService : IReadyService
         invocations.Add(new Invocation(input, cancellationToken));
         return ValueTask.FromResult(resultFactory(input));
     }
+
+    public ValueTask<ProgramReadyObservation> ObserveOnFixedHostAsync (
+        ProjectContext context,
+        IUnityExecutionHostBinding binding,
+        ExecutionDeadline deadline,
+        CancellationToken cancellationToken = default) => throw new InvalidOperationException();
 
     internal readonly record struct Invocation (
         ReadyCommandInput Input,
