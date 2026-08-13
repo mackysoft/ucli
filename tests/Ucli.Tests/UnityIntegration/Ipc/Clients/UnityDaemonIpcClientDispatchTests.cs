@@ -1,11 +1,9 @@
 using System.Net.Sockets;
-using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Acquisition;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Observation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts.Editor;
-using MackySoft.Ucli.Contracts.Execution.Lifecycle;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Tests.Helpers.Ipc;
 using MackySoft.Ucli.UnityIntegration.Ipc.Clients;
@@ -224,7 +222,7 @@ public sealed class UnityDaemonIpcClientDispatchTests
     [InlineData(true)]
     public async Task Send_WhenRejectedSessionTokenDoesNotRotate_ReturnsRejectionAfterPublicationGrace (bool streaming)
     {
-        var timeProvider = new FakeTimeProvider(DateTimeOffset.UnixEpoch);
+        var timeProvider = new PublicationGraceTimerObservingFakeTimeProvider(DateTimeOffset.UnixEpoch);
         var transportClient = new RecordingIpcTransportClient(_ => CreateSessionTokenInvalidResponse());
         var client = new UnityDaemonIpcClient(
             transportClient,
@@ -250,6 +248,7 @@ public sealed class UnityDaemonIpcClientDispatchTests
                     deadline,
                     CancellationToken.None)
                 .AsTask();
+        await timeProvider.PublicationRetryTimerRegistered.WaitAsync(SignalWaitTimeout);
         timeProvider.Advance(DaemonTimeouts.SessionPublicationRetryTimeout);
 
         var result = await sendTask.WaitAsync(TimeSpan.FromSeconds(1));
@@ -1251,6 +1250,35 @@ public sealed class UnityDaemonIpcClientDispatchTests
             UnityIpcMethod.OpsRead,
             maximumAttempts: 2);
         Assert.Equal(2, requests.Count);
+    }
+
+    private sealed class PublicationGraceTimerObservingFakeTimeProvider : FakeTimeProvider
+    {
+        private readonly TaskCompletionSource publicationRetryTimerRegistered =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public PublicationGraceTimerObservingFakeTimeProvider (DateTimeOffset startTime)
+            : base(startTime)
+        {
+        }
+
+        public Task PublicationRetryTimerRegistered => publicationRetryTimerRegistered.Task;
+
+        public override ITimer CreateTimer (
+            TimerCallback callback,
+            object? state,
+            TimeSpan dueTime,
+            TimeSpan period)
+        {
+            var timer = base.CreateTimer(callback, state, dueTime, period);
+            if (dueTime == TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds)
+                && period == Timeout.InfiniteTimeSpan)
+            {
+                publicationRetryTimerRegistered.TrySetResult();
+            }
+
+            return timer;
+        }
     }
 
     private sealed class TimeAdvancingDaemonSessionStore : ReadOnlyDaemonSessionStore
