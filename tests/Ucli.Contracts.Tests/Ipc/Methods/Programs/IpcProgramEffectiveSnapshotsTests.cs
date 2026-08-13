@@ -37,7 +37,7 @@ public sealed class IpcProgramEffectiveSnapshotsTests
             ipcDefaultTimeoutMilliseconds: 3000,
             ipcTimeoutMillisecondsByCommand: new Dictionary<string, int>(StringComparer.Ordinal) { ["call"] = 60_000 });
 
-        Assert.Equal("41748e67bea427c2add48a59285b22498a70117ec1666b6ce9a3db09419a2fcc", digest.ToString());
+        Assert.Equal("b896c5779c8d89b8e10f76c7c677917fd1a13c900869e99899b409342ba257d5", digest.ToString());
     }
 
     [Fact]
@@ -78,7 +78,7 @@ public sealed class IpcProgramEffectiveSnapshotsTests
             ipcDefaultTimeoutMilliseconds: 1,
             ipcTimeoutMillisecondsByCommand: new Dictionary<string, int>(StringComparer.Ordinal) { [value] = 2 });
 
-        Assert.Equal("8a5f45c0059a75deae0d8b7185d3797fcdb27b133ecdbd2a8f9fab260f45cf36", digest.ToString());
+        Assert.Equal("0395ce4d6c411d9f7264662209050069ea2f00979658ba18a463624fb935abe7", digest.ToString());
     }
 
     [Fact]
@@ -94,7 +94,7 @@ public sealed class IpcProgramEffectiveSnapshotsTests
             new Dictionary<string, int>(StringComparer.Ordinal) { [value] = 2 });
 
         Assert.Equal(expected, actual);
-        Assert.Equal("8a5f45c0059a75deae0d8b7185d3797fcdb27b133ecdbd2a8f9fab260f45cf36", actual.ToString());
+        Assert.Equal("0395ce4d6c411d9f7264662209050069ea2f00979658ba18a463624fb935abe7", actual.ToString());
     }
 
     [Fact]

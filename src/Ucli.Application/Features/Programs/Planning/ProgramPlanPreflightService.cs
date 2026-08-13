@@ -123,6 +123,11 @@ internal sealed class ProgramPlanPreflightService
                 "PROGRAM_PLAN_CALL_REQUEST_UNAVAILABLE", index, "The resolved Program call request is unavailable.");
         }
 
+        if (request.Steps.Any(static step => step.Kind == IpcExecuteStepKind.Op && string.Equals(step.Op, "ucli.cs.eval", StringComparison.Ordinal)))
+        {
+            return ProgramPlanStepPreflightResult.Failed("PROGRAM_CALL_EVAL_NOT_ALLOWED", index, "Program call Steps cannot execute dedicated C# evaluation.");
+        }
+
         var catalog = await catalogReader.ReadAsync(project, binding, deadline, cancellationToken).ConfigureAwait(false);
         if (!catalog.IsSuccess)
         {
