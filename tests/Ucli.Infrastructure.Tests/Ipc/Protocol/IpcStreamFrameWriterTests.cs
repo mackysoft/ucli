@@ -216,7 +216,7 @@ public sealed class IpcStreamFrameWriterTests
         var response = CreateResponse(request.RequestId);
         await using var stream = new NonCooperativeWriteStream();
         using var frameWriteCutoffCancellationTokenSource =
-            new CancellationTokenSource(TimeSpan.FromMilliseconds(100));
+            new CancellationTokenSource();
         Exception? observedException = null;
         var handlerInvoked = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
@@ -238,6 +238,7 @@ public sealed class IpcStreamFrameWriterTests
                 new TestProgressPayload("blocked", 1))
             .AsTask();
         await stream.WriteStarted.WaitAsync(TimeSpan.FromSeconds(5));
+        frameWriteCutoffCancellationTokenSource.Cancel();
 
         var timeoutException = await Assert.ThrowsAsync<IOException>(() => writeTask);
         var rejectedException = await Assert.ThrowsAsync<IOException>(async () =>
