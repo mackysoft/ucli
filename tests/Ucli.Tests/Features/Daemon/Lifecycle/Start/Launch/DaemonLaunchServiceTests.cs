@@ -425,7 +425,7 @@ public sealed class DaemonLaunchServiceTests
                 return new ValueTask<DaemonDiagnosisStoreOperationResult>(diagnosisCompletion.Task);
             },
         };
-        var timeProvider = new FakeTimeProvider(processStartedAtUtc);
+        var timeProvider = new SupplementalPersistenceTimerObservingFakeTimeProvider(processStartedAtUtc);
         var compensationOperationOwner = new DaemonCompensationOperationOwner();
         var service = CreateService(
             launchSessionService,
@@ -444,17 +444,20 @@ public sealed class DaemonLaunchServiceTests
                 DaemonStartupBlockedProcessPolicy.Auto,
                 cancellationToken: CancellationToken.None)
             .AsTask();
-        await compensationStarted.Task.WaitAsync(TimeSpan.FromSeconds(1));
-        await diagnosisWriteStarted.Task.WaitAsync(TimeSpan.FromSeconds(1));
+        Task? followingPersistenceTaskReference = null;
+        Exception? primaryException = null;
 
         try
         {
-            timeProvider.AutoAdvanceAmount = DaemonTimeouts.SupplementalPersistenceTimeout;
+            await compensationStarted.Task.WaitAsync(AsyncWaitTimeout);
+            await diagnosisWriteStarted.Task.WaitAsync(AsyncWaitTimeout);
+            await timeProvider.WaitForNextSupplementalPersistenceTimerRegistrationAsync().WaitAsync(AsyncWaitTimeout);
             timeProvider.Advance(DaemonTimeouts.SupplementalPersistenceTimeout);
 
-            await diagnosisCancellationObserved.Task.WaitAsync(TimeSpan.FromSeconds(1));
-            var result = await launchTask.WaitAsync(TimeSpan.FromSeconds(1));
-            timeProvider.AutoAdvanceAmount = TimeSpan.Zero;
+            await diagnosisCancellationObserved.Task.WaitAsync(AsyncWaitTimeout);
+            await timeProvider.WaitForNextSupplementalPersistenceTimerRegistrationAsync().WaitAsync(AsyncWaitTimeout);
+            timeProvider.Advance(DaemonTimeouts.SupplementalPersistenceTimeout);
+            var result = await launchTask.WaitAsync(AsyncWaitTimeout);
 
             Assert.Equal(DaemonStartStatus.Failed, result.Status);
             Assert.False(diagnosisCompletion.Task.IsCompleted);
@@ -466,30 +469,98 @@ public sealed class DaemonLaunchServiceTests
 
             var followingPersistenceStarted = new TaskCompletionSource(
                 TaskCreationOptions.RunContinuationsAsynchronously);
-            var followingPersistenceTask = compensationOperationOwner.ExecuteAsync(
-                    context,
-                    DaemonOperationLane.SupplementalPersistence,
-                    ExecutionDeadline.Start(TimeSpan.FromSeconds(1), timeProvider),
-                    CancellationToken.None,
-                    "Timed out before the following persistence operation could begin.",
-                    "Timed out while running the following persistence operation.",
+            var followingTask = compensationOperationOwner.ExecuteAsync(
+                context,
+                DaemonOperationLane.SupplementalPersistence,
+                ExecutionDeadline.Start(DaemonTimeouts.SupplementalPersistenceTimeout, timeProvider),
+                CancellationToken.None,
+                "Timed out before the following persistence operation could begin.",
+                "Timed out while running the following persistence operation.",
                     (_, _) =>
                     {
                         followingPersistenceStarted.TrySetResult();
                         return ValueTask.FromResult(DaemonDiagnosisStoreOperationResult.Success());
                     })
                 .AsTask();
+            followingPersistenceTaskReference = followingTask;
+            await timeProvider.WaitForNextSupplementalPersistenceTimerRegistrationAsync().WaitAsync(AsyncWaitTimeout);
             Assert.False(followingPersistenceStarted.Task.IsCompleted);
 
-            diagnosisCompletion.TrySetResult(DaemonDiagnosisStoreOperationResult.Success());
-            await followingPersistenceStarted.Task.WaitAsync(TimeSpan.FromSeconds(1));
-            var followingPersistenceResult = await followingPersistenceTask.WaitAsync(TimeSpan.FromSeconds(1));
-            Assert.True(followingPersistenceResult.IsSuccess);
+            var followingPersistenceCompletion = Task.Run(async () =>
+            {
+                diagnosisCompletion.TrySetResult(DaemonDiagnosisStoreOperationResult.Success());
+                await followingPersistenceStarted.Task;
+                var followingPersistenceResult = await followingTask;
+                Assert.True(followingPersistenceResult.IsSuccess);
+            });
+            await followingPersistenceCompletion.WaitAsync(AsyncWaitTimeout);
+        }
+        catch (Exception exception)
+        {
+            primaryException = exception;
+            throw;
         }
         finally
         {
-            timeProvider.AutoAdvanceAmount = TimeSpan.Zero;
             diagnosisCompletion.TrySetResult(DaemonDiagnosisStoreOperationResult.Success());
+
+            Exception? cleanupException = null;
+            if (followingPersistenceTaskReference is not null)
+            {
+                try
+                {
+                    await followingPersistenceTaskReference.WaitAsync(AsyncWaitTimeout);
+                }
+                catch (Exception exception)
+                {
+                    cleanupException = exception;
+                }
+            }
+
+            try
+            {
+                await launchTask.WaitAsync(AsyncWaitTimeout);
+            }
+            catch (Exception exception)
+            {
+                cleanupException ??= exception;
+            }
+
+            if (primaryException is null && cleanupException is not null)
+            {
+                System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(cleanupException).Throw();
+            }
+        }
+    }
+
+    private sealed class SupplementalPersistenceTimerObservingFakeTimeProvider : FakeTimeProvider
+    {
+        private readonly SemaphoreSlim supplementalPersistenceTimerRegistrations = new(0);
+
+        public SupplementalPersistenceTimerObservingFakeTimeProvider (DateTimeOffset startTime)
+            : base(startTime)
+        {
+        }
+
+        public Task WaitForNextSupplementalPersistenceTimerRegistrationAsync ()
+        {
+            return supplementalPersistenceTimerRegistrations.WaitAsync();
+        }
+
+        public override ITimer CreateTimer (
+            TimerCallback callback,
+            object? state,
+            TimeSpan dueTime,
+            TimeSpan period)
+        {
+            var timer = base.CreateTimer(callback, state, dueTime, period);
+            if (dueTime == DaemonTimeouts.SupplementalPersistenceTimeout
+                && period == Timeout.InfiniteTimeSpan)
+            {
+                _ = supplementalPersistenceTimerRegistrations.Release();
+            }
+
+            return timer;
         }
     }
 
