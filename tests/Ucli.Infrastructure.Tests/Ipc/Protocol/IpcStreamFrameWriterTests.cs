@@ -325,7 +325,7 @@ public sealed class IpcStreamFrameWriterTests
         var request = CreateRequest();
         await using var stream = new SynchronousBlockingWriteStream();
         using var frameWriteCutoffCancellationTokenSource =
-            new CancellationTokenSource(TimeSpan.FromMilliseconds(100));
+            new CancellationTokenSource();
         using var writer = new IpcStreamFrameWriter(
             stream,
             request,
@@ -334,17 +334,35 @@ public sealed class IpcStreamFrameWriterTests
             frameWriteCutoffCancellationTokenSource.Token,
             writeFailureHandler: null);
 
-        var writeTask = Task.Run(async () => await writer.WriteProgressAsync(
-            "test.progress",
-            new TestProgressPayload("synchronously-blocked", 1)));
-        await stream.WriteStarted.WaitAsync(TimeSpan.FromSeconds(5));
+        // NOTE: The stream blocks before returning its ValueTask, so this requires a dedicated worker.
+        var writeTask = Task.Factory.StartNew(
+            () => writer
+                .WriteProgressAsync(
+                    "test.progress",
+                    new TestProgressPayload("synchronously-blocked", 1))
+                .AsTask()
+                .GetAwaiter()
+                .GetResult(),
+            CancellationToken.None,
+            TaskCreationOptions.LongRunning,
+            TaskScheduler.Default);
 
-        var exception = await Assert.ThrowsAsync<IOException>(() =>
-            writeTask.WaitAsync(TimeSpan.FromSeconds(2)));
+        try
+        {
+            await stream.WriteStarted.WaitAsync(TimeSpan.FromSeconds(5));
+            frameWriteCutoffCancellationTokenSource.Cancel();
 
-        await stream.Disposed.WaitAsync(TimeSpan.FromSeconds(2));
-        Assert.Contains("Timed out while writing", exception.Message, StringComparison.Ordinal);
-        Assert.True(stream.IsDisposed);
+            var exception = await Assert.ThrowsAsync<IOException>(() =>
+                writeTask.WaitAsync(TimeSpan.FromSeconds(2)));
+
+            await stream.Disposed.WaitAsync(TimeSpan.FromSeconds(2));
+            Assert.Contains("Timed out while writing", exception.Message, StringComparison.Ordinal);
+            Assert.True(stream.IsDisposed);
+        }
+        finally
+        {
+            stream.CompleteWrite();
+        }
     }
 
     [Fact]
@@ -877,6 +895,11 @@ public sealed class IpcStreamFrameWriterTests
 
         public bool IsDisposed => Volatile.Read(ref isDisposed) != 0;
 
+        public void CompleteWrite ()
+        {
+            releaseWrite.TrySetResult();
+        }
+
         public override bool CanRead => false;
 
         public override bool CanSeek => false;
@@ -936,9 +959,9 @@ public sealed class IpcStreamFrameWriterTests
         protected override void Dispose (bool disposing)
         {
             Volatile.Write(ref isDisposed, 1);
-            disposed.TrySetResult();
             releaseWrite.TrySetResult();
             base.Dispose(disposing);
+            disposed.TrySetResult();
         }
     }
 
