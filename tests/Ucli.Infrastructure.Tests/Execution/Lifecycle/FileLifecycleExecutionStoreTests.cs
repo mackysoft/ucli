@@ -1,9 +1,7 @@
 using System.Runtime.Versioning;
 using System.Text;
 using System.Text.Json;
-using System.Text.Json.Nodes;
 using MackySoft.FileSystem;
-using MackySoft.Tests;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Daemon;
@@ -13,6 +11,7 @@ using MackySoft.Ucli.Contracts.Execution.Lifecycle;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Projects;
 using MackySoft.Ucli.Infrastructure.Execution.Lifecycle;
+using MackySoft.Ucli.Infrastructure.Storage;
 using TextVocabulary = MackySoft.Text.Vocabularies.Vocabulary;
 
 namespace MackySoft.Ucli.Infrastructure.Tests.Execution.Lifecycle;
@@ -55,6 +54,49 @@ public sealed class FileLifecycleExecutionStoreTests
         Assert.NotNull(stored);
         Assert.Equal(result.Binding, stored.Start);
         Assert.False(stored.IsTerminal);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task ReadAsync_WhenRecordIsTemporarilyMissingUnderRetainedLock_ReturnsRestoredExecution ()
+    {
+        using var scope = TestDirectories.CreateTempScope(
+            "lifecycle-execution-store",
+            "read-temporarily-missing-record");
+        var store = CreateStore(scope);
+        var definition = new LifecycleExecutionDefinition(LifecycleExecutionKind.Refresh);
+        var executionId = Guid.NewGuid();
+        var registered = await StartAsync(
+            store,
+            definition,
+            executionId,
+            CreateProject(),
+            CreateHost());
+        var recordPath = store.Paths.ResolveRecordPath(definition.Kind, executionId);
+        var recordContents = await File.ReadAllBytesAsync(recordPath.Value, CancellationToken.None);
+        using var retainedLock = await FileExclusiveLock.AcquireAsync(
+            store.Paths.ResolveLockPath(definition.Kind, executionId),
+            TimeSpan.FromSeconds(1),
+            CancellationToken.None);
+        File.Delete(recordPath.Value);
+
+        var readTask = store.ReadAsync(
+                definition.Kind,
+                executionId,
+                CancellationToken.None)
+            .AsTask();
+        await Task.Yield();
+        Assert.False(readTask.IsCompleted);
+
+        await File.WriteAllBytesAsync(recordPath.Value, recordContents, CancellationToken.None);
+        retainedLock.Dispose();
+        var stored = await readTask.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.NotNull(stored);
+        Assert.Equal(
+            registered.Binding!.LifecycleExecutionRef.Kind,
+            stored.Start.LifecycleExecutionRef.Kind);
+        Assert.Equal(executionId, stored.Start.LifecycleExecutionRef.Id);
     }
 
     [Fact]
@@ -1869,7 +1911,7 @@ public sealed class FileLifecycleExecutionStoreTests
         Assert.Null(publication.TerminalReference);
         Assert.Equal(terminalRecord, publication.TerminalRecord);
         Assert.Equal(publishing, publication.ReconnectableReference);
-        Assert.IsType<IOException>(publication.Failure);
+        Assert.IsAssignableFrom<IOException>(publication.Failure);
         Assert.Equal(
             LifecycleExecutionTerminalPublicationOutcome.PublicationFailed,
             failedRecovery.Outcome);
@@ -1878,7 +1920,7 @@ public sealed class FileLifecycleExecutionStoreTests
             terminalRecord,
             failedRecovery.TerminalRecord);
         Assert.Equal(publishing, failedRecovery.ReconnectableReference);
-        Assert.IsType<IOException>(failedRecovery.Failure);
+        Assert.IsAssignableFrom<IOException>(failedRecovery.Failure);
         var stored = await store.ReadAsync(
             definition.Kind,
             executionId,
