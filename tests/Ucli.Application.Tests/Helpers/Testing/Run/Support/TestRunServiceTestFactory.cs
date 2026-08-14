@@ -51,11 +51,19 @@ internal static class TestRunServiceTestFactory
             TimeoutMilliseconds: null);
     }
 
-    public static ArtifactsSession CreateArtifactsSession (string? artifactsDir = null)
+    public static TestDirectoryScope CreateArtifactsScope ()
+    {
+        return TestDirectories.CreateTempScope(
+            "test-run-service",
+            "artifacts",
+            DirectoryCleanupMode.Strict);
+    }
+
+    public static ArtifactsSession CreateArtifactsSession (string artifactsDir)
     {
         return new ArtifactsSession(
             runId: RunId,
-            paths: TestArtifactPaths.Create(artifactsDir ?? Path.Combine(Path.GetTempPath(), "ucli-test-run", RunId.ToString("D"))),
+            paths: TestArtifactPaths.Create(artifactsDir),
             startedAtUtc: new DateTimeOffset(2026, 03, 08, 0, 0, 0, TimeSpan.Zero));
     }
 

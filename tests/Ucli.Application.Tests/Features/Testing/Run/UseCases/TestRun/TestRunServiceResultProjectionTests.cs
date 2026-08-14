@@ -15,8 +15,9 @@ public sealed class TestRunServiceResultProjectionTests
     public async Task Execute_WithSuccessfulExecution_ReturnsConversionVerdict (
         Verdict expectedVerdict)
     {
+        using var scope = CreateArtifactsScope();
         var configuration = CreateResolvedConfiguration();
-        var session = CreateArtifactsSession();
+        var session = CreateArtifactsSession(scope.GetPath("artifacts"));
 
         var service = CreateService(
             configurationResolver: new StubTestRunConfigurationResolver(TestRunConfigurationResolutionResult.Success(configuration)),
