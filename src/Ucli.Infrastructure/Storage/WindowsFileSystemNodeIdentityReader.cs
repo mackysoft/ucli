@@ -85,7 +85,7 @@ internal static class WindowsFileSystemNodeIdentityReader
             $"{message}. {new Win32Exception(error).Message} (error={error})");
     }
 
-    private static IOException CreatePathOpenException (
+    internal static IOException CreatePathOpenException (
         AbsolutePath path,
         string subject,
         int error)

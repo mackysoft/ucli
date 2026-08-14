@@ -48,28 +48,54 @@ public sealed class FileSystemNodeIdentityTests
 
     [Fact]
     [Trait("Size", "Small")]
-    [SupportedOSPlatform("windows")]
-    public void ReadPath_OnWindowsWhenExistingPathCannotBeOpened_ThrowsIOException ()
+    public void CreatePathOpenException_WhenErrorIsFileNotFound_ReturnsFileNotFoundExceptionWithPath ()
     {
-        if (!OperatingSystem.IsWindows())
-        {
-            return;
-        }
-
         using var scope = TestDirectories.CreateTempScope(
             "infrastructure-storage",
-            "identity-open-failure");
-        var path = scope.WriteFile("locked.txt", "contents");
-        using var lockStream = new FileStream(
-            path,
-            FileMode.Open,
-            FileAccess.ReadWrite,
-            FileShare.None);
+            "identity-file-not-found");
+        var path = AbsolutePath.Parse(scope.GetPath("entry.txt"));
 
-        Assert.Throws<IOException>(() =>
-            FileSystemNodeIdentityReader.ReadPath(
-                AbsolutePath.Parse(path),
-                "Identity test source"));
+        var exception = WindowsFileSystemNodeIdentityReader.CreatePathOpenException(
+            path,
+            "Identity test source",
+            error: 2);
+
+        var fileNotFoundException = Assert.IsType<FileNotFoundException>(exception);
+        Assert.Equal(path.Value, fileNotFoundException.FileName);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void CreatePathOpenException_WhenErrorIsPathNotFound_ReturnsDirectoryNotFoundException ()
+    {
+        using var scope = TestDirectories.CreateTempScope(
+            "infrastructure-storage",
+            "identity-path-not-found");
+        var path = AbsolutePath.Parse(scope.GetPath("entry.txt"));
+
+        var exception = WindowsFileSystemNodeIdentityReader.CreatePathOpenException(
+            path,
+            "Identity test source",
+            error: 3);
+
+        Assert.IsType<DirectoryNotFoundException>(exception);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void CreatePathOpenException_WhenErrorIsSharingViolation_ReturnsExactIOException ()
+    {
+        using var scope = TestDirectories.CreateTempScope(
+            "infrastructure-storage",
+            "identity-sharing-violation");
+        var path = AbsolutePath.Parse(scope.GetPath("entry.txt"));
+
+        var exception = WindowsFileSystemNodeIdentityReader.CreatePathOpenException(
+            path,
+            "Identity test source",
+            error: 32);
+
+        Assert.IsType<IOException>(exception);
     }
 
     [Fact]

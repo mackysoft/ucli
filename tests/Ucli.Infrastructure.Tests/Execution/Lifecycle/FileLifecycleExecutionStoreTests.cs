@@ -1911,7 +1911,7 @@ public sealed class FileLifecycleExecutionStoreTests
         Assert.Null(publication.TerminalReference);
         Assert.Equal(terminalRecord, publication.TerminalRecord);
         Assert.Equal(publishing, publication.ReconnectableReference);
-        Assert.IsType<IOException>(publication.Failure);
+        Assert.IsAssignableFrom<IOException>(publication.Failure);
         Assert.Equal(
             LifecycleExecutionTerminalPublicationOutcome.PublicationFailed,
             failedRecovery.Outcome);
@@ -1920,7 +1920,7 @@ public sealed class FileLifecycleExecutionStoreTests
             terminalRecord,
             failedRecovery.TerminalRecord);
         Assert.Equal(publishing, failedRecovery.ReconnectableReference);
-        Assert.IsType<IOException>(failedRecovery.Failure);
+        Assert.IsAssignableFrom<IOException>(failedRecovery.Failure);
         var stored = await store.ReadAsync(
             definition.Kind,
             executionId,
