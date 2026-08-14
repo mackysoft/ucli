@@ -120,14 +120,14 @@ public sealed class OpsCatalogAccessServiceListSourceFallbackTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Read_WhenSourceCatalogContainsDangerousOperation_ReturnsSourceCatalogAsProvided ()
+    public async Task Read_WhenSourceCatalogContainsAdvancedOperation_ReturnsSourceCatalogAsProvided ()
     {
         var generatedAtUtc = DateTimeOffset.Parse("2026-03-07T00:00:00+00:00");
         var sourceRefreshService = new RecordingOpsCatalogSourceRefreshService
         {
             Result = CreateSourceRefreshResult(
                 generatedAtUtc,
-                [CreateGoDescribeEntry(), CreateCsEvalEntry()],
+                [CreateGoDescribeEntry(), CreateSceneSaveEntry()],
                 "readIndex disabled by mode."),
         };
         var service = new OpsCatalogAccessService(new UnexpectedPersistedOpsCatalogReader(), sourceRefreshService);
@@ -137,7 +137,7 @@ public sealed class OpsCatalogAccessServiceListSourceFallbackTests
 
         var succeeded = Assert.IsType<OpsListReadResult.Succeeded>(result);
         Assert.Equal(
-            [UcliPrimitiveOperationNames.GoDescribe, UcliPrimitiveOperationNames.CsEval],
+            [UcliPrimitiveOperationNames.GoDescribe, UcliPrimitiveOperationNames.SceneSave],
             succeeded.Output.Snapshot.Operations.Select(static operation => operation.Name));
         OpsCatalogAccessInvocationAssert.SourceRefreshedFromPreflight(
             sourceRefreshService,

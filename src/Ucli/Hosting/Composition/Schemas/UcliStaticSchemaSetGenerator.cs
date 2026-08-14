@@ -1,6 +1,5 @@
 using System.Text.Json;
 using System.Xml.Linq;
-using MackySoft.FileSystem;
 using MackySoft.JsonSchema.Generation;
 using MackySoft.JsonSchema.Generation.Projection;
 using MackySoft.Ucli.Application.Features.Recording.Requests;
@@ -75,7 +74,8 @@ internal static class UcliStaticSchemaSetGenerator
                 && !IsGameViewRecordingOutputRegistration(registration)
                 && !HasSerializerRoot<ExecutionRef>(registration)
                 && !HasSerializerRoot<LifecycleExecutionTerminalRecord>(
-                    registration))
+                    registration)
+                && !string.Equals(registration.Command, UcliCommandNames.Eval, StringComparison.Ordinal))
             .ToArray();
         var results = UcliJsonContractGenerator
             .GenerateSet(CreateRequests(standardRegistrations))
@@ -135,6 +135,14 @@ internal static class UcliStaticSchemaSetGenerator
                             registration.ContractId,
                             registration.TypeInfo,
                             CreateDocumentOptions(registration)));
+                continue;
+            }
+            if (string.Equals(registration.Command, UcliCommandNames.Eval, StringComparison.Ordinal))
+            {
+                results.Add(UcliJsonContractGenerator.GenerateWithEvalCliOutputProfile(
+                    registration.ContractId,
+                    registration.TypeInfo,
+                    CreateDocumentOptions(registration)));
                 continue;
             }
             if (HasSerializerRoot<ExecutionRef>(registration))

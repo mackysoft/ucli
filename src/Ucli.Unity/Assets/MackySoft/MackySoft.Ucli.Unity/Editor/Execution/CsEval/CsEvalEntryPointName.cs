@@ -2,7 +2,7 @@
 
 namespace MackySoft.Ucli.Unity.Execution.CsEval
 {
-    /// <summary> Represents a resolved <c>ucli.cs.eval</c> entry point. </summary>
+    /// <summary> Represents a resolved dedicated C# eval entry point. </summary>
     internal readonly struct CsEvalEntryPointName
     {
         public const string RequiredMethodName = "Run";

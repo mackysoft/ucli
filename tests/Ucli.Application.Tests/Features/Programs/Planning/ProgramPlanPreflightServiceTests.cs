@@ -44,7 +44,7 @@ public sealed class ProgramPlanPreflightServiceTests
         var catalog = new RecordingCatalogReader(ProgramFixedHostCatalogReadResult.Failed());
         var validator = new RecordingValidator(ValidationResult.Success());
         var binding = new RecordingBinding(CreateResolvedProject());
-        var request = CreateOpRequest(UcliPrimitiveOperationNames.CsEval);
+        var request = CreateOpRequest("ucli.cs.eval");
         var definition = source == "inline"
             ? CreateDefinition([new InlineCallProgramStep(null, request)])
             : CreateDefinition(

@@ -1,5 +1,3 @@
-using MackySoft.FileSystem;
-using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Execution;
 
 namespace MackySoft.Ucli.Application.Shared.Execution.ReadPostcondition;
@@ -18,5 +16,11 @@ internal interface IMutationReadPostconditionStore
         AbsolutePath storageRoot,
         ProjectFingerprint projectFingerprint,
         ExecutionReadPostcondition readPostcondition,
+        CancellationToken cancellationToken = default);
+
+    /// <summary> Persists broad read fences after an eval call was sent but its response was not recovered. </summary>
+    ValueTask<MutationReadPostconditionStoreOperationResult> InvalidateAfterUnobservedEvalCallAsync (
+        AbsolutePath storageRoot,
+        ProjectFingerprint projectFingerprint,
         CancellationToken cancellationToken = default);
 }

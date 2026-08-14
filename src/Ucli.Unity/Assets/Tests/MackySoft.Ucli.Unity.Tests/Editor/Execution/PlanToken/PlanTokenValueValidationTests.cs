@@ -40,7 +40,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 projectFingerprint: null!,
                 unityVersion: "6000.0.0f1",
                 compileState: UnityEditorCompileState.Ready,
-                domainReloadGeneration: 1));
+                domainReloadGeneration: 1,
+                editorInstanceId: Guid.NewGuid()));
 
             Assert.That(exception!.ParamName, Is.EqualTo("projectFingerprint"));
         }

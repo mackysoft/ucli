@@ -1,3 +1,4 @@
+using System;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Ipc;
 
@@ -16,6 +17,40 @@ namespace MackySoft.Ucli.Unity.Ipc
         ValueTask<IpcResponse> HandleAsync (
             ValidatedUnityIpcRequest request,
             IpcRequestCancellation cancellation);
+    }
+
+    /// <summary>
+    /// Represents one immutable, method-validated terminal response retained across outward mutation-lane cancellation.
+    /// </summary>
+    internal sealed class UnityExecutionDeadlineResponse
+    {
+        /// <summary> Initializes a response previously validated by its owning method handler. </summary>
+        /// <param name="response"> The validated terminal response. </param>
+        public UnityExecutionDeadlineResponse (IpcResponse response)
+        {
+            Response = response ?? throw new ArgumentNullException(nameof(response));
+        }
+
+        /// <summary> Gets the method-validated terminal response. </summary>
+        public IpcResponse Response { get; }
+    }
+
+    /// <summary>
+    /// Lets a method opt into retaining one method-specific deadline response while its mutation lane completes
+    /// outward cancellation.
+    /// </summary>
+    internal interface IUnityExecutionDeadlineResponseProvider
+    {
+        /// <summary> Gets the method-validated deadline response published before the mutation activity reached its safe state. </summary>
+        bool TryGetPublishedExecutionDeadlineResponse (Guid requestId, out UnityExecutionDeadlineResponse? response);
+
+        /// <summary>
+        /// Waits until durable admission publishes a deadline response or ends without establishing admission.
+        /// </summary>
+        Task<UnityExecutionDeadlineResponse?> WaitForExecutionDeadlineResponseAsync (Guid requestId);
+
+        /// <summary> Releases the terminal-response boundary after dispatch has returned or failed. </summary>
+        void CompleteExecutionDeadlineResponse (Guid requestId);
     }
 
     /// <summary>

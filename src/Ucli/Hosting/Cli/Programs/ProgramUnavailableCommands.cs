@@ -391,7 +391,6 @@ internal sealed class ProgramRunCommand
             project.Config.OperationAllowlist.ToArray(),
             project.Config.IpcDefaultTimeoutMilliseconds,
             effectiveTimeouts,
-            EvalEnabled: project.Config.EvalEnabled,
             IpcProgramEffectiveConfigurationSnapshot.ComputeDigest(
                 project.Config.SchemaVersion,
                 TextVocabulary.GetText(project.Config.OperationPolicy),
@@ -399,8 +398,7 @@ internal sealed class ProgramRunCommand
                 TextVocabulary.GetText(project.Config.ReadIndexDefaultMode),
                 project.Config.OperationAllowlist,
                 project.Config.IpcDefaultTimeoutMilliseconds,
-                effectiveTimeouts,
-                evalEnabled: project.Config.EvalEnabled),
+                effectiveTimeouts),
             capturedAtUtc);
     }
 

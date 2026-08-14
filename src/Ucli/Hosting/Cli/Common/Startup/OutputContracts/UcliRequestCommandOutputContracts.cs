@@ -35,7 +35,11 @@ internal static class UcliRequestCommandOutputContracts
         CreateCall(UcliCommandNames.Call);
 
     internal static UcliCommandOutputContract Eval { get; } =
-        CreateCall(UcliCommandNames.Eval);
+        UcliCommandOutputContracts.Complete(
+            UcliCommandNames.Eval,
+            EvalCommandResultFactory.SuccessPayloadTypeInfo,
+            EvalCommandResultFactory.ErrorPayloadTypeInfo,
+            EvalCommandResultFactory.CreateEmptyErrorPayload);
 
     internal static UcliCommandOutputContract QueryAssetsFind { get; } =
         CreateReadIndexRequest(UcliCommandNames.QueryAssetsFind);

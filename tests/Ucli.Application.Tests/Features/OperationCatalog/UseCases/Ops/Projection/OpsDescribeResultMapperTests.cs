@@ -33,32 +33,6 @@ public sealed class OpsDescribeResultMapperTests
         Assert.Equal("Resolves an asset, scene object, prefab object, or component reference to a Unity GlobalObjectId.", operation.Description);
     }
 
-    [Fact]
-    [Trait("Size", "Small")]
-    public void Map_WhenCodeContractIsPresent_ReturnsCodeContract ()
-    {
-        var mapper = new OpsDescribeResultMapper(new OpsReadIndexInfoMapper());
-        var entry = CreateDescribedEntry(
-            name: UcliPrimitiveOperationNames.CsEval,
-            kind: UcliOperationKind.Mutation,
-            policy: OperationPolicy.Dangerous) with
-        {
-            CodeContract = CreateCodeContract(),
-        };
-
-        var result = mapper.Map(CreateReadOutput(entry));
-
-        var succeeded = Assert.IsType<OpsDescribeServiceResult.Succeeded>(result);
-        Assert.NotNull(succeeded.Output.Operation.CodeContract);
-        Assert.Equal(UcliCodeLanguage.CSharp, succeeded.Output.Operation.CodeContract!.Language);
-        Assert.Equal("public static object? | Task | Task<T> | ValueTask | ValueTask<T> Run(UcliCsEvalContext context)", succeeded.Output.Operation.CodeContract.EntryPoint!.Signature);
-        Assert.Equal("Compiled source must contain exactly one public static Run(UcliCsEvalContext context) method returning object?, Task, Task<T>, ValueTask, or ValueTask<T>.", succeeded.Output.Operation.CodeContract.EntryPoint.MatchRule);
-        Assert.Equal(
-            new[] { UcliCodeSourceFormKind.CompilationUnit, UcliCodeSourceFormKind.Snippet },
-            succeeded.Output.Operation.CodeContract.SourceForms!.Select(static form => form.Kind!.Value));
-        Assert.Equal("MackySoft.Ucli.Unity.Execution.CsEval.UcliCsEvalContext", Assert.Single(succeeded.Output.Operation.CodeContract.ApiTypes!).FullName);
-    }
-
     private static OpsDescribeReadOutput CreateReadOutput (IndexOpEntryJsonContract entry)
     {
         return new OpsDescribeReadOutput(
@@ -140,40 +114,4 @@ public sealed class OpsDescribeResultMapperTests
             dangerousNotes: isRiskyPolicy ? ["Fixture operation has policy-specific risk metadata for contract validation."] : Array.Empty<string>());
     }
 
-    private static UcliOperationCodeContract CreateCodeContract ()
-    {
-        return new UcliOperationCodeContract(
-            UcliCodeLanguage.CSharp,
-            new UcliCodeEntryPointContract(
-                "public static object? | Task | Task<T> | ValueTask | ValueTask<T> Run(UcliCsEvalContext context)",
-                "Compiled source must contain exactly one public static Run(UcliCsEvalContext context) method returning object?, Task, Task<T>, ValueTask, or ValueTask<T>.",
-                requiredStatic: true,
-                new[] { "MackySoft.Ucli.Unity.Execution.CsEval.UcliCsEvalContext" },
-                "JSON-serializable value or awaited task-like result."),
-            new[]
-            {
-                new UcliCodeSourceFormContract(UcliCodeSourceFormKind.CompilationUnit, "Complete C# compilation unit."),
-                new UcliCodeSourceFormContract(UcliCodeSourceFormKind.Snippet, "Run method body snippet."),
-            },
-            new[]
-            {
-                new UcliCodeApiTypeContract(
-                    "UcliCsEvalContext",
-                    "MackySoft.Ucli.Unity.Execution.CsEval.UcliCsEvalContext",
-                    "Execution context.",
-                    new[]
-                    {
-                        new UcliCodeApiMemberContract(
-                            UcliCodeApiMemberKind.Method,
-                            "Log",
-                            "Records an informational eval log entry.",
-                            type: null,
-                            returnType: "void",
-                            parameters:
-                            [
-                                new UcliCodeApiParameterContract("message", "System.String", "Log message text."),
-                            ]),
-                    }),
-            });
-    }
 }

@@ -4,6 +4,7 @@ using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Execution;
 using MackySoft.Ucli.Infrastructure.Execution.Lifecycle;
+using MackySoft.Ucli.Infrastructure.Execution.ReadPostcondition;
 using MackySoft.Ucli.Unity.Build;
 using MackySoft.Ucli.Unity.Execution;
 using MackySoft.Ucli.Unity.Execution.Program;
@@ -119,6 +120,9 @@ namespace MackySoft.Ucli.Unity.Ipc
             services.AddSingleton<IUnityIpcMethodHandler, ProgramRequestAttachUnityIpcMethodHandler>();
             services.AddSingleton<IUnityIpcMethodHandler, ProgramRequestCancelUnityIpcMethodHandler>();
             services.AddSingleton<IUnityIpcMethodHandler, ExecuteUnityIpcMethodHandler>();
+            services.AddSingleton<MutationReadPostconditionJournal>();
+            services.AddSingleton<IUnityIpcMethodHandler, EvalPlanUnityIpcMethodHandler>();
+            services.AddSingleton<IUnityIpcMethodHandler, EvalCallUnityIpcMethodHandler>();
             services.AddSingleton<
                 ILifecycleExecutionStartAdmissionPolicy,
                 RefreshLifecycleExecutionStartAdmissionPolicy>();

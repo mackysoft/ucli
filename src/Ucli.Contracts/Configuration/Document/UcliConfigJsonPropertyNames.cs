@@ -18,14 +18,14 @@ internal static class UcliConfigJsonPropertyNames
     /// <summary> Gets the operation-allowlist property name. </summary>
     public const string OperationAllowlist = "operationAllowlist";
 
+    /// <summary> Gets the explicit C# evaluation admission property name. </summary>
+    public const string EvalEnabled = "evalEnabled";
+
     /// <summary> Gets the IPC default-timeout property name. </summary>
     public const string IpcDefaultTimeoutMilliseconds = "ipcDefaultTimeoutMilliseconds";
 
     /// <summary> Gets the IPC timeout override-map property name. </summary>
     public const string IpcTimeoutMillisecondsByCommand = "ipcTimeoutMillisecondsByCommand";
-
-    /// <summary> Gets the dedicated C# evaluation feature-gate property name. </summary>
-    public const string EvalEnabled = "evalEnabled";
 
     /// <summary> Gets the project Program Preset registration map property name. </summary>
     public const string ProgramPresets = "programPresets";

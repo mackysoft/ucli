@@ -1,118 +1,133 @@
 using System.Text.Json;
-using MackySoft.Ucli.Application.Features.Requests.Call.Common.Contracts;
+using MackySoft.Ucli.Application.Features.Eval;
+using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Cryptography;
+using MackySoft.Ucli.Contracts.Execution;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Tests;
 
 internal static class EvalCommandTestData
 {
-    public const string EvalSource = "context.DeclareNoTouchedResources(); return new { ok = true };";
+    public const string EvalSource = "context.DeclareNoChanges(); return new { ok = true };";
 
-    public const string RequestId = "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62";
+    private static readonly Sha256Digest SourceDigest = Sha256Digest.Parse(new string('a', 64));
+    private static readonly Sha256Digest ExecutionDigest = Sha256Digest.Parse(new string('b', 64));
 
-    private static readonly Guid RequestGuid = Guid.Parse(RequestId);
-
-    private static readonly Sha256Digest SourceDigest = Sha256Digest.Parse(
-        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
-
-    private static readonly Sha256Digest ExecutionDigest = Sha256Digest.Parse(
-        "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
-
-    public static CallServiceResult CreateSuccessfulServiceResult ()
+    public static EvalServiceResult CreateSuccessfulServiceResult (Guid requestId, CsEvalSourceKind sourceKind = CsEvalSourceKind.Snippet)
     {
-        return CallServiceResult.Success(
-            new CallExecutionOutput(
-                requestId: RequestGuid,
-                project: ProjectIdentityInfoTestFactory.Create(),
-                opResults:
-                [
-                    CreateCallOperationResult(),
-                ],
-                plan: new CallPlanOutput(
-                    opResults:
-                    [
-                        CreatePlanOperationResult(),
-                    ],
-                    planToken: "plan-token-1"),
-                readPostcondition: null,
-                postReadSource: null),
-            "uCLI call completed.");
+        var plan = CreatePlan(sourceKind);
+        var project = plan.Project;
+        var compile = ((CsEvalPlanSuccessResult)plan.Eval).Compile;
+        var readPostcondition = CreateCallReadPostcondition();
+        var call = new IpcEvalResponse(
+            project,
+            CsEvalPhase.Call,
+            ExecutionApplicationState.Applied,
+            new CsEvalCallSuccessResult(
+                SourceDigest,
+                sourceKind,
+                "Snippet.Run",
+                ExecutionDigest,
+                compile,
+                durationMilliseconds: 7,
+                logs: [],
+                CsEvalReturnValue.Json(JsonSerializer.SerializeToElement(new { ok = true })),
+                new CsEvalTouchedResources(
+                    noChanges: true,
+                    scenes: [],
+                    prefabs: [],
+                    assets: [],
+                    projectSettings: [])),
+            null,
+            readPostcondition);
+        return EvalServiceResult.FromUnityResult(requestId, plan.Project, UnityEvalExecutionResult.Success(plan, call));
     }
 
-    public static CallServiceResult CreateDangerousOperationRejectedResult ()
+    public static EvalServiceResult CreateCallFailureServiceResult (Guid requestId)
     {
-        return CallServiceResult.Failure(
-            "Static validation failed.",
-            [
-                ApplicationFailure.InvalidInput(
-                    "Step 'eval' requires dangerous operation 'ucli.cs.eval'. Specify --allowDangerous to execute dangerous operations.",
-                    OperationAuthorizationErrorCodes.OperationNotAllowed,
-                    "/steps/0",
-                    startupFailure: null),
-            ],
-            output: null);
+        var plan = CreatePlan(CsEvalSourceKind.Snippet);
+        return EvalServiceResult.FromUnityResult(
+            requestId,
+            plan.Project,
+            UnityEvalExecutionResult.CallFailure(
+                plan,
+                ExecutionError.Timeout("Timed out while waiting for eval.call."),
+                callWasSent: true));
     }
 
-    private static OperationExecutionOperationResult CreateCallOperationResult ()
+    public static EvalServiceResult CreatePreEntryCallFailureServiceResult (Guid requestId)
     {
-        return OperationExecutionOperationResult.CreateWithoutVerdict(
-            op: UcliPrimitiveOperationNames.CsEval,
-            phase: IpcExecuteOperationPhase.Call,
-            applied: true,
-            changed: false,
-            touched: [],
-            operationDescriptorDigest: RequestCommandResultTestValues.OperationDescriptorDigest,
-            result: IpcPayloadCodec.SerializeToElement(
-                new CsEvalResult(
-                    SourceDigest,
-                    UcliCodeSourceFormKind.Snippet,
-                    "Snippet.Run",
-                    ExecutionDigest,
-                    CreateSuccessfulCompileResult(),
-                    7,
-                    [],
-                    new CsEvalReturnValue(
-                        CsEvalReturnValueKind.Json,
-                        JsonSerializer.SerializeToElement(
-                            new
-                            {
-                                ok = true,
-                            },
-                            IpcJsonSerializerOptions.Default)),
-                    new CsEvalTouchedResources(
-                        CsEvalTouchedResourceState.None,
-                        declared: null))),
-            diagnostics: []);
+        var plan = CreatePlan(CsEvalSourceKind.Snippet);
+        var partial = CreatePartialResult(plan);
+        var errorResponse = new IpcEvalErrorResponse(
+            plan.Project,
+            CsEvalPhase.Call,
+            ExecutionApplicationState.NotApplied,
+            partial,
+            null);
+        return EvalServiceResult.FromUnityResult(
+            requestId,
+            plan.Project,
+            UnityEvalExecutionResult.CallFailure(
+                plan,
+                ExecutionError.InvalidArgument("eval.call was rejected before entry invocation."),
+                callWasSent: true,
+                errorResponse));
     }
 
-    private static OperationExecutionOperationResult CreatePlanOperationResult ()
+    public static EvalServiceResult CreatePostEntryCallFailureServiceResult (Guid requestId)
     {
-        return OperationExecutionOperationResult.CreateWithoutVerdict(
-            op: UcliPrimitiveOperationNames.CsEval,
-            phase: IpcExecuteOperationPhase.Plan,
-            applied: false,
-            changed: false,
-            touched: [],
-            operationDescriptorDigest: RequestCommandResultTestValues.OperationDescriptorDigest,
-            result: IpcPayloadCodec.SerializeToElement(
-                new CsEvalResult(
-                    SourceDigest,
-                    UcliCodeSourceFormKind.Snippet,
-                    "Snippet.Run",
-                    ExecutionDigest,
-                    CreateSuccessfulCompileResult(),
-                    durationMilliseconds: null,
-                    logs: null,
-                    returnValue: null,
-                    touchedResources: null)),
-            diagnostics: []);
+        var plan = CreatePlan(CsEvalSourceKind.Snippet);
+        var partial = CreatePartialResult(plan);
+        var errorResponse = new IpcEvalErrorResponse(
+            plan.Project,
+            CsEvalPhase.Call,
+            ExecutionApplicationState.Indeterminate,
+            partial,
+            CreateCallReadPostcondition());
+        return EvalServiceResult.FromUnityResult(
+            requestId,
+            plan.Project,
+            UnityEvalExecutionResult.CallFailure(
+                plan,
+                ExecutionError.InvalidArgument("eval.call entry point failed."),
+                callWasSent: true,
+                errorResponse));
     }
 
-    private static CsEvalCompileResult CreateSuccessfulCompileResult ()
+    private static IpcEvalResponse CreatePlan (CsEvalSourceKind sourceKind)
     {
-        return new CsEvalCompileResult(
-            CsEvalCompileStatus.Succeeded,
-            diagnostics: []);
+        var project = new UnityProjectIdentity(Path.GetFullPath("UnityProject"), ProjectFingerprintTestFactory.Create("project-fingerprint"), "6000.1.4f1");
+        var compile = new CsEvalPlanCompileResult(succeeded: true, diagnostics: []);
+        return new IpcEvalResponse(
+            project,
+            CsEvalPhase.Plan,
+            ExecutionApplicationState.NotApplied,
+            new CsEvalPlanSuccessResult(SourceDigest, sourceKind, "Snippet.Run", ExecutionDigest, compile),
+            "plan-token-1",
+            null);
     }
+
+    private static CsEvalPartialErrorResult CreatePartialResult (IpcEvalResponse plan)
+    {
+        var result = (CsEvalPlanSuccessResult)plan.Eval;
+        return new CsEvalPartialErrorResult(
+            result.SourceDigest,
+            result.SourceKind,
+            result.ResolvedEntryPoint,
+            result.ExecutionDigest,
+            result.Compile,
+            null,
+            null,
+            null,
+            null);
+    }
+
+    private static ExecutionReadPostcondition CreateCallReadPostcondition () => new(
+    [
+        new ExecutionReadPostconditionRequirement(ExecutionReadPostconditionSurface.AssetSearch, DateTimeOffset.UnixEpoch, null),
+        new ExecutionReadPostconditionRequirement(ExecutionReadPostconditionSurface.GuidPath, DateTimeOffset.UnixEpoch, null),
+        new ExecutionReadPostconditionRequirement(ExecutionReadPostconditionSurface.SceneTreeLite, DateTimeOffset.UnixEpoch, null),
+    ]);
 }

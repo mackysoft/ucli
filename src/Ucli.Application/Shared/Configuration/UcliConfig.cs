@@ -21,14 +21,14 @@ internal sealed record UcliConfig (
     /// <summary> Gets the IPC timeout in milliseconds used when CLI options do not override timeout. </summary>
     public int IpcDefaultTimeoutMilliseconds { get; init; } = IpcTimeoutDefaults.GlobalTimeoutMilliseconds;
 
+    /// <summary> Gets whether the dedicated C# evaluation surface is enabled for this project. </summary>
+    public bool EvalEnabled { get; init; }
+
     /// <summary> Gets per-command IPC timeout overrides in milliseconds. <see langword="null" /> values fallback to <see cref="IpcDefaultTimeoutMilliseconds" />. </summary>
     public IReadOnlyDictionary<string, int?> IpcTimeoutMillisecondsByCommand { get; init; } = new Dictionary<string, int?>(StringComparer.Ordinal);
 
     /// <summary> Gets project-provided Program Preset registrations keyed by their ordinal ID. </summary>
     public IReadOnlyDictionary<string, ProgramPresetRegistration> ProgramPresets { get; init; } = new Dictionary<string, ProgramPresetRegistration>(StringComparer.Ordinal);
-
-    /// <summary> Gets whether the dedicated C# evaluation surface is enabled by configuration. </summary>
-    public bool EvalEnabled { get; init; }
 
     /// <summary> Gets the additional Program Presets required to complete Work Close. </summary>
     public UcliWorkCompletion WorkCompletion { get; init; } = UcliWorkCompletion.Empty;

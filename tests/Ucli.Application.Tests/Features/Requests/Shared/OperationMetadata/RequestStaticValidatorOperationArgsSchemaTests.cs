@@ -1,7 +1,5 @@
 namespace MackySoft.Ucli.Application.Tests;
 
-using System.Text.Json;
-using System.Text.Json.Nodes;
 using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Configuration;
@@ -121,18 +119,26 @@ public sealed class RequestStaticValidatorOperationArgsSchemaTests
     public async Task Validate_WhenProviderOperationSchemaPatternIsInvalid_ReturnsInternalError ()
     {
         const string operationName = "ucli.test.invalid-pattern";
-        var generationResult = UcliOperationJsonContractGenerator.Generate(
-            operationName,
-            IpcJsonSerializerOptions.PublicRawOperationContracts.GetTypeInfo(typeof(CsEvalArgs)),
-            IpcJsonSerializerOptions.PublicRawOperationContracts.GetTypeInfo(typeof(CsEvalResult)));
         UcliOperationDescriptor[] operations =
         [
             new(
                 Name: operationName,
                 Kind: UcliOperationKind.Query,
                 Policy: OperationPolicy.Safe,
-                ArgsSchemaJson: ReplaceFirstPatternWithInvalidValue(
-                    generationResult.ResultContract!.Value.Schema.ToJsonElement()),
+                ArgsSchemaJson:
+                    """
+                    {
+                      "type": "object",
+                      "properties": {
+                        "value": {
+                          "type": "string",
+                          "pattern": "["
+                        }
+                      },
+                      "required": ["value"],
+                      "additionalProperties": false
+                    }
+                    """,
                 DescriptorDigest: Sha256DigestTestFactory.Compute(operationName),
                 VerdictContract: null,
                 ResultSchemaJson: null,
@@ -155,52 +161,5 @@ public sealed class RequestStaticValidatorOperationArgsSchemaTests
         Assert.Empty(result.Errors);
         var error = Assert.IsType<ExecutionError>(result.Error);
         Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
-    }
-
-    private static string ReplaceFirstPatternWithInvalidValue (JsonElement source)
-    {
-        var root = JsonNode.Parse(source.GetRawText())
-            ?? throw new InvalidOperationException("Provider schema fixture must be a JSON value.");
-        if (!TryReplaceFirstPattern(root))
-        {
-            throw new InvalidOperationException("Provider schema fixture must contain a pattern.");
-        }
-
-        return root.ToJsonString();
-    }
-
-    private static bool TryReplaceFirstPattern (JsonNode node)
-    {
-        if (node is JsonObject jsonObject)
-        {
-            if (jsonObject.ContainsKey("pattern"))
-            {
-                jsonObject["pattern"] = "[";
-                return true;
-            }
-
-            foreach (var property in jsonObject)
-            {
-                if (property.Value != null && TryReplaceFirstPattern(property.Value))
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        if (node is JsonArray jsonArray)
-        {
-            foreach (var item in jsonArray)
-            {
-                if (item != null && TryReplaceFirstPattern(item))
-                {
-                    return true;
-                }
-            }
-        }
-
-        return false;
     }
 }

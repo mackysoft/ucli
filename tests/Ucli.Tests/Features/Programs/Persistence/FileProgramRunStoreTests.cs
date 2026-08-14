@@ -1895,8 +1895,8 @@ public sealed class FileProgramRunStoreTests
         var timeouts = commandTimeouts ?? new Dictionary<string, int> { ["ready"] = 1000 };
         return new(
         new ProgramEffectiveAuthorizationSnapshot(allowDangerous, false, IpcProgramEffectiveAuthorizationSnapshot.ComputeDigest(allowDangerous, false).ToString(), StartedAtUtc),
-        new ProgramEffectiveConfigurationSnapshot(1, OperationPolicy.Safe, PlanTokenMode.Optional, ReadIndexMode.RequireFresh, ["^ucli\\."], 1000, timeouts, false,
-            IpcProgramEffectiveConfigurationSnapshot.ComputeDigest(1, "safe", "optional", "requireFresh", ["^ucli\\."], 1000, timeouts, false), StartedAtUtc),
+        new ProgramEffectiveConfigurationSnapshot(1, OperationPolicy.Safe, PlanTokenMode.Optional, ReadIndexMode.RequireFresh, ["^ucli\\."], 1000, timeouts,
+            IpcProgramEffectiveConfigurationSnapshot.ComputeDigest(1, "safe", "optional", "requireFresh", ["^ucli\\."], 1000, timeouts), StartedAtUtc),
         new ProgramExecutionModeSnapshot("auto", "daemon"),
         new ProgramAttachedSupervisorSnapshot(Guid.Parse("10000000-0000-0000-0000-000000000003"), Guid.Parse("10000000-0000-0000-0000-000000000004"), new ProcessIdentity(42, 100), ProgramSupervisorConnection.Connected, ProgramSupervisorAvailability.Available, StartedAtUtc));
     }

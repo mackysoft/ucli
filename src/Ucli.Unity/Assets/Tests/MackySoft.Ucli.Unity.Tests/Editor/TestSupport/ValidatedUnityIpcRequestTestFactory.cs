@@ -1,7 +1,9 @@
 using System;
+using System.Text;
 using MackySoft.Text.Vocabularies;
 using TextVocabulary = MackySoft.Text.Vocabularies.Vocabulary;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Unity.Ipc;
 
@@ -42,6 +44,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             return new ValidatedUnityIpcRequest(
                 envelope.RequestId,
+                Sha256Digest.Compute(Encoding.UTF8.GetBytes(envelope.SessionToken ?? string.Empty)),
                 method,
                 envelope.Payload,
                 responseMode,

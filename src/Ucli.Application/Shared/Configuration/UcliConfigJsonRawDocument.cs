@@ -17,8 +17,8 @@ internal readonly record struct UcliConfigJsonRawDocument (
     string PlanTokenMode,
     string? ReadIndexDefaultMode,
     string[] OperationAllowlist,
+    bool? EvalEnabled,
     int? IpcDefaultTimeoutMilliseconds,
     Dictionary<string, int?>? IpcTimeoutMillisecondsByCommand,
-    bool EvalEnabled,
     Dictionary<string, UcliProgramPresetDocument>? ProgramPresets,
     UcliWorkCompletionDocument? WorkCompletion);

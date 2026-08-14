@@ -19,10 +19,10 @@ internal sealed record UcliConfigDocument (
     string PlanTokenMode,
     string? ReadIndexDefaultMode,
     string[] OperationAllowlist,
+    bool EvalEnabled,
     int? IpcDefaultTimeoutMilliseconds,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     Dictionary<string, int?>? IpcTimeoutMillisecondsByCommand,
-    bool EvalEnabled,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     Dictionary<string, UcliProgramPresetDocument>? ProgramPresets = null,
     UcliWorkCompletionDocument? WorkCompletion = null);

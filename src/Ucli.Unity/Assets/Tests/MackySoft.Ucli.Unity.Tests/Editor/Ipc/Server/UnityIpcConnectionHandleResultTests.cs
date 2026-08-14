@@ -90,6 +90,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var requestId = Guid.NewGuid();
             var exception = Assert.Throws<ArgumentOutOfRangeException>(() => new ValidatedUnityIpcRequest(
                 requestId,
+                MackySoft.Ucli.Contracts.Cryptography.Sha256Digest.Parse(new string('a', 64)),
                 (UnityIpcMethod)int.MaxValue,
                 JsonSerializer.SerializeToElement(new IpcShutdownRequest("tests")),
                 IpcResponseMode.Single,

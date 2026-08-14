@@ -121,6 +121,31 @@ internal sealed class UnityDaemonReadinessGate
         }
     }
 
+    /// <summary> Waits for the initial eval admission without changing its already-bound daemon session. </summary>
+    public async ValueTask<UnityRequestExecutionResult> ExecuteInitialEvalAsync (
+        ResolvedUnityProjectContext unityProject,
+        UnityIpcDispatchRequest dispatchRequest,
+        bool failFast,
+        ExecutionDeadline deadline,
+        UnityDaemonIpcClient daemonIpcClient,
+        DaemonSession session,
+        CancellationToken cancellationToken)
+    {
+        var readinessFailure = await WaitUntilReadyAsync(
+                unityProject,
+                observation => UnityEditorReadinessPolicy.Evaluate(observation, failFast),
+                deadline,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (readinessFailure is not null)
+        {
+            return UnityRequestExecutionResult.Failure(readinessFailure);
+        }
+
+        return await daemonIpcClient.SendExactAsync(dispatchRequest, deadline, session, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
     /// <summary> Applies an action-owned policy before dispatching one new Lifecycle Execution. </summary>
     /// <param name="unityProject"> The resolved Unity project context. </param>
     /// <param name="dispatchRequest"> The new Lifecycle Execution dispatch. </param>

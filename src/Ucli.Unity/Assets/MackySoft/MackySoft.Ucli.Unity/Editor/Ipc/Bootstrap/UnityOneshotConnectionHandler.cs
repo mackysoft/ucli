@@ -55,7 +55,10 @@ namespace MackySoft.Ucli.Unity.Ipc
                         lifetimeWatchdog.MarkRequestCompleted();
                     }
                 }
+                // A successful eval.plan is only the first half of one leased eval exchange.
+                // Its terminal response must keep the oneshot host alive for eval.call.
                 else if (result.Method != UnityIpcMethod.LifecycleStart
+                    && result.Method != UnityIpcMethod.EvalPlan
                     && (result.Method != UnityIpcMethod.Shutdown
                         || result.IsShutdownAdmissionCommitted))
                 {

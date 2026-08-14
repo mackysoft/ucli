@@ -10,7 +10,7 @@ public sealed class OperationAuthorizationServiceTests
     private static readonly AuthorizationCase[] AllowedAuthorizationCases =
     [
         new(UcliPrimitiveOperationNames.SceneOpen, OperationPolicy.Safe, OperationPolicy.Safe, "^ucli\\."),
-        new(UcliPrimitiveOperationNames.CsEval, OperationPolicy.Dangerous, OperationPolicy.Dangerous, "^ucli\\."),
+        new(UcliPrimitiveOperationNames.SceneSave, OperationPolicy.Advanced, OperationPolicy.Advanced, "^ucli\\."),
     ];
 
     private static readonly DeniedAuthorizationCase[] DeniedAuthorizationCases =

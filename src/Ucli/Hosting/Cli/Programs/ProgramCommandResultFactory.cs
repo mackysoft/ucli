@@ -309,11 +309,10 @@ internal sealed record ProgramConfigurationPayload (
     IReadOnlyList<string> OperationAllowlist,
     int IpcDefaultTimeoutMilliseconds,
     IReadOnlyDictionary<string, int> IpcTimeoutMillisecondsByCommand,
-    bool EvalEnabled,
     string Digest,
     DateTimeOffset CapturedAtUtc)
 {
-    public static ProgramConfigurationPayload Create (ProgramEffectiveConfigurationSnapshot snapshot) => new(snapshot.SchemaVersion, snapshot.OperationPolicy, snapshot.PlanTokenMode, snapshot.ReadIndexDefaultMode, snapshot.OperationAllowlist, snapshot.IpcDefaultTimeoutMilliseconds, snapshot.IpcTimeoutMillisecondsByCommand, snapshot.EvalEnabled, snapshot.Digest.ToString(), snapshot.CapturedAtUtc);
+    public static ProgramConfigurationPayload Create (ProgramEffectiveConfigurationSnapshot snapshot) => new(snapshot.SchemaVersion, snapshot.OperationPolicy, snapshot.PlanTokenMode, snapshot.ReadIndexDefaultMode, snapshot.OperationAllowlist, snapshot.IpcDefaultTimeoutMilliseconds, snapshot.IpcTimeoutMillisecondsByCommand, snapshot.Digest.ToString(), snapshot.CapturedAtUtc);
 }
 
 internal sealed record ProgramSupervisorPayload (

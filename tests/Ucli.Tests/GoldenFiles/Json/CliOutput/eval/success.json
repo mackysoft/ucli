@@ -11,69 +11,67 @@
       "projectFingerprint": "<projectFingerprint>",
       "unityVersion": "<unityVersion>"
     },
-    "opResults": [
-      {
-        "op": "ucli.cs.eval",
-        "phase": "call",
-        "applied": true,
-        "changed": false,
-        "touched": [],
-        "operationDescriptorDigest": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
-        "verdict": null,
-        "result": {
-          "sourceDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-          "sourceKind": "snippet",
-          "resolvedEntryPoint": "Snippet.Run",
-          "executionDigest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-          "compile": {
-            "status": "succeeded",
-            "diagnostics": []
-          },
-          "durationMilliseconds": 7,
-          "logs": [],
-          "returnValue": {
-            "kind": "json",
-            "value": {
-              "ok": true
-            }
-          },
-          "touchedResources": {
-            "state": "none"
-          }
-        },
+    "applicationState": "applied",
+    "eval": {
+      "sourceDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "sourceKind": "snippet",
+      "resolvedEntryPoint": "Snippet.Run",
+      "executionDigest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "compile": {
+        "succeeded": true,
         "diagnostics": []
+      },
+      "durationMilliseconds": 7,
+      "logs": [],
+      "returnValue": {
+        "kind": "json",
+        "value": {
+          "ok": true
+        }
+      },
+      "touchedResources": {
+        "noChanges": true,
+        "scenes": [],
+        "prefabs": [],
+        "assets": [],
+        "projectSettings": []
       }
-    ],
+    },
     "plan": {
-      "requestId": "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
       "project": {
         "projectPath": "<projectPath>",
         "projectFingerprint": "<projectFingerprint>",
         "unityVersion": "<unityVersion>"
       },
-      "opResults": [
-        {
-          "op": "ucli.cs.eval",
-          "phase": "plan",
-          "applied": false,
-          "changed": false,
-          "touched": [],
-          "operationDescriptorDigest": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
-          "verdict": null,
-          "result": {
-            "sourceDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-            "sourceKind": "snippet",
-            "resolvedEntryPoint": "Snippet.Run",
-            "executionDigest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-            "compile": {
-              "status": "succeeded",
-              "diagnostics": []
-            }
-          },
+      "requestId": "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
+      "applicationState": "notApplied",
+      "eval": {
+        "sourceDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "sourceKind": "snippet",
+        "resolvedEntryPoint": "Snippet.Run",
+        "executionDigest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "compile": {
+          "succeeded": true,
           "diagnostics": []
         }
-      ],
+      },
       "planToken": "plan-token-1"
+    },
+    "readPostcondition": {
+      "requirements": [
+        {
+          "surface": "assetSearch",
+          "minSafeGeneratedAtUtc": "1970-01-01T00:00:00+00:00"
+        },
+        {
+          "surface": "guidPath",
+          "minSafeGeneratedAtUtc": "1970-01-01T00:00:00+00:00"
+        },
+        {
+          "surface": "sceneTreeLite",
+          "minSafeGeneratedAtUtc": "1970-01-01T00:00:00+00:00"
+        }
+      ]
     }
   },
   "errors": []

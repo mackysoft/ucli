@@ -29,7 +29,6 @@ public sealed class ProgramRunCommandConfigurationTests
             cliConfiguration.OperationAllowlist,
             cliConfiguration.IpcDefaultTimeoutMilliseconds,
             cliConfiguration.IpcTimeoutMillisecondsByCommand,
-            evalEnabled: project.Config.EvalEnabled,
             IpcProgramEffectiveConfigurationSnapshot.ComputeDigest(
                 cliConfiguration.SchemaVersion,
                 TextVocabulary.GetText(cliConfiguration.OperationPolicy),
@@ -37,10 +36,7 @@ public sealed class ProgramRunCommandConfigurationTests
                 TextVocabulary.GetText(cliConfiguration.ReadIndexDefaultMode),
                 cliConfiguration.OperationAllowlist,
                 cliConfiguration.IpcDefaultTimeoutMilliseconds,
-                cliConfiguration.IpcTimeoutMillisecondsByCommand,
-                evalEnabled: project.Config.EvalEnabled));
-
-        Assert.True(cliConfiguration.EvalEnabled);
+                cliConfiguration.IpcTimeoutMillisecondsByCommand));
         Assert.Equal(unityConfiguration.Digest, cliConfiguration.Digest);
 
         var requestDigest = Sha256Digest.Compute("program-call"u8);

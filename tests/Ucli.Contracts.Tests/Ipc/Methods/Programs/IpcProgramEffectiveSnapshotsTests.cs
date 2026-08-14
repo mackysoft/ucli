@@ -35,10 +35,9 @@ public sealed class IpcProgramEffectiveSnapshotsTests
             readIndexDefaultMode: "requireFresh",
             operationAllowlist: ["^ucli\\."],
             ipcDefaultTimeoutMilliseconds: 3000,
-            ipcTimeoutMillisecondsByCommand: new Dictionary<string, int>(StringComparer.Ordinal) { ["call"] = 60_000 },
-            evalEnabled: false);
+            ipcTimeoutMillisecondsByCommand: new Dictionary<string, int>(StringComparer.Ordinal) { ["call"] = 60_000 });
 
-        Assert.Equal("41748e67bea427c2add48a59285b22498a70117ec1666b6ce9a3db09419a2fcc", digest.ToString());
+        Assert.Equal("b896c5779c8d89b8e10f76c7c677917fd1a13c900869e99899b409342ba257d5", digest.ToString());
     }
 
     [Fact]
@@ -77,10 +76,9 @@ public sealed class IpcProgramEffectiveSnapshotsTests
             readIndexDefaultMode: "requireFresh",
             operationAllowlist: [value],
             ipcDefaultTimeoutMilliseconds: 1,
-            ipcTimeoutMillisecondsByCommand: new Dictionary<string, int>(StringComparer.Ordinal) { [value] = 2 },
-            evalEnabled: true);
+            ipcTimeoutMillisecondsByCommand: new Dictionary<string, int>(StringComparer.Ordinal) { [value] = 2 });
 
-        Assert.Equal("8a5f45c0059a75deae0d8b7185d3797fcdb27b133ecdbd2a8f9fab260f45cf36", digest.ToString());
+        Assert.Equal("0395ce4d6c411d9f7264662209050069ea2f00979658ba18a463624fb935abe7", digest.ToString());
     }
 
     [Fact]
@@ -88,15 +86,15 @@ public sealed class IpcProgramEffectiveSnapshotsTests
     public void ConfigurationDigest_UsesTheDocumentedCanonicalUtf8Bytes ()
     {
         const string value = "quote\"\\日本\u0001";
-        const string canonicalJson = "{\"evalEnabled\":true,\"ipcDefaultTimeoutMilliseconds\":1,\"ipcTimeoutMillisecondsByCommand\":{\"quote\\\"\\\\日本\\u0001\":2},\"operationAllowlist\":[\"quote\\\"\\\\日本\\u0001\"],\"operationPolicy\":\"safe\\\"\\\\日本\\u0001\",\"planTokenMode\":\"optional\",\"readIndexDefaultMode\":\"requireFresh\",\"schemaVersion\":1}";
+        const string canonicalJson = "{\"ipcDefaultTimeoutMilliseconds\":1,\"ipcTimeoutMillisecondsByCommand\":{\"quote\\\"\\\\日本\\u0001\":2},\"operationAllowlist\":[\"quote\\\"\\\\日本\\u0001\"],\"operationPolicy\":\"safe\\\"\\\\日本\\u0001\",\"planTokenMode\":\"optional\",\"readIndexDefaultMode\":\"requireFresh\",\"schemaVersion\":1}";
 
         var expected = Sha256Digest.Compute(Encoding.UTF8.GetBytes(canonicalJson));
         var actual = IpcProgramEffectiveConfigurationSnapshot.ComputeDigest(
             1, "safe\"\\日本\u0001", "optional", "requireFresh", [value], 1,
-            new Dictionary<string, int>(StringComparer.Ordinal) { [value] = 2 }, true);
+            new Dictionary<string, int>(StringComparer.Ordinal) { [value] = 2 });
 
         Assert.Equal(expected, actual);
-        Assert.Equal("8a5f45c0059a75deae0d8b7185d3797fcdb27b133ecdbd2a8f9fab260f45cf36", actual.ToString());
+        Assert.Equal("0395ce4d6c411d9f7264662209050069ea2f00979658ba18a463624fb935abe7", actual.ToString());
     }
 
     [Fact]
@@ -121,7 +119,6 @@ public sealed class IpcProgramEffectiveSnapshotsTests
             operationAllowlist: [],
             ipcDefaultTimeoutMilliseconds: 3000,
             ipcTimeoutMillisecondsByCommand: new Dictionary<string, int>(StringComparer.Ordinal),
-            evalEnabled: false,
             digest: Sha256Digest.Parse(new string('d', 64))));
     }
 
@@ -134,7 +131,6 @@ public sealed class IpcProgramEffectiveSnapshotsTests
             readIndexDefaultMode: "requireFresh",
             operationAllowlist: allowlist,
             ipcDefaultTimeoutMilliseconds: 3000,
-            ipcTimeoutMillisecondsByCommand: timeouts,
-            evalEnabled: false);
+            ipcTimeoutMillisecondsByCommand: timeouts);
     }
 }

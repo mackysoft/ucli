@@ -3,6 +3,7 @@ using System.Text.Json;
 using MackySoft.Text.Vocabularies;
 using TextVocabulary = MackySoft.Text.Vocabularies.Vocabulary;
 using MackySoft.Ucli.Contracts;
+using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
 
@@ -22,6 +23,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <exception cref="ArgumentOutOfRangeException"> Thrown when a contract literal is undefined or the remaining deadline is not positive. </exception>
         public ValidatedUnityIpcRequest (
             Guid requestId,
+            Sha256Digest sessionTokenDigest,
             UnityIpcMethod method,
             JsonElement payload,
             IpcResponseMode responseMode,
@@ -52,6 +54,8 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             RequestId = requestId;
+            SessionTokenDigest = sessionTokenDigest
+                ?? throw new ArgumentNullException(nameof(sessionTokenDigest));
             Method = method;
             Payload = payload;
             ResponseMode = responseMode;
@@ -63,6 +67,9 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         /// <inheritdoc />
         public Guid RequestId { get; }
+
+        /// <summary> Gets the digest of the authorized IPC session token. </summary>
+        public Sha256Digest SessionTokenDigest { get; }
 
         /// <summary> Gets the defined Unity IPC method. </summary>
         public UnityIpcMethod Method { get; }

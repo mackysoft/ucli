@@ -123,12 +123,9 @@ internal sealed class ProgramPlanPreflightService
                 "PROGRAM_PLAN_CALL_REQUEST_UNAVAILABLE", index, "The resolved Program call request is unavailable.");
         }
 
-        // Program never admits arbitrary C# evaluation.  This check belongs
-        // before catalog discovery so a forbidden request cannot cause host IO.
-        if (ContainsEval(request))
+        if (request.Steps.Any(static step => step.Kind == IpcExecuteStepKind.Op && string.Equals(step.Op, "ucli.cs.eval", StringComparison.Ordinal)))
         {
-            return ProgramPlanStepPreflightResult.Failed(
-                "PROGRAM_CALL_EVAL_NOT_ALLOWED", index, "Program call Steps cannot execute ucli.cs.eval.");
+            return ProgramPlanStepPreflightResult.Failed("PROGRAM_CALL_EVAL_NOT_ALLOWED", index, "Program call Steps cannot execute dedicated C# evaluation.");
         }
 
         var catalog = await catalogReader.ReadAsync(project, binding, deadline, cancellationToken).ConfigureAwait(false);
@@ -209,9 +206,6 @@ internal sealed class ProgramPlanPreflightService
         return dangerous ? ["allowDangerous"] : [];
     }
 
-    private static bool ContainsEval (ValidateRequest request) => request.Steps.Any(static step =>
-        step.Kind == IpcExecuteStepKind.Op
-        && string.Equals(step.Op, UcliPrimitiveOperationNames.CsEval, StringComparison.Ordinal));
 }
 
 internal sealed record ProgramPlanPreflightResult (

@@ -1875,7 +1875,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     projectFingerprint: ProjectFingerprint,
                     unityVersion: "6000.0.0f1",
                     compileState: UnityEditorCompileState.Ready,
-                    domainReloadGeneration: 0);
+                    domainReloadGeneration: 0,
+                    editorInstanceId: Guid.NewGuid());
                 return new MutablePlanTokenEnvironment(snapshot, DateTimeOffset.UtcNow);
             }
 

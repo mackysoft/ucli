@@ -6,7 +6,6 @@ using System.Threading;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Cryptography;
-using MackySoft.Ucli.Contracts.Operations;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Emit;
@@ -16,7 +15,7 @@ using Microsoft.CodeAnalysis.Text;
 
 namespace MackySoft.Ucli.Unity.Execution.CsEval
 {
-    /// <summary> Compiles and validates <c>ucli.cs.eval</c> source without invoking user code. </summary>
+    /// <summary> Compiles and validates dedicated C# eval source without invoking user code. </summary>
     internal sealed class CsEvalCompilationService
     {
         private static readonly CSharpParseOptions ParseOptions = CSharpParseOptions.Default
@@ -46,6 +45,9 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
 
         public CsEvalCompilationResult CompileAndValidate (
             string source,
+            CsEvalSourceKind sourceKind,
+            bool allowDangerous,
+            bool allowPlayMode,
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -53,10 +55,38 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
             var references = referenceResolver.Resolve();
 
             var sourceByteCount = Encoding.UTF8.GetByteCount(source);
-            var compilationUnitSource = sourcePreparer.CreateCompilationUnit(source);
+            CsEvalPreparedSource compilationUnitSource;
+            if (sourceKind == CsEvalSourceKind.CompilationUnit)
+            {
+                compilationUnitSource = sourcePreparer.CreateCompilationUnit(source);
+            }
+            else if (!sourcePreparer.TryCreateSnippet(source, out compilationUnitSource, out var diagnostic))
+            {
+                // Source-form violations are expected user input errors. Return the same structured
+                // compilation failure shape as syntax and entry-point failures so IPC handlers never
+                // turn them into a generic internal error.
+                var rejectedSource = new CsEvalPreparedSource(
+                    CsEvalSourceKind.Snippet,
+                    string.Empty,
+                    CsEvalSourcePreparer.NoWrapperVersion);
+                var executionDigest = CsEvalExecutionDigestCalculator.Compute(
+                    source,
+                    CsEvalSourceKind.Snippet,
+                    allowDangerous,
+                    allowPlayMode);
+                return CreateFailure(
+                    sourceDigest,
+                    CsEvalSourceKind.Snippet,
+                    resolvedEntryPoint: null,
+                    entryPointName: null,
+                    executionDigest,
+                    CreateCompilation(rejectedSource, references, cancellationToken),
+                    new[] { diagnostic },
+                    diagnostic.Message);
+            }
             if (sourceByteCount > CsEvalSafetyLimits.MaxSourceBytes)
             {
-                var diagnostic = CsEvalDiagnosticMapper.Create(
+                var sizeDiagnostic = CsEvalDiagnosticMapper.Create(
                     CsEvalDiagnosticIds.SourceTooLarge,
                     $"C# eval source exceeds internal IPC safety guardrail. SourceBytes={sourceByteCount}.");
                 return CreateFailure(
@@ -65,41 +95,33 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
                     resolvedEntryPoint: null,
                     entryPointName: null,
                     CsEvalExecutionDigestCalculator.Compute(
-                        sourceDigest,
+                        source,
                         compilationUnitSource.SourceKind,
-                        compilationUnitSource.WrapperVersion,
-                        references.Identity),
+                        allowDangerous,
+                        allowPlayMode),
                     CreateCompilation(compilationUnitSource, references, cancellationToken),
-                    new[] { diagnostic },
-                    diagnostic.Message);
+                    new[] { sizeDiagnostic },
+                    sizeDiagnostic.Message);
             }
 
-            var compilationUnitResult = CompilePreparedSource(sourceDigest, references, compilationUnitSource, cancellationToken);
-            if (compilationUnitResult.IsSuccess)
-            {
-                return compilationUnitResult;
-            }
-
-            if (!sourcePreparer.TryCreateSnippet(source, out var snippetSource, out _))
-            {
-                return compilationUnitResult;
-            }
-
-            return CompilePreparedSource(sourceDigest, references, snippetSource, cancellationToken);
+            return CompilePreparedSource(source, sourceDigest, compilationUnitSource, allowDangerous, allowPlayMode, references, cancellationToken);
         }
 
         private CsEvalCompilationResult CompilePreparedSource (
+            string source,
             Sha256Digest sourceDigest,
-            CsEvalReferenceSet references,
             CsEvalPreparedSource preparedSource,
+            bool allowDangerous,
+            bool allowPlayMode,
+            CsEvalReferenceSet references,
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
             var executionDigest = CsEvalExecutionDigestCalculator.Compute(
-                sourceDigest,
+                source,
                 preparedSource.SourceKind,
-                preparedSource.WrapperVersion,
-                references.Identity);
+                allowDangerous,
+                allowPlayMode);
             var compilation = CreateCompilation(preparedSource, references, cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
             var diagnostics = CsEvalDiagnosticMapper.Limit(compilation.GetDiagnostics(cancellationToken)
@@ -141,7 +163,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
                 entryPointName.DisplayName,
                 entryPointName,
                 executionDigest,
-                new CsEvalCompileResult(CsEvalCompileStatus.Succeeded, diagnostics),
+                new CsEvalPlanCompileResult(true, diagnostics),
                 compilation,
                 isSuccess: true,
                 failureMessage: null);
@@ -156,7 +178,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
             var syntaxTree = CSharpSyntaxTree.ParseText(
                 SourceText.From(preparedSource.CompilationSource, Encoding.UTF8),
                 ParseOptions,
-                path: "ucli.cs.eval.cs",
+                path: "ucli-csharp-eval.cs",
                 cancellationToken: cancellationToken);
             return CSharpCompilation.Create(
                 "UcliCsEval_" + Sha256Digest.Compute(Encoding.UTF8.GetBytes(preparedSource.CompilationSource)).ToString().Substring(0, 12),
@@ -192,7 +214,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
 
         private static CsEvalCompilationResult CreateFailure (
             Sha256Digest sourceDigest,
-            UcliCodeSourceFormKind? sourceKind,
+            CsEvalSourceKind sourceKind,
             string? resolvedEntryPoint,
             CsEvalEntryPointName? entryPointName,
             Sha256Digest executionDigest,
@@ -206,7 +228,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
                 resolvedEntryPoint,
                 entryPointName,
                 executionDigest,
-                new CsEvalCompileResult(CsEvalCompileStatus.Failed, diagnostics),
+                new CsEvalPlanCompileResult(false, diagnostics),
                 compilation,
                 isSuccess: false,
                 failureMessage: failureMessage);

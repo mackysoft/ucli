@@ -22,6 +22,7 @@ internal static class UnityRequestResponseFactory
         }
 
         return new UnityRequestResponse(
+            Status: response.Status,
             Payload: response.Payload,
             Errors: errors);
     }

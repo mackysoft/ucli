@@ -72,7 +72,6 @@ public sealed record IpcProgramEffectiveConfigurationSnapshot
         IReadOnlyList<string> operationAllowlist,
         int ipcDefaultTimeoutMilliseconds,
         IReadOnlyDictionary<string, int> ipcTimeoutMillisecondsByCommand,
-        bool evalEnabled,
         Sha256Digest digest)
     {
         if (schemaVersion < 1 || string.IsNullOrWhiteSpace(operationPolicy) || string.IsNullOrWhiteSpace(planTokenMode)
@@ -91,11 +90,10 @@ public sealed record IpcProgramEffectiveConfigurationSnapshot
         OperationAllowlist = Array.AsReadOnly(operationAllowlist.ToArray());
         IpcDefaultTimeoutMilliseconds = ipcDefaultTimeoutMilliseconds;
         IpcTimeoutMillisecondsByCommand = new Dictionary<string, int>(ipcTimeoutMillisecondsByCommand, StringComparer.Ordinal);
-        EvalEnabled = evalEnabled;
         Digest = digest;
         if (Digest != ComputeDigest(
                 SchemaVersion, OperationPolicy, PlanTokenMode, ReadIndexDefaultMode, OperationAllowlist,
-                IpcDefaultTimeoutMilliseconds, IpcTimeoutMillisecondsByCommand, EvalEnabled))
+                IpcDefaultTimeoutMilliseconds, IpcTimeoutMillisecondsByCommand))
         {
             throw new ArgumentException("Program configuration snapshot digest does not match its effective values.", nameof(digest));
         }
@@ -124,9 +122,6 @@ public sealed record IpcProgramEffectiveConfigurationSnapshot
     public IReadOnlyDictionary<string, int> IpcTimeoutMillisecondsByCommand { get; private init; }
     [JsonInclude]
     [JsonRequired]
-    public bool EvalEnabled { get; private init; }
-    [JsonInclude]
-    [JsonRequired]
     public Sha256Digest Digest { get; private init; }
 
     public static Sha256Digest ComputeDigest (
@@ -136,14 +131,12 @@ public sealed record IpcProgramEffectiveConfigurationSnapshot
         string readIndexDefaultMode,
         IReadOnlyList<string> operationAllowlist,
         int ipcDefaultTimeoutMilliseconds,
-        IReadOnlyDictionary<string, int> ipcTimeoutMillisecondsByCommand,
-        bool evalEnabled)
+        IReadOnlyDictionary<string, int> ipcTimeoutMillisecondsByCommand)
     {
         var buffer = new ArrayBufferWriter<byte>();
         using (var writer = new Utf8JsonWriter(buffer, DigestWriterOptions))
         {
             writer.WriteStartObject();
-            writer.WriteBoolean("evalEnabled", evalEnabled);
             writer.WriteNumber("ipcDefaultTimeoutMilliseconds", ipcDefaultTimeoutMilliseconds);
             writer.WritePropertyName("ipcTimeoutMillisecondsByCommand");
             writer.WriteStartObject();

@@ -37,7 +37,7 @@ public sealed class ProgramRunFixedContextTests
     public void ConfigurationSnapshot_RejectsDigestThatDoesNotMatchEffectiveSettings ()
     {
         var settings = new ProgramEffectiveConfigurationSnapshot(1, OperationPolicy.Safe, PlanTokenMode.Optional,
-            ReadIndexMode.RequireFresh, [], 1000, new Dictionary<string, int>(), false,
+            ReadIndexMode.RequireFresh, [], 1000, new Dictionary<string, int>(),
             Sha256Digest.Parse(new string('d', 64)), new DateTimeOffset(2026, 8, 12, 0, 0, 0, TimeSpan.Zero));
 
         Assert.Throws<ArgumentException>(settings.Validate);

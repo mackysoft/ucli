@@ -69,6 +69,22 @@ namespace MackySoft.Ucli.Unity.Ipc
             return TryDecodePayload(request, "Execute", out payload, out errorResponse);
         }
 
+        public static bool TryDecodeEvalPlanRequest (
+            ValidatedUnityIpcRequest request,
+            out IpcEvalPlanRequest? payload,
+            out IpcResponse? errorResponse)
+        {
+            return TryDecodePayload(request, "EvalPlan", out payload, out errorResponse);
+        }
+
+        public static bool TryDecodeEvalCallRequest (
+            ValidatedUnityIpcRequest request,
+            out IpcEvalCallRequest? payload,
+            out IpcResponse? errorResponse)
+        {
+            return TryDecodePayload(request, "EvalCall", out payload, out errorResponse);
+        }
+
         /// <summary> Tries to decode one test-run request payload. </summary>
         /// <param name="request"> The incoming request envelope. </param>
         /// <param name="payload"> The decoded payload when successful. </param>

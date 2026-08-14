@@ -67,6 +67,35 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return Sha256Digest.Compute(stream.GetBuffer().AsSpan(0, checked((int)stream.Length)));
         }
 
+        /// <summary> Computes the Editor execution generation bound to one dedicated eval session. </summary>
+        public static Sha256Digest ComputeEval (
+            PlanTokenEnvironmentSnapshot snapshot,
+            Sha256Digest sessionTokenDigest)
+        {
+            if (snapshot == null)
+            {
+                throw new ArgumentNullException(nameof(snapshot));
+            }
+
+            if (sessionTokenDigest == null)
+            {
+                throw new ArgumentNullException(nameof(sessionTokenDigest));
+            }
+
+            using var stream = new MemoryStream();
+            using (var writer = new Utf8JsonWriter(stream, new JsonWriterOptions { Indented = false }))
+            {
+                writer.WriteStartObject();
+                writer.WriteString("domainReloadGeneration", snapshot.DomainReloadGeneration.ToString(CultureInfo.InvariantCulture));
+                writer.WriteString("editorInstanceId", snapshot.EditorInstanceId.ToString("D"));
+                writer.WriteString("sessionTokenDigest", sessionTokenDigest.ToString());
+                writer.WriteEndObject();
+                writer.Flush();
+            }
+
+            return Sha256Digest.Compute(stream.GetBuffer().AsSpan(0, checked((int)stream.Length)));
+        }
+
         /// <summary> Computes configuration digest from shared <c>.ucli/config.json</c> fields. </summary>
         /// <param name="repositoryRoot"> The repository root path. </param>
         /// <param name="cancellationToken"> The cancellation token propagated by phase execution. </param>

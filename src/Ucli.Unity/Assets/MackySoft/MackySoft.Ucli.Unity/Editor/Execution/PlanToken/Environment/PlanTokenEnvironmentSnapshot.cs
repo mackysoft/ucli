@@ -22,7 +22,8 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
             ProjectFingerprint projectFingerprint,
             string unityVersion,
             UnityEditorCompileState compileState,
-            long domainReloadGeneration)
+            long domainReloadGeneration,
+            Guid editorInstanceId)
         {
             ProjectRoot = projectRoot ?? throw new ArgumentNullException(nameof(projectRoot));
             RepositoryRoot = repositoryRoot ?? throw new ArgumentNullException(nameof(repositoryRoot));
@@ -30,6 +31,12 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
             UnityVersion = unityVersion;
             CompileState = compileState;
             DomainReloadGeneration = domainReloadGeneration;
+            if (editorInstanceId == Guid.Empty)
+            {
+                throw new ArgumentException("Editor instance identifier must not be empty.", nameof(editorInstanceId));
+            }
+
+            EditorInstanceId = editorInstanceId;
         }
 
         /// <summary> Gets the Unity project root path. </summary>
@@ -49,5 +56,8 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
 
         /// <summary> Gets the current domain-reload generation marker. </summary>
         public long DomainReloadGeneration { get; init; }
+
+        /// <summary> Gets the current Unity Editor process instance identifier. </summary>
+        public Guid EditorInstanceId { get; init; }
     }
 }

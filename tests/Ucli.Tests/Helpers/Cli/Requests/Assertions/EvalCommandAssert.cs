@@ -1,173 +1,39 @@
-using System.Text.Json;
-using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Tests;
 
 namespace MackySoft.Tests;
 
 internal static class EvalCommandAssert
 {
-    public static void SnippetRequestSucceededWithDispatch (
-        CommandExecutionResult result,
-        RecordingCallService service,
-        RecordingEvalSourceInputReader sourceReader,
-        CancellationToken expectedCancellationToken,
-        string expectedProjectPath,
-        UnityExecutionMode expectedMode,
-        int expectedTimeoutMilliseconds,
-        string expectedSource)
+    public static void HasDedicatedSuccessPayload (CommandExecutionResult result, CsEvalSourceKind sourceKind = CsEvalSourceKind.Snippet)
     {
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
-        EvalSourceInputReaderAssert.SnippetRead(
-            sourceReader,
-            expectedSource,
-            expectedCancellationToken);
-        var input = CallServiceDispatchAssert.DispatchedWithOptions(
-            service,
-            expectedCancellationToken,
-            expectedProjectPath,
-            expectedMode,
-            expectedTimeoutMilliseconds,
-            expectedPlanToken: null,
-            expectedWithPlan: true,
-            expectedAllowDangerous: true,
-            expectedAllowPlayMode: true,
-            expectedFailFast: true,
-            expectedRequestJson: null,
-            UcliCommandIds.Eval);
-        HasEvalRequestSource(input.RequestJson, expectedSource);
+        using var output = JsonAssert.ParseMultilineObject(result.StdOut);
+        CommandResultAssert.HasSuccessEnvelope(output.RootElement, UcliCommandNames.Eval);
+        var payload = output.RootElement.GetProperty("payload");
+        Assert.True(payload.TryGetProperty("requestId", out _));
+        Assert.True(payload.TryGetProperty("project", out _));
+        Assert.Equal("applied", payload.GetProperty("applicationState").GetString());
+        var sourceKindText = TextVocabulary.GetText(sourceKind);
+        Assert.Equal(sourceKindText, payload.GetProperty("eval").GetProperty("sourceKind").GetString());
+        var plan = payload.GetProperty("plan");
+        Assert.Equal(sourceKindText, plan.GetProperty("eval").GetProperty("sourceKind").GetString());
+        Assert.Equal("notApplied", plan.GetProperty("applicationState").GetString());
+        Assert.True(plan.TryGetProperty("planToken", out _));
+        Assert.True(payload.TryGetProperty("readPostcondition", out _));
+        Assert.False(payload.TryGetProperty("opResults", out _));
     }
 
-    public static void SucceededWithPayload (
-        CommandExecutionResult result,
-        string expectedRequestId)
+    public static void HasDedicatedDispatch (
+        RecordingEvalService service,
+        string expectedSource,
+        CsEvalSourceKind expectedSourceKind,
+        bool expectedAllowDangerous,
+        bool expectedAllowPlayMode)
     {
-        Assert.Equal((int)CliExitCode.Success, result.ExitCode);
-        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
-        CommandResultAssert.HasSuccessEnvelope(
-            outputJson.RootElement,
-            UcliCommandNames.Eval);
-        JsonAssert.For(outputJson.RootElement)
-            .HasString("message", "uCLI eval completed.")
-            .HasProperty("payload", payload => payload
-                .HasString("requestId", expectedRequestId)
-                .HasValueKind("project", JsonValueKind.Object)
-                .HasArrayLength("opResults", 1)
-                .HasProperty("plan", plan => plan
-                    .HasString("requestId", expectedRequestId)
-                    .HasValueKind("project", JsonValueKind.Object)
-                    .HasArrayLength("opResults", 1)
-                    .HasString("planToken", "plan-token-1")));
-        var planResult = outputJson.RootElement
-            .GetProperty("payload")
-            .GetProperty("plan")
-            .GetProperty("opResults")[0]
-            .GetProperty("result");
-        Assert.False(planResult.TryGetProperty("returnValue", out _));
-        Assert.False(planResult.TryGetProperty("logs", out _));
-        Assert.False(planResult.TryGetProperty("durationMilliseconds", out _));
-        Assert.False(planResult.TryGetProperty("touchedResources", out _));
-    }
-
-    public static void SucceededWithGolden (
-        CommandExecutionResult result,
-        string expectedRequestId)
-    {
-        SucceededWithPayload(
-            result,
-            expectedRequestId);
-        JsonGoldenFileAssert.Matches(
-            CliOutputGoldenFiles.GetPath("eval", "success.json"),
-            result.StdOut,
-            CliOutputGoldenFiles.NormalizeRequestIds());
-    }
-
-    public static void FileSourceRequestSucceeded (
-        CommandExecutionResult result,
-        RecordingCallService service,
-        RecordingEvalSourceInputReader sourceReader,
-        AbsolutePath expectedFilePath,
-        string expectedSource)
-    {
-        Assert.Equal((int)CliExitCode.Success, result.ExitCode);
-        EvalSourceInputReaderAssert.FileRead(sourceReader, expectedFilePath);
-        var input = CallServiceDispatchAssert.DispatchedWithOptions(
-            service,
-            CancellationToken.None,
-            expectedProjectPath: null,
-            expectedMode: null,
-            expectedTimeoutMilliseconds: null,
-            expectedPlanToken: null,
-            expectedWithPlan: true,
-            expectedAllowDangerous: true,
-            expectedAllowPlayMode: false,
-            expectedFailFast: false,
-            expectedRequestJson: null,
-            UcliCommandIds.Eval);
-        HasEvalRequestSource(input.RequestJson, expectedSource);
-    }
-
-    public static void DangerousExecutionDisallowedByDefault (
-        CommandExecutionResult result,
-        RecordingCallService service,
-        RecordingEvalSourceInputReader sourceReader,
-        string expectedSource)
-    {
-        Assert.Equal((int)CliExitCode.Success, result.ExitCode);
-        EvalSourceInputReaderAssert.SnippetRead(
-            sourceReader,
-            expectedSource,
-            CancellationToken.None);
-        var input = CallServiceDispatchAssert.DispatchedWithOptions(
-            service,
-            CancellationToken.None,
-            expectedProjectPath: null,
-            expectedMode: null,
-            expectedTimeoutMilliseconds: null,
-            expectedPlanToken: null,
-            expectedWithPlan: true,
-            expectedAllowDangerous: false,
-            expectedAllowPlayMode: false,
-            expectedFailFast: false,
-            expectedRequestJson: null,
-            UcliCommandIds.Eval);
-        HasEvalRequestSource(input.RequestJson, expectedSource);
-    }
-
-    public static void SourceInputFailureReturnedBeforeCallExecution (
-        CommandExecutionResult result,
-        RecordingCallService service)
-    {
-        CommandResultAssert.HasPreDispatchInvalidArgumentFailure(
-            result,
-            service.Invocations,
-            UcliCommandNames.Eval);
-    }
-
-    public static void InvalidModeRejectedBeforeSourceReadOrCallExecution (
-        CommandExecutionResult result,
-        RecordingCallService service,
-        RecordingEvalSourceInputReader sourceReader)
-    {
-        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
-        Assert.Empty(service.Invocations);
-        Assert.Empty(sourceReader.Invocations);
-        using var outputJson = JsonAssert.ParseMultilineObject(result.StdOut);
-        CommandResultAssert.HasInvalidArgumentEnvelope(
-            outputJson.RootElement,
-            UcliCommandNames.Eval);
-    }
-
-    private static void HasEvalRequestSource (
-        string requestJson,
-        string expectedSource)
-    {
-        using var document = JsonDocument.Parse(requestJson);
-        JsonAssert.For(document.RootElement)
-            .HasProperty("steps", 0, step => step
-                .HasString("kind", "op")
-                .HasString("op", UcliPrimitiveOperationNames.CsEval)
-                .HasProperty("args", args => args
-                    .HasString("source", expectedSource)));
+        var invocation = Assert.Single(service.Invocations);
+        Assert.Equal(expectedSource, invocation.Input.Source);
+        Assert.Equal(expectedSourceKind, invocation.Input.SourceKind);
+        Assert.Equal(expectedAllowDangerous, invocation.Input.AllowDangerous);
+        Assert.Equal(expectedAllowPlayMode, invocation.Input.AllowPlayMode);
     }
 }

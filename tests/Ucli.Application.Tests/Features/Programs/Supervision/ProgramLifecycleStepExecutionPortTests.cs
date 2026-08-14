@@ -523,8 +523,8 @@ public sealed class ProgramLifecycleStepExecutionPortTests
         var commandTimeouts = new Dictionary<string, int> { ["refresh"] = 1_000 };
         return new ProgramRunFixedContext(
             new ProgramEffectiveAuthorizationSnapshot(false, false, IpcProgramEffectiveAuthorizationSnapshot.ComputeDigest(false, false).ToString(), StartedAtUtc),
-            new ProgramEffectiveConfigurationSnapshot(1, OperationPolicy.Safe, PlanTokenMode.Optional, ReadIndexMode.RequireFresh, [], 1_000, commandTimeouts, false,
-                IpcProgramEffectiveConfigurationSnapshot.ComputeDigest(1, "safe", "optional", "requireFresh", [], 1_000, commandTimeouts, false), StartedAtUtc),
+            new ProgramEffectiveConfigurationSnapshot(1, OperationPolicy.Safe, PlanTokenMode.Optional, ReadIndexMode.RequireFresh, [], 1_000, commandTimeouts,
+            IpcProgramEffectiveConfigurationSnapshot.ComputeDigest(1, "safe", "optional", "requireFresh", [], 1000, commandTimeouts), StartedAtUtc),
             new ProgramExecutionModeSnapshot("auto", "daemon"),
             new ProgramAttachedSupervisorSnapshot(Guid.Parse("e7599e03-77af-4b3c-b1a1-6e0718bf88b5"), Guid.Parse("cd403317-2b0c-4ae4-8ff7-8b50d2564554"), new ProcessIdentity(100, 10), ProgramSupervisorConnection.Connected, ProgramSupervisorAvailability.Available, StartedAtUtc));
     }

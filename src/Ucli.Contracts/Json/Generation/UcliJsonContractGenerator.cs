@@ -5,10 +5,12 @@ using MackySoft.JsonSchema.Generation.Configuration;
 using MackySoft.JsonSchema.Generation.ContractModel;
 using MackySoft.JsonSchema.Generation.Diagnostics;
 using MackySoft.JsonSchema.Generation.Extensibility;
+using MackySoft.JsonSchema.Generation.Metadata;
 using MackySoft.JsonSchema.Generation.Projection;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Execution;
 using MackySoft.Ucli.Contracts.Execution.Lifecycle;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Json.Metadata;
 using MackySoft.Ucli.Contracts.Operations;
 
@@ -155,6 +157,18 @@ public static class UcliJsonContractGenerator
                 contractId,
                 typeInfo,
                 documentOptions));
+    }
+
+    internal static JsonContractGenerationResult GenerateWithEvalCliOutputProfile (
+        string contractId,
+        JsonTypeInfo typeInfo,
+        JsonSchemaDocumentOptions documentOptions)
+    {
+        return CreateGenerator(
+            JsonContractMetadataProfile.EvalCliOutput,
+            lifecycleExecutionKind: null,
+            commandResultStatus: null).Generate(
+            new JsonContractGenerationRequest(contractId, typeInfo, documentOptions));
     }
 
     /// <summary>
@@ -347,6 +361,17 @@ public static class UcliJsonContractGenerator
             return registry;
         }
 
+        if (profile == JsonContractMetadataProfile.EvalCliOutput)
+        {
+            EnsureLifecycleExecutionSelectorsAreAbsent(
+                lifecycleExecutionKind,
+                commandResultStatus,
+                "The eval CLI output profile cannot include Lifecycle Execution selectors.");
+            return registry
+                .RegisterProvider<long>(new EvalInt64MetadataProvider())
+                .RegisterProvider<long?>(new EvalNullableInt64MetadataProvider());
+        }
+
         if (profile == JsonContractMetadataProfile.OperationExecutionCliOutput)
         {
             EnsureLifecycleExecutionSelectorsAreAbsent(
@@ -446,6 +471,60 @@ public static class UcliJsonContractGenerator
         PixelDimensions = 7,
 
         OperationContract = 8,
+
+        EvalCliOutput = 9,
+    }
+
+    private sealed class EvalInt64MetadataProvider
+        : IJsonContractMetadataProvider<long>
+    {
+        public string StableId => "ucli.eval.int64-minimum";
+
+        public string ContractVersion => "1";
+
+        public void ProvideMetadata (
+            JsonContractMetadataContext<long> context,
+            JsonContractMetadataBuilder<long> builder)
+        {
+            if (context.DeclaringTypeInfo.Type == typeof(CsEvalCallSuccessResult)
+                && HasSerializedProperty(context, nameof(CsEvalCallSuccessResult.DurationMilliseconds)))
+            {
+                builder.SetMinimum(JsonContractNumber.FromInt64(0));
+            }
+            else if (context.DeclaringTypeInfo.Type == typeof(CsEvalLogEntry)
+                && HasSerializedProperty(context, nameof(CsEvalLogEntry.Sequence)))
+            {
+                builder.SetMinimum(JsonContractNumber.FromInt64(1));
+            }
+        }
+    }
+
+    private sealed class EvalNullableInt64MetadataProvider
+        : IJsonContractMetadataProvider<long?>
+    {
+        public string StableId => "ucli.eval.nullable-int64-minimum";
+
+        public string ContractVersion => "1";
+
+        public void ProvideMetadata (
+            JsonContractMetadataContext<long?> context,
+            JsonContractMetadataBuilder<long?> builder)
+        {
+            if (context.DeclaringTypeInfo.Type == typeof(CsEvalPartialErrorResult)
+                && HasSerializedProperty(context, nameof(CsEvalPartialErrorResult.DurationMilliseconds)))
+            {
+                builder.SetMinimum(JsonContractNumber.FromInt64(0));
+            }
+        }
+    }
+
+    private static bool HasSerializedProperty<TValue> (
+        JsonContractMetadataContext<TValue> context,
+        string propertyName)
+    {
+        var namingPolicy = context.DeclaringTypeInfo.Options.PropertyNamingPolicy;
+        var serializedName = namingPolicy?.ConvertName(propertyName) ?? propertyName;
+        return string.Equals(context.PropertyInfo?.Name, serializedName, StringComparison.Ordinal);
     }
 
     private static IReadOnlyList<IJsonContractTypeMapper> CreateTypeMappers (
