@@ -403,7 +403,7 @@ public static class TypeInitializerFailureEval
             var request = CreateRequest(
                 UnityIpcMethod.EvalCall,
                 new IpcEvalCallRequest(source, CsEvalSourceKind.Snippet, true, false, plan.PlanToken!),
-                requestDuration: TimeSpan.FromSeconds(2));
+                requestDuration: TimeSpan.FromSeconds(5));
             var handler = CreateCallHandler(scope, environment, mutationExecutor);
             var controlPlaneExecutor = new InlineRequestExecutor();
             var dispatcher = new UnityIpcMethodDispatcher(
@@ -419,7 +419,12 @@ public static class TypeInitializerFailureEval
                 UnityIpcMethod.EvalCall,
                 IpcResponseMode.Single);
 
-            var response = await dispatcher.DispatchAsync(validatedRequest, phaseScope);
+            var dispatchTask = dispatcher.DispatchAsync(validatedRequest, phaseScope);
+            await TestAwaiter.WaitUntilAsync(
+                () => handler.TryGetPublishedExecutionDeadlineResponse(request.RequestId, out _),
+                "Published execution deadline response",
+                TimeSpan.FromSeconds(5));
+            var response = await dispatchTask;
 
             Assert.That(response.Status, Is.EqualTo(IpcResponseStatus.Error));
             Assert.That(response.Errors, Has.Count.EqualTo(1));
@@ -743,7 +748,7 @@ public static class TypeInitializerFailureEval
 
             public bool IsBusy => false;
             public bool HasUnfinishedWork => false;
-            public bool IsQuarantined => false;
+            public bool IsQuarantined { get; private set; }
             public int BeginMutationCount { get; private set; }
             public Task MutationStarted => mutationStarted.Task;
 
@@ -755,7 +760,7 @@ public static class TypeInitializerFailureEval
                 return new NoOpMutationActivity();
             }
 
-            public void Quarantine (string reason, Task mutationCompletion) { }
+            public void Quarantine (string reason, Task mutationCompletion) { IsQuarantined = true; }
 
             public bool TrySealAdmissionForRetirement (out IDisposable admissionSeal)
             {
