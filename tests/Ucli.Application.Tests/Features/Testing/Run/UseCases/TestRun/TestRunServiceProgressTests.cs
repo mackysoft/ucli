@@ -17,8 +17,9 @@ public sealed class TestRunServiceProgressTests
     [Trait("Size", "Medium")]
     public async Task Execute_WithProgressSink_EmitsRunStartedAndForwardsUnityProgress ()
     {
+        using var scope = CreateArtifactsScope();
         var configuration = CreateResolvedConfiguration();
-        var session = CreateArtifactsSession();
+        var session = CreateArtifactsSession(scope.GetPath("artifacts"));
         var progressSink = new CollectingCommandProgressSink();
         var unityProgressFrames = new[]
         {
@@ -83,8 +84,9 @@ public sealed class TestRunServiceProgressTests
     [Trait("Size", "Medium")]
     public async Task Execute_WithUnsupportedUnityProgressEvent_ReturnsFailedRun ()
     {
+        using var scope = CreateArtifactsScope();
         var configuration = CreateResolvedConfiguration();
-        var session = CreateArtifactsSession();
+        var session = CreateArtifactsSession(scope.GetPath("artifacts"));
         var progressSink = new CollectingCommandProgressSink();
 
         var service = CreateService(
@@ -113,8 +115,9 @@ public sealed class TestRunServiceProgressTests
     [Trait("Size", "Medium")]
     public async Task Execute_WithMismatchedUnityProgressRunId_ReturnsFailedRun ()
     {
+        using var scope = CreateArtifactsScope();
         var configuration = CreateResolvedConfiguration();
-        var session = CreateArtifactsSession();
+        var session = CreateArtifactsSession(scope.GetPath("artifacts"));
         var progressSink = new CollectingCommandProgressSink();
 
         var service = CreateService(
@@ -149,8 +152,9 @@ public sealed class TestRunServiceProgressTests
     [Trait("Size", "Medium")]
     public async Task Execute_WithInvalidUnityProgressPayload_ReturnsFailedRun ()
     {
+        using var scope = CreateArtifactsScope();
         var configuration = CreateResolvedConfiguration();
-        var session = CreateArtifactsSession();
+        var session = CreateArtifactsSession(scope.GetPath("artifacts"));
         var progressSink = new CollectingCommandProgressSink();
 
         var service = CreateService(
@@ -179,8 +183,9 @@ public sealed class TestRunServiceProgressTests
     [Trait("Size", "Medium")]
     public async Task Execute_WithContractInvalidUnityProgressPayload_ReturnsFailedRun ()
     {
+        using var scope = CreateArtifactsScope();
         var configuration = CreateResolvedConfiguration();
-        var session = CreateArtifactsSession();
+        var session = CreateArtifactsSession(scope.GetPath("artifacts"));
         var progressSink = new CollectingCommandProgressSink();
 
         var service = CreateService(

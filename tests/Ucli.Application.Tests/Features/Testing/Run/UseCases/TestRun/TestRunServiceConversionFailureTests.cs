@@ -4,7 +4,6 @@ using MackySoft.Ucli.Application.Features.Testing.Run.Execution;
 using MackySoft.Ucli.Application.Features.Testing.Run.Results;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Foundation;
-using MackySoft.Ucli.Contracts.Testing;
 using static MackySoft.Ucli.Application.Tests.TestRunServiceTestFactory;
 
 namespace MackySoft.Ucli.Application.Tests;
@@ -15,8 +14,9 @@ public sealed class TestRunServiceConversionFailureTests
     [Trait("Size", "Medium")]
     public async Task Execute_WhenArtifactsCompletionFailsAfterConversionFailure_PreservesBothCommandErrors ()
     {
+        using var scope = CreateArtifactsScope();
         var configuration = CreateResolvedConfiguration();
-        var session = CreateArtifactsSession();
+        var session = CreateArtifactsSession(scope.GetPath("artifacts"));
 
         var service = CreateService(
             configurationResolver: new StubTestRunConfigurationResolver(TestRunConfigurationResolutionResult.Success(configuration)),
@@ -47,8 +47,9 @@ public sealed class TestRunServiceConversionFailureTests
     [Trait("Size", "Medium")]
     public async Task Execute_WhenArtifactsCompletionFailsAfterNormalizedResults_ReturnsCommandErrorWithoutVerdict ()
     {
+        using var scope = CreateArtifactsScope();
         var configuration = CreateResolvedConfiguration();
-        var session = CreateArtifactsSession();
+        var session = CreateArtifactsSession(scope.GetPath("artifacts"));
 
         var service = CreateService(
             configurationResolver: new StubTestRunConfigurationResolver(TestRunConfigurationResolutionResult.Success(configuration)),
@@ -77,8 +78,9 @@ public sealed class TestRunServiceConversionFailureTests
     [Trait("Size", "Medium")]
     public async Task Execute_WithConversionOutputWriteFailure_ReturnsFailedRun ()
     {
+        using var scope = CreateArtifactsScope();
         var configuration = CreateResolvedConfiguration();
-        var session = CreateArtifactsSession();
+        var session = CreateArtifactsSession(scope.GetPath("artifacts"));
 
         var service = CreateService(
             configurationResolver: new StubTestRunConfigurationResolver(TestRunConfigurationResolutionResult.Success(configuration)),
@@ -105,8 +107,9 @@ public sealed class TestRunServiceConversionFailureTests
     [Trait("Size", "Medium")]
     public async Task Execute_WithConversionResultsXmlReadFailure_ReturnsFailedRun ()
     {
+        using var scope = CreateArtifactsScope();
         var configuration = CreateResolvedConfiguration();
-        var session = CreateArtifactsSession();
+        var session = CreateArtifactsSession(scope.GetPath("artifacts"));
 
         var service = CreateService(
             configurationResolver: new StubTestRunConfigurationResolver(TestRunConfigurationResolutionResult.Success(configuration)),
@@ -133,8 +136,10 @@ public sealed class TestRunServiceConversionFailureTests
     [Trait("Size", "Medium")]
     public async Task Execute_WithUnexpectedConversionException_ReturnsFailedRun ()
     {
+        using var scope = CreateArtifactsScope();
         var configuration = CreateResolvedConfiguration();
-        var session = CreateArtifactsSession();
+        var session = CreateArtifactsSession(scope.GetPath("artifacts"));
+        var convertCount = 0;
 
         var service = CreateService(
             configurationResolver: new StubTestRunConfigurationResolver(TestRunConfigurationResolutionResult.Success(configuration)),
@@ -144,7 +149,11 @@ public sealed class TestRunServiceConversionFailureTests
                 prepare: _ => ArtifactsPreparationResult.Success(session),
                 complete: (_, _, _) => ArtifactsCompletionResult.Success()),
             unityTestExecutor: new StubUnityTestExecutor((_, _, _, _) => ValueTask.FromResult<UnityTestExecutionResult>(UnityTestExecutionResult.FromProcessExitCode(0))),
-            resultsConverter: new StubUnityResultsConverter(_ => throw new InvalidOperationException("boom")));
+            resultsConverter: new StubUnityResultsConverter(_ =>
+            {
+                convertCount++;
+                throw new InvalidOperationException("boom");
+            }));
 
         var result = Assert.IsType<TestRunAfterCreationPrimaryCommandErrorServiceResult>(
             await service.ExecuteAsync(CreateInput(), cancellationToken: CancellationToken.None));
@@ -153,6 +162,7 @@ public sealed class TestRunServiceConversionFailureTests
         Assert.Equal(ApplicationFailureKind.InternalError, result.PrimaryFailure.Kind);
         Assert.Equal(ApplicationOutcome.ToolError, result.PrimaryFailure.Outcome);
         Assert.Equal(UcliCoreErrorCodes.InternalError, result.PrimaryFailure.Code);
+        Assert.Equal(1, convertCount);
         Assert.Equal(session.RunId, result.RunId);
     }
 
@@ -160,8 +170,9 @@ public sealed class TestRunServiceConversionFailureTests
     [Trait("Size", "Medium")]
     public async Task Execute_WithUnexpectedConversionExceptionAndCompletionFailure_PreservesPrimaryConversionError ()
     {
+        using var scope = CreateArtifactsScope();
         var configuration = CreateResolvedConfiguration();
-        var session = CreateArtifactsSession();
+        var session = CreateArtifactsSession(scope.GetPath("artifacts"));
 
         var service = CreateService(
             configurationResolver: new StubTestRunConfigurationResolver(TestRunConfigurationResolutionResult.Success(configuration)),
