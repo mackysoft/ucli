@@ -13,8 +13,9 @@ public sealed class TestRunServiceOneshotExecutionTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenAutoModeFallsBackToOneshotAndExecutionTimesOut_ReturnsExecutionTimeoutErrorCode ()
     {
+        using var scope = CreateArtifactsScope();
         var configuration = CreateResolvedConfiguration();
-        var session = CreateArtifactsSession();
+        var session = CreateArtifactsSession(scope.GetPath("artifacts"));
 
         var service = CreateService(
             configurationResolver: new StubTestRunConfigurationResolver(TestRunConfigurationResolutionResult.Success(configuration)),
@@ -40,14 +41,16 @@ public sealed class TestRunServiceOneshotExecutionTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenOneshotResponseReportsIpcTimeout_PreservesReportedErrorCode ()
     {
+        using var scope = CreateArtifactsScope();
         var configuration = CreateResolvedConfiguration();
+        var session = CreateArtifactsSession(scope.GetPath("artifacts"));
 
         var service = CreateService(
             configurationResolver: new StubTestRunConfigurationResolver(TestRunConfigurationResolutionResult.Success(configuration)),
             modeDecisionService: new StubModeDecisionService(UnityExecutionModeDecisionResult.Success(
                 new UnityExecutionModeDecision(UnityExecutionMode.Auto, false, UnityExecutionTarget.Oneshot, TimeSpan.FromSeconds(30)))),
             artifactsService: new StubTestRunArtifactsService(
-                prepare: _ => ArtifactsPreparationResult.Success(CreateArtifactsSession()),
+                prepare: _ => ArtifactsPreparationResult.Success(session),
                 complete: (_, _, _) => ArtifactsCompletionResult.Success()),
             unityTestExecutor: new StubUnityTestExecutor((_, _, _, _) =>
                 ValueTask.FromResult<UnityTestExecutionResult>(UnityTestExecutionResult.FromProcessExitCode(0))),
@@ -67,14 +70,16 @@ public sealed class TestRunServiceOneshotExecutionTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenOneshotResponseRejectsInvalidInput_ReturnsInvalidInputCommandError ()
     {
+        using var scope = CreateArtifactsScope();
         var configuration = CreateResolvedConfiguration();
+        var session = CreateArtifactsSession(scope.GetPath("artifacts"));
 
         var service = CreateService(
             configurationResolver: new StubTestRunConfigurationResolver(TestRunConfigurationResolutionResult.Success(configuration)),
             modeDecisionService: new StubModeDecisionService(UnityExecutionModeDecisionResult.Success(
                 new UnityExecutionModeDecision(UnityExecutionMode.Auto, false, UnityExecutionTarget.Oneshot, TimeSpan.FromSeconds(30)))),
             artifactsService: new StubTestRunArtifactsService(
-                prepare: _ => ArtifactsPreparationResult.Success(CreateArtifactsSession()),
+                prepare: _ => ArtifactsPreparationResult.Success(session),
                 complete: (_, _, _) => ArtifactsCompletionResult.Success()),
             unityTestExecutor: new StubUnityTestExecutor((_, _, _, _) =>
                 ValueTask.FromResult<UnityTestExecutionResult>(UnityTestExecutionResult.FromProcessExitCode(0))),
@@ -258,8 +263,9 @@ public sealed class TestRunServiceOneshotExecutionTests
     [Trait("Size", "Small")]
     public async Task Execute_WithCallerCancellationDuringUnityExecution_ReturnsCanceledToolErrorWithRunContext ()
     {
+        using var scope = CreateArtifactsScope();
         var configuration = CreateResolvedConfiguration();
-        var session = CreateArtifactsSession();
+        var session = CreateArtifactsSession(scope.GetPath("artifacts"));
         using var cancellationTokenSource = new CancellationTokenSource();
 
         var service = CreateService(

@@ -16,8 +16,9 @@ public sealed class TestRunExecutionPipelineTargetTests
     public async Task Execute_WithPreflightResolvedTarget_DispatchesThroughExplicitMode (
         ExecutionTargetCase testCase)
     {
+        using var scope = CreateArtifactsScope();
         var configuration = CreateResolvedConfiguration(UnityExecutionMode.Auto);
-        var session = CreateArtifactsSession();
+        var session = CreateArtifactsSession(scope.GetPath("artifacts"));
         var requestExecutor = new RecordingUnityRequestExecutor(
             UnityRequestExecutionResult.Success(new UnityRequestResponse(
                 IpcPayloadCodec.SerializeToElement(new IpcTestRunResponse(0)),

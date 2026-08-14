@@ -4,7 +4,6 @@ using MackySoft.Ucli.Application.Features.Testing.Run.Execution;
 using MackySoft.Ucli.Application.Features.Testing.Run.Results;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Foundation;
-using MackySoft.Ucli.Contracts.Testing;
 using static MackySoft.Ucli.Application.Tests.TestRunServiceTestFactory;
 
 namespace MackySoft.Ucli.Application.Tests;
@@ -15,7 +14,9 @@ public sealed class TestRunServiceDaemonExecutionTests
     [Trait("Size", "Medium")]
     public async Task Execute_WithDaemonTarget_UsesDaemonClient ()
     {
+        using var scope = CreateArtifactsScope();
         var configuration = CreateResolvedConfiguration();
+        var session = CreateArtifactsSession(scope.GetPath("artifacts"));
         var daemonTestRunClient = new RecordingDaemonTestRunClient((_, artifactPaths, _, _, _) =>
             CompleteDaemonRequest(artifactPaths));
         var unityTestExecutor = new StubUnityTestExecutor((_, _, _, _) =>
@@ -26,7 +27,7 @@ public sealed class TestRunServiceDaemonExecutionTests
             modeDecisionService: new StubModeDecisionService(UnityExecutionModeDecisionResult.Success(
                 new UnityExecutionModeDecision(UnityExecutionMode.Auto, true, UnityExecutionTarget.Daemon, TimeSpan.FromSeconds(30)))),
             artifactsService: new StubTestRunArtifactsService(
-                prepare: _ => ArtifactsPreparationResult.Success(CreateArtifactsSession()),
+                prepare: _ => ArtifactsPreparationResult.Success(session),
                 complete: (_, _, _) => ArtifactsCompletionResult.Success()),
             unityTestExecutor: unityTestExecutor,
             resultsConverter: new StubUnityResultsConverter(_ => ValueTask.FromResult<UnityResultsConversionResult>(TestRunResultTestValues.CreateConversion(Verdict.Pass))),
@@ -43,7 +44,9 @@ public sealed class TestRunServiceDaemonExecutionTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenDaemonLifecycleGateFails_ReturnsFailedRunWithLifecycleErrorCode ()
     {
+        using var scope = CreateArtifactsScope();
         var configuration = CreateResolvedConfiguration();
+        var session = CreateArtifactsSession(scope.GetPath("artifacts"));
         var daemonTestRunClient = new RecordingDaemonTestRunClient((_, _, _, _, _) =>
             ValueTask.FromResult(UnityRequestExecutionResult.Failure(
                 new UnityRequestFailure(
@@ -57,7 +60,7 @@ public sealed class TestRunServiceDaemonExecutionTests
             modeDecisionService: new StubModeDecisionService(UnityExecutionModeDecisionResult.Success(
                 new UnityExecutionModeDecision(UnityExecutionMode.Auto, true, UnityExecutionTarget.Daemon, TimeSpan.FromSeconds(30)))),
             artifactsService: new StubTestRunArtifactsService(
-                prepare: _ => ArtifactsPreparationResult.Success(CreateArtifactsSession()),
+                prepare: _ => ArtifactsPreparationResult.Success(session),
                 complete: (_, _, _) => ArtifactsCompletionResult.Success()),
             unityTestExecutor: new StubUnityTestExecutor((_, _, _, _) =>
                 ValueTask.FromResult<UnityTestExecutionResult>(UnityTestExecutionResult.FromProcessExitCode(0))),
@@ -78,7 +81,9 @@ public sealed class TestRunServiceDaemonExecutionTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenDaemonExecutionTimesOut_ReturnsIpcTimeoutErrorCode ()
     {
+        using var scope = CreateArtifactsScope();
         var configuration = CreateResolvedConfiguration();
+        var session = CreateArtifactsSession(scope.GetPath("artifacts"));
         var daemonTestRunClient = new RecordingDaemonTestRunClient((_, _, _, _, _) =>
             ValueTask.FromResult(UnityRequestExecutionResult.Failure(
                 new UnityRequestFailure(
@@ -92,7 +97,7 @@ public sealed class TestRunServiceDaemonExecutionTests
             modeDecisionService: new StubModeDecisionService(UnityExecutionModeDecisionResult.Success(
                 new UnityExecutionModeDecision(UnityExecutionMode.Auto, true, UnityExecutionTarget.Daemon, TimeSpan.FromSeconds(30)))),
             artifactsService: new StubTestRunArtifactsService(
-                prepare: _ => ArtifactsPreparationResult.Success(CreateArtifactsSession()),
+                prepare: _ => ArtifactsPreparationResult.Success(session),
                 complete: (_, _, _) => ArtifactsCompletionResult.Success()),
             unityTestExecutor: new StubUnityTestExecutor((_, _, _, _) =>
                 ValueTask.FromResult<UnityTestExecutionResult>(UnityTestExecutionResult.FromProcessExitCode(0))),
@@ -110,14 +115,16 @@ public sealed class TestRunServiceDaemonExecutionTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenDaemonResponseReportsIpcTimeout_ReturnsIpcTimeoutErrorCode ()
     {
+        using var scope = CreateArtifactsScope();
         var configuration = CreateResolvedConfiguration();
+        var session = CreateArtifactsSession(scope.GetPath("artifacts"));
 
         var service = CreateService(
             configurationResolver: new StubTestRunConfigurationResolver(TestRunConfigurationResolutionResult.Success(configuration)),
             modeDecisionService: new StubModeDecisionService(UnityExecutionModeDecisionResult.Success(
                 new UnityExecutionModeDecision(UnityExecutionMode.Auto, true, UnityExecutionTarget.Daemon, TimeSpan.FromSeconds(30)))),
             artifactsService: new StubTestRunArtifactsService(
-                prepare: _ => ArtifactsPreparationResult.Success(CreateArtifactsSession()),
+                prepare: _ => ArtifactsPreparationResult.Success(session),
                 complete: (_, _, _) => ArtifactsCompletionResult.Success()),
             unityTestExecutor: new StubUnityTestExecutor((_, _, _, _) =>
                 ValueTask.FromResult<UnityTestExecutionResult>(UnityTestExecutionResult.FromProcessExitCode(0))),
@@ -137,7 +144,9 @@ public sealed class TestRunServiceDaemonExecutionTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenDaemonSessionDisappearsAfterModeResolution_PreservesDaemonNotRunningCode ()
     {
+        using var scope = CreateArtifactsScope();
         var configuration = CreateResolvedConfiguration();
+        var session = CreateArtifactsSession(scope.GetPath("artifacts"));
         var daemonTestRunClient = new RecordingDaemonTestRunClient((_, _, _, _, _) =>
             ValueTask.FromResult(UnityRequestExecutionResult.Failure(
                 new UnityRequestFailure(
@@ -150,7 +159,7 @@ public sealed class TestRunServiceDaemonExecutionTests
             modeDecisionService: new StubModeDecisionService(UnityExecutionModeDecisionResult.Success(
                 new UnityExecutionModeDecision(UnityExecutionMode.Auto, true, UnityExecutionTarget.Daemon, TimeSpan.FromSeconds(30)))),
             artifactsService: new StubTestRunArtifactsService(
-                prepare: _ => ArtifactsPreparationResult.Success(CreateArtifactsSession()),
+                prepare: _ => ArtifactsPreparationResult.Success(session),
                 complete: (_, _, _) => ArtifactsCompletionResult.Success()),
             unityTestExecutor: new StubUnityTestExecutor((_, _, _, _) =>
                 ValueTask.FromResult<UnityTestExecutionResult>(UnityTestExecutionResult.FromProcessExitCode(0))),
@@ -168,7 +177,9 @@ public sealed class TestRunServiceDaemonExecutionTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenDaemonSessionTokenResolutionFailsInternally_ReturnsFailedRun ()
     {
+        using var scope = CreateArtifactsScope();
         var configuration = CreateResolvedConfiguration();
+        var session = CreateArtifactsSession(scope.GetPath("artifacts"));
         var daemonTestRunClient = new RecordingDaemonTestRunClient((_, _, _, _, _) =>
             ValueTask.FromResult(UnityRequestExecutionResult.Failure(
                 new UnityRequestFailure(
@@ -181,7 +192,7 @@ public sealed class TestRunServiceDaemonExecutionTests
             modeDecisionService: new StubModeDecisionService(UnityExecutionModeDecisionResult.Success(
                 new UnityExecutionModeDecision(UnityExecutionMode.Auto, true, UnityExecutionTarget.Daemon, TimeSpan.FromSeconds(30)))),
             artifactsService: new StubTestRunArtifactsService(
-                prepare: _ => ArtifactsPreparationResult.Success(CreateArtifactsSession()),
+                prepare: _ => ArtifactsPreparationResult.Success(session),
                 complete: (_, _, _) => ArtifactsCompletionResult.Success()),
             unityTestExecutor: new StubUnityTestExecutor((_, _, _, _) =>
                 ValueTask.FromResult<UnityTestExecutionResult>(UnityTestExecutionResult.FromProcessExitCode(0))),
@@ -199,7 +210,9 @@ public sealed class TestRunServiceDaemonExecutionTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenDaemonSessionTokenResolutionReturnsInvalidArgument_ReturnsFailedRun ()
     {
+        using var scope = CreateArtifactsScope();
         var configuration = CreateResolvedConfiguration();
+        var session = CreateArtifactsSession(scope.GetPath("artifacts"));
         var daemonTestRunClient = new RecordingDaemonTestRunClient((_, _, _, _, _) =>
             ValueTask.FromResult(UnityRequestExecutionResult.Failure(
                 new UnityRequestFailure(
@@ -213,7 +226,7 @@ public sealed class TestRunServiceDaemonExecutionTests
             modeDecisionService: new StubModeDecisionService(UnityExecutionModeDecisionResult.Success(
                 new UnityExecutionModeDecision(UnityExecutionMode.Auto, true, UnityExecutionTarget.Daemon, TimeSpan.FromSeconds(30)))),
             artifactsService: new StubTestRunArtifactsService(
-                prepare: _ => ArtifactsPreparationResult.Success(CreateArtifactsSession()),
+                prepare: _ => ArtifactsPreparationResult.Success(session),
                 complete: (_, _, _) => ArtifactsCompletionResult.Success()),
             unityTestExecutor: new StubUnityTestExecutor((_, _, _, _) =>
                 ValueTask.FromResult<UnityTestExecutionResult>(UnityTestExecutionResult.FromProcessExitCode(0))),
@@ -231,8 +244,9 @@ public sealed class TestRunServiceDaemonExecutionTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenArtifactsCompletionFailsAfterDaemonTimeout_PreservesBothCommandErrors ()
     {
+        using var scope = CreateArtifactsScope();
         var configuration = CreateResolvedConfiguration();
-        var session = CreateArtifactsSession();
+        var session = CreateArtifactsSession(scope.GetPath("artifacts"));
         var daemonTestRunClient = new RecordingDaemonTestRunClient((_, _, _, _, _) =>
             ValueTask.FromResult(UnityRequestExecutionResult.Failure(
                 new UnityRequestFailure(
