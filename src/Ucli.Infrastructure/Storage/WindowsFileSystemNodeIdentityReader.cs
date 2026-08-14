@@ -12,6 +12,10 @@ internal static class WindowsFileSystemNodeIdentityReader
     private const uint BackupSemantics = 0x02000000;
     private const uint OpenReparsePoint = 0x00200000;
 
+    private const int ErrorFileNotFound = 2;
+
+    private const int ErrorPathNotFound = 3;
+
     public static FileSystemNodeIdentity ReadPath (
         AbsolutePath path,
         string subject)
@@ -26,8 +30,8 @@ internal static class WindowsFileSystemNodeIdentityReader
             templateFile: IntPtr.Zero);
         if (handle.IsInvalid)
         {
-            throw CreateIOException(
-                $"{subject} physical node could not be opened for identity inspection: {path.Value}");
+            var error = Marshal.GetLastWin32Error();
+            throw CreatePathOpenException(path, subject, error);
         }
 
         return ReadHandle(handle, subject);
@@ -79,6 +83,25 @@ internal static class WindowsFileSystemNodeIdentityReader
         var error = Marshal.GetLastWin32Error();
         return new IOException(
             $"{message}. {new Win32Exception(error).Message} (error={error})");
+    }
+
+    private static IOException CreatePathOpenException (
+        AbsolutePath path,
+        string subject,
+        int error)
+    {
+        var message =
+            $"{subject} physical node could not be opened for identity inspection: {path.Value}";
+        return error switch
+        {
+            ErrorFileNotFound => new FileNotFoundException(
+                $"{message}. {new Win32Exception(error).Message} (error={error})",
+                path.Value),
+            ErrorPathNotFound => new DirectoryNotFoundException(
+                $"{message}. {new Win32Exception(error).Message} (error={error})"),
+            _ => new IOException(
+                $"{message}. {new Win32Exception(error).Message} (error={error})"),
+        };
     }
 
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]

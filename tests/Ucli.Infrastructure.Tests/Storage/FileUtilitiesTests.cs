@@ -1,6 +1,5 @@
 using System.Runtime.Versioning;
 using MackySoft.FileSystem;
-using MackySoft.Tests;
 using MackySoft.Ucli.Infrastructure.Storage;
 
 namespace MackySoft.Ucli.Infrastructure.Tests.Storage;
@@ -86,6 +85,21 @@ public sealed class FileUtilitiesTests
 
         Assert.NotNull(contents);
         Assert.Equal(expected, contents.Value.ToArray());
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task ReadBytesOrNullWithinLimitAsync_WhenFileIsMissing_ReturnsNull ()
+    {
+        using var scope = TestDirectories.CreateTempScope("infrastructure-storage", "bounded-read-missing");
+        var path = AbsolutePath.Parse(scope.GetPath("missing.json"));
+
+        var contents = await FileUtilities.ReadBytesOrNullWithinLimitAsync(
+            path,
+            maximumBytes: 1,
+            CancellationToken.None);
+
+        Assert.Null(contents);
     }
 
     [Fact]
